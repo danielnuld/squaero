@@ -22,6 +22,31 @@ Frontend (webview del SO)  ──IPC JSON──>  Núcleo en C (libdbcore)  ─�
 
 Detalle completo en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+## Compilar (desarrollo)
+
+Requisitos: **CMake ≥ 3.20**, un compilador C11 (GCC, Clang o MSVC) y, recomendado, **Ninja**.
+
+```bash
+# Configurar (build fuera de fuente)
+cmake -S . -B build -G Ninja
+
+# Compilar
+cmake --build build
+
+# Correr los tests
+ctest --test-dir build --output-on-failure
+```
+
+El binario placeholder queda en `build/app/quaero` (`.exe` en Windows; la shell con webview llega en el issue #3). La estructura del repo:
+
+```
+core/      libdbcore — núcleo en C (sin UI)
+drivers/   plugins de motores (se agregan por milestone)
+app/       shell nativa (host del webview)
+frontend/  UI web (toolchain en #5)
+cmake/     helpers de CMake
+```
+
 ## Documentación
 
 - [Plan de desarrollo / ROADMAP](ROADMAP.md)
