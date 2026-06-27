@@ -14,8 +14,9 @@
 extern "C" {
 #endif
 
-/* Protocol version negotiated by the `app.hello` handshake. */
-#define DBCORE_IPC_PROTOCOL_VERSION 1
+/* Protocol version negotiated by the `app.hello` handshake.
+   v2 adds the conn.open / conn.close methods and the -32000.. domain errors. */
+#define DBCORE_IPC_PROTOCOL_VERSION 2
 
 /*
  * Handles a single JSON-RPC request and returns the response as a newly

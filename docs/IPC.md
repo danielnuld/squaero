@@ -2,10 +2,10 @@
 
 El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre el mecanismo `webview_bind`/`webview_eval` de la librería `webview`. Es la **única** frontera entre ambos mundos y se versiona con cuidado.
 
-> **Protocolo v1.** El dispatcher JSON-RPC del núcleo está implementado y
+> **Protocolo v2.** El dispatcher JSON-RPC del núcleo está implementado y
 > testeado (`core/src/ipc/`, entrada pública `dbcore_ipc_handle` en
-> `core/include/dbcore/ipc.h`). El transporte (webview bind) se conecta en el
-> issue #3; este módulo es puro: JSON entra, JSON sale.
+> `core/include/dbcore/ipc.h`). v2 añade `conn.open`/`conn.close` y el rango de
+> errores de dominio `-32000..`. Este módulo es puro: JSON entra, JSON sale.
 
 ## Forma de los mensajes
 
@@ -52,9 +52,7 @@ El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre e
 | `data.export` / `data.import` | M6 | Import/Export |
 | `data.transfer` / `schema.diff` / `data.diff` | M7 | Transferencia y sincronización |
 
-## Implementado en v1
-
-Dos métodos, suficientes para validar el canal de punta a punta:
+## Implementado (v2)
 
 **`app.hello`** — handshake. Negocia la versión del protocolo.
 
@@ -63,7 +61,7 @@ Dos métodos, suficientes para validar el canal de punta a punta:
 { "jsonrpc": "2.0", "id": 1, "method": "app.hello" }
 // respuesta
 { "jsonrpc": "2.0", "id": 1,
-  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 1 } }
+  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 2 } }
 ```
 
 **`ping`** — liveness. Devuelve `{"pong": true}` y hace eco de `params.message`.
@@ -73,7 +71,32 @@ Dos métodos, suficientes para validar el canal de punta a punta:
 // -> result: { "pong": true, "echo": "hi" }
 ```
 
-### Códigos de error (JSON-RPC estándar)
+**`conn.open`** — abre una conexión activa a través de un driver registrado.
+`params.driver` es el `name` del driver; `params.dsn` es el DSN como objeto JSON
+(o como cadena JSON ya codificada). El DSN —y cualquier credencial que
+contenga— se usa solo durante `connect` y **nunca** se persiste ni se retiene en
+el núcleo. Devuelve un `connId` con forma `"c<N>"`.
+
+```jsonc
+{ "jsonrpc": "2.0", "id": 1, "method": "conn.open",
+  "params": { "driver": "sqlite", "dsn": { "path": "/tmp/app.db" } } }
+// -> result: { "connId": "c1" }
+```
+
+**`conn.close`** — cierra una conexión activa por `connId`.
+
+```jsonc
+{ "jsonrpc": "2.0", "id": 2, "method": "conn.close",
+  "params": { "connId": "c1" } }
+// -> result: { "closed": true }
+```
+
+Si el driver falla al conectar, el error se devuelve con el mensaje de
+`last_error` del driver (ver códigos `-32000` abajo).
+
+### Códigos de error
+
+JSON-RPC estándar:
 
 | Código | Significado | Cuándo |
 |---|---|---|
@@ -82,6 +105,14 @@ Dos métodos, suficientes para validar el canal de punta a punta:
 | `-32601` | Method not found | método desconocido |
 | `-32602` | Invalid params | parámetros inválidos |
 | `-32603` | Internal error | fallo interno del núcleo |
+
+Dominio (rango reservado por el servidor `-32000..-32099`):
+
+| Código | Significado | Cuándo |
+|---|---|---|
+| `-32000` | Connection error | el driver no pudo abrir/usar la conexión (`message` = `last_error`) |
+| `-32001` | Unsupported | operación no soportada por el driver |
+| `-32002` | Not found | `connId` o driver desconocido |
 
 El `id` de la petición se refleja en la respuesta (o `null` si no venía).
 

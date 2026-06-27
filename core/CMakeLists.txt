@@ -1,11 +1,14 @@
 # libdbcore — the pure C core. No UI dependencies (see .rules/general.md).
 add_library(dbcore STATIC
   src/version.c
+  src/runtime.c
   src/driver/validate.c
   src/driver/plugin_name.c
   src/driver/loader.c
+  src/conn/manager.c
   src/ipc/rpc.c
   src/ipc/methods.c
+  src/ipc/conn_methods.c
   src/ipc/dispatch.c
 )
 

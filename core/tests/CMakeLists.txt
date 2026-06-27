@@ -46,3 +46,23 @@ add_executable(ipc_test ipc/dispatch_test.c)
 target_link_libraries(ipc_test PRIVATE dbcore cjson)
 quaero_set_warnings(ipc_test)
 add_test(NAME ipc_test COMMAND ipc_test)
+
+# Connection manager (lifecycle through the vtable).
+add_executable(conn_manager_test conn/manager_test.c)
+target_link_libraries(conn_manager_test PRIVATE dbcore)
+quaero_set_warnings(conn_manager_test)
+add_test(NAME conn_manager_test COMMAND conn_manager_test)
+
+# Process runtime (driver registry + connection manager).
+add_executable(runtime_test runtime_test.c)
+target_link_libraries(runtime_test PRIVATE dbcore)
+quaero_set_warnings(runtime_test)
+add_test(NAME runtime_test COMMAND runtime_test)
+
+# conn.open / conn.close IPC methods + id helpers. Needs the internal ipc
+# header for the id helpers, and cJSON to inspect responses.
+add_executable(conn_methods_test ipc/conn_methods_test.c)
+target_link_libraries(conn_methods_test PRIVATE dbcore cjson)
+target_include_directories(conn_methods_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/ipc)
+quaero_set_warnings(conn_methods_test)
+add_test(NAME conn_methods_test COMMAND conn_methods_test)

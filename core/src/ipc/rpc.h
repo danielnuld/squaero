@@ -10,6 +10,11 @@
 #define IPC_ERR_PARAMS       (-32602)
 #define IPC_ERR_INTERNAL     (-32603)
 
+/* Server-defined domain errors (JSON-RPC reserves -32000..-32099). */
+#define IPC_ERR_CONN         (-32000)  /* connection could not be opened/used */
+#define IPC_ERR_UNSUPPORTED  (-32001)  /* operation unsupported by the driver */
+#define IPC_ERR_NOT_FOUND    (-32002)  /* unknown connection / driver */
+
 /*
  * Builds a JSON-RPC success envelope:
  *   {"jsonrpc":"2.0","id":<id>,"result":<result>}
