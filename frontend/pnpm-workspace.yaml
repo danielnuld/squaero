@@ -1,0 +1,4 @@
+# pnpm 11 reads package settings from here. esbuild ships its compiler as a
+# platform binary and needs its install script approved.
+allowBuilds:
+  esbuild: true

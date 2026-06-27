@@ -39,14 +39,28 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-El binario placeholder queda en `build/app/quaero` (`.exe` en Windows; la shell con webview llega en el issue #3). La estructura del repo:
+El binario placeholder queda en `build/app/quaero` (`.exe` en Windows; la shell con webview llega en el issue #3).
+
+### Frontend (UI)
+
+```bash
+pnpm --dir frontend install
+pnpm --dir frontend dev      # servidor de desarrollo con HMR
+pnpm --dir frontend build    # genera frontend/dist/index.html (un solo archivo)
+pnpm --dir frontend test     # vitest
+```
+
+El build del frontend produce **un único `index.html` autocontenido** (JS/CSS inline) que CMake **incrusta en el binario** (`cmake/EmbedAssets.cmake`) — un solo ejecutable, sin archivos sueltos. Si no se compila el frontend, el build en C usa un placeholder.
+
+### Estructura del repo
 
 ```
-core/      libdbcore — núcleo en C (sin UI)
-drivers/   plugins de motores (se agregan por milestone)
-app/       shell nativa (host del webview)
-frontend/  UI web (toolchain en #5)
-cmake/     helpers de CMake
+core/         libdbcore — núcleo en C (sin UI)
+drivers/      plugins de motores (se agregan por milestone)
+app/          shell nativa (host del webview) + bundle embebido
+frontend/     UI web (SolidJS + Vite + TypeScript)
+third_party/  dependencias vendorizadas (cJSON)
+cmake/        helpers de CMake
 ```
 
 ## Documentación

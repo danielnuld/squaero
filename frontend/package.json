@@ -1,0 +1,25 @@
+{
+  "name": "quaero-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Quaero web UI (rendered in the OS webview)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "solid-js": "^1.8.22"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8",
+    "vite-plugin-singlefile": "^2.0.2",
+    "vite-plugin-solid": "^2.10.2",
+    "vitest": "^2.1.2"
+  }
+}
