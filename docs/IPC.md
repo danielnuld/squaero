@@ -4,8 +4,9 @@ El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre e
 
 > **Protocolo v2.** El dispatcher JSON-RPC del núcleo está implementado y
 > testeado (`core/src/ipc/`, entrada pública `dbcore_ipc_handle` en
-> `core/include/dbcore/ipc.h`). v2 añade `conn.open`/`conn.close` y el rango de
-> errores de dominio `-32000..`. Este módulo es puro: JSON entra, JSON sale.
+> `core/include/dbcore/ipc.h`). v2 es el camino de datos de M1:
+> `conn.open`/`conn.close`/`query.run` y el rango de errores de dominio
+> `-32000..`. Este módulo es puro: JSON entra, JSON sale.
 
 ## Forma de los mensajes
 
@@ -94,6 +95,26 @@ el núcleo. Devuelve un `connId` con forma `"c<N>"`.
 Si el driver falla al conectar, el error se devuelve con el mensaje de
 `last_error` del driver (ver códigos `-32000` abajo).
 
+**`query.run`** — ejecuta SQL en una conexión activa y devuelve el result set
+**paginado**. `params.limit` (opcional) acota las filas; si se omite aplica un
+tope por defecto (1000) — nunca se vuelca el dataset completo. `truncated` indica
+si había más filas de las devueltas.
+
+```jsonc
+{ "jsonrpc": "2.0", "id": 3, "method": "query.run",
+  "params": { "connId": "c1", "sql": "SELECT id, name FROM users", "limit": 1000 } }
+// -> result:
+{ "columns": [ { "name": "id", "type": "int" }, { "name": "name", "type": "text" } ],
+  "rows": [ ["1", "alice"], ["2", null] ],
+  "truncated": false,
+  "rowsAffected": 0 }
+```
+
+Cada celda viaja como **cadena** (su forma textual) o `null` para un `NULL` SQL;
+el `type` neutral de cada columna le dice al frontend cómo formatearla (el núcleo
+no infiere ni convierte). Una sentencia sin result set (`INSERT`/`UPDATE`/DDL)
+devuelve `columns: []`, `rows: []` y `rowsAffected` con el conteo.
+
 ### Códigos de error
 
 JSON-RPC estándar:
@@ -113,6 +134,7 @@ Dominio (rango reservado por el servidor `-32000..-32099`):
 | `-32000` | Connection error | el driver no pudo abrir/usar la conexión (`message` = `last_error`) |
 | `-32001` | Unsupported | operación no soportada por el driver |
 | `-32002` | Not found | `connId` o driver desconocido |
+| `-32003` | Query error | la consulta falló al ejecutar o iterar (`message` = `last_error`) |
 
 El `id` de la petición se refleja en la respuesta (o `null` si no venía).
 

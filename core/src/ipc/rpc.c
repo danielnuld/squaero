@@ -2,6 +2,20 @@
 
 #include <stddef.h>
 
+int ipc_status_to_code(dbc_status status)
+{
+    switch (status) {
+    case DBC_OK:              return 0;
+    case DBC_ERR_CONN:        return IPC_ERR_CONN;
+    case DBC_ERR_QUERY:       return IPC_ERR_QUERY;
+    case DBC_ERR_UNSUPPORTED: return IPC_ERR_UNSUPPORTED;
+    case DBC_ERR_PARAM:       return IPC_ERR_PARAMS;
+    /* DBC_ERR_NOMEM, DBC_ERR_ABI and any future status map to the internal
+       bucket; the accompanying message carries the detail. */
+    default:                  return IPC_ERR_INTERNAL;
+    }
+}
+
 /* Adds "jsonrpc":"2.0" and a duplicated id to an envelope object.
    Returns 0 on success, -1 on allocation failure (envelope left for caller). */
 static int add_envelope_head(cJSON *envelope, const cJSON *id)

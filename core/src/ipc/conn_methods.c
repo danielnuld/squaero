@@ -43,19 +43,6 @@ int ipc_conn_id_parse(const char *s, int *out)
     return 1;
 }
 
-/* Map a driver status onto a JSON-RPC server error code. */
-static int status_to_code(dbc_status st)
-{
-    switch (st) {
-    case DBC_ERR_CONN:        return IPC_ERR_CONN;
-    case DBC_ERR_UNSUPPORTED: return IPC_ERR_UNSUPPORTED;
-    case DBC_ERR_PARAM:       return IPC_ERR_PARAMS;
-    /* DBC_ERR_NOMEM, DBC_ERR_ABI, DBC_ERR_QUERY and any future status map to
-       the JSON-RPC internal-error bucket; the message carries the detail. */
-    default:                  return IPC_ERR_INTERNAL;
-    }
-}
-
 cJSON *ipc_method_conn_open(const cJSON *params, int *code, const char **message)
 {
     const cJSON *driver_name =
@@ -113,7 +100,7 @@ cJSON *ipc_method_conn_open(const cJSON *params, int *code, const char **message
     }
 
     if (st != DBC_OK) {
-        *code = status_to_code(st);
+        *code = ipc_status_to_code(st);
         *message = g_last_error[0] != '\0' ? g_last_error : "could not connect";
         return NULL;
     }

@@ -72,3 +72,17 @@ target_link_libraries(conn_methods_test PRIVATE dbcore cjson)
 target_include_directories(conn_methods_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/ipc)
 quaero_set_warnings(conn_methods_test)
 add_test(NAME conn_methods_test COMMAND conn_methods_test)
+
+# Result-set JSON serialization. Uses the internal result builder + serializer.
+add_executable(result_json_test ipc/result_json_test.c)
+target_link_libraries(result_json_test PRIVATE dbcore cjson)
+target_include_directories(result_json_test PRIVATE
+  ${CMAKE_SOURCE_DIR}/core/src/ipc ${CMAKE_SOURCE_DIR}/core/src/query)
+quaero_set_warnings(result_json_test)
+add_test(NAME result_json_test COMMAND result_json_test)
+
+# query.run IPC method, end-to-end through the public dispatcher.
+add_executable(query_run_test ipc/query_run_test.c)
+target_link_libraries(query_run_test PRIVATE dbcore cjson)
+quaero_set_warnings(query_run_test)
+add_test(NAME query_run_test COMMAND query_run_test)

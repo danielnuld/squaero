@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 /* Protocol version negotiated by the `app.hello` handshake.
-   v2 adds the conn.open / conn.close methods and the -32000.. domain errors. */
+   v2 is the M1 data path: conn.open / conn.close / query.run + -32000.. errors. */
 #define DBCORE_IPC_PROTOCOL_VERSION 2
 
 /*

@@ -3,6 +3,8 @@
 
 #include "cJSON.h"
 
+#include "dbcore/driver.h"
+
 /* JSON-RPC 2.0 standard error codes. */
 #define IPC_ERR_PARSE        (-32700)
 #define IPC_ERR_INVALID_REQ  (-32600)
@@ -14,6 +16,15 @@
 #define IPC_ERR_CONN         (-32000)  /* connection could not be opened/used */
 #define IPC_ERR_UNSUPPORTED  (-32001)  /* operation unsupported by the driver */
 #define IPC_ERR_NOT_FOUND    (-32002)  /* unknown connection / driver */
+#define IPC_ERR_QUERY        (-32003)  /* query failed to execute or iterate */
+
+/*
+ * Map a driver/core dbc_status onto a JSON-RPC error code. Intended for error
+ * paths: callers must already have checked status != DBC_OK before building an
+ * error envelope. DBC_OK maps to 0 (the "no error" sentinel, not a valid error
+ * code). NOMEM/ABI and any unmapped status fall back to IPC_ERR_INTERNAL.
+ */
+int ipc_status_to_code(dbc_status status);
 
 /*
  * Builds a JSON-RPC success envelope:

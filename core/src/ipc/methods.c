@@ -1,5 +1,6 @@
 #include "methods.h"
 #include "conn_methods.h"
+#include "query_methods.h"
 #include "rpc.h"
 
 #include "dbcore/dbcore.h"
@@ -64,6 +65,9 @@ ipc_method_fn ipc_method_lookup(const char *method)
     }
     if (strcmp(method, "conn.close") == 0) {
         return ipc_method_conn_close;
+    }
+    if (strcmp(method, "query.run") == 0) {
+        return ipc_method_query_run;
     }
     return NULL;
 }

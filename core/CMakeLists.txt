@@ -11,6 +11,8 @@ add_library(dbcore STATIC
   src/ipc/rpc.c
   src/ipc/methods.c
   src/ipc/conn_methods.c
+  src/ipc/query_methods.c
+  src/ipc/result_json.c
   src/ipc/dispatch.c
 )
 
