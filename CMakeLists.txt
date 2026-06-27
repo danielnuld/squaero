@@ -46,6 +46,12 @@ add_subdirectory(third_party/sqlite)
 add_subdirectory(core)
 add_subdirectory(drivers)
 
+# Cross-component integration tests (core + a real driver). Added after both so
+# their targets exist for the test to depend on / load.
+if(BUILD_TESTING)
+  add_subdirectory(tests/integration)
+endif()
+
 if(QUAERO_BUILD_APP)
   add_subdirectory(app)
 endif()
