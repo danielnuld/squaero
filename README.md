@@ -2,6 +2,8 @@
 
 > Cliente de bases de datos moderno, ligero y multiplataforma — una alternativa profesional y de código abierto al estilo de Navicat.
 
+[![CI](https://github.com/danielnuld/quaero/actions/workflows/ci.yml/badge.svg)](https://github.com/danielnuld/quaero/actions/workflows/ci.yml)
+
 **Quaero** es un cliente de bases de datos multi-motor con un **núcleo en C** y una **interfaz web sobre el webview nativo del sistema operativo** (WebView2 en Windows, WebKitGTK en Linux, WKWebView en macOS). El objetivo es la combinación que distingue a las buenas herramientas: una UI moderna sin el peso de Electron, y un motor nativo que habla directo con las librerías cliente de cada base de datos.
 
 > ⚠️ **Estado: en desarrollo temprano.** Repositorio privado hasta el primer entregable usable. Consulta el [ROADMAP](ROADMAP.md).
