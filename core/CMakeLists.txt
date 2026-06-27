@@ -6,6 +6,8 @@ add_library(dbcore STATIC
   src/driver/plugin_name.c
   src/driver/loader.c
   src/conn/manager.c
+  src/query/result.c
+  src/query/run.c
   src/ipc/rpc.c
   src/ipc/methods.c
   src/ipc/conn_methods.c

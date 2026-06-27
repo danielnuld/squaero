@@ -59,6 +59,12 @@ target_link_libraries(runtime_test PRIVATE dbcore)
 quaero_set_warnings(runtime_test)
 add_test(NAME runtime_test COMMAND runtime_test)
 
+# Query execution + neutral result-set model.
+add_executable(query_test query/query_test.c)
+target_link_libraries(query_test PRIVATE dbcore)
+quaero_set_warnings(query_test)
+add_test(NAME query_test COMMAND query_test)
+
 # conn.open / conn.close IPC methods + id helpers. Needs the internal ipc
 # header for the id helpers, and cJSON to inspect responses.
 add_executable(conn_methods_test ipc/conn_methods_test.c)
