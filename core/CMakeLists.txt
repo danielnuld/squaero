@@ -8,10 +8,13 @@ add_library(dbcore STATIC
   src/conn/manager.c
   src/query/result.c
   src/query/run.c
+  src/query/materialize.c
+  src/query/schema.c
   src/ipc/rpc.c
   src/ipc/methods.c
   src/ipc/conn_methods.c
   src/ipc/query_methods.c
+  src/ipc/schema_methods.c
   src/ipc/result_json.c
   src/ipc/dispatch.c
 )

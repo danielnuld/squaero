@@ -72,7 +72,7 @@ en el núcleo, será un cambio con su propio issue y se reflejará aquí.
 { "jsonrpc": "2.0", "id": 1, "method": "app.hello" }
 // respuesta
 { "jsonrpc": "2.0", "id": 1,
-  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 2 } }
+  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 3 } }
 ```
 
 **`ping`** — liveness. Devuelve `{"pong": true}` y hace eco de `params.message`.
@@ -124,6 +124,31 @@ Cada celda viaja como **cadena** (su forma textual) o `null` para un `NULL` SQL;
 el `type` neutral de cada columna le dice al frontend cómo formatearla (el núcleo
 no infiere ni convierte). Una sentencia sin result set (`INSERT`/`UPDATE`/DDL)
 devuelve `columns: []`, `rows: []` y `rowsAffected` con el conteo.
+
+**`schema.tree`** — lista perezosa de un nivel del árbol de objetos. Sin `db`
+devuelve las **bases de datos**; con `db` (y sin `schema`) devuelve los
+**esquemas** del motor que los tenga (`DBC_FEAT_SCHEMAS`) o, si no, las **tablas**
+de esa base; con `schema` (o `db`+`schema`) devuelve las **tablas/vistas**. El
+resultado es un result set: las bases/esquemas traen una columna `name`; las
+tablas traen `name` y `type` (`"table"`/`"view"`). El driver sin
+`DBC_FEAT_INTROSPECTION` responde error `-32001`.
+
+```jsonc
+{ "jsonrpc": "2.0", "id": 4, "method": "schema.tree",
+  "params": { "connId": "c1", "db": "main" } }
+// -> result: { "columns": [ {"name":"name","type":"text"}, {"name":"type","type":"text"} ],
+//             "rows": [ ["users","table"], ["adults","view"] ], "truncated": false, "rowsAffected": 0 }
+```
+
+**`schema.describe`** — estructura de una tabla: una fila por columna. Para
+SQLite las columnas son `name`, `type` (tipo declarado por el motor), `notnull`,
+`dflt_value` y `pk`. `params: { connId, table }`.
+
+**`schema.ddl`** — sentencia `CREATE` de un objeto, como result set de una
+columna `sql`. `params: { connId, object }`. Requiere `DBC_FEAT_DDL`.
+
+Las tres comparten la forma de result set de `query.run` y los mismos códigos de
+error de dominio (`-32001` no soportado, `-32002` conexión desconocida, etc.).
 
 ### Códigos de error
 

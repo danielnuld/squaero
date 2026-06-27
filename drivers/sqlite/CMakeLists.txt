@@ -5,7 +5,10 @@ set(SQLITE_DRIVER_SRC
   src/entry.c
   src/connection.c
   src/query.c
+  src/metadata.c
+  src/ddl.c
   src/utils/types.c
+  src/utils/identifier.c
 )
 
 add_library(sqlite_driver MODULE ${SQLITE_DRIVER_SRC})

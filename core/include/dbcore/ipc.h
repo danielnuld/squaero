@@ -15,8 +15,9 @@ extern "C" {
 #endif
 
 /* Protocol version negotiated by the `app.hello` handshake.
-   v2 is the M1 data path: conn.open / conn.close / query.run + -32000.. errors. */
-#define DBCORE_IPC_PROTOCOL_VERSION 2
+   v2 added the M1 data path (conn.open / conn.close / query.run + -32000..).
+   v3 adds schema introspection: schema.tree / schema.describe / schema.ddl. */
+#define DBCORE_IPC_PROTOCOL_VERSION 3
 
 /*
  * Handles a single JSON-RPC request and returns the response as a newly

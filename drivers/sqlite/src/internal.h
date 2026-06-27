@@ -39,4 +39,16 @@ int          sqlite_next_row(dbc_result *r);
 const char  *sqlite_cell_text(dbc_result *r, int col);
 long long    sqlite_rows_affected(dbc_result *r);
 
+/* --- metadata.c (DBC_FEAT_INTROSPECTION) --- */
+/* Prepare a result-set statement and wrap it as a dbc_result without stepping;
+   `arg`, when non-NULL, is bound to ?1 as text. Shared by metadata.c/ddl.c. */
+dbc_status   sqlite_prepare_result(dbc_conn *c, const char *sql, const char *arg,
+                                   dbc_result **out);
+dbc_status   sqlite_list_databases(dbc_conn *c, dbc_result **out);
+dbc_status   sqlite_list_tables(dbc_conn *c, const char *schema, dbc_result **out);
+dbc_status   sqlite_describe_table(dbc_conn *c, const char *table, dbc_result **out);
+
+/* --- ddl.c (DBC_FEAT_DDL) --- */
+dbc_status   sqlite_get_ddl(dbc_conn *c, const char *object, dbc_result **out);
+
 #endif /* QUAERO_SQLITE_INTERNAL_H */

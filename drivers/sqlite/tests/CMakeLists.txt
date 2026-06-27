@@ -9,13 +9,25 @@ target_include_directories(sqlite_types_test PRIVATE
 quaero_set_warnings(sqlite_types_test)
 add_test(NAME sqlite_types_test COMMAND sqlite_types_test)
 
+# Pure identifier quoting (compiles the helper directly).
+add_executable(sqlite_identifier_test
+  identifier_test.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/identifier.c)
+target_include_directories(sqlite_identifier_test PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils)
+quaero_set_warnings(sqlite_identifier_test)
+add_test(NAME sqlite_identifier_test COMMAND sqlite_identifier_test)
+
 # The driver sources, reused by the integration-style tests below. Compiled
 # directly into each test (entry.c's exported symbol is then kept).
 set(SQLITE_DRIVER_TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/entry.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/connection.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/query.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/types.c)
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/metadata.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/ddl.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/types.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/identifier.c)
 
 # Connection / DSN parsing edge cases through the vtable.
 add_executable(sqlite_connection_test connection_test.c ${SQLITE_DRIVER_TEST_SRC})
@@ -32,3 +44,11 @@ target_include_directories(sqlite_smoke_test PRIVATE
 target_link_libraries(sqlite_smoke_test PRIVATE sqlite3 cjson)
 quaero_set_warnings(sqlite_smoke_test)
 add_test(NAME sqlite_smoke_test COMMAND sqlite_smoke_test)
+
+# Introspection: list_tables / describe_table / get_ddl through the vtable.
+add_executable(sqlite_introspect_test introspect_test.c ${SQLITE_DRIVER_TEST_SRC})
+target_include_directories(sqlite_introspect_test PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_SOURCE_DIR}/core/include)
+target_link_libraries(sqlite_introspect_test PRIVATE sqlite3 cjson)
+quaero_set_warnings(sqlite_introspect_test)
+add_test(NAME sqlite_introspect_test COMMAND sqlite_introspect_test)

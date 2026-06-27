@@ -86,3 +86,9 @@ add_executable(query_run_test ipc/query_run_test.c)
 target_link_libraries(query_run_test PRIVATE dbcore cjson)
 quaero_set_warnings(query_run_test)
 add_test(NAME query_run_test COMMAND query_run_test)
+
+# Schema introspection layer (routing + unsupported + param validation).
+add_executable(schema_test query/schema_test.c)
+target_link_libraries(schema_test PRIVATE dbcore)
+quaero_set_warnings(schema_test)
+add_test(NAME schema_test COMMAND schema_test)

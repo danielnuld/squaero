@@ -7,7 +7,7 @@ Un driver es una biblioteca compartida (`.dll`/`.so`/`.dylib`) que exporta una f
 > documento describe el mismo contrato en prosa y **debe mantenerse
 > sincronizado** con el header. Ante cualquier discrepancia, el header manda.
 
-ABI actual: **`DBC_ABI_VERSION = 1`**.
+ABI actual: **`DBC_ABI_VERSION = 2`**.
 
 ## Punto de entrada
 
@@ -27,7 +27,7 @@ y vive mientras la biblioteca esté cargada.
 ## Versionado de ABI
 
 ```c
-#define DBC_ABI_VERSION 1
+#define DBC_ABI_VERSION 2
 ```
 
 El driver graba en `dbc_driver_t.abi_version` el valor contra el que se compiló.
@@ -46,10 +46,14 @@ Devuelve:
 | `DBC_ERR_ABI` | `drv->abi_version != DBC_ABI_VERSION` |
 | `DBC_ERR_UNSUPPORTED` | falta un miembro **obligatorio** (identidad o puntero de función requerido) |
 
-**Disciplina de ABI:** cambiar el layout de la vtable, los valores existentes de
-un enum, o el conjunto de miembros obligatorios es una **ruptura de ABI** y
-obliga a subir `DBC_ABI_VERSION`. Agregar capacidades opcionales **al final** de
-la struct, protegidas por un flag `DBC_FEAT_*`, es un cambio compatible.
+**Disciplina de ABI:** cambiar el layout de la vtable (incluido **agregar**
+miembros, aunque sea al final), los valores existentes de un enum, o el conjunto
+de miembros obligatorios, sube `DBC_ABI_VERSION`. Como el cargador valida
+igualdad exacta de versión, un driver compilado contra un ABI anterior se
+rechaza limpiamente en vez de leerse con un layout distinto. Las capacidades
+nuevas se agregan al final y se protegen con un flag `DBC_FEAT_*` para que el
+núcleo solo invoque el miembro cuando el driver lo advierte (p. ej. `get_ddl` en
+ABI 2).
 
 ## Tipos de estado y de dato
 
@@ -91,6 +95,7 @@ significa que la celda sea `NULL` (eso lo indica `cell_text` devolviendo `NULL`)
 #define DBC_FEAT_TRANSACTIONS  (1u << 2)  /* begin/commit/rollback */
 #define DBC_FEAT_SCHEMAS       (1u << 3)  /* el motor tiene esquemas dentro de una base */
 #define DBC_FEAT_INTROSPECTION (1u << 4)  /* list_* / describe_table */
+#define DBC_FEAT_DDL           (1u << 5)  /* get_ddl: CREATE de un objeto */
 ```
 
 `dbc_driver_t.features` es el OR de los flags soportados. Un driver advierte una
@@ -140,14 +145,27 @@ typedef struct {
 
     /* --- capacidades --- */
     unsigned int features;   /* OR de DBC_FEAT_* */
+
+    /* --- generación de DDL (opcional; DBC_FEAT_DDL) ---
+       Añadido en ABI 2 (el cambio de layout subió DBC_ABI_VERSION). Devuelve el
+       CREATE de `object` como result set de una columna ("sql"), o
+       DBC_ERR_UNSUPPORTED si no se implementa. */
+    dbc_status  (*get_ddl)(dbc_conn *c, const char *object, dbc_result **out);
 } dbc_driver_t;
 ```
 
 Los miembros **obligatorios** (identidad, ciclo de vida, ejecución y lectura del
 result set) deben ser no-`NULL` en todo driver y los verifica
-`dbc_driver_validate`. Los miembros **opcionales** (introspección, transacciones)
-pueden ser `NULL` cuando la capacidad correspondiente no se advierte en
+`dbc_driver_validate`. Los miembros **opcionales** (introspección, transacciones,
+`get_ddl`) pueden ser `NULL` cuando la capacidad correspondiente no se advierte en
 `features`.
+
+**Convención de las columnas de introspección** (para que el núcleo y la UI las
+consuman de forma uniforme): `list_databases`/`list_schemas` devuelven una
+columna `name`; `list_tables` devuelve `name` y `type` (`"table"`/`"view"`);
+`describe_table` devuelve una fila por columna con `name`, `type` (el tipo
+declarado por el motor), `notnull`, `dflt_value` y `pk`; `get_ddl` devuelve una
+columna `sql`.
 
 ## Contrato de comportamiento
 

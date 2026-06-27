@@ -1,6 +1,7 @@
 #include "methods.h"
 #include "conn_methods.h"
 #include "query_methods.h"
+#include "schema_methods.h"
 #include "rpc.h"
 
 #include "dbcore/dbcore.h"
@@ -68,6 +69,15 @@ ipc_method_fn ipc_method_lookup(const char *method)
     }
     if (strcmp(method, "query.run") == 0) {
         return ipc_method_query_run;
+    }
+    if (strcmp(method, "schema.tree") == 0) {
+        return ipc_method_schema_tree;
+    }
+    if (strcmp(method, "schema.describe") == 0) {
+        return ipc_method_schema_describe;
+    }
+    if (strcmp(method, "schema.ddl") == 0) {
+        return ipc_method_schema_ddl;
     }
     return NULL;
 }

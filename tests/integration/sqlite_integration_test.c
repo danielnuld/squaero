@@ -151,9 +151,66 @@ static void test_ipc_path(const dbc_driver_t *drv)
       EXPECT(cJSON_IsString(first) && strcmp(first->valuestring, "10") == 0, "first cell value");
       cJSON_Delete(root); }
 
+    /* schema.tree at the root (no params) -> the database list ('main'). */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"schema.tree\","
+             "\"params\":{\"connId\":\"%s\"}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      EXPECT(res != NULL, "schema.tree (root) over IPC ok");
+      cJSON *rows = cJSON_GetObjectItem(res, "rows");
+      int saw_main = 0;
+      for (int i = 0; i < cJSON_GetArraySize(rows); i++) {
+          cJSON *name = cJSON_GetArrayItem(cJSON_GetArrayItem(rows, i), 0);
+          if (cJSON_IsString(name) && strcmp(name->valuestring, "main") == 0) saw_main = 1;
+      }
+      EXPECT(saw_main, "'main' database listed at the root");
+      cJSON_Delete(root); }
+
+    /* schema.tree under db 'main' -> tables (SQLite has no schemas), with the
+       table 't' we created (columns name, type). */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"schema.tree\","
+             "\"params\":{\"connId\":\"%s\",\"db\":\"main\"}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      EXPECT(cJSON_GetArraySize(cJSON_GetObjectItem(res, "columns")) == 2,
+             "tree tables: name + type columns");
+      cJSON *rows = cJSON_GetObjectItem(res, "rows");
+      int saw_t = 0;
+      for (int i = 0; i < cJSON_GetArraySize(rows); i++) {
+          cJSON *name = cJSON_GetArrayItem(cJSON_GetArrayItem(rows, i), 0);
+          if (cJSON_IsString(name) && strcmp(name->valuestring, "t") == 0) saw_t = 1;
+      }
+      EXPECT(saw_t, "table 't' appears under db 'main'");
+      cJSON_Delete(root); }
+
+    /* schema.describe -> one row per column of 't' (it has a single column n). */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"schema.describe\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"t\"}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      EXPECT(res != NULL, "schema.describe over IPC ok");
+      EXPECT(cJSON_GetArraySize(cJSON_GetObjectItem(res, "rows")) == 1, "table t has one column");
+      cJSON_Delete(root); }
+
+    /* schema.ddl -> the CREATE statement of 't'. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"schema.ddl\","
+             "\"params\":{\"connId\":\"%s\",\"object\":\"t\"}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      cJSON *rows = cJSON_GetObjectItem(res, "rows");
+      EXPECT(cJSON_GetArraySize(rows) == 1, "schema.ddl returns one row");
+      cJSON *sql_cell = cJSON_GetArrayItem(cJSON_GetArrayItem(rows, 0), 0);
+      EXPECT(cJSON_IsString(sql_cell) && strstr(sql_cell->valuestring, "CREATE TABLE") != NULL,
+             "ddl is a CREATE statement");
+      cJSON_Delete(root); }
+
     /* conn.close */
     snprintf(req, sizeof req,
-             "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"conn.close\","
+             "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"conn.close\","
              "\"params\":{\"connId\":\"%s\"}}", conn_id);
     { cJSON *root = call(req);
       EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "closed")),

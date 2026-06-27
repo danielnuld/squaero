@@ -14,10 +14,13 @@
  * This header is the single source of truth for the contract. docs/DRIVER_API.md
  * documents the same surface in prose and MUST stay in sync with it.
  *
- * Stability: a change to the vtable layout, to an enum's existing values, or to
- * the required-member set is an ABI break and MUST bump DBC_ABI_VERSION. New
- * optional capabilities are added at the END of the struct and gated behind a
- * DBC_FEAT_* flag, which is a backward-compatible change.
+ * Stability: a change to the vtable layout (including ADDING members, even at
+ * the end), to an enum's existing values, or to the required-member set bumps
+ * DBC_ABI_VERSION. The loader validates exact version equality, so a driver
+ * built against an older ABI is rejected cleanly rather than read with a
+ * mismatched layout. New optional capabilities are appended at the end and
+ * gated behind a DBC_FEAT_* flag so the core invokes the member only when the
+ * driver advertises it.
  */
 
 #ifdef __cplusplus
@@ -29,7 +32,7 @@ extern "C" {
  * into dbc_driver_t.abi_version; the core refuses to load a driver whose value
  * does not match (see dbc_driver_validate).
  */
-#define DBC_ABI_VERSION 1
+#define DBC_ABI_VERSION 2
 
 /* Canonical name of the exported entry symbol, for the dynamic loader. */
 #define DBC_DRIVER_ENTRY_SYMBOL "dbc_driver_entry"
@@ -92,6 +95,7 @@ typedef enum {
 #define DBC_FEAT_TRANSACTIONS  (1u << 2)  /* begin/commit/rollback */
 #define DBC_FEAT_SCHEMAS       (1u << 3)  /* engine has schemas within a database */
 #define DBC_FEAT_INTROSPECTION (1u << 4)  /* list_* / describe_table */
+#define DBC_FEAT_DDL           (1u << 5)  /* get_ddl: CREATE statement of an object */
 
 /*
  * The driver vtable. Layout is ABI; do not reorder members. Required members
@@ -145,6 +149,15 @@ typedef struct {
 
     /* --- capabilities --- */
     unsigned int features;  /* OR of DBC_FEAT_* */
+
+    /*
+     * --- DDL generation (optional; DBC_FEAT_DDL) ---
+     * Added in ABI 2 (the layout change bumped DBC_ABI_VERSION, so the loader
+     * rejects any driver built against ABI 1). Returns the CREATE statement of
+     * `object` (table/view/...) as a one-column ("sql") result set, or
+     * DBC_ERR_UNSUPPORTED when not implemented.
+     */
+    dbc_status  (*get_ddl)(dbc_conn *c, const char *object, dbc_result **out);
 } dbc_driver_t;
 
 /* Type of the exported entry point. Returns the driver's static vtable. */
