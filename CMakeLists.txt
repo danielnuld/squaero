@@ -35,6 +35,7 @@ include(CTest)
 
 # --- Third-party (vendored) ----------------------------------------------
 add_subdirectory(third_party/cjson)
+add_subdirectory(third_party/sqlite)
 
 # --- Components -----------------------------------------------------------
 add_subdirectory(core)
