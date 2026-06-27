@@ -22,6 +22,9 @@ include(QuaeroWarnings)
 # Defines BUILD_TESTING (default ON) and calls enable_testing().
 include(CTest)
 
+# --- Third-party (vendored) ----------------------------------------------
+add_subdirectory(third_party/cjson)
+
 # --- Components -----------------------------------------------------------
 add_subdirectory(core)
 add_subdirectory(drivers)
