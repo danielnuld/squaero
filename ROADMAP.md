@@ -47,42 +47,56 @@ La UI mínima que convierte el núcleo en algo usable.
 
 > **Hito: repositorio público.** Al cierre de M3 existe una herramienta utilizable de extremo a extremo.
 
-## M4 — Segundo motor: PostgreSQL
+## M4 — Segundo motor: MySQL / MariaDB
 
-Valida que la abstracción de drivers sirve para un motor cliente-servidor real.
+Primer motor cliente-servidor. Valida que la abstracción de drivers sirve para un motor real con red y autenticación.
 
-- Driver PostgreSQL con `libpq`.
-- Mapeo de tipos PostgreSQL ↔ modelo del núcleo.
+- Driver MySQL/MariaDB.
+- Mapeo de tipos MySQL ↔ modelo del núcleo.
 - Conexiones seguras (SSL) y vía túnel SSH.
 - Ajustes a la abstracción según hallazgos del segundo driver.
 
-## M5 — Edición de datos y transacciones
+## M5 — Motor: Informix
+
+Reusa la experiencia de Tabularis sobre el CSDK de Informix.
+
+- Driver Informix (conexión vía CSDK, introspección).
+- Mapeo de tipos Informix ↔ modelo del núcleo.
+
+## M6 — Motor: MongoDB
+
+Motor **documental**: pone a prueba la abstracción, hoy tabular.
+
+- Driver MongoDB.
+- Modelo de resultados documental y ajustes al núcleo/IPC (cómo representar documentos y colecciones en el result set neutral).
+
+## M7 — Edición de datos y transacciones
 
 - Edición de celdas en el grid (`UPDATE`).
 - Insertar / eliminar filas.
 - Transacciones (commit/rollback) y edición segura.
 - Preview del SQL generado antes de aplicar los cambios.
 
-## M6 — Import / Export
+## M8 — Import / Export
 
 - Exportar result set / tabla (CSV, JSON, `INSERT`s SQL).
 - Importar datos (CSV/JSON) a una tabla.
 - Mapeo de columnas y manejo de errores en el import.
 
-## M7 — Transferencia y sincronización
+## M9 — Transferencia y sincronización
 
 - Transferencia de datos entre conexiones (mismo o distinto motor).
 - Comparación/sincronización de **estructura** (schema diff).
 - Comparación/sincronización de **datos**.
 
-## M8 — SDK de plugins y documentación para la comunidad
+## M10 — SDK de plugins y documentación para la comunidad
 
 - Empaquetar el SDK de drivers (headers + ejemplo + docs).
 - Guía "Cómo escribir un driver" con plantilla.
 - Documentación de la API IPC para contribuyentes de frontend.
 - `CONTRIBUTING`, plantillas de issue/PR, código de conducta.
 
-## M9 — Pulido, empaquetado y release
+## M11 — Pulido, empaquetado y release
 
 - Instaladores (Windows MSI, Linux AppImage/deb, macOS `.app`).
 - Release automatizado (GitHub Releases) y firma de binarios.
@@ -90,10 +104,8 @@ Valida que la abstracción de drivers sirve para un motor cliente-servidor real.
 - README final, capturas, landing.
 - Auditoría de licencias de dependencias.
 
-## M10 — Motores adicionales (post-MVP, impulsado por la comunidad)
+## M12 — Motores adicionales (post-MVP)
 
-- Driver MySQL / MariaDB.
-- Driver MongoDB *(reusar experiencia de Tabularis)*.
-- Driver Informix *(reusar experiencia de Tabularis)*.
+- Driver PostgreSQL con `libpq` + mapeo de tipos.
 - Driver SQL Server (FreeTDS).
 - Driver Oracle (OCI).
