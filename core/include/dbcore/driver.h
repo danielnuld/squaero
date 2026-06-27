@@ -155,8 +155,13 @@ typedef const dbc_driver_t *(*dbc_driver_entry_fn)(void);
  * returned vtable is owned by the driver (typically static storage) and lives
  * for the lifetime of the loaded library. The core verifies abi_version before
  * use; see dbc_driver_validate.
+ *
+ * The declaration carries DBC_DRIVER_EXPORT so it agrees in linkage with the
+ * driver's definition (MSVC rejects a plain prototype followed by a dllexport
+ * definition). In the core — which only ever resolves this symbol dynamically
+ * and never defines it — the marker has no effect.
  */
-const dbc_driver_t *dbc_driver_entry(void);
+DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void);
 
 /*
  * Validate a vtable returned by a driver before the core uses it. Checks the

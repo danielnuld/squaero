@@ -6,17 +6,19 @@
 /*
  * Pure filename classification for the loader. No I/O: it only inspects the
  * string, so it is unit-tested directly (core/tests/driver/plugin_name_test.c).
+ *
+ * The accepted extensions are per-platform. Note macOS: CMake builds loadable
+ * MODULE libraries with the ".so" suffix (".dylib" is for regular shared
+ * libraries), so a driver plugin there is "name.so" — both are accepted.
  */
-
-/* Platform shared-library extension, including the leading dot. */
 #if defined(_WIN32)
-#  define DBC_PLUGIN_EXT ".dll"
+static const char *const k_exts[] = { ".dll" };
 #  define DBC_PLUGIN_CASE_INSENSITIVE 1
 #elif defined(__APPLE__)
-#  define DBC_PLUGIN_EXT ".dylib"
+static const char *const k_exts[] = { ".dylib", ".so" };
 #  define DBC_PLUGIN_CASE_INSENSITIVE 0
 #else
-#  define DBC_PLUGIN_EXT ".so"
+static const char *const k_exts[] = { ".so" };
 #  define DBC_PLUGIN_CASE_INSENSITIVE 0
 #endif
 
@@ -47,12 +49,15 @@ int dbc_plugin_is_candidate(const char *filename)
         return 0;
     }
     size_t len = strlen(filename);
-    size_t extlen = strlen(DBC_PLUGIN_EXT);
 
-    /* Reject names that are exactly the extension (no stem, e.g. ".so"). */
-    if (len <= extlen) {
-        return 0;
+    for (size_t i = 0; i < sizeof k_exts / sizeof k_exts[0]; i++) {
+        size_t extlen = strlen(k_exts[i]);
+        /* Reject a name that is exactly the extension (no stem, e.g. ".so"). */
+        if (len > extlen &&
+            ends_with(filename, len, k_exts[i], extlen,
+                      DBC_PLUGIN_CASE_INSENSITIVE)) {
+            return 1;
+        }
     }
-    return ends_with(filename, len, DBC_PLUGIN_EXT, extlen,
-                     DBC_PLUGIN_CASE_INSENSITIVE);
+    return 0;
 }

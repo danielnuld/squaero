@@ -16,6 +16,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Driver plugins are shared modules that link the vendored static libs
+# (sqlite3, cJSON) and the core. On ELF targets every object pulled into a
+# shared object must be position-independent, so build all static code PIC.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # The webview app needs platform GUI dev packages (GTK4/WebKitGTK on Linux,
 # WebView2 on Windows, WebKit on macOS). Turn this off to build only the core
 # and its tests on a machine without those.

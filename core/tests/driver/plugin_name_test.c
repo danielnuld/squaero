@@ -30,8 +30,9 @@ int main(void)
     EXPECT(dbc_plugin_is_candidate("libdriver.dll.a") == 0, "import lib is not a candidate");
 #elif defined(__APPLE__)
     EXPECT(dbc_plugin_is_candidate(".dylib") == 0, "bare .dylib is not a candidate");
+    EXPECT(dbc_plugin_is_candidate(".so") == 0, "bare .so is not a candidate");
     EXPECT(dbc_plugin_is_candidate("libsqlite.dylib") == 1, "libsqlite.dylib is a candidate");
-    EXPECT(dbc_plugin_is_candidate("driver.so") == 0, ".so is not a macOS candidate");
+    EXPECT(dbc_plugin_is_candidate("sqlite.so") == 1, "CMake MODULE libs are .so on macOS");
     EXPECT(dbc_plugin_is_candidate("driver.DYLIB") == 0, "case-sensitive on macOS");
 #else
     EXPECT(dbc_plugin_is_candidate(".so") == 0, "bare .so is not a candidate");
