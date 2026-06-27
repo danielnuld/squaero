@@ -2,6 +2,8 @@
 add_library(dbcore STATIC
   src/version.c
   src/driver/validate.c
+  src/driver/plugin_name.c
+  src/driver/loader.c
   src/ipc/rpc.c
   src/ipc/methods.c
   src/ipc/dispatch.c
@@ -14,6 +16,10 @@ quaero_set_warnings(dbcore)
 # cJSON is an internal implementation detail (PRIVATE): it is never exposed
 # through a public Quaero header, so it does not propagate to consumers.
 target_link_libraries(dbcore PRIVATE cjson)
+
+# The dynamic driver loader needs the platform dl library (libdl on Linux;
+# empty on Windows/macOS where dlopen lives in the C runtime).
+target_link_libraries(dbcore PRIVATE ${CMAKE_DL_LIBS})
 
 if(BUILD_TESTING)
   add_subdirectory(tests)

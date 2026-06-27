@@ -34,6 +34,19 @@ extern "C" {
 /* Canonical name of the exported entry symbol, for the dynamic loader. */
 #define DBC_DRIVER_ENTRY_SYMBOL "dbc_driver_entry"
 
+/*
+ * Visibility marker a driver puts on its exported entry point so the symbol is
+ * resolvable via GetProcAddress/dlsym on every toolchain. Usage:
+ *   DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void) { ... }
+ */
+#if defined(_WIN32)
+#  define DBC_DRIVER_EXPORT __declspec(dllexport)
+#elif defined(__GNUC__)
+#  define DBC_DRIVER_EXPORT __attribute__((visibility("default")))
+#else
+#  define DBC_DRIVER_EXPORT
+#endif
+
 /* Opaque handles owned by the driver; the core only ever holds pointers. */
 typedef struct dbc_conn   dbc_conn;
 typedef struct dbc_result dbc_result;
@@ -45,7 +58,8 @@ typedef enum {
     DBC_ERR_QUERY,        /* query execution / result error */
     DBC_ERR_PARAM,        /* invalid argument from the core (e.g. NULL) */
     DBC_ERR_UNSUPPORTED,  /* operation not supported by this engine */
-    DBC_ERR_ABI           /* driver ABI is incompatible with the core */
+    DBC_ERR_ABI,          /* driver ABI is incompatible with the core */
+    DBC_ERR_NOMEM         /* memory allocation failed */
 } dbc_status;
 
 /*

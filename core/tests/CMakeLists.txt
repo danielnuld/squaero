@@ -10,6 +10,37 @@ target_link_libraries(driver_validate_test PRIVATE dbcore)
 quaero_set_warnings(driver_validate_test)
 add_test(NAME driver_validate_test COMMAND driver_validate_test)
 
+# Pure filename-classification helper for the loader.
+add_executable(plugin_name_test driver/plugin_name_test.c)
+target_link_libraries(plugin_name_test PRIVATE dbcore)
+quaero_set_warnings(plugin_name_test)
+add_test(NAME plugin_name_test COMMAND plugin_name_test)
+
+# Loader smoke test: build real fixture plugins and load them at runtime.
+# All fixtures land in one directory so the scan test can enumerate them.
+set(fixtures_dir "${CMAKE_CURRENT_BINARY_DIR}/fixtures")
+foreach(fx good_driver bad_abi_driver no_entry)
+  add_library(${fx} MODULE driver/fixtures/${fx}.c)
+  # Header-only dependency on the driver contract; no link to the core.
+  target_include_directories(${fx} PRIVATE ${CMAKE_SOURCE_DIR}/core/include)
+  quaero_set_warnings(${fx})  # the driver side of the ABI must also be clean
+  set_target_properties(${fx} PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${fixtures_dir}"
+    RUNTIME_OUTPUT_DIRECTORY "${fixtures_dir}"
+    PREFIX "")  # stable, predictable file names across platforms
+endforeach()
+
+add_executable(loader_test driver/loader_test.c)
+target_link_libraries(loader_test PRIVATE dbcore)
+quaero_set_warnings(loader_test)
+add_dependencies(loader_test good_driver bad_abi_driver no_entry)
+target_compile_definitions(loader_test PRIVATE
+  GOOD_DRIVER_PATH="$<TARGET_FILE:good_driver>"
+  BAD_ABI_DRIVER_PATH="$<TARGET_FILE:bad_abi_driver>"
+  NO_ENTRY_PATH="$<TARGET_FILE:no_entry>"
+  FIXTURES_DIR="$<TARGET_FILE_DIR:good_driver>")
+add_test(NAME loader_test COMMAND loader_test)
+
 # IPC dispatcher tests. Links cJSON to inspect response payloads.
 add_executable(ipc_test ipc/dispatch_test.c)
 target_link_libraries(ipc_test PRIVATE dbcore cjson)

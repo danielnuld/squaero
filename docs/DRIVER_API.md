@@ -16,9 +16,11 @@ Cada plugin exporta un único símbolo, cuyo nombre canónico es
 
 ```c
 /* Devuelve la vtable del driver. El núcleo verifica abi_version al cargar. */
-const dbc_driver_t *dbc_driver_entry(void);
+DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void);
 ```
 
+`DBC_DRIVER_EXPORT` (definido en `driver.h`) marca el símbolo como exportado para
+que el cargador lo resuelva con `GetProcAddress`/`dlsym` en cualquier toolchain.
 La vtable devuelta es propiedad del driver (normalmente almacenamiento estático)
 y vive mientras la biblioteca esté cargada.
 
@@ -58,7 +60,8 @@ typedef enum {
     DBC_ERR_QUERY,        /* error de ejecución / result set */
     DBC_ERR_PARAM,        /* argumento inválido del núcleo (p. ej. NULL) */
     DBC_ERR_UNSUPPORTED,  /* operación no soportada por el motor */
-    DBC_ERR_ABI           /* ABI del driver incompatible con el núcleo */
+    DBC_ERR_ABI,          /* ABI del driver incompatible con el núcleo */
+    DBC_ERR_NOMEM         /* fallo de reserva de memoria */
 } dbc_status;
 
 typedef enum {

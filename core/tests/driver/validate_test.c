@@ -113,7 +113,8 @@ int main(void)
         EXPECT(dbc_driver_validate(&d) == DBC_ERR_UNSUPPORTED, "NULL free_result should be DBC_ERR_UNSUPPORTED");
     }
 
-    /* Missing result-set readers. */
+    /* Missing result-set readers: each required reader is checked on its own so
+       a dropped check in validate.c cannot hide behind a sibling. */
     {
         dbc_driver_t d = make_valid_driver();
         d.col_count = NULL;
@@ -121,8 +122,28 @@ int main(void)
     }
     {
         dbc_driver_t d = make_valid_driver();
+        d.col_name = NULL;
+        EXPECT(dbc_driver_validate(&d) == DBC_ERR_UNSUPPORTED, "NULL col_name should be DBC_ERR_UNSUPPORTED");
+    }
+    {
+        dbc_driver_t d = make_valid_driver();
+        d.col_type = NULL;
+        EXPECT(dbc_driver_validate(&d) == DBC_ERR_UNSUPPORTED, "NULL col_type should be DBC_ERR_UNSUPPORTED");
+    }
+    {
+        dbc_driver_t d = make_valid_driver();
+        d.next_row = NULL;
+        EXPECT(dbc_driver_validate(&d) == DBC_ERR_UNSUPPORTED, "NULL next_row should be DBC_ERR_UNSUPPORTED");
+    }
+    {
+        dbc_driver_t d = make_valid_driver();
         d.cell_text = NULL;
         EXPECT(dbc_driver_validate(&d) == DBC_ERR_UNSUPPORTED, "NULL cell_text should be DBC_ERR_UNSUPPORTED");
+    }
+    {
+        dbc_driver_t d = make_valid_driver();
+        d.rows_affected = NULL;
+        EXPECT(dbc_driver_validate(&d) == DBC_ERR_UNSUPPORTED, "NULL rows_affected should be DBC_ERR_UNSUPPORTED");
     }
 
     /* Optional members may be NULL: a driver advertising no extra features and
