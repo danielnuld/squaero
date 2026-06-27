@@ -10,7 +10,10 @@ import {
   type JsonRpcResponse,
 } from "./ipc";
 
-type QuaeroRpc = (requestJson: string) => Promise<string>;
+// webview already JSON-parses the value passed to webview_return, so the bound
+// function resolves with a parsed object (not a string). Typed as unknown to
+// stay honest about that.
+type QuaeroRpc = (requestJson: string) => Promise<unknown>;
 
 interface BridgeHost {
   quaeroRpc?: QuaeroRpc;
@@ -33,6 +36,10 @@ export async function call(
     );
   }
   const request = buildRequest(nextId(), method, params);
-  const raw = await rpc(JSON.stringify(request));
-  return parseResponse(raw);
+  const result = await rpc(JSON.stringify(request));
+  // The webview bridge resolves with an already-parsed object; only parse if a
+  // transport hands back a raw JSON string.
+  return typeof result === "string"
+    ? parseResponse(result)
+    : (result as JsonRpcResponse);
 }

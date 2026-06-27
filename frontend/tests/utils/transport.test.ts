@@ -27,14 +27,12 @@ describe("transport", () => {
       await expect(call("ping")).rejects.toThrow(/bridge unavailable/);
     });
 
-    it("sends a request and parses the response", async () => {
+    it("sends a request and returns the parsed response (webview returns an object)", async () => {
+      // Mirrors real webview behavior: the bound function resolves with an
+      // already-parsed object, not a JSON string.
       const rpc = vi.fn(async (raw: string) => {
         const req = JSON.parse(raw) as { id: number | string };
-        return JSON.stringify({
-          jsonrpc: "2.0",
-          id: req.id,
-          result: { pong: true },
-        });
+        return { jsonrpc: "2.0", id: req.id, result: { pong: true } };
       });
       (globalThis as BridgeHost).quaeroRpc = rpc;
 
@@ -47,6 +45,17 @@ describe("transport", () => {
       };
       expect(sent.method).toBe("ping");
       expect(sent.params).toEqual({ message: "hi" });
+      expect(isError(response)).toBe(false);
+      if (!isError(response)) {
+        expect(response.result).toEqual({ pong: true });
+      }
+    });
+
+    it("also accepts a raw JSON string from the bridge (fallback)", async () => {
+      (globalThis as BridgeHost).quaeroRpc = async () =>
+        '{"jsonrpc":"2.0","id":1,"result":{"pong":true}}';
+
+      const response = await call("ping");
       expect(isError(response)).toBe(false);
       if (!isError(response)) {
         expect(response.result).toEqual({ pong: true });
