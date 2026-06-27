@@ -12,3 +12,17 @@ add_dependencies(sqlite_integration_test sqlite_driver)
 quaero_set_warnings(sqlite_integration_test)
 add_test(NAME sqlite_integration_test COMMAND sqlite_integration_test
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+# MySQL integration runs only when the driver was built (client lib present).
+# The test itself SKIPS at runtime unless QUAERO_MYSQL_DSN points at a server,
+# so it is harmless on machines/CI jobs without one.
+if(TARGET mysql_driver)
+  add_executable(mysql_integration_test mysql_integration_test.c)
+  target_link_libraries(mysql_integration_test PRIVATE dbcore cjson)
+  target_compile_definitions(mysql_integration_test PRIVATE
+    MYSQL_PLUGIN_PATH="$<TARGET_FILE:mysql_driver>")
+  add_dependencies(mysql_integration_test mysql_driver)
+  quaero_set_warnings(mysql_integration_test)
+  add_test(NAME mysql_integration_test COMMAND mysql_integration_test
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endif()

@@ -29,7 +29,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev
 
       # Provides a recent CMake + Ninja on all three platforms.
       - name: Set up CMake and Ninja
@@ -88,3 +88,43 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # Builds the MySQL driver against MariaDB Connector/C and runs the gated
+  # integration test against a real MariaDB service (Linux only — service
+  # containers require a Linux runner). The core build skips the webview app
+  # here, so no GTK is needed.
+  mysql-integration:
+    name: mysql-integration
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: quaero_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MariaDB Connector/C
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb-dev
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        env:
+          QUAERO_MYSQL_DSN: '{"host":"127.0.0.1","port":3306,"user":"root","password":"root","database":"quaero_test"}'
+        run: ctest --test-dir build --output-on-failure
