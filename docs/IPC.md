@@ -42,7 +42,6 @@ El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre e
 
 | Método | Fase | Descripción |
 |---|---|---|
-| `conn.list` / `conn.save` / `conn.delete` | M2 | Gestión de conexiones guardadas |
 | `conn.open` / `conn.close` | M1/M2 | Abrir/cerrar conexión activa |
 | `query.run` | M1 | Ejecutar SQL, devolver result set paginado |
 | `schema.tree` | M3 | Árbol de objetos (bases/esquemas/tablas) |
@@ -52,6 +51,17 @@ El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre e
 | `tx.begin` / `tx.commit` / `tx.rollback` | M5 | Transacciones |
 | `data.export` / `data.import` | M6 | Import/Export |
 | `data.transfer` / `schema.diff` / `data.diff` | M7 | Transferencia y sincronización |
+
+### Gestión de conexiones guardadas — sin método IPC (decisión M2)
+
+Las **definiciones** de conexiones guardadas (nombre, motor, DSN sin
+credenciales) son estado de configuración de la UI y se persisten en el lado del
+frontend (almacenamiento local del webview), **no** en el núcleo. Por eso no
+existen `conn.save` / `conn.list` / `conn.delete`: el núcleo solo gestiona el
+ciclo de vida de la conexión *activa* (`conn.open` / `conn.close`) y nunca
+retiene credenciales ni definiciones. Las contraseñas no se persisten: se piden
+en el momento de conectar. Si en el futuro se decide centralizar la persistencia
+en el núcleo, será un cambio con su propio issue y se reflejará aquí.
 
 ## Implementado (v2)
 

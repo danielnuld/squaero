@@ -1,0 +1,58 @@
+import { For, Show } from "solid-js";
+import { driverSchema, type Connection } from "../utils/connections";
+
+// Sidebar list of saved connections with CRUD + connect actions. Clicking a
+// connection opens it; the active one is highlighted. Presentational — all
+// state and IPC live in App.
+export function ConnectionManager(props: {
+  connections: Connection[];
+  activeConnId: string | null;
+  /** Id of the connection currently being opened (shows a busy state). */
+  connectingId: string | null;
+  onConnect: (c: Connection) => void;
+  onEdit: (c: Connection) => void;
+  onDelete: (id: string) => void;
+  onNew: () => void;
+}) {
+  return (
+    <div class="conn-manager">
+      <button class="conn-new" onClick={props.onNew}>
+        + Nueva conexión
+      </button>
+
+      <Show
+        when={props.connections.length > 0}
+        fallback={<p class="sidebar-hint">No hay conexiones guardadas.</p>}
+      >
+        <ul class="conn-list">
+          <For each={props.connections}>
+            {(c) => (
+              <li class={`conn-item ${c.id === props.activeConnId ? "active" : ""}`}>
+                <button
+                  class="conn-open"
+                  title="Conectar"
+                  disabled={props.connectingId !== null}
+                  onClick={() => props.onConnect(c)}
+                >
+                  <span class="conn-name">{c.name}</span>
+                  <span class="conn-driver">
+                    {driverSchema(c.driver)?.label ?? c.driver}
+                    {props.connectingId === c.id ? " · conectando…" : ""}
+                  </span>
+                </button>
+                <div class="conn-actions">
+                  <button title="Editar" onClick={() => props.onEdit(c)}>
+                    ✎
+                  </button>
+                  <button title="Eliminar" onClick={() => props.onDelete(c.id)}>
+                    🗑
+                  </button>
+                </div>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Show>
+    </div>
+  );
+}

@@ -332,3 +332,201 @@ body {
 .status-spacer {
   flex: 1;
 }
+
+/* Connection manager (sidebar) */
+.conn-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.conn-new {
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.conn-new:hover {
+  border-color: var(--accent);
+}
+
+.conn-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conn-item {
+  display: flex;
+  align-items: stretch;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.conn-item:hover {
+  background: var(--bg-elev2);
+}
+
+.conn-item.active {
+  background: rgba(76, 139, 245, 0.16);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.conn-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+}
+
+.conn-open:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.conn-name {
+  font-weight: 600;
+}
+
+.conn-driver {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.conn-actions {
+  display: flex;
+  align-items: center;
+}
+
+.conn-actions button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 0.35rem;
+  font-size: 13px;
+}
+
+.conn-actions button:hover {
+  color: var(--text);
+}
+
+/* Connection form modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  width: min(440px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal h2 {
+  margin: 0 0 0.8rem;
+  font-size: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.7rem;
+}
+
+.field > span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.field input,
+.field select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-errors {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+  color: #f08a8a;
+  font-size: 12px;
+}
+
+.test-ok {
+  color: var(--number);
+  font-size: 12px;
+  margin: 0.4rem 0;
+}
+
+.test-error {
+  color: #f08a8a;
+  font-size: 12px;
+  margin: 0.4rem 0;
+  font-family: var(--font-mono);
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.modal-actions button {
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+.modal-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.modal-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}

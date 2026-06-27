@@ -27,6 +27,16 @@ target_link_libraries(quaero PRIVATE dbcore frontend_assets cjson webview::core)
 # Note: strict warnings are intentionally not applied here — this target
 # includes the third-party C++ webview header.
 
+# Stage driver plugins next to the executable so the shell discovers them at
+# startup (it scans <exe_dir>/drivers). The plugin is loaded at runtime, not
+# linked, so this is a build dependency plus a copy.
+add_dependencies(quaero sqlite_driver)
+add_custom_command(TARGET quaero POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:quaero>/drivers"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "$<TARGET_FILE:sqlite_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
+  VERBATIM)
+
 if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
