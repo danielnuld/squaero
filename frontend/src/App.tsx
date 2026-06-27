@@ -19,11 +19,15 @@ import {
   type Connection,
 } from "./utils/connections";
 import { loadConnections, saveConnections } from "./utils/connectionStore";
+import { quoteIdentifier } from "./utils/schema";
+import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
+import { ObjectTree } from "./components/ObjectTree";
+import { StructureView } from "./components/StructureView";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -67,6 +71,7 @@ export function App() {
   const [activeDefId, setActiveDefId] = createSignal<string | null>(null);
   const [connectingId, setConnectingId] = createSignal<string | null>(null);
   const [editing, setEditing] = createSignal<Connection | null>(null);
+  const [structureTable, setStructureTable] = createSignal<string | null>(null);
 
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
@@ -195,6 +200,30 @@ export function App() {
     }
   };
 
+  // --- Object tree actions (issues #19, #20) -----------------------------
+  // Open a table's data: a fresh tab with a SELECT, executed immediately. The
+  // table is qualified with its db/schema context so the query is correct on
+  // engines (or attached databases) where the bare name would be ambiguous.
+  const openData = (node: TreeNode) => {
+    const qualified = [node.db, node.schema, node.label]
+      .filter((p): p is string => !!p)
+      .map(quoteIdentifier)
+      .join(".");
+    const sql = `SELECT * FROM ${qualified} LIMIT ${PAGE_LIMIT};`;
+    setTabs((s) => {
+      const added = addTab(s);
+      return updateTabSql(added, added.activeId, sql);
+    });
+    void run(sql);
+  };
+
+  // Open a table's structure (columns + DDL) in a modal.
+  const openStructure = (node: TreeNode) => {
+    if (active()) {
+      setStructureTable(node.label);
+    }
+  };
+
   // Sidebar drag-to-resize: track the pointer on the document until release.
   const startResize = (e: MouseEvent) => {
     e.preventDefault();
@@ -226,6 +255,15 @@ export function App() {
               onNew={onNewConnection}
             />
           </div>
+          <Show when={active()}>
+            <div class="sidebar-tree">
+              <ObjectTree
+                connId={active()!.connId}
+                onOpenData={openData}
+                onOpenStructure={openStructure}
+              />
+            </div>
+          </Show>
         </aside>
 
         <div class="resizer" onMouseDown={startResize} />
@@ -300,6 +338,14 @@ export function App() {
             onTest={(c) => testConnection(c.driver, buildDsn(c))}
           />
         )}
+      </Show>
+
+      <Show when={structureTable() && active()}>
+        <StructureView
+          connId={active()!.connId}
+          table={structureTable()!}
+          onClose={() => setStructureTable(null)}
+        />
       </Show>
     </div>
   );

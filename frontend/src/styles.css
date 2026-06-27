@@ -530,3 +530,166 @@ body {
   border-color: var(--accent);
   color: #fff;
 }
+
+/* Object tree (sidebar) */
+.sidebar-tree {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  border-top: 1px solid var(--border);
+}
+
+.objtree {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.objtree-header {
+  padding: 0.5rem 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.objtree-error {
+  padding: 0.4rem 0.8rem;
+  color: #f08a8a;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.objtree-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.objtree-spacer {
+  position: relative;
+}
+
+.objtree-rows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.objtree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 24px;
+  padding-right: 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.objtree-row:hover {
+  background: var(--bg-elev2);
+}
+
+.objtree-caret {
+  width: 0.9em;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.objtree-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  color: #1a1a20;
+}
+
+.objtree-badge.kind-database { background: #c0a0e0; }
+.objtree-badge.kind-schema { background: #8fb8e0; }
+.objtree-badge.kind-table { background: var(--number); }
+.objtree-badge.kind-view { background: #e0c890; }
+
+.objtree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.objtree-loading {
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+/* Structure view (modal) */
+.modal-wide {
+  width: min(720px, 94vw);
+}
+
+.struct-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin-bottom: 1rem;
+}
+
+.struct-table th,
+.struct-table td {
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.struct-table th {
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+
+.ddl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ddl-header button {
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.ddl-header button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.ddl-header button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ddl-text {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow: auto;
+}
