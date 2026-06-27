@@ -39,7 +39,18 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-El binario placeholder queda en `build/app/quaero` (`.exe` en Windows; la shell con webview llega en el issue #3).
+El binario queda en `build/app/quaero` (`.exe` en Windows). La shell abre una ventana nativa que carga el bundle embebido y conecta el frontend con el núcleo vía IPC.
+
+**Dependencias de la shell (webview)** por plataforma:
+- **Linux**: `libgtk-4-dev libwebkitgtk-6.0-dev`.
+- **macOS**: WebKit del sistema (sin instalar nada).
+- **Windows**: WebView2 (se descarga al compilar; runtime ya incluido en Windows 11).
+
+Para compilar solo el núcleo y sus tests sin las dependencias de GUI:
+
+```bash
+cmake -S . -B build -G Ninja -DQUAERO_BUILD_APP=OFF
+```
 
 ### Frontend (UI)
 

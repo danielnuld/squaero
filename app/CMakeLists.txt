@@ -1,11 +1,12 @@
-# quaero — the native application shell.
+# quaero — the native application shell (webview host).
 #
-# For M0 this is a placeholder executable that links the core and the embedded
-# frontend bundle. The real shell (webview host: WebView2 / WebKitGTK /
-# WKWebView) is wired up in issue #3.
+# Creates the OS window, loads the embedded frontend bundle, and bridges the
+# JS <-> C core JSON-RPC channel. Backed by webview (WebView2 / WebKitGTK /
+# WKWebView). The shell is C++ (where webview lives); the core stays pure C.
 include(EmbedAssets)
+include(FetchContent)
 
-# Embed the frontend bundle (real dist/ if built, else the placeholder).
+# --- Embed the frontend bundle (real dist/ if built, else placeholder) ----
 set(QUAERO_ASSETS_C "${CMAKE_CURRENT_BINARY_DIR}/frontend_assets.c")
 quaero_generate_embedded_html("${QUAERO_ASSETS_C}" quaero_frontend_html)
 
@@ -13,9 +14,18 @@ quaero_generate_embedded_html("${QUAERO_ASSETS_C}" quaero_frontend_html)
 add_library(frontend_assets STATIC "${QUAERO_ASSETS_C}")
 target_include_directories(frontend_assets PUBLIC include)
 
-add_executable(quaero src/main.c)
-target_link_libraries(quaero PRIVATE dbcore frontend_assets)
-quaero_set_warnings(quaero)
+# --- webview ---------------------------------------------------------------
+FetchContent_Declare(
+  webview
+  GIT_REPOSITORY https://github.com/webview/webview
+  GIT_TAG 0.12.0)
+FetchContent_MakeAvailable(webview)
+
+# --- App executable --------------------------------------------------------
+add_executable(quaero src/main.cc)
+target_link_libraries(quaero PRIVATE dbcore frontend_assets cjson webview::core)
+# Note: strict warnings are intentionally not applied here — this target
+# includes the third-party C++ webview header.
 
 if(BUILD_TESTING)
   add_subdirectory(tests)

@@ -23,6 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The webview app shell needs GTK4 + WebKitGTK on Linux. macOS uses the
+      # system WebKit framework; Windows fetches WebView2 via the webview build.
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+
       # Provides a recent CMake + Ninja on all three platforms.
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest

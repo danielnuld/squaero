@@ -1,25 +1,37 @@
 import { createSignal } from "solid-js";
-import { buildRequest, nextId } from "./utils/ipc";
+import { call, hasBridge } from "./utils/transport";
 
-// Placeholder UI for M0. It demonstrates the build pipeline and the IPC request
-// helper. The real layout (sidebar, SQL editor, virtualized grid) is M2.
+// Placeholder UI for M0. It exercises the live IPC channel end-to-end: the
+// button sends `ping` to the C core through the webview bridge and shows the
+// response. The real layout (sidebar, SQL editor, grid) is M2.
 export function App() {
-  const [preview, setPreview] = createSignal("");
+  const [output, setOutput] = createSignal("");
+  const [busy, setBusy] = createSignal(false);
 
-  const buildPing = () => {
-    const request = buildRequest(nextId(), "ping", { message: "hola" });
-    setPreview(JSON.stringify(request, null, 2));
+  const sendPing = async () => {
+    setBusy(true);
+    try {
+      const response = await call("ping", { message: "hola" });
+      setOutput(JSON.stringify(response, null, 2));
+    } catch (err) {
+      setOutput(String(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <main style={{ "font-family": "system-ui, sans-serif", padding: "1.5rem" }}>
       <h1>Quaero</h1>
       <p>
-        Scaffold del frontend. El transporte IPC hacia el núcleo se conecta en el
-        issue #3.
+        {hasBridge()
+          ? "Conectado al núcleo (libdbcore)."
+          : "Modo navegador: el núcleo no está disponible fuera de la app."}
       </p>
-      <button onClick={buildPing}>Construir petición ping</button>
-      <pre>{preview()}</pre>
+      <button onClick={sendPing} disabled={busy()}>
+        Enviar ping al núcleo
+      </button>
+      <pre>{output()}</pre>
     </main>
   );
 }
