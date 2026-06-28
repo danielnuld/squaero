@@ -92,9 +92,9 @@ dbc_status dbcore_schema_tree(const dbcore_conn_ref *conn, const char *db,
     return finish(drv, handle, st, dr, max_rows, out, errbuf, errcap);
 }
 
-dbc_status dbcore_schema_describe(const dbcore_conn_ref *conn, const char *table,
-                                  int max_rows, dbcore_result **out,
-                                  char *errbuf, size_t errcap)
+dbc_status dbcore_schema_describe(const dbcore_conn_ref *conn, const char *schema,
+                                  const char *table, int max_rows,
+                                  dbcore_result **out, char *errbuf, size_t errcap)
 {
     dbc_status g = guard(conn, DBC_FEAT_INTROSPECTION, out, errbuf, errcap);
     if (g != DBC_OK) {
@@ -108,13 +108,13 @@ dbc_status dbcore_schema_describe(const dbcore_conn_ref *conn, const char *table
         return unsupported(errbuf, errcap);
     }
     dbc_result *dr = NULL;
-    dbc_status st = conn->driver->describe_table(conn->handle, table, &dr);
+    dbc_status st = conn->driver->describe_table(conn->handle, schema, table, &dr);
     return finish(conn->driver, conn->handle, st, dr, max_rows, out, errbuf, errcap);
 }
 
-dbc_status dbcore_schema_ddl(const dbcore_conn_ref *conn, const char *object,
-                             int max_rows, dbcore_result **out,
-                             char *errbuf, size_t errcap)
+dbc_status dbcore_schema_ddl(const dbcore_conn_ref *conn, const char *schema,
+                             const char *object, int max_rows,
+                             dbcore_result **out, char *errbuf, size_t errcap)
 {
     dbc_status g = guard(conn, DBC_FEAT_DDL, out, errbuf, errcap);
     if (g != DBC_OK) {
@@ -128,6 +128,6 @@ dbc_status dbcore_schema_ddl(const dbcore_conn_ref *conn, const char *object,
         return unsupported(errbuf, errcap);
     }
     dbc_result *dr = NULL;
-    dbc_status st = conn->driver->get_ddl(conn->handle, object, &dr);
+    dbc_status st = conn->driver->get_ddl(conn->handle, schema, object, &dr);
     return finish(conn->driver, conn->handle, st, dr, max_rows, out, errbuf, errcap);
 }

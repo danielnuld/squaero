@@ -7,6 +7,8 @@ import type { ResultSet } from "../utils/query";
 export function StructureView(props: {
   connId: string;
   table: string;
+  db?: string;
+  schema?: string;
   onClose: () => void;
 }) {
   const [columns, setColumns] = createSignal<ResultSet | null>(null);
@@ -18,8 +20,8 @@ export function StructureView(props: {
     void (async () => {
       try {
         const [cols, sql] = await Promise.all([
-          schemaDescribe(props.connId, props.table),
-          schemaDdl(props.connId, props.table),
+          schemaDescribe(props.connId, props.table, props.db, props.schema),
+          schemaDdl(props.connId, props.table, props.db, props.schema),
         ]);
         setColumns(cols);
         setDdl(sql);

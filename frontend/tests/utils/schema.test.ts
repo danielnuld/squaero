@@ -121,6 +121,17 @@ describe("schemaDescribe", () => {
     expect(sent.method).toBe("schema.describe");
     expect(sent.params).toEqual({ connId: "c1", table: "users" });
   });
+
+  it("forwards the db container when provided", async () => {
+    const rpc = vi.fn(async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string };
+      return { jsonrpc: "2.0", id: req.id, result: { columns: [], rows: [], truncated: false, rowsAffected: 0 } };
+    });
+    (globalThis as BridgeHost).quaeroRpc = rpc;
+    await schemaDescribe("c1", "users", "shop");
+    const sent = JSON.parse(rpc.mock.calls[0][0]) as { params: Record<string, unknown> };
+    expect(sent.params).toEqual({ connId: "c1", table: "users", db: "shop" });
+  });
 });
 
 describe("schemaDdl forwarding", () => {

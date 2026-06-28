@@ -71,7 +71,7 @@ export function App() {
   const [activeDefId, setActiveDefId] = createSignal<string | null>(null);
   const [connectingId, setConnectingId] = createSignal<string | null>(null);
   const [editing, setEditing] = createSignal<Connection | null>(null);
-  const [structureTable, setStructureTable] = createSignal<string | null>(null);
+  const [structureTarget, setStructureTarget] = createSignal<TreeNode | null>(null);
 
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
@@ -220,7 +220,7 @@ export function App() {
   // Open a table's structure (columns + DDL) in a modal.
   const openStructure = (node: TreeNode) => {
     if (active()) {
-      setStructureTable(node.label);
+      setStructureTarget(node);
     }
   };
 
@@ -340,11 +340,13 @@ export function App() {
         )}
       </Show>
 
-      <Show when={structureTable() && active()}>
+      <Show when={structureTarget() && active()}>
         <StructureView
           connId={active()!.connId}
-          table={structureTable()!}
-          onClose={() => setStructureTable(null)}
+          table={structureTarget()!.label}
+          db={structureTarget()!.db}
+          schema={structureTarget()!.schema}
+          onClose={() => setStructureTarget(null)}
         />
       </Show>
     </div>

@@ -56,9 +56,11 @@ long long    mysql_drv_rows_affected(dbc_result *r);
 /* --- metadata.c --- */
 dbc_status   mysql_drv_list_databases(dbc_conn *c, dbc_result **out);
 dbc_status   mysql_drv_list_tables(dbc_conn *c, const char *schema, dbc_result **out);
-dbc_status   mysql_drv_describe_table(dbc_conn *c, const char *table, dbc_result **out);
+dbc_status   mysql_drv_describe_table(dbc_conn *c, const char *schema,
+                                      const char *table, dbc_result **out);
 
 /* --- ddl.c --- */
-dbc_status   mysql_drv_get_ddl(dbc_conn *c, const char *object, dbc_result **out);
+dbc_status   mysql_drv_get_ddl(dbc_conn *c, const char *schema, const char *object,
+                               dbc_result **out);
 
 #endif /* QUAERO_MYSQL_INTERNAL_H */

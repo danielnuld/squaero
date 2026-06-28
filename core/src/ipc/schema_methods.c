@@ -105,8 +105,13 @@ cJSON *ipc_method_schema_describe(const cJSON *params, int *code,
         *message = "params.table (string) is required";
         return NULL;
     }
+    /* Optional container: a schema (engines with schemas) or a database. */
+    const char *schema = opt_string(params, "schema");
+    if (schema == NULL) {
+        schema = opt_string(params, "db");
+    }
     dbcore_result *res = NULL;
-    dbc_status st = dbcore_schema_describe(&ref, table, IPC_SCHEMA_LIMIT, &res,
+    dbc_status st = dbcore_schema_describe(&ref, schema, table, IPC_SCHEMA_LIMIT, &res,
                                            g_schema_error, sizeof g_schema_error);
     if (st != DBC_OK) {
         *code = ipc_status_to_code(st);
@@ -128,8 +133,12 @@ cJSON *ipc_method_schema_ddl(const cJSON *params, int *code, const char **messag
         *message = "params.object (string) is required";
         return NULL;
     }
+    const char *schema = opt_string(params, "schema");
+    if (schema == NULL) {
+        schema = opt_string(params, "db");
+    }
     dbcore_result *res = NULL;
-    dbc_status st = dbcore_schema_ddl(&ref, object, IPC_SCHEMA_LIMIT, &res,
+    dbc_status st = dbcore_schema_ddl(&ref, schema, object, IPC_SCHEMA_LIMIT, &res,
                                       g_schema_error, sizeof g_schema_error);
     if (st != DBC_OK) {
         *code = ipc_status_to_code(st);

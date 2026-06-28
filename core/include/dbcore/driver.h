@@ -32,7 +32,7 @@ extern "C" {
  * into dbc_driver_t.abi_version; the core refuses to load a driver whose value
  * does not match (see dbc_driver_validate).
  */
-#define DBC_ABI_VERSION 2
+#define DBC_ABI_VERSION 3
 
 /* Canonical name of the exported entry symbol, for the dynamic loader. */
 #define DBC_DRIVER_ENTRY_SYMBOL "dbc_driver_entry"
@@ -136,11 +136,17 @@ typedef struct {
     const char  *(*cell_text)(dbc_result *r, int col);  /* NULL = SQL NULL */
     long long    (*rows_affected)(dbc_result *r);
 
-    /* --- introspection (optional; DBC_FEAT_INTROSPECTION) --- */
+    /*
+     * --- introspection (optional; DBC_FEAT_INTROSPECTION) ---
+     * `schema` names the container the object lives in (a database/schema, per
+     * the engine). It mirrors list_tables' `schema` so describe_table/get_ddl
+     * can reach objects outside the connection's default database; NULL means
+     * the engine default. (Added the `schema` arg to describe_table in ABI 3.)
+     */
     dbc_status  (*list_databases)(dbc_conn *c, dbc_result **out);
     dbc_status  (*list_schemas)(dbc_conn *c, const char *db, dbc_result **out);
     dbc_status  (*list_tables)(dbc_conn *c, const char *schema, dbc_result **out);
-    dbc_status  (*describe_table)(dbc_conn *c, const char *table, dbc_result **out);
+    dbc_status  (*describe_table)(dbc_conn *c, const char *schema, const char *table, dbc_result **out);
 
     /* --- transactions (optional; DBC_FEAT_TRANSACTIONS) --- */
     dbc_status  (*begin)(dbc_conn *c);
@@ -152,12 +158,11 @@ typedef struct {
 
     /*
      * --- DDL generation (optional; DBC_FEAT_DDL) ---
-     * Added in ABI 2 (the layout change bumped DBC_ABI_VERSION, so the loader
-     * rejects any driver built against ABI 1). Returns the CREATE statement of
-     * `object` (table/view/...) as a one-column ("sql") result set, or
-     * DBC_ERR_UNSUPPORTED when not implemented.
+     * Added in ABI 2; gained the `schema` argument in ABI 3 (NULL = engine
+     * default). Returns the CREATE statement of `object` (table/view/...) as a
+     * one-column ("sql") result set, or DBC_ERR_UNSUPPORTED when not implemented.
      */
-    dbc_status  (*get_ddl)(dbc_conn *c, const char *object, dbc_result **out);
+    dbc_status  (*get_ddl)(dbc_conn *c, const char *schema, const char *object, dbc_result **out);
 } dbc_driver_t;
 
 /* Type of the exported entry point. Returns the driver's static vtable. */

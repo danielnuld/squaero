@@ -15,8 +15,8 @@
  * travel as bound parameters, never concatenated into SQL.
  */
 
-dbc_status sqlite_prepare_result(dbc_conn *c, const char *sql, const char *arg,
-                                 dbc_result **out)
+dbc_status sqlite_prepare_result(dbc_conn *c, const char *sql, const char *arg1,
+                                 const char *arg2, dbc_result **out)
 {
     *out = NULL;
 
@@ -32,12 +32,15 @@ dbc_status sqlite_prepare_result(dbc_conn *c, const char *sql, const char *arg,
         return DBC_ERR_QUERY;
     }
 
-    if (arg != NULL) {
-        rc = sqlite3_bind_text(r->stmt, 1, arg, -1, SQLITE_TRANSIENT);
-        if (rc != SQLITE_OK) {
-            sqlite3_finalize(r->stmt);
-            free(r);
-            return DBC_ERR_QUERY;
+    const char *args[] = { arg1, arg2 };
+    for (int i = 0; i < 2; i++) {
+        if (args[i] != NULL) {
+            rc = sqlite3_bind_text(r->stmt, i + 1, args[i], -1, SQLITE_TRANSIENT);
+            if (rc != SQLITE_OK) {
+                sqlite3_finalize(r->stmt);
+                free(r);
+                return DBC_ERR_QUERY;
+            }
         }
     }
 
@@ -49,7 +52,7 @@ dbc_status sqlite_prepare_result(dbc_conn *c, const char *sql, const char *arg,
 dbc_status sqlite_list_databases(dbc_conn *c, dbc_result **out)
 {
     return sqlite_prepare_result(
-        c, "SELECT name FROM pragma_database_list ORDER BY seq", NULL, out);
+        c, "SELECT name FROM pragma_database_list ORDER BY seq", NULL, NULL, out);
 }
 
 dbc_status sqlite_list_tables(dbc_conn *c, const char *schema, dbc_result **out)
@@ -72,16 +75,25 @@ dbc_status sqlite_list_tables(dbc_conn *c, const char *schema, dbc_result **out)
              "WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%%' "
              "ORDER BY type, name",
              qid);
-    return sqlite_prepare_result(c, sql, NULL, out);
+    return sqlite_prepare_result(c, sql, NULL, NULL, out);
 }
 
-dbc_status sqlite_describe_table(dbc_conn *c, const char *table, dbc_result **out)
+dbc_status sqlite_describe_table(dbc_conn *c, const char *schema, const char *table,
+                                 dbc_result **out)
 {
-    /* pragma_table_info(?1): one row per column with name, declared type,
-       NOT NULL flag, default expression and primary-key position. */
+    /* pragma_table_info(table[, schema]): one row per column with name, declared
+       type, NOT NULL flag, default expression and primary-key position. The
+       schema (attached-db name) is bound as the optional second argument. */
+    if (schema != NULL && schema[0] != '\0') {
+        return sqlite_prepare_result(
+            c,
+            "SELECT name, type, \"notnull\", dflt_value, pk "
+            "FROM pragma_table_info(?1, ?2)",
+            table, schema, out);
+    }
     return sqlite_prepare_result(
         c,
         "SELECT name, type, \"notnull\", dflt_value, pk "
         "FROM pragma_table_info(?1)",
-        table, out);
+        table, NULL, out);
 }

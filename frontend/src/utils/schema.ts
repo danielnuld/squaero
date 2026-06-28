@@ -56,20 +56,31 @@ export async function schemaTree(
   return parseQueryResult(await call("schema.tree", params));
 }
 
-/** schema.describe: a table's column structure. */
+/** schema.describe: a table's column structure. `db`/`schema` name the
+   container so non-default databases/schemas can be described. */
 export async function schemaDescribe(
   connId: string,
   table: string,
+  db?: string,
+  schema?: string,
 ): Promise<ResultSet> {
-  return parseQueryResult(await call("schema.describe", { connId, table }));
+  const params: Record<string, unknown> = { connId, table };
+  if (db !== undefined) params.db = db;
+  if (schema !== undefined) params.schema = schema;
+  return parseQueryResult(await call("schema.describe", params));
 }
 
 /** schema.ddl: the CREATE statement of an object (one-column "sql" result). */
 export async function schemaDdl(
   connId: string,
   object: string,
+  db?: string,
+  schema?: string,
 ): Promise<string> {
-  const res = parseQueryResult(await call("schema.ddl", { connId, object }));
+  const params: Record<string, unknown> = { connId, object };
+  if (db !== undefined) params.db = db;
+  if (schema !== undefined) params.schema = schema;
+  const res = parseQueryResult(await call("schema.ddl", params));
   // One column ("sql"), one row; empty when the object is unknown.
   if (res.rows.length === 0) {
     return "";

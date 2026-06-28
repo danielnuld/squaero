@@ -41,15 +41,17 @@ dbc_status dbcore_schema_tree(const dbcore_conn_ref *conn, const char *db,
                               const char *schema, int max_rows,
                               dbcore_result **out, char *errbuf, size_t errcap);
 
-/* Describe one table's structure (columns/types/nullability/default/key). */
-dbc_status dbcore_schema_describe(const dbcore_conn_ref *conn, const char *table,
-                                  int max_rows, dbcore_result **out,
-                                  char *errbuf, size_t errcap);
+/* Describe one table's structure (columns/types/nullability/default/key).
+   `schema` is the containing database/schema, or NULL for the engine default. */
+dbc_status dbcore_schema_describe(const dbcore_conn_ref *conn, const char *schema,
+                                  const char *table, int max_rows,
+                                  dbcore_result **out, char *errbuf, size_t errcap);
 
-/* The CREATE statement of `object` as a one-column ("sql") result set. */
-dbc_status dbcore_schema_ddl(const dbcore_conn_ref *conn, const char *object,
-                             int max_rows, dbcore_result **out,
-                             char *errbuf, size_t errcap);
+/* The CREATE statement of `object` as a one-column ("sql") result set.
+   `schema` is the containing database/schema, or NULL for the engine default. */
+dbc_status dbcore_schema_ddl(const dbcore_conn_ref *conn, const char *schema,
+                             const char *object, int max_rows,
+                             dbcore_result **out, char *errbuf, size_t errcap);
 
 #ifdef __cplusplus
 }

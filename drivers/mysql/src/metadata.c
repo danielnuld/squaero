@@ -84,24 +84,51 @@ dbc_status mysql_drv_list_tables(dbc_conn *c, const char *schema, dbc_result **o
     return st;
 }
 
-dbc_status mysql_drv_describe_table(dbc_conn *c, const char *table, dbc_result **out)
+dbc_status mysql_drv_describe_table(dbc_conn *c, const char *schema,
+                                    const char *table, dbc_result **out)
 {
-    char *literal = escape_quoted(c->db, table);
-    if (literal == NULL) {
+    char *table_lit = escape_quoted(c->db, table);
+    if (table_lit == NULL) {
         return DBC_ERR_NOMEM;
     }
-    char *sql = build_sql(
-        "SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, "
-        "IF(IS_NULLABLE='NO',1,0) AS `notnull`, COLUMN_DEFAULT AS dflt_value, "
-        "IF(COLUMN_KEY='PRI',1,0) AS pk "
-        "FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ",
-        literal,
-        " ORDER BY ORDINAL_POSITION");
-    free(literal);
+
+    /* Restrict to the given database (a MySQL "schema"), or DATABASE() when
+       none was supplied. */
+    char *schema_expr = NULL;  /* owned only when a literal is built */
+    const char *schema_clause = "DATABASE()";
+    if (schema != NULL && schema[0] != '\0') {
+        schema_expr = escape_quoted(c->db, schema);
+        if (schema_expr == NULL) {
+            free(table_lit);
+            return DBC_ERR_NOMEM;
+        }
+        schema_clause = schema_expr;
+    }
+
+    /* "SELECT ... WHERE TABLE_SCHEMA = <schema_clause> AND TABLE_NAME = <table_lit> ..." */
+    size_t n = strlen(
+                   "SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, "
+                   "IF(IS_NULLABLE='NO',1,0) AS `notnull`, COLUMN_DEFAULT AS dflt_value, "
+                   "IF(COLUMN_KEY='PRI',1,0) AS pk "
+                   "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = "
+                   " AND TABLE_NAME =  ORDER BY ORDINAL_POSITION") +
+               strlen(schema_clause) + strlen(table_lit) + 1;
+    char *sql = malloc(n);
     if (sql == NULL) {
+        free(table_lit);
+        free(schema_expr);
         return DBC_ERR_NOMEM;
     }
+    snprintf(sql, n,
+             "SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, "
+             "IF(IS_NULLABLE='NO',1,0) AS `notnull`, COLUMN_DEFAULT AS dflt_value, "
+             "IF(COLUMN_KEY='PRI',1,0) AS pk "
+             "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = %s"
+             " AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION",
+             schema_clause, table_lit);
+    free(table_lit);
+    free(schema_expr);
+
     dbc_status st = mysql_drv_run_stored(c, sql, out);
     free(sql);
     return st;

@@ -139,6 +139,20 @@ int main(void)
         cJSON_Delete(root);
     }
 
+    /* schema.describe with an explicit db (cross-database path, ABI 3): the
+       table is named via its containing database rather than the default. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"schema.describe\","
+             "\"params\":{\"connId\":\"%s\",\"db\":\"quaero_test\",\"table\":\"quaero_it\"}}",
+             conn_id);
+    {
+        cJSON *root = call(req);
+        cJSON *res = result_of(root);
+        EXPECT(res != NULL && cJSON_GetArraySize(cJSON_GetObjectItem(res, "rows")) == 2,
+               "describe with db: two columns described");
+        cJSON_Delete(root);
+    }
+
     /* schema.ddl: a CREATE statement in a single "sql" column. */
     snprintf(req, sizeof req,
              "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"schema.ddl\","

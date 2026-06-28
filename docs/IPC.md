@@ -142,10 +142,13 @@ tablas traen `name` y `type` (`"table"`/`"view"`). El driver sin
 
 **`schema.describe`** — estructura de una tabla: una fila por columna. Para
 SQLite las columnas son `name`, `type` (tipo declarado por el motor), `notnull`,
-`dflt_value` y `pk`. `params: { connId, table }`.
+`dflt_value` y `pk`. `params: { connId, table, db?, schema? }`. El contenedor
+opcional (`schema`, o `db` si no hay esquemas) permite describir tablas fuera de
+la base por defecto.
 
 **`schema.ddl`** — sentencia `CREATE` de un objeto, como result set de una
-columna `sql`. `params: { connId, object }`. Requiere `DBC_FEAT_DDL`.
+columna `sql`. `params: { connId, object, db?, schema? }`. Requiere
+`DBC_FEAT_DDL`.
 
 Las tres comparten la forma de result set de `query.run` y los mismos códigos de
 error de dominio (`-32001` no soportado, `-32002` conexión desconocida, etc.).

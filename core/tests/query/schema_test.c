@@ -20,6 +20,7 @@ static int failures = 0;
 /* Records which introspection method ran and with what parent. */
 static const char *g_last_call = NULL;
 static const char *g_last_parent = NULL;
+static const char *g_last_schema = NULL;
 static dbc_result  g_canned;     /* single column "name", one row "x" */
 
 static dbc_result *fresh(void) { g_canned.cursor = -1; return &g_canned; }
@@ -45,10 +46,10 @@ static dbc_status d_list_schemas(dbc_conn *c, const char *db, dbc_result **o)
 { (void)c; g_last_call = "list_schemas"; g_last_parent = db; *o = fresh(); return DBC_OK; }
 static dbc_status d_list_tables(dbc_conn *c, const char *s, dbc_result **o)
 { (void)c; g_last_call = "list_tables"; g_last_parent = s; *o = fresh(); return DBC_OK; }
-static dbc_status d_describe(dbc_conn *c, const char *t, dbc_result **o)
-{ (void)c; g_last_call = "describe"; g_last_parent = t; *o = fresh(); return DBC_OK; }
-static dbc_status d_get_ddl(dbc_conn *c, const char *ob, dbc_result **o)
-{ (void)c; g_last_call = "get_ddl"; g_last_parent = ob; *o = fresh(); return DBC_OK; }
+static dbc_status d_describe(dbc_conn *c, const char *schema, const char *t, dbc_result **o)
+{ (void)c; g_last_call = "describe"; g_last_schema = schema; g_last_parent = t; *o = fresh(); return DBC_OK; }
+static dbc_status d_get_ddl(dbc_conn *c, const char *schema, const char *ob, dbc_result **o)
+{ (void)c; g_last_call = "get_ddl"; g_last_schema = schema; g_last_parent = ob; *o = fresh(); return DBC_OK; }
 
 /* Build a driver with all introspection + ddl members and the given features. */
 static dbc_driver_t full_driver(unsigned int features)
@@ -102,12 +103,15 @@ int main(void)
         EXPECT(g_last_parent && strcmp(g_last_parent, "s1") == 0, "tables parent is schema");
         dbcore_result_free(res); res = NULL;
 
-        EXPECT(dbcore_schema_describe(&ref, "t", 0, &res, err, sizeof err) == DBC_OK, "describe ok");
+        EXPECT(dbcore_schema_describe(&ref, "mydb", "t", 0, &res, err, sizeof err) == DBC_OK, "describe ok");
         EXPECT(g_last_call && strcmp(g_last_call, "describe") == 0, "routed to describe");
+        EXPECT(g_last_schema && strcmp(g_last_schema, "mydb") == 0, "describe schema passed");
+        EXPECT(g_last_parent && strcmp(g_last_parent, "t") == 0, "describe table passed");
         dbcore_result_free(res); res = NULL;
 
-        EXPECT(dbcore_schema_ddl(&ref, "obj", 0, &res, err, sizeof err) == DBC_OK, "ddl ok");
+        EXPECT(dbcore_schema_ddl(&ref, "mydb", "obj", 0, &res, err, sizeof err) == DBC_OK, "ddl ok");
         EXPECT(g_last_call && strcmp(g_last_call, "get_ddl") == 0, "routed to get_ddl");
+        EXPECT(g_last_schema && strcmp(g_last_schema, "mydb") == 0, "ddl schema passed");
         dbcore_result_free(res); res = NULL;
     }
 
@@ -134,9 +138,9 @@ int main(void)
         EXPECT(dbcore_schema_tree(&ref, NULL, NULL, 0, &res, err, sizeof err)
                == DBC_ERR_UNSUPPORTED, "no introspection flag -> unsupported");
         EXPECT(res == NULL, "no result on unsupported");
-        EXPECT(dbcore_schema_describe(&ref, "t", 0, &res, err, sizeof err) == DBC_ERR_UNSUPPORTED,
+        EXPECT(dbcore_schema_describe(&ref, NULL, "t", 0, &res, err, sizeof err) == DBC_ERR_UNSUPPORTED,
                "describe unsupported without flag");
-        EXPECT(dbcore_schema_ddl(&ref, "o", 0, &res, err, sizeof err) == DBC_ERR_UNSUPPORTED,
+        EXPECT(dbcore_schema_ddl(&ref, NULL, "o", 0, &res, err, sizeof err) == DBC_ERR_UNSUPPORTED,
                "ddl unsupported without flag");
     }
 
@@ -156,9 +160,9 @@ int main(void)
         dbc_driver_t drv = full_driver(DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL);
         dbcore_conn_ref ref = { &drv, &conn };
         dbcore_result *res = NULL;
-        EXPECT(dbcore_schema_describe(&ref, NULL, 0, &res, err, sizeof err) == DBC_ERR_PARAM,
+        EXPECT(dbcore_schema_describe(&ref, NULL, NULL, 0, &res, err, sizeof err) == DBC_ERR_PARAM,
                "NULL table -> param");
-        EXPECT(dbcore_schema_ddl(&ref, NULL, 0, &res, err, sizeof err) == DBC_ERR_PARAM,
+        EXPECT(dbcore_schema_ddl(&ref, NULL, NULL, 0, &res, err, sizeof err) == DBC_ERR_PARAM,
                "NULL object -> param");
         EXPECT(dbcore_schema_tree(NULL, NULL, NULL, 0, &res, err, sizeof err)
                == DBC_ERR_PARAM, "NULL conn -> param");

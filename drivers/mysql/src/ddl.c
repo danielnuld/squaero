@@ -11,17 +11,28 @@
  * contract (a one-column "sql" result), the driver runs SHOW CREATE, reads that
  * column and returns a synthetic single-column result.
  */
-dbc_status mysql_drv_get_ddl(dbc_conn *c, const char *object, dbc_result **out)
+dbc_status mysql_drv_get_ddl(dbc_conn *c, const char *schema, const char *object,
+                             dbc_result **out)
 {
     *out = NULL;
 
-    char qid[256];
-    if (!mysql_quote_identifier(object, qid, sizeof qid)) {
+    char qobj[256];
+    if (!mysql_quote_identifier(object, qobj, sizeof qobj)) {
         return DBC_ERR_PARAM;
     }
 
-    char sql[320];
-    int n = snprintf(sql, sizeof sql, "SHOW CREATE TABLE %s", qid);
+    /* Qualify with the database when given: SHOW CREATE TABLE `db`.`obj`. */
+    char sql[640];
+    int n;
+    if (schema != NULL && schema[0] != '\0') {
+        char qschema[256];
+        if (!mysql_quote_identifier(schema, qschema, sizeof qschema)) {
+            return DBC_ERR_PARAM;
+        }
+        n = snprintf(sql, sizeof sql, "SHOW CREATE TABLE %s.%s", qschema, qobj);
+    } else {
+        n = snprintf(sql, sizeof sql, "SHOW CREATE TABLE %s", qobj);
+    }
     if (n < 0 || (size_t)n >= sizeof sql) {
         return DBC_ERR_PARAM;
     }

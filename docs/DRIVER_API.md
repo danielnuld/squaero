@@ -7,7 +7,7 @@ Un driver es una biblioteca compartida (`.dll`/`.so`/`.dylib`) que exporta una f
 > documento describe el mismo contrato en prosa y **debe mantenerse
 > sincronizado** con el header. Ante cualquier discrepancia, el header manda.
 
-ABI actual: **`DBC_ABI_VERSION = 2`**.
+ABI actual: **`DBC_ABI_VERSION = 3`**.
 
 ## Punto de entrada
 
@@ -27,7 +27,7 @@ y vive mientras la biblioteca esté cargada.
 ## Versionado de ABI
 
 ```c
-#define DBC_ABI_VERSION 2
+#define DBC_ABI_VERSION 3
 ```
 
 El driver graba en `dbc_driver_t.abi_version` el valor contra el que se compiló.
@@ -136,7 +136,7 @@ typedef struct {
     dbc_status  (*list_databases)(dbc_conn *c, dbc_result **out);
     dbc_status  (*list_schemas)(dbc_conn *c, const char *db, dbc_result **out);
     dbc_status  (*list_tables)(dbc_conn *c, const char *schema, dbc_result **out);
-    dbc_status  (*describe_table)(dbc_conn *c, const char *table, dbc_result **out);
+    dbc_status  (*describe_table)(dbc_conn *c, const char *schema, const char *table, dbc_result **out);
 
     /* --- transacciones (opcional; DBC_FEAT_TRANSACTIONS) --- */
     dbc_status  (*begin)(dbc_conn *c);
@@ -147,10 +147,10 @@ typedef struct {
     unsigned int features;   /* OR de DBC_FEAT_* */
 
     /* --- generación de DDL (opcional; DBC_FEAT_DDL) ---
-       Añadido en ABI 2 (el cambio de layout subió DBC_ABI_VERSION). Devuelve el
+       Añadido en ABI 2; ganó el argumento `schema` en ABI 3. Devuelve el
        CREATE de `object` como result set de una columna ("sql"), o
        DBC_ERR_UNSUPPORTED si no se implementa. */
-    dbc_status  (*get_ddl)(dbc_conn *c, const char *object, dbc_result **out);
+    dbc_status  (*get_ddl)(dbc_conn *c, const char *schema, const char *object, dbc_result **out);
 } dbc_driver_t;
 ```
 

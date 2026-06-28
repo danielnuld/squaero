@@ -88,7 +88,7 @@ int main(void)
 
     /* describe_table: one row per column with name/type/notnull/default/pk. */
     {
-        EXPECT(drv->describe_table(c, "users", &r) == DBC_OK, "describe ok");
+        EXPECT(drv->describe_table(c, NULL, "users", &r) == DBC_OK, "describe ok");
         EXPECT(drv->col_count(r) == 5, "5 describe columns");
         int rows = 0, pk_seen = 0, notnull_seen = 0;
         while (drv->next_row(r) == 1) {
@@ -112,7 +112,7 @@ int main(void)
 
     /* get_ddl: the stored CREATE statement of the table. */
     {
-        EXPECT(drv->get_ddl(c, "users", &r) == DBC_OK, "get_ddl ok");
+        EXPECT(drv->get_ddl(c, NULL, "users", &r) == DBC_OK, "get_ddl ok");
         EXPECT(drv->next_row(r) == 1, "ddl row present");
         const char *sql = drv->cell_text(r, 0);
         EXPECT(sql != NULL && strstr(sql, "CREATE TABLE") != NULL, "ddl is a CREATE");
@@ -123,7 +123,7 @@ int main(void)
 
     /* get_ddl for an unknown object: success with no rows (honest empty). */
     {
-        EXPECT(drv->get_ddl(c, "nope", &r) == DBC_OK, "get_ddl unknown ok");
+        EXPECT(drv->get_ddl(c, NULL, "nope", &r) == DBC_OK, "get_ddl unknown ok");
         EXPECT(drv->next_row(r) == 0, "no rows for unknown object");
         drv->free_result(r);
         r = NULL;
