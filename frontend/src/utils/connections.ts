@@ -8,7 +8,12 @@
 // only adds a schema entry. The dsn object built here is what conn.open expects
 // (see docs/IPC.md).
 
-export type FieldType = "text" | "number" | "password" | "file";
+export type FieldType = "text" | "number" | "password" | "file" | "select";
+
+export interface FieldOption {
+  value: string;
+  label: string;
+}
 
 export interface DriverField {
   key: string;
@@ -16,6 +21,11 @@ export interface DriverField {
   type: FieldType;
   required: boolean;
   placeholder?: string;
+  /** Choices for a `select` field. */
+  options?: FieldOption[];
+  /** Optional grouping label; consecutive fields sharing a group render under
+      one subheading in the form (used for the optional SSH-tunnel section). */
+  group?: string;
 }
 
 export interface DriverSchema {
@@ -33,9 +43,47 @@ export interface Connection {
   params: Record<string, string>;
 }
 
+// Optional SSH-tunnel fields, engine-agnostic. The core reads these ssh_* keys
+// from the DSN and, when ssh_host is set, opens a local port-forward before the
+// driver connects (see docs/IPC.md). Every field is optional: leaving ssh_host
+// blank means a direct connection. Append them to any network driver's schema
+// with withSshTunnel(); the secret fields (type "password") are stripped from
+// storage automatically, like any other secret.
+export const SSH_GROUP = "Túnel SSH (opcional)";
+
+export const SSH_TUNNEL_FIELDS: DriverField[] = [
+  { key: "ssh_host", label: "Host SSH", type: "text", required: false, placeholder: "bastion.example.com", group: SSH_GROUP },
+  { key: "ssh_port", label: "Puerto SSH", type: "number", required: false, placeholder: "22", group: SSH_GROUP },
+  { key: "ssh_user", label: "Usuario SSH", type: "text", required: false, group: SSH_GROUP },
+  {
+    key: "ssh_auth",
+    label: "Autenticación SSH",
+    type: "select",
+    required: false,
+    options: [
+      { value: "", label: "— (predeterminado: agente)" },
+      { value: "agent", label: "Agente SSH" },
+      { value: "password", label: "Contraseña" },
+      { value: "key", label: "Clave privada" },
+    ],
+    group: SSH_GROUP,
+  },
+  { key: "ssh_password", label: "Contraseña SSH", type: "password", required: false, group: SSH_GROUP },
+  { key: "ssh_key", label: "Clave privada SSH", type: "file", required: false, placeholder: "~/.ssh/id_ed25519", group: SSH_GROUP },
+  { key: "ssh_key_passphrase", label: "Passphrase de la clave", type: "password", required: false, group: SSH_GROUP },
+  { key: "ssh_target_host", label: "Host destino (avanzado)", type: "text", required: false, group: SSH_GROUP },
+  { key: "ssh_target_port", label: "Puerto destino (avanzado)", type: "number", required: false, group: SSH_GROUP },
+];
+
+/** Appends the engine-agnostic SSH-tunnel fields to a driver's base fields. */
+export function withSshTunnel(base: DriverField[]): DriverField[] {
+  return [...base, ...SSH_TUNNEL_FIELDS];
+}
+
 // Driver form schemas. SQLite is the reference engine shipped in M2; the
 // PostgreSQL schema is defined for the data-driven form and lands as a usable
-// option when its driver is built (M4).
+// option when its driver is built (M4). Network engines carry the optional
+// SSH-tunnel field group; SQLite (a local file engine) does not.
 export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
   sqlite: {
     driver: "sqlite",
@@ -53,13 +101,13 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
   postgres: {
     driver: "postgres",
     label: "PostgreSQL",
-    fields: [
+    fields: withSshTunnel([
       { key: "host", label: "Host", type: "text", required: true, placeholder: "localhost" },
       { key: "port", label: "Puerto", type: "number", required: false, placeholder: "5432" },
       { key: "database", label: "Base de datos", type: "text", required: true },
       { key: "user", label: "Usuario", type: "text", required: true },
       { key: "password", label: "Contraseña", type: "password", required: false },
-    ],
+    ]),
   },
 };
 

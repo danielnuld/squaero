@@ -92,19 +92,38 @@ export function ConnectionForm(props: {
         <Show when={schema()}>
           {(s) => (
             <For each={s().fields}>
-              {(field) => (
-                <label class="field">
-                  <span>
-                    {field.label}
-                    {field.required ? " *" : ""}
-                  </span>
-                  <input
-                    type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
-                    value={draft.params[field.key] ?? ""}
-                    placeholder={field.placeholder ?? ""}
-                    onInput={(e) => setDraft("params", field.key, e.currentTarget.value)}
-                  />
-                </label>
+              {(field, i) => (
+                <>
+                  <Show when={field.group && field.group !== s().fields[i() - 1]?.group}>
+                    <h3 class="field-group">{field.group}</h3>
+                  </Show>
+                  <label class="field">
+                    <span>
+                      {field.label}
+                      {field.required ? " *" : ""}
+                    </span>
+                    <Show
+                      when={field.type === "select"}
+                      fallback={
+                        <input
+                          type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
+                          value={draft.params[field.key] ?? ""}
+                          placeholder={field.placeholder ?? ""}
+                          onInput={(e) => setDraft("params", field.key, e.currentTarget.value)}
+                        />
+                      }
+                    >
+                      <select
+                        value={draft.params[field.key] ?? ""}
+                        onChange={(e) => setDraft("params", field.key, e.currentTarget.value)}
+                      >
+                        <For each={field.options ?? []}>
+                          {(opt) => <option value={opt.value}>{opt.label}</option>}
+                        </For>
+                      </select>
+                    </Show>
+                  </label>
+                </>
               )}
             </For>
           )}

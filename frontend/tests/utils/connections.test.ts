@@ -10,8 +10,12 @@ import {
   removeConnection,
   serializeConnections,
   parseConnections,
+  withSshTunnel,
+  SSH_TUNNEL_FIELDS,
+  SSH_GROUP,
   DRIVER_SCHEMAS,
   type Connection,
+  type DriverField,
 } from "../../src/utils/connections";
 
 const sqliteConn = (over: Partial<Connection> = {}): Connection => ({
@@ -43,8 +47,12 @@ describe("secretFieldKeys", () => {
   it("is empty for sqlite", () => {
     expect(secretFieldKeys(DRIVER_SCHEMAS.sqlite)).toEqual([]);
   });
-  it("finds the password field for postgres", () => {
-    expect(secretFieldKeys(DRIVER_SCHEMAS.postgres)).toEqual(["password"]);
+  it("finds every password field for postgres, including SSH secrets", () => {
+    expect(secretFieldKeys(DRIVER_SCHEMAS.postgres)).toEqual([
+      "password",
+      "ssh_password",
+      "ssh_key_passphrase",
+    ]);
   });
 });
 
@@ -143,5 +151,90 @@ describe("serialize / parse round-trip", () => {
   it("drops malformed entries", () => {
     const raw = JSON.stringify([{ id: "conn-1" }, sqliteConn()]);
     expect(parseConnections(raw)).toEqual([sqliteConn()]);
+  });
+});
+
+describe("SSH tunnel fields", () => {
+  it("are all optional (no required SSH field forces an error)", () => {
+    expect(SSH_TUNNEL_FIELDS.every((f) => !f.required)).toBe(true);
+  });
+
+  it("are appended after the base fields by withSshTunnel", () => {
+    const base: DriverField[] = [
+      { key: "host", label: "Host", type: "text", required: true },
+    ];
+    const merged = withSshTunnel(base);
+    expect(merged[0].key).toBe("host");
+    expect(merged.slice(1)).toEqual(SSH_TUNNEL_FIELDS);
+    // pure: the base array is not mutated
+    expect(base).toHaveLength(1);
+  });
+
+  it("share the SSH group so the form renders one subheading", () => {
+    expect(SSH_TUNNEL_FIELDS.every((f) => f.group === SSH_GROUP)).toBe(true);
+  });
+
+  it("model ssh_auth as a select with the three methods plus a blank default", () => {
+    const auth = SSH_TUNNEL_FIELDS.find((f) => f.key === "ssh_auth");
+    expect(auth?.type).toBe("select");
+    expect(auth?.options?.map((o) => o.value)).toEqual(["", "agent", "password", "key"]);
+  });
+
+  it("are part of the postgres schema (a network engine)", () => {
+    const keys = DRIVER_SCHEMAS.postgres.fields.map((f) => f.key);
+    expect(keys).toContain("ssh_host");
+    expect(keys).toContain("ssh_user");
+  });
+
+  it("are NOT part of sqlite (a local file engine)", () => {
+    const keys = DRIVER_SCHEMAS.sqlite.fields.map((f) => f.key);
+    expect(keys.some((k) => k.startsWith("ssh_"))).toBe(false);
+  });
+
+  it("ssh_password and ssh_key_passphrase are treated as secrets (never persisted)", () => {
+    const conn: Connection = {
+      id: "conn-9",
+      name: "Tunnelled",
+      driver: "postgres",
+      params: {
+        host: "10.0.0.5",
+        database: "app",
+        user: "me",
+        password: "dbpw",
+        ssh_host: "bastion",
+        ssh_user: "deploy",
+        ssh_auth: "password",
+        ssh_password: "sshpw",
+        ssh_key_passphrase: "phrase",
+      },
+    };
+    const stripped = stripSecrets(conn, DRIVER_SCHEMAS.postgres);
+    expect("ssh_password" in stripped.params).toBe(false);
+    expect("ssh_key_passphrase" in stripped.params).toBe(false);
+    expect(stripped.params.ssh_host).toBe("bastion");
+    const raw = serializeConnections([conn]);
+    expect(raw).not.toContain("sshpw");
+    expect(raw).not.toContain("phrase");
+  });
+
+  it("buildDsn emits ssh_* keys only when filled in", () => {
+    const direct = buildDsn({
+      id: "c",
+      name: "n",
+      driver: "postgres",
+      params: { host: "h", database: "d", user: "u" },
+    });
+    expect(Object.keys(direct).some((k) => k.startsWith("ssh_"))).toBe(false);
+
+    const tunnelled = buildDsn({
+      id: "c",
+      name: "n",
+      driver: "postgres",
+      params: { host: "h", database: "d", user: "u", ssh_host: "bastion", ssh_user: "deploy", ssh_auth: "" },
+    });
+    expect(tunnelled.ssh_host).toBe("bastion");
+    expect(tunnelled.ssh_user).toBe("deploy");
+    // a blank select value is omitted, so the core applies its default (agent)
+    expect("ssh_auth" in tunnelled).toBe(false);
   });
 });
