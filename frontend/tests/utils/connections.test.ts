@@ -16,6 +16,7 @@ import {
   MYSQL_SSL_FIELDS,
   SSL_GROUP,
   DRIVER_SCHEMAS,
+  AVAILABLE_DRIVERS,
   type Connection,
   type DriverField,
 } from "../../src/utils/connections";
@@ -286,5 +287,62 @@ describe("MySQL SSL fields", () => {
     });
     expect(tls.ssl_mode).toBe("required");
     expect(tls.ssl_ca).toBe("/etc/ca.pem");
+  });
+});
+
+describe("Informix schema", () => {
+  it("carries the direct-connection fields plus the SSH-tunnel group", () => {
+    const keys = DRIVER_SCHEMAS.informix.fields.map((f) => f.key);
+    expect(keys).toContain("host");
+    expect(keys).toContain("port");
+    expect(keys).toContain("server");
+    expect(keys).toContain("database");
+    expect(keys).toContain("user");
+    expect(keys).toContain("password");
+    expect(keys).toContain("ssh_host");
+    expect(DRIVER_SCHEMAS.informix.driver).toBe("informix");
+  });
+
+  it("requires host, port (service) and server", () => {
+    const errors = validateConnection({
+      id: "c", name: "ifx", driver: "informix", params: {},
+    });
+    expect(errors).toContain('El campo "Host" es obligatorio.');
+    expect(errors).toContain('El campo "Puerto / servicio" es obligatorio.');
+    expect(errors).toContain('El campo "Servidor (INFORMIXSERVER)" es obligatorio.');
+  });
+
+  it("models port/service as free text so a services name is allowed", () => {
+    const port = DRIVER_SCHEMAS.informix.fields.find((f) => f.key === "port");
+    expect(port?.type).toBe("text");
+  });
+
+  it("buildDsn passes the direct-connection fields through, omitting blanks", () => {
+    const dsn = buildDsn({
+      id: "c", name: "ifx", driver: "informix",
+      params: { host: "10.0.0.5", port: "1526", server: "ol_inf", user: "informix" },
+    });
+    expect(dsn).toEqual({
+      host: "10.0.0.5", port: "1526", server: "ol_inf", user: "informix",
+    });
+    expect("database" in dsn).toBe(false);
+    expect("password" in dsn).toBe(false);
+  });
+
+  it("treats the password as a secret stripped from storage", () => {
+    expect(secretFieldKeys(DRIVER_SCHEMAS.informix)).toContain("password");
+  });
+});
+
+describe("AVAILABLE_DRIVERS", () => {
+  it("offers sqlite, mysql and informix, each with a schema", () => {
+    expect(AVAILABLE_DRIVERS).toEqual(["sqlite", "mysql", "informix"]);
+    for (const d of AVAILABLE_DRIVERS) {
+      expect(driverSchema(d)).toBeDefined();
+    }
+  });
+
+  it("defaults to sqlite (the first offered driver)", () => {
+    expect(AVAILABLE_DRIVERS[0]).toBe("sqlite");
   });
 });

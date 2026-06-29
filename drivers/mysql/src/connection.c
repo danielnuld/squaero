@@ -170,10 +170,18 @@ dbc_status mysql_drv_connect(const char *dsn_json, dbc_conn **out)
     char *database = dup_string(root, "database", &oom);
     char *socket = dup_string(root, "socket", &oom);
 
+    /* The frontend sends DSN values as strings, so accept a numeric-string port
+       as well as a JSON number (matching the core's ssh_config int_field). */
     unsigned int port = 0;
     const cJSON *port_item = cJSON_GetObjectItemCaseSensitive(root, "port");
     if (cJSON_IsNumber(port_item) && port_item->valueint > 0) {
         port = (unsigned int)port_item->valueint;
+    } else if (cJSON_IsString(port_item) && port_item->valuestring != NULL) {
+        char *end = NULL;
+        long v = strtol(port_item->valuestring, &end, 10);
+        if (end != port_item->valuestring && *end == '\0' && v > 0 && v <= 65535) {
+            port = (unsigned int)v;
+        }
     }
 
     /* TLS options must be set on the handle before mysql_real_connect. */

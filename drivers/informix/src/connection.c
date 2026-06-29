@@ -114,12 +114,18 @@ dbc_status ifx_connect(const char *dsn_json, dbc_conn **out)
         return DBC_ERR_PARAM;
     }
 
-    /* A numeric "port" is accepted as an alternative to a "service" string. */
+    /* "port" is accepted as an alternative to a "service" string. The frontend
+       sends DSN values as strings, so a string port (a number or an
+       /etc/services name) is used as the service directly; a JSON number is
+       also accepted. */
     char port_buf[16];
     const char *service = str_field(root, "service");
     if (service == NULL) {
         const cJSON *port_item = cJSON_GetObjectItemCaseSensitive(root, "port");
-        if (cJSON_IsNumber(port_item) && port_item->valueint > 0) {
+        if (cJSON_IsString(port_item) && port_item->valuestring != NULL &&
+            port_item->valuestring[0] != '\0') {
+            service = port_item->valuestring;
+        } else if (cJSON_IsNumber(port_item) && port_item->valueint > 0) {
             snprintf(port_buf, sizeof port_buf, "%d", port_item->valueint);
             service = port_buf;
         }

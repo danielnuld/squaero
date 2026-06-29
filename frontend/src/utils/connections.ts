@@ -148,11 +148,30 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       ...MYSQL_SSL_FIELDS,
     ]),
   },
+  // Informix connects via the ODBC Driver Manager. `port` is a TCP port number
+  // OR an /etc/services name, so it is a free-text field; `server` is the
+  // INFORMIXSERVER name. The driver maps these to the ODBC connection string
+  // (see docs/IPC.md). The CSDK is 32-bit, so this engine is usable in the x86
+  // build of the app.
+  informix: {
+    driver: "informix",
+    label: "IBM Informix",
+    fields: withSshTunnel([
+      { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
+      { key: "port", label: "Puerto / servicio", type: "text", required: true, placeholder: "1526" },
+      { key: "server", label: "Servidor (INFORMIXSERVER)", type: "text", required: true, placeholder: "ol_informix1210" },
+      { key: "database", label: "Base de datos", type: "text", required: false },
+      { key: "user", label: "Usuario", type: "text", required: true, placeholder: "informix" },
+      { key: "password", label: "Contraseña", type: "password", required: false },
+    ]),
+  },
 };
 
 // Drivers the UI offers. Only engines whose driver actually ships are listed,
 // so the UI never advertises a connection it cannot honor (honest capabilities).
-export const AVAILABLE_DRIVERS: string[] = ["sqlite"];
+// sqlite ships everywhere; mysql and informix ship where their client libraries
+// are present (mysql via MariaDB Connector/C, informix via the ODBC driver).
+export const AVAILABLE_DRIVERS: string[] = ["sqlite", "mysql", "informix"];
 
 /** Schema for a driver name, or undefined when unknown. */
 export function driverSchema(driver: string): DriverSchema | undefined {
