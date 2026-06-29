@@ -121,6 +121,25 @@ Se cablean con `mysql_ssl_set` + `MYSQL_OPT_SSL_MODE` antes de conectar. Un
 `ssl_mode` no reconocido devuelve error de parámetro. A diferencia del túnel SSH,
 los valores de `ssl_mode` son propios del motor (los de arriba son de MySQL).
 
+*Informix (ODBC).* El driver `informix` se conecta a través del Administrador de
+controladores ODBC, seleccionando en tiempo de ejecución el controlador *IBM
+Informix ODBC Driver*. El `dsn` admite dos formas:
+
+| Campo | Descripción |
+|-------|-------------|
+| `host` | Host del servidor Informix (forma directa). |
+| `port` / `service` | Puerto TCP (número) o nombre de servicio. |
+| `server` | Nombre de `INFORMIXSERVER` (requerido en la forma directa). |
+| `protocol` | Protocolo de red (por defecto `onsoctcp`). |
+| `database` | Base de datos inicial. |
+| `user` / `password` | Credenciales. |
+| `driver` | Sobrescribe el nombre del controlador ODBC registrado. |
+| `odbc_dsn` | Forma alternativa: usa una fuente de datos ODBC ya configurada (`DSN=...`); ignora `host`/`server`/`driver`. |
+
+La forma directa requiere `host` + `port`/`service` + `server`; la forma DSN
+requiere `odbc_dsn`. El driver es de 32 bits (el CSDK lo es), por lo que Quaero
+se compila en x86 — ver `cmake/toolchain-i686-mingw.cmake`.
+
 *Túnel SSH (agnóstico al motor).* El núcleo reconoce, dentro del `dsn`, un grupo
 de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
 **antes** de invocar al driver, entregándole un DSN reescrito que apunta a

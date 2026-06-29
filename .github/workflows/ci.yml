@@ -29,7 +29,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev unixodbc-dev
 
       # Provides a recent CMake + Ninja on all three platforms.
       - name: Set up CMake and Ninja
