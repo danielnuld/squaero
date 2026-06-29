@@ -127,6 +127,9 @@ jobs:
       - name: Test
         env:
           QUAERO_MYSQL_DSN: '{"host":"127.0.0.1","port":3306,"user":"root","password":"root","database":"quaero_test"}'
+          # MariaDB 11 ships with TLS enabled (auto-generated certs), so
+          # ssl_mode=required encrypts without needing a CA on the client.
+          QUAERO_MYSQL_SSL_DSN: '{"host":"127.0.0.1","port":3306,"user":"root","password":"root","database":"quaero_test","ssl_mode":"required"}'
         run: ctest --test-dir build --output-on-failure
 
   # Builds the core with SSH-tunnel support (QUAERO_SSH=ON fetches libssh2) and

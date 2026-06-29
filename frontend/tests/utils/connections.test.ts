@@ -13,6 +13,8 @@ import {
   withSshTunnel,
   SSH_TUNNEL_FIELDS,
   SSH_GROUP,
+  MYSQL_SSL_FIELDS,
+  SSL_GROUP,
   DRIVER_SCHEMAS,
   type Connection,
   type DriverField,
@@ -236,5 +238,53 @@ describe("SSH tunnel fields", () => {
     expect(tunnelled.ssh_user).toBe("deploy");
     // a blank select value is omitted, so the core applies its default (agent)
     expect("ssh_auth" in tunnelled).toBe(false);
+  });
+});
+
+describe("MySQL SSL fields", () => {
+  it("are all optional and share the SSL group", () => {
+    expect(MYSQL_SSL_FIELDS.every((f) => !f.required)).toBe(true);
+    expect(MYSQL_SSL_FIELDS.every((f) => f.group === SSL_GROUP)).toBe(true);
+  });
+
+  it("model ssl_mode as a select with the four modes plus a blank default", () => {
+    const mode = MYSQL_SSL_FIELDS.find((f) => f.key === "ssl_mode");
+    expect(mode?.type).toBe("select");
+    expect(mode?.options?.map((o) => o.value)).toEqual([
+      "",
+      "disabled",
+      "required",
+      "verify_ca",
+      "verify_identity",
+    ]);
+  });
+
+  it("expose ssl_ca/ssl_cert/ssl_key as file fields", () => {
+    for (const k of ["ssl_ca", "ssl_cert", "ssl_key"]) {
+      expect(MYSQL_SSL_FIELDS.find((f) => f.key === k)?.type).toBe("file");
+    }
+  });
+
+  it("the mysql schema carries base, SSL and SSH-tunnel fields", () => {
+    const keys = DRIVER_SCHEMAS.mysql.fields.map((f) => f.key);
+    expect(keys).toContain("host");
+    expect(keys).toContain("ssl_mode");
+    expect(keys).toContain("ssh_host");
+    expect(DRIVER_SCHEMAS.mysql.driver).toBe("mysql");
+  });
+
+  it("buildDsn emits ssl_* keys only when filled in", () => {
+    const plain = buildDsn({
+      id: "c", name: "n", driver: "mysql",
+      params: { host: "h", user: "u" },
+    });
+    expect(Object.keys(plain).some((k) => k.startsWith("ssl_"))).toBe(false);
+
+    const tls = buildDsn({
+      id: "c", name: "n", driver: "mysql",
+      params: { host: "h", user: "u", ssl_mode: "required", ssl_ca: "/etc/ca.pem" },
+    });
+    expect(tls.ssl_mode).toBe("required");
+    expect(tls.ssl_ca).toBe("/etc/ca.pem");
   });
 });

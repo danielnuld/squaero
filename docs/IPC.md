@@ -108,6 +108,19 @@ el núcleo. Devuelve un `connId` con forma `"c<N>"`.
 Si el driver falla al conectar, el error se devuelve con el mensaje de
 `last_error` del driver (ver códigos `-32000` abajo).
 
+*SSL / TLS (específico del motor).* Los drivers de red interpretan campos `ssl_*`
+del `dsn`. En MySQL/MariaDB (`DBC_FEAT_SSL`):
+
+| Campo | Descripción |
+|-------|-------------|
+| `ssl_mode` | `disabled` \| `required` \| `verify_ca` \| `verify_identity`. `required` cifra sin verificar el certificado; `verify_ca` valida la cadena contra la CA; `verify_identity` además exige que el host coincida. |
+| `ssl_ca` | Ruta al certificado CA. |
+| `ssl_cert` / `ssl_key` | Certificado y clave del cliente (TLS mutuo). |
+
+Se cablean con `mysql_ssl_set` + `MYSQL_OPT_SSL_MODE` antes de conectar. Un
+`ssl_mode` no reconocido devuelve error de parámetro. A diferencia del túnel SSH,
+los valores de `ssl_mode` son propios del motor (los de arriba son de MySQL).
+
 *Túnel SSH (agnóstico al motor).* El núcleo reconoce, dentro del `dsn`, un grupo
 de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
 **antes** de invocar al driver, entregándole un DSN reescrito que apunta a

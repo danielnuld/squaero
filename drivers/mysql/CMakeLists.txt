@@ -22,6 +22,13 @@ if(BUILD_TESTING)
   target_include_directories(mysql_identifier_test PRIVATE src/utils)
   quaero_set_warnings(mysql_identifier_test)
   add_test(NAME mysql_identifier_test COMMAND mysql_identifier_test)
+
+  add_executable(mysql_ssl_test
+    tests/ssl_test.c
+    src/utils/ssl.c)
+  target_include_directories(mysql_ssl_test PRIVATE src/utils)
+  quaero_set_warnings(mysql_ssl_test)
+  add_test(NAME mysql_ssl_test COMMAND mysql_ssl_test)
 endif()
 
 # --- driver plugin (only when the client library is present) --------------
@@ -39,7 +46,8 @@ if(MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY)
     src/metadata.c
     src/ddl.c
     src/utils/types.c
-    src/utils/identifier.c)
+    src/utils/identifier.c
+    src/utils/ssl.c)
   # The client headers are third-party: include them as SYSTEM so they are not
   # subject to the strict -Werror policy applied to our own code.
   target_include_directories(mysql_driver PRIVATE

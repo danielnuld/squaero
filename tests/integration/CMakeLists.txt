@@ -26,6 +26,17 @@ if(TARGET mysql_driver)
   add_test(NAME mysql_integration_test COMMAND mysql_integration_test
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
+  # SSL: opens an encrypted connection (ssl_mode=required) and checks Ssl_cipher.
+  # SKIPS unless QUAERO_MYSQL_SSL_DSN points at a TLS-enabled server.
+  add_executable(mysql_ssl_integration_test mysql_ssl_integration_test.c)
+  target_link_libraries(mysql_ssl_integration_test PRIVATE dbcore cjson)
+  target_compile_definitions(mysql_ssl_integration_test PRIVATE
+    MYSQL_PLUGIN_PATH="$<TARGET_FILE:mysql_driver>")
+  add_dependencies(mysql_ssl_integration_test mysql_driver)
+  quaero_set_warnings(mysql_ssl_integration_test)
+  add_test(NAME mysql_ssl_integration_test COMMAND mysql_ssl_integration_test
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
   # SSH-tunnel integration: opens the MySQL connection through a real SSH
   # port-forward. Needs both the driver and tunnel support compiled in; SKIPS at
   # runtime unless QUAERO_SSH_DSN points at a tunnelled server.

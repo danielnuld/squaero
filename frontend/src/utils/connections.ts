@@ -80,6 +80,33 @@ export function withSshTunnel(base: DriverField[]): DriverField[] {
   return [...base, ...SSH_TUNNEL_FIELDS];
 }
 
+// Optional TLS fields for the MySQL/MariaDB driver. The driver wires ssl_mode +
+// ssl_ca/ssl_cert/ssl_key into the client before connecting (see docs/IPC.md).
+// ssl_mode values are engine-specific (these are MySQL's), so unlike the SSH
+// group this is not shared across engines verbatim. All optional: a blank
+// ssl_mode leaves the client default.
+export const SSL_GROUP = "TLS / SSL (opcional)";
+
+export const MYSQL_SSL_FIELDS: DriverField[] = [
+  {
+    key: "ssl_mode",
+    label: "Modo SSL",
+    type: "select",
+    required: false,
+    options: [
+      { value: "", label: "— (predeterminado del cliente)" },
+      { value: "disabled", label: "Desactivado" },
+      { value: "required", label: "Requerido (cifrado)" },
+      { value: "verify_ca", label: "Verificar CA" },
+      { value: "verify_identity", label: "Verificar identidad" },
+    ],
+    group: SSL_GROUP,
+  },
+  { key: "ssl_ca", label: "Certificado CA", type: "file", required: false, group: SSL_GROUP },
+  { key: "ssl_cert", label: "Certificado cliente", type: "file", required: false, group: SSL_GROUP },
+  { key: "ssl_key", label: "Clave cliente", type: "file", required: false, group: SSL_GROUP },
+];
+
 // Driver form schemas. SQLite is the reference engine shipped in M2; the
 // PostgreSQL schema is defined for the data-driven form and lands as a usable
 // option when its driver is built (M4). Network engines carry the optional
@@ -107,6 +134,18 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       { key: "database", label: "Base de datos", type: "text", required: true },
       { key: "user", label: "Usuario", type: "text", required: true },
       { key: "password", label: "Contraseña", type: "password", required: false },
+    ]),
+  },
+  mysql: {
+    driver: "mysql",
+    label: "MySQL / MariaDB",
+    fields: withSshTunnel([
+      { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
+      { key: "port", label: "Puerto", type: "number", required: false, placeholder: "3306" },
+      { key: "database", label: "Base de datos", type: "text", required: false },
+      { key: "user", label: "Usuario", type: "text", required: true, placeholder: "root" },
+      { key: "password", label: "Contraseña", type: "password", required: false },
+      ...MYSQL_SSL_FIELDS,
     ]),
   },
 };

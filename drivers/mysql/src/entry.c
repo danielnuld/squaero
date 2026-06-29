@@ -9,7 +9,8 @@
  * (list_databases / list_tables / describe_table) and DDL generation (get_ddl).
  * MySQL databases play the role of the top tree level (no separate schema
  * layer), so list_schemas is NULL and DBC_FEAT_SCHEMAS is not advertised.
- * Secure transport (SSL / SSH tunnel) and transactions arrive in later tasks.
+ * TLS is supported (DBC_FEAT_SSL) via the ssl_* DSN fields; the engine-agnostic
+ * SSH tunnel is handled in the core. Transactions arrive in a later task.
  */
 static const dbc_driver_t k_mysql_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -37,7 +38,7 @@ static const dbc_driver_t k_mysql_driver = {
 
     .get_ddl       = mysql_drv_get_ddl,
 
-    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL,
+    .features      = DBC_FEAT_SSL | DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)
