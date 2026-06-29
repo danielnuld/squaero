@@ -26,6 +26,12 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # and its tests on a machine without those.
 option(QUAERO_BUILD_APP "Build the native webview application shell" ON)
 
+# SSH-tunnel support. OFF by default so the standard build stays dependency-free
+# and green; when ON, the core fetches libssh2 (with a platform crypto backend)
+# and compiles the real port-forward. Without it, a DSN that asks for an SSH
+# tunnel fails with an explicit "not built" error (see core/src/conn/ssh_tunnel.c).
+option(QUAERO_SSH "Build SSH-tunnel support (fetches libssh2)" OFF)
+
 # --- Default build type (single-config generators) -----------------------
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)

@@ -35,6 +35,15 @@ target_link_libraries(dbcore PRIVATE cjson)
 # empty on Windows/macOS where dlopen lives in the C runtime).
 target_link_libraries(dbcore PRIVATE ${CMAKE_DL_LIBS})
 
+# SSH tunnel: fetch libssh2 and compile the real port-forward (ssh_tunnel.c
+# switches on QUAERO_SSH). OFF by default — the standard build is dependency-free.
+if(QUAERO_SSH)
+  include(QuaeroLibssh2)
+  quaero_enable_libssh2(dbcore)
+  find_package(Threads REQUIRED)
+  target_link_libraries(dbcore PRIVATE Threads::Threads)
+endif()
+
 if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()

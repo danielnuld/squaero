@@ -25,4 +25,21 @@ if(TARGET mysql_driver)
   quaero_set_warnings(mysql_integration_test)
   add_test(NAME mysql_integration_test COMMAND mysql_integration_test
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+  # SSH-tunnel integration: opens the MySQL connection through a real SSH
+  # port-forward. Needs both the driver and tunnel support compiled in; SKIPS at
+  # runtime unless QUAERO_SSH_DSN points at a tunnelled server.
+  if(QUAERO_SSH)
+    add_executable(ssh_tunnel_integration_test ssh_tunnel_integration_test.c)
+    target_link_libraries(ssh_tunnel_integration_test PRIVATE dbcore cjson)
+    target_compile_definitions(ssh_tunnel_integration_test PRIVATE
+      MYSQL_PLUGIN_PATH="$<TARGET_FILE:mysql_driver>")
+    add_dependencies(ssh_tunnel_integration_test mysql_driver)
+    quaero_set_warnings(ssh_tunnel_integration_test)
+    add_test(NAME ssh_tunnel_integration_test COMMAND ssh_tunnel_integration_test
+             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    # A forwarding bug could hang the handshake; fail fast instead of running
+    # until the CI job's global timeout.
+    set_tests_properties(ssh_tunnel_integration_test PROPERTIES TIMEOUT 90)
+  endif()
 endif()

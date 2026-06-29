@@ -1,5 +1,6 @@
 # Build (C / CMake)
 /build/
+/build-ssh/
 /out/
 *.o
 *.obj
