@@ -4,3 +4,4 @@
 # docs/DRIVER_API.md and is loaded at runtime by libdbcore.
 add_subdirectory(sqlite)
 add_subdirectory(mysql)
+add_subdirectory(informix)
