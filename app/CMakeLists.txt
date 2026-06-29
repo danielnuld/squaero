@@ -37,6 +37,17 @@ add_custom_command(TARGET quaero POST_BUILD
           "$<TARGET_FILE:sqlite_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
   VERBATIM)
 
+# The Informix driver is built only when ODBC is present (it links the system
+# ODBC Driver Manager); stage it alongside the executable when it exists. On the
+# target machine this is the 32-bit x86 build, since the Informix CSDK is 32-bit.
+if(TARGET informix_driver)
+  add_dependencies(quaero informix_driver)
+  add_custom_command(TARGET quaero POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:informix_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
+    VERBATIM)
+endif()
+
 if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
