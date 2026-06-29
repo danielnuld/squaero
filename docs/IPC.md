@@ -2,11 +2,14 @@
 
 El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre el mecanismo `webview_bind`/`webview_eval` de la librería `webview`. Es la **única** frontera entre ambos mundos y se versiona con cuidado.
 
-> **Protocolo v2.** El dispatcher JSON-RPC del núcleo está implementado y
+> **Protocolo v3.** El dispatcher JSON-RPC del núcleo está implementado y
 > testeado (`core/src/ipc/`, entrada pública `dbcore_ipc_handle` en
-> `core/include/dbcore/ipc.h`). v2 es el camino de datos de M1:
-> `conn.open`/`conn.close`/`query.run` y el rango de errores de dominio
-> `-32000..`. Este módulo es puro: JSON entra, JSON sale.
+> `core/include/dbcore/ipc.h`). Cubre el camino de datos de M1
+> (`conn.open`/`conn.close`/`query.run` y el rango de errores de dominio
+> `-32000..`) y la introspección de M3. Este módulo es puro: JSON entra, JSON
+> sale. El objeto `dsn` de `conn.open` es opaco al protocolo: el núcleo
+> interpreta de él los campos `ssh_*` (túnel, abajo) de forma aditiva y
+> compatible, sin cambiar la forma del método ni la versión.
 
 ## Forma de los mensajes
 
@@ -104,6 +107,26 @@ el núcleo. Devuelve un `connId` con forma `"c<N>"`.
 
 Si el driver falla al conectar, el error se devuelve con el mensaje de
 `last_error` del driver (ver códigos `-32000` abajo).
+
+*Túnel SSH (agnóstico al motor).* El núcleo reconoce, dentro del `dsn`, un grupo
+de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
+**antes** de invocar al driver, entregándole un DSN reescrito que apunta a
+`127.0.0.1:<puerto_local>`. El driver no se entera del túnel. Campos:
+
+| Campo | Descripción |
+|-------|-------------|
+| `ssh_host` | Servidor SSH. Su presencia activa el túnel. |
+| `ssh_port` | Puerto SSH (por defecto `22`). |
+| `ssh_user` | Usuario SSH (requerido si hay `ssh_host`). |
+| `ssh_auth` | `password` \| `key` \| `agent` (por defecto `agent`). |
+| `ssh_password` | Contraseña para `ssh_auth=password`. |
+| `ssh_key` | Ruta a la clave privada para `ssh_auth=key`. |
+| `ssh_key_passphrase` | Passphrase opcional de la clave. |
+| `ssh_target_host` / `ssh_target_port` | Destino del reenvío (por defecto, el `host`/`port` del DSN). |
+
+El reenvío real requiere una compilación con soporte de túnel (`QUAERO_SSH`); sin
+él, abrir una conexión con `ssh_*` devuelve un error explícito **no soportado**
+en lugar de conectarse directo, saltándose el salto SSH previsto.
 
 **`query.run`** — ejecuta SQL en una conexión activa y devuelve el result set
 **paginado**. `params.limit` (opcional) acota las filas; si se omite aplica un

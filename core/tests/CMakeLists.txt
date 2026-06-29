@@ -47,11 +47,26 @@ target_link_libraries(ipc_test PRIVATE dbcore cjson)
 quaero_set_warnings(ipc_test)
 add_test(NAME ipc_test COMMAND ipc_test)
 
-# Connection manager (lifecycle through the vtable).
+# Connection manager (lifecycle through the vtable, incl. SSH-tunnel gating).
 add_executable(conn_manager_test conn/manager_test.c)
 target_link_libraries(conn_manager_test PRIVATE dbcore)
+target_include_directories(conn_manager_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/conn)
 quaero_set_warnings(conn_manager_test)
 add_test(NAME conn_manager_test COMMAND conn_manager_test)
+
+# SSH-tunnel DSN field parser (pure). Needs cJSON-free internal header only.
+add_executable(ssh_config_test conn/ssh_config_test.c)
+target_link_libraries(ssh_config_test PRIVATE dbcore)
+target_include_directories(ssh_config_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/conn)
+quaero_set_warnings(ssh_config_test)
+add_test(NAME ssh_config_test COMMAND ssh_config_test)
+
+# Loopback DSN rewrite for tunnelled connections. Inspects JSON via cJSON.
+add_executable(dsn_rewrite_test conn/dsn_rewrite_test.c)
+target_link_libraries(dsn_rewrite_test PRIVATE dbcore cjson)
+target_include_directories(dsn_rewrite_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/conn)
+quaero_set_warnings(dsn_rewrite_test)
+add_test(NAME dsn_rewrite_test COMMAND dsn_rewrite_test)
 
 # Process runtime (driver registry + connection manager).
 add_executable(runtime_test runtime_test.c)

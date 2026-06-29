@@ -1,5 +1,7 @@
 #include "dbcore/conn.h"
 
+#include "ssh_tunnel.h"  /* ssh_tunnel_available: gates the tunnel-path assertions */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -153,6 +155,48 @@ int main(void)
         dbc_status st = dbcore_conn_manager_open(mgr, &fail, "{}", &fid, err, sizeof err);
         EXPECT(st == DBC_ERR_CONN, "handle-less failure returns status");
         EXPECT(strcmp(err, "could not connect") == 0, "generic message when no handle");
+    }
+
+    /* SSH-tunnelled DSN. When tunnel support is not compiled in (the default),
+       open fails with an explicit unsupported error, calls neither the tunnel
+       nor the driver, and registers nothing — honest failure, not a silent
+       direct connection past the intended SSH hop. */
+    {
+        const char *dsn = "{\"host\":\"db\",\"port\":3306,"
+                          "\"ssh_host\":\"bastion\",\"ssh_user\":\"u\"}";
+        int sid = -1;
+        int connects_before = g_connects;
+        int count_before = dbcore_conn_manager_count(mgr);
+        dbc_status st =
+            dbcore_conn_manager_open(mgr, &ok, dsn, &sid, err, sizeof err);
+        if (ssh_tunnel_available()) {
+            /* Built: a unit test can't reach a real SSH server (bastion:22), so
+               we don't assert a specific status — but open()'s core invariant
+               must hold either way: an id is handed out IFF the open succeeded. */
+            if (st == DBC_OK) {
+                EXPECT(sid > 0, "successful tunnelled open yields a live id");
+            } else {
+                EXPECT(sid == 0, "failed tunnelled open yields id 0");
+            }
+        } else {
+            EXPECT(st == DBC_ERR_UNSUPPORTED, "tunnel not built => unsupported");
+            EXPECT(sid == 0, "unsupported open yields id 0");
+            EXPECT(g_connects == connects_before, "driver connect not called");
+            EXPECT(dbcore_conn_manager_count(mgr) == count_before,
+                   "unsupported open registers nothing");
+            EXPECT(err[0] != '\0', "unsupported open reports a reason");
+        }
+    }
+
+    /* A malformed ssh config (ssh_host present, ssh_user missing) is rejected as
+       a parameter error before any connect attempt. */
+    {
+        int sid = -1;
+        int connects_before = g_connects;
+        dbc_status st = dbcore_conn_manager_open(
+            mgr, &ok, "{\"ssh_host\":\"bastion\"}", &sid, err, sizeof err);
+        EXPECT(st == DBC_ERR_PARAM, "bad ssh config => PARAM");
+        EXPECT(g_connects == connects_before, "bad ssh config skips connect");
     }
 
     /* Freeing the manager closes everything still open. */

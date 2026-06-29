@@ -6,6 +6,10 @@ add_library(dbcore STATIC
   src/driver/plugin_name.c
   src/driver/loader.c
   src/conn/manager.c
+  src/conn/conn_util.c
+  src/conn/ssh_config.c
+  src/conn/dsn_rewrite.c
+  src/conn/ssh_tunnel.c
   src/query/result.c
   src/query/run.c
   src/query/materialize.c
