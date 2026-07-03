@@ -245,6 +245,61 @@ export function validateConnection(conn: Connection): string[] {
   return errors;
 }
 
+// A small visual identity per engine for the driver picker and the saved-
+// connection list (issue #109). Emoji keep the bundle free of image assets.
+const ENGINE_ICON: Record<string, string> = {
+  sqlite: "🗄️",
+  mysql: "🐬",
+  mariadb: "🐬",
+  postgres: "🐘",
+  postgresql: "🐘",
+  informix: "🏛️",
+  mongodb: "🍃",
+  oracle: "🔶",
+  sqlserver: "🟦",
+};
+
+/** Emoji marker for an engine, with a neutral fallback. */
+export function engineIcon(driver: string): string {
+  return ENGINE_ICON[driver?.toLowerCase()] ?? "🛢️";
+}
+
+/** Per-field validation errors (issue #109): name + each param field. */
+export interface FieldErrors {
+  /** Error for the connection name, or null when valid. */
+  name: string | null;
+  /** Errors keyed by field key (only invalid fields are present). */
+  params: Record<string, string>;
+}
+
+/**
+ * Validate a connection field by field, so the form can show each error next to
+ * its input. A required field must be non-empty; a `number` field must hold a
+ * numeric value. Pure and unit-tested.
+ */
+export function fieldErrors(conn: Connection): FieldErrors {
+  const result: FieldErrors = { name: null, params: {} };
+  if (!conn.name.trim()) {
+    result.name = "El nombre es obligatorio.";
+  }
+  const schema = driverSchema(conn.driver);
+  if (!schema) return result;
+  for (const field of schema.fields) {
+    const value = (conn.params[field.key] ?? "").trim();
+    if (field.required && value === "") {
+      result.params[field.key] = "Obligatorio.";
+    } else if (field.type === "number" && value !== "" && !/^\d+$/.test(value)) {
+      result.params[field.key] = "Debe ser un número.";
+    }
+  }
+  return result;
+}
+
+/** True when a FieldErrors has no name or field error. */
+export function isValid(errors: FieldErrors): boolean {
+  return errors.name === null && Object.keys(errors.params).length === 0;
+}
+
 /** Builds the dsn object for conn.open from a connection's params. */
 export function buildDsn(conn: Connection): Record<string, string> {
   const schema = driverSchema(conn.driver);

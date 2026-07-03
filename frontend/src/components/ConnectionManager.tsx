@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { driverSchema, type Connection } from "../utils/connections";
+import { driverSchema, engineIcon, type Connection } from "../utils/connections";
 
 // Sidebar list of saved connections with CRUD + connect actions. Clicking a
 // connection opens it; the active one is highlighted. Presentational — all
@@ -34,7 +34,9 @@ export function ConnectionManager(props: {
                   disabled={props.connectingId !== null}
                   onClick={() => props.onConnect(c)}
                 >
-                  <span class="conn-name">{c.name}</span>
+                  <span class="conn-name">
+                    <span class="engine-icon">{engineIcon(c.driver)}</span> {c.name}
+                  </span>
                   <span class="conn-driver">
                     {driverSchema(c.driver)?.label ?? c.driver}
                     {props.connectingId === c.id ? " · conectando…" : ""}

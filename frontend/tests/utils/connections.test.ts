@@ -4,6 +4,9 @@ import {
   secretFieldKeys,
   stripSecrets,
   validateConnection,
+  fieldErrors,
+  isValid,
+  engineIcon,
   buildDsn,
   nextConnectionId,
   upsertConnection,
@@ -68,6 +71,50 @@ describe("stripSecrets", () => {
   it("leaves a secret-free connection untouched", () => {
     const c = sqliteConn();
     expect(stripSecrets(c, DRIVER_SCHEMAS.sqlite).params).toEqual({ path: "/tmp/app.db" });
+  });
+});
+
+describe("engineIcon", () => {
+  it("gives a distinct icon for known engines", () => {
+    const icons = new Set(["sqlite", "mysql", "postgres", "mongodb"].map(engineIcon));
+    expect(icons.size).toBe(4);
+  });
+  it("is case-insensitive and falls back for unknown engines", () => {
+    expect(engineIcon("MySQL")).toBe(engineIcon("mysql"));
+    expect(typeof engineIcon("something")).toBe("string");
+    expect(engineIcon("something")).not.toBe("");
+  });
+});
+
+describe("fieldErrors / isValid", () => {
+  it("is clean for a valid connection", () => {
+    const e = fieldErrors(pgConn({ params: { host: "h", database: "d", user: "u" } }));
+    expect(e.name).toBeNull();
+    expect(e.params).toEqual({});
+    expect(isValid(e)).toBe(true);
+  });
+  it("flags a missing name", () => {
+    expect(fieldErrors(sqliteConn({ name: "  " })).name).toMatch(/obligatorio/i);
+  });
+  it("flags a missing required field by key", () => {
+    const e = fieldErrors(sqliteConn({ params: { path: "" } }));
+    expect(e.params.path).toBeDefined();
+    expect(isValid(e)).toBe(false);
+  });
+  it("flags a non-numeric value in a number field", () => {
+    const e = fieldErrors(
+      pgConn({ params: { host: "h", database: "d", user: "u", port: "abc" } }),
+    );
+    expect(e.params.port).toMatch(/número/i);
+  });
+  it("accepts a numeric value and blank optional number field", () => {
+    expect(
+      fieldErrors(pgConn({ params: { host: "h", database: "d", user: "u", port: "5432" } })).params
+        .port,
+    ).toBeUndefined();
+    expect(
+      fieldErrors(pgConn({ params: { host: "h", database: "d", user: "u", port: "" } })).params.port,
+    ).toBeUndefined();
   });
 });
 

@@ -1,12 +1,15 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import {
   driverSchema,
-  validateConnection,
+  fieldErrors,
+  isValid,
+  engineIcon,
   AVAILABLE_DRIVERS,
   DRIVER_SCHEMAS,
   type Connection,
 } from "../utils/connections";
+import { errorText } from "../utils/errors";
 
 type TestState =
   | { kind: "idle" }
@@ -27,10 +30,13 @@ export function ConnectionForm(props: {
     ...props.initial,
     params: { ...props.initial.params },
   });
-  const [errors, setErrors] = createSignal<string[]>([]);
+  // Errors are computed live but only shown once the user attempts to save/test,
+  // so a fresh form is not pre-decorated with "required" messages.
+  const [showErrors, setShowErrors] = createSignal(false);
   const [test, setTest] = createSignal<TestState>({ kind: "idle" });
 
   const schema = () => driverSchema(draft.driver);
+  const errors = createMemo(() => fieldErrors(draft));
 
   const selectDriver = (driver: string) => {
     setDraft({ driver, params: {} });
@@ -40,17 +46,15 @@ export function ConnectionForm(props: {
   const snapshot = (): Connection => ({ ...draft, params: { ...draft.params } });
 
   const save = () => {
-    const errs = validateConnection(draft);
-    setErrors(errs);
-    if (errs.length === 0) {
+    setShowErrors(true);
+    if (isValid(errors())) {
       props.onSave(snapshot());
     }
   };
 
   const runTest = async () => {
-    const errs = validateConnection(draft);
-    setErrors(errs);
-    if (errs.length > 0) {
+    setShowErrors(true);
+    if (!isValid(errors())) {
       return;
     }
     setTest({ kind: "testing" });
@@ -58,23 +62,30 @@ export function ConnectionForm(props: {
       await props.onTest(snapshot());
       setTest({ kind: "ok", msg: "Conexión exitosa." });
     } catch (err) {
-      setTest({ kind: "error", msg: err instanceof Error ? err.message : String(err) });
+      setTest({ kind: "error", msg: errorText(err) });
     }
   };
 
   return (
     <div class="modal-backdrop" onClick={props.onCancel}>
       <div class="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{props.initial.name ? "Editar conexión" : "Nueva conexión"}</h2>
+        <h2>
+          <span class="engine-icon">{engineIcon(draft.driver)}</span>{" "}
+          {props.initial.name ? "Editar conexión" : "Nueva conexión"}
+        </h2>
 
         <label class="field">
           <span>Nombre</span>
           <input
             type="text"
+            class={showErrors() && errors().name ? "input-invalid" : ""}
             value={draft.name}
             onInput={(e) => setDraft("name", e.currentTarget.value)}
             placeholder="Mi base de datos"
           />
+          <Show when={showErrors() && errors().name}>
+            <span class="field-error">{errors().name}</span>
+          </Show>
         </label>
 
         <label class="field">
@@ -84,7 +95,11 @@ export function ConnectionForm(props: {
             onChange={(e) => selectDriver(e.currentTarget.value)}
           >
             <For each={AVAILABLE_DRIVERS}>
-              {(d) => <option value={d}>{DRIVER_SCHEMAS[d]?.label ?? d}</option>}
+              {(d) => (
+                <option value={d}>
+                  {engineIcon(d)} {DRIVER_SCHEMAS[d]?.label ?? d}
+                </option>
+              )}
             </For>
           </select>
         </label>
@@ -107,6 +122,9 @@ export function ConnectionForm(props: {
                       fallback={
                         <input
                           type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
+                          class={
+                            showErrors() && errors().params[field.key] ? "input-invalid" : ""
+                          }
                           value={draft.params[field.key] ?? ""}
                           placeholder={field.placeholder ?? ""}
                           onInput={(e) => setDraft("params", field.key, e.currentTarget.value)}
@@ -122,17 +140,14 @@ export function ConnectionForm(props: {
                         </For>
                       </select>
                     </Show>
+                    <Show when={showErrors() && errors().params[field.key]}>
+                      <span class="field-error">{errors().params[field.key]}</span>
+                    </Show>
                   </label>
                 </>
               )}
             </For>
           )}
-        </Show>
-
-        <Show when={errors().length > 0}>
-          <ul class="form-errors">
-            <For each={errors()}>{(e) => <li>{e}</li>}</For>
-          </ul>
         </Show>
 
         <Show when={test().kind === "ok"}>

@@ -580,6 +580,22 @@ kbd {
   font-size: 12px;
 }
 
+/* Per-field validation (issue #109) */
+.field-error {
+  color: var(--error);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.field input.input-invalid,
+.field select.input-invalid {
+  border-color: var(--error);
+}
+
+.engine-icon {
+  font-style: normal;
+}
+
 .test-ok {
   color: var(--number);
   font-size: 12px;
