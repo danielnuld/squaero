@@ -704,3 +704,117 @@ body {
   max-height: 240px;
   overflow: auto;
 }
+
+/* --- Data editing (M7) --------------------------------------------------- */
+.edit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-alt, var(--bg));
+  min-height: 32px;
+}
+
+.edit-btn {
+  font: inherit;
+  font-size: 12px;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.edit-btn:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.edit-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.edit-btn-primary {
+  border-color: var(--accent, #3b82f6);
+  color: var(--accent, #3b82f6);
+}
+
+.edit-hint-ro {
+  font-size: 12px;
+  color: var(--fg-dim, #888);
+}
+
+.edit-error {
+  font-size: 12px;
+  color: var(--error, #e5484d);
+  margin-left: 0.4rem;
+}
+
+/* Inline cell editor: fills the grid cell without changing row height. */
+.cell-input {
+  font: inherit;
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 0 6px;
+}
+
+.cell-input:focus {
+  outline: none;
+  border-color: var(--accent, #3b82f6);
+  background: var(--bg-alt, var(--bg));
+}
+
+.cell-input:disabled {
+  opacity: 0.5;
+}
+
+/* The leading action column (row delete / insert remove). */
+.grid-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 12px;
+}
+
+button.grid-action {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--fg-dim, #888);
+}
+
+button.grid-action:hover {
+  color: var(--fg);
+}
+
+.row-deleted {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.grid-inserts {
+  border-top: 2px solid var(--accent, #3b82f6);
+}
+
+.grid-inserts-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-dim, #888);
+  padding: 0.2rem 0.5rem;
+}
+
+.row-insert {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);
+}
+
+.preview-sql {
+  min-width: 420px;
+}

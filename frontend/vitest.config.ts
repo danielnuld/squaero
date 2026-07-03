@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [solid()],
   test: {
     environment: "jsdom",
-    include: ["tests/**/*.test.ts"],
+    setupFiles: ["tests/setup.ts"],
+    include: ["tests/**/*.test.{ts,tsx}"],
   },
 });
