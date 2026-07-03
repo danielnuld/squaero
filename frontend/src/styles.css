@@ -218,6 +218,10 @@ body {
   flex: 1;
   min-height: 0;
   display: flex;
+  /* Column: the edit/export toolbar sits ABOVE the result grid, which then
+     fills the remaining width/height. Without this the flex row placed the
+     toolbar beside the grid and the grid never filled the pane. */
+  flex-direction: column;
 }
 
 /* Result grid */
