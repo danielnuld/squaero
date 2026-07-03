@@ -24,6 +24,8 @@ Notas:
   cuando el foco está en el editor (formatear también con el botón "Formatear").
   El formateo usa el dialecto del motor de la conexión activa y deja intacta una
   consulta de MongoDB (mongosh no es SQL).
+- **Autocompletar**: el editor sugiere tablas y columnas de la conexión activa
+  (y palabras clave SQL) al escribir; `Ctrl`+Espacio abre las sugerencias.
 - Las combinaciones usan `Alt` para no chocar con atajos que el host de la
   ventana (webview) pueda reservar, como Ctrl+T / Ctrl+W del navegador.
 - El **tema** también se cambia con el botón de la barra de estado; la preferencia

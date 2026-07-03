@@ -1,5 +1,5 @@
 import { onCleanup, onMount, createEffect } from "solid-js";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Compartment } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -21,7 +21,7 @@ import {
   indentOnInput,
 } from "@codemirror/language";
 import { sql } from "@codemirror/lang-sql";
-import { closeBrackets } from "@codemirror/autocomplete";
+import { closeBrackets, autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { formatSql } from "../utils/sqlFormat";
 
 // CodeMirror 6 SQL editor. A single EditorView is reused across query tabs; the
@@ -42,9 +42,14 @@ export function SqlEditor(props: {
   dialect?: string;
   /** Bumping this number requests a format of the current document. */
   formatTick?: number;
+  /** Table -> columns map that drives table/column autocomplete (issue #110). */
+  schema?: Record<string, string[]>;
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
+  // Reconfigured when the completion schema changes, so autocomplete tracks the
+  // active connection without rebuilding the editor.
+  const sqlConf = new Compartment();
   // Which tab's text is loaded in the view; guards the change listener while we
   // programmatically swap documents on tab switch. Set on mount to match the
   // doc actually loaded into the view.
@@ -80,8 +85,9 @@ export function SqlEditor(props: {
           bracketMatching(),
           closeBrackets(),
           indentOnInput(),
+          autocompletion(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-          sql(),
+          sqlConf.of(sql({ schema: props.schema ?? {} })),
           keymap.of([
             {
               key: "Mod-Enter",
@@ -100,6 +106,7 @@ export function SqlEditor(props: {
               },
             },
             indentWithTab,
+            ...completionKeymap,
             ...defaultKeymap,
             ...historyKeymap,
           ]),
@@ -127,6 +134,15 @@ export function SqlEditor(props: {
       changes: { from: 0, to: view.state.doc.length, insert: props.sqlFor(id) },
     });
     swapping = false;
+  });
+
+  // Reconfigure autocomplete when the schema map changes (connection switch or
+  // refresh). Guarded until the view exists.
+  createEffect(() => {
+    const schema = props.schema ?? {};
+    if (view) {
+      view.dispatch({ effects: sqlConf.reconfigure(sql({ schema })) });
+    }
   });
 
   // External format requests (the toolbar button) arrive as a bumped counter.

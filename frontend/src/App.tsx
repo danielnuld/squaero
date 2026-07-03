@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount, onCleanup } from "solid-js";
+import { For, Show, createMemo, createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { runQuery, type ResultSet } from "./utils/query";
 import { errorText, describeError } from "./utils/errors";
@@ -19,6 +19,7 @@ import {
   type ThemePref,
 } from "./utils/theme";
 import { matchShortcut } from "./utils/shortcuts";
+import { loadCompletionSchema } from "./utils/completion";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
 import {
@@ -245,6 +246,24 @@ export function App() {
     const id = activeDefId();
     if (!id) return "";
     return connections().find((c) => c.id === id)?.driver ?? "";
+  });
+
+  // SQL autocomplete schema (issue #110): built in the background from the active
+  // connection's object tree, rebuilt on connection switch and on refresh (F5).
+  const [sqlSchema, setSqlSchema] = createSignal<Record<string, string[]>>({});
+  createEffect(() => {
+    const conn = active();
+    void treeReload(); // rebuild after a refresh too
+    if (!conn) {
+      setSqlSchema({});
+      return;
+    }
+    const connId = conn.connId;
+    void (async () => {
+      const schema = await loadCompletionSchema(connId);
+      // Ignore a late result if the connection changed meanwhile.
+      if (active()?.connId === connId) setSqlSchema(schema);
+    })();
   });
 
   const current = createMemo(() => activeTab(tabs()));
@@ -666,6 +685,7 @@ export function App() {
                     onRun={run}
                     dialect={activeDialect()}
                     formatTick={formatTick()}
+                    schema={sqlSchema()}
                   />
                   <div class="editor-hint">
                     <button
