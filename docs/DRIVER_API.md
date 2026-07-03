@@ -196,9 +196,39 @@ columna `sql`.
 - **Errores:** ante `DBC_ERR_*`, `last_error` devuelve un mensaje legible. La
   librería nunca llama a `abort()`.
 
+## Empaquetado y consumo del SDK
+
+El único archivo público contra el que se compila un driver es este header,
+`dbcore/driver.h`. Quaero lo distribuye como un **paquete CMake versionado**
+(`QuaeroDriverSDK`), independiente del núcleo GPL: un driver depende solo de la
+ABI, nunca del código del núcleo.
+
+Instala el SDK desde el árbol de fuentes:
+
+```sh
+cmake -S . -B build
+cmake --install build --prefix <prefijo>
+```
+
+Eso instala `include/dbcore/driver.h` y la config del paquete en
+`lib/cmake/QuaeroDriverSDK/`. Un driver externo lo consume así:
+
+```cmake
+find_package(QuaeroDriverSDK REQUIRED)
+add_library(mi_driver MODULE src/entry.c src/driver.c)
+target_link_libraries(mi_driver PRIVATE quaero::driver_sdk)
+set_target_properties(mi_driver PROPERTIES PREFIX "" OUTPUT_NAME "mi_motor")
+```
+
+`quaero::driver_sdk` es un target *header-only* (solo aporta el directorio de
+includes). La versión del paquete sigue la release de Quaero; la compatibilidad
+en runtime la decide por separado el check de `DBC_ABI_VERSION` que el cargador
+aplica al abrir el plugin.
+
 ## Cómo escribir un driver
 
-Plantilla y guía paso a paso en el milestone **M8**. La idea: copiar el driver de
-SQLite (referencia mínima), implementar la vtable contra la librería cliente del
-motor, compilar como biblioteca compartida y colocarla en el directorio de
-plugins.
+Punto de partida: el **driver de plantilla** en
+[`examples/driver-template/`](../examples/driver-template/) — el driver mínimo
+que satisface esta ABI, sin dependencias externas, listo para copiar. Para una
+implementación completa de cada capacidad, mira el driver de referencia de SQLite
+en `drivers/sqlite/`.

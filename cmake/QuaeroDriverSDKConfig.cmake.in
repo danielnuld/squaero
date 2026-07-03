@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+# Quaero driver SDK — the public contract a database driver plugin compiles
+# against. It is header-only: a single INTERFACE target that carries the include
+# directory for dbcore/driver.h. A driver links it and nothing else from Quaero.
+#
+# Runtime compatibility is NOT decided by this package's version: the core
+# validates dbc_driver_t.abi_version (DBC_ABI_VERSION in driver.h) when it loads
+# the plugin. This package version tracks the Quaero release the headers shipped
+# with; see QuaeroDriverSDKConfigVersion.cmake.
+
+include("${CMAKE_CURRENT_LIST_DIR}/QuaeroDriverSDKTargets.cmake")
+
+check_required_components(QuaeroDriverSDK)

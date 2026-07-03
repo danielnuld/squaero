@@ -48,9 +48,61 @@ include(CTest)
 add_subdirectory(third_party/cjson)
 add_subdirectory(third_party/sqlite)
 
+# Build the example/template driver (examples/). ON by default so CI compiles
+# it under the project warnings; a lean core-only build can turn it off.
+option(QUAERO_BUILD_EXAMPLES "Build the example driver template" ON)
+
 # --- Components -----------------------------------------------------------
 add_subdirectory(core)
 add_subdirectory(drivers)
+
+# --- Driver SDK (installable, versioned) ---------------------------------
+# The public contract a third-party driver compiles against is a single header,
+# dbcore/driver.h. Expose it as a header-only INTERFACE target and install it as
+# a versioned CMake package so an out-of-tree driver can `find_package`. The
+# core is GPL and is NOT part of the SDK — a driver depends only on the ABI.
+add_library(quaero_driver_sdk INTERFACE)
+add_library(quaero::driver_sdk ALIAS quaero_driver_sdk)
+# Export under the short name so the installed package's imported target is
+# `quaero::driver_sdk` too — matching the in-tree alias above, so the example's
+# CMakeLists links the same name whether built in-tree or standalone.
+set_target_properties(quaero_driver_sdk PROPERTIES EXPORT_NAME driver_sdk)
+target_include_directories(quaero_driver_sdk INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/core/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(quaero_driver_sdk INTERFACE c_std_11)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+install(TARGETS quaero_driver_sdk EXPORT QuaeroDriverSDKTargets)
+install(FILES core/include/dbcore/driver.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dbcore)
+install(EXPORT QuaeroDriverSDKTargets
+  NAMESPACE quaero::
+  FILE QuaeroDriverSDKTargets.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QuaeroDriverSDK)
+
+configure_package_config_file(
+  cmake/QuaeroDriverSDKConfig.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/QuaeroDriverSDKConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QuaeroDriverSDK)
+# The package version tracks the Quaero release; runtime compatibility is the
+# separate DBC_ABI_VERSION check the loader applies (see driver.h).
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/QuaeroDriverSDKConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion)
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/QuaeroDriverSDKConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/QuaeroDriverSDKConfigVersion.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QuaeroDriverSDK)
+
+# Example driver — built against the SDK target above (defined before this so
+# the in-tree example can link it). Also serves as the copy-ready template.
+if(QUAERO_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
 # Cross-component integration tests (core + a real driver). Added after both so
 # their targets exist for the test to depend on / load.
