@@ -22,9 +22,7 @@ import { loadConnections, saveConnections } from "./utils/connectionStore";
 import { quoteIdentifier, schemaDescribe } from "./utils/schema";
 import {
   describePkColumns,
-  rowInsert,
-  rowUpdate,
-  rowDelete,
+  runPlanItem,
   txBegin,
   txCommit,
   txRollback,
@@ -41,7 +39,6 @@ import {
   buildPlan,
   type EditSource,
   type PendingChanges,
-  type PlanItem,
 } from "./utils/editSession";
 import {
   exportResult,
@@ -59,6 +56,7 @@ import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
+import { DataDiffWizard } from "./components/DataDiffWizard";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -128,6 +126,7 @@ export function App() {
   const [importTarget, setImportTarget] =
     createSignal<{ table: string; db?: string; schema?: string } | null>(null);
   const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
+  const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
 
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
@@ -370,21 +369,6 @@ export function App() {
     reloadCurrent(t.id);
   };
 
-  const runPlanItem = (
-    connId: string,
-    target: { table: string; db?: string; schema?: string },
-    item: PlanItem,
-    preview: boolean,
-  ) => {
-    if (item.kind === "update") {
-      return rowUpdate(connId, target, item.set, item.where, preview);
-    }
-    if (item.kind === "delete") {
-      return rowDelete(connId, target, item.where, preview);
-    }
-    return rowInsert(connId, target, item.values, preview);
-  };
-
   // Confirmar: gather the generated SQL for every pending change (preview only)
   // and show it for confirmation before anything is executed (issue #29).
   const confirmEdit = async () => {
@@ -601,6 +585,19 @@ export function App() {
                               >
                                 Sincronizar
                               </button>
+                              <Show
+                                when={
+                                  currentEditable() &&
+                                  (currentResult().result?.columns.length ?? 0) > 0
+                                }
+                              >
+                                <button
+                                  class="edit-btn"
+                                  onClick={() => setDataSyncOpen(true)}
+                                >
+                                  Sincronizar datos
+                                </button>
+                              </Show>
                             </>
                           }
                         >
@@ -724,6 +721,27 @@ export function App() {
           sourceDb={currentResult().source?.db}
           connections={connections()}
           onClose={() => setSchemaSyncOpen(false)}
+        />
+      </Show>
+
+      <Show
+        when={
+          dataSyncOpen() &&
+          active() &&
+          currentResult().result &&
+          currentResult().source
+        }
+      >
+        <DataDiffWizard
+          sourceResult={currentResult().result!}
+          source={{
+            table: currentResult().source!.table,
+            db: currentResult().source!.db,
+            schema: currentResult().source!.schema,
+          }}
+          pk={currentResult().source!.pk}
+          connections={connections()}
+          onClose={() => setDataSyncOpen(false)}
         />
       </Show>
 
