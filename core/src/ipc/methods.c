@@ -3,6 +3,7 @@
 #include "query_methods.h"
 #include "schema_methods.h"
 #include "tx_methods.h"
+#include "edit_methods.h"
 #include "rpc.h"
 
 #include "dbcore/dbcore.h"
@@ -88,6 +89,15 @@ ipc_method_fn ipc_method_lookup(const char *method)
     }
     if (strcmp(method, "tx.rollback") == 0) {
         return ipc_method_tx_rollback;
+    }
+    if (strcmp(method, "row.insert") == 0) {
+        return ipc_method_row_insert;
+    }
+    if (strcmp(method, "row.update") == 0) {
+        return ipc_method_row_update;
+    }
+    if (strcmp(method, "row.delete") == 0) {
+        return ipc_method_row_delete;
     }
     return NULL;
 }

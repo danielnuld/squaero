@@ -7,7 +7,7 @@ Un driver es una biblioteca compartida (`.dll`/`.so`/`.dylib`) que exporta una f
 > documento describe el mismo contrato en prosa y **debe mantenerse
 > sincronizado** con el header. Ante cualquier discrepancia, el header manda.
 
-ABI actual: **`DBC_ABI_VERSION = 3`**.
+ABI actual: **`DBC_ABI_VERSION = 4`**.
 
 ## Punto de entrada
 
@@ -27,7 +27,7 @@ y vive mientras la biblioteca esté cargada.
 ## Versionado de ABI
 
 ```c
-#define DBC_ABI_VERSION 3
+#define DBC_ABI_VERSION 4
 ```
 
 El driver graba en `dbc_driver_t.abi_version` el valor contra el que se compiló.
@@ -96,6 +96,7 @@ significa que la celda sea `NULL` (eso lo indica `cell_text` devolviendo `NULL`)
 #define DBC_FEAT_SCHEMAS       (1u << 3)  /* el motor tiene esquemas dentro de una base */
 #define DBC_FEAT_INTROSPECTION (1u << 4)  /* list_* / describe_table */
 #define DBC_FEAT_DDL           (1u << 5)  /* get_ddl: CREATE de un objeto */
+#define DBC_FEAT_DML           (1u << 6)  /* build_dml: insert/update/delete de una fila */
 ```
 
 `dbc_driver_t.features` es el OR de los flags soportados. Un driver advierte una
@@ -151,14 +152,27 @@ typedef struct {
        CREATE de `object` como result set de una columna ("sql"), o
        DBC_ERR_UNSUPPORTED si no se implementa. */
     dbc_status  (*get_ddl)(dbc_conn *c, const char *schema, const char *object, dbc_result **out);
+
+    /* --- modificación de datos (opcional; DBC_FEAT_DML; añadido en ABI 4) ---
+       Construye el SQL literal que aplica `row` (insert/update/delete de una
+       fila; ver dbc_dml_kind) y lo devuelve como result set de una columna
+       ("sql"), igual que get_ddl. El núcleo lo previsualiza y/o lo ejecuta por
+       la vía normal de query. DBC_ERR_UNSUPPORTED si no se implementa. */
+    dbc_status  (*build_dml)(dbc_conn *c, dbc_dml_kind kind, const dbc_dml_row *row, dbc_result **out);
 } dbc_driver_t;
 ```
 
 Los miembros **obligatorios** (identidad, ciclo de vida, ejecución y lectura del
 result set) deben ser no-`NULL` en todo driver y los verifica
 `dbc_driver_validate`. Los miembros **opcionales** (introspección, transacciones,
-`get_ddl`) pueden ser `NULL` cuando la capacidad correspondiente no se advierte en
-`features`.
+`get_ddl`, `build_dml`) pueden ser `NULL` cuando la capacidad correspondiente no
+se advierte en `features`.
+
+El cambio de una fila viaja al driver como un `dbc_dml_row` neutral (tabla,
+columnas/valores a asignar, columnas/valores de la clave para el `WHERE`); un
+valor `NULL` significa SQL NULL. El driver escapa identificadores y literales y
+deja que el motor coaccione el tipo. Ver el header para la definición exacta de
+`dbc_dml_kind` y `dbc_dml_row`.
 
 **Convención de las columnas de introspección** (para que el núcleo y la UI las
 consuman de forma uniforme): `list_databases`/`list_schemas` devuelven una

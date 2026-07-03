@@ -58,4 +58,8 @@ dbc_status   sqlite_describe_table(dbc_conn *c, const char *schema, const char *
 dbc_status   sqlite_get_ddl(dbc_conn *c, const char *schema, const char *object,
                             dbc_result **out);
 
+/* --- edit.c (DBC_FEAT_DML) --- */
+dbc_status   sqlite_build_dml(dbc_conn *c, dbc_dml_kind kind,
+                              const dbc_dml_row *row, dbc_result **out);
+
 #endif /* QUAERO_SQLITE_INTERNAL_H */
