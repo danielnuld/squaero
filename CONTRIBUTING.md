@@ -7,6 +7,8 @@
 
 La frontera entre ambos es estable y está documentada, así que puedes contribuir en un lado sin conocer el otro.
 
+Al participar en este proyecto aceptas cumplir su [Código de Conducta](CODE_OF_CONDUCT.md).
+
 ## Antes de empezar
 
 - Lee el [ROADMAP](ROADMAP.md) y la [arquitectura](docs/ARCHITECTURE.md).
