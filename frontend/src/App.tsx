@@ -57,6 +57,7 @@ import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
+import { ImportWizard } from "./components/ImportWizard";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -123,6 +124,8 @@ export function App() {
   const [connectingId, setConnectingId] = createSignal<string | null>(null);
   const [editing, setEditing] = createSignal<Connection | null>(null);
   const [structureTarget, setStructureTarget] = createSignal<TreeNode | null>(null);
+  const [importTarget, setImportTarget] =
+    createSignal<{ table: string; db?: string; schema?: string } | null>(null);
 
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
@@ -435,6 +438,13 @@ export function App() {
     if (t) patchEdit(t.id, { preview: null });
   };
 
+  const openImport = () => {
+    const src = currentResult().source;
+    if (src && active()) {
+      setImportTarget({ table: src.table, db: src.db, schema: src.schema });
+    }
+  };
+
   // --- Export (issue #30) ------------------------------------------------
   // Trigger a browser download of a text blob (the webview honors it). Client-
   // side by design; see the M8 decision in the progress notes / docs.
@@ -561,45 +571,50 @@ export function App() {
                     <div class="edit-toolbar">
                       <Show when={currentResult().source}>
                         <Show
-                          when={currentEditable()}
+                          when={currentEdit().editing}
                           fallback={
-                            <span class="edit-hint-ro">
-                              Solo lectura: la tabla no tiene clave primaria.
-                            </span>
+                            <>
+                              <Show
+                                when={currentEditable()}
+                                fallback={
+                                  <span class="edit-hint-ro">
+                                    Solo lectura: la tabla no tiene clave primaria.
+                                  </span>
+                                }
+                              >
+                                <button
+                                  class="edit-btn"
+                                  disabled={currentEdit().busy}
+                                  onClick={beginEdit}
+                                >
+                                  Editar
+                                </button>
+                              </Show>
+                              <button class="edit-btn" onClick={openImport}>
+                                Importar
+                              </button>
+                            </>
                           }
                         >
-                          <Show
-                            when={currentEdit().editing}
-                            fallback={
-                              <button
-                                class="edit-btn"
-                                disabled={currentEdit().busy}
-                                onClick={beginEdit}
-                              >
-                                Editar
-                              </button>
+                          <button class="edit-btn" onClick={onAddInsert}>
+                            ＋ Fila
+                          </button>
+                          <button
+                            class="edit-btn edit-btn-primary"
+                            disabled={
+                              currentEdit().busy || !hasChanges(currentEdit().pending)
                             }
+                            onClick={confirmEdit}
                           >
-                            <button class="edit-btn" onClick={onAddInsert}>
-                              ＋ Fila
-                            </button>
-                            <button
-                              class="edit-btn edit-btn-primary"
-                              disabled={
-                                currentEdit().busy || !hasChanges(currentEdit().pending)
-                              }
-                              onClick={confirmEdit}
-                            >
-                              Confirmar ({changeCount(currentEdit().pending)})
-                            </button>
-                            <button
-                              class="edit-btn"
-                              disabled={currentEdit().busy}
-                              onClick={discardEdit}
-                            >
-                              Descartar
-                            </button>
-                          </Show>
+                            Confirmar ({changeCount(currentEdit().pending)})
+                          </button>
+                          <button
+                            class="edit-btn"
+                            disabled={currentEdit().busy}
+                            onClick={discardEdit}
+                          >
+                            Descartar
+                          </button>
                         </Show>
                         <Show when={currentEdit().error}>
                           <span class="edit-error">{currentEdit().error}</span>
@@ -681,6 +696,18 @@ export function App() {
             </div>
           </div>
         )}
+      </Show>
+
+      <Show when={importTarget() && active()}>
+        <ImportWizard
+          connId={active()!.connId}
+          target={importTarget()!}
+          onClose={() => setImportTarget(null)}
+          onImported={() => {
+            const t = current();
+            if (t) reloadCurrent(t.id);
+          }}
+        />
       </Show>
 
       <Show when={structureTarget() && active()}>

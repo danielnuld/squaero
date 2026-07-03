@@ -827,3 +827,82 @@ button.grid-action:hover {
   font-size: 12px;
   color: var(--fg-dim, #888);
 }
+
+/* --- Import wizard (M8) --------------------------------------------------- */
+.import-field {
+  margin: 0.6rem 0;
+}
+
+.import-subtitle {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-dim, #888);
+  margin: 0.6rem 0 0.3rem;
+}
+
+.import-preview-scroll {
+  max-height: 160px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.import-preview-scroll table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+
+.import-preview-scroll th,
+.import-preview-scroll td {
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.import-mapping {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.map-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.map-target {
+  min-width: 140px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.map-arrow {
+  color: var(--fg-dim, #888);
+}
+
+.map-select {
+  flex: 1;
+  font: inherit;
+  font-size: 12px;
+}
+
+.import-policy {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 12px;
+  margin: 0.6rem 0;
+}
+
+.import-errors {
+  max-height: 160px;
+  overflow: auto;
+  font-size: 12px;
+  color: var(--error, #e5484d);
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+}
