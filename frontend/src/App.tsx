@@ -1,14 +1,25 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
-import { runQuery, QueryError, type ResultSet } from "./utils/query";
+import { runQuery, type ResultSet } from "./utils/query";
+import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection } from "./utils/conn";
 import {
   addTab,
   closeTab,
+  cycleTab,
   updateTabSql,
   activeTab,
   type TabState,
 } from "./utils/tabs";
+import {
+  loadTheme,
+  saveTheme,
+  nextTheme,
+  applyTheme,
+  type ThemePref,
+} from "./utils/theme";
+import { matchShortcut } from "./utils/shortcuts";
+import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
 import {
   buildDsn,
@@ -130,6 +141,89 @@ export function App() {
   const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
   const [transferOpen, setTransferOpen] = createSignal(false);
 
+  // --- Theme, shortcuts, help (issue #42) --------------------------------
+  const safeStorage = (): Storage | undefined => {
+    try {
+      return typeof localStorage !== "undefined" ? localStorage : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const [theme, setTheme] = createSignal<ThemePref>(loadTheme(safeStorage()));
+  const [helpOpen, setHelpOpen] = createSignal(false);
+
+  const prefersDark = () =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isMac = () =>
+    typeof navigator !== "undefined" &&
+    /mac/i.test(navigator.platform || navigator.userAgent || "");
+
+  const applyThemePref = (pref: ThemePref) => {
+    setTheme(pref);
+    saveTheme(pref, safeStorage());
+    if (typeof document !== "undefined") {
+      applyTheme(pref, document.documentElement, prefersDark());
+    }
+  };
+  const toggleTheme = () => applyThemePref(nextTheme(theme()));
+
+  const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
+    switch (action) {
+      case "new-tab":
+        setTabs((s) => addTab(s));
+        break;
+      case "close-tab": {
+        const t = current();
+        if (t) setTabs((s) => closeTab(s, t.id));
+        break;
+      }
+      case "next-tab":
+        setTabs((s) => cycleTab(s, 1));
+        break;
+      case "prev-tab":
+        setTabs((s) => cycleTab(s, -1));
+        break;
+      case "toggle-theme":
+        toggleTheme();
+        break;
+      case "toggle-help":
+        setHelpOpen((v) => !v);
+        break;
+    }
+  };
+
+  onMount(() => {
+    if (typeof document !== "undefined") {
+      applyTheme(theme(), document.documentElement, prefersDark());
+    }
+    // Follow the OS live while the preference is "system".
+    const onSystemChange = () => {
+      if (theme() === "system" && typeof document !== "undefined") {
+        applyTheme("system", document.documentElement, prefersDark());
+      }
+    };
+    const mql =
+      typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : undefined;
+    mql?.addEventListener?.("change", onSystemChange);
+
+    const onKey = (e: KeyboardEvent) => {
+      const action = matchShortcut(e);
+      if (!action) return;
+      e.preventDefault();
+      runShortcut(action);
+    };
+    document.addEventListener("keydown", onKey);
+
+    onCleanup(() => {
+      document.removeEventListener("keydown", onKey);
+      mql?.removeEventListener?.("change", onSystemChange);
+    });
+  });
+
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
   const currentResult = createMemo<TabResult>(() => {
@@ -217,11 +311,11 @@ export function App() {
       setActiveDefId(c.id);
     } catch (err) {
       const tab = current();
-      const message = err instanceof QueryError ? err.message : String(err);
+      const f = describeError(err);
       if (tab) {
         setResults(tab.id, {
           ...emptyResult(),
-          error: `No se pudo conectar a "${c.name}": ${message}`,
+          error: `No se pudo conectar a "${c.name}": ${f.detail ?? f.title}`,
         });
       }
     } finally {
@@ -257,10 +351,9 @@ export function App() {
         elapsedMs: performance.now() - started,
       });
     } catch (err) {
-      const message = err instanceof QueryError ? err.message : String(err);
       setResults(id, {
         loading: false,
-        error: message,
+        error: errorText(err),
         result: null,
         elapsedMs: performance.now() - started,
       });
@@ -306,7 +399,7 @@ export function App() {
   };
 
   // --- Data editing (issues #26/#27/#28/#29) -----------------------------
-  const errMsg = (e: unknown) => (e instanceof QueryError ? e.message : String(e));
+  const errMsg = (e: unknown) => errorText(e);
 
   const patchEdit = (id: number, patch: Partial<EditSessionState>) =>
     setEdits(id, (e) => ({ ...(e ?? emptyEdit()), ...patch }));
@@ -682,7 +775,14 @@ export function App() {
         rowCount={currentResult().result?.rows.length ?? null}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
+        theme={theme()}
+        onToggleTheme={toggleTheme}
+        onShowHelp={() => setHelpOpen(true)}
       />
+
+      <Show when={helpOpen()}>
+        <ShortcutsHelp isMac={isMac()} onClose={() => setHelpOpen(false)} />
+      </Show>
 
       <Show when={editing()}>
         {(draft) => (

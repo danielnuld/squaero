@@ -62,3 +62,17 @@ export function updateTabSql(state: TabState, id: number, sql: string): TabState
 export function activeTab(state: TabState): QueryTab | undefined {
   return state.tabs.find((t) => t.id === state.activeId);
 }
+
+/**
+ * Moves the active tab by `dir` (+1 next, -1 previous), wrapping around the
+ * ends. A no-op when there are fewer than two tabs or the active id is unknown.
+ * Used by the Ctrl+PageUp/PageDown shortcuts (issue #42).
+ */
+export function cycleTab(state: TabState, dir: 1 | -1): TabState {
+  const n = state.tabs.length;
+  if (n < 2) return state;
+  const index = state.tabs.findIndex((t) => t.id === state.activeId);
+  if (index === -1) return state;
+  const next = state.tabs[(index + dir + n) % n];
+  return { ...state, activeId: next.id };
+}
