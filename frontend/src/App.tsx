@@ -58,6 +58,7 @@ import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
+import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -126,6 +127,7 @@ export function App() {
   const [structureTarget, setStructureTarget] = createSignal<TreeNode | null>(null);
   const [importTarget, setImportTarget] =
     createSignal<{ table: string; db?: string; schema?: string } | null>(null);
+  const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
 
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
@@ -593,6 +595,12 @@ export function App() {
                               <button class="edit-btn" onClick={openImport}>
                                 Importar
                               </button>
+                              <button
+                                class="edit-btn"
+                                onClick={() => setSchemaSyncOpen(true)}
+                              >
+                                Sincronizar
+                              </button>
                             </>
                           }
                         >
@@ -707,6 +715,15 @@ export function App() {
             const t = current();
             if (t) reloadCurrent(t.id);
           }}
+        />
+      </Show>
+
+      <Show when={schemaSyncOpen() && active()}>
+        <SchemaSyncWizard
+          sourceConnId={active()!.connId}
+          sourceDb={currentResult().source?.db}
+          connections={connections()}
+          onClose={() => setSchemaSyncOpen(false)}
         />
       </Show>
 
