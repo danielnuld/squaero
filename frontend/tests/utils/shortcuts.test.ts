@@ -28,6 +28,9 @@ describe("matchShortcut — global actions", () => {
     expect(matchShortcut(ev({ key: "PageDown", ctrlKey: true }))).toBe("next-tab");
     expect(matchShortcut(ev({ key: "PageUp", ctrlKey: true }))).toBe("prev-tab");
   });
+  it("F5 refreshes", () => {
+    expect(matchShortcut(ev({ key: "F5" }))).toBe("refresh");
+  });
   it("F1 toggles help", () => {
     expect(matchShortcut(ev({ key: "F1" }))).toBe("toggle-help");
   });

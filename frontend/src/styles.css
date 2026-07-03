@@ -640,12 +640,31 @@ kbd {
 }
 
 .objtree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 0.5rem 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-dim);
+}
+
+.objtree-refresh {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 0.2rem;
+  border-radius: 3px;
+}
+
+.objtree-refresh:hover {
+  color: var(--text);
+  background: var(--bg-elev2);
 }
 
 .objtree-error {

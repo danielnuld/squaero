@@ -140,6 +140,7 @@ export function App() {
   const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
   const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
   const [transferOpen, setTransferOpen] = createSignal(false);
+  const [treeReload, setTreeReload] = createSignal(0);
 
   // --- Theme, shortcuts, help (issue #42) --------------------------------
   const safeStorage = (): Storage | undefined => {
@@ -185,6 +186,9 @@ export function App() {
       case "prev-tab":
         setTabs((s) => cycleTab(s, -1));
         break;
+      case "refresh":
+        refreshAll();
+        break;
       case "toggle-theme":
         toggleTheme();
         break;
@@ -192,6 +196,16 @@ export function App() {
         setHelpOpen((v) => !v);
         break;
     }
+  };
+
+  // Refresh (issue #107): reload the object tree from the root and re-run the
+  // active tab's query. An in-progress edit session is left untouched so a
+  // refresh never silently discards pending changes.
+  const refreshAll = () => {
+    if (!active()) return;
+    setTreeReload((n) => n + 1);
+    const t = current();
+    if (t && !currentEdit().editing) reloadCurrent(t.id);
   };
 
   onMount(() => {
@@ -603,6 +617,8 @@ export function App() {
                 connId={active()!.connId}
                 onOpenData={openData}
                 onOpenStructure={openStructure}
+                reloadKey={treeReload()}
+                onRefresh={refreshAll}
               />
             </div>
           </Show>

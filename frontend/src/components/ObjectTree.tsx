@@ -29,6 +29,10 @@ export function ObjectTree(props: {
   onOpenStructure: (node: TreeNode) => void;
   /** Single-click a table/view -> open its data (a SELECT). */
   onOpenData: (node: TreeNode) => void;
+  /** Bumping this re-fetches the tree from the current connection (issue #107). */
+  reloadKey?: number;
+  /** Refresh button in the header (re-runs the active query + reloads the tree). */
+  onRefresh?: () => void;
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -81,9 +85,12 @@ export function ObjectTree(props: {
       return next;
     });
 
-  // Load the root database list whenever the active connection changes.
+  // Load the root database list whenever the active connection changes, or when
+  // a refresh is requested (reloadKey). A refresh re-fetches from the root and
+  // collapses the tree, so freshly created/dropped objects show up.
   createEffect(() => {
     const connId = props.connId;
+    void props.reloadKey; // track: bumping reloadKey re-runs this load
     generation += 1;
     const myGen = generation;
     setRoots([]);
@@ -163,7 +170,19 @@ export function ObjectTree(props: {
 
   return (
     <div class="objtree">
-      <div class="objtree-header">Objetos</div>
+      <div class="objtree-header">
+        <span>Objetos</span>
+        <Show when={props.connId && props.onRefresh}>
+          <button
+            class="objtree-refresh"
+            title="Refrescar (F5)"
+            aria-label="Refrescar"
+            onClick={() => props.onRefresh!()}
+          >
+            ⟳
+          </button>
+        </Show>
+      </div>
       <Show when={error()}>
         <div class="objtree-error">{error()}</div>
       </Show>

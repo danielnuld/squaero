@@ -14,6 +14,7 @@ desincroniza del comportamiento).
 | Cerrar la pestaña activa | `Mod`+Alt+W |
 | Siguiente pestaña | Ctrl+RePág (PageDown) |
 | Pestaña anterior | Ctrl+AvPág (PageUp) |
+| Refrescar datos y árbol | F5 |
 | Cambiar tema claro/oscuro | `Mod`+Alt+L |
 | Mostrar/ocultar esta ayuda | F1 |
 

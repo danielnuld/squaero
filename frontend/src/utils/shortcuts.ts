@@ -13,6 +13,7 @@ export type ActionId =
   | "close-tab"
   | "next-tab"
   | "prev-tab"
+  | "refresh"
   | "toggle-theme"
   | "toggle-help";
 
@@ -32,6 +33,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "close-tab", keys: "Mod+Alt+W", description: "Cerrar la pestaña activa", global: true },
   { id: "next-tab", keys: "Ctrl+PageDown", description: "Siguiente pestaña", global: true },
   { id: "prev-tab", keys: "Ctrl+PageUp", description: "Pestaña anterior", global: true },
+  { id: "refresh", keys: "F5", description: "Refrescar datos y árbol", global: true },
   { id: "toggle-theme", keys: "Mod+Alt+L", description: "Cambiar tema claro/oscuro", global: true },
   { id: "toggle-help", keys: "F1", description: "Mostrar/ocultar atajos", global: true },
 ];
@@ -68,6 +70,7 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
     if (e.key === "PageUp") return "prev-tab";
   }
 
+  if (e.key === "F5" && !mod(e) && !e.altKey && !e.shiftKey) return "refresh";
   if (e.key === "F1" && !mod(e) && !e.altKey && !e.shiftKey) return "toggle-help";
 
   return null;
