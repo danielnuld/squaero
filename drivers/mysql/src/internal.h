@@ -68,4 +68,8 @@ dbc_status   mysql_drv_describe_table(dbc_conn *c, const char *schema,
 dbc_status   mysql_drv_get_ddl(dbc_conn *c, const char *schema, const char *object,
                                dbc_result **out);
 
+/* --- edit.c (DBC_FEAT_DML) --- */
+dbc_status   mysql_drv_build_dml(dbc_conn *c, dbc_dml_kind kind,
+                                 const dbc_dml_row *row, dbc_result **out);
+
 #endif /* QUAERO_MYSQL_INTERNAL_H */
