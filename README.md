@@ -79,6 +79,7 @@ cmake/        helpers de CMake
 - [Plan de desarrollo / ROADMAP](ROADMAP.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Contrato de drivers (vtable)](docs/DRIVER_API.md)
+- [Cómo escribir un driver](docs/WRITING_A_DRIVER.md)
 - [Protocolo IPC núcleo ↔ frontend](docs/IPC.md)
 - [Cómo contribuir](CONTRIBUTING.md)
 

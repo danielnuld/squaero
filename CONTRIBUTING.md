@@ -17,12 +17,12 @@ Al participar en este proyecto aceptas cumplir su [Código de Conducta](CODE_OF_
 
 ## Contribuir un driver de base de datos
 
-El camino más valioso para la comunidad. Un driver implementa el [contrato vtable](docs/DRIVER_API.md):
+El camino más valioso para la comunidad. Un driver implementa el [contrato vtable](docs/DRIVER_API.md). La [guía paso a paso](docs/WRITING_A_DRIVER.md) lo recorre en detalle; en resumen:
 
-1. Copia el driver de referencia (SQLite) como plantilla.
+1. Copia el [driver de plantilla](examples/driver-template/) (o el de referencia, SQLite).
 2. Implementa la vtable contra la librería cliente del motor.
 3. Compila como biblioteca compartida.
-4. Agrega tests y documenta los `features` soportados.
+4. Agrega tests y anuncia solo los `features` que un handler real respalda.
 
 > Importante para licencias: los drivers de clientes **propietarios** (Oracle, Informix) se distribuyen por separado y se cargan en runtime; no se enlazan al núcleo GPL.
 

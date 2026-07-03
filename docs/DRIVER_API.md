@@ -227,7 +227,8 @@ aplica al abrir el plugin.
 
 ## Cómo escribir un driver
 
-Punto de partida: el **driver de plantilla** en
+Guía paso a paso: [`docs/WRITING_A_DRIVER.md`](WRITING_A_DRIVER.md). El punto de
+partida es el **driver de plantilla** en
 [`examples/driver-template/`](../examples/driver-template/) — el driver mínimo
 que satisface esta ABI, sin dependencias externas, listo para copiar. Para una
 implementación completa de cada capacidad, mira el driver de referencia de SQLite

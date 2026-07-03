@@ -64,6 +64,7 @@ under the project's strict warnings — no separate install needed.
    `DBC_FEAT_*` bit in `entry.c`. Never advertise a capability a real handler
    does not back.
 
-See [`docs/DRIVER_API.md`](../../docs/DRIVER_API.md) for the full contract and the
-SQLite reference driver (`drivers/sqlite`) for a complete, minimal implementation
-of every capability.
+See the step-by-step [guide](../../docs/WRITING_A_DRIVER.md) and its
+[feature checklist](../../docs/WRITING_A_DRIVER.md#checklist-de-features), the full
+[contract](../../docs/DRIVER_API.md), and the SQLite reference driver
+(`drivers/sqlite`) for a complete, minimal implementation of every capability.
