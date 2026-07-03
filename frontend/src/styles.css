@@ -818,3 +818,12 @@ button.grid-action:hover {
 .preview-sql {
   min-width: 420px;
 }
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.export-label {
+  font-size: 12px;
+  color: var(--fg-dim, #888);
+}
