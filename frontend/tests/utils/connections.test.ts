@@ -180,11 +180,16 @@ describe("upsertConnection / removeConnection", () => {
 });
 
 describe("serialize / parse round-trip", () => {
-  it("strips secrets on serialize", () => {
+  it("persists passwords (round-trips secrets) so reconnecting needs no re-typing", () => {
     const raw = serializeConnections([pgConn()]);
-    expect(raw).not.toContain("secret");
+    expect(raw).toContain("secret");
     const parsed = parseConnections(raw);
-    expect(parsed[0].params).toEqual({ host: "localhost", database: "app", user: "me" });
+    expect(parsed[0].params).toEqual({
+      host: "localhost",
+      database: "app",
+      user: "me",
+      password: "secret",
+    });
   });
 
   it("round-trips a secret-free connection", () => {
@@ -241,7 +246,7 @@ describe("SSH tunnel fields", () => {
     expect(keys.some((k) => k.startsWith("ssh_"))).toBe(false);
   });
 
-  it("ssh_password and ssh_key_passphrase are treated as secrets (never persisted)", () => {
+  it("stripSecrets removes ssh secrets, but serialize persists them (password-save)", () => {
     const conn: Connection = {
       id: "conn-9",
       name: "Tunnelled",
@@ -258,13 +263,15 @@ describe("SSH tunnel fields", () => {
         ssh_key_passphrase: "phrase",
       },
     };
+    // stripSecrets still drops secrets for callers that want a secret-free copy.
     const stripped = stripSecrets(conn, DRIVER_SCHEMAS.postgres);
     expect("ssh_password" in stripped.params).toBe(false);
     expect("ssh_key_passphrase" in stripped.params).toBe(false);
     expect(stripped.params.ssh_host).toBe("bastion");
+    // Storage now persists passwords (incl. ssh secrets) for reconnect convenience.
     const raw = serializeConnections([conn]);
-    expect(raw).not.toContain("sshpw");
-    expect(raw).not.toContain("phrase");
+    expect(raw).toContain("sshpw");
+    expect(raw).toContain("phrase");
   });
 
   it("buildDsn emits ssh_* keys only when filled in", () => {

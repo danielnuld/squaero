@@ -41,11 +41,16 @@ describe("connectionStore (localStorage)", () => {
     expect(localStorage.getItem(KEY)).toContain("conn-1");
   });
 
-  it("strips secrets before persisting", async () => {
+  it("persists passwords so reconnecting needs no re-typing", async () => {
     const mod = await freshModule();
     mod.saveConnections([pg]);
-    expect(localStorage.getItem(KEY)).not.toContain("secret");
-    expect(mod.loadConnections()[0].params).toEqual({ host: "h", database: "d", user: "u" });
+    expect(localStorage.getItem(KEY)).toContain("secret");
+    expect(mod.loadConnections()[0].params).toEqual({
+      host: "h",
+      database: "d",
+      user: "u",
+      password: "secret",
+    });
   });
 
   it("returns [] when stored data is corrupt", async () => {

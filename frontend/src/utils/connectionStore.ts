@@ -1,8 +1,10 @@
 // Persistence adapter for saved connections. Definitions live client-side
 // (the core has no conn.save); this pairs the pure serialize/parse helpers with
 // localStorage, falling back to an in-memory store when the webview has no
-// persistent storage so the app still works for the session. Secrets are
-// stripped by serializeConnections before they ever reach storage.
+// persistent storage so the app still works for the session. Passwords ARE
+// persisted (plaintext) by maintainer decision, so reconnecting does not require
+// re-typing them (see serializeConnections). localStorage only persists across
+// restarts when the UI is served from a stable origin (see app/src/main.cc).
 
 import {
   serializeConnections,

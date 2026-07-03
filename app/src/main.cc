@@ -11,11 +11,14 @@ extern "C" {
 #include "cJSON.h"
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <shlobj.h>
+#include <WebView2.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
 #include <climits>
@@ -126,6 +129,14 @@ static void rpc_handler(const char *id, const char *req, void *arg)
 {
     auto w = static_cast<webview_t>(arg);
 
+    // One-time signal that the frontend loaded and reached the bridge (the
+    // startup app.hello handshake). Useful to confirm the UI actually rendered.
+    static bool first_call = true;
+    if (first_call) {
+        first_call = false;
+        std::printf("Quaero: frontend connected to the bridge\n");
+    }
+
     char *response = nullptr;
     cJSON *args = cJSON_Parse(req);
     if (cJSON_IsArray(args)) {
@@ -147,6 +158,76 @@ static void rpc_handler(const char *id, const char *req, void *arg)
                        "\"message\":\"invalid bridge call\"}}");
     }
     cJSON_Delete(args);
+}
+
+// Load the embedded frontend bundle into the webview.
+//
+// On Windows we serve it from a stable https origin (https://quaero.local) via
+// WebView2's virtual-host mapping, so the page has a real origin and its
+// localStorage (saved connections, theme) PERSISTS across restarts. Loading via
+// set_html gives an opaque origin, for which Chromium never persists
+// localStorage. Any failure falls back to set_html (same as before, just no
+// persistence). Non-Windows uses set_html until an equivalent is wired.
+static void load_frontend(webview_t w)
+{
+    const char *html = reinterpret_cast<const char *>(quaero_frontend_html);
+#if defined(_WIN32)
+    do {
+        wchar_t appdata[MAX_PATH];
+        if (!SUCCEEDED(
+                SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
+            break;
+        }
+        std::wstring dir = std::wstring(appdata) + L"\\Quaero\\ui";
+        SHCreateDirectoryExW(nullptr, dir.c_str(), nullptr);
+        std::wstring file = dir + L"\\index.html";
+
+        HANDLE fh = CreateFileW(file.c_str(), GENERIC_WRITE, 0, nullptr,
+                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (fh == INVALID_HANDLE_VALUE) {
+            break;
+        }
+        DWORD len = static_cast<DWORD>(std::strlen(html));
+        DWORD written = 0;
+        BOOL wrote = WriteFile(fh, html, len, &written, nullptr);
+        CloseHandle(fh);
+        if (!wrote || written != len) {
+            break;
+        }
+
+        auto controller = static_cast<ICoreWebView2Controller *>(
+            webview_get_native_handle(w,
+                                      WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER));
+        if (controller == nullptr) {
+            break;
+        }
+        ICoreWebView2 *core = nullptr;
+        if (!SUCCEEDED(controller->get_CoreWebView2(&core)) || core == nullptr) {
+            break;
+        }
+        ICoreWebView2_3 *core3 = nullptr;
+        HRESULT hr = core->QueryInterface(IID_ICoreWebView2_3,
+                                          reinterpret_cast<void **>(&core3));
+        core->Release();
+        if (!SUCCEEDED(hr) || core3 == nullptr) {
+            break;
+        }
+        hr = core3->SetVirtualHostNameToFolderMapping(
+            L"quaero.local", dir.c_str(),
+            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+        core3->Release();
+        if (!SUCCEEDED(hr)) {
+            break;
+        }
+        webview_navigate(w, "https://quaero.local/index.html");
+        std::printf("Quaero: UI served from https://quaero.local (persistent)\n");
+        return;
+    } while (0);
+    std::fprintf(stderr,
+                 "Quaero: virtual-host setup failed; falling back to set_html "
+                 "(settings will not persist across restarts)\n");
+#endif
+    webview_set_html(w, html);
 }
 
 int main()
@@ -171,8 +252,9 @@ int main()
     webview_set_size(w, 1100, 720, WEBVIEW_HINT_NONE);
     webview_bind(w, "quaeroRpc", rpc_handler, w);
 
-    // Load the embedded, self-contained frontend bundle (no loose files).
-    webview_set_html(w, reinterpret_cast<const char *>(quaero_frontend_html));
+    // Load the embedded, self-contained frontend bundle (persistent origin on
+    // Windows; set_html fallback otherwise).
+    load_frontend(w);
 
     webview_run(w);
     webview_destroy(w);

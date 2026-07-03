@@ -341,13 +341,14 @@ export function removeConnection(list: Connection[], id: string): Connection[] {
   return list.filter((c) => c.id !== id);
 }
 
-/** Serializes connections for storage, stripping secrets from each. */
+/**
+ * Serializes connections for storage. Passwords ARE persisted (plaintext), by
+ * maintainer decision, so a saved connection reconnects without re-typing them
+ * — the convenience matters for daily use on a single-user desktop. `stripSecrets`
+ * remains available for callers that want a secret-free copy.
+ */
 export function serializeConnections(list: Connection[]): string {
-  const safe = list.map((c) => {
-    const schema = driverSchema(c.driver);
-    return schema ? stripSecrets(c, schema) : c;
-  });
-  return JSON.stringify(safe);
+  return JSON.stringify(list);
 }
 
 /** Tolerant parse of stored connections; malformed entries are dropped. */

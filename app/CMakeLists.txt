@@ -24,6 +24,15 @@ FetchContent_MakeAvailable(webview)
 # --- App executable --------------------------------------------------------
 add_executable(quaero src/main.cc)
 target_link_libraries(quaero PRIVATE dbcore frontend_assets cjson webview::core)
+
+# Windows: main.cc uses the WebView2 SDK header (ICoreWebView2_3) to serve the UI
+# from a stable virtual-host origin so localStorage persists. The header ships
+# with the WebView2 package fetched by webview; add its include dir.
+if(WIN32)
+  target_include_directories(quaero PRIVATE
+    "${CMAKE_BINARY_DIR}/_deps/microsoft_web_webview2-src/build/native/include")
+  target_link_libraries(quaero PRIVATE shell32 ole32)
+endif()
 # Note: strict warnings are intentionally not applied here — this target
 # includes the third-party C++ webview header.
 
