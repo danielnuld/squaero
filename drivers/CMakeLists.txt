@@ -5,3 +5,4 @@
 add_subdirectory(sqlite)
 add_subdirectory(mysql)
 add_subdirectory(informix)
+add_subdirectory(mongodb)
