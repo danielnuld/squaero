@@ -1,37 +1,79 @@
-import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
 import { formatCell, cellAlign } from "../utils/format";
 import type { ResultSet } from "../utils/query";
+import type { PendingChanges } from "../utils/editSession";
 
 const ROW_HEIGHT = 28;
 const COL_WIDTH = 180;
+const ACTION_WIDTH = 36;
+
+/**
+ * Edit hooks passed by the workspace when the active tab is in edit mode over an
+ * editable (primary-keyed) table. When absent or `active` is false the grid is
+ * read-only, exactly as before.
+ */
+export interface GridEdit {
+  active: boolean;
+  pending: PendingChanges;
+  onEditCell: (rowIndex: number, column: string, value: string) => void;
+  onToggleDelete: (rowIndex: number) => void;
+  onInsertCell: (insertIndex: number, column: string, value: string) => void;
+  onRemoveInsert: (insertIndex: number) => void;
+}
 
 // Virtualized result grid: only the rows intersecting the viewport are in the
 // DOM (see .rules/frontend.md §2). The spacer carries the full scroll height; a
 // translateY offsets the rendered window. Pagination is delegated to onNeedMore
 // when the user scrolls near the end of a truncated dataset. Cell formatting is
-// driven by each column's neutral type (src/utils/format.ts).
+// driven by each column's neutral type (src/utils/format.ts). In edit mode the
+// cells become inputs and a leading action column toggles row deletion;
+// newly-inserted rows render in a separate section below the grid.
 export function ResultGrid(props: {
   result: ResultSet | null;
   loading: boolean;
   error: string | null;
   /** Called when more rows should be fetched (truncated dataset, near bottom). */
   onNeedMore?: () => void;
+  /** Edit hooks; when active, cells are editable. */
+  edit?: GridEdit;
 }) {
-  let scroller!: HTMLDivElement;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
 
-  onMount(() => {
-    setViewportH(scroller.clientHeight);
-    const ro = new ResizeObserver(() => setViewportH(scroller.clientHeight));
-    ro.observe(scroller);
-    onCleanup(() => ro.disconnect());
-  });
+  // The scroller is rendered only once a result with columns exists, and it can
+  // come and go across queries, so we measure it from a callback ref rather than
+  // onMount (which fires once, possibly before any result). This attaches — and
+  // re-attaches — a ResizeObserver whenever the scroller element appears.
+  let ro: ResizeObserver | undefined;
+  const attachScroller = (el: HTMLDivElement) => {
+    setViewportH(el.clientHeight);
+    ro?.disconnect();
+    ro = new ResizeObserver(() => setViewportH(el.clientHeight));
+    ro.observe(el);
+  };
+  onCleanup(() => ro?.disconnect());
 
   const cols = () => props.result?.columns ?? [];
   const rows = () => props.result?.rows ?? [];
-  const gridCols = () => `repeat(${cols().length}, ${COL_WIDTH}px)`;
+  const editing = () => props.edit?.active ?? false;
+  const gridCols = () => {
+    const body = `repeat(${cols().length}, ${COL_WIDTH}px)`;
+    return editing() ? `${ACTION_WIDTH}px ${body}` : body;
+  };
+
+  const isDeleted = (rowIndex: number) =>
+    props.edit?.pending.deletes.includes(rowIndex) ?? false;
+
+  // The value to show in an existing-row cell: the pending edit if any, else the
+  // original value.
+  const cellValue = (rowIndex: number, colName: string, original: string | null) => {
+    const pending = props.edit?.pending.edits[rowIndex];
+    if (pending && colName in pending) {
+      return pending[colName];
+    }
+    return original;
+  };
 
   const range = () =>
     visibleRange({
@@ -41,8 +83,6 @@ export function ResultGrid(props: {
       rowCount: rows().length,
     });
 
-  // Ask for more rows when the rendered window approaches the end of a
-  // truncated dataset.
   createEffect(() => {
     const r = props.result;
     if (props.onNeedMore && r && needsMoreRows(range().end, rows().length, r.truncated)) {
@@ -70,7 +110,7 @@ export function ResultGrid(props: {
           >
             <div
               class="grid-scroll"
-              ref={scroller}
+              ref={attachScroller}
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
             >
               <div class="grid-inner">
@@ -78,6 +118,9 @@ export function ResultGrid(props: {
                   class="grid-header"
                   style={{ "grid-template-columns": gridCols() }}
                 >
+                  <Show when={editing()}>
+                    <div class="grid-cell grid-head grid-action" />
+                  </Show>
                   <For each={cols()}>
                     {(col) => (
                       <div class="grid-cell grid-head">
@@ -94,32 +137,100 @@ export function ResultGrid(props: {
                     style={{ transform: `translateY(${range().offsetY}px)` }}
                   >
                     <For each={rows().slice(range().start, range().end)}>
-                      {(row) => (
-                        <div
-                          class="grid-row"
-                          style={{ "grid-template-columns": gridCols() }}
-                        >
-                          <For each={cols()}>
-                            {(col, i) => {
-                              const cell = formatCell(row[i()] ?? null, col.type);
-                              return (
-                                <div
-                                  class={`grid-cell cell-${cell.kind}`}
-                                  style={{ "text-align": cellAlign(cell.kind) }}
-                                  title={cell.text}
-                                >
-                                  {cell.text}
-                                </div>
-                              );
-                            }}
-                          </For>
-                        </div>
-                      )}
+                      {(row, i) => {
+                        const rowIndex = () => range().start + i();
+                        return (
+                          <div
+                            class={`grid-row ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
+                            style={{ "grid-template-columns": gridCols() }}
+                          >
+                            <Show when={editing()}>
+                              <button
+                                class="grid-cell grid-action row-del"
+                                title={isDeleted(rowIndex()) ? "Deshacer borrado" : "Borrar fila"}
+                                onClick={() => props.edit?.onToggleDelete(rowIndex())}
+                              >
+                                {isDeleted(rowIndex()) ? "↩" : "🗑"}
+                              </button>
+                            </Show>
+                            <For each={cols()}>
+                              {(col, ci) => {
+                                const original = () => row[ci()] ?? null;
+                                return (
+                                  <Show
+                                    when={editing()}
+                                    fallback={(() => {
+                                      const cell = formatCell(original(), col.type);
+                                      return (
+                                        <div
+                                          class={`grid-cell cell-${cell.kind}`}
+                                          style={{ "text-align": cellAlign(cell.kind) }}
+                                          title={cell.text}
+                                        >
+                                          {cell.text}
+                                        </div>
+                                      );
+                                    })()}
+                                  >
+                                    <input
+                                      class="grid-cell cell-input"
+                                      disabled={isDeleted(rowIndex())}
+                                      value={cellValue(rowIndex(), col.name, original()) ?? ""}
+                                      onInput={(e) =>
+                                        props.edit?.onEditCell(
+                                          rowIndex(),
+                                          col.name,
+                                          e.currentTarget.value,
+                                        )
+                                      }
+                                    />
+                                  </Show>
+                                );
+                              }}
+                            </For>
+                          </div>
+                        );
+                      }}
                     </For>
                   </div>
                 </div>
               </div>
             </div>
+
+            <Show when={editing() && (props.edit?.pending.inserts.length ?? 0) > 0}>
+              <div class="grid-inserts">
+                <div class="grid-inserts-title">Nuevas filas</div>
+                <For each={props.edit?.pending.inserts ?? []}>
+                  {(ins, ii) => (
+                    <div
+                      class="grid-row row-insert"
+                      style={{ "grid-template-columns": gridCols() }}
+                    >
+                      <button
+                        class="grid-cell grid-action row-del"
+                        title="Quitar fila nueva"
+                        onClick={() => props.edit?.onRemoveInsert(ii())}
+                      >
+                        ✕
+                      </button>
+                      <For each={cols()}>
+                        {(col) => (
+                          <input
+                            class="grid-cell cell-input"
+                            placeholder={col.name}
+                            value={ins[col.name] ?? ""}
+                            onInput={(e) =>
+                              props.edit?.onInsertCell(ii(), col.name, e.currentTarget.value)
+                            }
+                          />
+                        )}
+                      </For>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+
             <Show when={result().truncated}>
               <div class="grid-truncated">
                 Mostrando las primeras {rows().length} filas (resultado truncado).

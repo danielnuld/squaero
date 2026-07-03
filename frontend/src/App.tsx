@@ -19,7 +19,30 @@ import {
   type Connection,
 } from "./utils/connections";
 import { loadConnections, saveConnections } from "./utils/connectionStore";
-import { quoteIdentifier } from "./utils/schema";
+import { quoteIdentifier, schemaDescribe } from "./utils/schema";
+import {
+  describePkColumns,
+  rowInsert,
+  rowUpdate,
+  rowDelete,
+  txBegin,
+  txCommit,
+  txRollback,
+} from "./utils/edit";
+import {
+  emptyPending,
+  setCell,
+  toggleDelete,
+  addInsert,
+  setInsertCell,
+  removeInsert,
+  hasChanges,
+  changeCount,
+  buildPlan,
+  type EditSource,
+  type PendingChanges,
+  type PlanItem,
+} from "./utils/editSession";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
@@ -35,7 +58,28 @@ interface TabResult {
   error: string | null;
   result: ResultSet | null;
   elapsedMs: number | null;
+  /** The table this result was read from + its PK, when opened from the tree.
+      Present + pk non-empty => the grid is editable. */
+  source?: EditSource | null;
 }
+
+// Per-tab edit-session state (M7). Present only while editing a tab.
+interface EditSessionState {
+  editing: boolean;
+  pending: PendingChanges;
+  busy: boolean;
+  error: string | null;
+  /** Generated SQL statements to confirm; non-null shows the preview dialog. */
+  preview: string[] | null;
+}
+
+const emptyEdit = (): EditSessionState => ({
+  editing: false,
+  pending: emptyPending(),
+  busy: false,
+  error: null,
+  preview: null,
+});
 
 // The live connection opened in the core: its core-side connId plus the saved
 // connection's display name.
@@ -64,6 +108,7 @@ const emptyResult = (): TabResult => ({
 export function App() {
   const [tabs, setTabs] = createSignal<TabState>(addTab({ tabs: [], activeId: 0 }));
   const [results, setResults] = createStore<Record<number, TabResult>>({});
+  const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
   const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
@@ -78,6 +123,16 @@ export function App() {
   const currentResult = createMemo<TabResult>(() => {
     const t = current();
     return (t && results[t.id]) || emptyResult();
+  });
+  const currentEdit = createMemo<EditSessionState>(() => {
+    const t = current();
+    return (t && edits[t.id]) || emptyEdit();
+  });
+  // A tab is editable when it was opened from a table whose primary key is known
+  // and projected — otherwise a row cannot be identified unambiguously.
+  const currentEditable = createMemo<boolean>(() => {
+    const src = currentResult().source;
+    return !!src && src.pk.length > 0;
   });
 
   const newTab = () => setTabs((s) => addTab(s));
@@ -210,11 +265,168 @@ export function App() {
       .map(quoteIdentifier)
       .join(".");
     const sql = `SELECT * FROM ${qualified} LIMIT ${PAGE_LIMIT};`;
+    let newId = 0;
     setTabs((s) => {
       const added = addTab(s);
-      return updateTabSql(added, added.activeId, sql);
+      newId = added.activeId;
+      return updateTabSql(added, newId, sql);
     });
-    void run(sql);
+    void (async () => {
+      await run(sql);
+      const conn = active();
+      if (!conn) return;
+      // Fetch the table's primary key so the grid knows if it can be edited.
+      try {
+        const desc = await schemaDescribe(conn.connId, node.label, node.db, node.schema);
+        const source: EditSource = {
+          table: node.label,
+          db: node.db,
+          schema: node.schema,
+          pk: describePkColumns(desc),
+        };
+        if (results[newId]) {
+          setResults(newId, "source", source);
+        }
+      } catch {
+        /* describe failed: the tab stays read-only (no source). */
+      }
+    })();
+  };
+
+  // --- Data editing (issues #26/#27/#28/#29) -----------------------------
+  const errMsg = (e: unknown) => (e instanceof QueryError ? e.message : String(e));
+
+  const patchEdit = (id: number, patch: Partial<EditSessionState>) =>
+    setEdits(id, (e) => ({ ...(e ?? emptyEdit()), ...patch }));
+
+  const mutatePending = (id: number, fn: (p: PendingChanges) => PendingChanges) =>
+    setEdits(id, (e) => {
+      const s = e ?? emptyEdit();
+      return { ...s, pending: fn(s.pending) };
+    });
+
+  // Grid change hooks (record into the pending set of the active tab).
+  const onEditCell = (rowIndex: number, column: string, value: string) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => setCell(p, rowIndex, column, value));
+  };
+  const onToggleDelete = (rowIndex: number) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => toggleDelete(p, rowIndex));
+  };
+  const onInsertCell = (insertIndex: number, column: string, value: string) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => setInsertCell(p, insertIndex, column, value));
+  };
+  const onRemoveInsert = (insertIndex: number) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => removeInsert(p, insertIndex));
+  };
+  const onAddInsert = () => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => addInsert(p));
+  };
+
+  const beginEdit = async () => {
+    const t = current();
+    const conn = active();
+    if (!t || !conn || !currentEditable()) return;
+    patchEdit(t.id, { busy: true, error: null });
+    try {
+      await txBegin(conn.connId);
+      patchEdit(t.id, { editing: true, pending: emptyPending(), busy: false });
+    } catch (err) {
+      patchEdit(t.id, { busy: false, error: errMsg(err) });
+    }
+  };
+
+  const reloadCurrent = (id: number) => {
+    const sql = tabs().tabs.find((x) => x.id === id)?.sql;
+    if (sql) void run(sql);
+  };
+
+  const discardEdit = async () => {
+    const t = current();
+    const conn = active();
+    if (!t || !conn) return;
+    patchEdit(t.id, { busy: true });
+    try {
+      await txRollback(conn.connId);
+    } catch {
+      /* best-effort rollback */
+    }
+    setEdits(t.id, emptyEdit());
+    reloadCurrent(t.id);
+  };
+
+  const runPlanItem = (
+    connId: string,
+    target: { table: string; db?: string; schema?: string },
+    item: PlanItem,
+    preview: boolean,
+  ) => {
+    if (item.kind === "update") {
+      return rowUpdate(connId, target, item.set, item.where, preview);
+    }
+    if (item.kind === "delete") {
+      return rowDelete(connId, target, item.where, preview);
+    }
+    return rowInsert(connId, target, item.values, preview);
+  };
+
+  // Confirmar: gather the generated SQL for every pending change (preview only)
+  // and show it for confirmation before anything is executed (issue #29).
+  const confirmEdit = async () => {
+    const t = current();
+    const conn = active();
+    const res = currentResult();
+    if (!t || !conn || !res.result || !res.source) return;
+    const plan = buildPlan(res.source, res.result.columns, res.result.rows,
+                           currentEdit().pending);
+    if (plan.length === 0) {
+      patchEdit(t.id, { error: "No hay cambios para aplicar." });
+      return;
+    }
+    const target = { table: res.source.table, db: res.source.db, schema: res.source.schema };
+    patchEdit(t.id, { busy: true, error: null });
+    try {
+      const sqls: string[] = [];
+      for (const item of plan) {
+        const r = await runPlanItem(conn.connId, target, item, true);
+        sqls.push(r.sql);
+      }
+      patchEdit(t.id, { busy: false, preview: sqls });
+    } catch (err) {
+      patchEdit(t.id, { busy: false, error: errMsg(err) });
+    }
+  };
+
+  // Aplicar: execute the plan for real, then commit and reload.
+  const applyEdit = async () => {
+    const t = current();
+    const conn = active();
+    const res = currentResult();
+    if (!t || !conn || !res.result || !res.source) return;
+    const plan = buildPlan(res.source, res.result.columns, res.result.rows,
+                           currentEdit().pending);
+    const target = { table: res.source.table, db: res.source.db, schema: res.source.schema };
+    patchEdit(t.id, { busy: true, error: null });
+    try {
+      for (const item of plan) {
+        await runPlanItem(conn.connId, target, item, false);
+      }
+      await txCommit(conn.connId);
+      setEdits(t.id, emptyEdit());
+      reloadCurrent(t.id);
+    } catch (err) {
+      // Leave the transaction open so the user can fix and retry or discard.
+      patchEdit(t.id, { busy: false, preview: null, error: `Error al aplicar: ${errMsg(err)}` });
+    }
+  };
+
+  const cancelPreview = () => {
+    const t = current();
+    if (t) patchEdit(t.id, { preview: null });
   };
 
   // Open a table's structure (columns + DDL) in a modal.
@@ -310,10 +522,70 @@ export function App() {
                   <div class="editor-hint">Ctrl/Cmd + Enter para ejecutar</div>
                 </div>
                 <div class="result-pane">
+                  <Show when={currentResult().source}>
+                    <div class="edit-toolbar">
+                      <Show
+                        when={currentEditable()}
+                        fallback={
+                          <span class="edit-hint-ro">
+                            Solo lectura: la tabla no tiene clave primaria.
+                          </span>
+                        }
+                      >
+                        <Show
+                          when={currentEdit().editing}
+                          fallback={
+                            <button
+                              class="edit-btn"
+                              disabled={currentEdit().busy}
+                              onClick={beginEdit}
+                            >
+                              Editar
+                            </button>
+                          }
+                        >
+                          <button class="edit-btn" onClick={onAddInsert}>
+                            ＋ Fila
+                          </button>
+                          <button
+                            class="edit-btn edit-btn-primary"
+                            disabled={
+                              currentEdit().busy || !hasChanges(currentEdit().pending)
+                            }
+                            onClick={confirmEdit}
+                          >
+                            Confirmar ({changeCount(currentEdit().pending)})
+                          </button>
+                          <button
+                            class="edit-btn"
+                            disabled={currentEdit().busy}
+                            onClick={discardEdit}
+                          >
+                            Descartar
+                          </button>
+                        </Show>
+                      </Show>
+                      <Show when={currentEdit().error}>
+                        <span class="edit-error">{currentEdit().error}</span>
+                      </Show>
+                    </div>
+                  </Show>
                   <ResultGrid
                     result={currentResult().result}
                     loading={currentResult().loading}
                     error={currentResult().error}
+                    edit={
+                      currentEditable()
+                        ? {
+                            active: currentEdit().editing,
+                            pending: currentEdit().pending,
+                            onEditCell,
+                            onToggleDelete,
+                            onInsertCell,
+                            onRemoveInsert,
+                          }
+                        : undefined
+                    }
                   />
                 </div>
               </div>
@@ -337,6 +609,26 @@ export function App() {
             onCancel={() => setEditing(null)}
             onTest={(c) => testConnection(c.driver, buildDsn(c))}
           />
+        )}
+      </Show>
+
+      <Show when={currentEdit().preview}>
+        {(sqls) => (
+          <div class="modal-backdrop" onClick={cancelPreview}>
+            <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+              <h2>Confirmar cambios</h2>
+              <p>Se ejecutarán {sqls().length} sentencia(s) en la transacción abierta:</p>
+              <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
+              <div class="modal-actions">
+                <button disabled={currentEdit().busy} onClick={cancelPreview}>
+                  Cancelar
+                </button>
+                <button class="primary" disabled={currentEdit().busy} onClick={applyEdit}>
+                  Aplicar y confirmar
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </Show>
 
