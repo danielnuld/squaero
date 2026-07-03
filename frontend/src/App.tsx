@@ -43,6 +43,12 @@ import {
   type PendingChanges,
   type PlanItem,
 } from "./utils/editSession";
+import {
+  exportResult,
+  mimeFor,
+  fileNameFor,
+  type ExportFormat,
+} from "./utils/exporters";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
@@ -429,6 +435,30 @@ export function App() {
     if (t) patchEdit(t.id, { preview: null });
   };
 
+  // --- Export (issue #30) ------------------------------------------------
+  // Trigger a browser download of a text blob (the webview honors it). Client-
+  // side by design; see the M8 decision in the progress notes / docs.
+  const downloadText = (filename: string, content: string, mime: string) => {
+    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const doExport = (format: ExportFormat) => {
+    const res = currentResult().result;
+    if (!res || res.columns.length === 0) return;
+    const src = currentResult().source;
+    const base = src?.table ?? current()?.title ?? "export";
+    const text = exportResult(res, format, src?.table ?? "exported");
+    downloadText(fileNameFor(base, format), text, mimeFor(format));
+  };
+
   // Open a table's structure (columns + DDL) in a modal.
   const openStructure = (node: TreeNode) => {
     if (active()) {
@@ -522,51 +552,72 @@ export function App() {
                   <div class="editor-hint">Ctrl/Cmd + Enter para ejecutar</div>
                 </div>
                 <div class="result-pane">
-                  <Show when={currentResult().source}>
+                  <Show
+                    when={
+                      currentResult().source ||
+                      (currentResult().result?.columns.length ?? 0) > 0
+                    }
+                  >
                     <div class="edit-toolbar">
-                      <Show
-                        when={currentEditable()}
-                        fallback={
-                          <span class="edit-hint-ro">
-                            Solo lectura: la tabla no tiene clave primaria.
-                          </span>
-                        }
-                      >
+                      <Show when={currentResult().source}>
                         <Show
-                          when={currentEdit().editing}
+                          when={currentEditable()}
                           fallback={
+                            <span class="edit-hint-ro">
+                              Solo lectura: la tabla no tiene clave primaria.
+                            </span>
+                          }
+                        >
+                          <Show
+                            when={currentEdit().editing}
+                            fallback={
+                              <button
+                                class="edit-btn"
+                                disabled={currentEdit().busy}
+                                onClick={beginEdit}
+                              >
+                                Editar
+                              </button>
+                            }
+                          >
+                            <button class="edit-btn" onClick={onAddInsert}>
+                              ＋ Fila
+                            </button>
+                            <button
+                              class="edit-btn edit-btn-primary"
+                              disabled={
+                                currentEdit().busy || !hasChanges(currentEdit().pending)
+                              }
+                              onClick={confirmEdit}
+                            >
+                              Confirmar ({changeCount(currentEdit().pending)})
+                            </button>
                             <button
                               class="edit-btn"
                               disabled={currentEdit().busy}
-                              onClick={beginEdit}
+                              onClick={discardEdit}
                             >
-                              Editar
+                              Descartar
                             </button>
-                          }
-                        >
-                          <button class="edit-btn" onClick={onAddInsert}>
-                            ＋ Fila
-                          </button>
-                          <button
-                            class="edit-btn edit-btn-primary"
-                            disabled={
-                              currentEdit().busy || !hasChanges(currentEdit().pending)
-                            }
-                            onClick={confirmEdit}
-                          >
-                            Confirmar ({changeCount(currentEdit().pending)})
-                          </button>
-                          <button
-                            class="edit-btn"
-                            disabled={currentEdit().busy}
-                            onClick={discardEdit}
-                          >
-                            Descartar
-                          </button>
+                          </Show>
+                        </Show>
+                        <Show when={currentEdit().error}>
+                          <span class="edit-error">{currentEdit().error}</span>
                         </Show>
                       </Show>
-                      <Show when={currentEdit().error}>
-                        <span class="edit-error">{currentEdit().error}</span>
+
+                      <Show when={(currentResult().result?.columns.length ?? 0) > 0}>
+                        <span class="toolbar-spacer" />
+                        <span class="export-label">Exportar:</span>
+                        <button class="edit-btn" onClick={() => doExport("csv")}>
+                          CSV
+                        </button>
+                        <button class="edit-btn" onClick={() => doExport("json")}>
+                          JSON
+                        </button>
+                        <button class="edit-btn" onClick={() => doExport("sql")}>
+                          SQL
+                        </button>
                       </Show>
                     </div>
                   </Show>
