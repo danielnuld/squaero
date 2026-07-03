@@ -2,14 +2,20 @@
 
 El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre el mecanismo `webview_bind`/`webview_eval` de la librería `webview`. Es la **única** frontera entre ambos mundos y se versiona con cuidado.
 
-> **Protocolo v3.** El dispatcher JSON-RPC del núcleo está implementado y
+> **Protocolo v5.** El dispatcher JSON-RPC del núcleo está implementado y
 > testeado (`core/src/ipc/`, entrada pública `dbcore_ipc_handle` en
 > `core/include/dbcore/ipc.h`). Cubre el camino de datos de M1
 > (`conn.open`/`conn.close`/`query.run` y el rango de errores de dominio
-> `-32000..`) y la introspección de M3. Este módulo es puro: JSON entra, JSON
-> sale. El objeto `dsn` de `conn.open` es opaco al protocolo: el núcleo
-> interpreta de él los campos `ssh_*` (túnel, abajo) de forma aditiva y
-> compatible, sin cambiar la forma del método ni la versión.
+> `-32000..`), la introspección de M3 (`schema.*`) y la edición transaccional de
+> M7 (`tx.*` en v4, `row.*` en v5). Este módulo es puro: JSON entra, JSON sale. El
+> objeto `dsn` de `conn.open` es opaco al protocolo: el núcleo interpreta de él
+> los campos `ssh_*` (túnel, abajo) de forma aditiva y compatible, sin cambiar la
+> forma del método ni la versión.
+>
+> **Los métodos de abajo son la superficie IPC completa.** Import/Export (M8) y
+> Transferencia/sincronización (M9) **no** agregan métodos: se implementan del
+> lado del frontend componiendo `query.run` + `schema.*` + `row.*` + `tx.*` (ver
+> [«Sin métodos para Import/Export/Transferencia»](#sin-métodos-para-importexporttransferencia--decisión-m8m9)).
 
 ## Forma de los mensajes
 
@@ -34,26 +40,63 @@ El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre e
   "error": { "code": -32000, "message": "no se pudo conectar", "data": {...} } }
 ```
 
-**Evento/notificación** (núcleo → frontend, sin `id`) para progreso de operaciones largas (transfer, import):
+**Evento/notificación** (núcleo → frontend, sin `id`). *Planeado, aún no
+implementado.* La forma reservada para el progreso de operaciones largas del lado
+del núcleo sería:
 
 ```json
 { "jsonrpc": "2.0", "method": "progress",
   "params": { "op": "transfer", "done": 12000, "total": 50000 } }
 ```
 
-## Métodos (esbozo, crece por milestone)
+Hoy no hay ninguna operación larga del lado del núcleo: Import/Export y
+Transferencia (M8/M9) corren en el frontend acotadas a la página cargada, así que
+no emiten `progress` ni existe `op.cancel`. Este bloque documenta la convención
+para cuando el núcleo gane una operación larga (p. ej. copia con streaming).
 
-| Método | Fase | Descripción |
+## Métodos
+
+Esta es la superficie IPC **completa** — cada método está registrado en el
+dispatcher (`core/src/ipc/`) y verificado en tests. Los detalles de cada uno
+están más abajo.
+
+| Método | Desde | Descripción |
 |---|---|---|
-| `conn.open` / `conn.close` | M1/M2 | Abrir/cerrar conexión activa |
-| `query.run` | M1 | Ejecutar SQL, devolver result set paginado |
-| `schema.tree` | M3 | Árbol de objetos (bases/esquemas/tablas) |
-| `schema.describe` | M3 | Estructura de una tabla |
-| `schema.ddl` | M3 | DDL `CREATE` de un objeto |
-| `row.update` / `row.insert` / `row.delete` | M7 | Edición de datos |
-| `tx.begin` / `tx.commit` / `tx.rollback` | M7 | Transacciones (commit/rollback) |
-| `data.export` / `data.import` | M6 | Import/Export |
-| `data.transfer` / `schema.diff` / `data.diff` | M7 | Transferencia y sincronización |
+| `app.hello` | v2 | Handshake; negocia la versión del protocolo |
+| `ping` | v2 | Liveness; eco de `params.message` |
+| `conn.open` / `conn.close` | v2 | Abrir/cerrar conexión activa |
+| `query.run` | v2 | Ejecutar SQL, devolver result set paginado |
+| `schema.tree` | v3 | Árbol de objetos (bases/esquemas/tablas), perezoso |
+| `schema.describe` | v3 | Estructura de una tabla |
+| `schema.ddl` | v3 | DDL `CREATE` de un objeto (requiere `DBC_FEAT_DDL`) |
+| `tx.begin` / `tx.commit` / `tx.rollback` | v4 | Transacciones (requiere `DBC_FEAT_TRANSACTIONS`) |
+| `row.insert` / `row.update` / `row.delete` | v5 | Edición de una fila (requiere `DBC_FEAT_DML`) |
+
+No hay más métodos. En particular, **Import/Export (M8)** y
+**Transferencia/sincronización (M9)** no agregan ninguno — se resuelven en el
+frontend (ver abajo).
+
+### Sin métodos para Import/Export/Transferencia — decisión M8/M9
+
+Exportar, importar, transferir datos entre conexiones y comparar esquemas/datos
+(«diff») se implementan **enteramente del lado del frontend** reutilizando los
+métodos existentes; el núcleo no ganó ningún método para ellos:
+
+- **Export** (CSV/JSON/SQL): el frontend serializa el result set ya cargado de
+  `query.run` y lo descarga vía el navegador (`Blob` + `<a download>`).
+- **Import** (CSV/JSON): el frontend parsea el archivo (`<input file>`) y ejecuta
+  un `row.insert` por fila dentro de una transacción (`tx.begin`/`tx.commit`).
+- **Transferencia** entre conexiones: se abre una segunda conexión con
+  `conn.open` (el núcleo ya soporta varios `connId` simultáneos), se leen las
+  filas de origen con `query.run` y se insertan en destino con `row.*`/`tx.*`.
+- **Diff de esquema/datos**: el frontend compara la salida de `schema.describe`
+  (estructura) o de `query.run` (filas, indexadas por PK) entre dos conexiones y
+  materializa las diferencias como una tanda de `row.*` en una transacción.
+
+Consecuencia honesta: estas operaciones están **acotadas a la página cargada** (no
+hay streaming del lado del núcleo). Si en el futuro se necesita copia con
+streaming para datasets grandes, será un método IPC nuevo con su propio issue,
+versión de protocolo y el evento `progress` de arriba.
 
 ### Gestión de conexiones guardadas — sin método IPC (decisión M2)
 
@@ -66,7 +109,7 @@ retiene credenciales ni definiciones. Las contraseñas no se persisten: se piden
 en el momento de conectar. Si en el futuro se decide centralizar la persistencia
 en el núcleo, será un cambio con su propio issue y se reflejará aquí.
 
-## Implementado (v2)
+## Referencia de métodos
 
 **`app.hello`** — handshake. Negocia la versión del protocolo.
 
@@ -266,5 +309,41 @@ El `id` de la petición se refleja en la respuesta (o `null` si no venía).
 
 1. **Paginación siempre.** `query.run` devuelve como máximo `limit` filas y marca `truncated`. La UI pide más bajo demanda. Nunca se vuelca un dataset completo de golpe.
 2. **El núcleo es la fuente de verdad de los tipos.** Cada columna lleva su `type` neutral; el frontend formatea, no infiere.
-3. **Operaciones largas son asíncronas** y emiten `progress`; pueden cancelarse con `op.cancel`.
-4. **Versionado:** el handshake inicial (`app.hello`) negocia la versión del protocolo.
+3. **Operaciones largas (planeado).** El núcleo aún no expone ninguna operación larga: las que existen (import/export/transfer) corren en el frontend acotadas a la página. Cuando el núcleo gane una, emitirá `progress` y podrá cancelarse con `op.cancel` (ambos reservados, no implementados).
+4. **Versionado:** el handshake inicial (`app.hello`) negocia la versión del protocolo. Ver [«Notas de versionado»](#notas-de-versionado).
+
+## Notas de versionado
+
+El protocolo IPC y la ABI de la vtable (`docs/DRIVER_API.md`) se versionan por
+separado: el protocolo cuenta la forma de los mensajes núcleo↔frontend; la ABI
+cuenta el layout de la vtable núcleo↔driver. Suelen subir juntos porque una
+capacidad nueva toca ambos, pero no tienen por qué.
+
+**Cómo se negocia.** Al arrancar, el frontend llama `app.hello` y lee
+`result.protocolVersion` (hoy **5**). Esa es la fuente de verdad en runtime; la
+constante vive en el núcleo (`app.hello` la reporta) y este documento la refleja.
+
+**Qué sube la versión del protocolo** (cualquiera de estos es un cambio
+incompatible que debe discutirse en un issue antes, porque rompe a todo cliente):
+
+- agregar, quitar o renombrar un método;
+- cambiar la forma de los `params` o del `result` de un método existente;
+- cambiar el significado o el rango de un código de error.
+
+**Qué NO la sube** (extensiones compatibles):
+
+- interpretar campos nuevos y opcionales dentro del `dsn` opaco de `conn.open`
+  (así se agregaron `ssl_*` y `ssh_*` sin tocar la versión);
+- agregar un campo opcional a un `result` que los clientes viejos ignoran.
+
+**Historial:**
+
+| Protocolo | Milestone | Cambio |
+|---|---|---|
+| v2 | M1 | `app.hello`, `ping`, `conn.open`/`conn.close`, `query.run` |
+| v3 | M3 | `schema.tree`/`schema.describe`/`schema.ddl` |
+| v4 | M7 | `tx.begin`/`tx.commit`/`tx.rollback` |
+| v5 | M7 | `row.insert`/`row.update`/`row.delete` |
+
+M8 (Import/Export) y M9 (Transferencia/sincronización) **no** subieron la versión:
+se implementaron en el frontend sobre los métodos existentes.
