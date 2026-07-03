@@ -81,6 +81,7 @@ cmake/        helpers de CMake
 - [Contrato de drivers (vtable)](docs/DRIVER_API.md)
 - [Cómo escribir un driver](docs/WRITING_A_DRIVER.md)
 - [Protocolo IPC núcleo ↔ frontend](docs/IPC.md)
+- [Atajos de teclado](docs/SHORTCUTS.md)
 - [Cómo contribuir](CONTRIBUTING.md)
 
 ## Licencia

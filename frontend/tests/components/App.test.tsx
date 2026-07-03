@@ -16,17 +16,58 @@ afterEach(() => {
   host = null;
 });
 
+const mount = () => {
+  host = document.createElement("div");
+  document.body.appendChild(host);
+  createRoot((d) => {
+    dispose = d;
+    render(() => <App />, host!);
+  });
+  return host;
+};
+
 describe("App shell", () => {
   it("mounts and shows the connections sidebar", () => {
-    host = document.createElement("div");
-    document.body.appendChild(host);
-    createRoot((d) => {
-      dispose = d;
-      render(() => <App />, host!);
-    });
-    expect(host.textContent).toContain("Conexiones");
+    mount();
+    expect(host!.textContent).toContain("Conexiones");
     // A fresh workspace has one query tab and the empty-grid prompt.
-    expect(host.querySelector(".tabbar")).not.toBeNull();
-    expect(host.textContent).toContain("Ejecuta una consulta");
+    expect(host!.querySelector(".tabbar")).not.toBeNull();
+    expect(host!.textContent).toContain("Ejecuta una consulta");
+  });
+});
+
+// UX polish (issue #42): theme toggle, shortcuts, help overlay.
+describe("App — theme & shortcuts", () => {
+  it("stamps a resolved theme on the document root at mount", () => {
+    mount();
+    const t = document.documentElement.getAttribute("data-theme");
+    expect(t === "light" || t === "dark").toBe(true);
+  });
+
+  it("cycles the theme when the status-bar toggle is clicked", () => {
+    mount();
+    const btn = host!.querySelectorAll(".status-btn")[0] as HTMLButtonElement;
+    // Fresh preference is "system" (→ light under jsdom's no-matchMedia).
+    btn.click(); // system → light
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    btn.click(); // light → dark
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("opens the shortcuts overlay with F1", () => {
+    mount();
+    expect(host!.querySelector(".shortcuts")).toBeNull();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "F1" }));
+    expect(host!.querySelector(".shortcuts")).not.toBeNull();
+    expect(host!.textContent).toContain("Atajos de teclado");
+  });
+
+  it("opens a new tab with Ctrl+Alt+T", () => {
+    mount();
+    expect(host!.querySelectorAll(".tab").length).toBe(1);
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "t", ctrlKey: true, altKey: true }),
+    );
+    expect(host!.querySelectorAll(".tab").length).toBe(2);
   });
 });
