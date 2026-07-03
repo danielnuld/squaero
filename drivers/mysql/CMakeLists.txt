@@ -29,6 +29,14 @@ if(BUILD_TESTING)
   target_include_directories(mysql_ssl_test PRIVATE src/utils)
   quaero_set_warnings(mysql_ssl_test)
   add_test(NAME mysql_ssl_test COMMAND mysql_ssl_test)
+
+  add_executable(mysql_dml_test
+    tests/dml_test.c
+    src/utils/dml.c)
+  target_include_directories(mysql_dml_test PRIVATE
+    src/utils ${CMAKE_SOURCE_DIR}/core/include)
+  quaero_set_warnings(mysql_dml_test)
+  add_test(NAME mysql_dml_test COMMAND mysql_dml_test)
 endif()
 
 # --- driver plugin (only when the client library is present) --------------
@@ -45,9 +53,11 @@ if(MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY)
     src/query.c
     src/metadata.c
     src/ddl.c
+    src/edit.c
     src/utils/types.c
     src/utils/identifier.c
-    src/utils/ssl.c)
+    src/utils/ssl.c
+    src/utils/dml.c)
   # The client headers are third-party: include them as SYSTEM so they are not
   # subject to the strict -Werror policy applied to our own code.
   target_include_directories(mysql_driver PRIVATE

@@ -126,6 +126,46 @@ int main(void)
         cJSON_Delete(root);
     }
 
+    /* Row editing (#26/#27): insert, update and delete a row over IPC, keyed on
+       the primary key. The table currently holds ids 1 and 2. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":30,\"method\":\"row.insert\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"quaero_it\","
+             "\"values\":{\"id\":\"3\",\"name\":\"carol\"}}}",
+             conn_id);
+    {
+        cJSON *root = call(req);
+        cJSON *ra = cJSON_GetObjectItem(result_of(root), "rowsAffected");
+        EXPECT(cJSON_IsNumber(ra) && ra->valueint == 1, "row.insert affects one row");
+        cJSON_Delete(root);
+    }
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":31,\"method\":\"row.update\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"quaero_it\","
+             "\"set\":{\"name\":\"caroline\"},\"where\":{\"id\":\"3\"}}}",
+             conn_id);
+    {
+        cJSON *root = call(req);
+        cJSON *res = result_of(root);
+        cJSON *sql = cJSON_GetObjectItem(res, "sql");
+        cJSON *ra = cJSON_GetObjectItem(res, "rowsAffected");
+        EXPECT(cJSON_IsString(sql) && strstr(sql->valuestring, "UPDATE") != NULL,
+               "row.update returns the sql");
+        EXPECT(cJSON_IsNumber(ra) && ra->valueint == 1, "row.update affects one row");
+        cJSON_Delete(root);
+    }
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":32,\"method\":\"row.delete\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"quaero_it\","
+             "\"where\":{\"id\":\"3\"}}}",
+             conn_id);
+    {
+        cJSON *root = call(req);
+        cJSON *ra = cJSON_GetObjectItem(result_of(root), "rowsAffected");
+        EXPECT(cJSON_IsNumber(ra) && ra->valueint == 1, "row.delete affects one row");
+        cJSON_Delete(root);
+    }
+
     /* schema.describe: one row per column (id, name). */
     snprintf(req, sizeof req,
              "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"schema.describe\","

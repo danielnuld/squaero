@@ -43,8 +43,10 @@ static const dbc_driver_t k_mysql_driver = {
 
     .get_ddl       = mysql_drv_get_ddl,
 
+    .build_dml     = mysql_drv_build_dml,
+
     .features      = DBC_FEAT_SSL | DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL |
-                     DBC_FEAT_TRANSACTIONS,
+                     DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)
