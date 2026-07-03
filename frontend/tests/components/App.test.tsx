@@ -54,12 +54,23 @@ describe("App — theme & shortcuts", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 
-  it("opens the shortcuts overlay with F1", () => {
+  it("opens the shortcuts overlay with F1 and closes it with Escape", () => {
     mount();
     expect(host!.querySelector(".shortcuts")).toBeNull();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "F1" }));
     expect(host!.querySelector(".shortcuts")).not.toBeNull();
     expect(host!.textContent).toContain("Atajos de teclado");
+    // The shared Modal closes on Escape (issue #111).
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(host!.querySelector(".shortcuts")).toBeNull();
+  });
+
+  it("gives dialog semantics to overlays", () => {
+    mount();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "F1" }));
+    const dialog = host!.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog).not.toBeNull();
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
   });
 
   it("opens a new tab with Ctrl+Alt+T", () => {

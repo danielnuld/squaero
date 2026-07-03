@@ -21,6 +21,7 @@ import {
 import { matchShortcut } from "./utils/shortcuts";
 import { loadCompletionSchema } from "./utils/completion";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
+import { Modal } from "./components/Modal";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
 import {
   buildDsn,
@@ -657,6 +658,7 @@ export function App() {
                   <button
                     class="tab-close"
                     title="Cerrar pestaña"
+                    aria-label="Cerrar pestaña"
                     onClick={(e) => removeTab(tab.id, e)}
                   >
                     ×
@@ -664,7 +666,12 @@ export function App() {
                 </div>
               )}
             </For>
-            <button class="tab-new" title="Nueva consulta" onClick={newTab}>
+            <button
+              class="tab-new"
+              title="Nueva consulta"
+              aria-label="Nueva consulta"
+              onClick={newTab}
+            >
               +
             </button>
           </div>
@@ -854,21 +861,19 @@ export function App() {
 
       <Show when={currentEdit().preview}>
         {(sqls) => (
-          <div class="modal-backdrop" onClick={cancelPreview}>
-            <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-              <h2>Confirmar cambios</h2>
-              <p>Se ejecutarán {sqls().length} sentencia(s) en la transacción abierta:</p>
-              <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
-              <div class="modal-actions">
-                <button disabled={currentEdit().busy} onClick={cancelPreview}>
-                  Cancelar
-                </button>
-                <button class="primary" disabled={currentEdit().busy} onClick={applyEdit}>
-                  Aplicar y confirmar
-                </button>
-              </div>
+          <Modal title="Confirmar cambios" wide onClose={cancelPreview}>
+            <h2>Confirmar cambios</h2>
+            <p>Se ejecutarán {sqls().length} sentencia(s) en la transacción abierta:</p>
+            <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
+            <div class="modal-actions">
+              <button disabled={currentEdit().busy} onClick={cancelPreview}>
+                Cancelar
+              </button>
+              <button class="primary" disabled={currentEdit().busy} onClick={applyEdit}>
+                Aplicar y confirmar
+              </button>
             </div>
-          </div>
+          </Modal>
         )}
       </Show>
 

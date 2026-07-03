@@ -10,6 +10,7 @@ import {
   type Connection,
 } from "../utils/connections";
 import { errorText } from "../utils/errors";
+import { Modal } from "./Modal";
 
 type TestState =
   | { kind: "idle" }
@@ -67,12 +68,14 @@ export function ConnectionForm(props: {
   };
 
   return (
-    <div class="modal-backdrop" onClick={props.onCancel}>
-      <div class="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>
-          <span class="engine-icon">{engineIcon(draft.driver)}</span>{" "}
-          {props.initial.name ? "Editar conexión" : "Nueva conexión"}
-        </h2>
+    <Modal
+      title={props.initial.name ? "Editar conexión" : "Nueva conexión"}
+      onClose={props.onCancel}
+    >
+      <h2>
+        <span class="engine-icon">{engineIcon(draft.driver)}</span>{" "}
+        {props.initial.name ? "Editar conexión" : "Nueva conexión"}
+      </h2>
 
         <label class="field">
           <span>Nombre</span>
@@ -167,7 +170,6 @@ export function ConnectionForm(props: {
             Guardar
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

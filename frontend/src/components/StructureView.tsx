@@ -4,6 +4,7 @@ import { runQuery, type ResultSet } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
 import { buildViewApply } from "../utils/viewEdit";
 import { errorText } from "../utils/errors";
+import { Modal } from "./Modal";
 import type { NodeKind } from "../utils/schema";
 
 // Modal showing a table/view structure: the column list (schema.describe) and
@@ -117,9 +118,8 @@ export function StructureView(props: {
   };
 
   return (
-    <div class="modal-backdrop" onClick={props.onClose}>
-      <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <h2>Estructura · {props.table}</h2>
+    <Modal title={`Estructura · ${props.table}`} wide onClose={props.onClose}>
+      <h2>Estructura · {props.table}</h2>
 
         <Show when={error()}>
           <p class="test-error">{error()}</p>
@@ -193,7 +193,6 @@ export function StructureView(props: {
             </button>
           </Show>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
