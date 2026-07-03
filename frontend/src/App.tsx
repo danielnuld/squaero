@@ -57,6 +57,7 @@ import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
+import { TransferWizard } from "./components/TransferWizard";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -127,6 +128,7 @@ export function App() {
     createSignal<{ table: string; db?: string; schema?: string } | null>(null);
   const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
   const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
+  const [transferOpen, setTransferOpen] = createSignal(false);
 
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
@@ -598,6 +600,16 @@ export function App() {
                                   Sincronizar datos
                                 </button>
                               </Show>
+                              <Show
+                                when={(currentResult().result?.columns.length ?? 0) > 0}
+                              >
+                                <button
+                                  class="edit-btn"
+                                  onClick={() => setTransferOpen(true)}
+                                >
+                                  Transferir
+                                </button>
+                              </Show>
                             </>
                           }
                         >
@@ -742,6 +754,22 @@ export function App() {
           pk={currentResult().source!.pk}
           connections={connections()}
           onClose={() => setDataSyncOpen(false)}
+        />
+      </Show>
+
+      <Show
+        when={
+          transferOpen() &&
+          active() &&
+          currentResult().result &&
+          currentResult().source
+        }
+      >
+        <TransferWizard
+          sourceResult={currentResult().result!}
+          sourceTable={currentResult().source!.table}
+          connections={connections()}
+          onClose={() => setTransferOpen(false)}
         />
       </Show>
 
