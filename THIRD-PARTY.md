@@ -74,6 +74,7 @@ núcleo GPL.
 |---|---|
 | [solid-js](https://www.solidjs.com) | MIT |
 | [@codemirror/*](https://codemirror.net) (state, view, commands, language, lang-sql, autocomplete) | MIT |
+| [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) | MIT |
 
 Herramientas de desarrollo **no distribuidas** (dev-dependencies): Vite,
 vite-plugin-solid, vite-plugin-singlefile, Vitest, TypeScript, jsdom — todas

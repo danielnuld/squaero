@@ -22,11 +22,13 @@ import {
 } from "@codemirror/language";
 import { sql } from "@codemirror/lang-sql";
 import { closeBrackets } from "@codemirror/autocomplete";
+import { formatSql } from "../utils/sqlFormat";
 
 // CodeMirror 6 SQL editor. A single EditorView is reused across query tabs; the
 // active tab's text is swapped in on tab change. Ctrl/Cmd+Enter runs the query
-// (Mod = Cmd on macOS, Ctrl elsewhere). Pure tab/state logic lives in
-// src/utils/tabs.ts — this component is the thin CodeMirror binding.
+// and Ctrl/Cmd+Shift+F formats it (Mod = Cmd on macOS, Ctrl elsewhere). Pure
+// tab/state logic lives in src/utils/tabs.ts and the formatter in
+// src/utils/sqlFormat.ts — this component is the thin CodeMirror binding.
 export function SqlEditor(props: {
   /** Id of the tab currently shown. */
   activeId: number;
@@ -36,6 +38,10 @@ export function SqlEditor(props: {
   onChange: (id: number, sql: string) => void;
   /** Fired on Ctrl/Cmd+Enter with the live editor contents. */
   onRun: (sql: string) => void;
+  /** Active engine name, used to pick the SQL dialect when formatting. */
+  dialect?: string;
+  /** Bumping this number requests a format of the current document. */
+  formatTick?: number;
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
@@ -44,6 +50,20 @@ export function SqlEditor(props: {
   // doc actually loaded into the view.
   let loaded = props.activeId;
   let swapping = false;
+
+  // Reformat the current document in place, replacing its text and persisting
+  // the result. A no-op when the formatter leaves the text unchanged (empty
+  // input, non-SQL engine, or a parse error — see sqlFormat.ts).
+  const doFormat = () => {
+    if (!view) return;
+    const src = view.state.doc.toString();
+    const out = formatSql(src, props.dialect);
+    if (out === src) return;
+    swapping = true;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: out } });
+    swapping = false;
+    props.onChange(loaded, out);
+  };
 
   onMount(() => {
     loaded = props.activeId;
@@ -68,6 +88,14 @@ export function SqlEditor(props: {
               preventDefault: true,
               run: () => {
                 props.onRun(view!.state.doc.toString());
+                return true;
+              },
+            },
+            {
+              key: "Mod-Shift-f",
+              preventDefault: true,
+              run: () => {
+                doFormat();
                 return true;
               },
             },
@@ -99,6 +127,16 @@ export function SqlEditor(props: {
       changes: { from: 0, to: view.state.doc.length, insert: props.sqlFor(id) },
     });
     swapping = false;
+  });
+
+  // External format requests (the toolbar button) arrive as a bumped counter.
+  let lastFormatTick = props.formatTick ?? 0;
+  createEffect(() => {
+    const tick = props.formatTick ?? 0;
+    if (tick !== lastFormatTick) {
+      lastFormatTick = tick;
+      doFormat();
+    }
   });
 
   onCleanup(() => view?.destroy());

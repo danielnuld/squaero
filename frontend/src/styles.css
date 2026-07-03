@@ -200,11 +200,18 @@ body {
 }
 
 .editor-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.2rem 0.6rem;
   font-size: 11px;
   color: var(--text-dim);
   background: var(--bg-elev);
   border-top: 1px solid var(--border);
+}
+
+.editor-hint-spacer {
+  flex: 1;
 }
 
 .result-pane {

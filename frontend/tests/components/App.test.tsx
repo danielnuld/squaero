@@ -46,7 +46,7 @@ describe("App — theme & shortcuts", () => {
 
   it("cycles the theme when the status-bar toggle is clicked", () => {
     mount();
-    const btn = host!.querySelectorAll(".status-btn")[0] as HTMLButtonElement;
+    const btn = host!.querySelector(".statusbar .status-btn") as HTMLButtonElement;
     // Fresh preference is "system" (→ light under jsdom's no-matchMedia).
     btn.click(); // system → light
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");

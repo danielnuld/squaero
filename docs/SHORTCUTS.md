@@ -9,6 +9,7 @@ desincroniza del comportamiento).
 | Acción | Atajo |
 |---|---|
 | Ejecutar la consulta | `Mod`+Enter |
+| Formatear la consulta | `Mod`+Shift+F |
 | Nueva pestaña | `Mod`+Alt+T |
 | Cerrar la pestaña activa | `Mod`+Alt+W |
 | Siguiente pestaña | Ctrl+RePág (PageDown) |
@@ -18,8 +19,10 @@ desincroniza del comportamiento).
 
 Notas:
 
-- **Ejecutar la consulta** lo maneja el editor (CodeMirror); funciona cuando el
-  foco está en el editor.
+- **Ejecutar** y **formatear** los maneja el editor (CodeMirror); funcionan
+  cuando el foco está en el editor (formatear también con el botón "Formatear").
+  El formateo usa el dialecto del motor de la conexión activa y deja intacta una
+  consulta de MongoDB (mongosh no es SQL).
 - Las combinaciones usan `Alt` para no chocar con atajos que el host de la
   ventana (webview) pueda reservar, como Ctrl+T / Ctrl+W del navegador.
 - El **tema** también se cambia con el botón de la barra de estado; la preferencia

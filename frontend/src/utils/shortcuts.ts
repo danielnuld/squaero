@@ -8,6 +8,7 @@
 
 export type ActionId =
   | "run-query"
+  | "format-sql"
   | "new-tab"
   | "close-tab"
   | "next-tab"
@@ -26,6 +27,7 @@ export interface Shortcut {
 
 export const SHORTCUTS: Shortcut[] = [
   { id: "run-query", keys: "Mod+Enter", description: "Ejecutar la consulta", global: false },
+  { id: "format-sql", keys: "Mod+Shift+F", description: "Formatear la consulta", global: false },
   { id: "new-tab", keys: "Mod+Alt+T", description: "Nueva pestaña", global: true },
   { id: "close-tab", keys: "Mod+Alt+W", description: "Cerrar la pestaña activa", global: true },
   { id: "next-tab", keys: "Ctrl+PageDown", description: "Siguiente pestaña", global: true },

@@ -224,6 +224,15 @@ export function App() {
     });
   });
 
+  // SQL formatting (issue #106): a bumped counter asks the editor to reformat,
+  // using the active connection's engine to pick the dialect.
+  const [formatTick, setFormatTick] = createSignal(0);
+  const activeDialect = createMemo(() => {
+    const id = activeDefId();
+    if (!id) return "";
+    return connections().find((c) => c.id === id)?.driver ?? "";
+  });
+
   const current = createMemo(() => activeTab(tabs()));
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
   const currentResult = createMemo<TabResult>(() => {
@@ -639,8 +648,20 @@ export function App() {
                     }
                     onChange={onEditorChange}
                     onRun={run}
+                    dialect={activeDialect()}
+                    formatTick={formatTick()}
                   />
-                  <div class="editor-hint">Ctrl/Cmd + Enter para ejecutar</div>
+                  <div class="editor-hint">
+                    <button
+                      class="status-btn"
+                      title="Formatear SQL (Ctrl/Cmd+Shift+F)"
+                      onClick={() => setFormatTick((t) => t + 1)}
+                    >
+                      Formatear
+                    </button>
+                    <span class="editor-hint-spacer" />
+                    <span>Ctrl/Cmd + Enter para ejecutar</span>
+                  </div>
                 </div>
                 <div class="result-pane">
                   <Show
