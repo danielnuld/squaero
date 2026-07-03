@@ -80,7 +80,7 @@ export function StructureView(props: {
   const fallbackName = () =>
     [props.db, props.schema, props.table]
       .filter((p): p is string => !!p)
-      .map(quoteIdentifier)
+      .map((p) => quoteIdentifier(p, props.engine))
       .join(".");
 
   const applyEdit = async () => {

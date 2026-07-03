@@ -54,9 +54,17 @@ describe("parseTreeRows", () => {
 });
 
 describe("quoteIdentifier", () => {
-  it("wraps and doubles embedded quotes", () => {
+  it("defaults to ANSI double quotes, doubling embedded quotes", () => {
     expect(quoteIdentifier("users")).toBe('"users"');
     expect(quoteIdentifier('a"b')).toBe('"a""b"');
+    expect(quoteIdentifier("users", "sqlite")).toBe('"users"');
+    expect(quoteIdentifier("users", "postgres")).toBe('"users"');
+  });
+  it("uses backticks for MySQL/MariaDB, doubling embedded backticks", () => {
+    expect(quoteIdentifier("users", "mysql")).toBe("`users`");
+    expect(quoteIdentifier("users", "mariadb")).toBe("`users`");
+    expect(quoteIdentifier("a`b", "mysql")).toBe("`a``b`");
+    expect(quoteIdentifier("MySQL", "MYSQL")).toBe("`MySQL`"); // case-insensitive engine
   });
   it("quotes an empty identifier", () => {
     expect(quoteIdentifier("")).toBe('""');

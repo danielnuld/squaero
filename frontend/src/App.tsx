@@ -410,7 +410,7 @@ export function App() {
   const openData = (node: TreeNode) => {
     const qualified = [node.db, node.schema, node.label]
       .filter((p): p is string => !!p)
-      .map(quoteIdentifier)
+      .map((p) => quoteIdentifier(p, activeDialect()))
       .join(".");
     const sql = `SELECT * FROM ${qualified} LIMIT ${PAGE_LIMIT};`;
     let newId = 0;

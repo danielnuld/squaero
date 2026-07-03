@@ -88,7 +88,16 @@ export async function schemaDdl(
   return res.rows[0][0] ?? "";
 }
 
-/** Quotes a SQL identifier for a generated SELECT (double quotes, doubled). */
-export function quoteIdentifier(id: string): string {
+/**
+ * Quote a SQL identifier for a generated statement, per engine: MySQL/MariaDB
+ * use backticks (doubled to escape), every other engine the ANSI double quote
+ * (doubled). `engine` is the driver name; omitted defaults to ANSI double
+ * quotes. MySQL treats "..." as a string literal, so the quote char matters.
+ */
+export function quoteIdentifier(id: string, engine?: string): string {
+  const e = (engine ?? "").toLowerCase();
+  if (e === "mysql" || e === "mariadb") {
+    return "`" + id.replace(/`/g, "``") + "`";
+  }
   return `"${id.replace(/"/g, '""')}"`;
 }

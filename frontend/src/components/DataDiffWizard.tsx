@@ -45,10 +45,12 @@ export function DataDiffWizard(props: {
     schema: props.source.schema,
   });
 
+  const targetEngine = () =>
+    props.connections.find((c) => c.id === targetDefId())?.driver ?? "";
   const qualifiedTarget = () =>
     [targetDb(), props.source.table]
       .filter((p): p is string => !!p)
-      .map(quoteIdentifier)
+      .map((p) => quoteIdentifier(p, targetEngine()))
       .join(".");
 
   const compare = async () => {
