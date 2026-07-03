@@ -5,9 +5,9 @@
  * exports dbc_driver_entry. All behaviour lives in connection.c / query.c.
  *
  * Capabilities: connect + query + result-set (required), plus introspection
- * (list_databases / list_tables / describe_table) and DDL generation (get_ddl).
- * SQLite has no schemas within a database, so list_schemas is left NULL and
- * DBC_FEAT_SCHEMAS is not advertised. Transactions arrive in a later milestone.
+ * (list_databases / list_tables / describe_table), DDL generation (get_ddl) and
+ * transactions (begin / commit / rollback). SQLite has no schemas within a
+ * database, so list_schemas is left NULL and DBC_FEAT_SCHEMAS is not advertised.
  */
 static const dbc_driver_t k_sqlite_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -32,9 +32,13 @@ static const dbc_driver_t k_sqlite_driver = {
     .list_tables    = sqlite_list_tables,
     .describe_table = sqlite_describe_table,
 
+    .begin         = sqlite_begin,
+    .commit        = sqlite_commit,
+    .rollback      = sqlite_rollback,
+
     .get_ddl       = sqlite_get_ddl,
 
-    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL,
+    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL | DBC_FEAT_TRANSACTIONS,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)

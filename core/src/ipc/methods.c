@@ -2,6 +2,7 @@
 #include "conn_methods.h"
 #include "query_methods.h"
 #include "schema_methods.h"
+#include "tx_methods.h"
 #include "rpc.h"
 
 #include "dbcore/dbcore.h"
@@ -78,6 +79,15 @@ ipc_method_fn ipc_method_lookup(const char *method)
     }
     if (strcmp(method, "schema.ddl") == 0) {
         return ipc_method_schema_ddl;
+    }
+    if (strcmp(method, "tx.begin") == 0) {
+        return ipc_method_tx_begin;
+    }
+    if (strcmp(method, "tx.commit") == 0) {
+        return ipc_method_tx_commit;
+    }
+    if (strcmp(method, "tx.rollback") == 0) {
+        return ipc_method_tx_rollback;
     }
     return NULL;
 }

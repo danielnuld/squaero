@@ -39,6 +39,11 @@ int          sqlite_next_row(dbc_result *r);
 const char  *sqlite_cell_text(dbc_result *r, int col);
 long long    sqlite_rows_affected(dbc_result *r);
 
+/* --- transactions (DBC_FEAT_TRANSACTIONS) --- */
+dbc_status   sqlite_begin(dbc_conn *c);
+dbc_status   sqlite_commit(dbc_conn *c);
+dbc_status   sqlite_rollback(dbc_conn *c);
+
 /* --- metadata.c (DBC_FEAT_INTROSPECTION) --- */
 /* Prepare a result-set statement and wrap it as a dbc_result without stepping;
    arg1/arg2, when non-NULL, are bound to ?1/?2 as text. Shared by metadata/ddl. */

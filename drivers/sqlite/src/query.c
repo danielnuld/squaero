@@ -111,3 +111,18 @@ long long sqlite_rows_affected(dbc_result *r)
 {
     return r != NULL ? r->rows_affected : 0;
 }
+
+/* Run a control statement (BEGIN/COMMIT/ROLLBACK) with no result set. On error
+   SQLite's own message is left on the connection for sqlite_last_error. */
+static dbc_status sqlite_exec_control(dbc_conn *c, const char *sql)
+{
+    if (c == NULL || c->db == NULL) {
+        return DBC_ERR_PARAM;
+    }
+    int rc = sqlite3_exec(c->db, sql, NULL, NULL, NULL);
+    return rc == SQLITE_OK ? DBC_OK : DBC_ERR_QUERY;
+}
+
+dbc_status sqlite_begin(dbc_conn *c)    { return sqlite_exec_control(c, "BEGIN"); }
+dbc_status sqlite_commit(dbc_conn *c)   { return sqlite_exec_control(c, "COMMIT"); }
+dbc_status sqlite_rollback(dbc_conn *c) { return sqlite_exec_control(c, "ROLLBACK"); }

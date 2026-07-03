@@ -142,3 +142,28 @@ long long mysql_drv_rows_affected(dbc_result *r)
 {
     return r != NULL ? r->affected : 0;
 }
+
+/* Run a transaction-control statement with no result set. On error the client's
+   message is left on the connection for mysql_drv_last_error. */
+static dbc_status mysql_drv_exec_control(dbc_conn *c, const char *sql)
+{
+    if (c == NULL || c->db == NULL) {
+        return DBC_ERR_PARAM;
+    }
+    return mysql_query(c->db, sql) == 0 ? DBC_OK : DBC_ERR_QUERY;
+}
+
+dbc_status mysql_drv_begin(dbc_conn *c)
+{
+    return mysql_drv_exec_control(c, "START TRANSACTION");
+}
+
+dbc_status mysql_drv_commit(dbc_conn *c)
+{
+    return mysql_drv_exec_control(c, "COMMIT");
+}
+
+dbc_status mysql_drv_rollback(dbc_conn *c)
+{
+    return mysql_drv_exec_control(c, "ROLLBACK");
+}
