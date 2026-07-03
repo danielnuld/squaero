@@ -7,6 +7,7 @@
 import { call } from "./transport";
 import { isError, type JsonRpcResponse } from "./ipc";
 import { QueryError, type ResultColumn, type ResultSet } from "./query";
+import type { PlanItem } from "./editSession";
 
 /** Identifies the table a result set was read from, for building DML. */
 export interface EditTarget {
@@ -173,6 +174,25 @@ export function rowDelete(
   preview = false,
 ): Promise<RowResult> {
   return rowCall("row.delete", deleteParams(connId, target, where, preview));
+}
+
+/**
+ * Apply (or preview) one PlanItem via the matching row.* wrapper. Shared by the
+ * edit session, data-diff sync and any other batch of row operations.
+ */
+export function runPlanItem(
+  connId: string,
+  target: EditTarget,
+  item: PlanItem,
+  preview = false,
+): Promise<RowResult> {
+  if (item.kind === "update") {
+    return rowUpdate(connId, target, item.set, item.where, preview);
+  }
+  if (item.kind === "delete") {
+    return rowDelete(connId, target, item.where, preview);
+  }
+  return rowInsert(connId, target, item.values, preview);
 }
 
 /** Begin a transaction on the connection (for a safe multi-edit session). */
