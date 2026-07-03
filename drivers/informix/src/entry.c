@@ -4,12 +4,13 @@
  * Informix driver entry point. Thin: it wires the vtable and exports
  * dbc_driver_entry. Behaviour lives in connection.c / query.c / metadata.c.
  *
- * Capabilities: connect + query + result-set (required) and introspection
- * (list_databases / list_tables / describe_table). Informix databases play the
- * role of the top tree level (owners are not exposed as a separate schema
- * layer), so list_schemas is NULL and DBC_FEAT_SCHEMAS is not advertised. DDL
- * generation, transactions and TLS are honestly absent for now (the matching
- * members are NULL and their flags are unset) and arrive in later tasks.
+ * Capabilities: connect + query + result-set (required), introspection
+ * (list_databases / list_tables / describe_table), transactions (begin/commit/
+ * rollback via ODBC autocommit + SQLEndTran) and single-row data modification
+ * (build_dml). Informix databases play the role of the top tree level (owners
+ * are not exposed as a separate schema layer), so list_schemas is NULL and
+ * DBC_FEAT_SCHEMAS is not advertised. DDL generation and TLS are honestly absent
+ * for now (their members are NULL and their flags unset).
  */
 static const dbc_driver_t k_informix_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -35,7 +36,13 @@ static const dbc_driver_t k_informix_driver = {
     .list_tables    = ifx_list_tables,
     .describe_table = ifx_describe_table,
 
-    .features      = DBC_FEAT_INTROSPECTION,
+    .begin         = ifx_begin,
+    .commit        = ifx_commit,
+    .rollback      = ifx_rollback,
+
+    .build_dml     = ifx_build_dml,
+
+    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)
