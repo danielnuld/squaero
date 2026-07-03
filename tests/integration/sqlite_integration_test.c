@@ -151,6 +151,70 @@ static void test_ipc_path(const dbc_driver_t *drv)
       EXPECT(cJSON_IsString(first) && strcmp(first->valuestring, "10") == 0, "first cell value");
       cJSON_Delete(root); }
 
+    /* Transactions (#28): a rolled-back insert leaves the table unchanged; a
+       committed one persists. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tx.begin\","
+             "\"params\":{\"connId\":\"%s\"}}", conn_id);
+    { cJSON *root = call(req);
+      EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "ok")),
+             "tx.begin over IPC ok");
+      cJSON_Delete(root); }
+
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"query.run\","
+             "\"params\":{\"connId\":\"%s\",\"sql\":\"INSERT INTO t VALUES (40)\"}}", conn_id);
+    { cJSON *root = call(req); cJSON_Delete(root); }
+
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tx.rollback\","
+             "\"params\":{\"connId\":\"%s\"}}", conn_id);
+    { cJSON *root = call(req);
+      EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "ok")),
+             "tx.rollback over IPC ok");
+      cJSON_Delete(root); }
+
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"query.run\","
+             "\"params\":{\"connId\":\"%s\",\"sql\":\"SELECT COUNT(*) FROM t\"}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      cJSON *cell = cJSON_GetArrayItem(cJSON_GetArrayItem(cJSON_GetObjectItem(res, "rows"), 0), 0);
+      EXPECT(cJSON_IsString(cell) && strcmp(cell->valuestring, "3") == 0,
+             "rollback discarded the insert (still 3 rows)");
+      cJSON_Delete(root); }
+
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":15,\"method\":\"tx.begin\","
+             "\"params\":{\"connId\":\"%s\"}}", conn_id);
+    { cJSON *root = call(req); cJSON_Delete(root); }
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"query.run\","
+             "\"params\":{\"connId\":\"%s\",\"sql\":\"INSERT INTO t VALUES (40)\"}}", conn_id);
+    { cJSON *root = call(req); cJSON_Delete(root); }
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"tx.commit\","
+             "\"params\":{\"connId\":\"%s\"}}", conn_id);
+    { cJSON *root = call(req);
+      EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "ok")),
+             "tx.commit over IPC ok");
+      cJSON_Delete(root); }
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"query.run\","
+             "\"params\":{\"connId\":\"%s\",\"sql\":\"SELECT COUNT(*) FROM t\"}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      cJSON *cell = cJSON_GetArrayItem(cJSON_GetArrayItem(cJSON_GetObjectItem(res, "rows"), 0), 0);
+      EXPECT(cJSON_IsString(cell) && strcmp(cell->valuestring, "4") == 0,
+             "commit persisted the insert (now 4 rows)");
+      cJSON_Delete(root); }
+
+    /* Clean up the extra row so the later describe/ddl assertions are unaffected. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"query.run\","
+             "\"params\":{\"connId\":\"%s\",\"sql\":\"DELETE FROM t WHERE n = 40\"}}", conn_id);
+    { cJSON *root = call(req); cJSON_Delete(root); }
+
     /* schema.tree at the root (no params) -> the database list ('main'). */
     snprintf(req, sizeof req,
              "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"schema.tree\","

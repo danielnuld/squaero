@@ -107,3 +107,9 @@ add_executable(schema_test query/schema_test.c)
 target_link_libraries(schema_test PRIVATE dbcore)
 quaero_set_warnings(schema_test)
 add_test(NAME schema_test COMMAND schema_test)
+
+# Transaction-control wrappers (feature gating + error propagation).
+add_executable(tx_test query/tx_test.c)
+target_link_libraries(tx_test PRIVATE dbcore)
+quaero_set_warnings(tx_test)
+add_test(NAME tx_test COMMAND tx_test)

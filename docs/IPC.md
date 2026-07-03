@@ -50,8 +50,8 @@ El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre e
 | `schema.tree` | M3 | Árbol de objetos (bases/esquemas/tablas) |
 | `schema.describe` | M3 | Estructura de una tabla |
 | `schema.ddl` | M3 | DDL `CREATE` de un objeto |
-| `row.update` / `row.insert` / `row.delete` | M5 | Edición de datos |
-| `tx.begin` / `tx.commit` / `tx.rollback` | M5 | Transacciones |
+| `row.update` / `row.insert` / `row.delete` | M7 | Edición de datos |
+| `tx.begin` / `tx.commit` / `tx.rollback` | M7 | Transacciones (commit/rollback) |
 | `data.export` / `data.import` | M6 | Import/Export |
 | `data.transfer` / `schema.diff` / `data.diff` | M7 | Transferencia y sincronización |
 
@@ -75,7 +75,7 @@ en el núcleo, será un cambio con su propio issue y se reflejará aquí.
 { "jsonrpc": "2.0", "id": 1, "method": "app.hello" }
 // respuesta
 { "jsonrpc": "2.0", "id": 1,
-  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 3 } }
+  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 4 } }
 ```
 
 **`ping`** — liveness. Devuelve `{"pong": true}` y hace eco de `params.message`.
@@ -210,6 +210,16 @@ columna `sql`. `params: { connId, object, db?, schema? }`. Requiere
 
 Las tres comparten la forma de result set de `query.run` y los mismos códigos de
 error de dominio (`-32001` no soportado, `-32002` conexión desconocida, etc.).
+
+### Transacciones (M7)
+
+**`tx.begin`** / **`tx.commit`** / **`tx.rollback`** — control de transacción
+sobre la conexión activa. `params: { connId }`; resultado `{ ok: true }`. Sirven
+para agrupar una tanda de ediciones (`row.*`) y confirmarlas o descartarlas en
+bloque (edición segura, issue #28). Requieren que el driver anuncie
+`DBC_FEAT_TRANSACTIONS`; un motor sin soporte devuelve `-32001` (no soportado)
+en lugar de fingir éxito. Los motores SQL (SQLite, MySQL/MariaDB) los soportan;
+MongoDB no los anuncia.
 
 ### Códigos de error
 

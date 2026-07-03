@@ -10,7 +10,8 @@
  * MySQL databases play the role of the top tree level (no separate schema
  * layer), so list_schemas is NULL and DBC_FEAT_SCHEMAS is not advertised.
  * TLS is supported (DBC_FEAT_SSL) via the ssl_* DSN fields; the engine-agnostic
- * SSH tunnel is handled in the core. Transactions arrive in a later task.
+ * SSH tunnel is handled in the core. Transactions (begin/commit/rollback) are
+ * supported via START TRANSACTION/COMMIT/ROLLBACK.
  */
 static const dbc_driver_t k_mysql_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -36,9 +37,14 @@ static const dbc_driver_t k_mysql_driver = {
     .list_tables    = mysql_drv_list_tables,
     .describe_table = mysql_drv_describe_table,
 
+    .begin         = mysql_drv_begin,
+    .commit        = mysql_drv_commit,
+    .rollback      = mysql_drv_rollback,
+
     .get_ddl       = mysql_drv_get_ddl,
 
-    .features      = DBC_FEAT_SSL | DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL,
+    .features      = DBC_FEAT_SSL | DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL |
+                     DBC_FEAT_TRANSACTIONS,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)

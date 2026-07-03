@@ -16,8 +16,9 @@ extern "C" {
 
 /* Protocol version negotiated by the `app.hello` handshake.
    v2 added the M1 data path (conn.open / conn.close / query.run + -32000..).
-   v3 adds schema introspection: schema.tree / schema.describe / schema.ddl. */
-#define DBCORE_IPC_PROTOCOL_VERSION 3
+   v3 adds schema introspection: schema.tree / schema.describe / schema.ddl.
+   v4 adds transaction control: tx.begin / tx.commit / tx.rollback. */
+#define DBCORE_IPC_PROTOCOL_VERSION 4
 
 /*
  * Handles a single JSON-RPC request and returns the response as a newly

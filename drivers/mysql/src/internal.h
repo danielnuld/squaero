@@ -53,6 +53,11 @@ int          mysql_drv_next_row(dbc_result *r);
 const char  *mysql_drv_cell_text(dbc_result *r, int col);
 long long    mysql_drv_rows_affected(dbc_result *r);
 
+/* --- transactions (DBC_FEAT_TRANSACTIONS) --- */
+dbc_status   mysql_drv_begin(dbc_conn *c);
+dbc_status   mysql_drv_commit(dbc_conn *c);
+dbc_status   mysql_drv_rollback(dbc_conn *c);
+
 /* --- metadata.c --- */
 dbc_status   mysql_drv_list_databases(dbc_conn *c, dbc_result **out);
 dbc_status   mysql_drv_list_tables(dbc_conn *c, const char *schema, dbc_result **out);
