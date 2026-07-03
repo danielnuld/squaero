@@ -32,7 +32,7 @@ extern "C" {
  * into dbc_driver_t.abi_version; the core refuses to load a driver whose value
  * does not match (see dbc_driver_validate).
  */
-#define DBC_ABI_VERSION 3
+#define DBC_ABI_VERSION 4
 
 /* Canonical name of the exported entry symbol, for the dynamic loader. */
 #define DBC_DRIVER_ENTRY_SYMBOL "dbc_driver_entry"
@@ -96,6 +96,39 @@ typedef enum {
 #define DBC_FEAT_SCHEMAS       (1u << 3)  /* engine has schemas within a database */
 #define DBC_FEAT_INTROSPECTION (1u << 4)  /* list_* / describe_table */
 #define DBC_FEAT_DDL           (1u << 5)  /* get_ddl: CREATE statement of an object */
+#define DBC_FEAT_DML           (1u << 6)  /* build_dml: single-row insert/update/delete */
+
+/*
+ * Kind of single-row modification requested of build_dml (see below).
+ */
+typedef enum {
+    DBC_DML_INSERT = 0,
+    DBC_DML_UPDATE,
+    DBC_DML_DELETE
+} dbc_dml_kind;
+
+/*
+ * A single-row change, expressed neutrally by the core and rendered to engine
+ * SQL by the driver's build_dml. Column names and values are plain strings; a
+ * NULL value entry means SQL NULL. Values are the textual forms that crossed
+ * from the frontend — the driver escapes them as literals and lets the engine
+ * coerce them to the column's type.
+ *
+ *   INSERT: set_cols/set_vals are the columns and values; where_* are unused.
+ *   UPDATE: set_cols/set_vals are the assignments; where_cols/where_vals
+ *           identify the row (its primary key).
+ *   DELETE: where_cols/where_vals identify the row; set_* are unused.
+ */
+typedef struct {
+    const char        *schema;      /* container (db/schema), NULL = default */
+    const char        *table;
+    int                n_set;
+    const char *const *set_cols;
+    const char *const *set_vals;    /* set_vals[i] == NULL => SQL NULL */
+    int                n_where;
+    const char *const *where_cols;
+    const char *const *where_vals;  /* where_vals[i] == NULL => IS NULL */
+} dbc_dml_row;
 
 /*
  * The driver vtable. Layout is ABI; do not reorder members. Required members
@@ -163,6 +196,17 @@ typedef struct {
      * one-column ("sql") result set, or DBC_ERR_UNSUPPORTED when not implemented.
      */
     dbc_status  (*get_ddl)(dbc_conn *c, const char *schema, const char *object, dbc_result **out);
+
+    /*
+     * --- data modification (optional; DBC_FEAT_DML; added in ABI 4) ---
+     * Build the literal SQL statement that applies `row` (an insert, update or
+     * delete of a single row — see dbc_dml_kind). Returns it as a one-column
+     * ("sql") result set, exactly like get_ddl, so the core can preview the
+     * statement and/or execute it through the normal query path. The driver
+     * quotes identifiers and inlines values as properly escaped literals.
+     * Returns DBC_ERR_UNSUPPORTED when the engine does not implement editing.
+     */
+    dbc_status  (*build_dml)(dbc_conn *c, dbc_dml_kind kind, const dbc_dml_row *row, dbc_result **out);
 } dbc_driver_t;
 
 /* Type of the exported entry point. Returns the driver's static vtable. */

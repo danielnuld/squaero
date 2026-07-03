@@ -215,6 +215,63 @@ static void test_ipc_path(const dbc_driver_t *drv)
              "\"params\":{\"connId\":\"%s\",\"sql\":\"DELETE FROM t WHERE n = 40\"}}", conn_id);
     { cJSON *root = call(req); cJSON_Delete(root); }
 
+    /* Row editing (#26/#27/#29): preview generates SQL without executing; apply
+       runs it. The table 't' has 3 rows (10,20,30) at this point. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"row.insert\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"t\",\"values\":{\"n\":\"99\"},\"preview\":true}}",
+             conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      cJSON *sql = cJSON_GetObjectItem(res, "sql");
+      EXPECT(cJSON_IsString(sql) && strstr(sql->valuestring, "INSERT INTO") != NULL,
+             "preview returns the INSERT sql");
+      EXPECT(cJSON_GetObjectItem(res, "rowsAffected") == NULL,
+             "preview does not report rowsAffected");
+      cJSON_Delete(root); }
+
+    /* The preview must not have changed anything: still 3 rows. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"query.run\","
+             "\"params\":{\"connId\":\"%s\",\"sql\":\"SELECT COUNT(*) FROM t\"}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *cell = cJSON_GetArrayItem(cJSON_GetArrayItem(
+          cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "rows"), 0), 0);
+      EXPECT(cJSON_IsString(cell) && strcmp(cell->valuestring, "3") == 0,
+             "preview did not insert");
+      cJSON_Delete(root); }
+
+    /* Apply the insert. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"row.insert\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"t\",\"values\":{\"n\":\"99\"}}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *ra = cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "rowsAffected");
+      EXPECT(cJSON_IsNumber(ra) && ra->valueint == 1, "insert affects one row");
+      cJSON_Delete(root); }
+
+    /* Update it, keyed on its value. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":23,\"method\":\"row.update\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"t\","
+             "\"set\":{\"n\":\"100\"},\"where\":{\"n\":\"99\"}}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *res = cJSON_GetObjectItem(root, "result");
+      cJSON *sql = cJSON_GetObjectItem(res, "sql");
+      cJSON *ra = cJSON_GetObjectItem(res, "rowsAffected");
+      EXPECT(cJSON_IsString(sql) && strstr(sql->valuestring, "UPDATE") != NULL, "update sql");
+      EXPECT(cJSON_IsNumber(ra) && ra->valueint == 1, "update affects one row");
+      cJSON_Delete(root); }
+
+    /* Delete it, restoring the table to 3 rows. */
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":24,\"method\":\"row.delete\","
+             "\"params\":{\"connId\":\"%s\",\"table\":\"t\",\"where\":{\"n\":\"100\"}}}", conn_id);
+    { cJSON *root = call(req);
+      cJSON *ra = cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "rowsAffected");
+      EXPECT(cJSON_IsNumber(ra) && ra->valueint == 1, "delete affects one row");
+      cJSON_Delete(root); }
+
     /* schema.tree at the root (no params) -> the database list ('main'). */
     snprintf(req, sizeof req,
              "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"schema.tree\","

@@ -75,7 +75,7 @@ en el núcleo, será un cambio con su propio issue y se reflejará aquí.
 { "jsonrpc": "2.0", "id": 1, "method": "app.hello" }
 // respuesta
 { "jsonrpc": "2.0", "id": 1,
-  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 4 } }
+  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 5 } }
 ```
 
 **`ping`** — liveness. Devuelve `{"pong": true}` y hace eco de `params.message`.
@@ -220,6 +220,24 @@ bloque (edición segura, issue #28). Requieren que el driver anuncie
 `DBC_FEAT_TRANSACTIONS`; un motor sin soporte devuelve `-32001` (no soportado)
 en lugar de fingir éxito. Los motores SQL (SQLite, MySQL/MariaDB) los soportan;
 MongoDB no los anuncia.
+
+### Edición de datos (M7)
+
+**`row.insert`** / **`row.update`** / **`row.delete`** — modifican una sola fila.
+El cambio se expresa con objetos `{columna: valor}` (un valor `null` JSON es SQL
+NULL); la fila a modificar se identifica por su clave primaria en `where`.
+
+- `row.insert` — `params: { connId, table, schema?, values:{...}, preview? }`.
+- `row.update` — `params: { connId, table, schema?, set:{...}, where:{...}, preview? }`.
+- `row.delete` — `params: { connId, table, schema?, where:{...}, preview? }`.
+
+Resultado `{ sql: string, rowsAffected?: number }`. Con `preview: true` solo se
+**genera** la sentencia (se devuelve en `sql`, sin ejecutar ni `rowsAffected`);
+sin `preview` se genera y además se ejecuta. El driver construye el SQL literal
+(`build_dml`), así que el `sql` del preview es exactamente el que se ejecuta al
+confirmar (issue #29). El núcleo rechaza un `UPDATE`/`DELETE` sin `where` (jamás
+afecta todas las filas). Requiere `DBC_FEAT_DML`; MongoDB no lo anuncia (solo
+lectura). La edición segura se agrupa con `tx.begin`/`tx.commit`/`tx.rollback`.
 
 ### Códigos de error
 

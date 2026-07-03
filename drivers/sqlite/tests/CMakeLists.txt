@@ -18,6 +18,15 @@ target_include_directories(sqlite_identifier_test PRIVATE
 quaero_set_warnings(sqlite_identifier_test)
 add_test(NAME sqlite_identifier_test COMMAND sqlite_identifier_test)
 
+# Pure single-row DML builder (INSERT/UPDATE/DELETE literal SQL).
+add_executable(sqlite_dml_test
+  dml_test.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/dml.c)
+target_include_directories(sqlite_dml_test PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils ${CMAKE_SOURCE_DIR}/core/include)
+quaero_set_warnings(sqlite_dml_test)
+add_test(NAME sqlite_dml_test COMMAND sqlite_dml_test)
+
 # The driver sources, reused by the integration-style tests below. Compiled
 # directly into each test (entry.c's exported symbol is then kept).
 set(SQLITE_DRIVER_TEST_SRC
@@ -26,8 +35,10 @@ set(SQLITE_DRIVER_TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/query.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/metadata.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/ddl.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/edit.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/types.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/identifier.c)
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/identifier.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src/utils/dml.c)
 
 # Connection / DSN parsing edge cases through the vtable.
 add_executable(sqlite_connection_test connection_test.c ${SQLITE_DRIVER_TEST_SRC})
