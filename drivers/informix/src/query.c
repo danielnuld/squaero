@@ -1,6 +1,7 @@
 #include "internal.h"
 #include "utils/odbc_types.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -218,7 +219,18 @@ static int fetch_cell(dbc_result *r, int col)
 
 int ifx_next_row(dbc_result *r)
 {
-    if (r == NULL || !r->has_resultset || r->stmt == NULL) {
+    if (r == NULL) {
+        return 0;
+    }
+    if (r->synthetic) {
+        /* One pre-materialized row, no ODBC cursor to step. */
+        if (r->synth_done) {
+            return 0;
+        }
+        r->synth_done = 1;
+        return 1;
+    }
+    if (!r->has_resultset || r->stmt == NULL) {
         return 0;
     }
     SQLRETURN rc = SQLFetch(r->stmt);
@@ -251,3 +263,80 @@ long long ifx_rows_affected(dbc_result *r)
 {
     return r != NULL ? r->affected : 0;
 }
+
+dbc_status ifx_make_synthetic_sql(const char *sql, dbc_result **out)
+{
+    *out = NULL;
+    if (sql == NULL) {
+        return DBC_ERR_PARAM;
+    }
+    dbc_result *r = calloc(1, sizeof *r);
+    if (r == NULL) {
+        return DBC_ERR_NOMEM;
+    }
+    if (alloc_columns(r, 1) != 0) {
+        ifx_free_result(r);
+        return DBC_ERR_NOMEM;
+    }
+    r->col_names[0] = malloc(4);
+    if (r->col_names[0] == NULL) {
+        ifx_free_result(r);
+        return DBC_ERR_NOMEM;
+    }
+    memcpy(r->col_names[0], "sql", 4);
+    r->col_types[0] = (short)SQL_CHAR;
+
+    size_t len = strlen(sql) + 1;
+    if (len > r->cell_cap[0]) {
+        char *nb = realloc(r->cell[0], len);
+        if (nb == NULL) {
+            ifx_free_result(r);
+            return DBC_ERR_NOMEM;
+        }
+        r->cell[0] = nb;
+        r->cell_cap[0] = len;
+    }
+    memcpy(r->cell[0], sql, len);
+    r->cell_null[0] = 0;
+
+    r->synthetic = 1;
+    r->has_resultset = 1;
+    *out = r;
+    return DBC_OK;
+}
+
+dbc_status ifx_begin(dbc_conn *c)
+{
+    if (c == NULL || c->dbc == NULL) {
+        return DBC_ERR_PARAM;
+    }
+    SQLRETURN rc = SQLSetConnectAttr(c->dbc, SQL_ATTR_AUTOCOMMIT,
+                                     (SQLPOINTER)(uintptr_t)SQL_AUTOCOMMIT_OFF,
+                                     SQL_IS_INTEGER);
+    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+        ifx_stash_diag(c, SQL_HANDLE_DBC, c->dbc, "begin");
+        return DBC_ERR_QUERY;
+    }
+    return DBC_OK;
+}
+
+/* Commit or roll back, then restore autocommit so subsequent statements are not
+   silently held in an open transaction. */
+static dbc_status ifx_end_tran(dbc_conn *c, SQLSMALLINT how, const char *ctx)
+{
+    if (c == NULL || c->dbc == NULL) {
+        return DBC_ERR_PARAM;
+    }
+    SQLRETURN rc = SQLEndTran(SQL_HANDLE_DBC, c->dbc, how);
+    dbc_status st = DBC_OK;
+    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+        ifx_stash_diag(c, SQL_HANDLE_DBC, c->dbc, ctx);
+        st = DBC_ERR_QUERY;
+    }
+    SQLSetConnectAttr(c->dbc, SQL_ATTR_AUTOCOMMIT,
+                      (SQLPOINTER)(uintptr_t)SQL_AUTOCOMMIT_ON, SQL_IS_INTEGER);
+    return st;
+}
+
+dbc_status ifx_commit(dbc_conn *c)   { return ifx_end_tran(c, SQL_COMMIT, "commit"); }
+dbc_status ifx_rollback(dbc_conn *c) { return ifx_end_tran(c, SQL_ROLLBACK, "rollback"); }

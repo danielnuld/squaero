@@ -49,6 +49,11 @@ struct dbc_result {
     int       *cell_null;   /* [ncols] 1 when the current cell is SQL NULL */
     long long  affected;
     int        has_resultset;
+
+    /* Synthetic one-row result not backed by an ODBC statement: build_dml uses
+       it to hand back generated SQL as a single "sql" cell (stmt stays NULL). */
+    int        synthetic;
+    int        synth_done;   /* cursor state for the synthetic row */
 };
 
 /* --- connection.c --- */
@@ -73,6 +78,19 @@ dbc_type    ifx_col_type(dbc_result *r, int col);
 int         ifx_next_row(dbc_result *r);
 const char *ifx_cell_text(dbc_result *r, int col);
 long long   ifx_rows_affected(dbc_result *r);
+
+/* Build a synthetic one-row, one-column ("sql") result holding `sql` (shared by
+   edit.c to hand generated DML back to the core). Copies `sql`. */
+dbc_status  ifx_make_synthetic_sql(const char *sql, dbc_result **out);
+
+/* --- transactions (DBC_FEAT_TRANSACTIONS) --- */
+dbc_status  ifx_begin(dbc_conn *c);
+dbc_status  ifx_commit(dbc_conn *c);
+dbc_status  ifx_rollback(dbc_conn *c);
+
+/* --- edit.c (DBC_FEAT_DML) --- */
+dbc_status  ifx_build_dml(dbc_conn *c, dbc_dml_kind kind,
+                          const dbc_dml_row *row, dbc_result **out);
 
 /* --- metadata.c --- */
 dbc_status  ifx_list_databases(dbc_conn *c, dbc_result **out);
