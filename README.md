@@ -85,4 +85,4 @@ cmake/        helpers de CMake
 
 ## Licencia
 
-[GPLv3](LICENSE). Los drivers de motores propietarios (Oracle, Informix, etc.) se distribuyen como plugins separados y cargados en tiempo de ejecución para respetar sus licencias.
+[GPLv3](LICENSE). Los drivers de motores propietarios (Oracle, Informix, etc.) se distribuyen como plugins separados y cargados en tiempo de ejecución para respetar sus licencias. El inventario completo de dependencias de terceros y sus licencias está en [THIRD-PARTY.md](THIRD-PARTY.md).
