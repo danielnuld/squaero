@@ -916,7 +916,10 @@ export function App() {
           table={structureTarget()!.label}
           db={structureTarget()!.db}
           schema={structureTarget()!.schema}
+          kind={structureTarget()!.kind}
+          engine={activeDialect()}
           onClose={() => setStructureTarget(null)}
+          onApplied={() => setTreeReload((n) => n + 1)}
         />
       </Show>
     </div>

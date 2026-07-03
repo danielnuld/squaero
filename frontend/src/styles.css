@@ -822,6 +822,25 @@ kbd {
   overflow: auto;
 }
 
+.ddl-edit {
+  width: 100%;
+  min-height: 160px;
+  box-sizing: border-box;
+  resize: vertical;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.ddl-edit:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* --- Data editing (M7) --------------------------------------------------- */
 .edit-toolbar {
   display: flex;
