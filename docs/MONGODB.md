@@ -41,6 +41,32 @@ tree / `describe_table` view can present a collection's inferred fields as
 "columns". Nested structure that has no scalar shape still degrades gracefully
 to a JSON cell, so ragged documents are handled without exploding the grid.
 
+## Query language
+
+Quaero's query channel hands a driver one command string. For MongoDB the user
+writes a **mongosh-style** expression:
+
+```
+db.<collection>.find(<filter?>, <projection?>)[.sort(<doc>)][.skip(<n>)][.limit(<n>)]
+db.<collection>.aggregate(<pipeline-array>)
+```
+
+- `find` runs `mongoc_collection_find_with_opts`; the optional second argument is
+  a projection, and `.sort()`/`.skip()`/`.limit()` chain onto it.
+- `aggregate` runs `mongoc_collection_aggregate` over the pipeline array.
+- An unbounded `find` (no `.limit()`) is capped at a safety bound
+  (`MONGO_SCAN_CAP`, 10000) so it cannot exhaust memory; the core's own row cap
+  and truncation flag apply on top.
+
+The argument documents accept the **relaxed** JavaScript-object form the mongo
+shell uses — bare (unquoted) keys and single-quoted strings, e.g.
+`db.users.find({ age: { $gt: 25 } })`. A pure normalizer
+(`utils/json_relax.c`) rewrites them to strict JSON before handing them to
+libbson; already-valid JSON passes through unchanged. The command *shape* is
+parsed by a pure module (`utils/query_parse.c`); neither depends on libbson, so
+both are unit-tested without a MongoDB client. Unsupported operations (insert,
+update, remove, …) are rejected with an explicit error rather than faked.
+
 ## Introspection
 
 - **Collections are tables.** `list_tables` returns the collection names of a
@@ -78,5 +104,10 @@ sufficient; the ABI and IPC protocol are unchanged.
   accumulator: union of top-level field names, `_id` hoisted first, first-seen
   order, duplicates ignored. Engine-agnostic and unit-tested.
 
-The driver itself (connect / query via a mongosh-style parser / introspection
-over the mongo-c-driver) lands with issue #47.
+The driver itself (connect / query via the mongosh-style parser / introspection
+over the mongo-c-driver) is issue #47:
+`connection.c` (JSON DSN or a full `uri` → a validated mongoc client, pinged at
+connect), `query.c` (parse → find/aggregate → two-phase flatten), `metadata.c`
+(list databases/collections, sample-based `describe_table`), plus the pure
+`utils/json_relax.c` and `utils/value_fmt.c` (BSON datetime → ISO 8601) and the
+`utils/result.c` materialized result the readers walk.

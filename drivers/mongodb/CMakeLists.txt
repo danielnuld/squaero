@@ -29,4 +29,68 @@ if(BUILD_TESTING)
   target_include_directories(mongodb_columns_test PRIVATE src/utils)
   quaero_set_warnings(mongodb_columns_test)
   add_test(NAME mongodb_columns_test COMMAND mongodb_columns_test)
+
+  add_executable(mongodb_query_parse_test
+    tests/query_parse_test.c
+    src/utils/query_parse.c)
+  target_include_directories(mongodb_query_parse_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_query_parse_test)
+  add_test(NAME mongodb_query_parse_test COMMAND mongodb_query_parse_test)
+
+  add_executable(mongodb_result_test
+    tests/result_test.c
+    src/utils/result.c)
+  target_include_directories(mongodb_result_test PRIVATE
+    src/utils ${CMAKE_SOURCE_DIR}/core/include)
+  quaero_set_warnings(mongodb_result_test)
+  add_test(NAME mongodb_result_test COMMAND mongodb_result_test)
+
+  add_executable(mongodb_value_fmt_test
+    tests/value_fmt_test.c
+    src/utils/value_fmt.c)
+  target_include_directories(mongodb_value_fmt_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_value_fmt_test)
+  add_test(NAME mongodb_value_fmt_test COMMAND mongodb_value_fmt_test)
+
+  add_executable(mongodb_json_relax_test
+    tests/json_relax_test.c
+    src/utils/json_relax.c)
+  target_include_directories(mongodb_json_relax_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_json_relax_test)
+  add_test(NAME mongodb_json_relax_test COMMAND mongodb_json_relax_test)
+endif()
+
+# --- driver plugin (only when the mongo-c-driver is present) ---------------
+# The plugin links libmongoc/libbson, discovered via pkg-config (libmongoc-1.0).
+# Where they are absent the plugin is skipped (green), exactly like the MySQL and
+# Informix drivers, so a checkout without the client still configures + builds.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(MONGOC libmongoc-1.0)
+endif()
+
+if(MONGOC_FOUND)
+  message(STATUS "MongoDB driver: using libmongoc (${MONGOC_VERSION})")
+  add_library(mongodb_driver MODULE
+    src/entry.c
+    src/connection.c
+    src/query.c
+    src/metadata.c
+    src/utils/bson_types.c
+    src/utils/columns.c
+    src/utils/json_relax.c
+    src/utils/query_parse.c
+    src/utils/result.c
+    src/utils/value_fmt.c)
+  target_include_directories(mongodb_driver PRIVATE
+    src ${CMAKE_SOURCE_DIR}/core/include)
+  # mongoc headers are included as SYSTEM so their own code does not trip -Werror.
+  target_include_directories(mongodb_driver SYSTEM PRIVATE ${MONGOC_INCLUDE_DIRS})
+  target_link_directories(mongodb_driver PRIVATE ${MONGOC_LIBRARY_DIRS})
+  # cjson supplies cJSON.h (DSN parsing), exactly as the other drivers do.
+  target_link_libraries(mongodb_driver PRIVATE ${MONGOC_LIBRARIES} cjson)
+  set_target_properties(mongodb_driver PROPERTIES PREFIX "" OUTPUT_NAME "mongodb")
+  quaero_set_warnings(mongodb_driver)
+else()
+  message(STATUS "MongoDB driver: libmongoc not found; plugin not built")
 endif()

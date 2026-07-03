@@ -165,13 +165,41 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       { key: "password", label: "Contraseña", type: "password", required: false },
     ]),
   },
+  // MongoDB connects via the mongo-c-driver. Queries use a mongosh-style surface
+  // (db.<collection>.find(...)/aggregate(...)); documents are flattened into the
+  // tabular grid (see docs/MONGODB.md). `auth_source` is the authentication
+  // database (often "admin"); `tls` toggles an encrypted transport. Alternatively
+  // a full connection string can be given in a single "uri" field.
+  mongodb: {
+    driver: "mongodb",
+    label: "MongoDB",
+    fields: withSshTunnel([
+      { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
+      { key: "port", label: "Puerto", type: "number", required: false, placeholder: "27017" },
+      { key: "database", label: "Base de datos", type: "text", required: true },
+      { key: "user", label: "Usuario", type: "text", required: false },
+      { key: "password", label: "Contraseña", type: "password", required: false },
+      { key: "auth_source", label: "Base de autenticación", type: "text", required: false, placeholder: "admin" },
+      {
+        key: "tls",
+        label: "TLS",
+        type: "select",
+        required: false,
+        options: [
+          { value: "", label: "— (desactivado)" },
+          { value: "true", label: "Activado" },
+        ],
+      },
+    ]),
+  },
 };
 
 // Drivers the UI offers. Only engines whose driver actually ships are listed,
 // so the UI never advertises a connection it cannot honor (honest capabilities).
-// sqlite ships everywhere; mysql and informix ship where their client libraries
-// are present (mysql via MariaDB Connector/C, informix via the ODBC driver).
-export const AVAILABLE_DRIVERS: string[] = ["sqlite", "mysql", "informix"];
+// sqlite ships everywhere; mysql, informix and mongodb ship where their client
+// libraries are present (mysql via MariaDB Connector/C, informix via the ODBC
+// driver, mongodb via the mongo-c-driver).
+export const AVAILABLE_DRIVERS: string[] = ["sqlite", "mysql", "informix", "mongodb"];
 
 /** Schema for a driver name, or undefined when unknown. */
 export function driverSchema(driver: string): DriverSchema | undefined {

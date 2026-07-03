@@ -29,7 +29,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev unixodbc-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev unixodbc-dev libmongoc-dev
 
       # Provides a recent CMake + Ninja on all three platforms.
       - name: Set up CMake and Ninja
@@ -130,6 +130,50 @@ jobs:
           # MariaDB 11 ships with TLS enabled (auto-generated certs), so
           # ssl_mode=required encrypts without needing a CA on the client.
           QUAERO_MYSQL_SSL_DSN: '{"host":"127.0.0.1","port":3306,"user":"root","password":"root","database":"quaero_test","ssl_mode":"required"}'
+        run: ctest --test-dir build --output-on-failure
+
+  # Builds the MongoDB driver against the mongo-c-driver and runs the gated
+  # integration test against a real MongoDB service (Linux only — service
+  # containers require a Linux runner). The service is pre-seeded with the
+  # quaero_it collection via a throwaway mongosh container.
+  mongodb-integration:
+    name: mongodb-integration
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the mongo-c-driver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmongoc-dev
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Seed test data
+        run: >
+          docker run --rm --network host mongo:7
+          mongosh --quiet "mongodb://127.0.0.1:27017/quaero_test"
+          --eval 'db.quaero_it.deleteMany({});
+          db.quaero_it.insertMany([{_id:1,name:"alice"},{_id:2,name:"bob",extra:{k:1}}])'
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        env:
+          QUAERO_MONGODB_DSN: '{"host":"127.0.0.1","port":27017,"database":"quaero_test"}'
         run: ctest --test-dir build --output-on-failure
 
   # Builds the core with SSH-tunnel support (QUAERO_SSH=ON fetches libssh2) and

@@ -334,9 +334,36 @@ describe("Informix schema", () => {
   });
 });
 
+describe("MongoDB schema", () => {
+  it("carries the direct-connection fields plus the SSH-tunnel group", () => {
+    const keys = DRIVER_SCHEMAS.mongodb.fields.map((f) => f.key);
+    expect(keys).toContain("host");
+    expect(keys).toContain("port");
+    expect(keys).toContain("database");
+    expect(keys).toContain("user");
+    expect(keys).toContain("password");
+    expect(keys).toContain("auth_source");
+    expect(keys).toContain("tls");
+    expect(keys).toContain("ssh_host");
+    expect(DRIVER_SCHEMAS.mongodb.driver).toBe("mongodb");
+  });
+
+  it("requires host and database", () => {
+    const errors = validateConnection({
+      id: "c", name: "mongo", driver: "mongodb", params: {},
+    });
+    expect(errors).toContain('El campo "Host" es obligatorio.');
+    expect(errors).toContain('El campo "Base de datos" es obligatorio.');
+  });
+
+  it("treats the password as a secret stripped from storage", () => {
+    expect(secretFieldKeys(DRIVER_SCHEMAS.mongodb)).toContain("password");
+  });
+});
+
 describe("AVAILABLE_DRIVERS", () => {
-  it("offers sqlite, mysql and informix, each with a schema", () => {
-    expect(AVAILABLE_DRIVERS).toEqual(["sqlite", "mysql", "informix"]);
+  it("offers sqlite, mysql, informix and mongodb, each with a schema", () => {
+    expect(AVAILABLE_DRIVERS).toEqual(["sqlite", "mysql", "informix", "mongodb"]);
     for (const d of AVAILABLE_DRIVERS) {
       expect(driverSchema(d)).toBeDefined();
     }

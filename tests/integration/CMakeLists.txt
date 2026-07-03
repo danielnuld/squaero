@@ -13,6 +13,20 @@ quaero_set_warnings(sqlite_integration_test)
 add_test(NAME sqlite_integration_test COMMAND sqlite_integration_test
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
+# MongoDB integration runs only when the driver was built (mongo-c-driver
+# present). The test SKIPS at runtime unless QUAERO_MONGODB_DSN points at a
+# server pre-seeded with the quaero_it collection (CI seeds it).
+if(TARGET mongodb_driver)
+  add_executable(mongodb_integration_test mongodb_integration_test.c)
+  target_link_libraries(mongodb_integration_test PRIVATE dbcore cjson)
+  target_compile_definitions(mongodb_integration_test PRIVATE
+    MONGODB_PLUGIN_PATH="$<TARGET_FILE:mongodb_driver>")
+  add_dependencies(mongodb_integration_test mongodb_driver)
+  quaero_set_warnings(mongodb_integration_test)
+  add_test(NAME mongodb_integration_test COMMAND mongodb_integration_test
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
 # MySQL integration runs only when the driver was built (client lib present).
 # The test itself SKIPS at runtime unless QUAERO_MYSQL_DSN points at a server,
 # so it is harmless on machines/CI jobs without one.

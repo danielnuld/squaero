@@ -48,6 +48,16 @@ if(TARGET informix_driver)
     VERBATIM)
 endif()
 
+# The MongoDB driver is built only when the mongo-c-driver is present; stage it
+# alongside the executable when it exists.
+if(TARGET mongodb_driver)
+  add_dependencies(quaero mongodb_driver)
+  add_custom_command(TARGET quaero POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:mongodb_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
+    VERBATIM)
+endif()
+
 if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
