@@ -19,6 +19,7 @@ export type ToolKind =
   | "dataDiff"
   | "transfer"
   | "chart"
+  | "erDiagram"
   | "help";
 
 /** A SQL query editor tab. */

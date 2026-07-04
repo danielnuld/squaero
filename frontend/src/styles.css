@@ -2116,3 +2116,61 @@ button.grid-action:hover {
   font-size: 12px;
   color: var(--text-dim);
 }
+
+/* Entity-relationship diagram (issue #145) */
+.er-canvas {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-elev);
+}
+
+.er-svg {
+  display: block;
+}
+
+.er-box-bg {
+  fill: var(--bg);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.er-box-header {
+  fill: var(--accent);
+  cursor: grab;
+}
+
+.er-box-title {
+  fill: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  pointer-events: none;
+}
+
+.er-col {
+  fill: var(--text);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.er-col-pk {
+  font-weight: 600;
+}
+
+.er-col-type {
+  fill: var(--text-dim);
+}
+
+.er-edge {
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+
+.er-arrow-head {
+  fill: var(--text-dim);
+}
