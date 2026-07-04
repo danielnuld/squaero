@@ -1819,3 +1819,91 @@ button.grid-action:hover {
 .sm-kill {
   color: var(--danger, #e5484d);
 }
+
+/* User / privilege management (issue #140) */
+.modal.user-mgr {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.um-body {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  gap: 1rem;
+  margin-top: 0.8rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.um-users {
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding-right: 0.5rem;
+}
+
+.um-user-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+
+.um-user {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.um-user:hover {
+  background: var(--bg-elev2);
+}
+
+.um-user.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.um-user-name {
+  font-weight: 600;
+}
+
+.um-user-host {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.um-user.active .um-user-host {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.um-detail {
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.um-privs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.2rem 0.6rem;
+  margin: 0.4rem 0;
+}
+
+.um-priv {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.um-scope {
+  margin-top: 0.4rem;
+}
+
+.um-preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+}

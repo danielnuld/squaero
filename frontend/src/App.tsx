@@ -94,6 +94,7 @@ import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
 import { DataGenerator } from "./components/DataGenerator";
 import { ServerMonitor } from "./components/ServerMonitor";
+import { UserManager } from "./components/UserManager";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
@@ -187,6 +188,7 @@ export function App() {
   const [genTarget, setGenTarget] =
     createSignal<{ table: string; db?: string; schema?: string } | null>(null);
   const [monitorOpen, setMonitorOpen] = createSignal(false);
+  const [usersOpen, setUsersOpen] = createSignal(false);
   const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
   const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
   const [transferOpen, setTransferOpen] = createSignal(false);
@@ -863,6 +865,13 @@ export function App() {
               >
                 Monitor de servidor
               </button>
+              <button
+                class="status-btn"
+                title="Usuarios y permisos"
+                onClick={() => setUsersOpen(true)}
+              >
+                Usuarios y permisos
+              </button>
             </div>
             <div class="sidebar-tree">
               <ObjectTree
@@ -1196,6 +1205,14 @@ export function App() {
           connId={active()!.connId}
           engine={activeDialect()}
           onClose={() => setMonitorOpen(false)}
+        />
+      </Show>
+
+      <Show when={usersOpen() && active()}>
+        <UserManager
+          connId={active()!.connId}
+          engine={activeDialect()}
+          onClose={() => setUsersOpen(false)}
         />
       </Show>
 
