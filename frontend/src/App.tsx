@@ -93,6 +93,7 @@ import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
 import { DataGenerator } from "./components/DataGenerator";
+import { ServerMonitor } from "./components/ServerMonitor";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
@@ -185,6 +186,7 @@ export function App() {
     createSignal<{ table: string; db?: string; schema?: string } | null>(null);
   const [genTarget, setGenTarget] =
     createSignal<{ table: string; db?: string; schema?: string } | null>(null);
+  const [monitorOpen, setMonitorOpen] = createSignal(false);
   const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
   const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
   const [transferOpen, setTransferOpen] = createSignal(false);
@@ -853,6 +855,15 @@ export function App() {
             />
           </div>
           <Show when={active()}>
+            <div class="sidebar-tools">
+              <button
+                class="status-btn"
+                title="Monitor de servidor y lista de procesos"
+                onClick={() => setMonitorOpen(true)}
+              >
+                Monitor de servidor
+              </button>
+            </div>
             <div class="sidebar-tree">
               <ObjectTree
                 connId={active()!.connId}
@@ -1177,6 +1188,14 @@ export function App() {
             const t = current();
             if (t) reloadCurrent(t.id);
           }}
+        />
+      </Show>
+
+      <Show when={monitorOpen() && active()}>
+        <ServerMonitor
+          connId={active()!.connId}
+          engine={activeDialect()}
+          onClose={() => setMonitorOpen(false)}
         />
       </Show>
 
