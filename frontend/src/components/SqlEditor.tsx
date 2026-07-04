@@ -23,6 +23,7 @@ import {
 import { sql } from "@codemirror/lang-sql";
 import { closeBrackets, autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { formatSql } from "../utils/sqlFormat";
+import { pickRunTarget, type RunScope } from "../utils/runScope";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 
@@ -38,8 +39,9 @@ export function SqlEditor(props: {
   sqlFor: (id: number) => string;
   /** Fired on every edit so the workspace can persist the tab's text. */
   onChange: (id: number, sql: string) => void;
-  /** Fired on Ctrl/Cmd+Enter with the live editor contents. */
-  onRun: (sql: string) => void;
+  /** Fired on Ctrl/Cmd+Enter. Runs the selection, else the statement under the
+      cursor, else the whole document (issue #130); `scope` says which. */
+  onRun: (sql: string, scope?: RunScope) => void;
   /** Fired on Ctrl/Cmd+Shift+E to show the query plan (EXPLAIN, issue #131). */
   onExplain?: () => void;
   /** Active engine name, used to pick the SQL dialect when formatting. */
@@ -74,6 +76,16 @@ export function SqlEditor(props: {
     props.onChange(loaded, out);
   };
 
+  // Run what the user means: the selection, else the statement under the cursor,
+  // else the whole document (issue #130). Pure choice lives in runScope.ts.
+  const runFromView = () => {
+    if (!view) return;
+    const { doc, selection } = view.state;
+    const { from, to, head } = selection.main;
+    const target = pickRunTarget(doc.toString(), from, to, head);
+    props.onRun(target.text, target.scope);
+  };
+
   onMount(() => {
     loaded = props.activeId;
     view = new EditorView({
@@ -97,7 +109,7 @@ export function SqlEditor(props: {
               key: "Mod-Enter",
               preventDefault: true,
               run: () => {
-                props.onRun(view!.state.doc.toString());
+                runFromView();
                 return true;
               },
             },
@@ -175,6 +187,7 @@ export function SqlEditor(props: {
   const editorMenu = (): MenuItem[] => {
     const v = view;
     const hasText = (v?.state.doc.length ?? 0) > 0;
+    const hasSelection = v ? !v.state.selection.main.empty : false;
     const selectAll = () => {
       if (!v) return;
       v.dispatch({ selection: { anchor: 0, head: v.state.doc.length } });
@@ -188,7 +201,11 @@ export function SqlEditor(props: {
     };
     return [
       { label: "Formatear", action: doFormat, disabled: !hasText },
-      { label: "Ejecutar", action: () => v && props.onRun(v.state.doc.toString()), disabled: !hasText },
+      {
+        label: hasSelection ? "Ejecutar selección" : "Ejecutar",
+        action: runFromView,
+        disabled: !hasText,
+      },
       { separator: true },
       { label: "Seleccionar todo", action: selectAll, disabled: !hasText },
       { label: "Copiar", action: copy, disabled: !hasText },

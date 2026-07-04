@@ -1,5 +1,6 @@
 import { Show } from "solid-js";
 import { themeLabel, themeIcon, type ThemePref } from "../utils/theme";
+import { scopeLabel, type RunScope } from "../utils/runScope";
 
 // Bottom status bar: active connection, row count of the current result, and
 // the elapsed time of the last query, plus the theme toggle and shortcuts help
@@ -9,6 +10,8 @@ export function StatusBar(props: {
   rowCount: number | null;
   truncated: boolean;
   elapsedMs: number | null;
+  /** What the last run executed, for the run-scope indicator (issue #130). */
+  ranScope?: RunScope | null;
   theme: ThemePref;
   onToggleTheme: () => void;
   onShowHelp: () => void;
@@ -20,6 +23,11 @@ export function StatusBar(props: {
         {props.connection ?? "Sin conexión"}
       </span>
       <span class="status-spacer" />
+      <Show when={props.ranScope}>
+        <span class="status-item" title="Alcance de la última ejecución">
+          ▷ {scopeLabel(props.ranScope!)}
+        </span>
+      </Show>
       <Show when={props.rowCount !== null}>
         <span class="status-item">
           {props.rowCount} fila{props.rowCount === 1 ? "" : "s"}

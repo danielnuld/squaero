@@ -13,6 +13,7 @@ import {
   type TabState,
 } from "./utils/tabs";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
+import { type RunScope } from "./utils/runScope";
 import { rowToTsv, rowToJson, copyText } from "./utils/rowCopy";
 import {
   loadTheme,
@@ -85,6 +86,8 @@ interface TabResult {
   error: string | null;
   result: ResultSet | null;
   elapsedMs: number | null;
+  /** What the last run executed — selection / statement / document (issue #130). */
+  ranScope?: RunScope | null;
   /** The table this result was read from + its PK, when opened from the tree.
       Present + pk non-empty => the grid is editable. */
   source?: EditSource | null;
@@ -385,7 +388,7 @@ export function App() {
     }
   };
 
-  const run = async (sql: string) => {
+  const run = async (sql: string, scope: RunScope = "document") => {
     const tab = current();
     if (!tab) return;
     const id = tab.id;
@@ -402,7 +405,7 @@ export function App() {
       });
       return;
     }
-    setResults(id, { ...emptyResult(), loading: true });
+    setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
     const started = performance.now();
     try {
       const result = await runQuery(conn.connId, trimmed, PAGE_LIMIT);
@@ -411,6 +414,7 @@ export function App() {
         error: null,
         result,
         elapsedMs: performance.now() - started,
+        ranScope: scope,
       });
     } catch (err) {
       setResults(id, {
@@ -418,6 +422,7 @@ export function App() {
         error: errorText(err),
         result: null,
         elapsedMs: performance.now() - started,
+        ranScope: scope,
       });
     }
   };
@@ -932,6 +937,7 @@ export function App() {
         rowCount={currentResult().result?.rows.length ?? null}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
+        ranScope={currentResult().ranScope ?? null}
         theme={theme()}
         onToggleTheme={toggleTheme}
         onShowHelp={() => setHelpOpen(true)}
