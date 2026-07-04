@@ -5,6 +5,7 @@ import {
   toggleExpanded,
   childKey,
   databaseKey,
+  groupObjectsByType,
   type TreeNode,
   type FlatNode,
 } from "../utils/tree";
@@ -149,7 +150,16 @@ export function ObjectTree(props: {
       // children are tables. parseTreeRows auto-detects tables from the `type`
       // column, so the only ambiguous (type-less) case is containers -> schema.
       const built = buildChildren(node, parseTreeRows(res, "schema"));
-      setChildren((c) => ({ ...c, [node.key]: built }));
+      // Leaf objects (tables/views) are grouped under Tablas/Vistas folders
+      // (#135); containers (schemas) stay flat. Both the folder nodes and their
+      // pre-loaded members go into the children map in one update.
+      const isLeafLevel = built.some((n) => n.kind === "table" || n.kind === "view");
+      if (isLeafLevel) {
+        const { groups, members } = groupObjectsByType(node.key, node.db, node.schema, built);
+        setChildren((c) => ({ ...c, [node.key]: groups, ...members }));
+      } else {
+        setChildren((c) => ({ ...c, [node.key]: built }));
+      }
     } catch (err) {
       if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -173,6 +183,11 @@ export function ObjectTree(props: {
   // copy. All actions reuse the same handlers as clicks.
   const nodeMenu = (node: TreeNode): MenuItem[] => {
     const items: MenuItem[] = [];
+    // A group folder (Tablas/Vistas) only offers refresh.
+    if (node.kind === "group") {
+      if (props.onRefresh) items.push({ label: "Refrescar", action: () => props.onRefresh!() });
+      return items;
+    }
     if (node.kind === "table" || node.kind === "view") {
       items.push({ label: "Abrir datos", action: () => props.onOpenData(node) });
       items.push({ label: "Ver estructura", action: () => props.onOpenStructure(node) });
@@ -250,7 +265,9 @@ export function ObjectTree(props: {
                     <span class="objtree-caret">
                       {node.expandable ? (node.expanded ? "▾" : "▸") : ""}
                     </span>
-                    <span class={`objtree-badge kind-${node.kind}`}>{KIND_BADGE[node.kind]}</span>
+                    <span class={`objtree-badge kind-${node.kind}`}>
+                      {node.kind === "group" ? node.count : KIND_BADGE[node.kind as NodeKind]}
+                    </span>
                     <span class="objtree-label">{node.label}</span>
                     <Show when={loading().has(node.key)}>
                       <span class="objtree-loading">…</span>

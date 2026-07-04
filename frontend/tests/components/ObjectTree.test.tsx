@@ -76,6 +76,50 @@ describe("ObjectTree refresh", () => {
     expect(after).toBe(2);
   });
 
+  it("groups tables and views under type folders (#135)", async () => {
+    const calls: { method: string; params: any }[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      calls.push({ method: req.method, params: req.params });
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      // Root => one database; expanding it => tables + a view (has a `type` col).
+      if (!req.params.db) {
+        return ok({ columns: [{ name: "name", type: "text" }], rows: [["main"]], truncated: false, rowsAffected: 0 });
+      }
+      return ok({
+        columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+        rows: [["customers", "table"], ["orders", "table"], ["v1", "view"]],
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <ObjectTree connId="c1" onOpenData={() => {}} onOpenStructure={() => {}} onRefresh={() => {}} />,
+        host!,
+      );
+    });
+    await flush();
+
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement;
+
+    (rowByText("main")).click(); // expand the database
+    await flush();
+    // The leaf objects are behind Tablas/Vistas folders, not listed flat yet.
+    expect(rowByText("Tablas")).toBeTruthy();
+    expect(rowByText("Vistas")).toBeTruthy();
+    expect(rowByText("customers")).toBeFalsy();
+
+    (rowByText("Tablas")).click(); // expand the Tablas folder
+    await flush();
+    expect(rowByText("customers")).toBeTruthy();
+    expect(rowByText("orders")).toBeTruthy();
+  });
+
   it("shows a refresh button only with a connection + handler", () => {
     installBridge();
     host = document.createElement("div");

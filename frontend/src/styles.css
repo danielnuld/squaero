@@ -978,6 +978,13 @@ kbd {
 .objtree-badge.kind-schema { background: #8fb8e0; }
 .objtree-badge.kind-table { background: var(--number); }
 .objtree-badge.kind-view { background: #e0c890; }
+/* Type folder (Tablas/Vistas): a neutral count chip. */
+.objtree-badge.kind-group {
+  background: var(--text-dim);
+  color: var(--bg);
+  min-width: 1.4em;
+  text-align: center;
+}
 
 .objtree-label {
   overflow: hidden;

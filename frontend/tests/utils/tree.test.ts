@@ -5,8 +5,39 @@ import {
   databaseKey,
   toggleExpanded,
   flattenTree,
+  groupObjectsByType,
   type TreeNode,
 } from "../../src/utils/tree";
+
+describe("groupObjectsByType", () => {
+  const objs: TreeNode[] = [
+    { key: "db:m/tbl:customers", label: "customers", kind: "table", db: "m" },
+    { key: "db:m/tbl:orders", label: "orders", kind: "table", db: "m" },
+    { key: "db:m/vw:v1", label: "v1", kind: "view", db: "m" },
+  ];
+
+  it("splits tables and views into folders with counts + members", () => {
+    const { groups, members } = groupObjectsByType("db:m", "m", undefined, objs);
+    expect(groups.map((g) => [g.label, g.kind, g.count])).toEqual([
+      ["Tablas", "group", 2],
+      ["Vistas", "group", 1],
+    ]);
+    expect(groups[0].groupKind).toBe("table");
+    expect(members["db:m/grp:tbl"].map((n) => n.label)).toEqual(["customers", "orders"]);
+    expect(members["db:m/grp:vw"].map((n) => n.label)).toEqual(["v1"]);
+  });
+
+  it("omits a folder for a type with no members", () => {
+    const onlyTables = objs.filter((n) => n.kind === "table");
+    const { groups, members } = groupObjectsByType("db:m", "m", undefined, onlyTables);
+    expect(groups.map((g) => g.label)).toEqual(["Tablas"]);
+    expect(members["db:m/grp:vw"]).toBeUndefined();
+  });
+
+  it("group folders are expandable", () => {
+    expect(isExpandable("group")).toBe(true);
+  });
+});
 
 describe("isExpandable", () => {
   it("containers expand, leaves do not", () => {

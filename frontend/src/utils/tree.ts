@@ -6,15 +6,22 @@
 
 import type { NodeKind } from "./schema";
 
+/** Tree node kinds, including the UI-only "group" (a Tablas/Vistas folder that
+    groups leaf objects by type — it is never returned by the core). */
+export type TreeNodeKind = NodeKind | "group";
+
 export interface TreeNode {
   /** Unique, stable path key (e.g. "db:main" or "db:main/tbl:users"). */
   key: string;
   label: string;
-  kind: NodeKind;
+  kind: TreeNodeKind;
   /** Database context for lazy-loading this node's children. */
   db?: string;
   /** Schema context (engines with schemas). */
   schema?: string;
+  /** For a "group" node: the leaf kind it groups, and how many it holds. */
+  groupKind?: "table" | "view";
+  count?: number;
 }
 
 export interface FlatNode extends TreeNode {
@@ -23,9 +30,37 @@ export interface FlatNode extends TreeNode {
   expanded: boolean;
 }
 
-/** Containers can be expanded; tables/views are leaves. */
-export function isExpandable(kind: NodeKind): boolean {
-  return kind === "database" || kind === "schema";
+/** Containers can be expanded; tables/views are leaves. Group folders (Tablas/
+    Vistas) are expandable too — their children are pre-loaded, not fetched. */
+export function isExpandable(kind: TreeNodeKind): boolean {
+  return kind === "database" || kind === "schema" || kind === "group";
+}
+
+/**
+ * Groups leaf objects (tables/views) under synthetic "Tablas"/"Vistas" folder
+ * nodes (issue #135, phase 1). Returns the folder nodes (only for non-empty
+ * types) plus the members map to merge into childrenByKey. A single type still
+ * gets its folder, for consistency. Non-table/view kinds are ignored (leaf
+ * levels only ever hold tables and views). Pure.
+ */
+export function groupObjectsByType(
+  parentKey: string,
+  db: string | undefined,
+  schema: string | undefined,
+  nodes: TreeNode[],
+): { groups: TreeNode[]; members: Record<string, TreeNode[]> } {
+  const groups: TreeNode[] = [];
+  const members: Record<string, TreeNode[]> = {};
+  const add = (tag: string, label: string, gkind: "table" | "view") => {
+    const list = nodes.filter((n) => n.kind === gkind);
+    if (list.length === 0) return;
+    const key = `${parentKey}/grp:${tag}`;
+    groups.push({ key, label, kind: "group", db, schema, groupKind: gkind, count: list.length });
+    members[key] = list;
+  };
+  add("tbl", "Tablas", "table");
+  add("vw", "Vistas", "view");
+  return { groups, members };
 }
 
 /** Builds a child node's stable key under a parent key. Each kind gets a
