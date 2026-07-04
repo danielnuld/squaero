@@ -1575,3 +1575,144 @@ button.grid-action:hover {
   color: var(--accent, #3b82f6);
   font-size: 12px;
 }
+
+/* Row form / detail view (issue #133) */
+.modal.row-detail {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.rd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rd-head h2 {
+  margin: 0;
+}
+
+.rd-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rd-pos {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 6.5rem;
+  text-align: center;
+}
+
+.rd-nav-btn {
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.6rem;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rd-nav-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.rd-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.rd-deleted-banner {
+  margin: 0.6rem 0 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--danger, #e5484d);
+  border: 1px solid var(--danger, #e5484d);
+}
+
+.rd-fields {
+  margin-top: 0.8rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.rd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rd-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.rd-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.rd-type {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.rd-edited-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+}
+
+.rd-field.rd-edited .rd-name {
+  color: var(--accent);
+}
+
+.rd-value {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-elev);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.rd-value.rd-null {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.rd-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  resize: vertical;
+}
+
+.rd-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.rd-actions {
+  flex-shrink: 0;
+}

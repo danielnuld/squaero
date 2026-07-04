@@ -98,6 +98,8 @@ import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { SnippetsPanel } from "./components/SnippetsPanel";
+import { RowDetail } from "./components/RowDetail";
+import { stepRowIndex } from "./utils/rowDetail";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -173,6 +175,9 @@ export function App() {
   const [transferOpen, setTransferOpen] = createSignal(false);
   const [createTable, setCreateTable] = createSignal<{ container?: string } | null>(null);
   const [treeReload, setTreeReload] = createSignal(0);
+  // Row form/detail view (issue #133): index of the loaded row shown as a form,
+  // or null when closed. Navigation walks the loaded rows in original order.
+  const [detailIndex, setDetailIndex] = createSignal<number | null>(null);
 
   // --- Query history (issue #128) ----------------------------------------
   const [history, setHistory] = createSignal<HistoryEntry[]>(loadHistory());
@@ -333,6 +338,16 @@ export function App() {
   const currentEditable = createMemo<boolean>(() => {
     const src = currentResult().source;
     return !!src && src.pk.length > 0;
+  });
+
+  // Resolve the row-detail target reactively: null unless an in-range row of the
+  // current result is selected. Closes itself (returns null) when a reload shrinks
+  // the result past the selected index, so navigating after an apply is safe.
+  const detailData = createMemo(() => {
+    const idx = detailIndex();
+    const res = currentResult().result;
+    if (idx === null || !res || idx < 0 || idx >= res.rows.length) return null;
+    return { idx, res };
   });
 
   const newTab = () => setTabs((s) => addTab(s));
@@ -740,6 +755,8 @@ export function App() {
     const row = res.rows[rowIndex];
     const items: MenuItem[] = [];
     if (row) {
+      items.push({ label: "Ver detalle de fila", action: () => setDetailIndex(rowIndex) });
+      items.push({ separator: true });
       const cell = row[colIndex];
       items.push({ label: "Copiar celda", action: () => copyText(cell ?? "") });
       items.push({ label: "Copiar fila", action: () => copyText(rowToTsv(row)) });
@@ -1189,6 +1206,27 @@ export function App() {
           onClose={() => setStructureTarget(null)}
           onApplied={() => setTreeReload((n) => n + 1)}
         />
+      </Show>
+
+      <Show when={detailData()}>
+        {(d) => (
+          <RowDetail
+            columns={d().res.columns}
+            row={d().res.rows[d().idx]}
+            rowIndex={d().idx}
+            total={d().res.rows.length}
+            editing={currentEdit().editing}
+            editable={currentEditable()}
+            deleted={currentEdit().pending.deletes.includes(d().idx)}
+            edits={currentEdit().pending.edits[d().idx]}
+            onEditCell={(col, val) => onEditCell(d().idx, col, val)}
+            onToggleDelete={() => onToggleDelete(d().idx)}
+            onBeginEdit={beginEdit}
+            onPrev={() => setDetailIndex((i) => stepRowIndex(i ?? 0, -1, d().res.rows.length))}
+            onNext={() => setDetailIndex((i) => stepRowIndex(i ?? 0, 1, d().res.rows.length))}
+            onClose={() => setDetailIndex(null)}
+          />
+        )}
       </Show>
 
       <ContextMenu />
