@@ -199,6 +199,42 @@ body {
   font-size: 13px;
 }
 
+/* Theme the CodeMirror chrome from the app palette so the editor tracks
+   light/dark. CodeMirror injects its own base theme at runtime (after this
+   stylesheet) at equal specificity, so !important is needed to win — its
+   default gutter is light, which looked wrong in dark mode (UX audit). */
+.editor .cm-editor {
+  background: transparent;
+  color: var(--text);
+}
+
+.editor .cm-editor .cm-gutters {
+  background: var(--bg-elev) !important;
+  color: var(--text-dim) !important;
+  border: none !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+.editor .cm-editor .cm-activeLine {
+  background: color-mix(in srgb, var(--accent) 8%, transparent) !important;
+}
+
+.editor .cm-editor .cm-activeLineGutter {
+  background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
+  color: var(--text) !important;
+}
+
+.editor .cm-editor .cm-cursor,
+.editor .cm-editor .cm-dropCursor {
+  border-left-color: var(--accent) !important;
+}
+
+.editor .cm-editor .cm-selectionBackground,
+.editor .cm-editor.cm-focused .cm-selectionBackground,
+.editor .cm-editor ::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent) !important;
+}
+
 .editor-hint {
   display: flex;
   align-items: center;
