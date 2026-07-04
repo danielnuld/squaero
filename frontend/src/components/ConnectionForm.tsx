@@ -10,7 +10,7 @@ import {
   type Connection,
 } from "../utils/connections";
 import { errorText } from "../utils/errors";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 
 type TestState =
   | { kind: "idle" }
@@ -90,7 +90,7 @@ export function ConnectionForm(props: {
   };
 
   return (
-    <Modal
+    <Panel
       title={props.initial.name ? "Editar conexión" : "Nueva conexión"}
       onClose={props.onCancel}
     >
@@ -210,6 +210,6 @@ export function ConnectionForm(props: {
             Guardar
           </button>
         </div>
-    </Modal>
+    </Panel>
   );
 }

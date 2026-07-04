@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 import {
   searchHistory,
   clampLimit,
@@ -29,7 +29,7 @@ export function HistoryPanel(props: {
   };
 
   return (
-    <Modal title="Historial de consultas" class="history" onClose={props.onClose}>
+    <Panel title="Historial de consultas" class="history" onClose={props.onClose}>
       <h2>Historial de consultas</h2>
       <div class="history-controls">
         <input
@@ -95,6 +95,6 @@ export function HistoryPanel(props: {
           Cerrar
         </button>
       </div>
-    </Modal>
+    </Panel>
   );
 }

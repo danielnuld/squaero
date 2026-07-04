@@ -65,12 +65,25 @@ describe("App — theme & shortcuts", () => {
     expect(host!.querySelector(".shortcuts")).toBeNull();
   });
 
-  it("gives dialog semantics to overlays", () => {
+  it("opens tools as in-window panels (labelled region, not a modal dialog)", () => {
     mount();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "F1" }));
-    const dialog = host!.querySelector('[role="dialog"]') as HTMLElement;
-    expect(dialog).not.toBeNull();
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    // Tools no longer render as modal dialogs; they are in-window tool panels.
+    expect(host!.querySelector('[role="dialog"]')).toBeNull();
+    const region = host!.querySelector('.tool-pane[role="region"]') as HTMLElement;
+    expect(region).not.toBeNull();
+    expect(region.getAttribute("aria-label")).toContain("Atajos");
+  });
+
+  it("opens the shortcuts help as a tab and closing it returns to the query", () => {
+    mount();
+    expect(host!.querySelectorAll(".tab").length).toBe(1);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "F1" }));
+    // A new (tool) tab appeared for the help panel.
+    expect(host!.querySelectorAll(".tab").length).toBe(2);
+    expect(host!.querySelector(".tab-tool")).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(host!.querySelectorAll(".tab").length).toBe(1);
   });
 
   it("opens a new tab with Ctrl+Alt+T", () => {

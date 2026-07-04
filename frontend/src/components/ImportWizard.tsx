@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onMount } from "solid-js";
+import { Panel } from "./Panel";
 import { schemaDescribe } from "../utils/schema";
 import { rowInsert, txBegin, txCommit, txRollback } from "../utils/edit";
 import { QueryError } from "../utils/query";
@@ -143,8 +144,7 @@ export function ImportWizard(props: {
   };
 
   return (
-    <div class="modal-backdrop" onClick={props.onClose}>
-      <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+    <Panel wide onClose={props.onClose}>
         <h2>Importar a {props.target.table}</h2>
 
         <Show when={error()}>
@@ -299,7 +299,6 @@ export function ImportWizard(props: {
             </button>
           </div>
         </Show>
-      </div>
-    </div>
+    </Panel>
   );
 }

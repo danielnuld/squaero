@@ -1,5 +1,4 @@
 import { For, Show, createMemo } from "solid-js";
-import { Modal } from "./Modal";
 import { NULL_LABEL } from "../utils/format";
 import { buildRowFields, canStep } from "../utils/rowDetail";
 import type { ResultColumn } from "../utils/query";
@@ -42,7 +41,7 @@ export function RowDetail(props: {
   const canNext = () => canStep(props.rowIndex, 1, props.total);
 
   return (
-    <Modal title="Detalle de fila" wide class="row-detail" onClose={props.onClose}>
+    <div class="row-detail-dock" role="region" aria-label="Detalle de fila">
       <div class="rd-head">
         <h2>Detalle de fila</h2>
         <div class="rd-nav">
@@ -54,6 +53,9 @@ export function RowDetail(props: {
           </span>
           <button class="rd-nav-btn" disabled={!canNext()} title="Fila siguiente" onClick={props.onNext}>
             ›
+          </button>
+          <button class="rd-nav-btn rd-close" title="Cerrar detalle (Esc)" onClick={props.onClose}>
+            ✕
           </button>
         </div>
       </div>
@@ -107,6 +109,6 @@ export function RowDetail(props: {
           Cerrar
         </button>
       </div>
-    </Modal>
+    </div>
   );
 }

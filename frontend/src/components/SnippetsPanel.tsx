@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from "solid-js";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 import type { Snippet } from "../utils/snippets";
 
 // Favorites / snippets panel (issue #129): save the current query as a named
@@ -53,7 +53,7 @@ export function SnippetsPanel(props: {
   };
 
   return (
-    <Modal title="Favoritos y snippets" class="snippets" onClose={props.onClose}>
+    <Panel title="Favoritos y snippets" class="snippets" onClose={props.onClose}>
       <h2>Favoritos y snippets</h2>
 
       <div class="snippet-save">
@@ -140,6 +140,6 @@ export function SnippetsPanel(props: {
           Cerrar
         </button>
       </div>
-    </Modal>
+    </Panel>
   );
 }

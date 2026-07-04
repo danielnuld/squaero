@@ -5,7 +5,7 @@ import { txBegin, txCommit, txRollback } from "../utils/edit";
 import { buildViewApply } from "../utils/viewEdit";
 import { formatSql } from "../utils/sqlFormat";
 import { errorText } from "../utils/errors";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 import type { NodeKind } from "../utils/schema";
 
 // Modal showing a table/view structure: the column list (schema.describe) and
@@ -123,7 +123,7 @@ export function StructureView(props: {
   };
 
   return (
-    <Modal title={`Estructura · ${props.table}`} wide onClose={props.onClose}>
+    <Panel title={`Estructura · ${props.table}`} wide onClose={props.onClose}>
       <h2>Estructura · {props.table}</h2>
 
         <Show when={error()}>
@@ -203,6 +203,6 @@ export function StructureView(props: {
             </button>
           </Show>
         </div>
-    </Modal>
+    </Panel>
   );
 }

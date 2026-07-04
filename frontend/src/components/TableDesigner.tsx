@@ -10,7 +10,7 @@ import {
   type ColumnDef,
   type TableDef,
 } from "../utils/tableDesign";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 
 // Table designer (issue #136, phase 1: create). A form to define a table's name
 // and columns (type, nullable, primary key, auto-increment, default), a live
@@ -73,7 +73,7 @@ export function TableDesigner(props: {
   };
 
   return (
-    <Modal title="Nueva tabla" wide onClose={props.onClose}>
+    <Panel title="Nueva tabla" wide onClose={props.onClose}>
       <h2>Nueva tabla{props.container ? ` · ${props.container}` : ""}</h2>
 
       <label class="field">
@@ -194,6 +194,6 @@ export function TableDesigner(props: {
           {busy() ? "Creando…" : "Crear tabla"}
         </button>
       </div>
-    </Modal>
+    </Panel>
   );
 }

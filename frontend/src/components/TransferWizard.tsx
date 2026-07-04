@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
+import { Panel } from "./Panel";
 import type { ResultSet } from "../utils/query";
 import { QueryError } from "../utils/query";
 import { schemaDescribe } from "../utils/schema";
@@ -126,8 +127,7 @@ export function TransferWizard(props: {
   };
 
   return (
-    <div class="modal-backdrop" onClick={props.onClose}>
-      <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+    <Panel wide onClose={props.onClose}>
         <h2>Transferir datos · {props.sourceTable}</h2>
         <p class="import-subtitle">
           Origen: {props.sourceResult.rows.length} fila(s) cargada(s)
@@ -251,7 +251,6 @@ export function TransferWizard(props: {
             </button>
           </div>
         </Show>
-      </div>
-    </div>
+    </Panel>
   );
 }

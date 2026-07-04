@@ -12,7 +12,7 @@ import {
   type ColumnGen,
   type GenKind,
 } from "../utils/dataGen";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 
 const PREVIEW_ROWS = 5;
 const PREVIEW_SEED = 0x9e3779b9; // stable preview independent of the real run
@@ -109,7 +109,7 @@ export function DataGenerator(props: {
   };
 
   return (
-    <Modal title="Generar datos" wide onClose={props.onClose}>
+    <Panel title="Generar datos" wide onClose={props.onClose}>
       <h2>Generar datos · {props.target.table}</h2>
 
       <Show when={error()}>
@@ -243,6 +243,6 @@ export function DataGenerator(props: {
           </button>
         </div>
       </Show>
-    </Modal>
+    </Panel>
   );
 }

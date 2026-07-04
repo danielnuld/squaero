@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
+import { Panel } from "./Panel";
 import { runQuery, QueryError, type ResultSet } from "../utils/query";
 import { quoteIdentifier } from "../utils/schema";
 import { openConnection, closeConnection } from "../utils/conn";
@@ -116,8 +117,7 @@ export function DataDiffWizard(props: {
   };
 
   return (
-    <div class="modal-backdrop" onClick={props.onClose}>
-      <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+    <Panel wide onClose={props.onClose}>
         <h2>Sincronizar datos · {props.source.table}</h2>
         <p class="import-subtitle">
           Origen: {props.sourceResult.rows.length} fila(s) cargada(s)
@@ -184,7 +184,6 @@ export function DataDiffWizard(props: {
             </button>
           </Show>
         </div>
-      </div>
-    </div>
+    </Panel>
   );
 }

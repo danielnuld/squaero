@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal, onMount } from "solid-js";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import { monitorFor, buildKillSql, unsupportedReason } from "../utils/serverMonitor";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 
 // Server monitor / process list (issue #148): lists the server's active
 // sessions/queries for the active connection and, where the engine allows, kills
@@ -60,7 +60,7 @@ export function ServerMonitor(props: {
   const cols = () => result()?.columns ?? [];
 
   return (
-    <Modal title="Monitor de servidor" wide class="server-monitor" onClose={props.onClose}>
+    <Panel title="Monitor de servidor" class="server-monitor" onClose={props.onClose}>
       <div class="sm-head">
         <h2>Monitor de servidor</h2>
         <div class="sm-actions">
@@ -136,6 +136,6 @@ export function ServerMonitor(props: {
           </div>
         </Show>
       </Show>
-    </Modal>
+    </Panel>
   );
 }

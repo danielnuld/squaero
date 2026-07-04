@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   nextTabId,
   addTab,
+  openTool,
   closeTab,
   closeOtherTabs,
   updateTabSql,
@@ -17,7 +18,37 @@ describe("nextTabId", () => {
   });
 
   it("is one past the highest existing id", () => {
-    expect(nextTabId([{ id: 3, title: "a", sql: "" }, { id: 7, title: "b", sql: "" }])).toBe(8);
+    expect(
+      nextTabId([
+        { id: 3, kind: "query", title: "a", sql: "" },
+        { id: 7, kind: "query", title: "b", sql: "" },
+      ]),
+    ).toBe(8);
+  });
+});
+
+describe("openTool", () => {
+  it("appends a new active tool tab", () => {
+    const s = openTool(empty, "monitor", "Monitor de servidor", { key: "monitor" });
+    expect(s.tabs).toHaveLength(1);
+    const tab = s.tabs[0];
+    expect(tab.kind).toBe("tool");
+    expect(tab).toMatchObject({ tool: "monitor", title: "Monitor de servidor", key: "monitor" });
+    expect(s.activeId).toBe(tab.id);
+  });
+
+  it("focuses an existing tool tab with the same tool+key instead of duplicating", () => {
+    let s = openTool(empty, "monitor", "Monitor", { key: "monitor" });
+    s = addTab(s); // a query tab in between, now active
+    const reopened = openTool(s, "monitor", "Monitor", { key: "monitor" });
+    expect(reopened.tabs).toHaveLength(2); // no duplicate
+    expect(reopened.activeId).toBe(s.tabs[0].id); // focused the monitor tab
+  });
+
+  it("opens distinct tabs for different keys", () => {
+    let s = openTool(empty, "generator", "Generar · a", { key: "gen:a" });
+    s = openTool(s, "generator", "Generar · b", { key: "gen:b" });
+    expect(s.tabs).toHaveLength(2);
   });
 });
 
@@ -88,8 +119,14 @@ describe("updateTabSql", () => {
     let s = addTab(empty); // 1
     s = addTab(s); // 2
     const updated = updateTabSql(s, 1, "SELECT 1");
-    expect(updated.tabs.find((t) => t.id === 1)?.sql).toBe("SELECT 1");
-    expect(updated.tabs.find((t) => t.id === 2)?.sql).toBe("");
+    const t1 = updated.tabs.find((t) => t.id === 1);
+    expect(t1?.kind === "query" && t1.sql).toBe("SELECT 1");
+  });
+
+  it("leaves a tool tab untouched", () => {
+    const s = openTool(empty, "monitor", "Monitor", { key: "m" });
+    const updated = updateTabSql(s, s.tabs[0].id, "SELECT 1");
+    expect(updated.tabs[0]).not.toHaveProperty("sql");
   });
 });
 

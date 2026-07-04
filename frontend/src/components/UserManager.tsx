@@ -11,7 +11,7 @@ import {
   MYSQL_PRIVILEGES,
   type GrantOptions,
 } from "../utils/userAdmin";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 
 interface UserRow {
   name: string;
@@ -101,7 +101,7 @@ export function UserManager(props: {
   onMount(loadUsers);
 
   return (
-    <Modal title="Usuarios y permisos" wide class="user-mgr" onClose={props.onClose}>
+    <Panel title="Usuarios y permisos" wide class="user-mgr" onClose={props.onClose}>
       <div class="sm-head">
         <h2>Usuarios y permisos</h2>
         <div class="sm-actions">
@@ -215,6 +215,6 @@ export function UserManager(props: {
           </div>
         </div>
       </Show>
-    </Modal>
+    </Panel>
   );
 }

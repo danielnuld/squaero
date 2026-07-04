@@ -213,6 +213,35 @@ body {
   color: var(--text-dim);
 }
 
+/* The area below the tab bar: shows either the query panes or the active tool
+   panel (tools open as tabs in-window instead of modals). */
+.workspace-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A tool rendered in-window (former modal). Fills the workspace area and scrolls. */
+.tool-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 1rem;
+  background: var(--bg);
+}
+
+.tool-pane > h2:first-child {
+  margin-top: 0;
+}
+
+.tab-tool .tab-title {
+  font-style: italic;
+}
+
 .panes {
   display: flex;
   flex-direction: column;
@@ -353,6 +382,59 @@ body {
      fills the remaining width/height. Without this the flex row placed the
      toolbar beside the grid and the grid never filled the pane. */
   flex-direction: column;
+}
+
+/* Result area: the grid, plus an optional docked row-detail panel on the right. */
+.result-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.result-grid-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Inline confirm-changes panel (former modal), above the grid. */
+.edit-preview {
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  margin: 0 0.4rem 0.4rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--bg-elev);
+  max-height: 40%;
+  overflow: auto;
+}
+
+.edit-preview-head {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  margin-bottom: 0.3rem;
+}
+
+.edit-preview-head span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Row-detail dock (issue #133): docked on the right of the grid, not a modal. */
+.row-detail-dock {
+  width: 22rem;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-elev);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0.8rem;
+}
+
+.rd-close {
+  margin-left: 0.4rem;
 }
 
 /* Result grid */
@@ -1577,12 +1659,6 @@ button.grid-action:hover {
 }
 
 /* Row form / detail view (issue #133) */
-.modal.row-detail {
-  display: flex;
-  flex-direction: column;
-  max-height: 85vh;
-}
-
 .rd-head {
   display: flex;
   align-items: center;
@@ -1753,12 +1829,6 @@ button.grid-action:hover {
   width: 100%;
 }
 
-.modal.server-monitor {
-  display: flex;
-  flex-direction: column;
-  max-height: 85vh;
-}
-
 .sm-head {
   display: flex;
   align-items: center;
@@ -1821,17 +1891,12 @@ button.grid-action:hover {
 }
 
 /* User / privilege management (issue #140) */
-.modal.user-mgr {
-  display: flex;
-  flex-direction: column;
-  max-height: 85vh;
-}
-
 .um-body {
   display: grid;
   grid-template-columns: 14rem 1fr;
   gap: 1rem;
   margin-top: 0.8rem;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
 }

@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
+import { Panel } from "./Panel";
 import { schemaTree, schemaDescribe } from "../utils/schema";
 import { parseStructure, buildSchemaSync, isExecutable, type SchemaEndpoint } from "../utils/schemaDiff";
 import { openConnection, closeConnection } from "../utils/conn";
@@ -104,8 +105,7 @@ export function SchemaSyncWizard(props: {
   };
 
   return (
-    <div class="modal-backdrop" onClick={props.onClose}>
-      <div class="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+    <Panel wide onClose={props.onClose}>
         <h2>Sincronizar estructura</h2>
         <p class="import-subtitle">
           Origen: conexión activa{props.sourceDb ? ` · ${props.sourceDb}` : ""}
@@ -171,7 +171,6 @@ export function SchemaSyncWizard(props: {
             </button>
           </Show>
         </div>
-      </div>
-    </div>
+    </Panel>
   );
 }

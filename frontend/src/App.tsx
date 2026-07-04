@@ -1,16 +1,29 @@
-import { For, Show, createMemo, createSignal, createEffect, onMount, onCleanup } from "solid-js";
+import {
+  For,
+  Show,
+  Switch,
+  Match,
+  createMemo,
+  createSignal,
+  createEffect,
+  onMount,
+  onCleanup,
+} from "solid-js";
 import { createStore } from "solid-js/store";
 import { runQuery, type ResultSet } from "./utils/query";
 import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection } from "./utils/conn";
 import {
   addTab,
+  openTool,
   closeTab,
   closeOtherTabs,
   cycleTab,
   updateTabSql,
   activeTab,
   type TabState,
+  type QueryTab,
+  type ToolTab,
 } from "./utils/tabs";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
 import { type RunScope } from "./utils/runScope";
@@ -26,7 +39,6 @@ import { matchShortcut } from "./utils/shortcuts";
 import { buildExplain } from "./utils/explain";
 import { loadCompletionSchema } from "./utils/completion";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
-import { Modal } from "./components/Modal";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
 import {
   buildDsn,
@@ -156,6 +168,9 @@ const emptyResult = (): TabResult => ({
   elapsedMs: null,
 });
 
+// A table target (import / generator / diff / transfer / structure).
+type EditTarget = { table: string; db?: string; schema?: string };
+
 // Any export the workspace offers: the text formats plus binary XLSX (issue #141).
 type AnyExportFormat = ExportFormat | "xlsx";
 const EXPORT_FORMATS: { fmt: AnyExportFormat; label: string }[] = [
@@ -181,18 +196,6 @@ export function App() {
   const [active, setActive] = createSignal<ActiveConnection | null>(null);
   const [activeDefId, setActiveDefId] = createSignal<string | null>(null);
   const [connectingId, setConnectingId] = createSignal<string | null>(null);
-  const [editing, setEditing] = createSignal<Connection | null>(null);
-  const [structureTarget, setStructureTarget] = createSignal<TreeNode | null>(null);
-  const [importTarget, setImportTarget] =
-    createSignal<{ table: string; db?: string; schema?: string } | null>(null);
-  const [genTarget, setGenTarget] =
-    createSignal<{ table: string; db?: string; schema?: string } | null>(null);
-  const [monitorOpen, setMonitorOpen] = createSignal(false);
-  const [usersOpen, setUsersOpen] = createSignal(false);
-  const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
-  const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
-  const [transferOpen, setTransferOpen] = createSignal(false);
-  const [createTable, setCreateTable] = createSignal<{ container?: string } | null>(null);
   const [treeReload, setTreeReload] = createSignal(0);
   // Row form/detail view (issue #133): index of the loaded row shown as a form,
   // or null when closed. Navigation walks the loaded rows in original order.
@@ -201,11 +204,9 @@ export function App() {
   // --- Query history (issue #128) ----------------------------------------
   const [history, setHistory] = createSignal<HistoryEntry[]>(loadHistory());
   const [historyLimit, setHistoryLimit] = createSignal(loadHistoryLimit());
-  const [historyOpen, setHistoryOpen] = createSignal(false);
 
   // --- Favorites / snippets (issue #129) ---------------------------------
   const [snippets, setSnippets] = createSignal<Snippet[]>(loadSnippets());
-  const [snippetsOpen, setSnippetsOpen] = createSignal(false);
   const [snippetInsert, setSnippetInsert] = createSignal({ text: "", tick: 0 });
 
   // --- Theme, shortcuts, help (issue #42) --------------------------------
@@ -217,7 +218,6 @@ export function App() {
     }
   };
   const [theme, setTheme] = createSignal<ThemePref>(loadTheme(safeStorage()));
-  const [helpOpen, setHelpOpen] = createSignal(false);
 
   const prefersDark = () =>
     typeof window !== "undefined" &&
@@ -259,7 +259,7 @@ export function App() {
         toggleTheme();
         break;
       case "toggle-help":
-        setHelpOpen((v) => !v);
+        showTool("help", "Atajos de teclado", { key: "help" });
         break;
     }
   };
@@ -343,6 +343,41 @@ export function App() {
   });
 
   const current = createMemo(() => activeTab(tabs()));
+  // The active tab split by kind: query tabs drive the editor+grid panes; tool
+  // tabs render their panel in the same workspace area (UX refactor: tools open
+  // as tabs in-window instead of modals).
+  const currentQuery = createMemo<QueryTab | undefined>(() => {
+    const t = current();
+    return t && t.kind === "query" ? t : undefined;
+  });
+  const currentTool = createMemo<ToolTab | undefined>(() => {
+    const t = current();
+    return t && t.kind === "tool" ? t : undefined;
+  });
+  // Open (or focus) a tool tab, and close one by id.
+  const showTool = (
+    tool: Parameters<typeof openTool>[1],
+    title: string,
+    opts?: Parameters<typeof openTool>[3],
+  ) => setTabs((s) => openTool(s, tool, title, opts));
+  const closeTool = (id: number) => setTabs((s) => closeTab(s, id));
+  const closeToolByKind = (tool: ToolTab["tool"]) =>
+    setTabs((s) => {
+      const t = s.tabs.find((x): x is ToolTab => x.kind === "tool" && x.tool === tool);
+      return t ? closeTab(s, t.id) : s;
+    });
+  // Track the last active query tab so tool tabs (snippets) can act on the query
+  // editor even when a tool tab is the active one.
+  const [lastQueryId, setLastQueryId] = createSignal<number | null>(null);
+  createEffect(() => {
+    const q = currentQuery();
+    if (q) setLastQueryId(q.id);
+  });
+  const lastQuerySql = () => {
+    const id = lastQueryId();
+    const t = id !== null ? tabs().tabs.find((x) => x.id === id) : undefined;
+    return t && t.kind === "query" ? t.sql : "";
+  };
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
   const currentResult = createMemo<TabResult>(() => {
     const t = current();
@@ -419,8 +454,14 @@ export function App() {
     persistSnippets(renameSnippet(snippets(), id, name));
   const removeSnip = (id: string) => persistSnippets(removeSnippet(snippets(), id));
   // Drop a snippet into the editor at the cursor via a bumped insert request.
-  const insertSnippet = (body: string) =>
-    setSnippetInsert((r) => ({ text: body, tick: r.tick + 1 }));
+  // Snippets live in their own tab now, so first jump back to the last query
+  // editor (or open one), then bump the insert tick once it has (re)mounted.
+  const insertSnippet = (body: string) => {
+    const id = lastQueryId();
+    if (id !== null) setTabs((s) => ({ ...s, activeId: id }));
+    else setTabs((s) => addTab(s));
+    setTimeout(() => setSnippetInsert((r) => ({ text: body, tick: r.tick + 1 })), 0);
+  };
   const exportSnippets = () =>
     void saveText("quaero-snippets.json", serializeSnippets(snippets()), "application/json");
   const importSnippets = (file: File) => {
@@ -433,18 +474,24 @@ export function App() {
     saveConnections(list);
   };
 
-  const onNewConnection = () => {
-    const driver = AVAILABLE_DRIVERS[0];
-    setEditing({
+  // The connection form opens as a tool tab carrying the draft in its params.
+  const openConnForm = (draft: Connection) =>
+    showTool(
+      "connectionForm",
+      draft.name ? `Editar · ${draft.name}` : "Nueva conexión",
+      { key: "connform", params: { draft } },
+    );
+
+  const onNewConnection = () =>
+    openConnForm({
       id: nextConnectionId(connections()),
       name: "",
-      driver,
+      driver: AVAILABLE_DRIVERS[0],
       params: {},
     });
-  };
 
   const onEditConnection = (c: Connection) =>
-    setEditing({ ...c, params: { ...c.params } });
+    openConnForm({ ...c, params: { ...c.params } });
 
   const onDeleteConnection = (id: string) => {
     persist(removeConnection(connections(), id));
@@ -455,7 +502,7 @@ export function App() {
 
   const onSaveConnection = (c: Connection) => {
     persist(upsertConnection(connections(), c));
-    setEditing(null);
+    closeToolByKind("connectionForm");
   };
 
   const disconnect = async () => {
@@ -747,17 +794,55 @@ export function App() {
 
   const openImport = () => {
     const src = currentResult().source;
+    const t = currentQuery();
     if (src && active()) {
-      setImportTarget({ table: src.table, db: src.db, schema: src.schema });
+      showTool("import", `Importar · ${src.table}`, {
+        key: `import:${src.table}`,
+        params: { target: { table: src.table, db: src.db, schema: src.schema } },
+        sourceId: t?.id,
+      });
     }
   };
 
   // Open the test-data generator for the current table tab (issue #147).
   const openGen = () => {
     const src = currentResult().source;
+    const t = currentQuery();
     if (src && active()) {
-      setGenTarget({ table: src.table, db: src.db, schema: src.schema });
+      showTool("generator", `Generar · ${src.table}`, {
+        key: `gen:${src.table}`,
+        params: { target: { table: src.table, db: src.db, schema: src.schema } },
+        sourceId: t?.id,
+      });
     }
+  };
+
+  // Wizards launched from the result toolbar act on the current result; snapshot
+  // what they need into the tool tab's params at open time.
+  const openSchemaSync = () =>
+    showTool("schemaSync", "Sincronizar esquema", {
+      key: "schemaSync",
+      params: { sourceDb: currentResult().source?.db },
+    });
+  const openDataSync = () => {
+    const res = currentResult();
+    if (!res.result || !res.source) return;
+    showTool("dataDiff", "Sincronizar datos", {
+      key: "dataDiff",
+      params: {
+        sourceResult: res.result,
+        source: { table: res.source.table, db: res.source.db, schema: res.source.schema },
+        pk: res.source.pk,
+      },
+    });
+  };
+  const openTransfer = () => {
+    const res = currentResult();
+    if (!res.result || !res.source) return;
+    showTool("transfer", "Transferir", {
+      key: "transfer",
+      params: { sourceResult: res.result, sourceTable: res.source.table },
+    });
   };
 
   // --- Export (issue #30) ------------------------------------------------
@@ -818,12 +903,19 @@ export function App() {
     ]);
   };
 
-  // Open a table's structure (columns + DDL) in a modal.
+  // Open a table's structure (columns + DDL) as a tool tab.
   const openStructure = (node: TreeNode) => {
     if (active()) {
-      setStructureTarget(node);
+      showTool("structure", `Estructura · ${node.label}`, {
+        key: `struct:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
+        params: { node },
+      });
     }
   };
+
+  // Open the table designer for a db/schema container as a tool tab.
+  const openTableDesigner = (container?: string) =>
+    showTool("tableDesigner", "Nueva tabla", { key: "tableDesigner", params: { container } });
 
   // Sidebar drag-to-resize: track the pointer on the document until release.
   const startResize = (e: MouseEvent) => {
@@ -861,14 +953,14 @@ export function App() {
               <button
                 class="status-btn"
                 title="Monitor de servidor y lista de procesos"
-                onClick={() => setMonitorOpen(true)}
+                onClick={() => showTool("monitor", "Monitor de servidor", { key: "monitor" })}
               >
                 Monitor de servidor
               </button>
               <button
                 class="status-btn"
                 title="Usuarios y permisos"
-                onClick={() => setUsersOpen(true)}
+                onClick={() => showTool("users", "Usuarios y permisos", { key: "users" })}
               >
                 Usuarios y permisos
               </button>
@@ -881,10 +973,15 @@ export function App() {
                 reloadKey={treeReload()}
                 onRefresh={refreshAll}
                 onImport={(node) =>
-                  setImportTarget({ table: node.label, db: node.db, schema: node.schema })
+                  showTool("import", `Importar · ${node.label}`, {
+                    key: `import:${node.label}`,
+                    params: {
+                      target: { table: node.label, db: node.db, schema: node.schema },
+                    },
+                  })
                 }
                 onCreateTable={(node) =>
-                  setCreateTable({ container: node.schema ?? node.db })
+                  openTableDesigner(node.schema ?? node.db)
                 }
               />
             </div>
@@ -898,7 +995,9 @@ export function App() {
             <For each={tabs().tabs}>
               {(tab) => (
                 <div
-                  class={`tab ${tab.id === tabs().activeId ? "active" : ""}`}
+                  class={`tab ${tab.id === tabs().activeId ? "active" : ""} ${
+                    tab.kind === "tool" ? "tab-tool" : ""
+                  }`}
                   onClick={() => selectTab(tab.id)}
                   onContextMenu={(e) => tabMenu(e, tab.id)}
                 >
@@ -924,10 +1023,8 @@ export function App() {
             </button>
           </div>
 
-          <Show
-            when={current()}
-            fallback={<div class="grid-empty">Abre una pestaña de consulta.</div>}
-          >
+          <div class="workspace-main">
+          <Show when={currentQuery()}>
             {(tab) => (
               <div class="panes">
                 <div class="editor-pane">
@@ -962,14 +1059,14 @@ export function App() {
                     <button
                       class="status-btn"
                       title="Historial de consultas"
-                      onClick={() => setHistoryOpen(true)}
+                      onClick={() => showTool("history", "Historial", { key: "history" })}
                     >
                       Historial
                     </button>
                     <button
                       class="status-btn"
                       title="Favoritos y snippets"
-                      onClick={() => setSnippetsOpen(true)}
+                      onClick={() => showTool("snippets", "Snippets", { key: "snippets" })}
                     >
                       Snippets
                     </button>
@@ -1012,10 +1109,7 @@ export function App() {
                               <button class="edit-btn" onClick={openGen}>
                                 Generar datos
                               </button>
-                              <button
-                                class="edit-btn"
-                                onClick={() => setSchemaSyncOpen(true)}
-                              >
+                              <button class="edit-btn" onClick={openSchemaSync}>
                                 Sincronizar
                               </button>
                               <Show
@@ -1024,20 +1118,14 @@ export function App() {
                                   (currentResult().result?.columns.length ?? 0) > 0
                                 }
                               >
-                                <button
-                                  class="edit-btn"
-                                  onClick={() => setDataSyncOpen(true)}
-                                >
+                                <button class="edit-btn" onClick={openDataSync}>
                                   Sincronizar datos
                                 </button>
                               </Show>
                               <Show
                                 when={(currentResult().result?.columns.length ?? 0) > 0}
                               >
-                                <button
-                                  class="edit-btn"
-                                  onClick={() => setTransferOpen(true)}
-                                >
+                                <button class="edit-btn" onClick={openTransfer}>
                                   Transferir
                                 </button>
                               </Show>
@@ -1082,28 +1170,209 @@ export function App() {
                       </Show>
                     </div>
                   </Show>
-                  <ResultGrid
-                    result={currentResult().result}
-                    loading={currentResult().loading}
-                    error={currentResult().error}
-                    onCellContext={onCellContext}
-                    edit={
-                      currentEditable()
-                        ? {
-                            active: currentEdit().editing,
-                            pending: currentEdit().pending,
-                            onEditCell,
-                            onToggleDelete,
-                            onInsertCell,
-                            onRemoveInsert,
+                  <Show when={currentEdit().preview}>
+                    {(sqls) => (
+                      <div class="edit-preview">
+                        <div class="edit-preview-head">
+                          <strong>Confirmar cambios</strong>
+                          <span>
+                            Se ejecutarán {sqls().length} sentencia(s) en la transacción abierta.
+                          </span>
+                        </div>
+                        <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
+                        <div class="modal-actions">
+                          <button disabled={currentEdit().busy} onClick={cancelPreview}>
+                            Cancelar
+                          </button>
+                          <button
+                            class="primary"
+                            disabled={currentEdit().busy}
+                            onClick={applyEdit}
+                          >
+                            Aplicar y confirmar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </Show>
+                  <div class="result-body">
+                    <div class="result-grid-wrap">
+                      <ResultGrid
+                        result={currentResult().result}
+                        loading={currentResult().loading}
+                        error={currentResult().error}
+                        onCellContext={onCellContext}
+                        edit={
+                          currentEditable()
+                            ? {
+                                active: currentEdit().editing,
+                                pending: currentEdit().pending,
+                                onEditCell,
+                                onToggleDelete,
+                                onInsertCell,
+                                onRemoveInsert,
+                              }
+                            : undefined
+                        }
+                      />
+                    </div>
+                    <Show when={detailData()}>
+                      {(d) => (
+                        <RowDetail
+                          columns={d().res.columns}
+                          row={d().res.rows[d().idx]}
+                          rowIndex={d().idx}
+                          total={d().res.rows.length}
+                          editing={currentEdit().editing}
+                          editable={currentEditable()}
+                          deleted={currentEdit().pending.deletes.includes(d().idx)}
+                          edits={currentEdit().pending.edits[d().idx]}
+                          onEditCell={(col, val) => onEditCell(d().idx, col, val)}
+                          onToggleDelete={() => onToggleDelete(d().idx)}
+                          onBeginEdit={beginEdit}
+                          onPrev={() =>
+                            setDetailIndex((i) => stepRowIndex(i ?? 0, -1, d().res.rows.length))
                           }
-                        : undefined
-                    }
-                  />
+                          onNext={() =>
+                            setDetailIndex((i) => stepRowIndex(i ?? 0, 1, d().res.rows.length))
+                          }
+                          onClose={() => setDetailIndex(null)}
+                        />
+                      )}
+                    </Show>
+                  </div>
                 </div>
               </div>
             )}
           </Show>
+
+          <Show when={currentTool()}>
+            {(tt) => (
+              <Switch>
+                <Match when={tt().tool === "monitor"}>
+                  <ServerMonitor
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "users"}>
+                  <UserManager
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "generator"}>
+                  <DataGenerator
+                    connId={active()?.connId ?? ""}
+                    target={(tt().params as { target: EditTarget }).target}
+                    onClose={() => closeTool(tt().id)}
+                    onGenerated={() => {
+                      const s = tt().sourceId;
+                      if (s !== undefined) reloadCurrent(s);
+                    }}
+                  />
+                </Match>
+                <Match when={tt().tool === "import"}>
+                  <ImportWizard
+                    connId={active()?.connId ?? ""}
+                    target={(tt().params as { target: EditTarget }).target}
+                    onClose={() => closeTool(tt().id)}
+                    onImported={() => {
+                      const s = tt().sourceId;
+                      if (s !== undefined) reloadCurrent(s);
+                    }}
+                  />
+                </Match>
+                <Match when={tt().tool === "tableDesigner"}>
+                  <TableDesigner
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    container={(tt().params as { container?: string }).container}
+                    onClose={() => closeTool(tt().id)}
+                    onCreated={() => setTreeReload((n) => n + 1)}
+                  />
+                </Match>
+                <Match when={tt().tool === "structure"}>
+                  <StructureView
+                    connId={active()?.connId ?? ""}
+                    table={(tt().params as { node: TreeNode }).node.label}
+                    db={(tt().params as { node: TreeNode }).node.db}
+                    schema={(tt().params as { node: TreeNode }).node.schema}
+                    kind={(tt().params as { node: TreeNode }).node.kind}
+                    engine={activeDialect()}
+                    onClose={() => closeTool(tt().id)}
+                    onApplied={() => setTreeReload((n) => n + 1)}
+                  />
+                </Match>
+                <Match when={tt().tool === "schemaSync"}>
+                  <SchemaSyncWizard
+                    sourceConnId={active()?.connId ?? ""}
+                    sourceDb={(tt().params as { sourceDb?: string }).sourceDb}
+                    connections={connections()}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "dataDiff"}>
+                  <DataDiffWizard
+                    sourceResult={(tt().params as { sourceResult: ResultSet }).sourceResult}
+                    source={(tt().params as { source: EditTarget }).source}
+                    pk={(tt().params as { pk: string[] }).pk}
+                    connections={connections()}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "transfer"}>
+                  <TransferWizard
+                    sourceResult={(tt().params as { sourceResult: ResultSet }).sourceResult}
+                    sourceTable={(tt().params as { sourceTable: string }).sourceTable}
+                    connections={connections()}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "history"}>
+                  <HistoryPanel
+                    entries={history()}
+                    limit={historyLimit()}
+                    onRun={runFromHistory}
+                    onClear={clearHistory}
+                    onChangeLimit={changeHistoryLimit}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "snippets"}>
+                  <SnippetsPanel
+                    entries={snippets()}
+                    currentSql={lastQuerySql()}
+                    onSave={saveSnippet}
+                    onInsert={insertSnippet}
+                    onRename={renameSnip}
+                    onRemove={removeSnip}
+                    onExport={exportSnippets}
+                    onImport={importSnippets}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "connectionForm"}>
+                  <ConnectionForm
+                    initial={(tt().params as { draft: Connection }).draft}
+                    onSave={onSaveConnection}
+                    onCancel={() => closeTool(tt().id)}
+                    onTest={(c) => testConnection(c.driver, buildDsn(c))}
+                  />
+                </Match>
+                <Match when={tt().tool === "help"}>
+                  <ShortcutsHelp isMac={isMac()} onClose={() => closeTool(tt().id)} />
+                </Match>
+              </Switch>
+            )}
+          </Show>
+
+          <Show when={!current()}>
+            <div class="grid-empty">Abre una pestaña de consulta.</div>
+          </Show>
+          </div>
         </section>
       </div>
 
@@ -1115,196 +1384,8 @@ export function App() {
         ranScope={currentResult().ranScope ?? null}
         theme={theme()}
         onToggleTheme={toggleTheme}
-        onShowHelp={() => setHelpOpen(true)}
+        onShowHelp={() => showTool("help", "Atajos de teclado", { key: "help" })}
       />
-
-      <Show when={helpOpen()}>
-        <ShortcutsHelp isMac={isMac()} onClose={() => setHelpOpen(false)} />
-      </Show>
-
-      <Show when={historyOpen()}>
-        <HistoryPanel
-          entries={history()}
-          limit={historyLimit()}
-          onRun={runFromHistory}
-          onClear={clearHistory}
-          onChangeLimit={changeHistoryLimit}
-          onClose={() => setHistoryOpen(false)}
-        />
-      </Show>
-
-      <Show when={snippetsOpen()}>
-        <SnippetsPanel
-          entries={snippets()}
-          currentSql={current() ? (tabs().tabs.find((t) => t.id === current()!.id)?.sql ?? "") : ""}
-          onSave={saveSnippet}
-          onInsert={insertSnippet}
-          onRename={renameSnip}
-          onRemove={removeSnip}
-          onExport={exportSnippets}
-          onImport={importSnippets}
-          onClose={() => setSnippetsOpen(false)}
-        />
-      </Show>
-
-      <Show when={editing()}>
-        {(draft) => (
-          <ConnectionForm
-            initial={draft()}
-            onSave={onSaveConnection}
-            onCancel={() => setEditing(null)}
-            onTest={(c) => testConnection(c.driver, buildDsn(c))}
-          />
-        )}
-      </Show>
-
-      <Show when={currentEdit().preview}>
-        {(sqls) => (
-          <Modal title="Confirmar cambios" wide onClose={cancelPreview}>
-            <h2>Confirmar cambios</h2>
-            <p>Se ejecutarán {sqls().length} sentencia(s) en la transacción abierta:</p>
-            <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
-            <div class="modal-actions">
-              <button disabled={currentEdit().busy} onClick={cancelPreview}>
-                Cancelar
-              </button>
-              <button class="primary" disabled={currentEdit().busy} onClick={applyEdit}>
-                Aplicar y confirmar
-              </button>
-            </div>
-          </Modal>
-        )}
-      </Show>
-
-      <Show when={importTarget() && active()}>
-        <ImportWizard
-          connId={active()!.connId}
-          target={importTarget()!}
-          onClose={() => setImportTarget(null)}
-          onImported={() => {
-            const t = current();
-            if (t) reloadCurrent(t.id);
-          }}
-        />
-      </Show>
-
-      <Show when={genTarget() && active()}>
-        <DataGenerator
-          connId={active()!.connId}
-          target={genTarget()!}
-          onClose={() => setGenTarget(null)}
-          onGenerated={() => {
-            const t = current();
-            if (t) reloadCurrent(t.id);
-          }}
-        />
-      </Show>
-
-      <Show when={monitorOpen() && active()}>
-        <ServerMonitor
-          connId={active()!.connId}
-          engine={activeDialect()}
-          onClose={() => setMonitorOpen(false)}
-        />
-      </Show>
-
-      <Show when={usersOpen() && active()}>
-        <UserManager
-          connId={active()!.connId}
-          engine={activeDialect()}
-          onClose={() => setUsersOpen(false)}
-        />
-      </Show>
-
-      <Show when={schemaSyncOpen() && active()}>
-        <SchemaSyncWizard
-          sourceConnId={active()!.connId}
-          sourceDb={currentResult().source?.db}
-          connections={connections()}
-          onClose={() => setSchemaSyncOpen(false)}
-        />
-      </Show>
-
-      <Show
-        when={
-          dataSyncOpen() &&
-          active() &&
-          currentResult().result &&
-          currentResult().source
-        }
-      >
-        <DataDiffWizard
-          sourceResult={currentResult().result!}
-          source={{
-            table: currentResult().source!.table,
-            db: currentResult().source!.db,
-            schema: currentResult().source!.schema,
-          }}
-          pk={currentResult().source!.pk}
-          connections={connections()}
-          onClose={() => setDataSyncOpen(false)}
-        />
-      </Show>
-
-      <Show
-        when={
-          transferOpen() &&
-          active() &&
-          currentResult().result &&
-          currentResult().source
-        }
-      >
-        <TransferWizard
-          sourceResult={currentResult().result!}
-          sourceTable={currentResult().source!.table}
-          connections={connections()}
-          onClose={() => setTransferOpen(false)}
-        />
-      </Show>
-
-      <Show when={createTable() && active()}>
-        <TableDesigner
-          connId={active()!.connId}
-          engine={activeDialect()}
-          container={createTable()!.container}
-          onClose={() => setCreateTable(null)}
-          onCreated={() => setTreeReload((n) => n + 1)}
-        />
-      </Show>
-
-      <Show when={structureTarget() && active()}>
-        <StructureView
-          connId={active()!.connId}
-          table={structureTarget()!.label}
-          db={structureTarget()!.db}
-          schema={structureTarget()!.schema}
-          kind={structureTarget()!.kind}
-          engine={activeDialect()}
-          onClose={() => setStructureTarget(null)}
-          onApplied={() => setTreeReload((n) => n + 1)}
-        />
-      </Show>
-
-      <Show when={detailData()}>
-        {(d) => (
-          <RowDetail
-            columns={d().res.columns}
-            row={d().res.rows[d().idx]}
-            rowIndex={d().idx}
-            total={d().res.rows.length}
-            editing={currentEdit().editing}
-            editable={currentEditable()}
-            deleted={currentEdit().pending.deletes.includes(d().idx)}
-            edits={currentEdit().pending.edits[d().idx]}
-            onEditCell={(col, val) => onEditCell(d().idx, col, val)}
-            onToggleDelete={() => onToggleDelete(d().idx)}
-            onBeginEdit={beginEdit}
-            onPrev={() => setDetailIndex((i) => stepRowIndex(i ?? 0, -1, d().res.rows.length))}
-            onNext={() => setDetailIndex((i) => stepRowIndex(i ?? 0, 1, d().res.rows.length))}
-            onClose={() => setDetailIndex(null)}
-          />
-        )}
-      </Show>
 
       <ContextMenu />
     </div>

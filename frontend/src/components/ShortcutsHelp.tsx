@@ -1,13 +1,13 @@
 import { For } from "solid-js";
 import { SHORTCUTS, displayKeys } from "../utils/shortcuts";
-import { Modal } from "./Modal";
+import { Panel } from "./Panel";
 
 // Keyboard-shortcuts reference overlay (issue #42). Renders the single source
 // of truth in utils/shortcuts.ts, so the documentation cannot drift from the
 // behaviour. Opened with F1 (or the status-bar "?"), closed by Escape/clicking away.
 export function ShortcutsHelp(props: { isMac: boolean; onClose: () => void }) {
   return (
-    <Modal title="Atajos de teclado" class="shortcuts" onClose={props.onClose}>
+    <Panel title="Atajos de teclado" class="shortcuts" onClose={props.onClose}>
       <h2>Atajos de teclado</h2>
       <table class="shortcuts-list">
           <tbody>
@@ -28,6 +28,6 @@ export function ShortcutsHelp(props: { isMac: boolean; onClose: () => void }) {
           Cerrar
         </button>
       </div>
-    </Modal>
+    </Panel>
   );
 }
