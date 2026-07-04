@@ -38,6 +38,9 @@ export function UserManager(props: {
   // Grant/revoke form.
   const [privs, setPrivs] = createStore<Record<string, boolean>>({});
   const [scope, setScope] = createSignal("*.*");
+  // Editable host: seeded from the selected user but changeable, so GRANT/REVOKE
+  // can target a specific host (user@host).
+  const [hostInput, setHostInput] = createSignal("%");
 
   const usersFromResult = (res: ResultSet): UserRow[] => {
     const ni = res.columns.findIndex((c) => c.name === support.userNameCol);
@@ -62,6 +65,7 @@ export function UserManager(props: {
 
   const selectUser = async (u: UserRow) => {
     setSelected(u);
+    setHostInput(u.host || "%");
     setGrants([]);
     const sql = showGrantsSql(props.engine, u.name, u.host);
     if (!sql) return;
@@ -78,7 +82,7 @@ export function UserManager(props: {
     privileges: Object.entries(privs).filter(([, on]) => on).map(([p]) => p),
     scope: scope(),
     user: selected()?.name ?? "",
-    host: selected()?.host ?? "%",
+    host: hostInput(),
   });
 
   const grantPreview = createMemo(() => buildGrantSql(props.engine, grantOpts()));
@@ -179,15 +183,26 @@ export function UserManager(props: {
                   )}
                 </For>
               </div>
-              <label class="field um-scope">
-                <span>Ámbito (ON …)</span>
-                <input
-                  type="text"
-                  value={scope()}
-                  onInput={(e) => setScope(e.currentTarget.value)}
-                  placeholder="*.*  |  mibd.*  |  mibd.tabla"
-                />
-              </label>
+              <div class="um-form-row">
+                <label class="field">
+                  <span>Host</span>
+                  <input
+                    type="text"
+                    value={hostInput()}
+                    onInput={(e) => setHostInput(e.currentTarget.value)}
+                    placeholder="%  |  localhost  |  10.0.0.5"
+                  />
+                </label>
+                <label class="field um-scope">
+                  <span>Ámbito (ON …)</span>
+                  <input
+                    type="text"
+                    value={scope()}
+                    onInput={(e) => setScope(e.currentTarget.value)}
+                    placeholder="*.*  |  mibd.*  |  mibd.tabla"
+                  />
+                </label>
+              </div>
 
               <pre class="ddl-text um-preview">
                 {grantPreview()

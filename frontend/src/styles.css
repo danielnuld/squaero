@@ -1987,6 +1987,22 @@ button.grid-action:hover {
   margin-top: 0.4rem;
 }
 
+.um-form-row {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-end;
+  margin-top: 0.4rem;
+}
+
+.um-form-row .field:first-child {
+  flex: 0 0 10rem;
+}
+
+.um-form-row .um-scope {
+  flex: 1;
+  margin-top: 0;
+}
+
 .um-preview {
   white-space: pre-wrap;
   word-break: break-word;
@@ -2137,9 +2153,16 @@ button.grid-action:hover {
   stroke-width: 1;
 }
 
+.er-box {
+  cursor: grab;
+}
+
+.er-box:active {
+  cursor: grabbing;
+}
+
 .er-box-header {
   fill: var(--accent);
-  cursor: grab;
 }
 
 .er-box-title {

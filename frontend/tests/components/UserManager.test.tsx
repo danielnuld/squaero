@@ -142,6 +142,30 @@ describe("UserManager", () => {
     ).toBe(2);
   });
 
+  it("targets an edited host in the GRANT/REVOKE", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    [...host!.querySelectorAll<HTMLElement>(".um-user")]
+      .find((el) => el.textContent?.includes("app"))!
+      .click();
+    await flush();
+    // Tick a privilege and change the host from % to localhost.
+    [...host!.querySelectorAll<HTMLLabelElement>(".um-priv")]
+      .find((l) => l.textContent?.trim().startsWith("SELECT"))!
+      .querySelector("input")!
+      .click();
+    const hostInput = [...host!.querySelectorAll<HTMLInputElement>(".um-form-row input")].find(
+      (i) => i.value === "%",
+    )!;
+    hostInput.value = "localhost";
+    hostInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(host!.querySelector(".um-preview")!.textContent).toContain(
+      "GRANT SELECT ON *.* TO 'app'@'localhost'",
+    );
+  });
+
   it("shows an honest message for an unsupported engine", async () => {
     const calls = installBridge();
     mount("sqlite");

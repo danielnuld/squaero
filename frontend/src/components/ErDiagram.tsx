@@ -97,6 +97,8 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
   const [pos, setPos] = createStore<Record<string, Pos>>({});
+  const [zoom, setZoom] = createSignal(1);
+  const zoomBy = (f: number) => setZoom((z) => Math.min(2, Math.max(0.4, Math.round(z * f * 20) / 20)));
 
   const edges = createMemo(() => inferRelations(tables()));
   const height = (t: ErTable) => tableHeight(t.columns.length, HEADER_H, ROW_H);
@@ -142,14 +144,32 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
     })();
   });
 
-  // Drag a box by its header (tracks the pointer on the document until release).
+  // Re-run the grid layout (reset positions).
+  const relayout = () => {
+    const ts = tables();
+    const grid = gridPositions(ts.length, Math.max(1, Math.ceil(Math.sqrt(ts.length))), CELL_W, CELL_H);
+    const p: Record<string, Pos> = {};
+    ts.forEach((t, i) => (p[t.name] = grid[i]));
+    setPos(p);
+  };
+
+  // Drag a box (anywhere on it) — screen deltas are divided by the zoom so the box
+  // tracks the cursor 1:1 at any scale, and the dragged table is moved to the end
+  // of the list so it renders on top of the others.
   const startDrag = (name: string, e: MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    setTables((ts) => [...ts.filter((t) => t.name !== name), ...ts.filter((t) => t.name === name)]);
     const start = pos[name] ?? { x: 0, y: 0 };
     const ox = e.clientX;
     const oy = e.clientY;
-    const onMove = (ev: MouseEvent) =>
-      setPos(name, { x: Math.max(0, start.x + (ev.clientX - ox)), y: Math.max(0, start.y + (ev.clientY - oy)) });
+    const onMove = (ev: MouseEvent) => {
+      const s = zoom();
+      setPos(name, {
+        x: Math.max(0, start.x + (ev.clientX - ox) / s),
+        y: Math.max(0, start.y + (ev.clientY - oy) / s),
+      });
+    };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
@@ -163,10 +183,14 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
       <div class="sm-head">
         <h2>Diagrama entidad-relación</h2>
         <div class="sm-actions">
-          <Show when={!loading()}>
+          <Show when={!loading() && tables().length > 0}>
             <span class="sm-count">
               {tables().length} tabla(s) · {edges().length} relación(es) inferida(s)
             </span>
+            <button class="edit-btn" title="Alejar" onClick={() => zoomBy(1 / 1.2)}>−</button>
+            <span class="sm-count">{Math.round(zoom() * 100)}%</span>
+            <button class="edit-btn" title="Acercar" onClick={() => zoomBy(1.2)}>+</button>
+            <button class="edit-btn" title="Reordenar en cuadrícula" onClick={relayout}>Reordenar</button>
           </Show>
           <button class="edit-btn" onClick={props.onClose}>
             Cerrar
@@ -187,13 +211,13 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
         >
           <p class="chart-hint">
             Relaciones inferidas por convención de nombres (p. ej. <code>cliente_id</code> →{" "}
-            <code>clientes</code>). Arrastra las cajas para reorganizar.
+            <code>clientes</code>). Arrastra las cajas para reorganizar; usa −/+ para el zoom.
           </p>
           <div class="er-canvas">
             <svg
               class="er-svg"
-              width={extent().w}
-              height={extent().h}
+              width={extent().w * zoom()}
+              height={extent().h * zoom()}
               viewBox={`0 0 ${extent().w} ${extent().h}`}
             >
               <defs>
@@ -236,18 +260,14 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
                 {(t) => {
                   const p = () => pos[t.name] ?? { x: 0, y: 0 };
                   return (
-                    <g transform={`translate(${p().x}, ${p().y})`} class="er-box">
+                    <g
+                      transform={`translate(${p().x}, ${p().y})`}
+                      class="er-box"
+                      onMouseDown={(e) => startDrag(t.name, e)}
+                    >
                       <rect class="er-box-bg" x="0" y="0" width={BOX_W} height={height(t)} rx="4" />
-                      <rect
-                        class="er-box-header"
-                        x="0"
-                        y="0"
-                        width={BOX_W}
-                        height={HEADER_H}
-                        rx="4"
-                        onMouseDown={(e) => startDrag(t.name, e)}
-                      />
-                      <text class="er-box-title" x="8" y={HEADER_H / 2 + 4} onMouseDown={(e) => startDrag(t.name, e)}>
+                      <rect class="er-box-header" x="0" y="0" width={BOX_W} height={HEADER_H} rx="4" />
+                      <text class="er-box-title" x="8" y={HEADER_H / 2 + 4}>
                         {t.name}
                       </text>
                       <For each={t.columns}>
