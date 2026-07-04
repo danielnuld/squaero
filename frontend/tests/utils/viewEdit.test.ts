@@ -16,6 +16,22 @@ describe("buildViewApply — CREATE OR REPLACE engines", () => {
     const r = buildViewApply("mysql", "CREATE VIEW v AS SELECT 1;", "v");
     expect(r.ok && r.statements[0].endsWith(";")).toBe(false);
   });
+  it("inserts OR REPLACE after CREATE when clauses sit between CREATE and VIEW (real SHOW CREATE VIEW)", () => {
+    // MySQL emits ALGORITHM/DEFINER/SQL SECURITY between CREATE and VIEW; the old
+    // "CREATE VIEW" adjacency match missed it and the view was recreated as-is.
+    const ddl =
+      "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER " +
+      "VIEW `active_customer_orders` AS select `c`.`name` from `customers` `c`";
+    const r = buildViewApply("mysql", ddl, "`active_customer_orders`");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.statements).toHaveLength(1);
+      expect(r.statements[0]).toBe(
+        "CREATE OR REPLACE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER " +
+          "VIEW `active_customer_orders` AS select `c`.`name` from `customers` `c`",
+      );
+    }
+  });
 });
 
 describe("buildViewApply — DROP + CREATE engines", () => {

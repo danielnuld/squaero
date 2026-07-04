@@ -41,12 +41,18 @@ export function buildViewApply(
   const e = (engine || "").toLowerCase();
 
   if (OR_REPLACE_ENGINES.has(e)) {
-    if (/create\s+or\s+replace\s+view/i.test(stmt)) {
+    // Already OR REPLACE (idempotent for user-edited text).
+    if (/^\s*create\s+or\s+replace\b/i.test(stmt)) {
       return { ok: true, statements: [stmt] };
     }
+    // Insert OR REPLACE right after the leading CREATE — NOT before VIEW. MySQL's
+    // SHOW CREATE VIEW returns clauses between the two keywords
+    // ("CREATE ALGORITHM=… DEFINER=… SQL SECURITY … VIEW …"), so matching
+    // "CREATE VIEW" adjacently failed and the view was recreated as-is → "already
+    // exists". "CREATE OR REPLACE [ALGORITHM=…] … VIEW" is the correct syntax.
     return {
       ok: true,
-      statements: [stmt.replace(/create\s+view/i, "CREATE OR REPLACE VIEW")],
+      statements: [stmt.replace(/^(\s*)create\b/i, "$1CREATE OR REPLACE")],
     };
   }
 
