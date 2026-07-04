@@ -38,6 +38,8 @@ export function ObjectTree(props: {
   onRefresh?: () => void;
   /** Right-click "Importar datos…" on a table/view. */
   onImport?: (node: TreeNode) => void;
+  /** Right-click "Nueva tabla…" on a database/schema. */
+  onCreateTable?: (node: TreeNode) => void;
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -197,6 +199,10 @@ export function ObjectTree(props: {
       if (props.onImport) {
         items.push({ label: "Importar datos…", action: () => props.onImport!(node) });
       }
+      items.push({ separator: true });
+    }
+    if ((node.kind === "database" || node.kind === "schema") && props.onCreateTable) {
+      items.push({ label: "Nueva tabla…", action: () => props.onCreateTable!(node) });
       items.push({ separator: true });
     }
     items.push({ label: "Copiar nombre", action: () => copyText(node.label) });

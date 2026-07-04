@@ -74,6 +74,7 @@ import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
 import { ContextMenu } from "./components/ContextMenu";
+import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
@@ -148,6 +149,7 @@ export function App() {
   const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
   const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
   const [transferOpen, setTransferOpen] = createSignal(false);
+  const [createTable, setCreateTable] = createSignal<{ container?: string } | null>(null);
   const [treeReload, setTreeReload] = createSignal(0);
 
   // --- Theme, shortcuts, help (issue #42) --------------------------------
@@ -717,6 +719,9 @@ export function App() {
                 onImport={(node) =>
                   setImportTarget({ table: node.label, db: node.db, schema: node.schema })
                 }
+                onCreateTable={(node) =>
+                  setCreateTable({ container: node.schema ?? node.db })
+                }
               />
             </div>
           </Show>
@@ -1020,6 +1025,16 @@ export function App() {
           sourceTable={currentResult().source!.table}
           connections={connections()}
           onClose={() => setTransferOpen(false)}
+        />
+      </Show>
+
+      <Show when={createTable() && active()}>
+        <TableDesigner
+          connId={active()!.connId}
+          engine={activeDialect()}
+          container={createTable()!.container}
+          onClose={() => setCreateTable(null)}
+          onCreated={() => setTreeReload((n) => n + 1)}
         />
       </Show>
 

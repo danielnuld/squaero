@@ -1083,6 +1083,50 @@ kbd {
   border-color: var(--accent);
 }
 
+/* --- Table designer (#136) ----------------------------------------------- */
+.td-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 0.6rem 0;
+}
+
+.td-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 0.2rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.td-table td {
+  padding: 0.15rem 0.3rem;
+  vertical-align: middle;
+}
+
+.td-table td.td-c {
+  text-align: center;
+  width: 2.4rem;
+}
+
+.td-in {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.td-in:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* --- Data editing (M7) --------------------------------------------------- */
 .edit-toolbar {
   display: flex;
