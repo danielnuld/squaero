@@ -16,6 +16,16 @@
   --null: #d98a4b;
   --number: #8fd0a0;
   --error: #f08a8a;
+  /* Categorical chart palette (issue #149): the validated 8-hue dataviz theme,
+     dark steps. Assigned to series in fixed order, never cycled. */
+  --chart-1: #3987e5;
+  --chart-2: #199e70;
+  --chart-3: #c98500;
+  --chart-4: #008300;
+  --chart-5: #9085e9;
+  --chart-6: #e66767;
+  --chart-7: #d55181;
+  --chart-8: #d95926;
 }
 
 :root[data-theme="light"] {
@@ -29,6 +39,15 @@
   --null: #b5651d;
   --number: #217a47;
   --error: #c62828;
+  /* Chart palette, light steps of the same validated theme. */
+  --chart-1: #2a78d6;
+  --chart-2: #1baf7a;
+  --chart-3: #eda100;
+  --chart-4: #008300;
+  --chart-5: #4a3aa7;
+  --chart-6: #e34948;
+  --chart-7: #e87ba4;
+  --chart-8: #eb6834;
 }
 
 :root {
@@ -1971,4 +1990,113 @@ button.grid-action:hover {
 .um-preview {
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Result charts (issue #149) */
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 0.6rem 0;
+}
+
+.chart-controls > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.chart-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.8rem;
+}
+
+.chart-values-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.chart-value-opt {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.chart-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0.2rem 0;
+}
+
+.chart-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+}
+
+.chart-svg {
+  width: 100%;
+  max-width: 900px;
+  height: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  opacity: 0.4;
+}
+
+.chart-axis {
+  stroke: var(--text-dim);
+  stroke-width: 1;
+}
+
+.chart-tick {
+  fill: var(--text-dim);
+  font-size: 11px;
+  font-family: var(--font-ui);
+}
+
+.chart-line {
+  stroke-width: 2;
+}
+
+.chart-bar,
+.chart-slice {
+  stroke: var(--bg-elev);
+  stroke-width: 2;
+}
+
+.chart-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.chart-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chart-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
 }

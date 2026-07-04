@@ -18,6 +18,7 @@ export type ToolKind =
   | "schemaSync"
   | "dataDiff"
   | "transfer"
+  | "chart"
   | "help";
 
 /** A SQL query editor tab. */

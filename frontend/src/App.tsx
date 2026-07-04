@@ -107,6 +107,7 @@ import { ImportWizard } from "./components/ImportWizard";
 import { DataGenerator } from "./components/DataGenerator";
 import { ServerMonitor } from "./components/ServerMonitor";
 import { UserManager } from "./components/UserManager";
+import { ChartView } from "./components/ChartView";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
@@ -844,6 +845,12 @@ export function App() {
       params: { sourceResult: res.result, sourceTable: res.source.table },
     });
   };
+  // Chart the current result (issue #149): snapshot it into the tool tab.
+  const openChart = () => {
+    const res = currentResult().result;
+    if (!res || res.columns.length === 0) return;
+    showTool("chart", "Gráfico", { key: "chart", params: { result: res } });
+  };
 
   // --- Export (issue #30) ------------------------------------------------
   // Save the result as text. saveText prefers a native "Guardar como" dialog
@@ -1159,6 +1166,9 @@ export function App() {
 
                       <Show when={(currentResult().result?.columns.length ?? 0) > 0}>
                         <span class="toolbar-spacer" />
+                        <button class="edit-btn" onClick={openChart}>
+                          Graficar
+                        </button>
                         <span class="export-label">Exportar:</span>
                         <For each={EXPORT_FORMATS}>
                           {(f) => (
@@ -1360,6 +1370,12 @@ export function App() {
                     onSave={onSaveConnection}
                     onCancel={() => closeTool(tt().id)}
                     onTest={(c) => testConnection(c.driver, buildDsn(c))}
+                  />
+                </Match>
+                <Match when={tt().tool === "chart"}>
+                  <ChartView
+                    result={(tt().params as { result: ResultSet }).result}
+                    onClose={() => closeTool(tt().id)}
                   />
                 </Match>
                 <Match when={tt().tool === "help"}>
