@@ -92,6 +92,7 @@ import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
+import { DataGenerator } from "./components/DataGenerator";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
@@ -181,6 +182,8 @@ export function App() {
   const [editing, setEditing] = createSignal<Connection | null>(null);
   const [structureTarget, setStructureTarget] = createSignal<TreeNode | null>(null);
   const [importTarget, setImportTarget] =
+    createSignal<{ table: string; db?: string; schema?: string } | null>(null);
+  const [genTarget, setGenTarget] =
     createSignal<{ table: string; db?: string; schema?: string } | null>(null);
   const [schemaSyncOpen, setSchemaSyncOpen] = createSignal(false);
   const [dataSyncOpen, setDataSyncOpen] = createSignal(false);
@@ -745,6 +748,14 @@ export function App() {
     }
   };
 
+  // Open the test-data generator for the current table tab (issue #147).
+  const openGen = () => {
+    const src = currentResult().source;
+    if (src && active()) {
+      setGenTarget({ table: src.table, db: src.db, schema: src.schema });
+    }
+  };
+
   // --- Export (issue #30) ------------------------------------------------
   // Save the result as text. saveText prefers a native "Guardar como" dialog
   // (File System Access API in the webview) and falls back to a browser
@@ -978,6 +989,9 @@ export function App() {
                               <button class="edit-btn" onClick={openImport}>
                                 Importar
                               </button>
+                              <button class="edit-btn" onClick={openGen}>
+                                Generar datos
+                              </button>
                               <button
                                 class="edit-btn"
                                 onClick={() => setSchemaSyncOpen(true)}
@@ -1148,6 +1162,18 @@ export function App() {
           target={importTarget()!}
           onClose={() => setImportTarget(null)}
           onImported={() => {
+            const t = current();
+            if (t) reloadCurrent(t.id);
+          }}
+        />
+      </Show>
+
+      <Show when={genTarget() && active()}>
+        <DataGenerator
+          connId={active()!.connId}
+          target={genTarget()!}
+          onClose={() => setGenTarget(null)}
+          onGenerated={() => {
             const t = current();
             if (t) reloadCurrent(t.id);
           }}

@@ -1716,3 +1716,28 @@ button.grid-action:hover {
 .rd-actions {
   flex-shrink: 0;
 }
+
+/* Test-data generator (issue #147) */
+.dg-params {
+  display: inline-flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dg-params label {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.dg-num {
+  width: 4.5rem;
+}
+
+.dg-wide {
+  width: 100%;
+  box-sizing: border-box;
+}
