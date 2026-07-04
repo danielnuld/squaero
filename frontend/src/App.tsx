@@ -44,6 +44,16 @@ import {
   loadHistoryLimit,
   saveHistoryLimit,
 } from "./utils/historyStore";
+import {
+  addSnippet,
+  renameSnippet,
+  removeSnippet,
+  mergeSnippets,
+  parseSnippets,
+  serializeSnippets,
+  type Snippet,
+} from "./utils/snippets";
+import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { quoteIdentifier, schemaDescribe } from "./utils/schema";
 import {
   describePkColumns,
@@ -87,6 +97,7 @@ import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { SnippetsPanel } from "./components/SnippetsPanel";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -167,6 +178,11 @@ export function App() {
   const [history, setHistory] = createSignal<HistoryEntry[]>(loadHistory());
   const [historyLimit, setHistoryLimit] = createSignal(loadHistoryLimit());
   const [historyOpen, setHistoryOpen] = createSignal(false);
+
+  // --- Favorites / snippets (issue #129) ---------------------------------
+  const [snippets, setSnippets] = createSignal<Snippet[]>(loadSnippets());
+  const [snippetsOpen, setSnippetsOpen] = createSignal(false);
+  const [snippetInsert, setSnippetInsert] = createSignal({ text: "", tick: 0 });
 
   // --- Theme, shortcuts, help (issue #42) --------------------------------
   const safeStorage = (): Storage | undefined => {
@@ -356,6 +372,25 @@ export function App() {
       saveHistory(next);
       return next;
     });
+  };
+
+  // --- Favorites / snippets actions (issue #129) -------------------------
+  const persistSnippets = (list: Snippet[]) => {
+    setSnippets(list);
+    saveSnippets(list);
+  };
+  const saveSnippet = (name: string, body: string) =>
+    persistSnippets(addSnippet(snippets(), name, body));
+  const renameSnip = (id: string, name: string) =>
+    persistSnippets(renameSnippet(snippets(), id, name));
+  const removeSnip = (id: string) => persistSnippets(removeSnippet(snippets(), id));
+  // Drop a snippet into the editor at the cursor via a bumped insert request.
+  const insertSnippet = (body: string) =>
+    setSnippetInsert((r) => ({ text: body, tick: r.tick + 1 }));
+  const exportSnippets = () =>
+    void saveText("quaero-snippets.json", serializeSnippets(snippets()), "application/json");
+  const importSnippets = (file: File) => {
+    void file.text().then((text) => persistSnippets(mergeSnippets(snippets(), parseSnippets(text))));
   };
 
   // --- Connection management (issue #16) ---------------------------------
@@ -841,6 +876,7 @@ export function App() {
                     onExplain={explainActive}
                     dialect={activeDialect()}
                     formatTick={formatTick()}
+                    insertRequest={snippetInsert()}
                     schema={sqlSchema()}
                   />
                   <div class="editor-hint">
@@ -864,6 +900,13 @@ export function App() {
                       onClick={() => setHistoryOpen(true)}
                     >
                       Historial
+                    </button>
+                    <button
+                      class="status-btn"
+                      title="Favoritos y snippets"
+                      onClick={() => setSnippetsOpen(true)}
+                    >
+                      Snippets
                     </button>
                     <span class="editor-hint-spacer" />
                     <span>Ctrl/Cmd + Enter para ejecutar</span>
@@ -1021,6 +1064,20 @@ export function App() {
           onClear={clearHistory}
           onChangeLimit={changeHistoryLimit}
           onClose={() => setHistoryOpen(false)}
+        />
+      </Show>
+
+      <Show when={snippetsOpen()}>
+        <SnippetsPanel
+          entries={snippets()}
+          currentSql={current() ? (tabs().tabs.find((t) => t.id === current()!.id)?.sql ?? "") : ""}
+          onSave={saveSnippet}
+          onInsert={insertSnippet}
+          onRename={renameSnip}
+          onRemove={removeSnip}
+          onExport={exportSnippets}
+          onImport={importSnippets}
+          onClose={() => setSnippetsOpen(false)}
         />
       </Show>
 

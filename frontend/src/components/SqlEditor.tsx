@@ -48,6 +48,8 @@ export function SqlEditor(props: {
   dialect?: string;
   /** Bumping this number requests a format of the current document. */
   formatTick?: number;
+  /** Insert this text at the cursor when `tick` changes (snippets, issue #129). */
+  insertRequest?: { text: string; tick: number };
   /** Table -> columns map that drives table/column autocomplete (issue #110). */
   schema?: Record<string, string[]>;
 }) {
@@ -177,6 +179,24 @@ export function SqlEditor(props: {
       lastFormatTick = tick;
       doFormat();
     }
+  });
+
+  // Snippet insertions (issue #129) arrive as a bumped tick; drop the text in at
+  // the current selection, place the cursor after it, and persist.
+  let lastInsertTick = props.insertRequest?.tick ?? 0;
+  createEffect(() => {
+    const req = props.insertRequest;
+    if (!view || !req || req.tick === lastInsertTick) return;
+    lastInsertTick = req.tick;
+    const { from, to } = view.state.selection.main;
+    swapping = true;
+    view.dispatch({
+      changes: { from, to, insert: req.text },
+      selection: { anchor: from + req.text.length },
+    });
+    swapping = false;
+    props.onChange(loaded, view.state.doc.toString());
+    view.focus();
   });
 
   onCleanup(() => view?.destroy());

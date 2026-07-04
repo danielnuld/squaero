@@ -101,3 +101,36 @@ describe("SqlEditor run scope (issue #130)", () => {
     expect(ran).toEqual({ sql: "SELECT 1", scope: "statement" });
   });
 });
+
+describe("SqlEditor snippet insertion (issue #129)", () => {
+  it("inserts the requested text at the cursor when the tick bumps", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [req, setReq] = createSignal({ text: "", tick: 0 });
+    let lastSql = "SELECT  FROM t";
+
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => "SELECT  FROM t"}
+            onChange={(_id, sql) => (lastSql = sql)}
+            onRun={() => {}}
+            dialect="sqlite"
+            insertRequest={req()}
+          />
+        ),
+        host!,
+      );
+    });
+
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ selection: { anchor: 7, head: 7 } }); // between the two spaces
+    setReq({ text: "*", tick: 1 });
+    expect(view.state.doc.toString()).toBe("SELECT * FROM t");
+    expect(lastSql).toBe("SELECT * FROM t");
+    expect(view.state.selection.main.head).toBe(8); // cursor after the inserted text
+  });
+});

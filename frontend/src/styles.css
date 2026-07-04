@@ -976,6 +976,96 @@ kbd {
   text-align: center;
 }
 
+.modal-actions-spacer {
+  flex: 1;
+}
+
+/* Favorites / snippets panel (issue #129) */
+.snippets {
+  width: min(680px, 94vw);
+}
+
+.snippet-save {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.snippet-name,
+.snippet-rename {
+  flex: 1;
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+}
+
+.snippet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.snippet-item {
+  padding: 0.5rem 0.6rem;
+}
+
+.snippet-item + .snippet-item {
+  border-top: 1px solid var(--border);
+}
+
+.snippet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.snippet-name-label {
+  font-weight: 600;
+}
+
+.snippet-actions {
+  display: flex;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+
+.snippet-actions .link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+
+.snippet-actions .link.danger {
+  color: var(--danger, #e5484d);
+}
+
+.snippet-body {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 4.5em;
+  overflow: hidden;
+}
+
+.snippet-empty {
+  color: var(--text-dim);
+  padding: 1rem 0.2rem;
+  text-align: center;
+}
+
 /* Object tree (sidebar) */
 .sidebar-tree {
   flex: 1;
