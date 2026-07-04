@@ -13,6 +13,7 @@ import {
   type ImportSummary,
   type ParsedTable,
 } from "../utils/importers";
+import { openWorkbook, isXlsxName, type XlsxWorkbook } from "../utils/xlsxRead";
 
 const PREVIEW_ROWS = 5;
 const OMIT = ""; // select value meaning "leave this column unset"
@@ -34,6 +35,10 @@ export function ImportWizard(props: {
   const [parsed, setParsed] = createSignal<ParsedTable | null>(null);
   const [fileName, setFileName] = createSignal("");
   const [mapping, setMapping] = createSignal<ColumnMapping>({});
+  // XLSX workbooks carry multiple sheets; keep the opened workbook + the chosen
+  // sheet so switching sheets re-reads without re-opening the file (issue #142).
+  const [workbook, setWorkbook] = createSignal<XlsxWorkbook | null>(null);
+  const [sheetName, setSheetName] = createSignal("");
   const [policy, setPolicy] = createSignal<ErrorPolicy>("skip");
   const [running, setRunning] = createSignal(false);
   const [summary, setSummary] = createSignal<ImportSummary | null>(null);
@@ -60,6 +65,20 @@ export function ImportWizard(props: {
     }
   });
 
+  // Load a parsed table into the mapping UI (shared by all file types).
+  const useTable = (table: ParsedTable) => {
+    setParsed(table);
+    setMapping(autoMap(table.headers, targetCols()));
+  };
+
+  // Switch the active sheet of the opened workbook, re-reading it.
+  const selectSheet = (name: string) => {
+    const wb = workbook();
+    if (!wb) return;
+    setSheetName(name);
+    useTable(wb.read(name));
+  };
+
   const onFile = async (e: Event) => {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
@@ -67,13 +86,28 @@ export function ImportWizard(props: {
     setError(null);
     setSummary(null);
     try {
-      const text = await file.text();
-      const table = parseFile(file.name, text);
-      setFileName(file.name);
-      setParsed(table);
-      setMapping(autoMap(table.headers, targetCols()));
+      if (isXlsxName(file.name)) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const wb = openWorkbook(bytes);
+        if (wb.sheets.length === 0) {
+          throw new Error("El archivo XLSX no contiene hojas.");
+        }
+        setWorkbook(wb);
+        setFileName(file.name);
+        const first = wb.sheets[0].name;
+        setSheetName(first);
+        useTable(wb.read(first));
+      } else {
+        const text = await file.text();
+        const table = parseFile(file.name, text);
+        setWorkbook(null);
+        setSheetName("");
+        setFileName(file.name);
+        useTable(table);
+      }
     } catch (err) {
       setParsed(null);
+      setWorkbook(null);
       setError(`No se pudo leer el archivo: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
@@ -152,10 +186,31 @@ export function ImportWizard(props: {
         >
           <div class="import-field">
             <label>
-              Archivo (CSV o JSON):{" "}
-              <input type="file" accept=".csv,.json,text/csv,application/json" onChange={onFile} />
+              Archivo (CSV, JSON o XLSX):{" "}
+              <input
+                type="file"
+                accept=".csv,.json,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={onFile}
+              />
             </label>
           </div>
+
+          <Show when={workbook() && workbook()!.sheets.length > 1}>
+            <div class="import-field">
+              <label>
+                Hoja:{" "}
+                <select
+                  class="map-select"
+                  value={sheetName()}
+                  onChange={(e) => selectSheet(e.currentTarget.value)}
+                >
+                  <For each={workbook()!.sheets}>
+                    {(s) => <option value={s.name}>{s.name}</option>}
+                  </For>
+                </select>
+              </label>
+            </div>
+          </Show>
 
           <Show when={parsed()}>
             {(table) => (

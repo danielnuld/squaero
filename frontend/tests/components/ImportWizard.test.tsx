@@ -2,6 +2,8 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { ImportWizard } from "../../src/components/ImportWizard";
+import { buildXlsx } from "../../src/utils/xlsx";
+import type { ResultSet } from "../../src/utils/query";
 
 // Drives the real ImportWizard in jsdom against a mocked core bridge: it fetches
 // the target columns (schema.describe), parses a chosen CSV file, maps columns,
@@ -94,6 +96,15 @@ async function chooseFile(name: string, text: string) {
   await flush();
 }
 
+/** Simulate choosing a binary (XLSX) file: provides arrayBuffer(). */
+async function chooseBytes(name: string, bytes: Uint8Array) {
+  const input = host!.querySelector<HTMLInputElement>('input[type="file"]')!;
+  const file = { name, arrayBuffer: async () => bytes.buffer } as unknown as File;
+  Object.defineProperty(input, "files", { value: [file], configurable: true });
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  await flush();
+}
+
 describe("ImportWizard", () => {
   it("fetches the target columns and shows the file picker", async () => {
     installBridge();
@@ -140,5 +151,43 @@ describe("ImportWizard", () => {
     expect(host!.textContent).toContain("2");
     expect(host!.textContent).toContain("insertada");
     expect(onImported).toHaveBeenCalled();
+  });
+
+  it("reads an XLSX workbook, maps columns and imports", async () => {
+    const calls = installBridge();
+    mount();
+    await flush();
+
+    const source: ResultSet = {
+      columns: [
+        { name: "id", type: "int" },
+        { name: "name", type: "text" },
+      ],
+      rows: [
+        ["1", "alice"],
+        ["2", "bob"],
+      ],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    await chooseBytes("people.xlsx", buildXlsx(source, "Sheet1"));
+
+    // Headers read from the workbook drive the auto-mapping.
+    expect(host!.textContent).toContain("people.xlsx");
+    const selects = host!.querySelectorAll<HTMLSelectElement>(".map-select");
+    expect(selects.length).toBe(2);
+    expect(selects[0].value).toBe("id");
+    expect(selects[1].value).toBe("name");
+
+    const runBtn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
+      (b) => b.textContent === "Importar",
+    )!;
+    runBtn.click();
+    await flush();
+
+    expect(calls.filter((c) => c.method === "row.insert").length).toBe(2);
+    const firstInsert = calls.find((c) => c.method === "row.insert")!
+      .params as { values: Record<string, string> };
+    expect(firstInsert.values).toEqual({ id: "1", name: "alice" });
   });
 });
