@@ -81,7 +81,8 @@ import {
   fileNameFor,
   type ExportFormat,
 } from "./utils/exporters";
-import { saveText } from "./utils/download";
+import { buildXlsx, XLSX_MIME } from "./utils/xlsx";
+import { saveText, saveBytes } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
@@ -151,6 +152,17 @@ const emptyResult = (): TabResult => ({
   result: null,
   elapsedMs: null,
 });
+
+// Any export the workspace offers: the text formats plus binary XLSX (issue #141).
+type AnyExportFormat = ExportFormat | "xlsx";
+const EXPORT_FORMATS: { fmt: AnyExportFormat; label: string }[] = [
+  { fmt: "csv", label: "CSV" },
+  { fmt: "json", label: "JSON" },
+  { fmt: "xlsx", label: "Excel" },
+  { fmt: "xml", label: "XML" },
+  { fmt: "html", label: "HTML" },
+  { fmt: "sql", label: "SQL" },
+];
 
 // Root layout: resizable sidebar (connection manager) | tabbed workspace
 // (editor over result grid), with a status bar across the bottom. Connecting
@@ -737,12 +749,17 @@ export function App() {
   // Save the result as text. saveText prefers a native "Guardar como" dialog
   // (File System Access API in the webview) and falls back to a browser
   // download where unavailable. Client-side by design; see the M8 decision.
-  const doExport = (format: ExportFormat) => {
+  const doExport = (format: AnyExportFormat) => {
     const res = currentResult().result;
     if (!res || res.columns.length === 0) return;
     const src = currentResult().source;
     const base = src?.table ?? current()?.title ?? "export";
-    const text = exportResult(res, format, src?.table ?? "exported");
+    const table = src?.table ?? "exported";
+    if (format === "xlsx") {
+      void saveBytes(fileNameFor(base, "xlsx"), buildXlsx(res, table), XLSX_MIME);
+      return;
+    }
+    const text = exportResult(res, format, table);
     void saveText(fileNameFor(base, format), text, mimeFor(format));
   };
 
@@ -766,9 +783,9 @@ export function App() {
       });
       items.push({ separator: true });
     }
-    items.push({ label: "Exportar CSV", action: () => doExport("csv") });
-    items.push({ label: "Exportar JSON", action: () => doExport("json") });
-    items.push({ label: "Exportar SQL", action: () => doExport("sql") });
+    for (const f of EXPORT_FORMATS) {
+      items.push({ label: `Exportar ${f.label}`, action: () => doExport(f.fmt) });
+    }
     openContextMenu(e, items);
   };
 
@@ -1021,15 +1038,13 @@ export function App() {
                       <Show when={(currentResult().result?.columns.length ?? 0) > 0}>
                         <span class="toolbar-spacer" />
                         <span class="export-label">Exportar:</span>
-                        <button class="edit-btn" onClick={() => doExport("csv")}>
-                          CSV
-                        </button>
-                        <button class="edit-btn" onClick={() => doExport("json")}>
-                          JSON
-                        </button>
-                        <button class="edit-btn" onClick={() => doExport("sql")}>
-                          SQL
-                        </button>
+                        <For each={EXPORT_FORMATS}>
+                          {(f) => (
+                            <button class="edit-btn" onClick={() => doExport(f.fmt)}>
+                              {f.label}
+                            </button>
+                          )}
+                        </For>
                       </Show>
                     </div>
                   </Show>

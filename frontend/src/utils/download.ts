@@ -23,6 +23,18 @@ interface FileSystemFileHandleLike {
   }>;
 }
 
+/** Fallback: trigger a browser download of an already-built Blob. */
+function anchorDownloadBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** File extension of a name like "customers.csv" -> "csv" (lowercased). */
 function extensionOf(filename: string): string {
   const dot = filename.lastIndexOf(".");
@@ -75,4 +87,35 @@ export async function saveText(
     }
   }
   anchorDownload(filename, content, mime);
+}
+
+/**
+ * Save binary `bytes` to disk as `filename` (e.g. an XLSX workbook). Same native
+ * "Guardar como" preference and download fallback as saveText; a cancelled
+ * dialog resolves without writing.
+ */
+export async function saveBytes(
+  filename: string,
+  bytes: Uint8Array,
+  mime: string,
+): Promise<void> {
+  const blob = new Blob([bytes], { type: mime });
+  const picker = (globalThis as SaveFilePicker).showSaveFilePicker;
+  if (typeof picker === "function") {
+    const ext = extensionOf(filename);
+    try {
+      const handle = await picker({
+        suggestedName: filename,
+        types: ext ? [{ accept: { [mime]: [`.${ext}`] } }] : undefined,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      // Any other failure: fall back to a download.
+    }
+  }
+  anchorDownloadBlob(filename, blob);
 }
