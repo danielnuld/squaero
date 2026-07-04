@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import { Panel } from "./Panel";
 import { schemaTree, schemaDescribe, parseTreeRows } from "../utils/schema";
@@ -28,27 +28,44 @@ interface Pos {
   y: number;
 }
 
-/** Walk the object tree (bounded) and describe each table into ErTable[]. */
-async function loadTables(connId: string, max = MAX_TABLES): Promise<ErTable[]> {
+/** Walk the object tree (bounded) and describe each table into ErTable[]. When
+    `db` is given the walk is scoped to that database (working-database context). */
+async function loadTables(connId: string, db: string | undefined, max = MAX_TABLES): Promise<ErTable[]> {
   const targets: { table: string; db?: string; schema?: string }[] = [];
-  const level0 = parseTreeRows(await schemaTree(connId), "database");
-  for (const n0 of level0) {
-    if (targets.length >= max) break;
-    if (n0.kind === "table" || n0.kind === "view") {
-      targets.push({ table: n0.name });
-      continue;
-    }
-    const level1 = parseTreeRows(await schemaTree(connId, n0.name), "schema");
+  if (db) {
+    const level1 = parseTreeRows(await schemaTree(connId, db), "schema");
     for (const n1 of level1) {
       if (targets.length >= max) break;
       if (n1.kind === "table" || n1.kind === "view") {
-        targets.push({ table: n1.name, db: n0.name });
+        targets.push({ table: n1.name, db });
         continue;
       }
-      const level2 = parseTreeRows(await schemaTree(connId, n0.name, n1.name), "schema");
+      const level2 = parseTreeRows(await schemaTree(connId, db, n1.name), "schema");
       for (const n2 of level2) {
         if (targets.length >= max) break;
-        targets.push({ table: n2.name, db: n0.name, schema: n1.name });
+        targets.push({ table: n2.name, db, schema: n1.name });
+      }
+    }
+  } else {
+    const level0 = parseTreeRows(await schemaTree(connId), "database");
+    for (const n0 of level0) {
+      if (targets.length >= max) break;
+      if (n0.kind === "table" || n0.kind === "view") {
+        targets.push({ table: n0.name });
+        continue;
+      }
+      const level1 = parseTreeRows(await schemaTree(connId, n0.name), "schema");
+      for (const n1 of level1) {
+        if (targets.length >= max) break;
+        if (n1.kind === "table" || n1.kind === "view") {
+          targets.push({ table: n1.name, db: n0.name });
+          continue;
+        }
+        const level2 = parseTreeRows(await schemaTree(connId, n0.name, n1.name), "schema");
+        for (const n2 of level2) {
+          if (targets.length >= max) break;
+          targets.push({ table: n2.name, db: n0.name, schema: n1.name });
+        }
       }
     }
   }
@@ -75,7 +92,7 @@ async function loadTables(connId: string, max = MAX_TABLES): Promise<ErTable[]> 
   return tables;
 }
 
-export function ErDiagram(props: { connId: string; onClose: () => void }) {
+export function ErDiagram(props: { connId: string; db?: string; onClose: () => void }) {
   const [tables, setTables] = createSignal<ErTable[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
@@ -102,19 +119,27 @@ export function ErDiagram(props: { connId: string; onClose: () => void }) {
     return { w, h };
   });
 
-  onMount(async () => {
-    try {
-      const ts = await loadTables(props.connId);
-      const grid = gridPositions(ts.length, Math.max(1, Math.ceil(Math.sqrt(ts.length))), CELL_W, CELL_H);
-      const p: Record<string, Pos> = {};
-      ts.forEach((t, i) => (p[t.name] = grid[i]));
-      setTables(ts);
-      setPos(p);
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setLoading(false);
-    }
+  // (Re)load whenever the connection or the working database changes.
+  createEffect(() => {
+    const connId = props.connId;
+    const db = props.db;
+    setLoading(true);
+    setError(null);
+    void (async () => {
+      try {
+        const ts = await loadTables(connId, db);
+        if (props.connId !== connId || props.db !== db) return; // superseded
+        const grid = gridPositions(ts.length, Math.max(1, Math.ceil(Math.sqrt(ts.length))), CELL_W, CELL_H);
+        const p: Record<string, Pos> = {};
+        ts.forEach((t, i) => (p[t.name] = grid[i]));
+        setPos(p);
+        setTables(ts);
+      } catch (err) {
+        setError(errorText(err));
+      } finally {
+        setLoading(false);
+      }
+    })();
   });
 
   // Drag a box by its header (tracks the pointer on the document until release).

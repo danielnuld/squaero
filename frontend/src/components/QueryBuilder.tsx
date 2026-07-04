@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { Panel } from "./Panel";
 import { schemaTree, schemaDescribe, parseTreeRows } from "../utils/schema";
@@ -22,9 +22,26 @@ interface TableRef {
 const MAX_TABLES = 200;
 const keyOf = (t: TableRef) => `${t.container ?? ""}|${t.table}`;
 
-/** Walk the object tree (bounded) into a flat table list with db/schema qualifier. */
-async function loadTableList(connId: string, max = MAX_TABLES): Promise<TableRef[]> {
+/** Walk the object tree (bounded) into a flat table list with db/schema
+    qualifier. When `db` is given the walk is scoped to that database. */
+async function loadTableList(connId: string, db: string | undefined, max = MAX_TABLES): Promise<TableRef[]> {
   const out: TableRef[] = [];
+  if (db) {
+    const level1 = parseTreeRows(await schemaTree(connId, db), "schema");
+    for (const n1 of level1) {
+      if (out.length >= max) break;
+      if (n1.kind === "table" || n1.kind === "view") {
+        out.push({ table: n1.name, container: db });
+        continue;
+      }
+      const level2 = parseTreeRows(await schemaTree(connId, db, n1.name), "schema");
+      for (const n2 of level2) {
+        if (out.length >= max) break;
+        out.push({ table: n2.name, container: n1.name });
+      }
+    }
+    return out;
+  }
   const level0 = parseTreeRows(await schemaTree(connId), "database");
   for (const n0 of level0) {
     if (out.length >= max) break;
@@ -56,6 +73,7 @@ async function loadTableList(connId: string, max = MAX_TABLES): Promise<TableRef
 export function QueryBuilder(props: {
   connId: string;
   engine: string;
+  db?: string;
   onRun: (sql: string) => void;
   onClose: () => void;
 }) {
@@ -100,16 +118,24 @@ export function QueryBuilder(props: {
     }
   };
 
-  onMount(async () => {
-    try {
-      const ts = await loadTableList(props.connId);
-      setTables(ts);
-      if (ts.length > 0) await selectTable(keyOf(ts[0]));
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      setLoading(false);
-    }
+  // (Re)load the table list whenever the connection or working database changes.
+  createEffect(() => {
+    const connId = props.connId;
+    const db = props.db;
+    setLoading(true);
+    setError(null);
+    void (async () => {
+      try {
+        const ts = await loadTableList(connId, db);
+        if (props.connId !== connId || props.db !== db) return; // superseded
+        setTables(ts);
+        if (ts.length > 0) await selectTable(keyOf(ts[0]));
+      } catch (err) {
+        setError(errorText(err));
+      } finally {
+        setLoading(false);
+      }
+    })();
   });
 
   const addCond = () => setConds(conds.length, emptyCondition());

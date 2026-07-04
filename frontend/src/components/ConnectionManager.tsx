@@ -13,6 +13,10 @@ export function ConnectionManager(props: {
   onEdit: (c: Connection) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
+  /** Close the active connection. */
+  onDisconnect: () => void;
+  /** Reconnect the active connection with a fresh session (recovers a drop). */
+  onReconnect: () => void;
 }) {
   return (
     <div class="conn-manager">
@@ -43,6 +47,18 @@ export function ConnectionManager(props: {
                   </span>
                 </button>
                 <div class="conn-actions">
+                  <Show when={c.id === props.activeConnId}>
+                    <button
+                      title="Reconectar"
+                      disabled={props.connectingId !== null}
+                      onClick={() => props.onReconnect()}
+                    >
+                      ↻
+                    </button>
+                    <button title="Desconectar" onClick={() => props.onDisconnect()}>
+                      ⏏
+                    </button>
+                  </Show>
                   <button title="Editar" onClick={() => props.onEdit(c)}>
                     ✎
                   </button>

@@ -2226,3 +2226,27 @@ button.grid-action:hover {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Working-database selector (sidebar) */
+.sidebar-db {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-db label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sidebar-db label > span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.sidebar-db .map-select {
+  width: 100%;
+}

@@ -66,7 +66,8 @@ import {
   type Snippet,
 } from "./utils/snippets";
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
-import { quoteIdentifier, schemaDescribe } from "./utils/schema";
+import { quoteIdentifier, schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
+import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
   runPlanItem,
@@ -204,6 +205,11 @@ export function App() {
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
   const [active, setActive] = createSignal<ActiveConnection | null>(null);
   const [activeDefId, setActiveDefId] = createSignal<string | null>(null);
+  // Working database context: the databases available on the active connection
+  // and the one selected. Scopes the ER diagram / query builder and (on engines
+  // that allow it) sets the editor's default database via USE.
+  const [databases, setDatabases] = createSignal<string[]>([]);
+  const [activeDb, setActiveDb] = createSignal<string | null>(null);
   const [connectingId, setConnectingId] = createSignal<string | null>(null);
   const [treeReload, setTreeReload] = createSignal(0);
   // Row form/detail view (issue #133): index of the loaded row shown as a form,
@@ -525,13 +531,16 @@ export function App() {
     }
     setActive(null);
     setActiveDefId(null);
+    setDatabases([]);
+    setActiveDb(null);
   };
 
   // --- End-to-end connect path (issue #17) -------------------------------
-  const onConnect = async (c: Connection) => {
-    // Already the live connection, or another connect in flight: do nothing
-    // (avoids tearing down a live connection or racing two opens).
-    if (connectingId() !== null || (active() && activeDefId() === c.id)) {
+  // `force` reconnects even when this connection is already the active one — used
+  // by "Reconectar" to recover a dropped/killed server session with a fresh
+  // connId. Without it, clicking the active connection is a no-op.
+  const onConnect = async (c: Connection, force = false) => {
+    if (connectingId() !== null || (!force && active() && activeDefId() === c.id)) {
       return;
     }
     setConnectingId(c.id);
@@ -553,6 +562,49 @@ export function App() {
     } finally {
       setConnectingId(null);
     }
+  };
+
+  // Reconnect the active connection (fresh session) — recovers after the server
+  // dropped or the process was killed.
+  const reconnect = () => {
+    const id = activeDefId();
+    const c = id ? connections().find((x) => x.id === id) : undefined;
+    if (c) void onConnect(c, true);
+  };
+
+  // Load the connection's databases and pick a default working one (the DSN's
+  // database if set, else the first). Runs whenever the active connection
+  // changes; failures leave the list empty (the selector just hides).
+  createEffect(() => {
+    const conn = active();
+    if (!conn) {
+      setDatabases([]);
+      setActiveDb(null);
+      return;
+    }
+    const connId = conn.connId;
+    void (async () => {
+      try {
+        const dbs = parseTreeRows(await schemaTree(connId), "database")
+          .filter((n) => n.kind === "database" || n.kind === "schema")
+          .map((n) => n.name);
+        if (active()?.connId !== connId) return; // connection changed meanwhile
+        setDatabases(dbs);
+        const configured = connections().find((c) => c.id === activeDefId())?.params.database;
+        setActiveDb(configured && dbs.includes(configured) ? configured : (dbs[0] ?? null));
+      } catch {
+        setDatabases([]);
+      }
+    })();
+  });
+
+  // Select the working database: scope the tools + (where supported) set the
+  // editor's default database on the live session via USE.
+  const selectDb = (db: string) => {
+    setActiveDb(db);
+    const conn = active();
+    const sql = useDatabaseSql(activeDialect(), db);
+    if (conn && sql) void runQuery(conn.connId, sql).catch(() => {});
   };
 
   // Record an executed query in the client-side history (issue #128), collapsing
@@ -984,9 +1036,25 @@ export function App() {
               onEdit={onEditConnection}
               onDelete={onDeleteConnection}
               onNew={onNewConnection}
+              onDisconnect={() => void disconnect()}
+              onReconnect={reconnect}
             />
           </div>
           <Show when={active()}>
+            <Show when={databases().length > 0}>
+              <div class="sidebar-db">
+                <label>
+                  <span>Base de datos activa</span>
+                  <select
+                    class="map-select"
+                    value={activeDb() ?? ""}
+                    onChange={(e) => selectDb(e.currentTarget.value)}
+                  >
+                    <For each={databases()}>{(d) => <option value={d}>{d}</option>}</For>
+                  </select>
+                </label>
+              </div>
+            </Show>
             <div class="sidebar-tools">
               <button
                 class="status-btn"
@@ -1455,12 +1523,17 @@ export function App() {
                   />
                 </Match>
                 <Match when={tt().tool === "erDiagram"}>
-                  <ErDiagram connId={active()?.connId ?? ""} onClose={() => closeTool(tt().id)} />
+                  <ErDiagram
+                    connId={active()?.connId ?? ""}
+                    db={activeDb() ?? undefined}
+                    onClose={() => closeTool(tt().id)}
+                  />
                 </Match>
                 <Match when={tt().tool === "queryBuilder"}>
                   <QueryBuilder
                     connId={active()?.connId ?? ""}
                     engine={activeDialect()}
+                    db={activeDb() ?? undefined}
                     onRun={(sql) => {
                       closeTool(tt().id);
                       runFromHistory(sql);
