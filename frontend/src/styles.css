@@ -2174,3 +2174,55 @@ button.grid-action:hover {
 .er-arrow-head {
   fill: var(--text-dim);
 }
+
+/* Visual query builder (issue #146) */
+.qb-section {
+  margin: 0.6rem 0;
+}
+
+.qb-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.2rem 0.6rem;
+  margin-top: 0.3rem;
+}
+
+.qb-col {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.qb-conj {
+  margin-left: 0.6rem;
+  width: auto;
+}
+
+.qb-cond {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+}
+
+.qb-cond .map-select {
+  flex: 0 0 auto;
+}
+
+.qb-cond .td-in {
+  flex: 1;
+  min-width: 6rem;
+}
+
+.qb-order {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.qb-preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+}

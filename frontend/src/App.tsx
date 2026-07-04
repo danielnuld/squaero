@@ -109,6 +109,7 @@ import { ServerMonitor } from "./components/ServerMonitor";
 import { UserManager } from "./components/UserManager";
 import { ChartView } from "./components/ChartView";
 import { ErDiagram } from "./components/ErDiagram";
+import { QueryBuilder } from "./components/QueryBuilder";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
@@ -1008,6 +1009,13 @@ export function App() {
               >
                 Diagrama ER
               </button>
+              <button
+                class="status-btn"
+                title="Constructor visual de consultas"
+                onClick={() => showTool("queryBuilder", "Constructor", { key: "qb" })}
+              >
+                Constructor de consultas
+              </button>
             </div>
             <div class="sidebar-tree">
               <ObjectTree
@@ -1448,6 +1456,17 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "erDiagram"}>
                   <ErDiagram connId={active()?.connId ?? ""} onClose={() => closeTool(tt().id)} />
+                </Match>
+                <Match when={tt().tool === "queryBuilder"}>
+                  <QueryBuilder
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    onRun={(sql) => {
+                      closeTool(tt().id);
+                      runFromHistory(sql);
+                    }}
+                    onClose={() => closeTool(tt().id)}
+                  />
                 </Match>
                 <Match when={tt().tool === "help"}>
                   <ShortcutsHelp isMac={isMac()} onClose={() => closeTool(tt().id)} />

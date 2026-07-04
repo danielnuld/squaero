@@ -20,6 +20,7 @@ export type ToolKind =
   | "transfer"
   | "chart"
   | "erDiagram"
+  | "queryBuilder"
   | "help";
 
 /** A SQL query editor tab. */
