@@ -104,6 +104,30 @@ describe("StructureView view editing", () => {
     expect(host!.textContent).toContain("Vista actualizada.");
   });
 
+  it("beautifies the view definition in the editor when Formatear is clicked", async () => {
+    installBridge();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <StructureView connId="c1" table="v" kind="view" engine="sqlite" onClose={() => {}} />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    clickText("Editar definición");
+    const ta = host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement;
+    // The mocked DDL is a single line; formatting spreads it across lines.
+    expect(ta.value.includes("\n")).toBe(false);
+    clickText("Formatear");
+    const after = (host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement).value;
+    expect(after.includes("\n")).toBe(true);
+    expect(after).toMatch(/create view/i);
+  });
+
   it("shows no edit button for a table", async () => {
     installBridge();
     host = document.createElement("div");

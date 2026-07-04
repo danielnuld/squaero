@@ -3,6 +3,7 @@ import { schemaDescribe, schemaDdl, quoteIdentifier } from "../utils/schema";
 import { runQuery, type ResultSet } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
 import { buildViewApply } from "../utils/viewEdit";
+import { formatSql } from "../utils/sqlFormat";
 import { errorText } from "../utils/errors";
 import { Modal } from "./Modal";
 import type { NodeKind } from "../utils/schema";
@@ -74,6 +75,10 @@ export function StructureView(props: {
     setApplied(false);
     setEditing(true);
   };
+
+  // Beautify the view definition in place, reusing the same formatter as the SQL
+  // editor (a no-op when the text can't be parsed — see sqlFormat.ts).
+  const formatDraft = () => setDraft(formatSql(draft(), props.engine));
 
   // Qualified name used only as a fallback if the view name can't be read from
   // the DDL (see viewEdit.ts). Same quoting as generated SELECTs.
@@ -157,6 +162,11 @@ export function StructureView(props: {
           <Show when={isView() && !editing()}>
             <button onClick={startEdit} disabled={!ddl()}>
               Editar definición
+            </button>
+          </Show>
+          <Show when={editing()}>
+            <button onClick={formatDraft} disabled={!draft()}>
+              Formatear
             </button>
           </Show>
           <button onClick={copyDdl} disabled={!ddl() || editing()}>
