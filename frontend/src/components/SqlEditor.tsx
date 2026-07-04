@@ -40,6 +40,8 @@ export function SqlEditor(props: {
   onChange: (id: number, sql: string) => void;
   /** Fired on Ctrl/Cmd+Enter with the live editor contents. */
   onRun: (sql: string) => void;
+  /** Fired on Ctrl/Cmd+Shift+E to show the query plan (EXPLAIN, issue #131). */
+  onExplain?: () => void;
   /** Active engine name, used to pick the SQL dialect when formatting. */
   dialect?: string;
   /** Bumping this number requests a format of the current document. */
@@ -104,6 +106,14 @@ export function SqlEditor(props: {
               preventDefault: true,
               run: () => {
                 doFormat();
+                return true;
+              },
+            },
+            {
+              key: "Mod-Shift-e",
+              preventDefault: true,
+              run: () => {
+                props.onExplain?.();
                 return true;
               },
             },

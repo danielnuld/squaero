@@ -22,6 +22,7 @@ import {
   type ThemePref,
 } from "./utils/theme";
 import { matchShortcut } from "./utils/shortcuts";
+import { buildExplain } from "./utils/explain";
 import { loadCompletionSchema } from "./utils/completion";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { Modal } from "./components/Modal";
@@ -419,6 +420,37 @@ export function App() {
     }
   };
 
+  // Show the execution plan of the active query (issue #131): build the EXPLAIN
+  // for the engine and run it as a normal (read-only) result in the grid. The
+  // editor text is left untouched. Honest errors for empty SQL, no connection,
+  // or an engine without an inline EXPLAIN.
+  const explainActive = () => {
+    const tab = current();
+    if (!tab) return;
+    const conn = active();
+    const sql = (tabs().tabs.find((t) => t.id === tab.id)?.sql ?? "").trim();
+    if (!sql) {
+      setResults(tab.id, { ...emptyResult(), error: "La consulta está vacía." });
+      return;
+    }
+    if (!conn) {
+      setResults(tab.id, {
+        ...emptyResult(),
+        error: "No hay conexión activa. Abre una conexión para ver el plan.",
+      });
+      return;
+    }
+    const ex = buildExplain(activeDialect(), sql);
+    if (!ex) {
+      setResults(tab.id, {
+        ...emptyResult(),
+        error: `EXPLAIN no está disponible para el motor "${activeDialect() || "desconocido"}".`,
+      });
+      return;
+    }
+    void run(ex);
+  };
+
   // --- Object tree actions (issues #19, #20) -----------------------------
   // Open a table's data: a fresh tab with a SELECT, executed immediately. The
   // table is qualified with its db/schema context so the query is correct on
@@ -737,6 +769,7 @@ export function App() {
                     }
                     onChange={onEditorChange}
                     onRun={run}
+                    onExplain={explainActive}
                     dialect={activeDialect()}
                     formatTick={formatTick()}
                     schema={sqlSchema()}
@@ -748,6 +781,13 @@ export function App() {
                       onClick={() => setFormatTick((t) => t + 1)}
                     >
                       Formatear
+                    </button>
+                    <button
+                      class="status-btn"
+                      title="Ver plan de ejecución — EXPLAIN (Ctrl/Cmd+Shift+E)"
+                      onClick={explainActive}
+                    >
+                      Plan
                     </button>
                     <span class="editor-hint-spacer" />
                     <span>Ctrl/Cmd + Enter para ejecutar</span>

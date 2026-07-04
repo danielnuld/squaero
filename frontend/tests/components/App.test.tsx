@@ -82,3 +82,16 @@ describe("App — theme & shortcuts", () => {
     expect(host!.querySelectorAll(".tab").length).toBe(2);
   });
 });
+
+// EXPLAIN plan (issue #131): the toolbar wires the button to the plan action.
+describe("App — EXPLAIN", () => {
+  it("has a Plan button that surfaces an honest error on an empty query", () => {
+    mount();
+    const btn = [...host!.querySelectorAll(".editor-hint .status-btn")].find(
+      (b) => b.textContent === "Plan",
+    ) as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    btn.click(); // fresh tab has empty SQL
+    expect(host!.textContent).toContain("La consulta está vacía");
+  });
+});
