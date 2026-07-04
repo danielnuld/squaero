@@ -1,6 +1,13 @@
-import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
 import { formatCell, cellAlign } from "../utils/format";
+import {
+  buildViewIndices,
+  cycleSort,
+  sortGlyph,
+  type SortState,
+  type ColumnFilters,
+} from "../utils/gridView";
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
 
@@ -59,6 +66,21 @@ export function ResultGrid(props: {
   const cols = () => props.result?.columns ?? [];
   const rows = () => props.result?.rows ?? [];
   const editing = () => props.edit?.active ?? false;
+
+  // Client-side sort + filter over the loaded page (issue #132). The view is a
+  // list of ORIGINAL row indices in display order, so edit hooks stay keyed by
+  // original index. Both reset whenever a new result loads.
+  const [sort, setSort] = createSignal<SortState | null>(null);
+  const [filters, setFilters] = createSignal<ColumnFilters>({});
+  createEffect(() => {
+    props.result; // reset on identity change
+    setSort(null);
+    setFilters({});
+  });
+  const view = createMemo(() => buildViewIndices(rows(), cols(), sort(), filters()));
+  const filtersActive = () => Object.values(filters()).some((q) => q.trim() !== "");
+  const toggleSort = (col: number) => setSort((s) => cycleSort(s, col));
+  const setFilter = (col: number, q: string) => setFilters((f) => ({ ...f, [col]: q }));
   const gridCols = () => {
     const body = `repeat(${cols().length}, ${COL_WIDTH}px)`;
     return editing() ? `${ACTION_WIDTH}px ${body}` : body;
@@ -82,11 +104,13 @@ export function ResultGrid(props: {
       scrollTop: scrollTop(),
       viewportHeight: viewportH(),
       rowHeight: ROW_HEIGHT,
-      rowCount: rows().length,
+      rowCount: view().length,
     });
 
   createEffect(() => {
     const r = props.result;
+    // Trigger fetch off the actual loaded-row count, not the (possibly filtered)
+    // view length, so a heavy filter doesn't look like "end of the loaded page".
     if (props.onNeedMore && r && needsMoreRows(range().end, rows().length, r.truncated)) {
       props.onNeedMore();
     }
@@ -124,10 +148,44 @@ export function ResultGrid(props: {
                     <div class="grid-cell grid-head grid-action" />
                   </Show>
                   <For each={cols()}>
-                    {(col) => (
-                      <div class="grid-cell grid-head">
+                    {(col, ci) => (
+                      <div
+                        class="grid-cell grid-head grid-head-sort"
+                        role="button"
+                        tabindex={0}
+                        title="Ordenar (asc / desc / ninguno)"
+                        onClick={() => toggleSort(ci())}
+                        onKeyDown={(e) =>
+                          (e.key === "Enter" || e.key === " ") &&
+                          (e.preventDefault(), toggleSort(ci()))
+                        }
+                      >
                         <span class="col-name">{col.name}</span>
                         <span class="col-type">{col.type}</span>
+                        <span class="col-sort">{sortGlyph(sort(), ci())}</span>
+                      </div>
+                    )}
+                  </For>
+                </div>
+
+                <div
+                  class="grid-filter"
+                  style={{ "grid-template-columns": gridCols() }}
+                >
+                  <Show when={editing()}>
+                    <div class="grid-cell grid-action" />
+                  </Show>
+                  <For each={cols()}>
+                    {(_col, ci) => (
+                      <div class="grid-cell grid-filter-cell">
+                        <input
+                          class="grid-filter-input"
+                          type="search"
+                          placeholder="Filtrar…"
+                          aria-label={`Filtrar por ${cols()[ci()].name}`}
+                          value={filters()[ci()] ?? ""}
+                          onInput={(e) => setFilter(ci(), e.currentTarget.value)}
+                        />
                       </div>
                     )}
                   </For>
@@ -138,9 +196,13 @@ export function ResultGrid(props: {
                     class="grid-rows"
                     style={{ transform: `translateY(${range().offsetY}px)` }}
                   >
-                    <For each={rows().slice(range().start, range().end)}>
-                      {(row, i) => {
-                        const rowIndex = () => range().start + i();
+                    <For each={view().slice(range().start, range().end)}>
+                      {(origIndex) => {
+                        const rowIndex = () => origIndex;
+                        // Reactive lookup: the <For> keys by index value, so this
+                        // callback is reused across queries — read the live rows()
+                        // each render, never a stale snapshot.
+                        const row = () => rows()[origIndex];
                         return (
                           <div
                             class={`grid-row ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
@@ -157,7 +219,7 @@ export function ResultGrid(props: {
                             </Show>
                             <For each={cols()}>
                               {(col, ci) => {
-                                const original = () => row[ci()] ?? null;
+                                const original = () => row()[ci()] ?? null;
                                 return (
                                   <Show
                                     when={editing()}
@@ -239,9 +301,17 @@ export function ResultGrid(props: {
               </div>
             </Show>
 
+            <Show when={filtersActive() && view().length === 0}>
+              <div class="grid-empty-filter">
+                Ninguna fila de la página coincide con el filtro.
+              </div>
+            </Show>
+
             <Show when={result().truncated}>
               <div class="grid-truncated">
-                Mostrando las primeras {rows().length} filas (resultado truncado).
+                Mostrando las primeras {rows().length} filas (resultado truncado). El
+                orden y los filtros se aplican solo sobre las filas cargadas, no con
+                ORDER BY/WHERE en el servidor.
               </div>
             </Show>
           </Show>

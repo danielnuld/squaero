@@ -118,6 +118,53 @@ describe("ResultGrid edit mode", () => {
     expect(pending().inserts).toEqual([{ id: "9" }]);
   });
 
+  it("keeps cell edits keyed by original row index after sorting", () => {
+    const sortable: ResultSet = {
+      columns: [
+        { name: "id", type: "int" },
+        { name: "name", type: "text" },
+      ],
+      rows: [
+        ["2", "a"],
+        ["1", "b"],
+      ],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [pending, setPending] = createSignal(emptyPending());
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={sortable}
+            loading={false}
+            error={null}
+            edit={{
+              active: true,
+              pending: pending(),
+              onEditCell: (r, c, v) => setPending((p) => setCell(p, r, c, v)),
+              onToggleDelete: () => {},
+              onInsertCell: () => {},
+              onRemoveInsert: () => {},
+            }}
+          />
+        ),
+        host!,
+      );
+    });
+    // Sort ascending by id -> displayed order is original row 1 ("1"), then 0 ("2").
+    host!.querySelectorAll<HTMLDivElement>(".grid-head-sort")[0].click();
+    const firstRow = host!.querySelectorAll(".grid-rows .grid-row")[0];
+    const nameInput = firstRow.querySelectorAll<HTMLInputElement>(".cell-input")[1];
+    expect(nameInput.value).toBe("b"); // original row 1 is displayed first
+    type(nameInput, "B!");
+    // The edit is recorded against original index 1, not display position 0.
+    expect(pending().edits).toEqual({ 1: { name: "B!" } });
+  });
+
   it("is read-only (no inputs) when edit is inactive", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -131,5 +178,89 @@ describe("ResultGrid edit mode", () => {
     expect(host.querySelectorAll(".cell-input").length).toBe(0);
     // Values render as plain text cells instead.
     expect(host.textContent).toContain("alice");
+  });
+});
+
+describe("ResultGrid sort + filter (issue #132)", () => {
+  const numeric: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "name", type: "text" },
+    ],
+    rows: [
+      ["2", "x"],
+      ["10", "y"],
+      ["1", "z"],
+    ],
+    truncated: false,
+    rowsAffected: 0,
+  };
+
+  function mountReadonly(result: ResultSet) {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ResultGrid result={result} loading={false} error={null} />, host!);
+    });
+  }
+
+  const colValues = (c: number) =>
+    [...host!.querySelectorAll(".grid-rows .grid-row")].map(
+      (r) => r.querySelectorAll(".grid-cell")[c].textContent,
+    );
+
+  it("cycles a column sort none -> asc -> desc -> none, numerically", () => {
+    mountReadonly(numeric);
+    const head = host!.querySelectorAll<HTMLDivElement>(".grid-head-sort")[0];
+    expect(colValues(0)).toEqual(["2", "10", "1"]); // original order
+    head.click();
+    expect(colValues(0)).toEqual(["1", "2", "10"]); // asc, numeric (not lexical)
+    head.click();
+    expect(colValues(0)).toEqual(["10", "2", "1"]); // desc
+    head.click();
+    expect(colValues(0)).toEqual(["2", "10", "1"]); // back to none
+  });
+
+  it("filters rows by a per-column substring", () => {
+    mountReadonly(numeric);
+    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    type(filter, "y");
+    expect(colValues(1)).toEqual(["y"]);
+  });
+
+  it("shows a no-match note when the filter excludes every loaded row", () => {
+    mountReadonly(numeric);
+    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    type(filter, "zzz");
+    expect(host!.querySelector(".grid-empty-filter")).not.toBeNull();
+  });
+
+  it("re-renders fresh values when the result is replaced in place (same size)", () => {
+    // Guards against the index-keyed <For> reusing a stale row snapshot when a
+    // new query returns a result of the same length in the same mounted grid.
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const first: ResultSet = {
+      columns: [{ name: "city", type: "text" }],
+      rows: [["Hermosillo"], ["Guaymas"]],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    const second: ResultSet = {
+      columns: [{ name: "city", type: "text" }],
+      rows: [["Nogales"], ["Obregon"]],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    const [result, setResult] = createSignal<ResultSet>(first);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ResultGrid result={result()} loading={false} error={null} />, host!);
+    });
+    expect(host!.textContent).toContain("Hermosillo");
+    setResult(second);
+    expect(host!.textContent).toContain("Nogales");
+    expect(host!.textContent).not.toContain("Hermosillo");
   });
 });
