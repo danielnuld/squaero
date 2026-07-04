@@ -19,7 +19,7 @@ extern "C" {
    v3 adds schema introspection: schema.tree / schema.describe / schema.ddl.
    v4 adds transaction control: tx.begin / tx.commit / tx.rollback.
    v5 adds row editing: row.insert / row.update / row.delete. */
-#define DBCORE_IPC_PROTOCOL_VERSION 5
+#define DBCORE_IPC_PROTOCOL_VERSION 6
 
 /*
  * Handles a single JSON-RPC request and returns the response as a newly

@@ -123,6 +123,23 @@ describe("runQuery", () => {
     expect("limit" in sent.params).toBe(false);
   });
 
+  it("sends offset for pagination, and omits it at offset 0", async () => {
+    const rpc = vi.fn(async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string };
+      return { jsonrpc: "2.0", id: req.id, result: { rowsAffected: 0 } };
+    });
+    (globalThis as BridgeHost).quaeroRpc = rpc;
+
+    await runQuery("c1", "SELECT 1", 1000, 2000);
+    let sent = JSON.parse(rpc.mock.calls[0][0]) as { params: Record<string, unknown> };
+    expect(sent.params).toEqual({ connId: "c1", sql: "SELECT 1", limit: 1000, offset: 2000 });
+
+    // Offset 0 is the first page — no need to send it.
+    await runQuery("c1", "SELECT 1", 1000, 0);
+    sent = JSON.parse(rpc.mock.calls[1][0]) as { params: Record<string, unknown> };
+    expect("offset" in sent.params).toBe(false);
+  });
+
   it("throws QueryError on a domain error response", async () => {
     (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
       const req = JSON.parse(raw) as { id: number | string };

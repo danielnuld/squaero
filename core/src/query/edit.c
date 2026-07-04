@@ -62,7 +62,7 @@ dbc_status dbcore_row_dml(const dbcore_conn_ref *conn, dbc_dml_kind kind,
 
     /* Materialize it (consumes dr) and read the single "sql" cell out. */
     dbcore_result *built = NULL;
-    st = dbcore_materialize(drv, conn->handle, dr, 1, &built, errbuf, errcap);
+    st = dbcore_materialize(drv, conn->handle, dr, 1, 0, &built, errbuf, errcap);
     if (st != DBC_OK) {
         return st;
     }
@@ -89,7 +89,7 @@ dbc_status dbcore_row_dml(const dbcore_conn_ref *conn, dbc_dml_kind kind,
 
     /* Apply it through the normal query path. */
     dbcore_result *applied = NULL;
-    st = dbcore_query_run(conn, sql_copy, 0, &applied, errbuf, errcap);
+    st = dbcore_query_run(conn, sql_copy, 0, 0, &applied, errbuf, errcap);
     if (st != DBC_OK) {
         free(sql_copy);
         return st;

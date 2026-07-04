@@ -58,19 +58,19 @@ static void test_core_api(const dbc_driver_t *drv)
     EXPECT(dbcore_conn_manager_get(mgr, id, &ref) == 1, "borrow connection");
 
     dbcore_result *r = NULL;
-    EXPECT(dbcore_query_run(&ref, "CREATE TABLE t (id INTEGER, name TEXT)", 0,
+    EXPECT(dbcore_query_run(&ref, "CREATE TABLE t (id INTEGER, name TEXT)", 0, 0,
                             &r, err, sizeof err) == DBC_OK, "DDL runs");
     EXPECT(dbcore_result_has_result_set(r) == 0, "DDL has no result set");
     dbcore_result_free(r);
     r = NULL;
 
-    EXPECT(dbcore_query_run(&ref, "INSERT INTO t VALUES (1,'alice'),(2,NULL)", 0,
+    EXPECT(dbcore_query_run(&ref, "INSERT INTO t VALUES (1,'alice'),(2,NULL)", 0, 0,
                             &r, err, sizeof err) == DBC_OK, "DML runs");
     EXPECT(dbcore_result_rows_affected(r) == 2, "two rows affected");
     dbcore_result_free(r);
     r = NULL;
 
-    EXPECT(dbcore_query_run(&ref, "SELECT id, name FROM t ORDER BY id", 0,
+    EXPECT(dbcore_query_run(&ref, "SELECT id, name FROM t ORDER BY id", 0, 0,
                             &r, err, sizeof err) == DBC_OK, "SELECT runs");
     EXPECT(dbcore_result_col_count(r) == 2, "two columns");
     EXPECT(dbcore_result_col_type(r, 0) == DBC_TYPE_INT, "id is INT");
@@ -82,7 +82,7 @@ static void test_core_api(const dbc_driver_t *drv)
     r = NULL;
 
     /* A bad query surfaces the driver's error. */
-    EXPECT(dbcore_query_run(&ref, "SELECT * FROM missing", 0, &r, err,
+    EXPECT(dbcore_query_run(&ref, "SELECT * FROM missing", 0, 0, &r, err,
                             sizeof err) == DBC_ERR_QUERY, "bad query fails");
     EXPECT(r == NULL, "no result on failure");
     EXPECT(strstr(err, "no such table") != NULL, "driver error propagated");

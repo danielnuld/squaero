@@ -2,12 +2,13 @@
 
 El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre el mecanismo `webview_bind`/`webview_eval` de la librería `webview`. Es la **única** frontera entre ambos mundos y se versiona con cuidado.
 
-> **Protocolo v5.** El dispatcher JSON-RPC del núcleo está implementado y
+> **Protocolo v6.** El dispatcher JSON-RPC del núcleo está implementado y
 > testeado (`core/src/ipc/`, entrada pública `dbcore_ipc_handle` en
 > `core/include/dbcore/ipc.h`). Cubre el camino de datos de M1
 > (`conn.open`/`conn.close`/`query.run` y el rango de errores de dominio
-> `-32000..`), la introspección de M3 (`schema.*`) y la edición transaccional de
-> M7 (`tx.*` en v4, `row.*` en v5). Este módulo es puro: JSON entra, JSON sale. El
+> `-32000..`), la introspección de M3 (`schema.*`), la edición transaccional de
+> M7 (`tx.*` en v4, `row.*` en v5) y la paginación por offset de `query.run`
+> (`params.offset` en v6, issue #134). Este módulo es puro: JSON entra, JSON sale. El
 > objeto `dsn` de `conn.open` es opaco al protocolo: el núcleo interpreta de él
 > los campos `ssh_*` (túnel, abajo) de forma aditiva y compatible, sin cambiar la
 > forma del método ni la versión.
@@ -208,12 +209,17 @@ es un seguimiento pendiente.
 
 **`query.run`** — ejecuta SQL en una conexión activa y devuelve el result set
 **paginado**. `params.limit` (opcional) acota las filas; si se omite aplica un
-tope por defecto (1000) — nunca se vuelca el dataset completo. `truncated` indica
-si había más filas de las devueltas.
+tope por defecto (1000) — nunca se vuelca el dataset completo. `params.offset`
+(opcional, entero ≥ 0, **v6**) salta esa cantidad de filas iniciales para
+**paginación por offset** (issue #134): el núcleo descarta las primeras `offset`
+filas del cursor del driver y devuelve las siguientes `limit`. `truncated` indica
+si había más filas de las devueltas — es decir, **si existe una página siguiente**.
+El salto vive en el núcleo (`materialize.c`), no en cada driver, así que aplica a
+cualquier motor sin cambios de vtable.
 
 ```jsonc
 { "jsonrpc": "2.0", "id": 3, "method": "query.run",
-  "params": { "connId": "c1", "sql": "SELECT id, name FROM users", "limit": 1000 } }
+  "params": { "connId": "c1", "sql": "SELECT id, name FROM users", "limit": 1000, "offset": 0 } }
 // -> result:
 { "columns": [ { "name": "id", "type": "int" }, { "name": "name", "type": "text" } ],
   "rows": [ ["1", "alice"], ["2", null] ],
@@ -344,6 +350,8 @@ incompatible que debe discutirse en un issue antes, porque rompe a todo cliente)
 | v3 | M3 | `schema.tree`/`schema.describe`/`schema.ddl` |
 | v4 | M7 | `tx.begin`/`tx.commit`/`tx.rollback` |
 | v5 | M7 | `row.insert`/`row.update`/`row.delete` |
+| v6 | M10.6 | `query.run` acepta `params.offset` (paginación por offset, #134) |
 
 M8 (Import/Export) y M9 (Transferencia/sincronización) **no** subieron la versión:
-se implementaron en el frontend sobre los métodos existentes.
+se implementaron en el frontend sobre los métodos existentes. La v6 sí sube porque
+añade un parámetro nuevo a un método (aunque sea opcional y compatible).

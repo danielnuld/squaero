@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 dbc_status dbcore_query_run(const dbcore_conn_ref *conn, const char *sql,
-                            int max_rows, dbcore_result **out,
+                            int max_rows, int offset, dbcore_result **out,
                             char *errbuf, size_t errcap)
 {
     if (errbuf != NULL && errcap > 0) {
@@ -34,5 +34,5 @@ dbc_status dbcore_query_run(const dbcore_conn_ref *conn, const char *sql,
         return DBC_ERR_QUERY;
     }
 
-    return dbcore_materialize(drv, conn->handle, dr, max_rows, out, errbuf, errcap);
+    return dbcore_materialize(drv, conn->handle, dr, max_rows, offset, out, errbuf, errcap);
 }

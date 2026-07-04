@@ -20,7 +20,7 @@ static dbc_status finish(const dbc_driver_t *drv, dbc_conn *handle, dbc_status s
                           "driver reported success but returned no result");
         return DBC_ERR_QUERY;
     }
-    return dbcore_materialize(drv, handle, dr, max_rows, out, errbuf, errcap);
+    return dbcore_materialize(drv, handle, dr, max_rows, 0, out, errbuf, errcap);
 }
 
 /* Validate the ref and that the driver advertises `feature`. */

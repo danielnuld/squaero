@@ -23,9 +23,11 @@ extern "C" {
  * Execute `sql` on the connection borrowed in `conn` (see
  * dbcore_conn_manager_get) and write the materialized result to *out.
  *
- * `max_rows` bounds how many rows are fetched: <= 0 means all rows; > 0 caps the
- * fetch and, if the driver had more rows, sets dbcore_result_truncated. The cap
- * is never silent — it is always reported through that flag.
+ * `offset` skips that many leading rows before collecting (offset pagination,
+ * issue #134); <= 0 skips nothing. `max_rows` bounds how many of the remaining
+ * rows are fetched: <= 0 means all; > 0 caps the fetch and, if the driver had
+ * yet more rows, sets dbcore_result_truncated (a further page exists). The cap is
+ * never silent — it is always reported through that flag.
  *
  * On success returns DBC_OK and *out owns a result (free with
  * dbcore_result_free). On failure returns the driver/validation status, sets
@@ -36,7 +38,7 @@ extern "C" {
  *   DBC_ERR_NOMEM - the result could not be allocated.
  */
 dbc_status dbcore_query_run(const dbcore_conn_ref *conn, const char *sql,
-                            int max_rows, dbcore_result **out,
+                            int max_rows, int offset, dbcore_result **out,
                             char *errbuf, size_t errcap);
 
 #ifdef __cplusplus

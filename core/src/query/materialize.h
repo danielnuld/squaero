@@ -26,14 +26,19 @@ void dbcore_copy_error(char *errbuf, size_t errcap, const char *msg);
  * return, on every path. `handle` is borrowed and used only to read the
  * driver's last_error on failure.
  *
- * `max_rows` bounds the fetch: <= 0 means all rows; > 0 caps it and sets
- * dbcore_result_truncated when the driver had more.
+ * `offset` skips that many leading rows (fetched and discarded) before any are
+ * collected — the row-skipping half of offset pagination (issue #134). <= 0
+ * skips nothing.
+ *
+ * `max_rows` bounds the fetch of the rows that remain after the skip: <= 0 means
+ * all of them; > 0 caps it and sets dbcore_result_truncated when the driver had
+ * yet more (i.e. a further page exists).
  *
  * Returns DBC_OK with *out owning the result, or DBC_ERR_QUERY / DBC_ERR_NOMEM
  * with *out set to NULL and a reason copied into errbuf (when errcap > 0).
  */
 dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
-                              dbc_result *dr, int max_rows, dbcore_result **out,
-                              char *errbuf, size_t errcap);
+                              dbc_result *dr, int max_rows, int offset,
+                              dbcore_result **out, char *errbuf, size_t errcap);
 
 #endif /* DBCORE_QUERY_MATERIALIZE_H */

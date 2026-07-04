@@ -129,6 +129,12 @@ interface TabResult {
   /** The table this result was read from + its PK, when opened from the tree.
       Present + pk non-empty => the grid is editable. */
   source?: EditSource | null;
+  /** Offset pagination (issue #134): the SQL that produced this page, the current
+      row offset, and the page size — so prev/next re-run the same SQL at a new
+      offset. `truncated` on the result means a further page exists. */
+  pageSql?: string;
+  offset?: number;
+  pageSize?: number;
 }
 
 // Per-tab edit-session state (M7). Present only while editing a tab.
@@ -563,7 +569,7 @@ export function App() {
     });
   };
 
-  const run = async (sql: string, scope: RunScope = "document") => {
+  const run = async (sql: string, scope: RunScope = "document", offset = 0) => {
     const tab = current();
     if (!tab) return;
     const id = tab.id;
@@ -580,17 +586,26 @@ export function App() {
       });
       return;
     }
-    recordHistory(trimmed, conn);
+    // Paging the same query keeps the edit source so the grid stays editable
+    // across pages; a fresh query (different SQL) drops it.
+    const prev = results[id];
+    const keepSource =
+      prev?.source && prev.pageSql === trimmed ? prev.source : undefined;
+    if (offset === 0) recordHistory(trimmed, conn); // don't record page turns
     setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
     const started = performance.now();
     try {
-      const result = await runQuery(conn.connId, trimmed, PAGE_LIMIT);
+      const result = await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
       setResults(id, {
         loading: false,
         error: null,
         result,
         elapsedMs: performance.now() - started,
         ranScope: scope,
+        pageSql: trimmed,
+        offset,
+        pageSize: PAGE_LIMIT,
+        source: keepSource,
       });
     } catch (err) {
       setResults(id, {
@@ -601,6 +616,20 @@ export function App() {
         ranScope: scope,
       });
     }
+  };
+
+  // Offset pagination (issue #134): re-run the current result's SQL at the
+  // previous / next page. Guarded while editing so a page turn never discards
+  // pending changes.
+  const pageBy = (delta: 1 | -1) => {
+    const t = current();
+    if (!t) return;
+    const r = results[t.id];
+    if (!r || !r.pageSql || r.loading || currentEdit().editing) return;
+    const size = r.pageSize ?? PAGE_LIMIT;
+    const nextOffset = Math.max(0, (r.offset ?? 0) + delta * size);
+    if (nextOffset === (r.offset ?? 0)) return;
+    void run(r.pageSql, r.ranScope ?? "document", nextOffset);
   };
 
   // Show the execution plan of the active query (issue #131): build the EXPLAIN
@@ -1251,6 +1280,37 @@ export function App() {
                       )}
                     </Show>
                   </div>
+                  <Show
+                    when={
+                      currentResult().pageSql &&
+                      (currentResult().result?.columns.length ?? 0) > 0
+                    }
+                  >
+                    <div class="page-bar">
+                      <button
+                        class="edit-btn"
+                        disabled={(currentResult().offset ?? 0) === 0 || currentEdit().editing}
+                        onClick={() => pageBy(-1)}
+                      >
+                        ‹ Anterior
+                      </button>
+                      <span class="page-info">
+                        Filas {(currentResult().offset ?? 0) +
+                          ((currentResult().result?.rows.length ?? 0) > 0 ? 1 : 0)}
+                        –{(currentResult().offset ?? 0) + (currentResult().result?.rows.length ?? 0)}
+                        <Show when={currentEdit().editing}>
+                          {" "}· paginación en pausa durante la edición
+                        </Show>
+                      </span>
+                      <button
+                        class="edit-btn"
+                        disabled={!currentResult().result?.truncated || currentEdit().editing}
+                        onClick={() => pageBy(1)}
+                      >
+                        Siguiente ›
+                      </button>
+                    </div>
+                  </Show>
                 </div>
               </div>
             )}

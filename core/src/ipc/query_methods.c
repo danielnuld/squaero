@@ -51,6 +51,21 @@ cJSON *ipc_method_query_run(const cJSON *params, int *code, const char **message
         limit = limit_item->valueint;
     }
 
+    /* offset is optional; when present it must be a non-negative integer. It
+       skips that many leading rows for offset pagination (issue #134). */
+    int offset = 0;
+    const cJSON *offset_item = cJSON_GetObjectItemCaseSensitive(params, "offset");
+    if (offset_item != NULL) {
+        if (!cJSON_IsNumber(offset_item) ||
+            offset_item->valuedouble != (double)offset_item->valueint ||
+            offset_item->valueint < 0) {
+            *code = IPC_ERR_PARAMS;
+            *message = "params.offset must be a non-negative integer";
+            return NULL;
+        }
+        offset = offset_item->valueint;
+    }
+
     dbcore_runtime *rt = dbcore_runtime_get();
     if (rt == NULL) {
         *code = IPC_ERR_INTERNAL;
@@ -66,7 +81,7 @@ cJSON *ipc_method_query_run(const cJSON *params, int *code, const char **message
     }
 
     dbcore_result *res = NULL;
-    dbc_status st = dbcore_query_run(&ref, sql->valuestring, limit, &res,
+    dbc_status st = dbcore_query_run(&ref, sql->valuestring, limit, offset, &res,
                                      g_query_error, sizeof g_query_error);
     if (st != DBC_OK) {
         *code = ipc_status_to_code(st);

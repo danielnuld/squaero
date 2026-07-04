@@ -22,8 +22,8 @@ void dbcore_copy_error(char *errbuf, size_t errcap, const char *msg)
 }
 
 dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
-                              dbc_result *dr, int max_rows, dbcore_result **out,
-                              char *errbuf, size_t errcap)
+                              dbc_result *dr, int max_rows, int offset,
+                              dbcore_result **out, char *errbuf, size_t errcap)
 {
     *out = NULL;
 
@@ -60,11 +60,18 @@ dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
             dbcore_copy_error(errbuf, errcap, "out of memory");
             return DBC_ERR_NOMEM;
         }
-        /* Fetch up to max_rows rows, then peek one more: if next_row still
-           yields a row past the cap we report truncation accurately (the
-           classic limit+1 technique). The peeked row is intentionally
-           discarded — that one extra fetch is the cost of an honest flag. */
+        /* Skip `offset` leading rows (offset pagination, #134), then fetch up to
+           max_rows rows and peek one more: if next_row still yields a row past
+           the cap we report truncation accurately (the classic limit+1
+           technique — here it means "a further page exists"). The peeked row is
+           intentionally discarded — that one extra fetch is the cost of an
+           honest flag. */
+        int skipped = 0;
         while ((rc = drv->next_row(dr)) == 1) {
+            if (offset > 0 && skipped < offset) {
+                skipped++;
+                continue;
+            }
             if (max_rows > 0 && dbcore_result_row_count(res) >= max_rows) {
                 dbcore_result_set_truncated(res, 1);
                 break;

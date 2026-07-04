@@ -52,15 +52,23 @@ export function parseQueryResult(res: JsonRpcResponse): ResultSet {
   };
 }
 
-/** Runs SQL on an open connection and resolves with the normalized result set. */
+/**
+ * Runs SQL on an open connection and resolves with the normalized result set.
+ * `offset` (>= 0) skips that many leading rows for offset pagination (issue #134);
+ * with `truncated` signalling a further page exists.
+ */
 export async function runQuery(
   connId: string,
   sql: string,
   limit?: number,
+  offset?: number,
 ): Promise<ResultSet> {
   const params: Record<string, unknown> = { connId, sql };
   if (limit !== undefined) {
     params.limit = limit;
+  }
+  if (offset !== undefined && offset > 0) {
+    params.offset = offset;
   }
   const res = await call("query.run", params);
   return parseQueryResult(res);
