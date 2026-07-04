@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { visibleRange } from "../utils/virtualize";
 import {
   flattenTree,
@@ -9,6 +9,8 @@ import {
   type FlatNode,
 } from "../utils/tree";
 import { schemaTree, parseTreeRows, type NodeKind } from "../utils/schema";
+import { openContextMenu, type MenuItem } from "../utils/contextMenu";
+import { copyText } from "../utils/rowCopy";
 
 const ROW_HEIGHT = 24;
 
@@ -33,6 +35,8 @@ export function ObjectTree(props: {
   reloadKey?: number;
   /** Refresh button in the header (re-runs the active query + reloads the tree). */
   onRefresh?: () => void;
+  /** Right-click "Importar datos…" on a table/view. */
+  onImport?: (node: TreeNode) => void;
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -46,18 +50,23 @@ export function ObjectTree(props: {
   // stomp the new connection's tree.
   let generation = 0;
 
-  let scroller: HTMLDivElement | undefined;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
 
-  onMount(() => {
-    if (scroller) {
-      setViewportH(scroller.clientHeight);
-      const ro = new ResizeObserver(() => scroller && setViewportH(scroller.clientHeight));
-      ro.observe(scroller);
-      onCleanup(() => ro.disconnect());
-    }
-  });
+  // The scroller only exists once a connection has roots (it lives inside a
+  // <Show>), so measuring it in onMount runs before it exists and leaves the
+  // viewport height at 0 — which collapses the virtual window to just the
+  // overscan rows, so the tree never filled the sidebar. Measure from a callback
+  // ref instead: it fires (and re-attaches the ResizeObserver) whenever the
+  // scroller element appears or is replaced. Same fix as ResultGrid.
+  let ro: ResizeObserver | undefined;
+  const attachScroller = (el: HTMLDivElement) => {
+    setViewportH(el.clientHeight);
+    ro?.disconnect();
+    ro = new ResizeObserver(() => setViewportH(el.clientHeight));
+    ro.observe(el);
+  };
+  onCleanup(() => ro?.disconnect());
 
   // Build child nodes from a schema.tree result for `parent`.
   const buildChildren = (parent: TreeNode | null, rows: { name: string; kind: NodeKind }[]): TreeNode[] => {
@@ -159,6 +168,29 @@ export function ObjectTree(props: {
     }
   };
 
+  // Build the right-click menu for a node, adapted to its kind: tables/views get
+  // data/structure/import actions; containers (database/schema) just refresh and
+  // copy. All actions reuse the same handlers as clicks.
+  const nodeMenu = (node: TreeNode): MenuItem[] => {
+    const items: MenuItem[] = [];
+    if (node.kind === "table" || node.kind === "view") {
+      items.push({ label: "Abrir datos", action: () => props.onOpenData(node) });
+      items.push({ label: "Ver estructura", action: () => props.onOpenStructure(node) });
+      if (node.kind === "view") {
+        items.push({ label: "Editar definición…", action: () => props.onOpenStructure(node) });
+      }
+      if (props.onImport) {
+        items.push({ label: "Importar datos…", action: () => props.onImport!(node) });
+      }
+      items.push({ separator: true });
+    }
+    items.push({ label: "Copiar nombre", action: () => copyText(node.label) });
+    if (props.onRefresh) {
+      items.push({ label: "Refrescar", action: () => props.onRefresh!() });
+    }
+    return items;
+  };
+
   const flat = () => flattenTree(roots(), children(), expanded());
   const range = () =>
     visibleRange({
@@ -200,7 +232,7 @@ export function ObjectTree(props: {
       >
         <div
           class="objtree-scroll"
-          ref={scroller}
+          ref={attachScroller}
           onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         >
           <div class="objtree-spacer" style={{ height: `${range().totalHeight}px` }}>
@@ -212,6 +244,7 @@ export function ObjectTree(props: {
                     style={{ "padding-left": `${node.depth * 14 + 4}px` }}
                     onClick={() => (node.expandable ? onToggle(node) : props.onOpenData(node))}
                     onDblClick={() => !node.expandable && props.onOpenStructure(node)}
+                    onContextMenu={(e) => openContextMenu(e, nodeMenu(node))}
                     title={node.label}
                   >
                     <span class="objtree-caret">

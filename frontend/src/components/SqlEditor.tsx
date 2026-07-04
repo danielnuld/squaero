@@ -23,6 +23,8 @@ import {
 import { sql } from "@codemirror/lang-sql";
 import { closeBrackets, autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { formatSql } from "../utils/sqlFormat";
+import { openContextMenu, type MenuItem } from "../utils/contextMenu";
+import { copyText } from "../utils/rowCopy";
 
 // CodeMirror 6 SQL editor. A single EditorView is reused across query tabs; the
 // active tab's text is swapped in on tab change. Ctrl/Cmd+Enter runs the query
@@ -157,5 +159,33 @@ export function SqlEditor(props: {
 
   onCleanup(() => view?.destroy());
 
-  return <div class="editor" ref={host} />;
+  // Right-click menu: format / run / select-all / copy, all operating on the
+  // live editor. Copy uses the current selection, or the whole document when
+  // nothing is selected.
+  const editorMenu = (): MenuItem[] => {
+    const v = view;
+    const hasText = (v?.state.doc.length ?? 0) > 0;
+    const selectAll = () => {
+      if (!v) return;
+      v.dispatch({ selection: { anchor: 0, head: v.state.doc.length } });
+      v.focus();
+    };
+    const copy = () => {
+      if (!v) return;
+      const { from, to } = v.state.selection.main;
+      const text = from === to ? v.state.doc.toString() : v.state.sliceDoc(from, to);
+      copyText(text);
+    };
+    return [
+      { label: "Formatear", action: doFormat, disabled: !hasText },
+      { label: "Ejecutar", action: () => v && props.onRun(v.state.doc.toString()), disabled: !hasText },
+      { separator: true },
+      { label: "Seleccionar todo", action: selectAll, disabled: !hasText },
+      { label: "Copiar", action: copy, disabled: !hasText },
+    ];
+  };
+
+  return (
+    <div class="editor" ref={host} onContextMenu={(e) => openContextMenu(e, editorMenu())} />
+  );
 }

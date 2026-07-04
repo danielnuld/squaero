@@ -6,11 +6,14 @@ import { openConnection, closeConnection, testConnection } from "./utils/conn";
 import {
   addTab,
   closeTab,
+  closeOtherTabs,
   cycleTab,
   updateTabSql,
   activeTab,
   type TabState,
 } from "./utils/tabs";
+import { openContextMenu, type MenuItem } from "./utils/contextMenu";
+import { rowToTsv, rowToJson, copyText } from "./utils/rowCopy";
 import {
   loadTheme,
   saveTheme,
@@ -59,6 +62,7 @@ import {
   fileNameFor,
   type ExportFormat,
 } from "./utils/exporters";
+import { saveText } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
@@ -68,6 +72,7 @@ import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
+import { ContextMenu } from "./components/ContextMenu";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
@@ -234,8 +239,19 @@ export function App() {
     };
     document.addEventListener("keydown", onKey);
 
+    // Suppress the native WebView2/Chromium context menu everywhere. We ONLY
+    // preventDefault here — we must not close our menu, because Solid delegates
+    // `contextmenu` to the document, so this listener shares the node with the
+    // surface handlers that just opened a menu (stopPropagation there does not
+    // stop a same-node listener). Closing on an outside click is handled by the
+    // ContextMenu's own mousedown listener, which fires before this on any
+    // right-click (mousedown precedes contextmenu).
+    const onNativeMenu = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", onNativeMenu);
+
     onCleanup(() => {
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("contextmenu", onNativeMenu);
       mql?.removeEventListener?.("change", onSystemChange);
     });
   });
@@ -570,27 +586,54 @@ export function App() {
   };
 
   // --- Export (issue #30) ------------------------------------------------
-  // Trigger a browser download of a text blob (the webview honors it). Client-
-  // side by design; see the M8 decision in the progress notes / docs.
-  const downloadText = (filename: string, content: string, mime: string) => {
-    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
+  // Save the result as text. saveText prefers a native "Guardar como" dialog
+  // (File System Access API in the webview) and falls back to a browser
+  // download where unavailable. Client-side by design; see the M8 decision.
   const doExport = (format: ExportFormat) => {
     const res = currentResult().result;
     if (!res || res.columns.length === 0) return;
     const src = currentResult().source;
     const base = src?.table ?? current()?.title ?? "export";
     const text = exportResult(res, format, src?.table ?? "exported");
-    downloadText(fileNameFor(base, format), text, mimeFor(format));
+    void saveText(fileNameFor(base, format), text, mimeFor(format));
+  };
+
+  // Right-click on a result cell: copy the cell / row / row-as-JSON, and export
+  // the loaded result. Built here because the workspace owns the result + the
+  // exporters; the grid just forwards the click position and indices.
+  const onCellContext = (e: MouseEvent, rowIndex: number, colIndex: number) => {
+    const res = currentResult().result;
+    if (!res) return;
+    const row = res.rows[rowIndex];
+    const items: MenuItem[] = [];
+    if (row) {
+      const cell = row[colIndex];
+      items.push({ label: "Copiar celda", action: () => copyText(cell ?? "") });
+      items.push({ label: "Copiar fila", action: () => copyText(rowToTsv(row)) });
+      items.push({
+        label: "Copiar fila como JSON",
+        action: () => copyText(rowToJson(res.columns, row)),
+      });
+      items.push({ separator: true });
+    }
+    items.push({ label: "Exportar CSV", action: () => doExport("csv") });
+    items.push({ label: "Exportar JSON", action: () => doExport("json") });
+    items.push({ label: "Exportar SQL", action: () => doExport("sql") });
+    openContextMenu(e, items);
+  };
+
+  // Right-click on a tab.
+  const tabMenu = (e: MouseEvent, id: number) => {
+    openContextMenu(e, [
+      { label: "Cerrar", action: () => setTabs((s) => closeTab(s, id)) },
+      {
+        label: "Cerrar las demás",
+        action: () => setTabs((s) => closeOtherTabs(s, id)),
+        disabled: tabs().tabs.length < 2,
+      },
+      { separator: true },
+      { label: "Nueva consulta", action: newTab },
+    ]);
   };
 
   // Open a table's structure (columns + DDL) in a modal.
@@ -639,6 +682,9 @@ export function App() {
                 onOpenStructure={openStructure}
                 reloadKey={treeReload()}
                 onRefresh={refreshAll}
+                onImport={(node) =>
+                  setImportTarget({ table: node.label, db: node.db, schema: node.schema })
+                }
               />
             </div>
           </Show>
@@ -653,6 +699,7 @@ export function App() {
                 <div
                   class={`tab ${tab.id === tabs().activeId ? "active" : ""}`}
                   onClick={() => selectTab(tab.id)}
+                  onContextMenu={(e) => tabMenu(e, tab.id)}
                 >
                   <span class="tab-title">{tab.title}</span>
                   <button
@@ -814,6 +861,7 @@ export function App() {
                     result={currentResult().result}
                     loading={currentResult().loading}
                     error={currentResult().error}
+                    onCellContext={onCellContext}
                     edit={
                       currentEditable()
                         ? {
@@ -947,6 +995,8 @@ export function App() {
           onApplied={() => setTreeReload((n) => n + 1)}
         />
       </Show>
+
+      <ContextMenu />
     </div>
   );
 }

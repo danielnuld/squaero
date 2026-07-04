@@ -50,6 +50,18 @@ export function closeTab(state: TabState, id: number): TabState {
   return { tabs, activeId };
 }
 
+/**
+ * Closes every tab except `id`, which becomes the only (and active) tab. A
+ * no-op when `id` is unknown. Used by the tab context menu ("Cerrar las demás").
+ */
+export function closeOtherTabs(state: TabState, id: number): TabState {
+  const keep = state.tabs.find((t) => t.id === id);
+  if (!keep) {
+    return state;
+  }
+  return { tabs: [keep], activeId: id };
+}
+
 /** Replaces the SQL text of the tab with `id` (no-op if not found). */
 export function updateTabSql(state: TabState, id: number, sql: string): TabState {
   return {

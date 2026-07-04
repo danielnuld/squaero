@@ -77,6 +77,28 @@ describe("ConnectionForm validation", () => {
   });
 });
 
+describe("ConnectionForm tabs", () => {
+  const visibleFieldLabels = () =>
+    [...host!.querySelectorAll(".field > span")].map((s) => s.textContent ?? "");
+
+  it("shows no tab bar for a driver without groups (sqlite)", () => {
+    mount({});
+    expect(host!.querySelector(".form-tabs")).toBeNull();
+  });
+
+  it("splits grouped fields behind tabs and only renders the active tab", () => {
+    mount({ initial: { id: "c", name: "", driver: "mysql", params: {} } });
+    // A tab bar appears (mysql declares SSL + SSH groups).
+    expect(host!.querySelector(".form-tabs")).not.toBeNull();
+    // General tab is active: base fields shown, SSH/SSL fields hidden.
+    expect(visibleFieldLabels().some((l) => l.startsWith("Host"))).toBe(true);
+    expect(visibleFieldLabels().some((l) => l.startsWith("Host SSH"))).toBe(false);
+    // Switch to the SSH tab -> SSH fields appear, base fields gone.
+    clickText("Túnel SSH");
+    expect(visibleFieldLabels().some((l) => l.startsWith("Host SSH"))).toBe(true);
+  });
+});
+
 describe("ConnectionForm test-connection feedback", () => {
   it("renders an actionable message when the test fails", async () => {
     const onTest = () => Promise.reject(new QueryError("refused", -32000));

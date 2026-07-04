@@ -37,6 +37,8 @@ export function ResultGrid(props: {
   onNeedMore?: () => void;
   /** Edit hooks; when active, cells are editable. */
   edit?: GridEdit;
+  /** Right-click on a data cell; the workspace builds the copy/export menu. */
+  onCellContext?: (e: MouseEvent, rowIndex: number, colIndex: number) => void;
 }) {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
@@ -166,6 +168,9 @@ export function ResultGrid(props: {
                                           class={`grid-cell cell-${cell.kind}`}
                                           style={{ "text-align": cellAlign(cell.kind) }}
                                           title={cell.text}
+                                          onContextMenu={(e) =>
+                                            props.onCellContext?.(e, rowIndex(), ci())
+                                          }
                                         >
                                           {cell.text}
                                         </div>
@@ -182,6 +187,9 @@ export function ResultGrid(props: {
                                           col.name,
                                           e.currentTarget.value,
                                         )
+                                      }
+                                      onContextMenu={(e) =>
+                                        props.onCellContext?.(e, rowIndex(), ci())
                                       }
                                     />
                                   </Show>

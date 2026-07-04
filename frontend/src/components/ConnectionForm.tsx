@@ -39,9 +39,31 @@ export function ConnectionForm(props: {
   const schema = () => driverSchema(draft.driver);
   const errors = createMemo(() => fieldErrors(draft));
 
+  // Fields are split across tabs so the form is not one long scroll: base
+  // (ungrouped) fields live under "General"; each declared group (SSL, SSH…)
+  // becomes its own tab. Tabs only appear when a driver actually has groups.
+  const GENERAL = "General";
+  const groups = createMemo(() => {
+    const gs: string[] = [];
+    for (const f of schema()?.fields ?? []) {
+      if (f.group && !gs.includes(f.group)) gs.push(f.group);
+    }
+    return gs;
+  });
+  const tabNames = createMemo(() => [GENERAL, ...groups()]);
+  const [activeFormTab, setActiveFormTab] = createSignal(GENERAL);
+  const fieldsFor = (tab: string) =>
+    (schema()?.fields ?? []).filter((f) =>
+      tab === GENERAL ? !f.group : f.group === tab,
+    );
+  // Whether a tab has any field currently in error (to flag it once errors show).
+  const tabHasError = (tab: string) =>
+    fieldsFor(tab).some((f) => errors().params[f.key]);
+
   const selectDriver = (driver: string) => {
     setDraft({ driver, params: {} });
     setTest({ kind: "idle" });
+    setActiveFormTab(GENERAL);
   };
 
   const snapshot = (): Connection => ({ ...draft, params: { ...draft.params } });
@@ -107,50 +129,68 @@ export function ConnectionForm(props: {
           </select>
         </label>
 
-        <Show when={schema()}>
-          {(s) => (
-            <For each={s().fields}>
-              {(field, i) => (
-                <>
-                  <Show when={field.group && field.group !== s().fields[i() - 1]?.group}>
-                    <h3 class="field-group">{field.group}</h3>
-                  </Show>
-                  <label class="field">
-                    <span>
-                      {field.label}
-                      {field.required ? " *" : ""}
+        <Show when={groups().length > 0}>
+          <div class="form-tabs" role="tablist">
+            <For each={tabNames()}>
+              {(name) => (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeFormTab() === name}
+                  class={`form-tab ${activeFormTab() === name ? "active" : ""} ${
+                    showErrors() && tabHasError(name) ? "has-error" : ""
+                  }`}
+                  onClick={() => setActiveFormTab(name)}
+                >
+                  {name}
+                  <Show when={showErrors() && tabHasError(name)}>
+                    <span class="form-tab-dot" aria-label="Campos con errores">
+                      ●
                     </span>
-                    <Show
-                      when={field.type === "select"}
-                      fallback={
-                        <input
-                          type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
-                          class={
-                            showErrors() && errors().params[field.key] ? "input-invalid" : ""
-                          }
-                          value={draft.params[field.key] ?? ""}
-                          placeholder={field.placeholder ?? ""}
-                          onInput={(e) => setDraft("params", field.key, e.currentTarget.value)}
-                        />
-                      }
-                    >
-                      <select
-                        value={draft.params[field.key] ?? ""}
-                        onChange={(e) => setDraft("params", field.key, e.currentTarget.value)}
-                      >
-                        <For each={field.options ?? []}>
-                          {(opt) => <option value={opt.value}>{opt.label}</option>}
-                        </For>
-                      </select>
-                    </Show>
-                    <Show when={showErrors() && errors().params[field.key]}>
-                      <span class="field-error">{errors().params[field.key]}</span>
-                    </Show>
-                  </label>
-                </>
+                  </Show>
+                </button>
               )}
             </For>
-          )}
+          </div>
+        </Show>
+
+        <Show when={schema()}>
+          <For each={fieldsFor(activeFormTab())}>
+            {(field) => (
+              <label class="field">
+                <span>
+                  {field.label}
+                  {field.required ? " *" : ""}
+                </span>
+                <Show
+                  when={field.type === "select"}
+                  fallback={
+                    <input
+                      type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
+                      class={
+                        showErrors() && errors().params[field.key] ? "input-invalid" : ""
+                      }
+                      value={draft.params[field.key] ?? ""}
+                      placeholder={field.placeholder ?? ""}
+                      onInput={(e) => setDraft("params", field.key, e.currentTarget.value)}
+                    />
+                  }
+                >
+                  <select
+                    value={draft.params[field.key] ?? ""}
+                    onChange={(e) => setDraft("params", field.key, e.currentTarget.value)}
+                  >
+                    <For each={field.options ?? []}>
+                      {(opt) => <option value={opt.value}>{opt.label}</option>}
+                    </For>
+                  </select>
+                </Show>
+                <Show when={showErrors() && errors().params[field.key]}>
+                  <span class="field-error">{errors().params[field.key]}</span>
+                </Show>
+              </label>
+            )}
+          </For>
         </Show>
 
         <Show when={test().kind === "ok"}>

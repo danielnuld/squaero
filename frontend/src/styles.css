@@ -45,11 +45,46 @@
   box-sizing: border-box;
 }
 
+/* Themed, always-visible scrollbars. WebView2/Chromium renders overlay
+   scrollbars that stay hidden until you actively scroll, so a scrollable region
+   (the object tree, the result grid) gave no visual cue it had more content —
+   this is what made the sidebar "scroll not show". Defining ::-webkit-scrollbar
+   opts into classic (gutter-taking, always-visible) scrollbars. We must NOT also
+   set the standard `scrollbar-width`/`scrollbar-color`: when present Chromium
+   uses those and ignores the ::-webkit-scrollbar pseudo-elements, falling back
+   to the auto-hiding overlay. So webkit pseudo-elements only. */
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+  border-width: 2px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
+  /* The app is a fixed full-height desktop shell: only its inner panes scroll.
+     The page itself must never scroll or rubber-band — without this, scrolling
+     inside a pane chained to the document and slid the whole interface. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -78,7 +113,11 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  overflow: auto;
+  /* The sidebar itself must NOT scroll: the object tree below is virtualized and
+     owns its own bounded scroller (.objtree-scroll). A second scroll here fought
+     the tree's virtual scroller, so its scrollbar never matched the real content
+     length. Clip here and let the inner regions scroll. */
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -93,6 +132,11 @@ body {
 
 .sidebar-body {
   padding: 0.8rem;
+  /* Scroll the connection list on its own if it grows tall, so it never squeezes
+     the object tree out of the sidebar (which is now overflow:hidden). */
+  overflow: auto;
+  flex-shrink: 0;
+  max-height: 45%;
 }
 
 .sidebar-hint {
@@ -235,6 +279,57 @@ body {
   background: color-mix(in srgb, var(--accent) 28%, transparent) !important;
 }
 
+/* Theme the autocomplete popup (issue #110) from the app palette. CodeMirror
+   renders the tooltip in its own layer (often portaled outside .editor) with a
+   light base theme injected at runtime, so these are global + !important to win.
+   Without this the completion list stayed white-on-white in dark mode. */
+.cm-tooltip.cm-tooltip-autocomplete {
+  background: var(--bg-elev2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  color: var(--text) !important;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.cm-tooltip-autocomplete > ul > li {
+  color: var(--text) !important;
+  padding: 2px 6px;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+.cm-completionLabel {
+  color: inherit;
+}
+
+.cm-completionMatchedText {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionMatchedText {
+  color: #fff;
+}
+
+.cm-completionDetail {
+  color: var(--text-dim);
+  font-style: normal;
+  margin-left: 0.5rem;
+}
+
+/* The info panel shown beside a highlighted completion. */
+.cm-tooltip.cm-completionInfo {
+  background: var(--bg-elev2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
 .editor-hint {
   display: flex;
   align-items: center;
@@ -272,6 +367,8 @@ body {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  /* Keep an over-scroll at the grid boundary from chaining to the page. */
+  overscroll-behavior: contain;
 }
 
 .grid-inner {
@@ -366,6 +463,62 @@ body {
   color: var(--null);
   background: var(--bg-elev);
   border-top: 1px solid var(--border);
+}
+
+/* Context menu (custom right-click menu; the native one is suppressed). */
+.context-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.context-menu-item:disabled {
+  color: var(--text-dim);
+  cursor: default;
+  opacity: 0.7;
+}
+
+.context-menu-item.danger {
+  color: var(--error);
+}
+
+.context-menu-item.danger:hover:not(:disabled) {
+  background: var(--error);
+  color: #fff;
+}
+
+.context-menu-sep {
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--border);
 }
 
 /* Status bar */
@@ -573,6 +726,47 @@ kbd {
   font-size: 16px;
 }
 
+/* Connection-form tabs (General / SSL / SSH): keep the form short instead of one
+   long scroll. Only shown when the driver declares grouped fields. */
+.form-tabs {
+  display: flex;
+  gap: 0.2rem;
+  margin: 0.2rem 0 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 0.4rem 0.7rem;
+  margin-bottom: -1px;
+}
+
+.form-tab:hover {
+  color: var(--text);
+}
+
+.form-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.form-tab.has-error {
+  color: var(--error);
+}
+
+.form-tab-dot {
+  color: var(--error);
+  font-size: 8px;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -734,6 +928,7 @@ kbd {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .objtree-spacer {

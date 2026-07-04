@@ -3,6 +3,7 @@ import {
   nextTabId,
   addTab,
   closeTab,
+  closeOtherTabs,
   updateTabSql,
   activeTab,
   type TabState,
@@ -65,6 +66,20 @@ describe("closeTab", () => {
   it("empties out when closing the last tab", () => {
     const s = addTab(empty);
     expect(closeTab(s, s.activeId)).toEqual({ tabs: [], activeId: 0 });
+  });
+});
+
+describe("closeOtherTabs", () => {
+  it("keeps only the given tab and makes it active", () => {
+    let s = addTab(addTab(addTab(empty))); // tabs 1,2,3, active 3
+    s = closeOtherTabs(s, 2);
+    expect(s.tabs.map((t) => t.id)).toEqual([2]);
+    expect(s.activeId).toBe(2);
+  });
+
+  it("is a no-op for an unknown id", () => {
+    const s = addTab(addTab(empty));
+    expect(closeOtherTabs(s, 999)).toEqual(s);
   });
 });
 
