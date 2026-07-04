@@ -11,40 +11,9 @@ import {
   parseConnections,
   type Connection,
 } from "./connections";
+import { resolveStore } from "./kvStore";
 
 const STORAGE_KEY = "quaero.connections";
-
-interface KeyValueStore {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
-
-// In-memory fallback used when localStorage is unavailable or throws.
-const memoryStore = (): KeyValueStore => {
-  let value: string | null = null;
-  return {
-    getItem: () => value,
-    setItem: (_k, v) => {
-      value = v;
-    },
-  };
-};
-
-function resolveStore(): KeyValueStore {
-  try {
-    const ls = globalThis.localStorage;
-    if (ls) {
-      // Probe: some webviews expose localStorage but throw on access.
-      const probe = "__quaero_probe__";
-      ls.setItem(probe, "1");
-      ls.removeItem(probe);
-      return ls;
-    }
-  } catch {
-    /* fall through to memory */
-  }
-  return memoryStore();
-}
 
 const store = resolveStore();
 

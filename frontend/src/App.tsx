@@ -37,6 +37,13 @@ import {
   type Connection,
 } from "./utils/connections";
 import { loadConnections, saveConnections } from "./utils/connectionStore";
+import { addHistory, clampLimit, type HistoryEntry } from "./utils/history";
+import {
+  loadHistory,
+  saveHistory,
+  loadHistoryLimit,
+  saveHistoryLimit,
+} from "./utils/historyStore";
 import { quoteIdentifier, schemaDescribe } from "./utils/schema";
 import {
   describePkColumns,
@@ -79,6 +86,7 @@ import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
+import { HistoryPanel } from "./components/HistoryPanel";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -154,6 +162,11 @@ export function App() {
   const [transferOpen, setTransferOpen] = createSignal(false);
   const [createTable, setCreateTable] = createSignal<{ container?: string } | null>(null);
   const [treeReload, setTreeReload] = createSignal(0);
+
+  // --- Query history (issue #128) ----------------------------------------
+  const [history, setHistory] = createSignal<HistoryEntry[]>(loadHistory());
+  const [historyLimit, setHistoryLimit] = createSignal(loadHistoryLimit());
+  const [historyOpen, setHistoryOpen] = createSignal(false);
 
   // --- Theme, shortcuts, help (issue #42) --------------------------------
   const safeStorage = (): Storage | undefined => {
@@ -316,6 +329,35 @@ export function App() {
   const onEditorChange = (id: number, sql: string) =>
     setTabs((s) => updateTabSql(s, id, sql));
 
+  // --- Query history actions (issue #128) --------------------------------
+  // Re-run a stored query in a fresh tab so the current one is preserved.
+  const runFromHistory = (sql: string) => {
+    let newId = 0;
+    setTabs((s) => {
+      const added = addTab(s);
+      newId = added.activeId;
+      return updateTabSql(added, newId, sql);
+    });
+    void run(sql);
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    saveHistory([]);
+  };
+
+  const changeHistoryLimit = (n: number) => {
+    const cap = clampLimit(n); // keep signal, in-memory purge and storage in sync
+    setHistoryLimit(cap);
+    saveHistoryLimit(cap);
+    // Apply the new cap immediately by purging the current log.
+    setHistory((list) => {
+      const next = list.slice(0, cap);
+      saveHistory(next);
+      return next;
+    });
+  };
+
   // --- Connection management (issue #16) ---------------------------------
   const persist = (list: Connection[]) => {
     setConnections(list);
@@ -388,6 +430,22 @@ export function App() {
     }
   };
 
+  // Record an executed query in the client-side history (issue #128), collapsing
+  // immediate repeats and purging past the configured limit, then persist.
+  const recordHistory = (sql: string, conn: ActiveConnection) => {
+    const entry: HistoryEntry = {
+      sql,
+      ts: Date.now(),
+      connId: activeDefId() ?? "",
+      connName: conn.name,
+    };
+    setHistory((list) => {
+      const next = addHistory(list, entry, historyLimit());
+      saveHistory(next);
+      return next;
+    });
+  };
+
   const run = async (sql: string, scope: RunScope = "document") => {
     const tab = current();
     if (!tab) return;
@@ -405,6 +463,7 @@ export function App() {
       });
       return;
     }
+    recordHistory(trimmed, conn);
     setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
     const started = performance.now();
     try {
@@ -799,6 +858,13 @@ export function App() {
                     >
                       Plan
                     </button>
+                    <button
+                      class="status-btn"
+                      title="Historial de consultas"
+                      onClick={() => setHistoryOpen(true)}
+                    >
+                      Historial
+                    </button>
                     <span class="editor-hint-spacer" />
                     <span>Ctrl/Cmd + Enter para ejecutar</span>
                   </div>
@@ -945,6 +1011,17 @@ export function App() {
 
       <Show when={helpOpen()}>
         <ShortcutsHelp isMac={isMac()} onClose={() => setHelpOpen(false)} />
+      </Show>
+
+      <Show when={historyOpen()}>
+        <HistoryPanel
+          entries={history()}
+          limit={historyLimit()}
+          onRun={runFromHistory}
+          onClear={clearHistory}
+          onChangeLimit={changeHistoryLimit}
+          onClose={() => setHistoryOpen(false)}
+        />
       </Show>
 
       <Show when={editing()}>

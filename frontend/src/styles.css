@@ -874,6 +874,108 @@ kbd {
   color: #fff;
 }
 
+.modal-actions button.danger {
+  color: var(--danger, #e5484d);
+}
+
+.modal-actions button.danger:hover:not(:disabled) {
+  border-color: var(--danger, #e5484d);
+}
+
+.modal-actions button.danger:first-child {
+  margin-right: auto; /* push Cerrar to the right */
+}
+
+/* Query history panel (issue #128) */
+.history {
+  width: min(680px, 94vw);
+}
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.history-search {
+  flex: 1;
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+}
+
+.history-limit {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.history-limit input {
+  width: 5rem;
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.history-item + .history-item {
+  border-top: 1px solid var(--border);
+}
+
+.history-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+}
+
+.history-run:hover {
+  background: var(--bg-elev2);
+}
+
+.history-sql {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 4.5em;
+  overflow: hidden;
+}
+
+.history-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.history-empty {
+  color: var(--text-dim);
+  padding: 1rem 0.2rem;
+  text-align: center;
+}
+
 /* Object tree (sidebar) */
 .sidebar-tree {
   flex: 1;
