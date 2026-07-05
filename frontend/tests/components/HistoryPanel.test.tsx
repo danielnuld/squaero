@@ -24,10 +24,8 @@ function mount(props: Partial<Parameters<typeof HistoryPanel>[0]> = {}) {
   document.body.appendChild(host);
   const full = {
     entries,
-    limit: 200,
     onRun: () => {},
     onClear: () => {},
-    onChangeLimit: () => {},
     onClose: () => {},
     ...props,
   };
@@ -62,15 +60,6 @@ describe("HistoryPanel", () => {
     (host!.querySelector(".history-run") as HTMLButtonElement).click();
     expect(onRun).toHaveBeenCalledWith("SELECT * FROM orders");
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it("clamps and reports a changed limit", () => {
-    const onChangeLimit = vi.fn();
-    mount({ onChangeLimit });
-    const input = host!.querySelector(".history-limit input") as HTMLInputElement;
-    input.value = "1"; // below MIN -> clamped to 10
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(onChangeLimit).toHaveBeenCalledWith(10);
   });
 
   it("clears the history when the danger button is clicked with entries", () => {

@@ -12,6 +12,7 @@
     "noEmit": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true
   },
   "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"]

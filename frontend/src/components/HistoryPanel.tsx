@@ -1,23 +1,15 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
-import {
-  searchHistory,
-  clampLimit,
-  MIN_HISTORY_LIMIT,
-  MAX_HISTORY_LIMIT,
-  type HistoryEntry,
-} from "../utils/history";
+import { searchHistory, type HistoryEntry } from "../utils/history";
 
 // Query-history panel (issue #128): search executed queries and re-run one in a
-// new tab. Filtering is pure (searchHistory); the configurable limit and the
-// clear action are lifted to the workspace, which owns persistence. Opened from
-// the editor bar, closed by Escape / clicking away (Modal).
+// new tab. Filtering is pure (searchHistory); the clear action is lifted to the
+// workspace, which owns persistence. The saved-entry limit is now configured in
+// the Settings panel (issue #181), not here. Opened from the editor bar.
 export function HistoryPanel(props: {
   entries: HistoryEntry[];
-  limit: number;
   onRun: (sql: string) => void;
   onClear: () => void;
-  onChangeLimit: (n: number) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = createSignal("");
@@ -41,16 +33,6 @@ export function HistoryPanel(props: {
           onInput={(e) => setQuery(e.currentTarget.value)}
           autofocus
         />
-        <label class="history-limit" title="Máximo de consultas guardadas">
-          Límite
-          <input
-            type="number"
-            min={MIN_HISTORY_LIMIT}
-            max={MAX_HISTORY_LIMIT}
-            value={props.limit}
-            onChange={(e) => props.onChangeLimit(clampLimit(Number(e.currentTarget.value)))}
-          />
-        </label>
       </div>
 
       <Show

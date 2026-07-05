@@ -11,7 +11,7 @@ import {
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
 
-const ROW_HEIGHT = 28;
+const DEFAULT_ROW_HEIGHT = 28;
 const COL_WIDTH = 180;
 const ACTION_WIDTH = 36;
 
@@ -46,7 +46,11 @@ export function ResultGrid(props: {
   edit?: GridEdit;
   /** Right-click on a data cell; the workspace builds the copy/export menu. */
   onCellContext?: (e: MouseEvent, rowIndex: number, colIndex: number) => void;
+  /** Row height in px (grid density, issue #181). Drives both the virtualization
+      math and the cell CSS (via the --grid-row-h var) so they never diverge. */
+  rowHeight?: number;
 }) {
+  const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
 
@@ -103,7 +107,7 @@ export function ResultGrid(props: {
     visibleRange({
       scrollTop: scrollTop(),
       viewportHeight: viewportH(),
-      rowHeight: ROW_HEIGHT,
+      rowHeight: rowHeight(),
       rowCount: view().length,
     });
 
@@ -137,6 +141,7 @@ export function ResultGrid(props: {
             <div
               class="grid-scroll"
               ref={attachScroller}
+              style={{ "--grid-row-h": `${rowHeight()}px` }}
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
             >
               <div class="grid-inner">

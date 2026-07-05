@@ -24,6 +24,7 @@ export type ToolKind =
   | "queryBuilder"
   | "routines"
   | "triggers"
+  | "settings"
   | "help";
 
 /** A SQL query editor tab. */

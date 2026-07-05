@@ -66,6 +66,8 @@ import {
   type Snippet,
 } from "./utils/snippets";
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
+import { rowHeightFor, type Settings } from "./utils/settings";
+import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { quoteIdentifier, schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
@@ -100,6 +102,7 @@ import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -226,6 +229,17 @@ export function App() {
   // --- Favorites / snippets (issue #129) ---------------------------------
   const [snippets, setSnippets] = createSignal<Snippet[]>(loadSnippets());
   const [snippetInsert, setSnippetInsert] = createSignal({ text: "", tick: 0 });
+
+  // --- User preferences (issue #181) -------------------------------------
+  // Theme (above) and the history limit (below) keep their own stores; this
+  // holds only the settings owned by settings.ts (grid density, slow threshold,
+  // check-updates-on-start). Patched immutably so the panel stays controlled.
+  const [settings, setSettings] = createSignal<Settings>(loadSettings());
+  const patchSettings = (patch: Partial<Settings>) => {
+    const next = { ...settings(), ...patch };
+    setSettings(next);
+    saveSettings(next);
+  };
 
   // --- Theme, shortcuts, help (issue #42) --------------------------------
   const safeStorage = (): Storage | undefined => {
@@ -1375,6 +1389,7 @@ export function App() {
                         result={currentResult().result}
                         loading={currentResult().loading}
                         error={currentResult().error}
+                        rowHeight={rowHeightFor(settings().gridDensity)}
                         onCellContext={onCellContext}
                         edit={
                           currentEditable()
@@ -1553,10 +1568,8 @@ export function App() {
                 <Match when={tt().tool === "history"}>
                   <HistoryPanel
                     entries={history()}
-                    limit={historyLimit()}
                     onRun={runFromHistory}
                     onClear={clearHistory}
-                    onChangeLimit={changeHistoryLimit}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -1630,6 +1643,17 @@ export function App() {
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
+                <Match when={tt().tool === "settings"}>
+                  <SettingsPanel
+                    theme={theme()}
+                    onSetTheme={applyThemePref}
+                    historyLimit={historyLimit()}
+                    onSetHistoryLimit={changeHistoryLimit}
+                    settings={settings()}
+                    onSetSettings={patchSettings}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
                 <Match when={tt().tool === "help"}>
                   <ShortcutsHelp isMac={isMac()} onClose={() => closeTool(tt().id)} />
                 </Match>
@@ -1653,6 +1677,7 @@ export function App() {
         theme={theme()}
         onToggleTheme={toggleTheme}
         onShowHelp={() => showTool("help", "Atajos de teclado", { key: "help" })}
+        onShowSettings={() => showTool("settings", "Ajustes", { key: "settings" })}
       />
 
       <ContextMenu />

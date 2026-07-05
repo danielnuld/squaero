@@ -511,8 +511,8 @@ body {
 }
 
 .grid-cell {
-  height: 28px;
-  line-height: 28px;
+  height: var(--grid-row-h, 28px);
+  line-height: var(--grid-row-h, 28px);
   padding: 0 0.6rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2512,4 +2512,105 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .sidebar-db .map-select {
   width: 100%;
+}
+
+/* Settings + About panel (issue #181) */
+.settings-body {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.settings-section h3 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.35rem;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 28px;
+}
+
+.settings-label {
+  flex: 1;
+  font-size: 13px;
+}
+
+.settings-row input[type="number"] {
+  width: 7rem;
+}
+
+.settings-check {
+  cursor: pointer;
+}
+
+.settings-check input {
+  flex: 0 0 auto;
+}
+
+.settings-check .settings-label {
+  flex: 1;
+}
+
+.settings-choice {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.settings-about {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0;
+  font-size: 13px;
+}
+
+.settings-about dt {
+  color: var(--text-dim);
+}
+
+.settings-about dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.settings-links {
+  display: flex;
+  gap: 1.2rem;
+  margin-top: 0.6rem;
+  font-size: 13px;
 }

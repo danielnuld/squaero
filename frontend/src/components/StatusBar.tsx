@@ -15,6 +15,7 @@ export function StatusBar(props: {
   theme: ThemePref;
   onToggleTheme: () => void;
   onShowHelp: () => void;
+  onShowSettings: () => void;
 }) {
   return (
     <footer class="statusbar">
@@ -44,6 +45,14 @@ export function StatusBar(props: {
         onClick={props.onToggleTheme}
       >
         {themeIcon(props.theme)}
+      </button>
+      <button
+        class="status-btn"
+        title="Ajustes"
+        aria-label="Ajustes"
+        onClick={props.onShowSettings}
+      >
+        ⚙
       </button>
       <button
         class="status-btn"
