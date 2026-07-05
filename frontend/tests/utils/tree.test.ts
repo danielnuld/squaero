@@ -6,6 +6,8 @@ import {
   toggleExpanded,
   flattenTree,
   groupObjectsByType,
+  lazyObjectFolders,
+  objectLeafNodes,
   type TreeNode,
 } from "../../src/utils/tree";
 
@@ -36,6 +38,65 @@ describe("groupObjectsByType", () => {
 
   it("group folders are expandable", () => {
     expect(isExpandable("group")).toBe(true);
+  });
+});
+
+describe("lazyObjectFolders", () => {
+  it("builds lazy folder nodes for MySQL under a database", () => {
+    const folders = lazyObjectFolders("db:shop", "shop", undefined, "mysql");
+    expect(folders.map((f) => f.label)).toEqual([
+      "Procedimientos",
+      "Funciones",
+      "Triggers",
+      "Eventos",
+    ]);
+    expect(folders.every((f) => f.kind === "group" && f.lazy === true)).toBe(true);
+    expect(folders[0].key).toBe("db:shop/grp:procedure");
+  });
+
+  it("is empty for engines without database-level object folders", () => {
+    expect(lazyObjectFolders("db:x", "x", undefined, "postgres")).toEqual([]);
+  });
+
+  it("lazy folders are expandable (so they can fetch on expand)", () => {
+    const [f] = lazyObjectFolders("db:s", "s", undefined, "sqlite");
+    expect(isExpandable(f.kind)).toBe(true);
+  });
+});
+
+describe("objectLeafNodes", () => {
+  it("maps leaves to routine/trigger/event nodes with catalog identity", () => {
+    const nodes = objectLeafNodes("db:s/grp:procedure", "s", undefined, [
+      { name: "add_user", groupKind: "procedure", type: "PROCEDURE", id: "9" },
+      { name: "trg", groupKind: "trigger", table: "orders" },
+      { name: "ev", groupKind: "event" },
+    ]);
+    expect(nodes[0]).toMatchObject({
+      key: "db:s/grp:procedure/procedure:add_user:9", // id folded in (overloads)
+      kind: "routine",
+      objType: "PROCEDURE",
+      objId: "9",
+    });
+    expect(nodes[1]).toMatchObject({ kind: "trigger", objTable: "orders" });
+    expect(nodes[2].kind).toBe("event");
+  });
+
+  it("keeps keys unique for overloaded routines sharing a name (id in the key)", () => {
+    // Informix overloads by signature: same procname, distinct procid.
+    const nodes = objectLeafNodes("db:s/grp:procedure", "s", undefined, [
+      { name: "calc", groupKind: "procedure", id: "7" },
+      { name: "calc", groupKind: "procedure", id: "8" },
+    ]);
+    expect(nodes[0].key).not.toBe(nodes[1].key);
+    expect(nodes[0].key).toContain(":7");
+    expect(nodes[1].key).toContain(":8");
+  });
+
+  it("threads an inline DDL (SQLite trigger) into the leaf node", () => {
+    const nodes = objectLeafNodes("db:m/grp:trigger", "m", undefined, [
+      { name: "trg", groupKind: "trigger", table: "t", def: "CREATE TRIGGER trg ..." },
+    ]);
+    expect(nodes[0].objDef).toBe("CREATE TRIGGER trg ...");
   });
 });
 

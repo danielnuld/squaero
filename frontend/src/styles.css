@@ -1321,6 +1321,10 @@ kbd {
 .objtree-badge.kind-schema { background: #8fb8e0; }
 .objtree-badge.kind-table { background: var(--number); }
 .objtree-badge.kind-view { background: #e0c890; }
+/* Routine/trigger/event leaves (listed on demand, #135 phase 2). */
+.objtree-badge.kind-routine { background: #a0d0b0; text-transform: none; }
+.objtree-badge.kind-trigger { background: #e0a890; text-transform: none; }
+.objtree-badge.kind-event { background: #90c8d0; text-transform: none; }
 /* Type folder (Tablas/Vistas): a neutral count chip. */
 .objtree-badge.kind-group {
   background: var(--text-dim);

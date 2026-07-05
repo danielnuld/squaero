@@ -8,6 +8,7 @@ import {
   type RoutineRef,
   type RoutineType,
 } from "../utils/routines";
+import { readDefinitionText } from "../utils/treeObjects";
 import { Panel } from "./Panel";
 
 // Stored procedures / functions explorer (issue #137): lists the routines of the
@@ -109,14 +110,9 @@ export function RoutineExplorer(props: {
     try {
       const res = await runQuery(connId, q.sql);
       if (token !== defToken || props.connId !== connId) return; // superseded
-      const ci = res.columns.findIndex(
-        (c) => c.name.toLowerCase() === q.column.toLowerCase(),
+      setDefinition(
+        readDefinitionText(res.columns.map((c) => c.name), res.rows, q.column, q.concatRows),
       );
-      const idx = ci >= 0 ? ci : 0;
-      const text = q.concatRows
-        ? res.rows.map((r) => r[idx] ?? "").join("")
-        : (res.rows[0]?.[idx] ?? "");
-      setDefinition(text);
     } catch (err) {
       if (token !== defToken || props.connId !== connId) return;
       setError(errorText(err));

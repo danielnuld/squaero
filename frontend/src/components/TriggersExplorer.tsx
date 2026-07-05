@@ -8,6 +8,7 @@ import {
   type ObjectKind,
   type ObjectRef,
 } from "../utils/triggers";
+import { readDefinitionText } from "../utils/treeObjects";
 import { Panel } from "./Panel";
 
 // Triggers / events explorer (issue #138): lists a database's triggers (and, on
@@ -117,14 +118,9 @@ export function TriggersExplorer(props: {
     try {
       const res = await runQuery(connId, query.sql);
       if (token !== defToken || props.connId !== connId) return; // superseded
-      const ci = res.columns.findIndex(
-        (c) => c.name.toLowerCase() === query.column.toLowerCase(),
+      setDefinition(
+        readDefinitionText(res.columns.map((c) => c.name), res.rows, query.column, query.concatRows),
       );
-      const idx = ci >= 0 ? ci : 0;
-      const text = query.concatRows
-        ? res.rows.map((r) => r[idx] ?? "").join("")
-        : (res.rows[0]?.[idx] ?? "");
-      setDefinition(text);
     } catch (err) {
       if (token !== defToken || props.connId !== connId) return;
       setError(errorText(err));

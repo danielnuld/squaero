@@ -5,10 +5,12 @@
 // as the grid (.rules/frontend.md §2: no tree nodes outside the viewport).
 
 import type { NodeKind } from "./schema";
+import { objectFolders, type ObjectGroupKind, type ObjectLeaf } from "./treeObjects";
 
-/** Tree node kinds, including the UI-only "group" (a Tablas/Vistas folder that
-    groups leaf objects by type — it is never returned by the core). */
-export type TreeNodeKind = NodeKind | "group";
+/** Tree node kinds. Besides the core kinds, the UI adds "group" (a Tablas/Vistas/
+    Procedimientos/… folder) and the routine/trigger/event leaves listed on demand
+    via query.run (issue #135 phase 2) — none of these come from the core. */
+export type TreeNodeKind = NodeKind | "group" | "routine" | "trigger" | "event";
 
 export interface TreeNode {
   /** Unique, stable path key (e.g. "db:main" or "db:main/tbl:users"). */
@@ -19,9 +21,19 @@ export interface TreeNode {
   db?: string;
   /** Schema context (engines with schemas). */
   schema?: string;
-  /** For a "group" node: the leaf kind it groups, and how many it holds. */
-  groupKind?: "table" | "view";
+  /** For a "group" node: the object kind it groups, and how many it holds. */
+  groupKind?: "table" | "view" | ObjectGroupKind;
   count?: number;
+  /** For a "group" node whose members are listed on demand (Procedimientos/
+      Funciones/Triggers/Eventos) rather than pre-loaded. */
+  lazy?: boolean;
+  /** For a routine/trigger/event leaf: catalog identity for the definition query. */
+  objType?: string;
+  objTable?: string;
+  objId?: string;
+  /** DDL already returned by the folder listing (SQLite triggers) — click opens
+      it directly, no definition query. */
+  objDef?: string;
 }
 
 export interface FlatNode extends TreeNode {
@@ -61,6 +73,56 @@ export function groupObjectsByType(
   add("tbl", "Tablas", "table");
   add("vw", "Vistas", "view");
   return { groups, members };
+}
+
+/**
+ * Lazy object-type folder nodes (Procedimientos / Funciones / Triggers / Eventos)
+ * to append under a database container (issue #135 phase 2). Their members are
+ * listed on demand (lazy) rather than pre-loaded, unlike Tablas/Vistas. Empty for
+ * engines without such folders. Pure.
+ */
+export function lazyObjectFolders(
+  parentKey: string,
+  db: string | undefined,
+  schema: string | undefined,
+  engine: string,
+): TreeNode[] {
+  return objectFolders(engine, db).map((f) => ({
+    key: `${parentKey}/grp:${f.groupKind}`,
+    label: f.label,
+    kind: "group" as TreeNodeKind,
+    db,
+    schema,
+    groupKind: f.groupKind,
+    lazy: true,
+  }));
+}
+
+/** Leaf nodes for a lazy folder's listed objects, carrying the catalog identity
+    (type/table/id) needed to fetch each one's definition. Pure. */
+export function objectLeafNodes(
+  parentKey: string,
+  db: string | undefined,
+  schema: string | undefined,
+  leaves: ObjectLeaf[],
+): TreeNode[] {
+  const leafKind = (g: ObjectGroupKind): TreeNodeKind =>
+    g === "trigger" ? "trigger" : g === "event" ? "event" : "routine";
+  return leaves.map((l) => ({
+    // The catalog id (Informix procid/trigid) is folded into the key because
+    // overloaded routines share a name — without it two overloads would collide.
+    key: l.id
+      ? `${parentKey}/${l.groupKind}:${l.name}:${l.id}`
+      : `${parentKey}/${l.groupKind}:${l.name}`,
+    label: l.name,
+    kind: leafKind(l.groupKind),
+    db,
+    schema,
+    objType: l.type,
+    objTable: l.table,
+    objId: l.id,
+    objDef: l.def,
+  }));
 }
 
 /** Builds a child node's stable key under a parent key. Each kind gets a

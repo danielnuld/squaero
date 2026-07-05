@@ -6,20 +6,34 @@ import {
   childKey,
   databaseKey,
   groupObjectsByType,
+  lazyObjectFolders,
+  objectLeafNodes,
   type TreeNode,
   type FlatNode,
 } from "../utils/tree";
 import { schemaTree, parseTreeRows, type NodeKind } from "../utils/schema";
+import { runQuery } from "../utils/query";
+import { folderSpec, objectLeaves, readDefinitionText } from "../utils/treeObjects";
+import { definitionFor as routineDefinitionFor, type RoutineType } from "../utils/routines";
+import { definitionFor as objectDefinitionFor } from "../utils/triggers";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 
 const ROW_HEIGHT = 24;
 
-const KIND_BADGE: Record<NodeKind, string> = {
+/** True for a routine/trigger/event leaf (listed on demand, opens its DDL). */
+function isObjectLeaf(kind: TreeNode["kind"]): boolean {
+  return kind === "routine" || kind === "trigger" || kind === "event";
+}
+
+const KIND_BADGE: Record<string, string> = {
   database: "db",
   schema: "sch",
   table: "tbl",
   view: "vw",
+  routine: "ƒ",
+  trigger: "⚡",
+  event: "⏱",
 };
 
 // Lazy, virtualized object tree. Children of a container are fetched from the
@@ -28,10 +42,14 @@ const KIND_BADGE: Record<NodeKind, string> = {
 // (.rules/frontend.md §2). Tree shape/flatten logic is pure (src/utils/tree.ts).
 export function ObjectTree(props: {
   connId: string | null;
+  /** Active engine/driver name, for listing routines/triggers (issue #135 ph.2). */
+  engine?: string;
   /** Double-click a table/view -> open its structure. */
   onOpenStructure: (node: TreeNode) => void;
   /** Single-click a table/view -> open its data (a SELECT). */
   onOpenData: (node: TreeNode) => void;
+  /** Open SQL (a routine/trigger DDL) in a new query tab. */
+  onOpenSql?: (sql: string) => void;
   /** Bumping this re-fetches the tree from the current connection (issue #107). */
   reloadKey?: number;
   /** Refresh button in the header (re-runs the active query + reloads the tree). */
@@ -135,9 +153,43 @@ export function ObjectTree(props: {
     })();
   });
 
+  // Lazily list a Procedimientos/Funciones/Triggers/Eventos folder's members via
+  // query.run over catalogs (issue #135 phase 2), building leaf nodes.
+  const loadLazyFolder = async (node: TreeNode) => {
+    const connId = props.connId;
+    const spec =
+      node.groupKind && folderSpec(props.engine ?? "", node.db, node.groupKind as never);
+    if (!connId || !spec) {
+      setChildren((c) => ({ ...c, [node.key]: [] }));
+      return;
+    }
+    const myGen = generation;
+    setBusy(node.key, true);
+    try {
+      const res = await runQuery(connId, spec.listSql);
+      if (myGen !== generation) return;
+      const cols = res.columns.map((c) => c.name);
+      const leaves = objectLeaves(spec, cols, res.rows);
+      setChildren((c) => ({
+        ...c,
+        [node.key]: objectLeafNodes(node.key, node.db, node.schema, leaves),
+      }));
+    } catch (err) {
+      if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (myGen === generation) setBusy(node.key, false);
+    }
+  };
+
   const loadChildren = async (node: TreeNode) => {
     const connId = props.connId;
     if (!connId || children()[node.key]) {
+      return;
+    }
+    if (node.kind === "group") {
+      // Tablas/Vistas folders are pre-loaded; only the lazy object-type folders
+      // (Procedimientos/…) fetch their members on expand.
+      if (node.lazy) await loadLazyFolder(node);
       return;
     }
     const myGen = generation;
@@ -156,12 +208,57 @@ export function ObjectTree(props: {
       // (#135); containers (schemas) stay flat. Both the folder nodes and their
       // pre-loaded members go into the children map in one update.
       const isLeafLevel = built.some((n) => n.kind === "table" || n.kind === "view");
+      // A database also gets lazy folders for routines/triggers/events (phase 2),
+      // listed on demand — appended after Tablas/Vistas.
+      const folders =
+        node.kind === "database"
+          ? lazyObjectFolders(node.key, node.db, node.schema, props.engine ?? "")
+          : [];
       if (isLeafLevel) {
         const { groups, members } = groupObjectsByType(node.key, node.db, node.schema, built);
-        setChildren((c) => ({ ...c, [node.key]: groups, ...members }));
+        setChildren((c) => ({ ...c, [node.key]: [...groups, ...folders], ...members }));
       } else {
-        setChildren((c) => ({ ...c, [node.key]: built }));
+        setChildren((c) => ({ ...c, [node.key]: [...built, ...folders] }));
       }
+    } catch (err) {
+      if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (myGen === generation) setBusy(node.key, false);
+    }
+  };
+
+  // Fetch a routine/trigger/event leaf's definition (DDL) and open it in a new
+  // query tab. Reuses the per-engine definition SQL from routines.ts/triggers.ts.
+  const openObjectDef = async (node: TreeNode) => {
+    const connId = props.connId;
+    if (!connId || !props.onOpenSql) return;
+    // SQLite triggers carry their DDL in the listing row — open it directly.
+    if (node.objDef) {
+      props.onOpenSql(node.objDef);
+      return;
+    }
+    const engine = props.engine ?? "";
+    const query =
+      node.kind === "routine"
+        ? routineDefinitionFor(engine, {
+            name: node.label,
+            type: (node.objType?.toUpperCase().includes("FUNCTION") ? "FUNCTION" : "PROCEDURE") as RoutineType,
+            id: node.objId,
+          })
+        : objectDefinitionFor(engine, node.kind === "event" ? "event" : "trigger", {
+            name: node.label,
+            table: node.objTable,
+            id: node.objId,
+          });
+    if (!query) return;
+    const myGen = generation;
+    setBusy(node.key, true);
+    try {
+      const res = await runQuery(connId, query.sql);
+      if (myGen !== generation) return;
+      const cols = res.columns.map((c) => c.name);
+      const text = readDefinitionText(cols, res.rows, query.column, query.concatRows);
+      if (text) props.onOpenSql(text);
     } catch (err) {
       if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -185,9 +282,18 @@ export function ObjectTree(props: {
   // copy. All actions reuse the same handlers as clicks.
   const nodeMenu = (node: TreeNode): MenuItem[] => {
     const items: MenuItem[] = [];
-    // A group folder (Tablas/Vistas) only offers refresh.
+    // A group folder (Tablas/Vistas/Procedimientos/…) only offers refresh.
     if (node.kind === "group") {
       if (props.onRefresh) items.push({ label: "Refrescar", action: () => props.onRefresh!() });
+      return items;
+    }
+    // Routine/trigger/event leaves: view their definition + copy name.
+    if (isObjectLeaf(node.kind)) {
+      if (props.onOpenSql) {
+        items.push({ label: "Ver definición…", action: () => void openObjectDef(node) });
+        items.push({ separator: true });
+      }
+      items.push({ label: "Copiar nombre", action: () => copyText(node.label) });
       return items;
     }
     if (node.kind === "table" || node.kind === "view") {
@@ -263,8 +369,15 @@ export function ObjectTree(props: {
                   <div
                     class="objtree-row"
                     style={{ "padding-left": `${node.depth * 14 + 4}px` }}
-                    onClick={() => (node.expandable ? onToggle(node) : props.onOpenData(node))}
-                    onDblClick={() => !node.expandable && props.onOpenStructure(node)}
+                    onClick={() => {
+                      if (node.expandable) onToggle(node);
+                      else if (isObjectLeaf(node.kind)) void openObjectDef(node);
+                      else props.onOpenData(node);
+                    }}
+                    onDblClick={() =>
+                      (node.kind === "table" || node.kind === "view") &&
+                      props.onOpenStructure(node)
+                    }
                     onContextMenu={(e) => openContextMenu(e, nodeMenu(node))}
                     title={node.label}
                   >
@@ -272,7 +385,9 @@ export function ObjectTree(props: {
                       {node.expandable ? (node.expanded ? "▾" : "▸") : ""}
                     </span>
                     <span class={`objtree-badge kind-${node.kind}`}>
-                      {node.kind === "group" ? node.count : KIND_BADGE[node.kind as NodeKind]}
+                      {node.kind === "group"
+                        ? (node.count ?? children()[node.key]?.length ?? "")
+                        : KIND_BADGE[node.kind]}
                     </span>
                     <span class="objtree-label">{node.label}</span>
                     <Show when={loading().has(node.key)}>

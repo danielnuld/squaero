@@ -1115,8 +1115,10 @@ export function App() {
             <div class="sidebar-tree">
               <ObjectTree
                 connId={active()!.connId}
+                engine={activeDialect()}
                 onOpenData={openData}
                 onOpenStructure={openStructure}
+                onOpenSql={openSqlInNewTab}
                 reloadKey={treeReload()}
                 onRefresh={refreshAll}
                 onImport={(node) =>
