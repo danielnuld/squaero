@@ -7,6 +7,8 @@ import {
   showGrantsSql,
   buildGrantSql,
   buildRevokeSql,
+  buildCreateUserSql,
+  buildDropUserSql,
   unsupportedReason,
   MYSQL_PRIVILEGES,
   type GrantOptions,
@@ -41,6 +43,11 @@ export function UserManager(props: {
   // Editable host: seeded from the selected user but changeable, so GRANT/REVOKE
   // can target a specific host (user@host).
   const [hostInput, setHostInput] = createSignal("%");
+
+  // New-user form.
+  const [newName, setNewName] = createSignal("");
+  const [newHost, setNewHost] = createSignal("%");
+  const [newPass, setNewPass] = createSignal("");
 
   const usersFromResult = (res: ResultSet): UserRow[] => {
     const ni = res.columns.findIndex((c) => c.name === support.userNameCol);
@@ -102,6 +109,61 @@ export function UserManager(props: {
     }
   };
 
+  const createUserPreview = createMemo(() =>
+    buildCreateUserSql(props.engine, {
+      user: newName(),
+      host: newHost(),
+      password: newPass(),
+    }),
+  );
+
+  // Preview shown to the user masks the password so it isn't exposed on screen
+  // (screen-share / shoulder-surfing); the real statement is only built at run time.
+  const createUserDisplay = createMemo(() =>
+    buildCreateUserSql(props.engine, {
+      user: newName(),
+      host: newHost(),
+      password: newPass() ? "••••••" : "",
+    }),
+  );
+
+  const createUser = async () => {
+    const sql = createUserPreview();
+    if (!sql) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await runQuery(props.connId, sql);
+      const created = { name: newName().trim(), host: (newHost().trim() || "%") };
+      setNewName("");
+      setNewPass("");
+      await loadUsers();
+      await selectUser(created); // focus the just-created user
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const dropUser = async (u: UserRow) => {
+    const sql = buildDropUserSql(props.engine, u.name, u.host);
+    if (!sql) return;
+    if (!confirm(`Se ejecutará:\n\n${sql}\n\nEsta acción no se puede deshacer. ¿Continuar?`))
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await runQuery(props.connId, sql);
+      if (selected()?.name === u.name && selected()?.host === u.host) setSelected(null);
+      await loadUsers();
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   onMount(loadUsers);
 
   return (
@@ -133,6 +195,41 @@ export function UserManager(props: {
       >
         <div class="um-body">
           <div class="um-users">
+            <div class="import-subtitle">Nuevo usuario</div>
+            <div class="um-new-user">
+              <input
+                type="text"
+                value={newName()}
+                onInput={(e) => setNewName(e.currentTarget.value)}
+                placeholder="Nombre de usuario"
+                aria-label="Nombre de usuario"
+              />
+              <input
+                type="text"
+                value={newHost()}
+                onInput={(e) => setNewHost(e.currentTarget.value)}
+                placeholder="Host (%  |  localhost)"
+                aria-label="Host del nuevo usuario"
+              />
+              <input
+                type="password"
+                value={newPass()}
+                onInput={(e) => setNewPass(e.currentTarget.value)}
+                placeholder="Contraseña (opcional)"
+                aria-label="Contraseña del nuevo usuario"
+              />
+              <button
+                class="primary"
+                disabled={busy() || !createUserPreview()}
+                onClick={createUser}
+              >
+                Crear usuario
+              </button>
+              <Show when={createUserDisplay()}>
+                <pre class="ddl-text um-preview">{createUserDisplay()};</pre>
+              </Show>
+            </div>
+
             <div class="import-subtitle">Usuarios</div>
             <ul class="um-user-list">
               <For each={users()}>
@@ -145,6 +242,18 @@ export function UserManager(props: {
                   >
                     <span class="um-user-name">{u.name}</span>
                     <span class="um-user-host">@{u.host}</span>
+                    <button
+                      class="um-drop"
+                      title={`Eliminar ${u.name}@${u.host}`}
+                      aria-label={`Eliminar ${u.name}@${u.host}`}
+                      disabled={busy()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void dropUser(u);
+                      }}
+                    >
+                      🗑
+                    </button>
                   </li>
                 )}
               </For>

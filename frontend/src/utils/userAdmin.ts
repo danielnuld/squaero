@@ -26,6 +26,14 @@ export interface GrantOptions {
   host?: string;
 }
 
+/** Options for creating a new user. */
+export interface NewUserOptions {
+  user: string;
+  host?: string;
+  /** Optional password; when blank the user is created without one. */
+  password?: string;
+}
+
 function family(engine: string): string {
   const e = engine.toLowerCase();
   if (e === "mysql" || e === "mariadb") return "mysql";
@@ -52,9 +60,15 @@ export function userAdminFor(engine: string): UserAdminSupport {
   return { supported: false, listUsersSql: null, userNameCol: null, userHostCol: null };
 }
 
-/** Escape a single-quoted SQL string literal (double embedded quotes). */
+/**
+ * Escape a value for a single-quoted SQL string literal. Backslashes are escaped
+ * first (MySQL's default sql_mode treats `\` as an escape char, so a trailing `\`
+ * would otherwise swallow the closing quote and shift the string boundary), then
+ * embedded single quotes are doubled. This is the trust boundary every builder in
+ * this file relies on, including user-supplied passwords.
+ */
 function q(value: string): string {
-  return value.replace(/'/g, "''");
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "''");
 }
 
 /** SQL showing a user's granted privileges, or null when unsupported. */
@@ -86,6 +100,31 @@ export function buildRevokeSql(engine: string, opts: GrantOptions): string | nul
   const privs = privilegeList(opts.privileges);
   if (!privs || !opts.scope.trim() || !opts.user.trim()) return null;
   return `REVOKE ${privs} ON ${opts.scope.trim()} FROM '${q(opts.user.trim())}'@'${q((opts.host ?? "%").trim())}'`;
+}
+
+/**
+ * Build a CREATE USER statement, or null when the engine is unsupported or no
+ * user name was given. A blank password creates the user without one (the caller
+ * decides whether that is acceptable). user/host/password are single-quote
+ * escaped.
+ */
+export function buildCreateUserSql(engine: string, opts: NewUserOptions): string | null {
+  if (family(engine) !== "mysql") return null;
+  const user = opts.user.trim();
+  if (!user) return null;
+  const host = (opts.host ?? "%").trim() || "%";
+  const base = `CREATE USER '${q(user)}'@'${q(host)}'`;
+  const pw = (opts.password ?? "").length > 0;
+  return pw ? `${base} IDENTIFIED BY '${q(opts.password!)}'` : base;
+}
+
+/** Build a DROP USER statement, or null (unsupported engine / no user name). */
+export function buildDropUserSql(engine: string, user: string, host = "%"): string | null {
+  if (family(engine) !== "mysql") return null;
+  const u = user.trim();
+  if (!u) return null;
+  const h = (host ?? "%").trim() || "%";
+  return `DROP USER '${q(u)}'@'${q(h)}'`;
 }
 
 /** A short reason the feature is unavailable on an engine. */

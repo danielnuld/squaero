@@ -166,6 +166,73 @@ describe("UserManager", () => {
     );
   });
 
+  it("creates a new user from the form (CREATE USER)", async () => {
+    const calls = installBridge();
+    mount("mysql");
+    await flush();
+    const field = (label: string) =>
+      host!.querySelector<HTMLInputElement>(`.um-new-user input[aria-label="${label}"]`)!;
+    const setVal = (input: HTMLInputElement, v: string) => {
+      input.value = v;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    setVal(field("Nombre de usuario"), "reporter");
+    setVal(field("Host del nuevo usuario"), "localhost");
+    setVal(field("Contraseña del nuevo usuario"), "pw123");
+
+    // Live preview MASKS the password (not shown on screen).
+    const previewText = host!.querySelector(".um-new-user .um-preview")!.textContent!;
+    expect(previewText).toContain("CREATE USER 'reporter'@'localhost' IDENTIFIED BY '••••••'");
+    expect(previewText).not.toContain("pw123");
+
+    [...host!.querySelectorAll<HTMLButtonElement>(".um-new-user button")]
+      .find((b) => b.textContent === "Crear usuario")!
+      .click();
+    await flush();
+
+    // The statement actually run carries the real password.
+    const created = calls.find((c) => (c.params.sql ?? "").startsWith("CREATE USER"));
+    expect(created!.params.sql).toBe("CREATE USER 'reporter'@'localhost' IDENTIFIED BY 'pw123'");
+    // The list was refreshed after creating (a second mysql.user query).
+    expect(calls.filter((c) => (c.params.sql ?? "").includes("mysql.user")).length).toBe(2);
+  });
+
+  it("drops a user after confirmation (DROP USER)", async () => {
+    const calls = installBridge();
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    try {
+      mount("mysql");
+      await flush();
+      const appRow = [...host!.querySelectorAll<HTMLElement>(".um-user")].find((el) =>
+        el.textContent?.includes("app"),
+      )!;
+      appRow.querySelector<HTMLButtonElement>(".um-drop")!.click();
+      await flush();
+      expect(confirmSpy).toHaveBeenCalledOnce();
+      const dropped = calls.find((c) => (c.params.sql ?? "").startsWith("DROP USER"));
+      expect(dropped!.params.sql).toBe("DROP USER 'app'@'%'");
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("does not drop when confirmation is cancelled", async () => {
+    const calls = installBridge();
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+    try {
+      mount("mysql");
+      await flush();
+      [...host!.querySelectorAll<HTMLElement>(".um-user")]
+        .find((el) => el.textContent?.includes("app"))!
+        .querySelector<HTMLButtonElement>(".um-drop")!
+        .click();
+      await flush();
+      expect(calls.some((c) => (c.params.sql ?? "").startsWith("DROP USER"))).toBe(false);
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("shows an honest message for an unsupported engine", async () => {
     const calls = installBridge();
     mount("sqlite");

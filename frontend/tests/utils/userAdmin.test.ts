@@ -4,6 +4,8 @@ import {
   showGrantsSql,
   buildGrantSql,
   buildRevokeSql,
+  buildCreateUserSql,
+  buildDropUserSql,
   unsupportedReason,
   MYSQL_PRIVILEGES,
 } from "../../src/utils/userAdmin";
@@ -74,6 +76,57 @@ describe("buildGrantSql / buildRevokeSql", () => {
   it("exposes a non-empty privilege catalog", () => {
     expect(MYSQL_PRIVILEGES).toContain("SELECT");
     expect(MYSQL_PRIVILEGES).toContain("ALL PRIVILEGES");
+  });
+});
+
+describe("buildCreateUserSql", () => {
+  it("builds CREATE USER with an escaped user@host and password", () => {
+    expect(
+      buildCreateUserSql("mysql", { user: "app", host: "localhost", password: "s3cr3t" }),
+    ).toBe("CREATE USER 'app'@'localhost' IDENTIFIED BY 's3cr3t'");
+  });
+
+  it("defaults host to % and omits IDENTIFIED BY when no password", () => {
+    expect(buildCreateUserSql("mysql", { user: "reader" })).toBe("CREATE USER 'reader'@'%'");
+    expect(buildCreateUserSql("mariadb", { user: "reader", host: "  ", password: "" })).toBe(
+      "CREATE USER 'reader'@'%'",
+    );
+  });
+
+  it("escapes single quotes in user, host and password (injection guard)", () => {
+    expect(
+      buildCreateUserSql("mysql", { user: "o'brien", host: "a'b", password: "p'q" }),
+    ).toBe("CREATE USER 'o''brien'@'a''b' IDENTIFIED BY 'p''q'");
+  });
+
+  it("escapes backslashes before quotes so a trailing backslash can't break out", () => {
+    // MySQL treats \ as an escape char; a trailing \ must be doubled so the
+    // closing quote isn't swallowed.
+    expect(buildCreateUserSql("mysql", { user: "u", password: "secret\\" })).toBe(
+      "CREATE USER 'u'@'%' IDENTIFIED BY 'secret\\\\'",
+    );
+    expect(buildCreateUserSql("mysql", { user: "ho\\st" })).toBe(
+      "CREATE USER 'ho\\\\st'@'%'",
+    );
+    expect(buildDropUserSql("mysql", "a\\", "h\\")).toBe("DROP USER 'a\\\\'@'h\\\\'");
+  });
+
+  it("returns null for unsupported engines or empty user", () => {
+    expect(buildCreateUserSql("postgres", { user: "a" })).toBeNull();
+    expect(buildCreateUserSql("sqlite", { user: "a" })).toBeNull();
+    expect(buildCreateUserSql("mysql", { user: "   " })).toBeNull();
+  });
+});
+
+describe("buildDropUserSql", () => {
+  it("builds DROP USER with an escaped user@host", () => {
+    expect(buildDropUserSql("mysql", "app", "localhost")).toBe("DROP USER 'app'@'localhost'");
+    expect(buildDropUserSql("mysql", "o'brien")).toBe("DROP USER 'o''brien'@'%'");
+  });
+
+  it("returns null for unsupported engines or empty user", () => {
+    expect(buildDropUserSql("postgres", "a")).toBeNull();
+    expect(buildDropUserSql("mysql", "")).toBeNull();
   });
 });
 

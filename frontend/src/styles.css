@@ -1932,6 +1932,17 @@ button.grid-action:hover {
   padding: 0;
 }
 
+.um-new-user {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.3rem 0 0.8rem;
+}
+
+.um-new-user input {
+  width: 100%;
+}
+
 .um-user {
   display: flex;
   align-items: baseline;
@@ -1944,6 +1955,31 @@ button.grid-action:hover {
 
 .um-user:hover {
   background: var(--bg-elev2);
+}
+
+.um-drop {
+  margin-left: auto;
+  border: none;
+  background: none;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 12px;
+  padding: 0 0.2rem;
+  line-height: 1;
+}
+
+.um-user:hover .um-drop,
+.um-user.active .um-drop {
+  opacity: 0.75;
+}
+
+.um-drop:hover {
+  opacity: 1;
+}
+
+.um-drop:disabled {
+  cursor: default;
+  opacity: 0.3;
 }
 
 .um-user.active {
