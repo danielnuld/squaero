@@ -2826,3 +2826,57 @@ button.grid-action.danger:hover:not(:disabled) {
 .sq-actions-col .edit-btn {
   margin-right: 0.25rem;
 }
+
+/* Visual EXPLAIN plan (issue #187) */
+.ep-scroll {
+  overflow: auto;
+  max-height: 100%;
+  padding: 0.5rem;
+}
+
+.ep-svg {
+  display: block;
+}
+
+.ep-edge {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.ep-node rect {
+  fill: var(--bg-elev);
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.ep-node.hot rect {
+  stroke: var(--error);
+  stroke-width: 2.5;
+}
+
+.ep-op {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ep-table {
+  fill: var(--accent);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.ep-meta {
+  fill: var(--text-dim);
+  font-size: 10px;
+}
+
+.ep-raw {
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+}

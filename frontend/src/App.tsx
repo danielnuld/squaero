@@ -37,7 +37,6 @@ import {
   type ThemePref,
 } from "./utils/theme";
 import { matchShortcut } from "./utils/shortcuts";
-import { buildExplain } from "./utils/explain";
 import { loadCompletionSchema } from "./utils/completion";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
@@ -109,6 +108,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
 import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
+import { ExplainPlan } from "./components/ExplainPlan";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -744,41 +744,29 @@ export function App() {
   // for the engine and run it as a normal (read-only) result in the grid. The
   // editor text is left untouched. Honest errors for empty SQL, no connection,
   // or an engine without an inline EXPLAIN.
+  // Open the visual execution plan (issue #187) for a statement as a tool tab.
+  // The ExplainPlan component runs the structured EXPLAIN and renders the tree;
+  // it handles unsupported engines / no connection honestly on its own.
+  const showExplainPlan = (rawSql: string) => {
+    const sql = rawSql.trim();
+    if (!sql) return;
+    showTool("explainPlan", "Plan de ejecución", { key: `plan:${sql}`, params: { sql } });
+  };
+
+  // The editor's "Plan" button: visual plan for the active tab's SQL.
   const explainActive = () => {
     const tab = current();
     if (!tab) return;
-    const conn = active();
     const sql = (tabs().tabs.find((t) => t.id === tab.id)?.sql ?? "").trim();
     if (!sql) {
       setResults(tab.id, { ...emptyResult(), error: "La consulta está vacía." });
       return;
     }
-    if (!conn) {
-      setResults(tab.id, {
-        ...emptyResult(),
-        error: "No hay conexión activa. Abre una conexión para ver el plan.",
-      });
-      return;
-    }
-    const ex = buildExplain(activeDialect(), sql);
-    if (!ex) {
-      setResults(tab.id, {
-        ...emptyResult(),
-        error: `EXPLAIN no está disponible para el motor "${activeDialect() || "desconocido"}".`,
-      });
-      return;
-    }
-    void run(ex);
+    showExplainPlan(sql);
   };
 
-  // EXPLAIN an arbitrary statement (e.g. a slow query, issue #180): open its plan
-  // in a new tab and run it; fall back to just opening the statement when the
-  // engine has no EXPLAIN builder.
-  const explainSql = (sql: string) => {
-    const ex = buildExplain(activeDialect(), sql);
-    if (ex) runFromHistory(ex);
-    else openSqlInNewTab(sql);
-  };
+  // EXPLAIN an arbitrary statement (e.g. a slow query, issue #180) as a visual plan.
+  const explainSql = (sql: string) => showExplainPlan(sql);
 
   // --- Object tree actions (issues #19, #20) -----------------------------
   // Open a table's data: a fresh tab with a SELECT, executed immediately. The
@@ -1752,6 +1740,14 @@ export function App() {
                       closeTool(tt().id);
                       openSqlInNewTab(sql);
                     }}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "explainPlan"}>
+                  <ExplainPlan
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    sql={(tt().params as { sql: string }).sql}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>

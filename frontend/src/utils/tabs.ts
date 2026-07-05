@@ -25,6 +25,7 @@ export type ToolKind =
   | "routines"
   | "triggers"
   | "slowQueries"
+  | "explainPlan"
   | "settings"
   | "help";
 
