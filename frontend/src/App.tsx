@@ -68,6 +68,7 @@ import {
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { rowHeightFor, type Settings } from "./utils/settings";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
+import { pushRecent } from "./utils/recentTables";
 import { quoteIdentifier, schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
@@ -103,6 +104,7 @@ import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { EmptyState } from "./components/EmptyState";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -229,6 +231,10 @@ export function App() {
   // --- Favorites / snippets (issue #129) ---------------------------------
   const [snippets, setSnippets] = createSignal<Snippet[]>(loadSnippets());
   const [snippetInsert, setSnippetInsert] = createSignal({ text: "", tick: 0 });
+
+  // --- Recently opened tables (issue #178, editor empty state) -----------
+  const [recentTables, setRecentTables] = createSignal<TreeNode[]>([]);
+  const recordRecent = (node: TreeNode) => setRecentTables((l) => pushRecent(l, node));
 
   // --- User preferences (issue #181) -------------------------------------
   // Theme (above) and the history limit (below) keep their own stores; this
@@ -750,6 +756,7 @@ export function App() {
   // table is qualified with its db/schema context so the query is correct on
   // engines (or attached databases) where the bare name would be ambiguous.
   const openData = (node: TreeNode) => {
+    recordRecent(node);
     const qualified = [node.db, node.schema, node.label]
       .filter((p): p is string => !!p)
       .map((p) => quoteIdentifier(p, activeDialect()))
@@ -1024,6 +1031,7 @@ export function App() {
   // Open a table's structure (columns + DDL) as a tool tab.
   const openStructure = (node: TreeNode) => {
     if (active()) {
+      recordRecent(node);
       showTool("structure", `Estructura · ${node.label}`, {
         key: `struct:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
         params: { node },
@@ -1390,6 +1398,17 @@ export function App() {
                         loading={currentResult().loading}
                         error={currentResult().error}
                         rowHeight={rowHeightFor(settings().gridDensity)}
+                        emptyState={
+                          <EmptyState
+                            recentTables={recentTables()}
+                            history={history()}
+                            snippets={snippets()}
+                            isMac={isMac()}
+                            onOpenTable={openData}
+                            onRunHistory={runFromHistory}
+                            onInsertSnippet={insertSnippet}
+                          />
+                        }
                         onCellContext={onCellContext}
                         edit={
                           currentEditable()

@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
 import { formatCell, cellAlign } from "../utils/format";
 import {
@@ -49,6 +49,9 @@ export function ResultGrid(props: {
   /** Row height in px (grid density, issue #181). Drives both the virtualization
       math and the cell CSS (via the --grid-row-h var) so they never diverge. */
   rowHeight?: number;
+  /** Rich content for the no-result state (issue #178). When absent a plain
+      "run a query" message is shown. Only rendered before the tab has a result. */
+  emptyState?: JSX.Element;
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
   const [scrollTop, setScrollTop] = createSignal(0);
@@ -324,7 +327,12 @@ export function ResultGrid(props: {
       </Show>
 
       <Show when={!props.error && !props.result && !props.loading}>
-        <div class="grid-empty">Ejecuta una consulta para ver resultados.</div>
+        <Show
+          when={props.emptyState}
+          fallback={<div class="grid-empty">Ejecuta una consulta para ver resultados.</div>}
+        >
+          {props.emptyState}
+        </Show>
       </Show>
 
       <Show when={props.loading}>

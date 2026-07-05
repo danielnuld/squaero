@@ -264,3 +264,54 @@ describe("ResultGrid sort + filter (issue #132)", () => {
     expect(host!.textContent).not.toContain("Hermosillo");
   });
 });
+
+// Empty-state slot (issue #178): App passes a rich empty state that must show
+// only before the tab has a result, and revert to the plain message when absent.
+describe("ResultGrid empty-state slot (issue #178)", () => {
+  function mount(props: {
+    result?: ResultSet | null;
+    loading?: boolean;
+    emptyState?: unknown;
+  }) {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={props.result ?? null}
+            loading={props.loading ?? false}
+            error={null}
+            emptyState={props.emptyState as never}
+          />
+        ),
+        host!,
+      );
+    });
+  }
+
+  it("renders the slot when idle (no result/loading/error)", () => {
+    mount({ emptyState: <div class="my-empty">Acciones rápidas</div> });
+    expect(host!.querySelector(".my-empty")).not.toBeNull();
+    // The plain fallback message is not shown when a slot is provided.
+    expect(host!.textContent).not.toContain("Ejecuta una consulta para ver resultados.");
+  });
+
+  it("falls back to the plain message when no slot is given", () => {
+    mount({});
+    expect(host!.textContent).toContain("Ejecuta una consulta para ver resultados.");
+  });
+
+  it("hides the slot once a result arrives", () => {
+    mount({ result, emptyState: <div class="my-empty">Acciones rápidas</div> });
+    expect(host!.querySelector(".my-empty")).toBeNull();
+    expect(host!.textContent).toContain("alice"); // the grid is shown instead
+  });
+
+  it("hides the slot while loading", () => {
+    mount({ loading: true, emptyState: <div class="my-empty">Acciones rápidas</div> });
+    expect(host!.querySelector(".my-empty")).toBeNull();
+    expect(host!.textContent).toContain("Ejecutando…");
+  });
+});
