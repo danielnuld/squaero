@@ -1947,12 +1947,14 @@ button.grid-action:hover {
   white-space: nowrap;
 }
 
-.confirm-bar {
-  margin: 0.6rem 0;
-  padding: 0.7rem;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--danger, #d9534f);
-  border-radius: 4px;
+.confirm-message {
+  margin: 0 0 0.7rem;
+  color: var(--text);
+}
+
+.confirm-dialog .ddl-text {
+  max-height: 40vh;
+  margin-bottom: 0.4rem;
 }
 
 .sm-scroll {

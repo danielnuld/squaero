@@ -14,6 +14,7 @@ import {
   type CatalogList,
 } from "../utils/indexes";
 import { Panel } from "./Panel";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 // Index / constraint manager (issue #139): view a table's indexes and constraints
 // (today only visible inside the CREATE TABLE DDL) and create/drop them by form.
@@ -207,6 +208,7 @@ export function IndexManager(props: {
       setError(b.error);
       return;
     }
+    setError(null); // clear any prior error so it doesn't show stale in the dialog
     setPending({ sql: b.sql, label: `Eliminar índice ${name}` });
   };
 
@@ -221,6 +223,7 @@ export function IndexManager(props: {
       setError(b.error);
       return;
     }
+    setError(null);
     setPending({ sql: b.sql, label: `Eliminar constraint ${name}` });
   };
 
@@ -251,21 +254,19 @@ export function IndexManager(props: {
         </div>
       </Show>
 
-      {/* Confirmation bar for a drop, showing the exact SQL that will run. */}
+      {/* Drop confirmation via the shared themed dialog, showing the exact SQL. */}
       <Show when={pending()}>
         {(p) => (
-          <div class="confirm-bar">
-            <span>{p().label}</span>
-            <pre class="ddl-text">{p().sql}</pre>
-            <div class="modal-actions">
-              <button disabled={busy()} onClick={() => setPending(null)}>
-                Cancelar
-              </button>
-              <button class="primary danger" disabled={busy()} onClick={() => void applySql(p().sql)}>
-                {busy() ? "Aplicando…" : "Confirmar"}
-              </button>
-            </div>
-          </div>
+          <ConfirmDialog
+            title={p().label}
+            message="Esta acción no se puede deshacer."
+            sql={p().sql}
+            confirmLabel="Eliminar"
+            busy={busy()}
+            error={error()}
+            onConfirm={() => void applySql(p().sql)}
+            onCancel={() => setPending(null)}
+          />
         )}
       </Show>
 

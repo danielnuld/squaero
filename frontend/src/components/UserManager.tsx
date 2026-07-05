@@ -14,6 +14,7 @@ import {
   type GrantOptions,
 } from "../utils/userAdmin";
 import { Panel } from "./Panel";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface UserRow {
   name: string;
@@ -36,6 +37,7 @@ export function UserManager(props: {
   const [loading, setLoading] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [pendingDrop, setPendingDrop] = createSignal<{ user: UserRow; sql: string } | null>(null);
 
   // Grant/revoke form.
   const [privs, setPrivs] = createStore<Record<string, boolean>>({});
@@ -146,16 +148,24 @@ export function UserManager(props: {
     }
   };
 
-  const dropUser = async (u: UserRow) => {
+  // Ask before dropping a user via the shared themed dialog (issue #177),
+  // showing the exact SQL — no native confirm().
+  const requestDropUser = (u: UserRow) => {
     const sql = buildDropUserSql(props.engine, u.name, u.host);
     if (!sql) return;
-    if (!confirm(`Se ejecutará:\n\n${sql}\n\nEsta acción no se puede deshacer. ¿Continuar?`))
-      return;
+    setError(null);
+    setPendingDrop({ user: u, sql });
+  };
+
+  const confirmDropUser = async () => {
+    const p = pendingDrop();
+    if (!p) return;
     setBusy(true);
     setError(null);
     try {
-      await runQuery(props.connId, sql);
-      if (selected()?.name === u.name && selected()?.host === u.host) setSelected(null);
+      await runQuery(props.connId, p.sql);
+      if (selected()?.name === p.user.name && selected()?.host === p.user.host) setSelected(null);
+      setPendingDrop(null); // close only on success; on error keep the dialog open
       await loadUsers();
     } catch (err) {
       setError(errorText(err));
@@ -249,7 +259,7 @@ export function UserManager(props: {
                       disabled={busy()}
                       onClick={(e) => {
                         e.stopPropagation();
-                        void dropUser(u);
+                        requestDropUser(u);
                       }}
                     >
                       🗑
@@ -338,6 +348,21 @@ export function UserManager(props: {
             </Show>
           </div>
         </div>
+      </Show>
+
+      <Show when={pendingDrop()}>
+        {(p) => (
+          <ConfirmDialog
+            title="Eliminar usuario"
+            message={`Se eliminará ${p().user.name}@${p().user.host}. Esta acción no se puede deshacer.`}
+            sql={p().sql}
+            confirmLabel="Eliminar usuario"
+            busy={busy()}
+            error={error()}
+            onConfirm={() => void confirmDropUser()}
+            onCancel={() => setPendingDrop(null)}
+          />
+        )}
       </Show>
     </Panel>
   );

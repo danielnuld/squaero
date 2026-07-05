@@ -197,40 +197,42 @@ describe("UserManager", () => {
     expect(calls.filter((c) => (c.params.sql ?? "").includes("mysql.user")).length).toBe(2);
   });
 
-  it("drops a user after confirmation (DROP USER)", async () => {
+  const clickText = (text: string) =>
+    ([...host!.querySelectorAll("button")].find((b) => b.textContent?.trim() === text) as HTMLButtonElement).click();
+
+  it("drops a user after confirming in the dialog (DROP USER)", async () => {
     const calls = installBridge();
-    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
-    try {
-      mount("mysql");
-      await flush();
-      const appRow = [...host!.querySelectorAll<HTMLElement>(".um-user")].find((el) =>
-        el.textContent?.includes("app"),
-      )!;
-      appRow.querySelector<HTMLButtonElement>(".um-drop")!.click();
-      await flush();
-      expect(confirmSpy).toHaveBeenCalledOnce();
-      const dropped = calls.find((c) => (c.params.sql ?? "").startsWith("DROP USER"));
-      expect(dropped!.params.sql).toBe("DROP USER 'app'@'%'");
-    } finally {
-      confirmSpy.mockRestore();
-    }
+    mount("mysql");
+    await flush();
+    [...host!.querySelectorAll<HTMLElement>(".um-user")]
+      .find((el) => el.textContent?.includes("app"))!
+      .querySelector<HTMLButtonElement>(".um-drop")!
+      .click();
+    await flush();
+    // The themed confirm dialog shows the exact SQL — no native confirm().
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    expect(dialog).not.toBeNull();
+    expect(dialog.textContent).toContain("DROP USER 'app'@'%'");
+
+    clickText("Eliminar usuario"); // confirm
+    await flush();
+    const dropped = calls.find((c) => (c.params.sql ?? "").startsWith("DROP USER"));
+    expect(dropped!.params.sql).toBe("DROP USER 'app'@'%'");
   });
 
-  it("does not drop when confirmation is cancelled", async () => {
+  it("does not drop when the dialog is cancelled", async () => {
     const calls = installBridge();
-    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(false);
-    try {
-      mount("mysql");
-      await flush();
-      [...host!.querySelectorAll<HTMLElement>(".um-user")]
-        .find((el) => el.textContent?.includes("app"))!
-        .querySelector<HTMLButtonElement>(".um-drop")!
-        .click();
-      await flush();
-      expect(calls.some((c) => (c.params.sql ?? "").startsWith("DROP USER"))).toBe(false);
-    } finally {
-      confirmSpy.mockRestore();
-    }
+    mount("mysql");
+    await flush();
+    [...host!.querySelectorAll<HTMLElement>(".um-user")]
+      .find((el) => el.textContent?.includes("app"))!
+      .querySelector<HTMLButtonElement>(".um-drop")!
+      .click();
+    await flush();
+    clickText("Cancelar");
+    await flush();
+    expect(host!.querySelector(".confirm-dialog")).toBeNull();
+    expect(calls.some((c) => (c.params.sql ?? "").startsWith("DROP USER"))).toBe(false);
   });
 
   it("shows an honest message for an unsupported engine", async () => {
