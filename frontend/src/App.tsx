@@ -112,6 +112,7 @@ import { ChartView } from "./components/ChartView";
 import { ErDiagram } from "./components/ErDiagram";
 import { QueryBuilder } from "./components/QueryBuilder";
 import { RoutineExplorer } from "./components/RoutineExplorer";
+import { TriggersExplorer } from "./components/TriggersExplorer";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
@@ -1103,6 +1104,13 @@ export function App() {
               >
                 Procedimientos y funciones
               </button>
+              <button
+                class="status-btn"
+                title="Triggers y eventos programados"
+                onClick={() => showTool("triggers", "Triggers y eventos", { key: "triggers" })}
+              >
+                Triggers y eventos
+              </button>
             </div>
             <div class="sidebar-tree">
               <ObjectTree
@@ -1562,6 +1570,18 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "routines"}>
                   <RoutineExplorer
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    db={activeDb() ?? undefined}
+                    onOpenSql={(sql) => {
+                      closeTool(tt().id);
+                      openSqlInNewTab(sql);
+                    }}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "triggers"}>
+                  <TriggersExplorer
                     connId={active()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb() ?? undefined}

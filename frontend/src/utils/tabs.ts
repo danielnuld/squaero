@@ -22,6 +22,7 @@ export type ToolKind =
   | "erDiagram"
   | "queryBuilder"
   | "routines"
+  | "triggers"
   | "help";
 
 /** A SQL query editor tab. */

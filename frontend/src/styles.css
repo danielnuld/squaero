@@ -2076,6 +2076,26 @@ button.grid-action:hover {
   white-space: nowrap;
 }
 
+.routine-sub {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.routine-item.active .routine-sub {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.obj-kind-toggle {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.obj-kind-toggle .edit-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .routine-detail {
   display: flex;
   flex-direction: column;
