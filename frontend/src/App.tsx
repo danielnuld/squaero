@@ -111,6 +111,7 @@ import { UserManager } from "./components/UserManager";
 import { ChartView } from "./components/ChartView";
 import { ErDiagram } from "./components/ErDiagram";
 import { QueryBuilder } from "./components/QueryBuilder";
+import { RoutineExplorer } from "./components/RoutineExplorer";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
@@ -439,6 +440,17 @@ export function App() {
       return updateTabSql(added, newId, sql);
     });
     void run(sql);
+  };
+
+  // Open SQL in a fresh tab WITHOUT running it (e.g. a routine's CREATE DDL,
+  // which would error if executed against an object that already exists).
+  const openSqlInNewTab = (sql: string) => {
+    let newId = 0;
+    setTabs((s) => {
+      const added = addTab(s);
+      newId = added.activeId;
+      return updateTabSql(added, newId, sql);
+    });
   };
 
   const clearHistory = () => {
@@ -1084,6 +1096,13 @@ export function App() {
               >
                 Constructor de consultas
               </button>
+              <button
+                class="status-btn"
+                title="Procedimientos almacenados y funciones"
+                onClick={() => showTool("routines", "Procedimientos", { key: "routines" })}
+              >
+                Procedimientos y funciones
+              </button>
             </div>
             <div class="sidebar-tree">
               <ObjectTree
@@ -1537,6 +1556,18 @@ export function App() {
                     onRun={(sql) => {
                       closeTool(tt().id);
                       runFromHistory(sql);
+                    }}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "routines"}>
+                  <RoutineExplorer
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    db={activeDb() ?? undefined}
+                    onOpenSql={(sql) => {
+                      closeTool(tt().id);
+                      openSqlInNewTab(sql);
                     }}
                     onClose={() => closeTool(tt().id)}
                   />

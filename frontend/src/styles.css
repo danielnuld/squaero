@@ -2008,6 +2008,109 @@ button.grid-action:hover {
   word-break: break-word;
 }
 
+/* Procedures / functions explorer (issue #137) */
+.routine-body {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  gap: 1rem;
+  margin-top: 0.8rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.routine-list {
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding-right: 0.5rem;
+}
+
+.routine-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.routine-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  background: none;
+  color: inherit;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.routine-item:hover {
+  background: var(--bg-elev2);
+}
+
+.routine-item.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.routine-badge {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.routine-badge.function {
+  font-style: italic;
+}
+
+.routine-item.active .routine-badge {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.routine-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routine-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.routine-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.routine-type {
+  font-size: 11px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+}
+
+.routine-ddl {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 0.6rem;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  white-space: pre;
+}
+
 /* Result charts (issue #149) */
 .chart-controls {
   display: flex;
