@@ -106,4 +106,12 @@ describe("serializeHistory / parseHistory", () => {
     ]);
     expect(parseHistory(raw)).toEqual([entry("SELECT 1", 1)]);
   });
+
+  it("round-trips the optional durationMs and ignores an invalid one (#179)", () => {
+    const withDur = { sql: "SELECT 1", ts: 1, connId: "c1", connName: "Demo", durationMs: 1234 };
+    expect(parseHistory(serializeHistory([withDur]))).toEqual([withDur]);
+    // A non-finite/absent duration simply isn't carried (entry stays valid).
+    const badDur = JSON.stringify([{ sql: "SELECT 2", ts: 2, connId: "c1", connName: "Demo", durationMs: "slow" }]);
+    expect(parseHistory(badDur)).toEqual([entry("SELECT 2", 2)]);
+  });
 });

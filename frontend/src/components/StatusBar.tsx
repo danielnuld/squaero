@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import { themeLabel, themeIcon, type ThemePref } from "../utils/theme";
 import { scopeLabel, type RunScope } from "../utils/runScope";
+import { formatDuration } from "../utils/duration";
 
 // Bottom status bar: active connection, row count of the current result, and
 // the elapsed time of the last query, plus the theme toggle and shortcuts help
@@ -36,7 +37,9 @@ export function StatusBar(props: {
         </span>
       </Show>
       <Show when={props.elapsedMs !== null}>
-        <span class="status-item">{props.elapsedMs!.toFixed(0)} ms</span>
+        <span class="status-item" title="Duración de la última ejecución">
+          {formatDuration(props.elapsedMs!)}
+        </span>
       </Show>
       <button
         class="status-btn"

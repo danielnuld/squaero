@@ -1126,6 +1126,26 @@ kbd {
   color: var(--text-dim);
 }
 
+/* Per-entry duration + slow marking (issue #179). */
+.history-duration {
+  font-family: var(--font-mono);
+}
+
+.history-duration.slow {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.history-only-slow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .history-empty {
   color: var(--text-dim);
   padding: 1rem 0.2rem;

@@ -656,12 +656,13 @@ export function App() {
 
   // Record an executed query in the client-side history (issue #128), collapsing
   // immediate repeats and purging past the configured limit, then persist.
-  const recordHistory = (sql: string, conn: ActiveConnection) => {
+  const recordHistory = (sql: string, conn: ActiveConnection, durationMs?: number) => {
     const entry: HistoryEntry = {
       sql,
       ts: Date.now(),
       connId: activeDefId() ?? "",
       connName: conn.name,
+      durationMs,
     };
     setHistory((list) => {
       const next = addHistory(list, entry, historyLimit());
@@ -692,30 +693,35 @@ export function App() {
     const prev = results[id];
     const keepSource =
       prev?.source && prev.pageSql === trimmed ? prev.source : undefined;
-    if (offset === 0) recordHistory(trimmed, conn); // don't record page turns
     setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
     const started = performance.now();
     try {
       const result = await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
+      const elapsedMs = performance.now() - started;
       setResults(id, {
         loading: false,
         error: null,
         result,
-        elapsedMs: performance.now() - started,
+        elapsedMs,
         ranScope: scope,
         pageSql: trimmed,
         offset,
         pageSize: PAGE_LIMIT,
         source: keepSource,
       });
+      // Record after the run so the entry carries its duration (issue #179);
+      // page turns (offset > 0) are not logged.
+      if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
     } catch (err) {
+      const elapsedMs = performance.now() - started;
       setResults(id, {
         loading: false,
         error: errorText(err),
         result: null,
-        elapsedMs: performance.now() - started,
+        elapsedMs,
         ranScope: scope,
       });
+      if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
     }
   };
 
@@ -1655,6 +1661,7 @@ export function App() {
                 <Match when={tt().tool === "history"}>
                   <HistoryPanel
                     entries={history()}
+                    slowThresholdMs={settings().slowThresholdMs}
                     onRun={runFromHistory}
                     onClear={clearHistory}
                     onClose={() => closeTool(tt().id)}

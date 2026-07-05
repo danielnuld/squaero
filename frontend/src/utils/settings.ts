@@ -20,7 +20,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   gridDensity: "normal",
-  slowThresholdMs: 500,
+  slowThresholdMs: 1000,
   checkUpdatesOnStart: true,
 };
 

@@ -13,6 +13,8 @@ export interface HistoryEntry {
   connId: string;
   /** Connection display name at run time, for the panel. */
   connName: string;
+  /** Wall-clock duration of the run in ms (issue #179), when measured. */
+  durationMs?: number;
 }
 
 /** Default cap on stored entries; the oldest are purged past this. */
@@ -92,7 +94,11 @@ export function parseHistory(raw: string | null): HistoryEntry[] {
       typeof e?.connId === "string" &&
       typeof e?.connName === "string"
     ) {
-      out.push({ sql: e.sql, ts: e.ts, connId: e.connId, connName: e.connName });
+      const entry: HistoryEntry = { sql: e.sql, ts: e.ts, connId: e.connId, connName: e.connName };
+      if (typeof e.durationMs === "number" && Number.isFinite(e.durationMs)) {
+        entry.durationMs = e.durationMs;
+      }
+      out.push(entry);
     }
   }
   return out;
