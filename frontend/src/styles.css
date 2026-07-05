@@ -1260,6 +1260,45 @@ kbd {
   background: var(--bg-elev2);
 }
 
+.objtree-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.6rem 0.5rem;
+}
+
+.objtree-filter-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.objtree-filter-input:focus {
+  outline: none;
+  border-color: var(--accent, #6ea8fe);
+}
+
+.objtree-filter-clear {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  border-radius: 3px;
+}
+
+.objtree-filter-clear:hover {
+  color: var(--text);
+  background: var(--bg-elev2);
+}
+
 .objtree-error {
   padding: 0.4rem 0.8rem;
   color: var(--error);

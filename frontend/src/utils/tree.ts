@@ -181,3 +181,39 @@ export function flattenTree(
   walk(roots, 0);
   return out;
 }
+
+/**
+ * Depth-first flattening restricted to nodes matching `filter` (case-insensitive
+ * substring on the label) plus the ancestors of every match, so matches stay
+ * reachable (issue #175). Independent of the `expanded` set — matched ancestors
+ * are force-expanded, and clearing the filter (calling flattenTree again)
+ * restores the user's real expansion state untouched. Only already-loaded
+ * children (`childrenByKey`) are considered, so lazy folders never trigger a
+ * fetch. Returns [] for a blank filter (the caller uses flattenTree then). Pure.
+ */
+export function flattenFiltered(
+  roots: TreeNode[],
+  childrenByKey: Record<string, TreeNode[]>,
+  filter: string,
+): FlatNode[] {
+  const needle = filter.trim().toLowerCase();
+  if (!needle) return [];
+  const walk = (nodes: TreeNode[], depth: number): FlatNode[] => {
+    const out: FlatNode[] = [];
+    for (const node of nodes) {
+      const childFlat = walk(childrenByKey[node.key] ?? [], depth + 1);
+      const selfMatch = node.label.toLowerCase().includes(needle);
+      if (!selfMatch && childFlat.length === 0) continue;
+      out.push({
+        ...node,
+        depth,
+        expandable: isExpandable(node.kind),
+        // Expanded only when it has matching descendants to reveal.
+        expanded: childFlat.length > 0,
+      });
+      out.push(...childFlat);
+    }
+    return out;
+  };
+  return walk(roots, 0);
+}

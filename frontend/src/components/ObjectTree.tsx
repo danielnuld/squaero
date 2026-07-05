@@ -1,7 +1,8 @@
-import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { visibleRange } from "../utils/virtualize";
 import {
   flattenTree,
+  flattenFiltered,
   toggleExpanded,
   childKey,
   databaseKey,
@@ -69,6 +70,7 @@ export function ObjectTree(props: {
   const [loading, setLoading] = createSignal<Set<string>>(new Set());
   const [rootLoading, setRootLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [filter, setFilter] = createSignal("");
 
   // Bumped on every connection change; async loads from a stale connection
   // check it before writing state, so switching connections mid-fetch cannot
@@ -85,13 +87,22 @@ export function ObjectTree(props: {
   // ref instead: it fires (and re-attaches the ResizeObserver) whenever the
   // scroller element appears or is replaced. Same fix as ResultGrid.
   let ro: ResizeObserver | undefined;
+  let scrollerEl: HTMLDivElement | undefined;
   const attachScroller = (el: HTMLDivElement) => {
+    scrollerEl = el;
     setViewportH(el.clientHeight);
     ro?.disconnect();
     ro = new ResizeObserver(() => setViewportH(el.clientHeight));
     ro.observe(el);
   };
   onCleanup(() => ro?.disconnect());
+
+  // Typing in the filter jumps back to the top so the first matches are visible.
+  const onFilterInput = (value: string) => {
+    setFilter(value);
+    if (scrollerEl) scrollerEl.scrollTop = 0;
+    setScrollTop(0);
+  };
 
   // Build child nodes from a schema.tree result for `parent`.
   const buildChildren = (parent: TreeNode | null, rows: { name: string; kind: NodeKind }[]): TreeNode[] => {
@@ -131,6 +142,7 @@ export function ObjectTree(props: {
     setChildren({});
     setExpanded(new Set<string>());
     setError(null);
+    setFilter(""); // a stale filter must not hide the freshly-loaded tree (#175)
     if (!connId) {
       setRootLoading(false);
       return;
@@ -274,6 +286,14 @@ export function ObjectTree(props: {
     if (!node.expandable) {
       return;
     }
+    // While a filter is active the view is derived from matches (flattenFiltered
+    // ignores the real `expanded` set), so toggling must NOT mutate `expanded` —
+    // that would corrupt the expansion state restored when the filter is cleared
+    // (#175). Still allow loading an unloaded folder so its members can be found.
+    if (filter().trim()) {
+      if (!children()[node.key]) void loadChildren(node);
+      return;
+    }
     const willExpand = !expanded().has(node.key);
     setExpanded((s) => toggleExpanded(s, node.key));
     if (willExpand) {
@@ -328,7 +348,13 @@ export function ObjectTree(props: {
     return items;
   };
 
-  const flat = () => flattenTree(roots(), children(), expanded());
+  // Text filter (issue #175): when non-blank, show matches + their ancestors
+  // over the already-loaded tree; blank restores the real expansion state.
+  const flat = createMemo(() =>
+    filter().trim()
+      ? flattenFiltered(roots(), children(), filter())
+      : flattenTree(roots(), children(), expanded()),
+  );
   const range = () =>
     visibleRange({
       scrollTop: scrollTop(),
@@ -352,6 +378,23 @@ export function ObjectTree(props: {
           </button>
         </Show>
       </div>
+      <Show when={roots().length > 0}>
+        <div class="objtree-filter">
+          <input
+            type="text"
+            class="objtree-filter-input"
+            placeholder="Filtrar objetos…"
+            aria-label="Filtrar objetos"
+            value={filter()}
+            onInput={(e) => onFilterInput(e.currentTarget.value)}
+          />
+          <Show when={filter()}>
+            <button class="objtree-filter-clear" title="Limpiar filtro" aria-label="Limpiar filtro" onClick={() => onFilterInput("")}>
+              ✕
+            </button>
+          </Show>
+        </div>
+      </Show>
       <Show when={error()}>
         <div class="objtree-error">{error()}</div>
       </Show>

@@ -5,6 +5,7 @@ import {
   databaseKey,
   toggleExpanded,
   flattenTree,
+  flattenFiltered,
   groupObjectsByType,
   lazyObjectFolders,
   objectLeafNodes,
@@ -173,5 +174,89 @@ describe("flattenTree", () => {
     // main expanded, public collapsed -> public shown, its table hidden
     const flat = flattenTree(roots, nested, new Set(["db:main"]));
     expect(flat.map((n) => n.key)).toEqual(["db:main", "db:main/sch:public"]);
+  });
+});
+
+describe("flattenFiltered", () => {
+  const roots: TreeNode[] = [{ key: "db:main", label: "main", kind: "database", db: "main" }];
+  const children: Record<string, TreeNode[]> = {
+    "db:main": [
+      { key: "db:main/tbl:users", label: "users", kind: "table", db: "main" },
+      { key: "db:main/tbl:orders", label: "orders", kind: "table", db: "main" },
+      { key: "db:main/tbl:products", label: "products", kind: "table", db: "main" },
+    ],
+  };
+
+  it("returns [] for a blank filter", () => {
+    expect(flattenFiltered(roots, children, "   ")).toEqual([]);
+  });
+
+  it("keeps a match plus its ancestors, force-expanded", () => {
+    const flat = flattenFiltered(roots, children, "user");
+    expect(flat.map((n) => n.key)).toEqual(["db:main", "db:main/tbl:users"]);
+    // The ancestor db is expanded so the match is visible.
+    expect(flat[0]).toMatchObject({ key: "db:main", expanded: true });
+    expect(flat[1]).toMatchObject({ key: "db:main/tbl:users", depth: 1 });
+  });
+
+  it("is case-insensitive and matches multiple leaves", () => {
+    const flat = flattenFiltered(roots, children, "S");
+    // users, orders, products all contain "s"
+    expect(flat.map((n) => n.key)).toEqual([
+      "db:main",
+      "db:main/tbl:users",
+      "db:main/tbl:orders",
+      "db:main/tbl:products",
+    ]);
+  });
+
+  it("returns nothing when there is no match", () => {
+    expect(flattenFiltered(roots, children, "zzz")).toEqual([]);
+  });
+
+  it("shows a matching container even when no descendant matches", () => {
+    const flat = flattenFiltered(roots, children, "main");
+    // "main" matches the db itself; no child matches, so it shows alone, collapsed.
+    expect(flat.map((n) => n.key)).toEqual(["db:main"]);
+    expect(flat[0].expanded).toBe(false);
+  });
+
+  it("retains multiple ancestor levels, correctly depth-indexed", () => {
+    const roots3: TreeNode[] = [{ key: "db:main", label: "main", kind: "database", db: "main" }];
+    const children3: Record<string, TreeNode[]> = {
+      "db:main": [
+        { key: "db:main/sch:public", label: "public", kind: "schema", db: "main", schema: "public" },
+        { key: "db:main/sch:other", label: "other", kind: "schema", db: "main", schema: "other" },
+      ],
+      "db:main/sch:public": [
+        { key: "db:main/sch:public/tbl:invoices", label: "invoices", kind: "table", db: "main", schema: "public" },
+      ],
+    };
+    const flat = flattenFiltered(roots3, children3, "invoic");
+    expect(flat.map((n) => [n.key, n.depth])).toEqual([
+      ["db:main", 0],
+      ["db:main/sch:public", 1],
+      ["db:main/sch:public/tbl:invoices", 2],
+    ]);
+    // The non-matching sibling schema is dropped.
+    expect(flat.some((n) => n.key === "db:main/sch:other")).toBe(false);
+    expect(flat[0].expanded).toBe(true);
+    expect(flat[1].expanded).toBe(true);
+  });
+
+  it("only considers already-loaded children (lazy folders never fetch)", () => {
+    // A lazy folder whose members are not in childrenByKey: only its own label
+    // can match; its (unloaded) contents are never inspected.
+    const withLazy: Record<string, TreeNode[]> = {
+      "db:main": [
+        { key: "db:main/grp:procedure", label: "Procedimientos", kind: "group", db: "main", groupKind: "procedure", lazy: true },
+      ],
+    };
+    expect(flattenFiltered(roots, withLazy, "proc").map((n) => n.key)).toEqual([
+      "db:main",
+      "db:main/grp:procedure",
+    ]);
+    // A filter matching a not-yet-loaded routine finds nothing (no fetch).
+    expect(flattenFiltered(roots, withLazy, "get_total")).toEqual([]);
   });
 });

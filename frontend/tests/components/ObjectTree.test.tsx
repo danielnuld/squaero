@@ -336,6 +336,104 @@ describe("ObjectTree refresh", () => {
     expect(rowByText("stale_proc")).toBeUndefined();
   });
 
+  it("filters visible nodes by text and restores on clear (#175)", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (!req.params.db) return ok({ columns: [{ name: "name", type: "text" }], rows: [["main"]], truncated: false, rowsAffected: 0 });
+      return ok({
+        columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+        rows: [["customers", "table"], ["orders", "table"], ["products", "table"]],
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ObjectTree connId="c1" onOpenData={() => {}} onOpenStructure={() => {}} onRefresh={() => {}} />, host!);
+    });
+    await flush();
+
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement | undefined;
+
+    rowByText("main")!.click(); // expand db -> Tablas folder
+    await flush();
+    rowByText("Tablas")!.click(); // load the leaves
+    await flush();
+    expect(rowByText("customers")).toBeTruthy();
+    expect(rowByText("orders")).toBeTruthy();
+
+    // Type a filter: only "orders" matches (ancestors main + Tablas stay visible).
+    const input = host!.querySelector(".objtree-filter-input") as HTMLInputElement;
+    input.value = "order";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+    expect(rowByText("orders")).toBeTruthy();
+    expect(rowByText("customers")).toBeFalsy();
+    expect(rowByText("products")).toBeFalsy();
+    expect(rowByText("main")).toBeTruthy();
+
+    // Clear the filter -> the full expanded tree is back.
+    (host!.querySelector(".objtree-filter-clear") as HTMLButtonElement).click();
+    await flush();
+    expect(rowByText("customers")).toBeTruthy();
+    expect(rowByText("products")).toBeTruthy();
+  });
+
+  it("clicking a force-expanded ancestor while filtering does not corrupt the restored expansion (#175)", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (!req.params.db) return ok({ columns: [{ name: "name", type: "text" }], rows: [["main"]], truncated: false, rowsAffected: 0 });
+      return ok({
+        columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+        rows: [["customers", "table"], ["orders", "table"]],
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ObjectTree connId="c1" onOpenData={() => {}} onOpenStructure={() => {}} onRefresh={() => {}} />, host!);
+    });
+    await flush();
+
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement | undefined;
+
+    rowByText("main")!.click(); // expand db
+    await flush();
+    rowByText("Tablas")!.click(); // load + expand the folder (children now cached)
+    await flush();
+    rowByText("Tablas")!.click(); // collapse it again
+    await flush();
+    expect(rowByText("customers")).toBeFalsy(); // collapsed
+
+    // Filter reveals a nested match; "Tablas" is force-expanded in the view.
+    const input = host!.querySelector(".objtree-filter-input") as HTMLInputElement;
+    input.value = "order";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+    expect(rowByText("orders")).toBeTruthy();
+
+    // Click the force-expanded "Tablas" row while filtering — must NOT toggle
+    // the real expansion state.
+    rowByText("Tablas")!.click();
+    await flush();
+
+    // Clear the filter: "Tablas" must still be collapsed as before.
+    (host!.querySelector(".objtree-filter-clear") as HTMLButtonElement).click();
+    await flush();
+    expect(rowByText("Tablas")).toBeTruthy();
+    expect(rowByText("customers")).toBeFalsy();
+    expect(rowByText("orders")).toBeFalsy();
+  });
+
   it("shows a refresh button only with a connection + handler", () => {
     installBridge();
     host = document.createElement("div");
