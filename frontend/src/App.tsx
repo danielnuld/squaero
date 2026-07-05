@@ -24,6 +24,7 @@ import {
   type TabState,
   type QueryTab,
   type ToolTab,
+  type ToolKind,
 } from "./utils/tabs";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
 import { type RunScope } from "./utils/runScope";
@@ -69,6 +70,7 @@ import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { rowHeightFor, type Settings } from "./utils/settings";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
+import type { Command } from "./utils/commandPalette";
 import { quoteIdentifier, schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
@@ -105,6 +107,7 @@ import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
+import { CommandPalette } from "./components/CommandPalette";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -236,6 +239,10 @@ export function App() {
   const [recentTables, setRecentTables] = createSignal<TreeNode[]>([]);
   const recordRecent = (node: TreeNode) => setRecentTables((l) => pushRecent(l, node));
 
+  // --- Command palette (issue #174) --------------------------------------
+  const [paletteOpen, setPaletteOpen] = createSignal(false);
+  const [loadedObjects, setLoadedObjects] = createSignal<TreeNode[]>([]);
+
   // --- User preferences (issue #181) -------------------------------------
   // Theme (above) and the history limit (below) keep their own stores; this
   // holds only the settings owned by settings.ts (grid density, slow threshold,
@@ -299,6 +306,9 @@ export function App() {
       case "toggle-help":
         showTool("help", "Atajos de teclado", { key: "help" });
         break;
+      case "command-palette":
+        setPaletteOpen((v) => !v);
+        break;
     }
   };
 
@@ -331,6 +341,9 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       const action = matchShortcut(e);
       if (!action) return;
+      // While the command palette owns the screen, only its own toggle passes
+      // through — no global shortcut may mutate the app behind the overlay.
+      if (paletteOpen() && action !== "command-palette") return;
       e.preventDefault();
       runShortcut(action);
     };
@@ -1077,6 +1090,60 @@ export function App() {
     document.addEventListener("mouseup", onUp);
   };
 
+  // --- Command palette command list (issue #174) -------------------------
+  // Built from the same handlers each origin uses, so a palette hit behaves
+  // exactly like clicking the tool/object/snippet/history/action directly.
+  // `title` is the tab header — it MUST match the sidebar button's title so the
+  // same tab is focused (dedupe by tool+key) with identical text from either
+  // entry point; `label` is the richer palette search text.
+  const PALETTE_TOOLS: { tool: ToolKind; label: string; title: string; key: string }[] = [
+    { tool: "monitor", label: "Monitor de servidor", title: "Monitor de servidor", key: "monitor" },
+    { tool: "users", label: "Usuarios y permisos", title: "Usuarios y permisos", key: "users" },
+    { tool: "erDiagram", label: "Diagrama ER", title: "Diagrama ER", key: "er" },
+    { tool: "queryBuilder", label: "Constructor de consultas", title: "Constructor", key: "qb" },
+    { tool: "routines", label: "Procedimientos y funciones", title: "Procedimientos", key: "routines" },
+    { tool: "triggers", label: "Triggers y eventos", title: "Triggers y eventos", key: "triggers" },
+  ];
+
+  const paletteCommands = createMemo<Command[]>(() => {
+    const out: Command[] = [];
+    const connected = !!active();
+
+    // Actions (always available).
+    out.push({ id: "act:new", category: "action", label: "Nueva consulta", run: () => setTabs((s) => addTab(s)) });
+    if (connected)
+      out.push({ id: "act:reconnect", category: "action", label: "Reconectar", run: reconnect });
+    out.push({ id: "act:settings", category: "action", label: "Ajustes", run: () => showTool("settings", "Ajustes", { key: "settings" }) });
+    out.push({ id: "act:help", category: "action", label: "Atajos de teclado", run: () => showTool("help", "Atajos de teclado", { key: "help" }) });
+
+    // Tools (need a connection to be useful).
+    if (connected)
+      for (const t of PALETTE_TOOLS)
+        out.push({ id: `tool:${t.tool}`, category: "tool", label: t.label, run: () => showTool(t.tool, t.title, { key: t.key }) });
+
+    // Objects loaded in the tree.
+    for (const node of loadedObjects()) {
+      const scope = [node.db, node.schema].filter((p): p is string => !!p).join(".");
+      out.push({
+        id: `obj:${node.key}`,
+        category: "object",
+        label: node.label,
+        hint: scope || (node.kind === "view" ? "vista" : "tabla"),
+        run: () => openData(node),
+      });
+    }
+
+    // Snippets.
+    for (const s of snippets())
+      out.push({ id: `snip:${s.id}`, category: "snippet", label: s.name, run: () => insertSnippet(s.body) });
+
+    // Recent history (cap so the palette stays snappy; fuzzy filters the rest).
+    for (const [i, h] of history().slice(0, 30).entries())
+      out.push({ id: `hist:${i}`, category: "history", label: h.sql, hint: h.connName || undefined, run: () => runFromHistory(h.sql) });
+
+    return out;
+  });
+
   return (
     <div class="app">
       <div class="main">
@@ -1163,6 +1230,7 @@ export function App() {
                 onOpenSql={openSqlInNewTab}
                 reloadKey={treeReload()}
                 onRefresh={refreshAll}
+                onObjectsLoaded={setLoadedObjects}
                 onImport={(node) =>
                   showTool("import", `Importar · ${node.label}`, {
                     key: `import:${node.label}`,
@@ -1697,6 +1765,12 @@ export function App() {
         onToggleTheme={toggleTheme}
         onShowHelp={() => showTool("help", "Atajos de teclado", { key: "help" })}
         onShowSettings={() => showTool("settings", "Ajustes", { key: "settings" })}
+      />
+
+      <CommandPalette
+        open={paletteOpen()}
+        commands={paletteCommands()}
+        onClose={() => setPaletteOpen(false)}
       />
 
       <ContextMenu />

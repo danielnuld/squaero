@@ -34,6 +34,12 @@ describe("matchShortcut — global actions", () => {
   it("F1 toggles help", () => {
     expect(matchShortcut(ev({ key: "F1" }))).toBe("toggle-help");
   });
+  it("Ctrl/Cmd+K opens the command palette", () => {
+    expect(matchShortcut(ev({ key: "k", ctrlKey: true }))).toBe("command-palette");
+    expect(matchShortcut(ev({ key: "K", metaKey: true }))).toBe("command-palette");
+    // must not fire with Alt/Shift held (avoids clobbering editor combos)
+    expect(matchShortcut(ev({ key: "k", ctrlKey: true, altKey: true }))).toBeNull();
+  });
 });
 
 describe("matchShortcut — non-matches", () => {

@@ -15,7 +15,8 @@ export type ActionId =
   | "prev-tab"
   | "refresh"
   | "toggle-theme"
-  | "toggle-help";
+  | "toggle-help"
+  | "command-palette";
 
 export interface Shortcut {
   id: ActionId;
@@ -36,6 +37,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "refresh", keys: "F5", description: "Refrescar datos y árbol", global: true },
   { id: "toggle-theme", keys: "Mod+Alt+L", description: "Cambiar tema claro/oscuro", global: true },
   { id: "toggle-help", keys: "F1", description: "Mostrar/ocultar atajos", global: true },
+  { id: "command-palette", keys: "Mod+K", description: "Paleta de comandos", global: true },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */
@@ -63,6 +65,9 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
     if (k === "w") return "close-tab";
     if (k === "l") return "toggle-theme";
   }
+
+  // Ctrl/Cmd+K opens the command palette (issue #174), from any focus.
+  if (mod(e) && !e.altKey && !e.shiftKey && k === "k") return "command-palette";
 
   // Ctrl+PageUp/PageDown cycle tabs (matches common editor/browser convention).
   if (e.ctrlKey && !e.altKey && !e.shiftKey) {

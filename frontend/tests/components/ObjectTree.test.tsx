@@ -131,6 +131,51 @@ describe("ObjectTree refresh", () => {
     expect(vwBadge.classList.contains("kind-view")).toBe(true);
   });
 
+  it("lifts loaded table/view leaves via onObjectsLoaded, excluding containers (#174)", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (!req.params.db)
+        return ok({ columns: [{ name: "name", type: "text" }], rows: [["main"]], truncated: false, rowsAffected: 0 });
+      return ok({
+        columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+        rows: [["customers", "table"], ["orders", "table"], ["v1", "view"]],
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    let loaded: { label: string; kind: string }[] = [];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            onRefresh={() => {}}
+            onObjectsLoaded={(nodes) => (loaded = nodes.map((n) => ({ label: n.label, kind: n.kind })))}
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement;
+
+    rowByText("main").click(); // expand db -> pre-loads the table/view leaves under folders
+    await flush();
+
+    // The two tables and the view are lifted; the "main" database container and
+    // the Tablas/Vistas group folders are not.
+    expect(loaded.map((n) => n.label).sort()).toEqual(["customers", "orders", "v1"]);
+    expect(loaded.every((n) => n.kind === "table" || n.kind === "view")).toBe(true);
+  });
+
   it("shows lazy object-type folders and opens a routine's DDL (#135 phase 2)", async () => {
     const calls: { method: string; sql?: string }[] = [];
     (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
