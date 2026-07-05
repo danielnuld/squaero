@@ -24,7 +24,6 @@ import {
   type TabState,
   type QueryTab,
   type ToolTab,
-  type ToolKind,
 } from "./utils/tabs";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
 import { type RunScope } from "./utils/runScope";
@@ -110,6 +109,8 @@ import { EmptyState } from "./components/EmptyState";
 import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
+import { SidebarTools } from "./components/SidebarTools";
+import { TOOL_CATALOG, loadToolsCollapsed, saveToolsCollapsed } from "./utils/toolCatalog";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -244,6 +245,14 @@ export function App() {
   // --- Command palette (issue #174) --------------------------------------
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [loadedObjects, setLoadedObjects] = createSignal<TreeNode[]>([]);
+
+  // --- Sidebar tools section collapse (issue #176) -----------------------
+  const [toolsCollapsed, setToolsCollapsed] = createSignal(loadToolsCollapsed());
+  const toggleToolsCollapsed = () => {
+    const next = !toolsCollapsed();
+    setToolsCollapsed(next);
+    saveToolsCollapsed(next);
+  };
 
   // --- User preferences (issue #181) -------------------------------------
   // Theme (above) and the history limit (below) keep their own stores; this
@@ -1114,19 +1123,6 @@ export function App() {
   // --- Command palette command list (issue #174) -------------------------
   // Built from the same handlers each origin uses, so a palette hit behaves
   // exactly like clicking the tool/object/snippet/history/action directly.
-  // `title` is the tab header — it MUST match the sidebar button's title so the
-  // same tab is focused (dedupe by tool+key) with identical text from either
-  // entry point; `label` is the richer palette search text.
-  const PALETTE_TOOLS: { tool: ToolKind; label: string; title: string; key: string }[] = [
-    { tool: "monitor", label: "Monitor de servidor", title: "Monitor de servidor", key: "monitor" },
-    { tool: "slowQueries", label: "Consultas lentas", title: "Consultas lentas", key: "slow" },
-    { tool: "users", label: "Usuarios y permisos", title: "Usuarios y permisos", key: "users" },
-    { tool: "erDiagram", label: "Diagrama ER", title: "Diagrama ER", key: "er" },
-    { tool: "queryBuilder", label: "Constructor de consultas", title: "Constructor", key: "qb" },
-    { tool: "routines", label: "Procedimientos y funciones", title: "Procedimientos", key: "routines" },
-    { tool: "triggers", label: "Triggers y eventos", title: "Triggers y eventos", key: "triggers" },
-  ];
-
   const paletteCommands = createMemo<Command[]>(() => {
     const out: Command[] = [];
     const connected = !!active();
@@ -1140,8 +1136,8 @@ export function App() {
 
     // Tools (need a connection to be useful).
     if (connected)
-      for (const t of PALETTE_TOOLS)
-        out.push({ id: `tool:${t.tool}`, category: "tool", label: t.label, run: () => showTool(t.tool, t.title, { key: t.key }) });
+      for (const t of TOOL_CATALOG)
+        out.push({ id: `tool:${t.tool}`, category: "tool", label: t.label, run: () => showTool(t.tool, t.tabTitle, { key: t.key }) });
 
     // Objects loaded in the tree.
     for (const node of loadedObjects()) {
@@ -1201,57 +1197,11 @@ export function App() {
                 </label>
               </div>
             </Show>
-            <div class="sidebar-tools">
-              <button
-                class="status-btn"
-                title="Monitor de servidor y lista de procesos"
-                onClick={() => showTool("monitor", "Monitor de servidor", { key: "monitor" })}
-              >
-                Monitor de servidor
-              </button>
-              <button
-                class="status-btn"
-                title="Consultas más lentas registradas por el servidor"
-                onClick={() => showTool("slowQueries", "Consultas lentas", { key: "slow" })}
-              >
-                Consultas lentas
-              </button>
-              <button
-                class="status-btn"
-                title="Usuarios y permisos"
-                onClick={() => showTool("users", "Usuarios y permisos", { key: "users" })}
-              >
-                Usuarios y permisos
-              </button>
-              <button
-                class="status-btn"
-                title="Diagrama entidad-relación"
-                onClick={() => showTool("erDiagram", "Diagrama ER", { key: "er" })}
-              >
-                Diagrama ER
-              </button>
-              <button
-                class="status-btn"
-                title="Constructor visual de consultas"
-                onClick={() => showTool("queryBuilder", "Constructor", { key: "qb" })}
-              >
-                Constructor de consultas
-              </button>
-              <button
-                class="status-btn"
-                title="Procedimientos almacenados y funciones"
-                onClick={() => showTool("routines", "Procedimientos", { key: "routines" })}
-              >
-                Procedimientos y funciones
-              </button>
-              <button
-                class="status-btn"
-                title="Triggers y eventos programados"
-                onClick={() => showTool("triggers", "Triggers y eventos", { key: "triggers" })}
-              >
-                Triggers y eventos
-              </button>
-            </div>
+            <SidebarTools
+              collapsed={toolsCollapsed()}
+              onToggle={toggleToolsCollapsed}
+              onOpen={(t) => showTool(t.tool, t.tabTitle, { key: t.key })}
+            />
             <div class="sidebar-tree">
               <ObjectTree
                 connId={active()!.connId}

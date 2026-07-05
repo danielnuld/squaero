@@ -1915,13 +1915,74 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* Server monitor / process list (issue #148) */
 .sidebar-tools {
-  padding: 0.4rem 0.6rem;
+  padding: 0.3rem 0.4rem;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.sidebar-tools .status-btn {
+/* Collapsible "Herramientas" section header (issue #176). */
+.sidebar-tools-header {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.3rem;
+  border-radius: 3px;
+}
+
+.sidebar-tools-header:hover {
+  color: var(--text);
+}
+
+.sidebar-tools-caret {
+  width: 0.8em;
+  text-align: center;
+}
+
+.sidebar-tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 0.15rem;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+}
+
+.tool-item:hover {
+  background: var(--bg-elev2);
+}
+
+.tool-item-icon {
+  flex: 0 0 1.2em;
+  text-align: center;
+}
+
+.tool-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sm-head {
