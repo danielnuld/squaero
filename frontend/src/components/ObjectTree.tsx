@@ -58,6 +58,8 @@ export function ObjectTree(props: {
   onImport?: (node: TreeNode) => void;
   /** Right-click "Nueva tabla…" on a database/schema. */
   onCreateTable?: (node: TreeNode) => void;
+  /** Right-click "Modificar tabla…" on a table. */
+  onAlterTable?: (node: TreeNode) => void;
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -301,6 +303,9 @@ export function ObjectTree(props: {
       items.push({ label: "Ver estructura", action: () => props.onOpenStructure(node) });
       if (node.kind === "view") {
         items.push({ label: "Editar definición…", action: () => props.onOpenStructure(node) });
+      }
+      if (node.kind === "table" && props.onAlterTable) {
+        items.push({ label: "Modificar tabla…", action: () => props.onAlterTable!(node) });
       }
       if (props.onImport) {
         items.push({ label: "Importar datos…", action: () => props.onImport!(node) });

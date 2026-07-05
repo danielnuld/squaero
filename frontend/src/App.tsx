@@ -1016,9 +1016,21 @@ export function App() {
     }
   };
 
-  // Open the table designer for a db/schema container as a tool tab.
+  // Open the table designer for a db/schema container as a tool tab (create).
   const openTableDesigner = (container?: string) =>
     showTool("tableDesigner", "Nueva tabla", { key: "tableDesigner", params: { container } });
+
+  // Open the table designer on an existing table (alter mode).
+  const openAlterTable = (node: TreeNode) =>
+    showTool("tableDesigner", `Modificar · ${node.label}`, {
+      key: `alter:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
+      params: {
+        table: node.label,
+        db: node.db,
+        schema: node.schema,
+        container: node.schema ?? node.db,
+      },
+    });
 
   // Sidebar drag-to-resize: track the pointer on the document until release.
   const startResize = (e: MouseEvent) => {
@@ -1132,6 +1144,7 @@ export function App() {
                 onCreateTable={(node) =>
                   openTableDesigner(node.schema ?? node.db)
                 }
+                onAlterTable={openAlterTable}
               />
             </div>
           </Show>
@@ -1472,9 +1485,12 @@ export function App() {
                   <TableDesigner
                     connId={active()?.connId ?? ""}
                     engine={activeDialect()}
+                    table={(tt().params as { table?: string }).table}
                     container={(tt().params as { container?: string }).container}
+                    db={(tt().params as { db?: string }).db}
+                    schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
-                    onCreated={() => setTreeReload((n) => n + 1)}
+                    onApplied={() => setTreeReload((n) => n + 1)}
                   />
                 </Match>
                 <Match when={tt().tool === "structure"}>
