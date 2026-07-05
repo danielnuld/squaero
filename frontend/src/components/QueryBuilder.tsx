@@ -237,7 +237,7 @@ export function QueryBuilder(props: {
                     value={c.value}
                     onInput={(e) => patchCond(i(), "value", e.currentTarget.value)}
                   />
-                  <button class="grid-action row-del" title="Quitar condición" onClick={() => removeCond(i())}>
+                  <button class="grid-action danger" title="Quitar condición" onClick={() => removeCond(i())}>
                     ✕
                   </button>
                 </div>

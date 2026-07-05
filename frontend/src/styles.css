@@ -850,6 +850,11 @@ kbd {
   color: var(--text);
 }
 
+/* Destructive connection action (delete): the shared `.danger` pattern (#185). */
+.conn-actions button.danger:hover:not(:disabled) {
+  color: var(--error);
+}
+
 /* Connection form modal */
 .modal-backdrop {
   position: fixed;
@@ -1361,9 +1366,10 @@ kbd {
 .objtree-badge.kind-table { background: var(--number); }
 .objtree-badge.kind-view { background: #e0c890; }
 /* Routine/trigger/event leaves (listed on demand, #135 phase 2). */
-.objtree-badge.kind-routine { background: #a0d0b0; text-transform: none; }
-.objtree-badge.kind-trigger { background: #e0a890; text-transform: none; }
-.objtree-badge.kind-event { background: #90c8d0; text-transform: none; }
+.objtree-badge.kind-routine { background: #a0d0b0; }
+.objtree-badge.kind-trigger { background: #e0a890; }
+.objtree-badge.kind-event { background: #90c8d0; }
+.objtree-badge.kind-unknown { background: var(--text-dim); }
 /* Type folder (Tablas/Vistas): a neutral count chip. */
 .objtree-badge.kind-group {
   background: var(--text-dim);
@@ -1600,6 +1606,13 @@ button.grid-action {
 
 button.grid-action:hover {
   color: var(--fg);
+}
+
+/* Destructive row action (delete): the shared `.danger` pattern (#185). Used by
+   the index/constraint editor and the user manager so every row-level delete
+   looks and behaves the same. */
+button.grid-action.danger:hover:not(:disabled) {
+  color: var(--error);
 }
 
 .row-deleted {
@@ -2044,15 +2057,11 @@ button.grid-action:hover {
   background: var(--bg-elev2);
 }
 
+/* The user-manager delete button is the shared `.grid-action.danger` icon button
+   (#185); `.um-drop` only adds the reveal-on-row-hover layout on top of it. */
 .um-drop {
   margin-left: auto;
-  border: none;
-  background: none;
-  cursor: pointer;
   opacity: 0;
-  font-size: 12px;
-  padding: 0 0.2rem;
-  line-height: 1;
 }
 
 .um-user:hover .um-drop,
@@ -2060,7 +2069,7 @@ button.grid-action:hover {
   opacity: 0.75;
 }
 
-.um-drop:hover {
+.um-drop:hover:not(:disabled) {
   opacity: 1;
 }
 
@@ -2176,21 +2185,6 @@ button.grid-action:hover {
 .routine-item.active {
   background: var(--accent);
   color: #fff;
-}
-
-.routine-badge {
-  flex: 0 0 auto;
-  width: 1.1rem;
-  text-align: center;
-  color: var(--text-dim);
-}
-
-.routine-badge.function {
-  font-style: italic;
-}
-
-.routine-item.active .routine-badge {
-  color: rgba(255, 255, 255, 0.85);
 }
 
 .routine-name {

@@ -253,7 +253,7 @@ export function UserManager(props: {
                     <span class="um-user-name">{u.name}</span>
                     <span class="um-user-host">@{u.host}</span>
                     <button
-                      class="um-drop"
+                      class="grid-action danger um-drop"
                       title={`Eliminar ${u.name}@${u.host}`}
                       aria-label={`Eliminar ${u.name}@${u.host}`}
                       disabled={busy()}

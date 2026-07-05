@@ -9,6 +9,7 @@ import {
   type RoutineType,
 } from "../utils/routines";
 import { readDefinitionText } from "../utils/treeObjects";
+import { objectBadge, routineKind } from "../utils/objectIcons";
 import { Panel } from "./Panel";
 
 // Stored procedures / functions explorer (issue #137): lists the routines of the
@@ -180,8 +181,10 @@ export function RoutineExplorer(props: {
                               class={`routine-item ${sameRef(selected(), r()) ? "active" : ""}`}
                               onClick={() => select(r())}
                             >
-                              <span class={`routine-badge ${r().type.toLowerCase()}`}>
-                                {r().type === "PROCEDURE" ? "▸" : "ƒ"}
+                              <span
+                                class={`objtree-badge ${objectBadge(routineKind(r().type)).className}`}
+                              >
+                                {objectBadge(routineKind(r().type)).text}
                               </span>
                               <span class="routine-name">
                                 {nameIdx() >= 0 ? row[nameIdx()] : r().name}

@@ -210,7 +210,7 @@ export function ResultGrid(props: {
                           >
                             <Show when={editing()}>
                               <button
-                                class="grid-cell grid-action row-del"
+                                class="grid-cell grid-action danger"
                                 title={isDeleted(rowIndex()) ? "Deshacer borrado" : "Borrar fila"}
                                 onClick={() => props.edit?.onToggleDelete(rowIndex())}
                               >
@@ -277,7 +277,7 @@ export function ResultGrid(props: {
                       style={{ "grid-template-columns": gridCols() }}
                     >
                       <button
-                        class="grid-cell grid-action row-del"
+                        class="grid-cell grid-action danger"
                         title="Quitar fila nueva"
                         onClick={() => props.edit?.onRemoveInsert(ii())}
                       >

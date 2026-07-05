@@ -282,7 +282,7 @@ export function TableDesigner(props: {
                 </td>
                 <td class="td-c">
                   <button
-                    class="grid-action row-del"
+                    class="grid-action danger"
                     title="Quitar columna"
                     disabled={columns.length <= 1}
                     onClick={() => removeColumn(i())}

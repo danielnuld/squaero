@@ -107,7 +107,7 @@ describe("IndexManager", () => {
     await flush();
 
     // Click the first index row's trash button.
-    const del = host!.querySelector("button.row-del") as HTMLButtonElement;
+    const del = host!.querySelector("button.grid-action.danger") as HTMLButtonElement;
     del.click();
     await flush();
 
@@ -160,7 +160,7 @@ describe("IndexManager", () => {
     mount(() => <IndexManager connId="c1" engine="mysql" table="users" db="shop" onClose={() => {}} />);
     await flush();
 
-    (host!.querySelector("button.row-del") as HTMLButtonElement).click();
+    (host!.querySelector("button.grid-action.danger") as HTMLButtonElement).click();
     await flush();
     clickText("Eliminar"); // confirm -> drop fails
     await flush();

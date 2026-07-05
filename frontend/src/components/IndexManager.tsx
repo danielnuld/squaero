@@ -429,7 +429,7 @@ function CatalogTable(props: {
                   </For>
                   <td class="td-c">
                     <Show when={name}>
-                      <button class="grid-action row-del" title="Eliminar" onClick={() => props.onDrop(name!, row)}>
+                      <button class="grid-action danger" title="Eliminar" onClick={() => props.onDrop(name!, row)}>
                         🗑
                       </button>
                     </Show>

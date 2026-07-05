@@ -97,7 +97,7 @@ describe("ResultGrid edit mode", () => {
 
   it("toggles a row for deletion, marking it and disabling its inputs", () => {
     const { pending } = mountEditable();
-    const del = host!.querySelector<HTMLButtonElement>("button.row-del")!;
+    const del = host!.querySelector<HTMLButtonElement>("button.grid-action.danger")!;
     del.click();
     expect(pending().deletes).toEqual([0]);
     expect(host!.querySelector(".row-deleted")).not.toBeNull();

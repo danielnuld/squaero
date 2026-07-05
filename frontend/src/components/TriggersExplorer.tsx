@@ -9,6 +9,7 @@ import {
   type ObjectRef,
 } from "../utils/triggers";
 import { readDefinitionText } from "../utils/treeObjects";
+import { objectBadge } from "../utils/objectIcons";
 import { Panel } from "./Panel";
 
 // Triggers / events explorer (issue #138): lists a database's triggers (and, on
@@ -203,8 +204,8 @@ export function TriggersExplorer(props: {
                               class={`routine-item ${sameRef(selected(), r()) ? "active" : ""}`}
                               onClick={() => select(row, r())}
                             >
-                              <span class="routine-badge">
-                                {kind() === "event" ? "⏱" : "⚡"}
+                              <span class={`objtree-badge ${objectBadge(kind()).className}`}>
+                                {objectBadge(kind()).text}
                               </span>
                               <span class="routine-name">
                                 {nameIdx() >= 0 ? row[nameIdx()] : r().name}

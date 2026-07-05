@@ -118,6 +118,17 @@ describe("ObjectTree refresh", () => {
     await flush();
     expect(rowByText("customers")).toBeTruthy();
     expect(rowByText("orders")).toBeTruthy();
+
+    // Unified iconography (#185): a table leaf carries the canonical TBL badge.
+    const tblBadge = rowByText("customers").querySelector(".objtree-badge")!;
+    expect(tblBadge.textContent).toBe("TBL");
+    expect(tblBadge.classList.contains("kind-table")).toBe(true);
+
+    (rowByText("Vistas")).click(); // expand the Vistas folder
+    await flush();
+    const vwBadge = rowByText("v1").querySelector(".objtree-badge")!;
+    expect(vwBadge.textContent).toBe("VW");
+    expect(vwBadge.classList.contains("kind-view")).toBe(true);
   });
 
   it("shows lazy object-type folders and opens a routine's DDL (#135 phase 2)", async () => {
@@ -192,6 +203,11 @@ describe("ObjectTree refresh", () => {
     await flush();
     expect(rowByText("add_user")).toBeTruthy();
     expect(rowByText("tax_rate")).toBeFalsy(); // a FUNCTION, not in Procedimientos
+
+    // Unified iconography (#185): the routine leaf refines its badge to PROC.
+    const procBadge = rowByText("add_user").querySelector(".objtree-badge")!;
+    expect(procBadge.textContent).toBe("PROC");
+    expect(procBadge.classList.contains("kind-routine")).toBe(true);
 
     rowByText("add_user").click(); // open its DDL in a new query tab
     await flush();

@@ -19,6 +19,7 @@ import { definitionFor as routineDefinitionFor, type RoutineType } from "../util
 import { definitionFor as objectDefinitionFor } from "../utils/triggers";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
+import { objectBadge, routineKind } from "../utils/objectIcons";
 
 const ROW_HEIGHT = 24;
 
@@ -27,15 +28,13 @@ function isObjectLeaf(kind: TreeNode["kind"]): boolean {
   return kind === "routine" || kind === "trigger" || kind === "event";
 }
 
-const KIND_BADGE: Record<string, string> = {
-  database: "db",
-  schema: "sch",
-  table: "tbl",
-  view: "vw",
-  routine: "ƒ",
-  trigger: "⚡",
-  event: "⏱",
-};
+// Badge for a tree node, resolved from the canonical icon set (#185). Object-type
+// folders (group) show a neutral count chip; a routine leaf refines its badge to
+// procedure/function from the type it was listed with.
+function nodeBadge(node: TreeNode): { text: string; className: string } {
+  if (node.kind === "routine") return objectBadge(routineKind(node.objType));
+  return objectBadge(node.kind);
+}
 
 // Lazy, virtualized object tree. Children of a container are fetched from the
 // core only when it is expanded (schema.tree), and the visible (expanded) nodes
@@ -258,7 +257,7 @@ export function ObjectTree(props: {
       node.kind === "routine"
         ? routineDefinitionFor(engine, {
             name: node.label,
-            type: (node.objType?.toUpperCase().includes("FUNCTION") ? "FUNCTION" : "PROCEDURE") as RoutineType,
+            type: routineKind(node.objType).toUpperCase() as RoutineType,
             id: node.objId,
           })
         : objectDefinitionFor(engine, node.kind === "event" ? "event" : "trigger", {
@@ -437,10 +436,14 @@ export function ObjectTree(props: {
                     <span class="objtree-caret">
                       {node.expandable ? (node.expanded ? "▾" : "▸") : ""}
                     </span>
-                    <span class={`objtree-badge kind-${node.kind}`}>
+                    <span
+                      class={`objtree-badge ${
+                        node.kind === "group" ? "kind-group" : nodeBadge(node).className
+                      }`}
+                    >
                       {node.kind === "group"
                         ? (node.count ?? children()[node.key]?.length ?? "")
-                        : KIND_BADGE[node.kind]}
+                        : nodeBadge(node).text}
                     </span>
                     <span class="objtree-label">{node.label}</span>
                     <Show when={loading().has(node.key)}>

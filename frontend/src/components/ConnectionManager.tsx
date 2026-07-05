@@ -62,7 +62,7 @@ export function ConnectionManager(props: {
                   <button title="Editar" onClick={() => props.onEdit(c)}>
                     ✎
                   </button>
-                  <button title="Eliminar" onClick={() => props.onDelete(c.id)}>
+                  <button class="danger" title="Eliminar" onClick={() => props.onDelete(c.id)}>
                     🗑
                   </button>
                 </div>
