@@ -49,6 +49,7 @@ import {
   type Connection,
 } from "./utils/connections";
 import { loadConnections, saveConnections } from "./utils/connectionStore";
+import { exportConnections, importConnections, summaryText } from "./utils/connectionsIO";
 import { addHistory, clampLimit, type HistoryEntry } from "./utils/history";
 import {
   loadHistory,
@@ -535,6 +536,22 @@ export function App() {
   const persist = (list: Connection[]) => {
     setConnections(list);
     saveConnections(list);
+  };
+
+  // Export/import saved connections (issue #188). Export defaults to no passwords;
+  // import merges into the saved list and reports what changed.
+  const exportConns = (includePasswords: boolean) =>
+    void saveText(
+      "quaero-connections.json",
+      exportConnections(connections(), includePasswords),
+      "application/json",
+    );
+  const importConns = async (file: File): Promise<string> => {
+    const text = await file.text();
+    const res = importConnections(connections(), text);
+    if ("error" in res) return `No se pudo importar: ${res.error}`;
+    persist(res.list);
+    return summaryText(res.summary);
   };
 
   // The connection form opens as a tool tab carrying the draft in its params.
@@ -1165,6 +1182,8 @@ export function App() {
               onNew={onNewConnection}
               onDisconnect={() => void disconnect()}
               onReconnect={reconnect}
+              onExport={exportConns}
+              onImport={importConns}
             />
           </div>
           <Show when={active()}>

@@ -351,6 +351,32 @@ export function serializeConnections(list: Connection[]): string {
   return JSON.stringify(list);
 }
 
+/**
+ * Coerce one raw parsed item into a well-formed Connection, or null when its
+ * shape is invalid. Shared by storage parsing and connection import (#188) so the
+ * accepted shape is defined once. Non-string param values are dropped.
+ */
+export function coerceConnection(item: unknown): Connection | null {
+  const c = item as Partial<Connection> | null;
+  if (
+    !c ||
+    typeof c.id !== "string" ||
+    typeof c.name !== "string" ||
+    typeof c.driver !== "string" ||
+    c.params === null ||
+    typeof c.params !== "object"
+  ) {
+    return null;
+  }
+  const params: Record<string, string> = {};
+  for (const [k, v] of Object.entries(c.params as Record<string, unknown>)) {
+    if (typeof v === "string") {
+      params[k] = v;
+    }
+  }
+  return { id: c.id, name: c.name, driver: c.driver, params };
+}
+
 /** Tolerant parse of stored connections; malformed entries are dropped. */
 export function parseConnections(raw: string | null): Connection[] {
   if (!raw) {
@@ -365,24 +391,5 @@ export function parseConnections(raw: string | null): Connection[] {
   if (!Array.isArray(data)) {
     return [];
   }
-  const out: Connection[] = [];
-  for (const item of data) {
-    const c = item as Partial<Connection>;
-    if (
-      typeof c?.id === "string" &&
-      typeof c?.name === "string" &&
-      typeof c?.driver === "string" &&
-      c.params !== null &&
-      typeof c.params === "object"
-    ) {
-      const params: Record<string, string> = {};
-      for (const [k, v] of Object.entries(c.params as Record<string, unknown>)) {
-        if (typeof v === "string") {
-          params[k] = v;
-        }
-      }
-      out.push({ id: c.id, name: c.name, driver: c.driver, params });
-    }
-  }
-  return out;
+  return data.map(coerceConnection).filter((c): c is Connection => c !== null);
 }

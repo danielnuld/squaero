@@ -2880,3 +2880,58 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--text);
   white-space: pre-wrap;
 }
+
+/* Export/import saved connections (issue #188) */
+.conn-io {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+
+.conn-io-btn {
+  flex: 1;
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.conn-io-btn:hover {
+  border-color: var(--accent);
+}
+
+.conn-export {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 12px;
+}
+
+.conn-export-opt {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.conn-warn {
+  color: var(--error);
+  margin: 0.4rem 0;
+}
+
+.conn-export-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.conn-import-msg {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0.2rem 0 0.5rem;
+}
