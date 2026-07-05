@@ -60,6 +60,8 @@ export function ObjectTree(props: {
   onCreateTable?: (node: TreeNode) => void;
   /** Right-click "Modificar tabla…" on a table. */
   onAlterTable?: (node: TreeNode) => void;
+  /** Right-click "Índices y constraints…" on a table. */
+  onManageIndexes?: (node: TreeNode) => void;
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -306,6 +308,9 @@ export function ObjectTree(props: {
       }
       if (node.kind === "table" && props.onAlterTable) {
         items.push({ label: "Modificar tabla…", action: () => props.onAlterTable!(node) });
+      }
+      if (node.kind === "table" && props.onManageIndexes) {
+        items.push({ label: "Índices y constraints…", action: () => props.onManageIndexes!(node) });
       }
       if (props.onImport) {
         items.push({ label: "Importar datos…", action: () => props.onImport!(node) });

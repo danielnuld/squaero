@@ -11,6 +11,7 @@ export type ToolKind =
   | "generator"
   | "import"
   | "tableDesigner"
+  | "indexes"
   | "structure"
   | "history"
   | "snippets"

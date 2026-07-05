@@ -1874,6 +1874,48 @@ button.grid-action:hover {
   color: var(--text-dim);
 }
 
+/* Index / constraint manager (issue #139) */
+.im-form {
+  margin: 0.6rem 0 1.2rem;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-alt, transparent);
+}
+
+.im-form > strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.im-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.im-fields .td-in,
+.im-fields select {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+
+.im-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.confirm-bar {
+  margin: 0.6rem 0;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger, #d9534f);
+  border-radius: 4px;
+}
+
 .sm-scroll {
   margin-top: 0.8rem;
   overflow: auto;

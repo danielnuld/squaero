@@ -115,6 +115,7 @@ import { RoutineExplorer } from "./components/RoutineExplorer";
 import { TriggersExplorer } from "./components/TriggersExplorer";
 import { ContextMenu } from "./components/ContextMenu";
 import { TableDesigner } from "./components/TableDesigner";
+import { IndexManager } from "./components/IndexManager";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
@@ -1020,6 +1021,13 @@ export function App() {
   const openTableDesigner = (container?: string) =>
     showTool("tableDesigner", "Nueva tabla", { key: "tableDesigner", params: { container } });
 
+  // Open the index / constraint manager for a table (alter-scoped tool tab).
+  const openIndexes = (node: TreeNode) =>
+    showTool("indexes", `Índices · ${node.label}`, {
+      key: `indexes:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
+      params: { table: node.label, db: node.db, schema: node.schema },
+    });
+
   // Open the table designer on an existing table (alter mode).
   const openAlterTable = (node: TreeNode) =>
     showTool("tableDesigner", `Modificar · ${node.label}`, {
@@ -1145,6 +1153,7 @@ export function App() {
                   openTableDesigner(node.schema ?? node.db)
                 }
                 onAlterTable={openAlterTable}
+                onManageIndexes={openIndexes}
               />
             </div>
           </Show>
@@ -1491,6 +1500,17 @@ export function App() {
                     schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
                     onApplied={() => setTreeReload((n) => n + 1)}
+                  />
+                </Match>
+                <Match when={tt().tool === "indexes"}>
+                  <IndexManager
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    table={(tt().params as { table: string }).table}
+                    db={(tt().params as { db?: string }).db}
+                    schema={(tt().params as { schema?: string }).schema}
+                    onClose={() => closeTool(tt().id)}
+                    onChanged={() => setTreeReload((n) => n + 1)}
                   />
                 </Match>
                 <Match when={tt().tool === "structure"}>
