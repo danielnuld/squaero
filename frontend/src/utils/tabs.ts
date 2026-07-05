@@ -24,6 +24,7 @@ export type ToolKind =
   | "queryBuilder"
   | "routines"
   | "triggers"
+  | "slowQueries"
   | "settings"
   | "help";
 

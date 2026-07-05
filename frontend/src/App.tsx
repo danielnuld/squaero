@@ -108,6 +108,7 @@ import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
 import { CommandPalette } from "./components/CommandPalette";
+import { SlowQueries } from "./components/SlowQueries";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -770,6 +771,15 @@ export function App() {
     void run(ex);
   };
 
+  // EXPLAIN an arbitrary statement (e.g. a slow query, issue #180): open its plan
+  // in a new tab and run it; fall back to just opening the statement when the
+  // engine has no EXPLAIN builder.
+  const explainSql = (sql: string) => {
+    const ex = buildExplain(activeDialect(), sql);
+    if (ex) runFromHistory(ex);
+    else openSqlInNewTab(sql);
+  };
+
   // --- Object tree actions (issues #19, #20) -----------------------------
   // Open a table's data: a fresh tab with a SELECT, executed immediately. The
   // table is qualified with its db/schema context so the query is correct on
@@ -1104,6 +1114,7 @@ export function App() {
   // entry point; `label` is the richer palette search text.
   const PALETTE_TOOLS: { tool: ToolKind; label: string; title: string; key: string }[] = [
     { tool: "monitor", label: "Monitor de servidor", title: "Monitor de servidor", key: "monitor" },
+    { tool: "slowQueries", label: "Consultas lentas", title: "Consultas lentas", key: "slow" },
     { tool: "users", label: "Usuarios y permisos", title: "Usuarios y permisos", key: "users" },
     { tool: "erDiagram", label: "Diagrama ER", title: "Diagrama ER", key: "er" },
     { tool: "queryBuilder", label: "Constructor de consultas", title: "Constructor", key: "qb" },
@@ -1190,6 +1201,13 @@ export function App() {
                 onClick={() => showTool("monitor", "Monitor de servidor", { key: "monitor" })}
               >
                 Monitor de servidor
+              </button>
+              <button
+                class="status-btn"
+                title="Consultas más lentas registradas por el servidor"
+                onClick={() => showTool("slowQueries", "Consultas lentas", { key: "slow" })}
+              >
+                Consultas lentas
               </button>
               <button
                 class="status-btn"
@@ -1733,6 +1751,21 @@ export function App() {
                     onOpenSql={(sql) => {
                       closeTool(tt().id);
                       openSqlInNewTab(sql);
+                    }}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "slowQueries"}>
+                  <SlowQueries
+                    connId={active()?.connId ?? ""}
+                    engine={activeDialect()}
+                    onOpenSql={(sql) => {
+                      closeTool(tt().id);
+                      openSqlInNewTab(sql);
+                    }}
+                    onExplain={(sql) => {
+                      closeTool(tt().id);
+                      explainSql(sql);
                     }}
                     onClose={() => closeTool(tt().id)}
                   />

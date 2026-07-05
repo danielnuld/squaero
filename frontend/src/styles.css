@@ -2808,3 +2808,21 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--text-dim);
   text-align: center;
 }
+
+/* Slow-queries tool (issue #180): reuses the server-monitor table styles. */
+.sq-order {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.sq-actions-col {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.sq-actions-col .edit-btn {
+  margin-right: 0.25rem;
+}
