@@ -6,6 +6,8 @@
 // (their GRANT dialects and user catalogs differ enough to warrant their own pass).
 // All pure and unit-tested; the component just runs the SQL these return.
 
+import { engineFamily as family } from "./engineFamily";
+
 /** What user administration is available for an engine. */
 export interface UserAdminSupport {
   supported: boolean;
@@ -32,12 +34,6 @@ export interface NewUserOptions {
   host?: string;
   /** Optional password; when blank the user is created without one. */
   password?: string;
-}
-
-function family(engine: string): string {
-  const e = engine.toLowerCase();
-  if (e === "mysql" || e === "mariadb") return "mysql";
-  return e;
 }
 
 /** The privileges offered in the MySQL/MariaDB grant form. */
@@ -132,7 +128,7 @@ export function unsupportedReason(engine: string): string {
   const f = family(engine);
   if (f === "sqlite") return "SQLite no tiene usuarios ni permisos: es una base de datos embebida.";
   if (f === "informix") return "La gestión de usuarios de Informix aún no está disponible aquí.";
-  if (f === "postgres" || f === "postgresql")
+  if (f === "postgres")
     return "La gestión de usuarios de PostgreSQL aún no está disponible aquí.";
   if (f === "mongodb") return "La gestión de usuarios de MongoDB aún no está disponible aquí.";
   return `La gestión de usuarios no está disponible para el motor "${engine || "desconocido"}".`;

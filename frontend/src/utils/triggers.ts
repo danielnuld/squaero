@@ -13,6 +13,7 @@
 // All pure and unit-tested; the component just runs the SQL these return.
 
 import { quoteIdentifier } from "./schema";
+import { engineFamily as family } from "./engineFamily";
 
 /** Which schema object the explorer is listing. */
 export type ObjectKind = "trigger" | "event";
@@ -56,13 +57,6 @@ export interface DefinitionQuery {
   column: string;
   /** When true, concatenate a single-column multi-row result in order. */
   concatRows: boolean;
-}
-
-function family(engine: string): string {
-  const e = engine.toLowerCase();
-  if (e === "mysql" || e === "mariadb") return "mysql";
-  if (e === "postgres" || e === "postgresql") return "postgres";
-  return e;
 }
 
 /** Escape a single-quoted SQL string literal (double embedded quotes). */

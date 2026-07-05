@@ -8,6 +8,7 @@
 
 import { routinesFor } from "./routines";
 import { objectsFor } from "./triggers";
+import { engineFamily as family } from "./engineFamily";
 
 /** The object kind a lazy folder groups. */
 export type ObjectGroupKind = "procedure" | "function" | "trigger" | "event";
@@ -43,13 +44,6 @@ export interface ObjectLeaf {
   id?: string;
   /** DDL already present in the listing row (SQLite triggers). */
   def?: string;
-}
-
-function family(engine: string): string {
-  const e = engine.toLowerCase();
-  if (e === "mysql" || e === "mariadb") return "mysql";
-  if (e === "postgres" || e === "postgresql") return "postgres";
-  return e;
 }
 
 /**

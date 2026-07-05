@@ -9,6 +9,7 @@
 // All pure and unit-tested; the component just runs the SQL these return.
 
 import { quoteIdentifier } from "./schema";
+import { engineFamily as family } from "./engineFamily";
 
 /** A routine (stored procedure or function) as listed from the catalog. */
 export type RoutineType = "PROCEDURE" | "FUNCTION" | "AGGREGATE" | "WINDOW";
@@ -46,13 +47,6 @@ export interface DefinitionQuery {
   /** When true, the result is one text fragment per row to be concatenated in
       order (Informix sysprocbody); otherwise the first row's column is the DDL. */
   concatRows: boolean;
-}
-
-function family(engine: string): string {
-  const e = engine.toLowerCase();
-  if (e === "mysql" || e === "mariadb") return "mysql";
-  if (e === "postgres" || e === "postgresql") return "postgres";
-  return e;
 }
 
 /** Escape a single-quoted SQL string literal (double embedded quotes). */

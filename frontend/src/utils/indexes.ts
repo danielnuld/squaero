@@ -18,13 +18,7 @@
 // unit-tested; the component only runs the SQL these functions return.
 
 import { quoteIdentifier } from "./schema";
-
-function family(engine: string): string {
-  const e = (engine || "").toLowerCase();
-  if (e === "mysql" || e === "mariadb") return "mysql";
-  if (e === "postgres" || e === "postgresql") return "postgres";
-  return e;
-}
+import { engineFamily as family } from "./engineFamily";
 
 /** Escape a single-quoted SQL string literal. Escape backslashes first (MySQL's
     default sql_mode treats `\` as an escape char) then double embedded quotes. */

@@ -6,6 +6,8 @@
 // (kill is an admin CLI, not SQL) and MongoDB are honestly "not supported" here.
 // All pure and unit-tested; the component just runs the SQL these return.
 
+import { engineFamily as family } from "./engineFamily";
+
 /** What the monitor can do for a given engine. */
 export interface MonitorSupport {
   /** True when a process list can be queried at all. */
@@ -16,14 +18,6 @@ export interface MonitorSupport {
   idColumn: string | null;
   /** True when a session can be killed via SQL on this engine. */
   canKill: boolean;
-}
-
-/** Normalize the driver/engine name to a family. */
-function family(engine: string): string {
-  const e = engine.toLowerCase();
-  if (e === "mysql" || e === "mariadb") return "mysql";
-  if (e === "postgres" || e === "postgresql") return "postgres";
-  return e;
 }
 
 const PG_LIST =
