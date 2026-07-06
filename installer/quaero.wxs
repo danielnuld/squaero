@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Windows installer definition for Quaero (issue #40, WiX v4+ schema).
+  Built with the WiX CLI + the UI extension; see installer/build-msi.sh.
+  Files are staged in build/app/ (the app plus its runtime DLLs and drivers).
+  Version is passed on the command line: -d Version=<x.y.z>.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="Quaero"
+           Manufacturer="Daniel Nunez Lopez"
+           Version="$(Version)"
+           UpgradeCode="A1B2C3D4-1E2F-4A5B-8C6D-0E1F2A3B4C5D"
+           Language="1033"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="Ya hay una version mas reciente de Quaero instalada." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="QuaeroIcon" SourceFile="assets/icons/quaero.ico" />
+    <Property Id="ARPPRODUCTICON" Value="QuaeroIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/danielnuld/quaero" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Quaero">
+        <Directory Id="DriversDir" Name="drivers" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuDir" Name="Quaero" />
+    </StandardDirectory>
+
+    <!-- App + its runtime DLLs (WebView2 loader, MySQL client, MinGW runtime). -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <File Id="quaero.exe" Source="build/app/quaero.exe" />
+      <File Source="build/app/WebView2Loader.dll" />
+      <File Source="build/app/libmysql.dll" />
+      <File Source="build/app/libgcc_s_seh-1.dll" />
+      <File Source="build/app/libstdc++-6.dll" />
+      <File Source="build/app/libwinpthread-1.dll" />
+    </ComponentGroup>
+
+    <!-- Driver plugins discovered at runtime from <installdir>/drivers. -->
+    <ComponentGroup Id="DriverFiles" Directory="DriversDir">
+      <File Source="build/app/drivers/sqlite.dll" />
+      <File Source="build/app/drivers/mysql.dll" />
+      <File Source="build/app/drivers/informix.dll" />
+    </ComponentGroup>
+
+    <!-- Start Menu shortcut with the app icon. -->
+    <Component Id="AppShortcut" Directory="AppMenuDir"
+               Guid="B2C3D4E5-2F3A-4B5C-9D6E-1F2A3B4C5D6E">
+      <Shortcut Id="StartMenuQuaero" Name="Quaero"
+                Target="[INSTALLFOLDER]quaero.exe" WorkingDirectory="INSTALLFOLDER"
+                Icon="QuaeroIcon" />
+      <RemoveFolder Id="RemoveAppMenuDir" Directory="AppMenuDir" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\Quaero" Name="installed"
+                     Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="Main" Title="Quaero" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="DriverFiles" />
+      <ComponentRef Id="AppShortcut" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="installer/license.rtf" />
+  </Package>
+</Wix>

@@ -3,6 +3,7 @@
 /build-ssh/
 /build-x86/
 /out/
+/dist/
 *.o
 *.obj
 *.a
