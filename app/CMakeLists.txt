@@ -37,6 +37,16 @@ if(WIN32)
   set(QUAERO_RC "${CMAKE_CURRENT_BINARY_DIR}/quaero.rc")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/quaero.rc.in" "${QUAERO_RC}" @ONLY)
   target_sources(quaero PRIVATE "${QUAERO_RC}")
+
+  # Build as a GUI-subsystem app so double-clicking (or launching) does NOT pop a
+  # console window (issue: hide the cmd window). MinGW's -mwindows keeps int
+  # main() via its WinMain shim; MSVC needs the entry point pointed back at
+  # mainCRTStartup since /SUBSYSTEM:WINDOWS otherwise expects WinMain. The
+  # printf startup diagnostics simply have no console to write to — acceptable.
+  set_target_properties(quaero PROPERTIES WIN32_EXECUTABLE TRUE)
+  if(MSVC)
+    target_link_options(quaero PRIVATE /ENTRY:mainCRTStartup)
+  endif()
 endif()
 
 # Windows: main.cc uses the WebView2 SDK header (ICoreWebView2_3) to serve the UI
