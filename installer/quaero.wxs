@@ -45,6 +45,7 @@
       <File Source="build/app/drivers/sqlite.dll" />
       <File Source="build/app/drivers/mysql.dll" />
       <File Source="build/app/drivers/informix.dll" />
+      <File Source="build/app/drivers/mongodb.dll" />
     </ComponentGroup>
 
     <!-- Start Menu shortcut with the app icon. -->

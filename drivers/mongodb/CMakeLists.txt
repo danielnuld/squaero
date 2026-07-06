@@ -60,17 +60,19 @@ if(BUILD_TESTING)
   add_test(NAME mongodb_json_relax_test COMMAND mongodb_json_relax_test)
 endif()
 
-# --- driver plugin (only when the mongo-c-driver is present) ---------------
-# The plugin links libmongoc/libbson, discovered via pkg-config (libmongoc-1.0).
-# Where they are absent the plugin is skipped (green), exactly like the MySQL and
-# Informix drivers, so a checkout without the client still configures + builds.
+# --- driver plugin (when the mongo-c-driver is available) ------------------
+# libmongoc/libbson are discovered via pkg-config (libmongoc-1.0). Where that
+# fails (e.g. Windows without a system install), -DQUAERO_MONGOC=ON fetches and
+# statically links mongo-c-driver instead (cmake/QuaeroMongoc.cmake). If neither
+# is available the plugin is skipped (green), like the MySQL/Informix drivers.
+option(QUAERO_MONGOC "Fetch + build mongo-c-driver for the MongoDB plugin" OFF)
+
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
   pkg_check_modules(MONGOC libmongoc-1.0)
 endif()
 
-if(MONGOC_FOUND)
-  message(STATUS "MongoDB driver: using libmongoc (${MONGOC_VERSION})")
+if(MONGOC_FOUND OR QUAERO_MONGOC)
   add_library(mongodb_driver MODULE
     src/entry.c
     src/connection.c
@@ -84,13 +86,23 @@ if(MONGOC_FOUND)
     src/utils/value_fmt.c)
   target_include_directories(mongodb_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)
-  # mongoc headers are included as SYSTEM so their own code does not trip -Werror.
-  target_include_directories(mongodb_driver SYSTEM PRIVATE ${MONGOC_INCLUDE_DIRS})
-  target_link_directories(mongodb_driver PRIVATE ${MONGOC_LIBRARY_DIRS})
   # cjson supplies cJSON.h (DSN parsing), exactly as the other drivers do.
-  target_link_libraries(mongodb_driver PRIVATE ${MONGOC_LIBRARIES} cjson)
+  target_link_libraries(mongodb_driver PRIVATE cjson)
+
+  if(MONGOC_FOUND)
+    message(STATUS "MongoDB driver: using system libmongoc (${MONGOC_VERSION})")
+    # mongoc headers are included as SYSTEM so their own code does not trip -Werror.
+    target_include_directories(mongodb_driver SYSTEM PRIVATE ${MONGOC_INCLUDE_DIRS})
+    target_link_directories(mongodb_driver PRIVATE ${MONGOC_LIBRARY_DIRS})
+    target_link_libraries(mongodb_driver PRIVATE ${MONGOC_LIBRARIES})
+  else()
+    message(STATUS "MongoDB driver: fetching mongo-c-driver (QUAERO_MONGOC=ON)")
+    include(QuaeroMongoc)
+    quaero_enable_mongoc(mongodb_driver)
+  endif()
+
   set_target_properties(mongodb_driver PROPERTIES PREFIX "" OUTPUT_NAME "mongodb")
   quaero_set_warnings(mongodb_driver)
 else()
-  message(STATUS "MongoDB driver: libmongoc not found; plugin not built")
+  message(STATUS "MongoDB driver: libmongoc not found; plugin not built (set -DQUAERO_MONGOC=ON to fetch it)")
 endif()

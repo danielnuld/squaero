@@ -25,11 +25,11 @@ SQL preparado, pero el driver no se distribuye aún.
 
 | Funcionalidad | SQLite | MySQL/MariaDB | Informix | MongoDB |
 |---|:---:|:---:|:---:|:---:|
-| Conexión / desconexión / reconexión | ✅ | ✅ | ⏳ | ⏳ |
+| Conexión / desconexión / reconexión | ✅ | ✅ | ⏳ | ✅ |
 | Árbol de objetos + carpetas por tipo | ⚠️ 1 | ✅ | ⚠️ 2 | ⚠️ 3 |
 | Describe / estructura / DDL | ✅ | ✅ | ⏳ | ⚠️ 4 |
 | Ejecutar consulta | ✅ | ✅ | ⏳ | ⚠️ 5 |
-| Paginación real (offset) | ✅ | ✅ | ⏳ | ⏳ |
+| Paginación real (offset) | ✅ | ✅ | ⏳ | ✅ |
 | Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ⏳ | ➖ 6 |
 | Detalle de fila (form view) | ⏳ | ⏳ | ⏳ | ⚠️ 7 |
 | Export CSV / JSON / SQL / XML / HTML / XLSX | ✅ 8 | ✅ 8 | ⏳ | ⏳ 8 |
@@ -105,7 +105,7 @@ Describe, Ejecutar consulta, Paginación, Edición transaccional, Export.
 | SQLite | ✅ 12/12 | local, sin contenedor (2026-07-05) |
 | MySQL/MariaDB | ✅ 12/12 | contra `mysql:8` en :13306 (2026-07-05) |
 | Informix | ⏳ | el driver carga; falta servidor Informix de prueba |
-| MongoDB | ⏳ | requiere driver con libmongoc + contenedor mongo |
+| MongoDB | ✅ 4/4 | driver compilado con `-DQUAERO_MONGOC=ON` vs `mongo:7` (2026-07-05) |
 
 Ver [QA-SMOKE.md](./QA-SMOKE.md) para correrlo. Las filas ✅ de SQLite y
 MySQL/MariaDB arriba (conexión, árbol, describe, consulta, paginación, edición

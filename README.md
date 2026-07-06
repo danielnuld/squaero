@@ -100,6 +100,10 @@ webview**: Linux `libgtk-4-dev libwebkitgtk-6.0-dev`; macOS WebKit del sistema;
 Windows WebView2 (se descarga al compilar). Para solo el núcleo:
 `-DQUAERO_BUILD_APP=OFF`.
 
+**MongoDB:** el driver enlaza `libmongoc`. Si no hay una copia del sistema,
+compílalo desde el código con `-DQUAERO_MONGOC=ON` (descarga y enlaza
+mongo-c-driver estáticamente; TLS con Secure Channel en Windows).
+
 **Instalador (Windows MSI):** ver [`installer/build-msi.sh`](installer/build-msi.sh)
 (WiX v5 vía `dotnet tool`).
 

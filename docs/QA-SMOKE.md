@@ -33,7 +33,7 @@ scripts/smoke/run.sh mysql
 # ...o contra un contenedor efímero que el script levanta y borra:
 scripts/smoke/run.sh mysql --docker
 
-# MongoDB (requiere el driver compilado con libmongoc)
+# MongoDB (compila el driver con: cmake -S . -B build -DQUAERO_MONGOC=ON)
 scripts/smoke/run.sh mongodb --docker
 ```
 
@@ -59,7 +59,7 @@ El código de salida es 0 si todos los pasos pasan, 1 si alguno falla.
 | SQLite | ✅ 12/12 (2026-07-05) | local, sin contenedor |
 | MySQL/MariaDB | ✅ 12/12 (2026-07-05) | contra `mysql:8` en :13306 |
 | Informix | ⏳ | el driver carga; falta un servidor Informix de prueba |
-| MongoDB | ⏳ | requiere compilar el driver con libmongoc + contenedor mongo |
+| MongoDB | ✅ 4/4 (2026-07-05) | driver compilado con `-DQUAERO_MONGOC=ON`, vs `mongo:7` |
 
 ## CI
 
