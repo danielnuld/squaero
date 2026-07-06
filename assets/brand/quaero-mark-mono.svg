@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Quaero">
+  <title>Quaero</title>
+  <!-- Monochrome: inherits the current text color. Set `color:` on the parent. -->
+  <g fill="none" stroke="currentColor" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="58" cy="56" r="38"/>
+    <path d="M85 83 L104 102"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M46 42 L60 56 L46 70"/>
+    <path d="M72 44 L72 68"/>
+  </g>
+</svg>

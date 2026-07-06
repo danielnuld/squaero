@@ -1,5 +1,7 @@
 // App identity shown in the About section (issue #181). The frontend version is
-// injected at build time from package.json via a Vite `define` (single source).
+// injected at build time from the repo-root VERSION file via a Vite `define`
+// (the single source of truth shared with CMake and the Windows VERSIONINFO —
+// see docs/VERSIONING.md and issue #192).
 // The CORE version and IPC protocol version are NOT hardcoded here — they are
 // read live from the `app.hello` handshake (see docs/IPC.md), which is the
 // runtime source of truth; About queries the core and displays what it reports.

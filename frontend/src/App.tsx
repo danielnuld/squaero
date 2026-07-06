@@ -106,6 +106,7 @@ import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
+import { BrandWordmark } from "./components/Brand";
 import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
@@ -384,6 +385,15 @@ export function App() {
     const id = activeDefId();
     if (!id) return "";
     return connections().find((c) => c.id === id)?.driver ?? "";
+  });
+
+  // Document/window title (issue #192): "Quaero — <conexión activa>" when a
+  // connection is active, else just "Quaero". The native shell window title is
+  // set to "Quaero" in main.cc; this keeps the document title in sync so the
+  // active connection is reflected wherever the title surfaces.
+  createEffect(() => {
+    const conn = active();
+    document.title = conn?.name ? `Quaero — ${conn.name}` : "Quaero";
   });
 
   // SQL autocomplete schema (issue #110): built in the background from the active
@@ -1754,7 +1764,13 @@ export function App() {
           </Show>
 
           <Show when={!current()}>
-            <div class="grid-empty">Abre una pestaña de consulta.</div>
+            <div class="workspace-welcome">
+              <BrandWordmark height={56} />
+              <p class="welcome-tagline">Consulta cualquier base de datos.</p>
+              <p class="welcome-hint">
+                Abre una conexión desde la barra lateral o crea una pestaña de consulta para empezar.
+              </p>
+            </div>
           </Show>
           </div>
         </section>

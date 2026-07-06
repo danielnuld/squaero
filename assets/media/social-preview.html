@@ -1,0 +1,80 @@
+<!doctype html>
+<!-- Source for the GitHub social preview / hero banner (1280x640, issue #193).
+     Self-contained; rasterize at exactly 1280x640, scale factor 1:
+       msedge --headless --window-size=1280,640 --screenshot=social-preview.png <this file>
+     Then set it in the repo: Settings → Social preview → upload the PNG. -->
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 640px; }
+  body {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(900px 520px at 12% -10%, rgba(124, 124, 240, 0.28), transparent 60%),
+      radial-gradient(700px 500px at 108% 120%, rgba(91, 91, 214, 0.22), transparent 60%),
+      #17171c;
+    color: #e8e8ef;
+    font-family: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  /* faint grid motif */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    -webkit-mask-image: linear-gradient(120deg, transparent 45%, black 100%);
+            mask-image: linear-gradient(120deg, transparent 45%, black 100%);
+  }
+  /* oversized watermark mark, bottom-right */
+  .watermark { position: absolute; right: -70px; bottom: -110px; opacity: 0.10; }
+  .content { position: absolute; inset: 0; padding: 84px 96px; display: flex; flex-direction: column; }
+  .lockup { display: flex; align-items: center; gap: 26px; }
+  .name { font-size: 128px; font-weight: 700; letter-spacing: -4px; line-height: 1; }
+  .tagline { margin-top: 30px; font-size: 40px; font-weight: 500; color: #c9c9d6; letter-spacing: -0.5px; }
+  .taglineEn { margin-top: 6px; font-size: 24px; font-weight: 400; color: #8a8a99; letter-spacing: 0; }
+  .prompt {
+    margin-top: 34px; font-family: "Cascadia Code", "Consolas", ui-monospace, monospace;
+    font-size: 22px; color: #9a9aa8;
+  }
+  .prompt b { color: #9a9aff; font-weight: 600; }
+  .engines { margin-top: auto; display: flex; gap: 12px; flex-wrap: wrap; }
+  .chip {
+    font-size: 20px; font-weight: 600; padding: 9px 18px; border-radius: 999px;
+    border: 1px solid rgba(124,124,240,0.45); color: #cfcfe8;
+    background: rgba(124,124,240,0.10);
+  }
+</style>
+<div class="grid"></div>
+<svg class="watermark" width="560" height="560" viewBox="0 0 128 128" fill="none">
+  <g stroke="#7c7cf0" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="58" cy="56" r="38" /><path d="M85 83 L104 102" />
+  </g>
+  <g stroke="#7c7cf0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M46 42 L60 56 L46 70" /><path d="M72 44 L72 68" />
+  </g>
+</svg>
+<div class="content">
+  <div class="lockup">
+    <svg width="132" height="132" viewBox="0 0 128 128" fill="none">
+      <g stroke="#7c7cf0" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="58" cy="56" r="38" /><path d="M85 83 L104 102" />
+      </g>
+      <g stroke="#7c7cf0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M46 42 L60 56 L46 70" /><path d="M72 44 L72 68" />
+      </g>
+    </svg>
+    <div class="name">Quaero</div>
+  </div>
+  <div class="tagline">Consulta cualquier base de datos.</div>
+  <div class="taglineEn">Query any database — MySQL, PostgreSQL, SQLite, Informix, MongoDB.</div>
+  <div class="prompt"><b>&rsaquo;</b> SELECT * FROM everything;</div>
+  <div class="engines">
+    <span class="chip">MySQL</span>
+    <span class="chip">PostgreSQL</span>
+    <span class="chip">SQLite</span>
+    <span class="chip">Informix</span>
+    <span class="chip">MongoDB</span>
+  </div>
+</div>

@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Single source of truth for the product version (issue #192): the top-level
+# VERSION file. It flows to project() below (→ the Windows VERSIONINFO resource),
+# to the frontend build (vite reads the same file for the About panel), and is
+# the version a release tag should match. Bump it in ONE place — see
+# docs/VERSIONING.md.
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" QUAERO_VERSION)
+
 project(quaero
-  VERSION 0.0.1
+  VERSION ${QUAERO_VERSION}
   DESCRIPTION "Modern, lightweight, multi-engine database client"
   LANGUAGES C CXX)
 

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Quaero">
+  <title>Quaero</title>
+  <!-- Solid variant for small sizes (favicon, window icon): stays legible at 16px. -->
+  <g fill="#5b5bd6">
+    <circle cx="58" cy="56" r="46"/>
+    <path d="M80 78 L106 104" fill="none" stroke="#5b5bd6" stroke-width="20" stroke-linecap="round"/>
+  </g>
+  <!-- prompt knocked out in white -->
+  <path d="M46 40 L62 56 L46 72" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,4 +1,5 @@
 import { For, Show } from "solid-js";
+import { BrandWordmark } from "./Brand";
 import type { TreeNode } from "../utils/tree";
 import type { HistoryEntry } from "../utils/history";
 import type { Snippet } from "../utils/snippets";
@@ -35,6 +36,9 @@ export function EmptyState(props: {
 
   return (
     <div class="empty-state">
+      <div class="empty-state-brand">
+        <BrandWordmark height={40} />
+      </div>
       <p class="empty-state-lead">Ejecuta una consulta para ver resultados.</p>
       <div class="empty-state-cards">
         <Show when={props.recentTables.length > 0}>

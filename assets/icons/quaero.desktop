@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Quaero
+GenericName=Database client
+GenericName[es]=Cliente de bases de datos
+Comment=Modern, lightweight, multi-engine database client
+Comment[es]=Cliente de bases de datos moderno, ligero y multi-motor
+Exec=quaero
+Icon=quaero
+Terminal=false
+Categories=Development;Database;
+Keywords=sql;database;mysql;postgresql;sqlite;informix;mongodb;query;
+StartupWMClass=quaero

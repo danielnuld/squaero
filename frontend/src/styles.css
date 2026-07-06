@@ -12,7 +12,13 @@
   --border: #3a3a46;
   --text: #e6e6ec;
   --text-dim: #9a9aa6;
-  --accent: #4c8bf5;
+  /* Brand indigo (issue #189/#191). --accent-fg is the text/icon color that
+     sits ON an accent fill: dark ink on the light-indigo dark-theme accent keeps
+     WCAG AA (contrast 4.75). Colored accent text/borders on the app bg use
+     --accent directly (#7c7cf0 on --bg = 4.75, AA). */
+  --accent: #7c7cf0;
+  --accent-fg: #1e1e24;
+  --accent-hover: #9a9aff;
   --null: #d98a4b;
   --number: #8fd0a0;
   --error: #f08a8a;
@@ -35,7 +41,11 @@
   --border: #d3d3dc;
   --text: #1e1e24;
   --text-dim: #63636f;
-  --accent: #2f6fe0;
+  /* Brand indigo, light theme. White text on #5b5bd6 = 4.5:1 AA; #5b5bd6 as
+     colored text on --bg (#f7f7fa) = 5.0:1 AA. */
+  --accent: #5b5bd6;
+  --accent-fg: #ffffff;
+  --accent-hover: #4a4ac4;
   --null: #b5651d;
   --number: #217a47;
   --error: #c62828;
@@ -348,7 +358,7 @@ body {
 
 .cm-tooltip-autocomplete > ul > li[aria-selected] {
   background: var(--accent) !important;
-  color: #fff !important;
+  color: var(--accent-fg) !important;
 }
 
 .cm-completionLabel {
@@ -362,7 +372,7 @@ body {
 }
 
 .cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionMatchedText {
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 .cm-completionDetail {
@@ -602,6 +612,32 @@ body {
   color: var(--text-dim);
 }
 
+/* Branded welcome shown in the workspace when no tab is open (issue #191). */
+.workspace-welcome {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text);
+}
+
+.workspace-welcome .welcome-tagline {
+  margin: 0.25rem 0 0;
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+.workspace-welcome .welcome-hint {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 .grid-error {
   color: var(--error);
   font-family: var(--font-mono);
@@ -648,7 +684,7 @@ body {
 
 .context-menu-item:hover:not(:disabled) {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 .context-menu-item:disabled {
@@ -1027,7 +1063,12 @@ kbd {
 .modal-actions button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
+}
+
+.modal-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .modal-actions button.danger {
@@ -1305,7 +1346,7 @@ kbd {
 
 .objtree-filter-input:focus {
   outline: none;
-  border-color: var(--accent, #6ea8fe);
+  border-color: var(--accent, #5b5bd6);
 }
 
 .objtree-filter-clear {
@@ -1571,8 +1612,8 @@ kbd {
 }
 
 .edit-btn-primary {
-  border-color: var(--accent, #3b82f6);
-  color: var(--accent, #3b82f6);
+  border-color: var(--accent, #5b5bd6);
+  color: var(--accent, #5b5bd6);
 }
 
 .edit-hint-ro {
@@ -1600,7 +1641,7 @@ kbd {
 
 .cell-input:focus {
   outline: none;
-  border-color: var(--accent, #3b82f6);
+  border-color: var(--accent, #5b5bd6);
   background: var(--bg-alt, var(--bg));
 }
 
@@ -1641,7 +1682,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .grid-inserts {
-  border-top: 2px solid var(--accent, #3b82f6);
+  border-top: 2px solid var(--accent, #5b5bd6);
 }
 
 .grid-inserts-title {
@@ -1653,7 +1694,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .row-insert {
-  background: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);
+  background: color-mix(in srgb, var(--accent, #5b5bd6) 8%, transparent);
 }
 
 .preview-sql {
@@ -1749,7 +1790,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .import-applied {
-  color: var(--accent, #3b82f6);
+  color: var(--accent, #5b5bd6);
   font-size: 12px;
 }
 
@@ -2161,7 +2202,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .um-user.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 .um-user-name {
@@ -2265,7 +2306,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .routine-item.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 .routine-name {
@@ -2290,7 +2331,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .obj-kind-toggle .edit-btn.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
   border-color: var(--accent);
 }
 
@@ -2487,7 +2528,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .er-box-title {
-  fill: #fff;
+  fill: var(--accent-fg);
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-ui);
@@ -2669,7 +2710,18 @@ button.grid-action.danger:hover:not(:disabled) {
 .chip.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
+}
+
+/* Brand block atop the "Acerca de" settings section (issue #191). */
+.settings-brand {
+  margin: 0 0 0.75rem;
+}
+
+.settings-brand .settings-tagline {
+  margin: 0.2rem 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 .settings-about {
@@ -2702,6 +2754,11 @@ button.grid-action.danger:hover:not(:disabled) {
   overflow: auto;
   height: 100%;
   box-sizing: border-box;
+}
+
+.empty-state-brand {
+  margin: 0 0 0.75rem;
+  opacity: 0.9;
 }
 
 .empty-state-lead {
@@ -2844,7 +2901,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .cmdk-item.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-fg);
 }
 
 .cmdk-item-label {

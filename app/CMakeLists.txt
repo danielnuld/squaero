@@ -25,6 +25,20 @@ FetchContent_MakeAvailable(webview)
 add_executable(quaero src/main.cc)
 target_link_libraries(quaero PRIVATE dbcore frontend_assets cjson webview::core)
 
+# Windows: embed a VERSIONINFO resource so Explorer/taskbar show the product
+# name, version and author (issue #192). The version is configured from the
+# single-source project() version (→ top-level VERSION file); no version is
+# hardcoded in the .rc. #190 will add the application icon to the same resource.
+if(WIN32)
+  enable_language(RC)
+  # Absolute path with forward slashes for the ICON directive (accepted by both
+  # the MSVC rc compiler and MinGW windres).
+  set(QUAERO_ICON_PATH "${CMAKE_SOURCE_DIR}/assets/icons/quaero.ico")
+  set(QUAERO_RC "${CMAKE_CURRENT_BINARY_DIR}/quaero.rc")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/quaero.rc.in" "${QUAERO_RC}" @ONLY)
+  target_sources(quaero PRIVATE "${QUAERO_RC}")
+endif()
+
 # Windows: main.cc uses the WebView2 SDK header (ICoreWebView2_3) to serve the UI
 # from a stable virtual-host origin so localStorage persists. The header ships
 # with the WebView2 package fetched by webview; add its include dir.

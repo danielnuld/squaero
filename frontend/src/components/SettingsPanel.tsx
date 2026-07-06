@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show, For } from "solid-js";
 import { Panel } from "./Panel";
+import { BrandWordmark } from "./Brand";
 import { call } from "../utils/transport";
 import { APP_VERSION, REPO_URL } from "../utils/version";
 import {
@@ -150,6 +151,10 @@ export function SettingsPanel(props: {
 
         <section class="settings-section">
           <h3>Acerca de</h3>
+          <div class="settings-brand">
+            <BrandWordmark height={44} />
+            <p class="settings-tagline">Consulta cualquier base de datos.</p>
+          </div>
           <dl class="settings-about">
             <dt>Versión de la app</dt>
             <dd>{APP_VERSION}</dd>
