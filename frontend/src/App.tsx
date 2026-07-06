@@ -691,6 +691,16 @@ export function App() {
     if (conn && sql) void runQuery(conn.connId, sql).catch(() => {});
   };
 
+  // Keep the working-database selector in sync when the user navigates the tree
+  // into another database (clicking a db node or opening one of its tables).
+  // Guarded: only switch to a name that is actually a selectable database, and
+  // only when it differs from the current one, to avoid redundant USE queries.
+  const syncWorkingDb = (name?: string | null) => {
+    if (name && name !== activeDb() && databases().includes(name)) {
+      selectDb(name);
+    }
+  };
+
   // Record an executed query in the client-side history (issue #128), collapsing
   // immediate repeats and purging past the configured limit, then persist.
   const recordHistory = (sql: string, conn: ActiveConnection, durationMs?: number) => {
@@ -810,6 +820,7 @@ export function App() {
   // engines (or attached databases) where the bare name would be ambiguous.
   const openData = (node: TreeNode) => {
     recordRecent(node);
+    syncWorkingDb(node.db);
     const qualified = [node.db, node.schema, node.label]
       .filter((p): p is string => !!p)
       .map((p) => quoteIdentifier(p, activeDialect()))
@@ -1085,6 +1096,7 @@ export function App() {
   const openStructure = (node: TreeNode) => {
     if (active()) {
       recordRecent(node);
+      syncWorkingDb(node.db);
       showTool("structure", `Estructura · ${node.label}`, {
         key: `struct:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
         params: { node },
@@ -1222,6 +1234,7 @@ export function App() {
                 reloadKey={treeReload()}
                 onRefresh={refreshAll}
                 onObjectsLoaded={setLoadedObjects}
+                onSelectDatabase={syncWorkingDb}
                 onImport={(node) =>
                   showTool("import", `Importar · ${node.label}`, {
                     key: `import:${node.label}`,

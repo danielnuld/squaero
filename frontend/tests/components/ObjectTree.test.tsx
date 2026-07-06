@@ -495,6 +495,47 @@ describe("ObjectTree refresh", () => {
     expect(rowByText("orders")).toBeFalsy();
   });
 
+  it("selects the working database when a db node is clicked", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (!req.params.db)
+        return ok({
+          columns: [{ name: "name", type: "text" }],
+          rows: [["shop"], ["analytics"]],
+          truncated: false,
+          rowsAffected: 0,
+        });
+      return ok({ columns: [{ name: "name", type: "text" }], rows: [], truncated: false, rowsAffected: 0 });
+    };
+    const selected: string[] = [];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            onRefresh={() => {}}
+            onSelectDatabase={(name) => selected.push(name)}
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement;
+
+    rowByText("analytics").click();
+    await flush();
+    expect(selected).toContain("analytics");
+  });
+
   it("shows a refresh button only with a connection + handler", () => {
     installBridge();
     host = document.createElement("div");
