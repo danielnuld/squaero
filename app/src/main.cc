@@ -230,6 +230,35 @@ static void load_frontend(webview_t w)
     webview_set_html(w, html);
 }
 
+#if defined(_WIN32)
+// Apply the embedded application icon (resource id 1, from quaero.rc — issue
+// #190) to the webview window. The webview library registers its window class
+// without an icon, so without this the title bar and taskbar show the generic
+// default icon even though the .exe file itself carries the icon.
+static void apply_window_icon(webview_t w)
+{
+    HWND hwnd = static_cast<HWND>(webview_get_window(w));
+    if (hwnd == nullptr) {
+        return;
+    }
+    HINSTANCE inst = GetModuleHandleW(nullptr);
+    HICON big = static_cast<HICON>(
+        LoadImageW(inst, MAKEINTRESOURCEW(1), IMAGE_ICON,
+                   GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON),
+                   LR_DEFAULTCOLOR));
+    HICON small = static_cast<HICON>(
+        LoadImageW(inst, MAKEINTRESOURCEW(1), IMAGE_ICON,
+                   GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
+                   LR_DEFAULTCOLOR));
+    if (big != nullptr) {
+        SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+    }
+    if (small != nullptr) {
+        SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
+    }
+}
+#endif
+
 int main()
 {
     // Unbuffered stdout so startup diagnostics are visible even when the
@@ -249,6 +278,9 @@ int main()
         return 1;
     }
     webview_set_title(w, "Quaero");
+#if defined(_WIN32)
+    apply_window_icon(w);
+#endif
     webview_set_size(w, 1100, 720, WEBVIEW_HINT_NONE);
     webview_bind(w, "quaeroRpc", rpc_handler, w);
 
