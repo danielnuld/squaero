@@ -120,3 +120,11 @@ endif()
 if(QUAERO_BUILD_APP)
   add_subdirectory(app)
 endif()
+
+# Developer tools: quaero-rpc (stdio bridge to the core's JSON-RPC dispatcher),
+# used by the reproducible smoke suite (scripts/smoke/, issue #199). Pure C, no
+# GUI deps, so it builds anywhere the core does.
+option(QUAERO_BUILD_TOOLS "Build developer tools (quaero-rpc)" ON)
+if(QUAERO_BUILD_TOOLS)
+  add_subdirectory(tools)
+endif()
