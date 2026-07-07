@@ -4,3 +4,6 @@
 add_executable(quaero-rpc quaero-rpc.c)
 target_link_libraries(quaero-rpc PRIVATE dbcore cjson)
 quaero_set_warnings(quaero-rpc)
+
+# quaero-mcp — MCP server exposing saved databases to Claude Code (issue #184).
+add_subdirectory(quaero-mcp)
