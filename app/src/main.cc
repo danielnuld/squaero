@@ -19,6 +19,7 @@ extern "C" {
 #if defined(_WIN32)
 #include <windows.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <WebView2.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -283,6 +284,32 @@ static void apply_window_icon(webview_t w)
 }
 #endif
 
+#if defined(_WIN32)
+// Bridge: window.quaeroOpenExternal(url) opens an http(s) URL in the user's
+// default browser (used by the update modal's download button). Only http/https
+// is honored — never ShellExecute an arbitrary path or command.
+static void open_external_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *first = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    if (cJSON_IsString(first) && first->valuestring != nullptr) {
+        const char *url = first->valuestring;
+        if (std::strncmp(url, "https://", 8) == 0 || std::strncmp(url, "http://", 7) == 0) {
+            int wlen = MultiByteToWideChar(CP_UTF8, 0, url, -1, nullptr, 0);
+            if (wlen > 0) {
+                std::wstring wurl(static_cast<size_t>(wlen), L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, url, -1, &wurl[0], wlen);
+                ShellExecuteW(nullptr, L"open", wurl.c_str(), nullptr, nullptr,
+                              SW_SHOWNORMAL);
+            }
+        }
+    }
+    cJSON_Delete(args);
+    webview_return(w, id, 0, "null");
+}
+#endif
+
 int main()
 {
     // Unbuffered stdout so startup diagnostics are visible even when the
@@ -307,6 +334,9 @@ int main()
 #endif
     webview_set_size(w, 1100, 720, WEBVIEW_HINT_NONE);
     webview_bind(w, "quaeroRpc", rpc_handler, w);
+#if defined(_WIN32)
+    webview_bind(w, "quaeroOpenExternal", open_external_handler, w);
+#endif
 
     // Load the embedded, self-contained frontend bundle (persistent origin on
     // Windows; set_html fallback otherwise).

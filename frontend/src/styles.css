@@ -247,6 +247,76 @@ body {
   flex: none;
 }
 
+/* Startup update modal (autoupdater). */
+.update-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+.update-modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  width: min(560px, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.update-head {
+  padding: 1.1rem 1.3rem 0.6rem;
+}
+.update-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-fg);
+  background: var(--accent);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+.update-head h2 {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 1.15rem;
+}
+.update-sub {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.update-notes {
+  padding: 0 1.3rem;
+  overflow: auto;
+  flex: 1;
+}
+.update-notes pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0.6rem 0;
+}
+.update-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1.3rem;
+  border-top: 1px solid var(--border);
+}
+.update-skip {
+  color: var(--text-dim);
+}
+
 /* Marks an open (connected) connection in the list. */
 .conn-live {
   color: var(--number);

@@ -112,7 +112,16 @@ import { BrandWordmark } from "./components/Brand";
 import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
+import { UpdateModal } from "./components/UpdateModal";
 import { TOOL_CATALOG } from "./utils/toolCatalog";
+import { APP_VERSION } from "./utils/version";
+import {
+  checkForUpdate,
+  loadSkippedVersion,
+  saveSkippedVersion,
+  type UpdateInfo,
+} from "./utils/update";
+import { openExternal } from "./utils/openExternal";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -280,6 +289,9 @@ export function App() {
   // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
   const [findTick, setFindTick] = createSignal(0);
 
+  // A newer release found on startup (autoupdater); drives the update modal.
+  const [update, setUpdate] = createSignal<UpdateInfo | null>(null);
+
 
   // --- User preferences (issue #181) -------------------------------------
   // Theme (above) and the history limit (below) keep their own stores; this
@@ -369,6 +381,15 @@ export function App() {
     const t = current();
     if (t && !currentEdit().editing) reloadCurrent(t.id);
   };
+
+  // Check GitHub for a newer release once at startup; a hit (that the user has
+  // not skipped) opens the update modal. Failures are swallowed in checkForUpdate.
+  onMount(() => {
+    void (async () => {
+      const info = await checkForUpdate(APP_VERSION);
+      if (info && info.version !== loadSkippedVersion()) setUpdate(info);
+    })();
+  });
 
   onMount(() => {
     if (typeof document !== "undefined") {
@@ -1926,6 +1947,20 @@ export function App() {
             : undefined
         }
         onClose={() => setPaletteOpen(false)}
+      />
+
+      <UpdateModal
+        update={update()}
+        currentVersion={APP_VERSION}
+        onClose={() => setUpdate(null)}
+        onSkip={(v) => {
+          saveSkippedVersion(v);
+          setUpdate(null);
+        }}
+        onDownload={(url) => {
+          openExternal(url);
+          setUpdate(null);
+        }}
       />
 
       <ContextMenu />
