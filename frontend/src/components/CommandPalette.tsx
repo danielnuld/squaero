@@ -15,6 +15,8 @@ import {
 export function CommandPalette(props: {
   open: boolean;
   commands: Command[];
+  /** Overrides the search input's placeholder (e.g. object-only mode). */
+  placeholder?: string;
   onClose: () => void;
 }) {
   const [query, setQuery] = createSignal("");
@@ -82,7 +84,7 @@ export function CommandPalette(props: {
             ref={inputEl}
             class="cmdk-input"
             type="text"
-            placeholder="Buscar herramientas, objetos, snippets, historial…"
+            placeholder={props.placeholder ?? "Buscar herramientas, objetos, snippets, historial…"}
             aria-label="Buscar comandos"
             value={query()}
             onInput={(e) => {

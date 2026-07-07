@@ -24,6 +24,7 @@ import {
   type TabState,
   type QueryTab,
   type ToolTab,
+  type Tab,
 } from "./utils/tabs";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
 import { type RunScope } from "./utils/runScope";
@@ -36,7 +37,6 @@ import {
   type ThemePref,
 } from "./utils/theme";
 import { matchShortcut } from "./utils/shortcuts";
-import { loadCompletionSchema } from "./utils/completion";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
 import {
@@ -70,10 +70,12 @@ import { rowHeightFor, type Settings } from "./utils/settings";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
-import { quoteIdentifier, schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
+import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
+import { objectPreviewQuery } from "./utils/pagination";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
+  describeColumnNames,
   runPlanItem,
   txBegin,
   txCommit,
@@ -110,9 +112,8 @@ import { BrandWordmark } from "./components/Brand";
 import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
-import { SidebarTools } from "./components/SidebarTools";
-import { TOOL_CATALOG, loadToolsCollapsed, saveToolsCollapsed } from "./utils/toolCatalog";
-import { ConnectionManager } from "./components/ConnectionManager";
+import { TOOL_CATALOG } from "./utils/toolCatalog";
+import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
@@ -176,8 +177,14 @@ const emptyEdit = (): EditSessionState => ({
 // The live connection opened in the core: its core-side connId plus the saved
 // connection's display name.
 interface ActiveConnection {
+  /** The saved connection's id (stable across reconnects). */
+  defId: string;
+  /** The core session id (changes on reconnect). */
   connId: string;
   name: string;
+  driver: string;
+  /** Accent color carried from the saved connection, for the bar/tabs. */
+  color?: string;
 }
 
 // Sent explicitly rather than relying on the core's default so the page size is
@@ -218,8 +225,28 @@ export function App() {
   const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
-  const [active, setActive] = createSignal<ActiveConnection | null>(null);
-  const [activeDefId, setActiveDefId] = createSignal<string | null>(null);
+  // Several connections can be open at once; `focusedDefId` names the one the
+  // object tree and newly-created query tabs bind to. `active`/`activeDefId` are
+  // derived views of the focused connection, so most of the app keeps referring
+  // to "the current connection" unchanged.
+  const [openConns, setOpenConns] = createSignal<ActiveConnection[]>([]);
+  const [focusedDefId, setFocusedDefId] = createSignal<string | null>(null);
+  const active = () => openConns().find((o) => o.defId === focusedDefId()) ?? null;
+  const activeDefId = focusedDefId;
+  const focusConn = (defId: string) => setFocusedDefId(defId);
+  // The connection a tab runs against: its bound one (if still open), else — for
+  // an unbound tab — the focused connection.
+  const tabConn = (tab: Tab | undefined): ActiveConnection | null => {
+    if (tab && tab.connDefId) {
+      return openConns().find((o) => o.defId === tab.connDefId) ?? null;
+    }
+    return active();
+  };
+  // The accent color of a query tab's bound connection, for the tab strip.
+  const tabColor = (tab: Tab): string | undefined =>
+    tab.kind === "query" && tab.connDefId
+      ? connections().find((c) => c.id === tab.connDefId)?.color
+      : undefined;
   // Working database context: the databases available on the active connection
   // and the one selected. Scopes the ER diagram / query builder and (on engines
   // that allow it) sets the editor's default database via USE.
@@ -245,15 +272,14 @@ export function App() {
 
   // --- Command palette (issue #174) --------------------------------------
   const [paletteOpen, setPaletteOpen] = createSignal(false);
+  // "all" is the full palette (Mod+K); "objects" scopes it to the connection's
+  // tables/views (Mod+P), for a quick go-to-object jump.
+  const [paletteMode, setPaletteMode] = createSignal<"all" | "objects">("all");
   const [loadedObjects, setLoadedObjects] = createSignal<TreeNode[]>([]);
 
-  // --- Sidebar tools section collapse (issue #176) -----------------------
-  const [toolsCollapsed, setToolsCollapsed] = createSignal(loadToolsCollapsed());
-  const toggleToolsCollapsed = () => {
-    const next = !toolsCollapsed();
-    setToolsCollapsed(next);
-    saveToolsCollapsed(next);
-  };
+  // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
+  const [findTick, setFindTick] = createSignal(0);
+
 
   // --- User preferences (issue #181) -------------------------------------
   // Theme (above) and the history limit (below) keep their own stores; this
@@ -296,7 +322,7 @@ export function App() {
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
     switch (action) {
       case "new-tab":
-        setTabs((s) => addTab(s));
+        setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined));
         break;
       case "close-tab": {
         const t = current();
@@ -319,7 +345,17 @@ export function App() {
         showTool("help", "Atajos de teclado", { key: "help" });
         break;
       case "command-palette":
+        setPaletteMode("all");
         setPaletteOpen((v) => !v);
+        break;
+      case "object-palette":
+        // Always open scoped to objects (a "go to table/view" jump), never a
+        // toggle — pressing Ctrl+P should reliably land on the object search.
+        setPaletteMode("objects");
+        setPaletteOpen(true);
+        break;
+      case "editor-find":
+        setFindTick((t) => t + 1);
         break;
     }
   };
@@ -353,9 +389,13 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       const action = matchShortcut(e);
       if (!action) return;
-      // While the command palette owns the screen, only its own toggle passes
-      // through — no global shortcut may mutate the app behind the overlay.
-      if (paletteOpen() && action !== "command-palette") return;
+      // While the command palette owns the screen, only the palette toggles act;
+      // other shortcuts are swallowed (preventDefault, no-op) so the webview host
+      // never runs its own find/print behind the overlay.
+      if (paletteOpen() && action !== "command-palette" && action !== "object-palette") {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
       runShortcut(action);
     };
@@ -396,22 +436,26 @@ export function App() {
     document.title = conn?.name ? `Quaero — ${conn.name}` : "Quaero";
   });
 
-  // SQL autocomplete schema (issue #110): built in the background from the active
-  // connection's object tree, rebuilt on connection switch and on refresh (F5).
-  const [sqlSchema, setSqlSchema] = createSignal<Record<string, string[]>>({});
+  // SQL autocomplete schema (issue #110). Table/view NAMES come from the loaded
+  // object tree (no IPC), so name completion is instant. COLUMNS are cached
+  // lazily as tables are opened (openData describes the table anyway) — we do NOT
+  // eagerly describe dozens of tables at connect: on a single-connection engine
+  // like Informix that avalanche of schema.describe calls monopolized the
+  // connection and left the first table-open "loading" for seconds (issue: the
+  // sidebar open hangs). Columns fill in progressively as the user browses.
+  const [columnCache, setColumnCache] = createSignal<Record<string, string[]>>({});
   createEffect(() => {
-    const conn = active();
-    void treeReload(); // rebuild after a refresh too
-    if (!conn) {
-      setSqlSchema({});
-      return;
+    active();
+    void treeReload(); // a connection switch or refresh clears the cache
+    setColumnCache({});
+  });
+  const sqlSchema = createMemo<Record<string, string[]>>(() => {
+    const cache = columnCache();
+    const out: Record<string, string[]> = {};
+    for (const n of loadedObjects()) {
+      if (n.kind === "table" || n.kind === "view") out[n.label] = cache[n.label] ?? [];
     }
-    const connId = conn.connId;
-    void (async () => {
-      const schema = await loadCompletionSchema(connId);
-      // Ignore a late result if the connection changed meanwhile.
-      if (active()?.connId === connId) setSqlSchema(schema);
-    })();
+    return out;
   });
 
   const current = createMemo(() => activeTab(tabs()));
@@ -426,12 +470,30 @@ export function App() {
     const t = current();
     return t && t.kind === "tool" ? t : undefined;
   });
-  // Open (or focus) a tool tab, and close one by id.
+  // The connection a tool panel acts on: the tool tab's bound one, else focused.
+  const toolConn = () => tabConn(currentTool());
+  // Open (or focus) a tool tab, and close one by id. Bind the tab to the focused
+  // connection at creation so the panel stays on that connection even if another
+  // is focused later; an explicit opts.connDefId (e.g. EXPLAIN from a bound query
+  // tab) overrides it.
   const showTool = (
     tool: Parameters<typeof openTool>[1],
     title: string,
     opts?: Parameters<typeof openTool>[3],
-  ) => setTabs((s) => openTool(s, tool, title, opts));
+  ) =>
+    setTabs((s) =>
+      openTool(s, tool, title, { connDefId: focusedDefId() ?? undefined, ...opts }),
+    );
+  // The sidebar tools live behind a single 🧰 button in the object-tree header
+  // now (the always-open list was removed in the Explorer-first layout): open a
+  // context menu of the tool catalog, each launching its tool tab.
+  const openToolsMenu = (e: MouseEvent) => {
+    const items: MenuItem[] = TOOL_CATALOG.map((t) => ({
+      label: `${t.icon}  ${t.label}`,
+      action: () => showTool(t.tool, t.tabTitle, { key: t.key }),
+    }));
+    openContextMenu(e, items);
+  };
   const closeTool = (id: number) => setTabs((s) => closeTab(s, id));
   const closeToolByKind = (tool: ToolTab["tool"]) =>
     setTabs((s) => {
@@ -476,7 +538,7 @@ export function App() {
     return { idx, res };
   });
 
-  const newTab = () => setTabs((s) => addTab(s));
+  const newTab = () => setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined));
   const selectTab = (id: number) => setTabs((s) => ({ ...s, activeId: id }));
   const removeTab = (id: number, e: MouseEvent) => {
     e.stopPropagation();
@@ -491,7 +553,7 @@ export function App() {
   const runFromHistory = (sql: string) => {
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s);
+      const added = addTab(s, "Consulta", focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -503,7 +565,7 @@ export function App() {
   const openSqlInNewTab = (sql: string) => {
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s);
+      const added = addTab(s, "Consulta", focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -542,7 +604,7 @@ export function App() {
   const insertSnippet = (body: string) => {
     const id = lastQueryId();
     if (id !== null) setTabs((s) => ({ ...s, activeId: id }));
-    else setTabs((s) => addTab(s));
+    else setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined));
     setTimeout(() => setSnippetInsert((r) => ({ text: body, tick: r.tick + 1 })), 0);
   };
   const exportSnippets = () =>
@@ -594,8 +656,9 @@ export function App() {
 
   const onDeleteConnection = (id: string) => {
     persist(removeConnection(connections(), id));
-    if (activeDefId() === id) {
-      void disconnect();
+    // Close it if it happens to be open (focused or not).
+    if (openConns().some((o) => o.defId === id)) {
+      void disconnect(id);
     }
   };
 
@@ -604,36 +667,57 @@ export function App() {
     closeToolByKind("connectionForm");
   };
 
-  const disconnect = async () => {
-    const a = active();
-    if (a) {
-      try {
-        await closeConnection(a.connId);
-      } catch {
-        /* best-effort close */
-      }
+  // Close one open connection (the focused one when no id is given). Other open
+  // connections stay up; focus falls to another, or none.
+  const disconnect = async (defId?: string) => {
+    const target = defId ?? focusedDefId();
+    if (target == null) return;
+    const o = openConns().find((x) => x.defId === target);
+    if (!o) return;
+    try {
+      await closeConnection(o.connId);
+    } catch {
+      /* best-effort close */
     }
-    setActive(null);
-    setActiveDefId(null);
-    setDatabases([]);
-    setActiveDb(null);
+    const rest = openConns().filter((x) => x.defId !== target);
+    setOpenConns(rest);
+    if (focusedDefId() === target) {
+      setFocusedDefId(rest[0]?.defId ?? null);
+    }
+    if (rest.length === 0) {
+      setDatabases([]);
+      setActiveDb(null);
+    }
   };
 
   // --- End-to-end connect path (issue #17) -------------------------------
-  // `force` reconnects even when this connection is already the active one — used
-  // by "Reconectar" to recover a dropped/killed server session with a fresh
-  // connId. Without it, clicking the active connection is a no-op.
+  // Opening a connection ADDS it to the open set (others stay up) and focuses it;
+  // if it is already open, this just focuses it. `force` (Reconectar) drops the
+  // existing session and opens a fresh one to recover a dropped/killed server.
   const onConnect = async (c: Connection, force = false) => {
-    if (connectingId() !== null || (!force && active() && activeDefId() === c.id)) {
+    if (connectingId() !== null) return;
+    const existing = openConns().find((o) => o.defId === c.id);
+    if (existing && !force) {
+      setFocusedDefId(c.id); // already open — just bring it into focus
       return;
     }
     setConnectingId(c.id);
     try {
-      // Close any previously active connection before switching.
-      await disconnect();
+      if (existing) {
+        // Reconnect: drop the stale session before opening a fresh one.
+        try {
+          await closeConnection(existing.connId);
+        } catch {
+          /* best-effort */
+        }
+        setOpenConns((list) => list.filter((o) => o.defId !== c.id));
+      }
       const connId = await openConnection(c.driver, buildDsn(c));
-      setActive({ connId, name: c.name });
-      setActiveDefId(c.id);
+      setOpenConns((list) => [
+        ...list,
+        { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color },
+      ]);
+      setFocusedDefId(c.id);
     } catch (err) {
       const tab = current();
       const f = describeError(err);
@@ -727,11 +811,17 @@ export function App() {
       setResults(id, { ...emptyResult(), error: "La consulta está vacía." });
       return;
     }
-    const conn = active();
+    // Run against the tab's OWN connection (bound at creation), so a prod tab and
+    // a dev tab keep hitting their own servers regardless of which is focused. A
+    // tab with no binding follows whatever is focused.
+    const conn = tabConn(tab);
     if (!conn) {
       setResults(id, {
         ...emptyResult(),
-        error: "No hay conexión activa. Abre una conexión para ejecutar consultas.",
+        error:
+          tab.kind === "query" && tab.connDefId
+            ? "La conexión de esta pestaña está cerrada. Vuelve a conectarla desde el panel de conexiones."
+            : "No hay conexión activa. Abre una conexión para ejecutar consultas.",
       });
       return;
     }
@@ -793,13 +883,20 @@ export function App() {
   // Open the visual execution plan (issue #187) for a statement as a tool tab.
   // The ExplainPlan component runs the structured EXPLAIN and renders the tree;
   // it handles unsupported engines / no connection honestly on its own.
-  const showExplainPlan = (rawSql: string) => {
+  const showExplainPlan = (rawSql: string, connDefId?: string) => {
     const sql = rawSql.trim();
     if (!sql) return;
-    showTool("explainPlan", "Plan de ejecución", { key: `plan:${sql}`, params: { sql } });
+    // Bind the plan to the originating tab's connection so it explains against
+    // the right server; without one it falls back to the focused connection.
+    showTool("explainPlan", "Plan de ejecución", {
+      key: `plan:${sql}`,
+      params: { sql },
+      ...(connDefId ? { connDefId } : {}),
+    });
   };
 
-  // The editor's "Plan" button: visual plan for the active tab's SQL.
+  // The editor's "Plan" button: visual plan for the active tab's SQL, against
+  // that tab's own connection.
   const explainActive = () => {
     const tab = current();
     if (!tab) return;
@@ -808,7 +905,7 @@ export function App() {
       setResults(tab.id, { ...emptyResult(), error: "La consulta está vacía." });
       return;
     }
-    showExplainPlan(sql);
+    showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
   };
 
   // EXPLAIN an arbitrary statement (e.g. a slow query, issue #180) as a visual plan.
@@ -821,14 +918,17 @@ export function App() {
   const openData = (node: TreeNode) => {
     recordRecent(node);
     syncWorkingDb(node.db);
-    const qualified = [node.db, node.schema, node.label]
-      .filter((p): p is string => !!p)
-      .map((p) => quoteIdentifier(p, activeDialect()))
-      .join(".");
-    const sql = `SELECT * FROM ${qualified} LIMIT ${PAGE_LIMIT};`;
+    // The capped preview query in the engine's own surface: a qualified SELECT
+    // for relational engines (Informix uses db:owner.table + FIRST), or
+    // db.<collection>.find().limit() for MongoDB (see objectPreviewQuery).
+    const sql = objectPreviewQuery(
+      { db: node.db, schema: node.schema, name: node.label },
+      activeDialect(),
+      PAGE_LIMIT,
+    );
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s);
+      const added = addTab(s, "Consulta", focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -839,6 +939,8 @@ export function App() {
       // Fetch the table's primary key so the grid knows if it can be edited.
       try {
         const desc = await schemaDescribe(conn.connId, node.label, node.db, node.schema);
+        // Feed this table's columns into the autocomplete cache (lazy schema).
+        setColumnCache((c) => ({ ...c, [node.label]: describeColumnNames(desc) }));
         const source: EditSource = {
           table: node.label,
           db: node.db,
@@ -890,7 +992,7 @@ export function App() {
 
   const beginEdit = async () => {
     const t = current();
-    const conn = active();
+    const conn = tabConn(t);
     if (!t || !conn || !currentEditable()) return;
     patchEdit(t.id, { busy: true, error: null });
     try {
@@ -908,7 +1010,7 @@ export function App() {
 
   const discardEdit = async () => {
     const t = current();
-    const conn = active();
+    const conn = tabConn(t);
     if (!t || !conn) return;
     patchEdit(t.id, { busy: true });
     try {
@@ -924,7 +1026,7 @@ export function App() {
   // and show it for confirmation before anything is executed (issue #29).
   const confirmEdit = async () => {
     const t = current();
-    const conn = active();
+    const conn = tabConn(t);
     const res = currentResult();
     if (!t || !conn || !res.result || !res.source) return;
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
@@ -950,7 +1052,7 @@ export function App() {
   // Aplicar: execute the plan for real, then commit and reload.
   const applyEdit = async () => {
     const t = current();
-    const conn = active();
+    const conn = tabConn(t);
     const res = currentResult();
     if (!t || !conn || !res.result || !res.source) return;
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
@@ -1150,7 +1252,7 @@ export function App() {
     const connected = !!active();
 
     // Actions (always available).
-    out.push({ id: "act:new", category: "action", label: "Nueva consulta", run: () => setTabs((s) => addTab(s)) });
+    out.push({ id: "act:new", category: "action", label: "Nueva consulta", run: () => setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined)) });
     if (connected)
       out.push({ id: "act:reconnect", category: "action", label: "Reconectar", run: reconnect });
     out.push({ id: "act:settings", category: "action", label: "Ajustes", run: () => showTool("settings", "Ajustes", { key: "settings" }) });
@@ -1184,26 +1286,32 @@ export function App() {
     return out;
   });
 
+  // What the palette shows depends on how it was opened: Mod+P scopes it to the
+  // connection's objects (a go-to-table/view jump), Mod+K shows everything.
+  const visiblePaletteCommands = createMemo<Command[]>(() =>
+    paletteMode() === "objects"
+      ? paletteCommands().filter((c) => c.category === "object")
+      : paletteCommands(),
+  );
+
   return (
     <div class="app">
       <div class="main">
         <aside class="sidebar" style={{ width: `${sidebarWidth()}px` }}>
-          <div class="sidebar-header">Conexiones</div>
-          <div class="sidebar-body">
-            <ConnectionManager
-              connections={connections()}
-              activeConnId={activeDefId()}
-              connectingId={connectingId()}
-              onConnect={onConnect}
-              onEdit={onEditConnection}
-              onDelete={onDeleteConnection}
-              onNew={onNewConnection}
-              onDisconnect={() => void disconnect()}
-              onReconnect={reconnect}
-              onExport={exportConns}
-              onImport={importConns}
-            />
-          </div>
+          <ConnectionBar
+            connections={connections()}
+            activeConnId={activeDefId()}
+            openIds={openConns().map((o) => o.defId)}
+            connectingId={connectingId()}
+            onConnect={onConnect}
+            onEdit={onEditConnection}
+            onDelete={onDeleteConnection}
+            onNew={onNewConnection}
+            onDisconnect={(defId) => void disconnect(defId)}
+            onReconnect={reconnect}
+            onExport={exportConns}
+            onImport={importConns}
+          />
           <Show when={active()}>
             <Show when={databases().length > 0}>
               <div class="sidebar-db">
@@ -1219,11 +1327,6 @@ export function App() {
                 </label>
               </div>
             </Show>
-            <SidebarTools
-              collapsed={toolsCollapsed()}
-              onToggle={toggleToolsCollapsed}
-              onOpen={(t) => showTool(t.tool, t.tabTitle, { key: t.key })}
-            />
             <div class="sidebar-tree">
               <ObjectTree
                 connId={active()!.connId}
@@ -1233,6 +1336,7 @@ export function App() {
                 onOpenSql={openSqlInNewTab}
                 reloadKey={treeReload()}
                 onRefresh={refreshAll}
+                onOpenTools={openToolsMenu}
                 onObjectsLoaded={setLoadedObjects}
                 onSelectDatabase={syncWorkingDb}
                 onImport={(node) =>
@@ -1256,6 +1360,13 @@ export function App() {
         <div class="resizer" onMouseDown={startResize} />
 
         <section class="workspace">
+          <Show when={tabConn(current())?.color}>
+            <div
+              class="workspace-accent"
+              style={{ background: tabConn(current())!.color }}
+              title="Conexión de la pestaña activa"
+            />
+          </Show>
           <div class="tabbar">
             <For each={tabs().tabs}>
               {(tab) => (
@@ -1263,9 +1374,13 @@ export function App() {
                   class={`tab ${tab.id === tabs().activeId ? "active" : ""} ${
                     tab.kind === "tool" ? "tab-tool" : ""
                   }`}
+                  style={tabColor(tab) ? { "border-top": `2px solid ${tabColor(tab)}` } : undefined}
                   onClick={() => selectTab(tab.id)}
                   onContextMenu={(e) => tabMenu(e, tab.id)}
                 >
+                  <Show when={tabColor(tab)}>
+                    <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
+                  </Show>
                   <span class="tab-title">{tab.title}</span>
                   <button
                     class="tab-close"
@@ -1303,6 +1418,7 @@ export function App() {
                     onExplain={explainActive}
                     dialect={activeDialect()}
                     formatTick={formatTick()}
+                    searchTick={findTick()}
                     insertRequest={snippetInsert()}
                     schema={sqlSchema()}
                   />
@@ -1562,21 +1678,21 @@ export function App() {
               <Switch>
                 <Match when={tt().tool === "monitor"}>
                   <ServerMonitor
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
                 <Match when={tt().tool === "users"}>
                   <UserManager
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
                 <Match when={tt().tool === "generator"}>
                   <DataGenerator
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     target={(tt().params as { target: EditTarget }).target}
                     onClose={() => closeTool(tt().id)}
                     onGenerated={() => {
@@ -1587,7 +1703,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "import"}>
                   <ImportWizard
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     target={(tt().params as { target: EditTarget }).target}
                     onClose={() => closeTool(tt().id)}
                     onImported={() => {
@@ -1598,7 +1714,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "tableDesigner"}>
                   <TableDesigner
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     table={(tt().params as { table?: string }).table}
                     container={(tt().params as { container?: string }).container}
@@ -1610,7 +1726,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "indexes"}>
                   <IndexManager
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     table={(tt().params as { table: string }).table}
                     db={(tt().params as { db?: string }).db}
@@ -1621,7 +1737,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "structure"}>
                   <StructureView
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     table={(tt().params as { node: TreeNode }).node.label}
                     db={(tt().params as { node: TreeNode }).node.db}
                     schema={(tt().params as { node: TreeNode }).node.schema}
@@ -1633,7 +1749,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "schemaSync"}>
                   <SchemaSyncWizard
-                    sourceConnId={active()?.connId ?? ""}
+                    sourceConnId={toolConn()?.connId ?? ""}
                     sourceDb={(tt().params as { sourceDb?: string }).sourceDb}
                     connections={connections()}
                     onClose={() => closeTool(tt().id)}
@@ -1694,14 +1810,14 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "erDiagram"}>
                   <ErDiagram
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     db={activeDb() ?? undefined}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
                 <Match when={tt().tool === "queryBuilder"}>
                   <QueryBuilder
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb() ?? undefined}
                     onRun={(sql) => {
@@ -1713,7 +1829,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "routines"}>
                   <RoutineExplorer
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb() ?? undefined}
                     onOpenSql={(sql) => {
@@ -1725,7 +1841,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "triggers"}>
                   <TriggersExplorer
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb() ?? undefined}
                     onOpenSql={(sql) => {
@@ -1737,7 +1853,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "explainPlan"}>
                   <ExplainPlan
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     sql={(tt().params as { sql: string }).sql}
                     onClose={() => closeTool(tt().id)}
@@ -1745,7 +1861,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "slowQueries"}>
                   <SlowQueries
-                    connId={active()?.connId ?? ""}
+                    connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     onOpenSql={(sql) => {
                       closeTool(tt().id);
@@ -1803,7 +1919,12 @@ export function App() {
 
       <CommandPalette
         open={paletteOpen()}
-        commands={paletteCommands()}
+        commands={visiblePaletteCommands()}
+        placeholder={
+          paletteMode() === "objects"
+            ? "Buscar tablas, vistas… (Enter para abrir)"
+            : undefined
+        }
         onClose={() => setPaletteOpen(false)}
       />
 

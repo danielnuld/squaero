@@ -39,14 +39,20 @@ if(BUILD_TESTING)
   add_test(NAME mysql_dml_test COMMAND mysql_dml_test)
 endif()
 
-# --- driver plugin (only when the client library is present) --------------
-# MariaDB Connector/C ships mysql.h (a compatibility header) and libmariadb.
+# --- driver plugin (only when the client library is available) ------------
+# The client library is discovered one of two ways. A system MariaDB Connector/C
+# (mysql.h + libmariadb) is found via find_path/find_library. Where none exists —
+# notably the x86 Windows release, since no 32-bit client ships on the build box —
+# -DQUAERO_MARIADB=ON fetches and statically links the connector instead
+# (cmake/QuaeroMariaDB.cmake). If neither is available the plugin is skipped
+# (green), like the Informix and MongoDB drivers.
+option(QUAERO_MARIADB "Fetch + build MariaDB Connector/C (static) for the MySQL plugin" OFF)
+
 find_path(MYSQL_INCLUDE_DIR NAMES mysql.h
   PATH_SUFFIXES mariadb mysql)
 find_library(MYSQL_CLIENT_LIBRARY NAMES mariadb libmariadb mariadbclient mysqlclient)
 
-if(MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY)
-  message(STATUS "MySQL driver: using ${MYSQL_CLIENT_LIBRARY} (headers ${MYSQL_INCLUDE_DIR})")
+if(QUAERO_MARIADB OR (MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY))
   add_library(mysql_driver MODULE
     src/entry.c
     src/connection.c
@@ -58,14 +64,24 @@ if(MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY)
     src/utils/identifier.c
     src/utils/ssl.c
     src/utils/dml.c)
-  # The client headers are third-party: include them as SYSTEM so they are not
-  # subject to the strict -Werror policy applied to our own code.
   target_include_directories(mysql_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)
-  target_include_directories(mysql_driver SYSTEM PRIVATE ${MYSQL_INCLUDE_DIR})
   # cjson supplies cJSON.h (used for DSN parsing); linking it propagates its
   # include dir, exactly as the SQLite driver does.
-  target_link_libraries(mysql_driver PRIVATE ${MYSQL_CLIENT_LIBRARY} cjson)
+  target_link_libraries(mysql_driver PRIVATE cjson)
+
+  if(QUAERO_MARIADB)
+    message(STATUS "MySQL driver: fetching MariaDB Connector/C (QUAERO_MARIADB=ON)")
+    include(QuaeroMariaDB)
+    quaero_enable_mariadb(mysql_driver)
+  else()
+    message(STATUS "MySQL driver: using ${MYSQL_CLIENT_LIBRARY} (headers ${MYSQL_INCLUDE_DIR})")
+    # The client headers are third-party: include them as SYSTEM so they are not
+    # subject to the strict -Werror policy applied to our own code.
+    target_include_directories(mysql_driver SYSTEM PRIVATE ${MYSQL_INCLUDE_DIR})
+    target_link_libraries(mysql_driver PRIVATE ${MYSQL_CLIENT_LIBRARY})
+  endif()
+
   set_target_properties(mysql_driver PROPERTIES PREFIX "" OUTPUT_NAME "mysql")
   quaero_set_warnings(mysql_driver)
 else()

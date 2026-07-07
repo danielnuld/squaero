@@ -1,5 +1,5 @@
 import { For, Show, createSignal, onMount } from "solid-js";
-import { schemaDescribe, schemaDdl, quoteIdentifier } from "../utils/schema";
+import { schemaDescribe, schemaDdl, qualifiedName } from "../utils/schema";
 import { runQuery, type ResultSet } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
 import { buildViewApply } from "../utils/viewEdit";
@@ -83,10 +83,7 @@ export function StructureView(props: {
   // Qualified name used only as a fallback if the view name can't be read from
   // the DDL (see viewEdit.ts). Same quoting as generated SELECTs.
   const fallbackName = () =>
-    [props.db, props.schema, props.table]
-      .filter((p): p is string => !!p)
-      .map((p) => quoteIdentifier(p, props.engine))
-      .join(".");
+    qualifiedName({ db: props.db, schema: props.schema, name: props.table }, props.engine);
 
   const applyEdit = async () => {
     const plan = buildViewApply(props.engine ?? "", draft(), fallbackName());

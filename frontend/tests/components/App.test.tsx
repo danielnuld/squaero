@@ -29,7 +29,9 @@ const mount = () => {
 describe("App shell", () => {
   it("mounts and shows the connections sidebar", () => {
     mount();
-    expect(host!.textContent).toContain("Conexiones");
+    // Explorer-first layout: the connection bar sits at the top of the sidebar.
+    expect(host!.querySelector(".connbar")).not.toBeNull();
+    expect(host!.textContent).toContain("Elegir conexión");
     // A fresh workspace has one query tab and the empty-grid prompt.
     expect(host!.querySelector(".tabbar")).not.toBeNull();
     expect(host!.textContent).toContain("Ejecuta una consulta");

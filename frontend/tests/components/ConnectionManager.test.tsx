@@ -44,6 +44,7 @@ function mount(
         <ConnectionManager
           connections={conns}
           activeConnId={activeConnId}
+          openIds={activeConnId ? [activeConnId] : []}
           connectingId={null}
           onConnect={() => {}}
           onEdit={() => {}}

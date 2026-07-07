@@ -54,6 +54,16 @@ export function isEditable(describe: ResultSet): boolean {
   return describePkColumns(describe).length > 0;
 }
 
+/** All column names from a schema.describe result (its `name` column), in order.
+ *  Used to feed the editor's autocomplete as tables are opened. */
+export function describeColumnNames(describe: ResultSet): string[] {
+  const nameIdx = describe.columns.findIndex((c) => c.name === "name");
+  if (nameIdx === -1) return [];
+  return describe.rows
+    .map((r) => r[nameIdx])
+    .filter((v): v is string => v != null && v !== "");
+}
+
 /**
  * The WHERE map that identifies one result row by its primary key: {pkCol:
  * value} taken from the row's cells. Returns null when a PK column is missing

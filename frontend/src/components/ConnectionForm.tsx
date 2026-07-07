@@ -7,6 +7,7 @@ import {
   engineIcon,
   AVAILABLE_DRIVERS,
   DRIVER_SCHEMAS,
+  CONNECTION_COLORS,
   type Connection,
 } from "../utils/connections";
 import { errorText } from "../utils/errors";
@@ -112,6 +113,35 @@ export function ConnectionForm(props: {
             <span class="field-error">{errors().name}</span>
           </Show>
         </label>
+
+        <div class="field">
+          <span>Color</span>
+          <div class="color-swatches" role="radiogroup" aria-label="Color de la conexión">
+            <button
+              type="button"
+              class={`color-swatch color-none ${!draft.color ? "selected" : ""}`}
+              title="Sin color"
+              aria-label="Sin color"
+              aria-checked={!draft.color}
+              role="radio"
+              onClick={() => setDraft("color", undefined)}
+            />
+            <For each={CONNECTION_COLORS}>
+              {(c) => (
+                <button
+                  type="button"
+                  class={`color-swatch ${draft.color === c ? "selected" : ""}`}
+                  style={{ background: c }}
+                  title={c}
+                  aria-label={c}
+                  aria-checked={draft.color === c}
+                  role="radio"
+                  onClick={() => setDraft("color", c)}
+                />
+              )}
+            </For>
+          </div>
+        </div>
 
         <label class="field">
           <span>Motor</span>

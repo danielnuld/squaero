@@ -81,6 +81,43 @@ if(TARGET informix_driver)
     VERBATIM)
 endif()
 
+# The MySQL/MariaDB driver is built only when a client library is present; stage
+# it alongside the executable when it exists. On Windows the client runtime DLL
+# (libmysql.dll / libmariadb.dll) must sit next to the executable too, so the
+# plugin can load it at startup — MYSQL_CLIENT_LIBRARY points straight at it.
+if(TARGET mysql_driver)
+  add_dependencies(quaero mysql_driver)
+  add_custom_command(TARGET quaero POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:mysql_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
+    VERBATIM)
+  if(WIN32 AND MYSQL_CLIENT_LIBRARY MATCHES "\\.dll$")
+    add_custom_command(TARGET quaero POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              "${MYSQL_CLIENT_LIBRARY}" "$<TARGET_FILE_DIR:quaero>/"
+      VERBATIM)
+    # libmysql loads its client-side auth plugins (mysql_native_password,
+    # caching_sha2_password) as separate DLLs from a plugin directory. Stage them
+    # into <exe>/drivers/mysql-plugin, which the driver points the client at (see
+    # drivers/mysql/src/connection.c) — otherwise connecting fails with
+    # "Authentication plugin '…' cannot be loaded".
+    get_filename_component(_mysql_libdir "${MYSQL_CLIENT_LIBRARY}" DIRECTORY)
+    add_custom_command(TARGET quaero POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E make_directory
+              "$<TARGET_FILE_DIR:quaero>/drivers/mysql-plugin"
+      VERBATIM)
+    foreach(_plugin mysql_native_password caching_sha2_password)
+      if(EXISTS "${_mysql_libdir}/plugin/${_plugin}.dll")
+        add_custom_command(TARGET quaero POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  "${_mysql_libdir}/plugin/${_plugin}.dll"
+                  "$<TARGET_FILE_DIR:quaero>/drivers/mysql-plugin/"
+          VERBATIM)
+      endif()
+    endforeach()
+  endif()
+endif()
+
 # The MongoDB driver is built only when the mongo-c-driver is present; stage it
 # alongside the executable when it exists.
 if(TARGET mongodb_driver)
@@ -89,6 +126,24 @@ if(TARGET mongodb_driver)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:mongodb_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
     VERBATIM)
+endif()
+
+# Stage the MinGW runtime DLLs next to the executable so the app (and any driver
+# that links libmariadb, which imports libgcc) runs without the toolchain on PATH
+# — required for a self-contained install, and doubly so for the x86 build where
+# these are never otherwise present. The exact libgcc variant differs by target
+# (dw2 for i686, seh for x86_64), so copy whichever exists from the compiler's
+# bin directory.
+if(MINGW)
+  get_filename_component(_mingw_bin "${CMAKE_C_COMPILER}" DIRECTORY)
+  foreach(_rt libgcc_s_dw2-1.dll libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
+    if(EXISTS "${_mingw_bin}/${_rt}")
+      add_custom_command(TARGET quaero POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_mingw_bin}/${_rt}" "$<TARGET_FILE_DIR:quaero>/"
+        VERBATIM)
+    endif()
+  endforeach()
 endif()
 
 if(BUILD_TESTING)

@@ -229,3 +229,52 @@ jobs:
         run: |
           export QUAERO_SSH_DSN="{\"host\":\"127.0.0.1\",\"port\":3306,\"user\":\"root\",\"password\":\"root\",\"database\":\"quaero_test\",\"ssh_host\":\"127.0.0.1\",\"ssh_port\":22,\"ssh_user\":\"$(whoami)\",\"ssh_auth\":\"key\",\"ssh_key\":\"$HOME/.ssh/id_tunnel\"}"
           ctest --test-dir build --output-on-failure -R ssh_tunnel_integration
+
+  # Guards the x86 release build (the shipped installer is x86 because the IBM
+  # Informix ODBC driver is 32-bit only). Builds the core + all drivers with the
+  # same standalone i686 MinGW toolchain used locally, exercising the three
+  # from-source dependencies in 32-bit: MariaDB Connector/C (QUAERO_MARIADB,
+  # static), mongo-c-driver (QUAERO_MONGOC) and libssh2 (QUAERO_SSH). The app
+  # shell is skipped (QUAERO_BUILD_APP=OFF) to keep the job lean; unit tests run
+  # (32-bit exes run under WOW64), integration tests self-skip without a server.
+  windows-x86:
+    name: windows-x86
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Standalone winlibs i686 MinGW (GCC 13.2.0, UCRT, posix threads, dwarf
+      # EH) — the same distribution the toolchain file expects at C:/mingw32.
+      # Keep this pin in step with cmake/toolchain-i686-mingw.cmake's default.
+      # pwsh (not bash): here `tar` is the system bsdtar, which extracts .zip;
+      # Git bash's GNU tar cannot. curl.exe is the real curl on the runner.
+      - name: Install winlibs i686 MinGW
+        shell: pwsh
+        run: |
+          $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0posix-18.1.5-11.0.1-ucrt-r8/winlibs-i686-posix-dwarf-gcc-13.2.0-mingw-w64ucrt-11.0.1-r8.zip"
+          curl.exe -sSL -o mingw32.zip $url
+          # The archive's top-level folder is mingw32/, so this yields C:\mingw32.
+          tar -xf mingw32.zip -C C:\
+          C:\mingw32\bin\gcc.exe --version
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Configure
+        shell: bash
+        run: >
+          cmake -S . -B build-x86 -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-i686-mingw.cmake
+          -DCMAKE_BUILD_TYPE=Release
+          -DQUAERO_BUILD_APP=OFF
+          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON
+
+      - name: Build
+        shell: bash
+        run: cmake --build build-x86
+
+      # Unit tests only — the integration tests need live DB/SSH servers this job
+      # deliberately does not provision (those run in the Linux jobs above).
+      - name: Test
+        shell: bash
+        run: ctest --test-dir build-x86 --output-on-failure -E integration

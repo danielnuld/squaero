@@ -174,6 +174,118 @@ body {
   line-height: 1.5;
 }
 
+/* Explorer-first connection bar: the active connection collapses to one row and
+   the full manager drops down as a popover, so the object tree owns the column. */
+.connbar {
+  position: relative;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.connbar-active {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.connbar-active:hover {
+  background: var(--bg-elev2);
+}
+.connbar-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.connbar-none {
+  flex: 1;
+  color: var(--text-dim);
+}
+.connbar-status {
+  font-size: 10px;
+  color: var(--number);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.connbar-caret {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.connbar-drop {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-top: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  max-height: 60vh;
+  overflow: auto;
+  padding: 0.6rem;
+}
+
+/* The connection-color dot shown on a query tab. */
+.tab-conn-color {
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+/* Full-width strip at the top of the workspace in the active tab's connection
+   color — the strong "which server am I on" cue (prod red, dev green). */
+.workspace-accent {
+  height: 4px;
+  flex: none;
+}
+
+/* Marks an open (connected) connection in the list. */
+.conn-live {
+  color: var(--number);
+  font-size: 8px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+/* A connection's accent color: a dot in lists/bar, swatches in the form. */
+.conn-color {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  padding: 0;
+  cursor: pointer;
+}
+.color-swatch.selected {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+.color-swatch.color-none {
+  background:
+    linear-gradient(to top left, transparent calc(50% - 1px), var(--error) 50%, transparent calc(50% + 1px)),
+    var(--bg-elev2);
+}
+
 .resizer {
   width: 5px;
   cursor: col-resize;
@@ -1308,6 +1420,12 @@ kbd {
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-dim);
+}
+
+.objtree-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
 }
 
 .objtree-refresh {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   describePkColumns,
+  describeColumnNames,
   isEditable,
   whereForRow,
   insertParams,
@@ -53,6 +54,27 @@ describe("describePkColumns", () => {
       rowsAffected: 0,
     };
     expect(describePkColumns(d)).toEqual([]);
+  });
+});
+
+describe("describeColumnNames", () => {
+  it("returns the name column in order, dropping blanks", () => {
+    const d = describe_([
+      ["id", "int", "1", null, "1"],
+      ["nombre", "text", "0", null, "0"],
+      [null, "text", "0", null, "0"],
+    ]);
+    expect(describeColumnNames(d)).toEqual(["id", "nombre"]);
+  });
+
+  it("returns [] when there is no name column", () => {
+    const d: ResultSet = {
+      columns: [{ name: "type", type: "text" }],
+      rows: [["int"]],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    expect(describeColumnNames(d)).toEqual([]);
   });
 });
 

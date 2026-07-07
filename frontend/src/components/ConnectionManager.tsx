@@ -1,28 +1,35 @@
 import { For, Show, createSignal } from "solid-js";
 import { driverSchema, engineIcon, type Connection } from "../utils/connections";
 
-// Sidebar list of saved connections with CRUD + connect actions. Clicking a
-// connection opens it; the active one is highlighted. Presentational — all
-// state and IPC live in App. Export/import (issue #188) let the user back up and
-// migrate connections; the export password opt-in is a deliberate, warned choice.
-export function ConnectionManager(props: {
+// Props for the connection list + CRUD. Shared with ConnectionBar, which wraps
+// this component in a collapsible sidebar popover (Explorer-first layout).
+export interface ConnectionManagerProps {
   connections: Connection[];
+  /** The focused connection's id (drives the tree + new tabs); highlighted. */
   activeConnId: string | null;
+  /** Ids of every open connection (several can be open at once). */
+  openIds?: string[];
   /** Id of the connection currently being opened (shows a busy state). */
   connectingId: string | null;
   onConnect: (c: Connection) => void;
   onEdit: (c: Connection) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
-  /** Close the active connection. */
-  onDisconnect: () => void;
-  /** Reconnect the active connection with a fresh session (recovers a drop). */
+  /** Close an open connection (defaults to the focused one). */
+  onDisconnect: (defId?: string) => void;
+  /** Reconnect the focused connection with a fresh session (recovers a drop). */
   onReconnect: () => void;
   /** Export saved connections to a JSON file (issue #188). */
   onExport: (includePasswords: boolean) => void;
   /** Import connections from a file; resolves with a message to show the user. */
   onImport: (file: File) => Promise<string>;
-}) {
+}
+
+// Sidebar list of saved connections with CRUD + connect actions. Clicking a
+// connection opens it; the active one is highlighted. Presentational — all
+// state and IPC live in App. Export/import (issue #188) let the user back up and
+// migrate connections; the export password opt-in is a deliberate, warned choice.
+export function ConnectionManager(props: ConnectionManagerProps) {
   const [showExport, setShowExport] = createSignal(false);
   const [includePasswords, setIncludePasswords] = createSignal(false);
   const [importMsg, setImportMsg] = createSignal<string | null>(null);
@@ -102,15 +109,26 @@ export function ConnectionManager(props: {
         <ul class="conn-list">
           <For each={props.connections}>
             {(c) => (
-              <li class={`conn-item ${c.id === props.activeConnId ? "active" : ""}`}>
+              <li
+                class={`conn-item ${c.id === props.activeConnId ? "active" : ""} ${
+                  props.openIds?.includes(c.id) ? "open" : ""
+                }`}
+                style={c.color ? { "border-left": `3px solid ${c.color}` } : undefined}
+              >
                 <button
                   class="conn-open"
-                  title="Conectar"
+                  title={props.openIds?.includes(c.id) ? "Enfocar" : "Conectar"}
                   disabled={props.connectingId !== null}
                   onClick={() => props.onConnect(c)}
                 >
                   <span class="conn-name">
+                    <Show when={c.color}>
+                      <span class="conn-color" style={{ background: c.color }} />
+                    </Show>
                     <span class="engine-icon">{engineIcon(c.driver)}</span> {c.name}
+                    <Show when={props.openIds?.includes(c.id)}>
+                      <span class="conn-live" title="Conectada">●</span>
+                    </Show>
                   </span>
                   <span class="conn-driver">
                     {driverSchema(c.driver)?.label ?? c.driver}
@@ -126,7 +144,9 @@ export function ConnectionManager(props: {
                     >
                       ↻
                     </button>
-                    <button title="Desconectar" onClick={() => props.onDisconnect()}>
+                  </Show>
+                  <Show when={props.openIds?.includes(c.id)}>
+                    <button title="Desconectar" onClick={() => props.onDisconnect(c.id)}>
                       ⏏
                     </button>
                   </Show>

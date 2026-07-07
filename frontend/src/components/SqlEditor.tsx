@@ -22,6 +22,7 @@ import {
 } from "@codemirror/language";
 import { sql } from "@codemirror/lang-sql";
 import { closeBrackets, autocompletion, completionKeymap } from "@codemirror/autocomplete";
+import { search, searchKeymap, openSearchPanel, highlightSelectionMatches } from "@codemirror/search";
 import { formatSql } from "../utils/sqlFormat";
 import { pickRunTarget, type RunScope } from "../utils/runScope";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
@@ -48,6 +49,8 @@ export function SqlEditor(props: {
   dialect?: string;
   /** Bumping this number requests a format of the current document. */
   formatTick?: number;
+  /** Bumping this number opens the find panel (Ctrl/Cmd+F, issue: editor find). */
+  searchTick?: number;
   /** Insert this text at the cursor when `tick` changes (snippets, issue #129). */
   insertRequest?: { text: string; tick: number };
   /** Table -> columns map that drives table/column autocomplete (issue #110). */
@@ -104,6 +107,10 @@ export function SqlEditor(props: {
           closeBrackets(),
           indentOnInput(),
           autocompletion(),
+          // In-editor find/replace (Ctrl/Cmd+F). The panel sits at the top and
+          // matches are highlighted; searchKeymap adds find-next/prev + replace.
+          search({ top: true }),
+          highlightSelectionMatches(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           sqlConf.of(sql({ schema: props.schema ?? {} })),
           keymap.of([
@@ -132,6 +139,7 @@ export function SqlEditor(props: {
               },
             },
             indentWithTab,
+            ...searchKeymap,
             ...completionKeymap,
             ...defaultKeymap,
             ...historyKeymap,
@@ -179,6 +187,17 @@ export function SqlEditor(props: {
       lastFormatTick = tick;
       doFormat();
     }
+  });
+
+  // Find requests (Ctrl/Cmd+F) arrive as a bumped counter: focus the editor and
+  // open CodeMirror's search panel (idempotent — reopening just refocuses it).
+  let lastSearchTick = props.searchTick ?? 0;
+  createEffect(() => {
+    const tick = props.searchTick ?? 0;
+    if (!view || tick === lastSearchTick) return;
+    lastSearchTick = tick;
+    view.focus();
+    openSearchPanel(view);
   });
 
   // Snippet insertions (issue #129) arrive as a bumped tick; drop the text in at

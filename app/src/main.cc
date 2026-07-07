@@ -11,6 +11,7 @@ extern "C" {
 #include "cJSON.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -142,7 +143,28 @@ static void rpc_handler(const char *id, const char *req, void *arg)
     if (cJSON_IsArray(args)) {
         const cJSON *first = cJSON_GetArrayItem(args, 0);
         if (cJSON_IsString(first) && first->valuestring != nullptr) {
+            // Opt-in RPC tracing (QUAERO_RPC_DEBUG): log each request before and
+            // after dispatch with a wall-clock delta. On a hang the request line
+            // prints with no matching "done", naming the culprit call + its SQL.
+            static const bool trace = std::getenv("QUAERO_RPC_DEBUG") != nullptr;
+            unsigned long t0 = 0;
+            if (trace) {
+#if defined(_WIN32)
+                t0 = GetTickCount();
+#endif
+                std::fprintf(stderr, "RPC> %.200s\n", first->valuestring);
+                std::fflush(stderr);
+            }
             response = dbcore_ipc_handle(first->valuestring);
+            if (trace) {
+#if defined(_WIN32)
+                std::fprintf(stderr, "RPC< done in %lu ms\n",
+                             GetTickCount() - t0);
+#else
+                std::fprintf(stderr, "RPC< done\n");
+#endif
+                std::fflush(stderr);
+            }
         }
     }
 

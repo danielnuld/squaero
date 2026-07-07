@@ -5,6 +5,7 @@
 
 import { call } from "./transport";
 import { parseQueryResult, type ResultSet } from "./query";
+import { engineFamily } from "./engineFamily";
 
 /** Kind of an object-tree node, used for icons and expansion behavior. */
 export type NodeKind = "database" | "schema" | "table" | "view";
@@ -90,14 +91,45 @@ export async function schemaDdl(
 
 /**
  * Quote a SQL identifier for a generated statement, per engine: MySQL/MariaDB
- * use backticks (doubled to escape), every other engine the ANSI double quote
- * (doubled). `engine` is the driver name; omitted defaults to ANSI double
- * quotes. MySQL treats "..." as a string literal, so the quote char matters.
+ * use backticks (doubled to escape), Informix uses none, every other engine the
+ * ANSI double quote (doubled). `engine` is the driver name; omitted defaults to
+ * ANSI double quotes. MySQL treats "..." as a string literal, so the quote char
+ * matters; Informix has no delimited identifiers unless DELIMIDENT is set — a
+ * "quoted" name is parsed as a string literal and errors — so it stays bare.
  */
 export function quoteIdentifier(id: string, engine?: string): string {
   const e = (engine ?? "").toLowerCase();
   if (e === "mysql" || e === "mariadb") {
     return "`" + id.replace(/`/g, "``") + "`";
   }
+  if (e === "informix") {
+    return id;
+  }
   return `"${id.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Build a qualified object reference for a generated statement, per engine.
+ * Most engines dot-join the (quoted) parts: `db.schema.name`. Informix instead
+ * separates the database with a COLON and dot-joins the rest — `db:owner.name` —
+ * and its identifiers are bare (see quoteIdentifier); a dotted `db.owner.name`
+ * or any quoting is a syntax error there. Absent parts are dropped, so a bare
+ * `name` (or `owner.name`) comes out correctly when no database is given.
+ */
+export function qualifiedName(
+  parts: { db?: string; schema?: string; name: string },
+  engine?: string,
+): string {
+  const q = (s: string) => quoteIdentifier(s, engine);
+  if (engineFamily(engine ?? "") === "informix") {
+    // Informix: `database:table`, bare, and WITHOUT the owner. The name is
+    // unambiguous within a database, and an owner-qualified reference stalls on
+    // some servers (an owner-qualified cross-database catalog lookup can block),
+    // so the owner is dropped rather than emitted.
+    return parts.db ? `${q(parts.db)}:${q(parts.name)}` : q(parts.name);
+  }
+  return [parts.db, parts.schema, parts.name]
+    .filter((p): p is string => !!p)
+    .map(q)
+    .join(".");
 }

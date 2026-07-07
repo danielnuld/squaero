@@ -41,7 +41,23 @@ export interface Connection {
   driver: string;
   /** DSN field values keyed by DriverField.key. */
   params: Record<string, string>;
+  /** Optional accent color (a CONNECTION_COLORS hex) to tell connections apart
+      at a glance — e.g. production red vs development green. */
+  color?: string;
 }
+
+/** Curated accent palette for connections (config + sidebar). Chosen to stay
+    legible on both themes; the first, red, reads as a "careful — production"
+    marker. Empty string means "no color". */
+export const CONNECTION_COLORS: string[] = [
+  "#e5484d", // red
+  "#e5843b", // orange
+  "#e0b341", // amber
+  "#4bb45e", // green
+  "#3ea6b8", // teal
+  "#4f7cf0", // blue
+  "#9a6ae0", // purple
+];
 
 // Optional SSH-tunnel fields, engine-agnostic. The core reads these ssh_* keys
 // from the DSN and, when ssh_host is set, opens a local port-forward before the
@@ -374,7 +390,11 @@ export function coerceConnection(item: unknown): Connection | null {
       params[k] = v;
     }
   }
-  return { id: c.id, name: c.name, driver: c.driver, params };
+  const conn: Connection = { id: c.id, name: c.name, driver: c.driver, params };
+  if (typeof c.color === "string" && c.color) {
+    conn.color = c.color;
+  }
+  return conn;
 }
 
 /** Tolerant parse of stored connections; malformed entries are dropped. */

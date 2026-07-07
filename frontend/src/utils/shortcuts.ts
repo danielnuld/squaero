@@ -9,6 +9,8 @@
 export type ActionId =
   | "run-query"
   | "format-sql"
+  | "editor-find"
+  | "object-palette"
   | "new-tab"
   | "close-tab"
   | "next-tab"
@@ -38,6 +40,8 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "toggle-theme", keys: "Mod+Alt+L", description: "Cambiar tema claro/oscuro", global: true },
   { id: "toggle-help", keys: "F1", description: "Mostrar/ocultar atajos", global: true },
   { id: "command-palette", keys: "Mod+K", description: "Paleta de comandos", global: true },
+  { id: "object-palette", keys: "Mod+P", description: "Buscar objetos (tablas, vistas…)", global: true },
+  { id: "editor-find", keys: "Mod+F", description: "Buscar en el editor", global: true },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */
@@ -68,6 +72,13 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
 
   // Ctrl/Cmd+K opens the command palette (issue #174), from any focus.
   if (mod(e) && !e.altKey && !e.shiftKey && k === "k") return "command-palette";
+
+  // Ctrl/Cmd+P jumps to a connection object (tables, views…) via the palette;
+  // Ctrl/Cmd+F searches inside the SQL editor. Both reclaim keys the webview
+  // host would otherwise give to print / browser-find. Neither takes Alt/Shift
+  // (Mod+Shift+F is the editor's formatter).
+  if (mod(e) && !e.altKey && !e.shiftKey && k === "p") return "object-palette";
+  if (mod(e) && !e.altKey && !e.shiftKey && k === "f") return "editor-find";
 
   // Ctrl+PageUp/PageDown cycle tabs (matches common editor/browser convention).
   if (e.ctrlKey && !e.altKey && !e.shiftKey) {

@@ -1,12 +1,10 @@
-// Single source of truth for the connection tools (issue #176). Both the sidebar
-// "Herramientas" section and the command palette render from this list, so their
+// Single source of truth for the connection tools (issue #176). Both the object
+// tree's 🧰 tools menu and the command palette render from this list, so their
 // icons/labels stay consistent. Each item knows its tab title (what showTool
 // passes) separately from its display label, so the deduped tab header matches
-// regardless of entry point. The collapsed state of the sidebar section persists
-// in the shared kvStore.
+// regardless of entry point.
 
 import type { ToolKind } from "./tabs";
-import { resolveStore } from "./kvStore";
 
 export interface ToolMenuItem {
   tool: ToolKind;
@@ -31,23 +29,3 @@ export const TOOL_CATALOG: ToolMenuItem[] = [
   { tool: "routines", key: "routines", icon: "ƒ", label: "Procedimientos y funciones", tabTitle: "Procedimientos", title: "Procedimientos almacenados y funciones" },
   { tool: "triggers", key: "triggers", icon: "⚡", label: "Triggers y eventos", tabTitle: "Triggers y eventos", title: "Triggers y eventos programados" },
 ];
-
-const COLLAPSED_KEY = "quaero.tools.collapsed";
-
-/** Whether the sidebar tools section is collapsed (default false = expanded). */
-export function loadToolsCollapsed(): boolean {
-  try {
-    return resolveStore().getItem(COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-/** Persist the collapsed state. Best-effort. */
-export function saveToolsCollapsed(collapsed: boolean): void {
-  try {
-    resolveStore().setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    /* best-effort */
-  }
-}

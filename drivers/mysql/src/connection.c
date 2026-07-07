@@ -6,6 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_WIN32)
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#endif
+
 /*
  * Connection lifecycle for the MySQL/MariaDB driver. The DSN arrives as JSON:
  *
@@ -31,6 +36,59 @@ static void set_err(dbc_conn *c, const char *msg)
     }
     memcpy(c->err, msg, n);
     c->err[n] = '\0';
+}
+
+/* Point the MySQL client at its authentication-plugin directory. On Windows the
+   bundled libmysql.dll resolves plugins (mysql_native_password, caching_sha2_
+   password, …) from a directory it computes at connect time; because we stage
+   libmysql.dll next to the executable — away from its original install — that
+   default no longer resolves and every connection fails with "Authentication
+   plugin '…' cannot be loaded". We point it at the plugin folder staged beside
+   this driver DLL (<driver_dir>/mysql-plugin). An explicit LIBMYSQL_PLUGIN_DIR
+   in the environment, which the client already honors, always wins. On other
+   platforms the MariaDB connector ships these plugins built in, so this is a
+   no-op. */
+static void configure_plugin_dir(MYSQL *db)
+{
+#if defined(_WIN32)
+    static const char anchor = 0;   /* an address inside this module */
+    static const char suffix[] = "\\mysql-plugin";
+    const char *env;
+    HMODULE self = NULL;
+    DWORD n;
+    char path[MAX_PATH];
+    size_t len;
+
+    env = getenv("LIBMYSQL_PLUGIN_DIR");
+    if (env != NULL && env[0] != '\0') {
+        return;                     /* explicit override wins */
+    }
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+                                | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            &anchor, &self)) {
+        return;
+    }
+    n = GetModuleFileNameA(self, path, (DWORD)sizeof path);
+    if (n == 0 || n >= sizeof path) {
+        return;
+    }
+    /* Strip the DLL filename, leaving the driver directory (no trailing sep). */
+    while (n > 0 && path[n - 1] != '\\' && path[n - 1] != '/') {
+        --n;
+    }
+    if (n == 0) {
+        return;
+    }
+    path[n - 1] = '\0';
+    len = strlen(path);
+    if (len + sizeof suffix > sizeof path) {
+        return;
+    }
+    memcpy(path + len, suffix, sizeof suffix);   /* copies the NUL too */
+    mysql_options(db, MYSQL_PLUGIN_DIR, path);
+#else
+    (void)db;
+#endif
 }
 
 /* Owned copy of a DSN string field, or NULL when absent/empty. When the field
@@ -155,6 +213,8 @@ dbc_status mysql_drv_connect(const char *dsn_json, dbc_conn **out)
         *out = c;
         return DBC_ERR_CONN;
     }
+
+    configure_plugin_dir(c->db);
 
     cJSON *root = dsn_json != NULL ? cJSON_Parse(dsn_json) : NULL;
     if (root == NULL) {

@@ -6,7 +6,7 @@
 // comma-separated list). All pure and unit-tested; the component just runs the
 // SQL this returns.
 
-import { quoteIdentifier } from "./schema";
+import { quoteIdentifier, qualifiedName } from "./schema";
 
 export type Operator =
   | "="
@@ -86,10 +86,7 @@ export function buildSelect(engine: string, spec: QuerySpec): string {
     spec.columns.length === 0
       ? "*"
       : spec.columns.map((c) => quoteIdentifier(c, engine)).join(", ");
-  const name = [spec.container, spec.table]
-    .filter((p): p is string => !!p && p.length > 0)
-    .map((p) => quoteIdentifier(p, engine))
-    .join(".");
+  const name = qualifiedName({ db: spec.container, name: spec.table }, engine);
 
   let sql = `SELECT ${cols} FROM ${name}`;
 

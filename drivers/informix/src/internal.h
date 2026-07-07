@@ -47,6 +47,11 @@ struct dbc_result {
     char     **cell;        /* [ncols] owned buffers for the current row */
     size_t    *cell_cap;    /* [ncols] capacity of each cell buffer */
     int       *cell_null;   /* [ncols] 1 when the current cell is SQL NULL */
+    /* [ncols] lazily-grown buffers holding the UTF-8 form of a cell whose raw
+       bytes were not valid UTF-8 (an Informix DB in a Latin-1 code set). The
+       neutral contract (and JSON/webview) require UTF-8; see ifx_cell_text. */
+    char     **cellu8;
+    size_t    *cellu8_cap;
     long long  affected;
     int        has_resultset;
 

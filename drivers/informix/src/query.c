@@ -31,9 +31,16 @@ static void free_result_arrays(dbc_result *r)
         }
         free(r->cell);
     }
+    if (r->cellu8 != NULL) {
+        for (int i = 0; i < r->ncols; i++) {
+            free(r->cellu8[i]);
+        }
+        free(r->cellu8);
+    }
     free(r->col_types);
     free(r->cell_cap);
     free(r->cell_null);
+    free(r->cellu8_cap);
 }
 
 /* Allocate the per-column metadata/buffer arrays for ncols columns. */
@@ -45,8 +52,12 @@ static int alloc_columns(dbc_result *r, int ncols)
     r->cell      = calloc((size_t)ncols, sizeof *r->cell);
     r->cell_cap  = calloc((size_t)ncols, sizeof *r->cell_cap);
     r->cell_null = calloc((size_t)ncols, sizeof *r->cell_null);
+    /* UTF-8 conversion buffers are grown on demand in ifx_cell_text. */
+    r->cellu8     = calloc((size_t)ncols, sizeof *r->cellu8);
+    r->cellu8_cap = calloc((size_t)ncols, sizeof *r->cellu8_cap);
     if (r->col_names == NULL || r->col_types == NULL || r->cell == NULL ||
-        r->cell_cap == NULL || r->cell_null == NULL) {
+        r->cell_cap == NULL || r->cell_null == NULL || r->cellu8 == NULL ||
+        r->cellu8_cap == NULL) {
         return -1;
     }
     for (int i = 0; i < ncols; i++) {
@@ -248,6 +259,69 @@ int ifx_next_row(dbc_result *r)
     return 1;
 }
 
+/* True when [s, s+n) is well-formed UTF-8. */
+static int is_valid_utf8(const unsigned char *s, size_t n)
+{
+    size_t i = 0;
+    while (i < n) {
+        unsigned char c = s[i];
+        size_t extra;
+        if (c < 0x80) {
+            i++;
+            continue;
+        } else if ((c & 0xE0) == 0xC0) {
+            extra = 1;
+        } else if ((c & 0xF0) == 0xE0) {
+            extra = 2;
+        } else if ((c & 0xF8) == 0xF0) {
+            extra = 3;
+        } else {
+            return 0;
+        }
+        if (i + extra >= n) {
+            return 0;
+        }
+        for (size_t k = 1; k <= extra; k++) {
+            if ((s[i + k] & 0xC0) != 0x80) {
+                return 0;
+            }
+        }
+        i += extra + 1;
+    }
+    return 1;
+}
+
+/* Widen Latin-1 (ISO-8859-1) bytes to UTF-8 into *buf (grown to fit). Returns
+   *buf, or NULL on allocation failure. Each 0x80-0xFF byte becomes two bytes. */
+static const char *latin1_to_utf8(const unsigned char *s, size_t n,
+                                  char **buf, size_t *cap)
+{
+    size_t need = 1; /* trailing NUL */
+    for (size_t i = 0; i < n; i++) {
+        need += (s[i] < 0x80) ? 1 : 2;
+    }
+    if (need > *cap) {
+        char *nb = realloc(*buf, need);
+        if (nb == NULL) {
+            return NULL;
+        }
+        *buf = nb;
+        *cap = need;
+    }
+    char *o = *buf;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = s[i];
+        if (c < 0x80) {
+            *o++ = (char)c;
+        } else {
+            *o++ = (char)(0xC0 | (c >> 6));
+            *o++ = (char)(0x80 | (c & 0x3F));
+        }
+    }
+    *o = '\0';
+    return *buf;
+}
+
 const char *ifx_cell_text(dbc_result *r, int col)
 {
     if (r == NULL || col < 0 || col >= r->ncols) {
@@ -256,7 +330,18 @@ const char *ifx_cell_text(dbc_result *r, int col)
     if (r->cell_null[col]) {
         return NULL;
     }
-    return r->cell[col];
+    /* The neutral contract (and the JSON/webview transport) require UTF-8, but an
+       Informix database in a Latin-1 code set returns 8-bit text that is not
+       valid UTF-8 (e.g. 0xD1 for 'Ñ'). Such a response silently breaks the
+       webview bridge, leaving the grid loading forever. Pass valid UTF-8 through
+       untouched; otherwise widen the bytes from Latin-1. */
+    const unsigned char *raw = (const unsigned char *)r->cell[col];
+    size_t n = strlen(r->cell[col]);
+    if (is_valid_utf8(raw, n)) {
+        return r->cell[col];
+    }
+    const char *u = latin1_to_utf8(raw, n, &r->cellu8[col], &r->cellu8_cap[col]);
+    return u != NULL ? u : r->cell[col];
 }
 
 long long ifx_rows_affected(dbc_result *r)

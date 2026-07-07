@@ -40,6 +40,18 @@ describe("matchShortcut — global actions", () => {
     // must not fire with Alt/Shift held (avoids clobbering editor combos)
     expect(matchShortcut(ev({ key: "k", ctrlKey: true, altKey: true }))).toBeNull();
   });
+  it("Ctrl/Cmd+P opens the object palette", () => {
+    expect(matchShortcut(ev({ key: "p", ctrlKey: true }))).toBe("object-palette");
+    expect(matchShortcut(ev({ key: "P", metaKey: true }))).toBe("object-palette");
+  });
+  it("Ctrl/Cmd+F opens the editor find", () => {
+    expect(matchShortcut(ev({ key: "f", ctrlKey: true }))).toBe("editor-find");
+    expect(matchShortcut(ev({ key: "F", metaKey: true }))).toBe("editor-find");
+  });
+  it("Ctrl/Cmd+Shift+F stays the editor formatter, not global find", () => {
+    // format-sql is editor-owned (global:false) and must not match here.
+    expect(matchShortcut(ev({ key: "f", ctrlKey: true, shiftKey: true }))).toBeNull();
+  });
 });
 
 describe("matchShortcut — non-matches", () => {

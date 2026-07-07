@@ -2,7 +2,9 @@
 <!--
   Windows installer definition for Quaero (issue #40, WiX v4+ schema).
   Built with the WiX CLI + the UI extension; see installer/build-msi.sh.
-  Files are staged in build/app/ (the app plus its runtime DLLs and drivers).
+  Files are staged in build-x86/app/ (the app plus its runtime DLLs and
+  drivers). The release is x86 (32-bit): the IBM Informix ODBC driver is
+  32-bit only, and Quaero loads drivers in-process, so the whole app is x86.
   Version is passed on the command line: -d Version=<x.y.z>.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
@@ -21,7 +23,7 @@
     <Property Id="ARPPRODUCTICON" Value="QuaeroIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/danielnuld/quaero" />
 
-    <StandardDirectory Id="ProgramFiles64Folder">
+    <StandardDirectory Id="ProgramFilesFolder">
       <Directory Id="INSTALLFOLDER" Name="Quaero">
         <Directory Id="DriversDir" Name="drivers" />
       </Directory>
@@ -30,22 +32,22 @@
       <Directory Id="AppMenuDir" Name="Quaero" />
     </StandardDirectory>
 
-    <!-- App + its runtime DLLs (WebView2 loader, MySQL client, MinGW runtime). -->
+    <!-- App + its runtime DLLs. WebView2 is linked statically (no loader DLL);
+         the 32-bit MariaDB Connector/C is linked statically into mysql.dll (so
+         no libmariadb.dll here). The MinGW runtime uses the i686 dw2 libgcc. -->
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-      <File Id="quaero.exe" Source="build/app/quaero.exe" />
-      <File Source="build/app/WebView2Loader.dll" />
-      <File Source="build/app/libmysql.dll" />
-      <File Source="build/app/libgcc_s_seh-1.dll" />
-      <File Source="build/app/libstdc++-6.dll" />
-      <File Source="build/app/libwinpthread-1.dll" />
+      <File Id="quaero.exe" Source="build-x86/app/quaero.exe" />
+      <File Source="build-x86/app/libgcc_s_dw2-1.dll" />
+      <File Source="build-x86/app/libstdc++-6.dll" />
+      <File Source="build-x86/app/libwinpthread-1.dll" />
     </ComponentGroup>
 
     <!-- Driver plugins discovered at runtime from <installdir>/drivers. -->
     <ComponentGroup Id="DriverFiles" Directory="DriversDir">
-      <File Source="build/app/drivers/sqlite.dll" />
-      <File Source="build/app/drivers/mysql.dll" />
-      <File Source="build/app/drivers/informix.dll" />
-      <File Source="build/app/drivers/mongodb.dll" />
+      <File Source="build-x86/app/drivers/sqlite.dll" />
+      <File Source="build-x86/app/drivers/mysql.dll" />
+      <File Source="build-x86/app/drivers/informix.dll" />
+      <File Source="build-x86/app/drivers/mongodb.dll" />
     </ComponentGroup>
 
     <!-- Start Menu shortcut with the app icon. -->

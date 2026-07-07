@@ -207,6 +207,16 @@ describe("serialize / parse round-trip", () => {
     const raw = JSON.stringify([{ id: "conn-1" }, sqliteConn()]);
     expect(parseConnections(raw)).toEqual([sqliteConn()]);
   });
+
+  it("round-trips the accent color and ignores a non-string one", () => {
+    const colored = { ...sqliteConn(), color: "#e5484d" };
+    expect(parseConnections(serializeConnections([colored]))).toEqual([colored]);
+    // A non-string / empty color is dropped rather than carried through.
+    const raw = JSON.stringify([{ ...sqliteConn(), color: 123 }, { ...pgConn(), color: "" }]);
+    const parsed = parseConnections(raw);
+    expect(parsed[0].color).toBeUndefined();
+    expect(parsed[1].color).toBeUndefined();
+  });
 });
 
 describe("SSH tunnel fields", () => {

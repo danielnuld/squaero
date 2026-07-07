@@ -1,7 +1,7 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { Panel } from "./Panel";
 import { runQuery, QueryError, type ResultSet } from "../utils/query";
-import { quoteIdentifier } from "../utils/schema";
+import { qualifiedName } from "../utils/schema";
 import { openConnection, closeConnection } from "../utils/conn";
 import { runPlanItem, txBegin, txCommit, txRollback } from "../utils/edit";
 import { diffData, dataDiffEmpty, diffToPlan } from "../utils/dataDiff";
@@ -49,10 +49,7 @@ export function DataDiffWizard(props: {
   const targetEngine = () =>
     props.connections.find((c) => c.id === targetDefId())?.driver ?? "";
   const qualifiedTarget = () =>
-    [targetDb(), props.source.table]
-      .filter((p): p is string => !!p)
-      .map((p) => quoteIdentifier(p, targetEngine()))
-      .join(".");
+    qualifiedName({ db: targetDb(), name: props.source.table }, targetEngine());
 
   const compare = async () => {
     const def = props.connections.find((c) => c.id === targetDefId());
