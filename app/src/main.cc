@@ -264,19 +264,21 @@ static void apply_window_icon(webview_t w)
         return;
     }
     HINSTANCE inst = GetModuleHandleW(nullptr);
-    HICON big = static_cast<HICON>(
+    // Not named `small`: the Windows SDK's <rpcndr.h> #defines `small` to `char`,
+    // which turns `HICON small` into a syntax error under MSVC (MinGW is unaffected).
+    HICON icon_big = static_cast<HICON>(
         LoadImageW(inst, MAKEINTRESOURCEW(1), IMAGE_ICON,
                    GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON),
                    LR_DEFAULTCOLOR));
-    HICON small = static_cast<HICON>(
+    HICON icon_small = static_cast<HICON>(
         LoadImageW(inst, MAKEINTRESOURCEW(1), IMAGE_ICON,
                    GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
                    LR_DEFAULTCOLOR));
-    if (big != nullptr) {
-        SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+    if (icon_big != nullptr) {
+        SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon_big));
     }
-    if (small != nullptr) {
-        SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
+    if (icon_small != nullptr) {
+        SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon_small));
     }
 }
 #endif

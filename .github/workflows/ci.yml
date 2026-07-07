@@ -262,10 +262,14 @@ jobs:
 
       - name: Configure
         shell: bash
+        # CMAKE_POLICY_VERSION_MINIMUM lets CMake 4.x configure the fetched
+        # dependencies (MariaDB Connector/C, libssh2, mongo-c-driver) whose
+        # cmake_minimum_required predates 3.5, which CMake 4 otherwise rejects.
         run: >
           cmake -S . -B build-x86 -G Ninja
           -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-i686-mingw.cmake
           -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DQUAERO_BUILD_APP=OFF
           -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON
 
