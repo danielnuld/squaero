@@ -40,18 +40,18 @@ SQL preparado, pero el driver no se distribuye aún.
 | Monitor de servidor + kill | ➖ 9 | ⏳ | ➖ 10 | ➖ 11 |
 | Usuarios / permisos (crear/eliminar/grant/revoke) | ➖ 12 | ⏳ | ➖ 13 | ➖ 14 |
 | Procedimientos / funciones | ➖ 15 | ⏳ | ⏳ | ➖ 16 |
-| Triggers | ⏳ | ⏳ | ⏳ | ➖ 17 |
+| Triggers | ✅ | ⏳ | ⏳ | ➖ 17 |
 | Eventos programados | ➖ 18 | ⏳ | ➖ 19 | ➖ 17 |
 | Diagrama ER | ⚠️ 20 | ⚠️ 20 | ⚠️ 20 | ⚠️ 20 |
 | Constructor visual de consultas | ⏳ | ⏳ | ⏳ | ➖ 21 |
 | Charts / gráficos | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
-| Diseñador de tablas (CREATE) | ⏳ | ⏳ | ⏳ | ➖ 6 |
+| Diseñador de tablas (CREATE) | ✅ | ⏳ | ⏳ | ➖ 6 |
 | Diseñador de tablas (ALTER) | ⚠️ 22 | ⏳ | ⏳ | ➖ 6 |
-| Índices | ⏳ | ⏳ | ⏳ | ➖ 23 |
+| Índices | ✅ | ⏳ | ⏳ | ➖ 23 |
 | Constraints | ➖ 24 | ⏳ | ⏳ | ➖ 23 |
 | Sincronización de esquema / datos | ⏳ | ⏳ | ⏳ | ➖ 6 |
 | Transferencia de datos | ⏳ | ⏳ | ⏳ | ⚠️ 25 |
-| EXPLAIN (plan visual) | ⏳ | ⏳ | ➖ 26 | ➖ 27 |
+| EXPLAIN (plan visual) | ✅ | ⏳ | ➖ 26 | ➖ 27 |
 
 ## Notas (razones de ⚠️ y ➖)
 
@@ -82,6 +82,9 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 19. **Informix — eventos:** «Los eventos programados de Informix no están disponibles aquí.»
 20. **Diagrama ER (todos):** las relaciones son **inferidas por nombre**
     (`customer_id → customers`); no lee claves foráneas reales (fase 2 pendiente).
+    Hallazgo QA (#196): en SQLite las FK reales SÍ están disponibles barato vía
+    `PRAGMA foreign_key_list` (verificado en vivo) pero el ER no las usa —
+    candidato a issue de mejora "ER: FKs reales del catálogo".
 21. **MongoDB — constructor visual:** genera SQL `SELECT`; MongoDB usa mongosh.
 22. **SQLite — ALTER:** solo add/drop/rename de columnas; el cambio de tipo in-place
     da error honesto (SQLite no soporta `MODIFY COLUMN`).
@@ -102,13 +105,22 @@ Describe, Ejecutar consulta, Paginación, Edición transaccional, Export.
 
 | Motor | Smoke | Notas |
 |---|:---:|---|
-| SQLite | ✅ 12/12 | local, sin contenedor (2026-07-05) |
+| SQLite | ✅ 12/12 + 9/9 features | `smoke.mjs` (camino crítico) + `sqlite-features.mjs` (2026-07-07) |
 | MySQL/MariaDB | ✅ 12/12 | contra `mysql:8` en :13306 (2026-07-05) |
 | Informix | ⏳ | el driver carga; falta servidor Informix de prueba |
 | MongoDB | ✅ 4/4 | driver compilado con `-DQUAERO_MONGOC=ON` vs `mongo:7` (2026-07-05) |
 
 Ver [QA-SMOKE.md](./QA-SMOKE.md) para correrlo. Las filas ✅ de SQLite y
 MySQL/MariaDB arriba (conexión, árbol, describe, consulta, paginación, edición
-transaccional, export) están verificadas por este smoke.
+transaccional, export) están verificadas por el smoke del camino crítico.
 
-_Última actualización: 2026-07-05 (issue #194 + smoke #199: SQLite y MySQL verificados)._
+**SQLite feature-smoke (`scripts/smoke/sqlite-features.mjs`, #196)** verifica en
+vivo contra el core real, sin contenedor: path con espacios/acentos, diseñador
+CREATE con tipos variados + describe (PK), unicode (acentos+emoji) en datos Y en
+nombres de objetos, vistas (árbol + DDL), triggers (listado + DDL inline),
+índices (`pragma_index_list/info`, como la app), `EXPLAIN QUERY PLAN`, FKs reales
+por `PRAGMA foreign_key_list`, y archivo de solo lectura (lectura OK, escritura
+con error honesto). Esas filas de la columna SQLite pasan a ✅.
+
+_Última actualización: 2026-07-07 (issue #196: SQLite verificado en vivo vía
+sqlite-features.mjs — Triggers/Diseñador CREATE/Índices/EXPLAIN → ✅)._

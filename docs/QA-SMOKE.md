@@ -52,11 +52,26 @@ node scripts/smoke/smoke.mjs sqlite build/app/drivers
 
 El código de salida es 0 si todos los pasos pasan, 1 si alguno falla.
 
+## Feature-smoke de SQLite (#196)
+
+Más allá del camino crítico, `scripts/smoke/sqlite-features.mjs` verifica en vivo
+(mismo puente `quaero-rpc`, sin contenedor) los flujos sensibles específicos de
+SQLite: path con espacios/acentos, diseñador CREATE con tipos variados + describe,
+unicode en datos y en nombres de objetos, vistas (árbol + DDL), triggers (listado
++ DDL inline), índices (`pragma_index_list/info`), `EXPLAIN QUERY PLAN`, FKs por
+`PRAGMA foreign_key_list`, y archivo de solo lectura (lectura OK / escritura con
+error honesto).
+
+```sh
+node scripts/smoke/sqlite-features.mjs            # usa build/drivers/sqlite
+node scripts/smoke/sqlite-features.mjs build/app/drivers
+```
+
 ## Estado por motor
 
 | Motor | Estado | Notas |
 |---|:---:|---|
-| SQLite | ✅ 12/12 (2026-07-05) | local, sin contenedor |
+| SQLite | ✅ 12/12 + 9/9 features (2026-07-07) | local; `smoke.mjs` + `sqlite-features.mjs` |
 | MySQL/MariaDB | ✅ 12/12 (2026-07-05) | contra `mysql:8` en :13306 |
 | Informix | ⏳ | el driver carga; falta un servidor Informix de prueba |
 | MongoDB | ✅ 4/4 (2026-07-05) | driver compilado con `-DQUAERO_MONGOC=ON`, vs `mongo:7` |
