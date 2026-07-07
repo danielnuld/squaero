@@ -55,7 +55,8 @@ endif()
 if(WIN32)
   target_include_directories(quaero PRIVATE
     "${CMAKE_BINARY_DIR}/_deps/microsoft_web_webview2-src/build/native/include")
-  target_link_libraries(quaero PRIVATE shell32 ole32)
+  # shell32/ole32: ShellExecute + COM; urlmon: URLDownloadToFile (in-app updater).
+  target_link_libraries(quaero PRIVATE shell32 ole32 urlmon)
 endif()
 # Note: strict warnings are intentionally not applied here — this target
 # includes the third-party C++ webview header.

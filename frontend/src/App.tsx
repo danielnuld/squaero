@@ -122,6 +122,7 @@ import {
   type UpdateInfo,
 } from "./utils/update";
 import { openExternal } from "./utils/openExternal";
+import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
@@ -1961,6 +1962,7 @@ export function App() {
           openExternal(url);
           setUpdate(null);
         }}
+        onInstall={canInstall() ? installUpdate : undefined}
       />
 
       <ContextMenu />

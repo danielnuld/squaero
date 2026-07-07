@@ -316,6 +316,11 @@ body {
 .update-skip {
   color: var(--text-dim);
 }
+.update-error {
+  color: var(--error);
+  font-size: 12px;
+  margin: 0 1.3rem;
+}
 
 /* Marks an open (connected) connection in the list. */
 .conn-live {

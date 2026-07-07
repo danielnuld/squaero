@@ -14,12 +14,14 @@ extern "C" {
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
 #include <shlobj.h>
 #include <shellapi.h>
+#include <urlmon.h>
 #include <WebView2.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -308,6 +310,81 @@ static void open_external_handler(const char *id, const char *req, void *arg)
     cJSON_Delete(args);
     webview_return(w, id, 0, "null");
 }
+
+// Payload handed from the download worker back to the UI thread.
+struct UpdateResult {
+    webview_t w;
+    std::string id;
+    bool ok;
+    std::wstring path;
+};
+
+// UI thread: resolve/reject the JS promise; on success launch the MSI and quit
+// (a running quaero.exe would block the installer from replacing it).
+static void finish_update(webview_t w, void *arg)
+{
+    auto *r = static_cast<UpdateResult *>(arg);
+    if (r->ok) {
+        webview_return(w, r->id.c_str(), 0, "{\"ok\":true}");
+        ShellExecuteW(nullptr, L"open", r->path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        webview_terminate(w);
+    } else {
+        webview_return(w, r->id.c_str(), 1, "{\"ok\":false}");
+    }
+    delete r;
+}
+
+struct DownloadCtx {
+    webview_t w;
+    std::string id;
+    std::wstring url;
+};
+
+// Worker thread: download the MSI to %TEMP%, then hand the result to the UI
+// thread. Blocking download runs off the UI thread so the window stays responsive.
+static void download_worker(DownloadCtx *ctx)
+{
+    bool ok = false;
+    std::wstring path;
+    wchar_t tmpdir[MAX_PATH];
+    DWORD n = GetTempPathW(MAX_PATH, tmpdir);
+    if (n > 0 && n < MAX_PATH) {
+        path = std::wstring(tmpdir) + L"quaero-update.msi";
+        ok = SUCCEEDED(
+            URLDownloadToFileW(nullptr, ctx->url.c_str(), path.c_str(), 0, nullptr));
+    }
+    webview_dispatch(ctx->w, finish_update, new UpdateResult{ctx->w, ctx->id, ok, path});
+    delete ctx;
+}
+
+// Bridge: window.quaeroDownloadAndInstall(url) downloads the release MSI and runs
+// it, then closes the app. Restricted to a GitHub https .msi URL — never fetches
+// or executes anything else.
+static void download_install_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *first = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    bool started = false;
+    if (cJSON_IsString(first) && first->valuestring != nullptr) {
+        const char *url = first->valuestring;
+        size_t len = std::strlen(url);
+        if (std::strncmp(url, "https://github.com/", 19) == 0 && len > 4 &&
+            _stricmp(url + len - 4, ".msi") == 0) {
+            int wlen = MultiByteToWideChar(CP_UTF8, 0, url, -1, nullptr, 0);
+            if (wlen > 0) {
+                std::wstring wurl(static_cast<size_t>(wlen), L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, url, -1, &wurl[0], wlen);
+                std::thread(download_worker, new DownloadCtx{w, id, wurl}).detach();
+                started = true;
+            }
+        }
+    }
+    cJSON_Delete(args);
+    if (!started) {
+        webview_return(w, id, 1, "{\"ok\":false}");
+    }
+}
 #endif
 
 int main()
@@ -336,6 +413,7 @@ int main()
     webview_bind(w, "quaeroRpc", rpc_handler, w);
 #if defined(_WIN32)
     webview_bind(w, "quaeroOpenExternal", open_external_handler, w);
+    webview_bind(w, "quaeroDownloadAndInstall", download_install_handler, w);
 #endif
 
     // Load the embedded, self-contained frontend bundle (persistent origin on
