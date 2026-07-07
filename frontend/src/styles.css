@@ -19,6 +19,12 @@
   --accent: #7c7cf0;
   --accent-fg: #1e1e24;
   --accent-hover: #9a9aff;
+  /* Accent used as colored TEXT on elevated surfaces (issue #220). Plain
+     --accent (#7c7cf0) on --bg-elev2 (#2e2e38) is only 3.8:1 — sub-AA. This
+     lighter indigo clears 4.5:1 on the lightest dark surface (#2e2e38), so it
+     also passes on every darker one. Use for `color:` on accent text, never
+     for fills (those use --accent + --accent-fg). */
+  --accent-text: #9090f5;
   --null: #d98a4b;
   --number: #8fd0a0;
   --error: #f08a8a;
@@ -46,6 +52,9 @@
   --accent: #5b5bd6;
   --accent-fg: #ffffff;
   --accent-hover: #4a4ac4;
+  /* Accent text on elevated surfaces (issue #220). #4a4ac4 clears 4.5:1 on the
+     lightest surface (#ffffff) with margin, and on #ececf1. */
+  --accent-text: #4a4ac4;
   --null: #b5651d;
   --number: #217a47;
   --error: #c62828;
@@ -553,7 +562,7 @@ body {
 }
 
 .cm-completionMatchedText {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 700;
 }
@@ -747,7 +756,7 @@ body {
 .col-sort {
   margin-left: auto;
   font-size: 10px;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .grid-filter {
@@ -1443,7 +1452,7 @@ kbd {
 .snippet-actions .link {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--accent-text);
   cursor: pointer;
   padding: 0;
   font-size: 12px;
@@ -1806,7 +1815,7 @@ kbd {
 
 .edit-btn-primary {
   border-color: var(--accent, #5b5bd6);
-  color: var(--accent, #5b5bd6);
+  color: var(--accent-text, #4a4ac4);
 }
 
 .edit-hint-ro {
@@ -1983,7 +1992,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .import-applied {
-  color: var(--accent, #5b5bd6);
+  color: var(--accent-text, #4a4ac4);
   font-size: 12px;
 }
 
@@ -2075,11 +2084,11 @@ button.grid-action.danger:hover:not(:disabled) {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .rd-field.rd-edited .rd-name {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .rd-value {
@@ -2994,7 +3003,7 @@ button.grid-action.danger:hover:not(:disabled) {
 .empty-link {
   border: none;
   background: none;
-  color: var(--accent);
+  color: var(--accent-text);
   cursor: pointer;
   padding: 0.15rem 0;
   text-align: left;
