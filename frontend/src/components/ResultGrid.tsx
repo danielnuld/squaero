@@ -8,11 +8,11 @@ import {
   type SortState,
   type ColumnFilters,
 } from "../utils/gridView";
+import { computeColumnWidths, resizeColumn, MIN_COL_WIDTH } from "../utils/gridColumns";
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
 
 const DEFAULT_ROW_HEIGHT = 28;
-const COL_WIDTH = 180;
 const ACTION_WIDTH = 36;
 
 /**
@@ -79,18 +79,44 @@ export function ResultGrid(props: {
   // original index. Both reset whenever a new result loads.
   const [sort, setSort] = createSignal<SortState | null>(null);
   const [filters, setFilters] = createSignal<ColumnFilters>({});
+  // Per-column widths (issue: grid visual pass). Seeded content-aware from the
+  // new result and then adjustable by dragging the header resize handles.
+  const [widths, setWidths] = createSignal<number[]>([]);
   createEffect(() => {
     props.result; // reset on identity change
     setSort(null);
     setFilters({});
+    setWidths(computeColumnWidths(cols(), rows()));
   });
   const view = createMemo(() => buildViewIndices(rows(), cols(), sort(), filters()));
   const filtersActive = () => Object.values(filters()).some((q) => q.trim() !== "");
   const toggleSort = (col: number) => setSort((s) => cycleSort(s, col));
   const setFilter = (col: number, q: string) => setFilters((f) => ({ ...f, [col]: q }));
+  const colWidth = (ci: number) => widths()[ci] ?? 180;
   const gridCols = () => {
-    const body = `repeat(${cols().length}, ${COL_WIDTH}px)`;
+    const body = cols()
+      .map((_c, ci) => `${colWidth(ci)}px`)
+      .join(" ");
     return editing() ? `${ACTION_WIDTH}px ${body}` : body;
+  };
+
+  // Drag a header resize handle: capture the start geometry, then set the dragged
+  // column to an absolute target width (start width + pointer delta) on each move
+  // until release. Absolute (not incremental) so intermediate rounding can't drift.
+  // Document-level listeners keep tracking even when the pointer leaves the header.
+  const startResize = (ci: number, e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // never let the handle trigger the column sort
+    const startX = e.clientX;
+    const startW = colWidth(ci);
+    const onMove = (ev: MouseEvent) =>
+      setWidths((w) => resizeColumn(w, ci, startW + (ev.clientX - startX) - (w[ci] ?? 180), MIN_COL_WIDTH));
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   };
 
   const isDeleted = (rowIndex: number) =>
@@ -171,6 +197,21 @@ export function ResultGrid(props: {
                         <span class="col-name">{col.name}</span>
                         <span class="col-type">{col.type}</span>
                         <span class="col-sort">{sortGlyph(sort(), ci())}</span>
+                        <span
+                          class="col-resize"
+                          title="Ajustar ancho de columna"
+                          aria-hidden="true"
+                          onMouseDown={(e) => startResize(ci(), e)}
+                          onClick={(e) => e.stopPropagation()}
+                          onDblClick={(e) => {
+                            e.stopPropagation();
+                            setWidths((w) =>
+                              w.map((width, i) =>
+                                i === ci() ? computeColumnWidths([cols()[ci()]], rows().map((r) => [r[ci()]]))[0] : width,
+                              ),
+                            );
+                          }}
+                        />
                       </div>
                     )}
                   </For>
@@ -205,15 +246,19 @@ export function ResultGrid(props: {
                     style={{ transform: `translateY(${range().offsetY}px)` }}
                   >
                     <For each={view().slice(range().start, range().end)}>
-                      {(origIndex) => {
+                      {(origIndex, i) => {
                         const rowIndex = () => origIndex;
                         // Reactive lookup: the <For> keys by index value, so this
                         // callback is reused across queries — read the live rows()
                         // each render, never a stale snapshot.
                         const row = () => rows()[origIndex];
+                        // Zebra keyed by the row's ABSOLUTE position in the view, not
+                        // by nth-child: the virtual window shifts on scroll, so a CSS
+                        // nth-child stripe would flicker as rows recycle.
+                        const zebra = () => ((range().start + i()) % 2 === 1 ? "row-odd" : "");
                         return (
                           <div
-                            class={`grid-row ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
+                            class={`grid-row ${zebra()} ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
                             style={{ "grid-template-columns": gridCols() }}
                           >
                             <Show when={editing()}>

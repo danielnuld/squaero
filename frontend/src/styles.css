@@ -1012,12 +1012,16 @@ body {
   display: grid;
 }
 
-.grid-row:nth-child(even) {
-  background: rgba(255, 255, 255, 0.02);
+/* Zebra striping keyed by the row's absolute position (class from the grid),
+   not nth-child: the virtualized window recycles rows on scroll, so an
+   nth-child stripe would flicker. color-mix keeps it subtle in both themes
+   (the old rgba(255,255,255,…) was invisible on the light palette). */
+.grid-row.row-odd {
+  background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 
 .grid-row:hover {
-  background: rgba(76, 139, 245, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .grid-cell {
@@ -1051,10 +1055,28 @@ body {
 .grid-head-sort {
   cursor: pointer;
   user-select: none;
+  position: relative; /* anchor the resize handle to the header cell */
 }
 
 .grid-head-sort:hover {
   background: var(--bg-elev);
+}
+
+/* Column resize handle (grid visual pass): a thin grab strip on the right edge
+   of each header cell. Drag to resize, double-click to fit content. */
+.col-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.col-resize:hover {
+  background: var(--accent);
+  opacity: 0.55;
 }
 
 .col-sort {
