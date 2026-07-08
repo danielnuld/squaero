@@ -713,10 +713,26 @@ body {
   color: var(--text-dim);
 }
 
+.tab:hover:not(.active) {
+  background: var(--bg-elev2);
+  color: var(--text);
+}
+
 .tab.active {
   background: var(--bg);
   color: var(--text);
   box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.tab.active .tab-title {
+  font-weight: 600;
+}
+
+/* Long titles (a whole SQL statement) truncate instead of stretching the bar. */
+.tab-title {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab-close,
@@ -729,6 +745,18 @@ body {
   line-height: 1;
   padding: 0 0.2rem;
   border-radius: 3px;
+}
+
+/* Close affordance is dimmed until the tab is hovered or active, so a row of
+   tabs reads calmly (chrome visual pass). */
+.tab .tab-close {
+  opacity: 0.45;
+  transition: opacity 0.1s;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  opacity: 1;
 }
 
 .tab-close:hover,
@@ -1249,10 +1277,16 @@ body {
   color: var(--text-dim);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
-  padding: 0 0.3rem;
+  font-size: 13px;
+  /* Larger, squared hit target for the glyph buttons (theme/settings/help) —
+     the old 0.3rem-wide targets were fiddly (UX audit). */
+  min-width: 26px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.45rem;
   border-radius: 3px;
-  line-height: 1.4;
 }
 
 .status-btn:hover {
@@ -1307,6 +1341,7 @@ kbd {
 
 .conn-dot.on {
   background: var(--number);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--number) 22%, transparent);
 }
 
 .conn-dot.off {
