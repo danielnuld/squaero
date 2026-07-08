@@ -25,12 +25,12 @@ SQL preparado, pero el driver no se distribuye aún.
 
 | Funcionalidad | SQLite | MySQL/MariaDB | Informix | MongoDB |
 |---|:---:|:---:|:---:|:---:|
-| Conexión / desconexión / reconexión | ✅ | ✅ | ⏳ | ✅ |
+| Conexión / desconexión / reconexión | ✅ | ✅ | ✅ 28 | ✅ |
 | Árbol de objetos + carpetas por tipo | ⚠️ 1 | ✅ | ⚠️ 2 | ⚠️ 3 |
-| Describe / estructura / DDL | ✅ | ✅ | ⏳ | ⚠️ 4 |
-| Ejecutar consulta | ✅ | ✅ | ⏳ | ⚠️ 5 |
-| Paginación real (offset) | ✅ | ✅ | ⏳ | ✅ |
-| Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ⏳ | ➖ 6 |
+| Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4 |
+| Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5 |
+| Paginación real (offset) | ✅ | ✅ | ✅ 28 | ✅ |
+| Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ⚠️ 32 | ➖ 6 |
 | Detalle de fila (form view) | ⏳ | ⏳ | ⏳ | ⚠️ 7 |
 | Export CSV / JSON / SQL / XML / HTML / XLSX | ✅ 8 | ✅ 8 | ⏳ | ⏳ 8 |
 | Import CSV / JSON / XLSX | ⏳ | ⏳ | ⏳ | ➖ 6 |
@@ -39,8 +39,8 @@ SQL preparado, pero el driver no se distribuye aún.
 | Historial / snippets / ejecutar selección | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
 | Monitor de servidor + kill | ➖ 9 | ⏳ | ➖ 10 | ➖ 11 |
 | Usuarios / permisos (crear/eliminar/grant/revoke) | ➖ 12 | ⏳ | ➖ 13 | ➖ 14 |
-| Procedimientos / funciones | ➖ 15 | ⏳ | ⏳ | ➖ 16 |
-| Triggers | ✅ | ⏳ | ⏳ | ➖ 17 |
+| Procedimientos / funciones | ➖ 15 | ⏳ | ✅ 30 | ➖ 16 |
+| Triggers | ✅ | ⏳ | ✅ 31 | ➖ 17 |
 | Eventos programados | ➖ 18 | ⏳ | ➖ 19 | ➖ 17 |
 | Diagrama ER | ⚠️ 20 | ⚠️ 20 | ⚠️ 20 | ⚠️ 20 |
 | Constructor visual de consultas | ⏳ | ⏳ | ⏳ | ➖ 21 |
@@ -95,6 +95,26 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 25. **MongoDB — transferencia:** válido como **origen** (lectura); no como destino (escritura).
 26. **Informix — EXPLAIN:** Informix escribe el plan a archivo (`SET EXPLAIN`), no vía SQL.
 27. **MongoDB — EXPLAIN:** usa la superficie `.explain()`, no `EXPLAIN` SQL.
+28. **Informix — verificado en vivo (2026-07-08)** contra un servidor real
+    (ERP de pruebas, IBM Informix Dynamic Server 11.70.FC7, base `tienda`,
+    416 objetos) vía el `quaero-rpc` x86 (el driver ODBC de Informix es 32-bit;
+    ver [[quaero-x86-unified-build]]). Conexión, consulta con literales y
+    paginación offset confirmados.
+29. **Informix — describe:** BUG encontrado y **corregido** en esta verificación
+    (#197): `describe_table` reportaba TODAS las columnas como `CHAR` porque la
+    aritmética `coltype - (coltype/256)*256` asumía división entera, pero el `/`
+    de Informix es no-truncante → colapsaba a 0. Cambiado a `MOD(coltype,256)`;
+    ahora devuelve el tipo real (SMALLINT/VARCHAR/DATETIME/DECIMAL…), verificado
+    en vivo sobre `abreviado_jo`.
+30. **Informix — procedimientos/funciones:** listado y cuerpo (`sysprocbody`,
+    datakey 'T') verificados; las **sobrecargas** se resuelven por `procid`
+    (p.ej. `sp_audiencias_por_juez_resultado` ×2 devuelve dos cuerpos distintos).
+31. **Informix — triggers:** listado (`systriggers`) y cuerpo (`systrigbody`) por
+    `trigid` verificados en vivo.
+32. **Informix — edición transaccional:** el control de transacción
+    (begin→…→rollback) se verificó en vivo; el DML (insert/update/delete) **no**
+    se ejecutó contra `tienda` (base real → verificación de solo lectura).
+    El constructor de DML de Informix tiene test unitario (`informix_dml_test`).
 
 ## Cobertura del smoke automatizado (#199)
 
@@ -107,7 +127,7 @@ Describe, Ejecutar consulta, Paginación, Edición transaccional, Export.
 |---|:---:|---|
 | SQLite | ✅ 12/12 + 9/9 features | `smoke.mjs` (camino crítico) + `sqlite-features.mjs` (2026-07-07) |
 | MySQL/MariaDB | ✅ 12/12 | contra `mysql:8` en :13306 (2026-07-05) |
-| Informix | ⏳ | el driver carga; falta servidor Informix de prueba |
+| Informix | ✅ read-only en vivo | vs IBM IDS 11.70 (ERP de pruebas/tienda), `quaero-rpc` x86 (2026-07-08) — encontró+corrigió el bug de tipos del describe |
 | MongoDB | ✅ 4/4 | driver compilado con `-DQUAERO_MONGOC=ON` vs `mongo:7` (2026-07-05) |
 
 Ver [QA-SMOKE.md](./QA-SMOKE.md) para correrlo. Las filas ✅ de SQLite y
@@ -122,5 +142,7 @@ nombres de objetos, vistas (árbol + DDL), triggers (listado + DDL inline),
 por `PRAGMA foreign_key_list`, y archivo de solo lectura (lectura OK, escritura
 con error honesto). Esas filas de la columna SQLite pasan a ✅.
 
-_Última actualización: 2026-07-07 (issue #196: SQLite verificado en vivo vía
-sqlite-features.mjs — Triggers/Diseñador CREATE/Índices/EXPLAIN → ✅)._
+_Última actualización: 2026-07-08 (issue #197: Informix verificado en vivo
+(solo lectura) vs IDS 11.70 — Conexión/Describe/Consulta/Paginación/
+Procedimientos(sobrecargas)/Triggers → ✅; corregido el bug de tipos del
+describe. Antes #196: SQLite en vivo vía sqlite-features.mjs)._

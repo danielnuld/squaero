@@ -121,10 +121,13 @@ dbc_status ifx_describe_table(dbc_conn *c, const char *schema,
     }
 
     /* coltype: low byte is the base type, bit 0x100 (256) is the NOT NULL flag.
-       Render the base type name; length/precision are omitted in this cut. */
+       Render the base type name; length/precision are omitted in this cut.
+       NOTE: use MOD() for the base type, NOT `coltype - (coltype/256)*256` —
+       Informix `/` is non-truncating (257/256 = 1.0039…), so that arithmetic
+       collapses to 0 for every column and mis-reports all types as CHAR. */
     static const char *const k_select =
         "SELECT TRIM(c.colname) AS name, "
-        "CASE (c.coltype - (c.coltype/256)*256) "
+        "CASE MOD(c.coltype, 256) "
         "WHEN 0 THEN 'CHAR' WHEN 1 THEN 'SMALLINT' WHEN 2 THEN 'INTEGER' "
         "WHEN 3 THEN 'FLOAT' WHEN 4 THEN 'SMALLFLOAT' WHEN 5 THEN 'DECIMAL' "
         "WHEN 6 THEN 'SERIAL' WHEN 7 THEN 'DATE' WHEN 8 THEN 'MONEY' "
