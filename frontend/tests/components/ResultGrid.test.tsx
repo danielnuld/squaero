@@ -315,3 +315,56 @@ describe("ResultGrid empty-state slot (issue #178)", () => {
     expect(host!.textContent).toContain("Ejecutando…");
   });
 });
+
+// Column sizing (grid visual pass): content-aware initial widths + a drag handle
+// per header column, replacing the old fixed 180px columns.
+describe("ResultGrid column sizing", () => {
+  function mountReadonly(r: ResultSet) {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ResultGrid result={r} loading={false} error={null} />, host!);
+    });
+  }
+
+  const wide: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "description", type: "text" },
+    ],
+    rows: [["1", "a very long description value that should widen the column"]],
+    truncated: false,
+    rowsAffected: 0,
+  };
+
+  it("renders one resize handle per column", () => {
+    mountReadonly(wide);
+    expect(host!.querySelectorAll(".col-resize").length).toBe(2);
+  });
+
+  it("sizes columns from content: a long column is wider than a short one", () => {
+    mountReadonly(wide);
+    const header = host!.querySelector<HTMLElement>(".grid-header")!;
+    const cols = header.style.gridTemplateColumns.split(/\s+/).map((s) => parseInt(s, 10));
+    expect(cols.length).toBe(2);
+    expect(cols[1]).toBeGreaterThan(cols[0]); // description wider than id
+  });
+
+  it("widens a column when its handle is dragged to the right", () => {
+    mountReadonly(wide);
+    const before = parseInt(
+      host!.querySelector<HTMLElement>(".grid-header")!.style.gridTemplateColumns.split(/\s+/)[0],
+      10,
+    );
+    const handle = host!.querySelectorAll<HTMLElement>(".col-resize")[0];
+    handle.dispatchEvent(new MouseEvent("mousedown", { clientX: 100, bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: 160, bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    const after = parseInt(
+      host!.querySelector<HTMLElement>(".grid-header")!.style.gridTemplateColumns.split(/\s+/)[0],
+      10,
+    );
+    expect(after).toBe(before + 60);
+  });
+});
