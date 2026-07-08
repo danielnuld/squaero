@@ -1,13 +1,20 @@
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
+import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 
-// Contextual object-action toolbar (UI design proposal, phase 2b). It sits above
-// the result grid and consolidates, in one place, every action that applies to
-// the object currently shown in the tab — edit lifecycle, import/generate/sync,
-// transfer, chart and export. It is purely presentational: the workspace owns
-// all state and passes plain callbacks, so the transactional-edit flow
-// (begin → confirm preview → apply/commit; discard → rollback) is unchanged.
+// Contextual object-action toolbar (design proposal, phases 2b + 8). It sits
+// above the result grid and consolidates every action that applies to the
+// object shown in the tab — edit lifecycle, import/generate/sync, transfer,
+// chart and export. Purely presentational: the workspace owns all state and
+// passes plain callbacks, so the transactional-edit flow (begin → confirm
+// preview → apply/commit; discard → rollback) is unchanged.
 //
-// The primary action is highlighted with .edit-btn-primary. It is contextual:
+// Phase 8 (density + clarity): each button carries a leading glyph, and the two
+// families that used to sprawl across the bar collapse into dropdown menus —
+// "Sincronizar ▾" (Estructura / Datos, which also kills the old ambiguity
+// between "Sincronizar" and "Sincronizar datos") and "Exportar ▾" (every
+// format). The dropdowns reuse the app's single context-menu renderer.
+//
+// The primary action is highlighted with .edit-btn-primary and is contextual:
 // "Editar" when a keyed table is at rest, "Confirmar" once editing has begun.
 
 /** One export format offered by the workspace (text formats + xlsx). */
@@ -49,6 +56,27 @@ export interface ObjectToolbarProps {
 }
 
 export function ObjectToolbar(props: ObjectToolbarProps) {
+  // Build the "Sincronizar ▾" menu: schema always, data only for an editable
+  // table with a result (the old conditional, now spelled out unambiguously).
+  const openSyncMenu = (e: MouseEvent) => {
+    const items: MenuItem[] = [
+      { label: "Estructura (esquema)…", action: props.onSchemaSync },
+    ];
+    if (props.editable && props.hasColumns) {
+      items.push({ label: "Datos…", action: props.onDataSync });
+    }
+    openContextMenu(e, items);
+  };
+
+  const openExportMenu = (e: MouseEvent) =>
+    openContextMenu(
+      e,
+      props.exportFormats.map((f) => ({
+        label: f.label,
+        action: () => props.onExport(f.fmt),
+      })),
+    );
+
   return (
     <div class="edit-toolbar" role="toolbar" aria-label="Acciones del objeto">
       <Show when={props.isTable}>
@@ -69,40 +97,41 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                   disabled={props.busy}
                   onClick={props.onEdit}
                 >
-                  Editar
+                  <span class="eb-ic" aria-hidden="true">✎</span> Editar
                 </button>
               </Show>
               <button class="edit-btn" onClick={props.onImport}>
-                Importar
+                <span class="eb-ic" aria-hidden="true">↧</span> Importar
               </button>
               <button class="edit-btn" onClick={props.onGenerate}>
-                Generar datos
+                <span class="eb-ic" aria-hidden="true">✦</span> Generar datos
               </button>
-              <button class="edit-btn" onClick={props.onSchemaSync}>
-                Sincronizar
+              <button
+                class="edit-btn edit-btn-menu"
+                aria-haspopup="menu"
+                title="Sincronizar estructura o datos con otra base"
+                onClick={openSyncMenu}
+              >
+                <span class="eb-ic" aria-hidden="true">⇅</span> Sincronizar{" "}
+                <span class="eb-caret" aria-hidden="true">▾</span>
               </button>
-              <Show when={props.editable && props.hasColumns}>
-                <button class="edit-btn" onClick={props.onDataSync}>
-                  Sincronizar datos
-                </button>
-              </Show>
               <Show when={props.hasColumns}>
                 <button class="edit-btn" onClick={props.onTransfer}>
-                  Transferir
+                  <span class="eb-ic" aria-hidden="true">⇄</span> Transferir
                 </button>
               </Show>
             </>
           }
         >
           <button class="edit-btn" onClick={props.onAddRow}>
-            ＋ Fila
+            <span class="eb-ic" aria-hidden="true">＋</span> Fila
           </button>
           <button
             class="edit-btn edit-btn-primary"
             disabled={props.busy || !props.hasChanges}
             onClick={props.onConfirm}
           >
-            Confirmar ({props.changeCount})
+            <span class="eb-ic" aria-hidden="true">✓</span> Confirmar ({props.changeCount})
           </button>
           <button
             class="edit-btn"
@@ -120,16 +149,17 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
       <Show when={props.hasColumns}>
         <span class="toolbar-spacer" />
         <button class="edit-btn" onClick={props.onChart}>
-          Graficar
+          <span class="eb-ic" aria-hidden="true">📊</span> Graficar
         </button>
-        <span class="export-label">Exportar:</span>
-        <For each={props.exportFormats}>
-          {(f) => (
-            <button class="edit-btn" onClick={() => props.onExport(f.fmt)}>
-              {f.label}
-            </button>
-          )}
-        </For>
+        <button
+          class="edit-btn edit-btn-menu"
+          aria-haspopup="menu"
+          title="Exportar el resultado"
+          onClick={openExportMenu}
+        >
+          <span class="eb-ic" aria-hidden="true">↥</span> Exportar{" "}
+          <span class="eb-caret" aria-hidden="true">▾</span>
+        </button>
       </Show>
     </div>
   );

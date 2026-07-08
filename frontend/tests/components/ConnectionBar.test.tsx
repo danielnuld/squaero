@@ -19,7 +19,11 @@ afterEach(() => {
   host = null;
 });
 
-function mount(activeConnId: string | null, onConnect = vi.fn()) {
+function mount(
+  activeConnId: string | null,
+  onConnect = vi.fn(),
+  extra: { openIds?: string[]; onDisconnect?: (id?: string) => void } = {},
+) {
   host = document.createElement("div");
   document.body.appendChild(host);
   createRoot((d) => {
@@ -29,12 +33,13 @@ function mount(activeConnId: string | null, onConnect = vi.fn()) {
         <ConnectionBar
           connections={conns}
           activeConnId={activeConnId}
+          openIds={extra.openIds}
           connectingId={null}
           onConnect={onConnect}
           onEdit={() => {}}
           onDelete={() => {}}
           onNew={() => {}}
-          onDisconnect={() => {}}
+          onDisconnect={extra.onDisconnect ?? (() => {})}
           onReconnect={() => {}}
           onExport={() => {}}
           onImport={async () => ""}
@@ -79,6 +84,24 @@ describe("ConnectionBar", () => {
     const open = host!.querySelector<HTMLButtonElement>(".conn-open")!;
     open.click();
     expect(onConnect).toHaveBeenCalledOnce();
+    expect(host!.querySelector(".connbar-drop")).toBeNull();
+  });
+
+  it("shows a disconnect button on the bar only when the active connection is open", () => {
+    mount("a"); // active but not in openIds
+    expect(host!.querySelector(".connbar-disconnect")).toBeNull();
+    dispose?.();
+    host?.remove();
+    mount("a", vi.fn(), { openIds: ["a"] });
+    expect(host!.querySelector(".connbar-disconnect")).not.toBeNull();
+  });
+
+  it("disconnects the focused connection from the bar without opening the popover", () => {
+    const onDisconnect = vi.fn();
+    mount("a", vi.fn(), { openIds: ["a"], onDisconnect });
+    host!.querySelector<HTMLButtonElement>(".connbar-disconnect")!.click();
+    expect(onDisconnect).toHaveBeenCalledWith("a");
+    // The click must not have toggled the manager popover open.
     expect(host!.querySelector(".connbar-drop")).toBeNull();
   });
 });

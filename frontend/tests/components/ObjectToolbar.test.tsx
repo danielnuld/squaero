@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { ObjectToolbar } from "../../src/components/ObjectToolbar";
+import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -10,6 +11,7 @@ afterEach(() => {
   dispose = null;
   host?.remove();
   host = null;
+  closeContextMenu(); // reset the shared menu between cases
 });
 
 function mount(over: Partial<Parameters<typeof ObjectToolbar>[0]> = {}) {
@@ -48,9 +50,10 @@ function mount(over: Partial<Parameters<typeof ObjectToolbar>[0]> = {}) {
   return props;
 }
 
+// Buttons now carry a leading glyph, so match by label substring, not equality.
 const btn = (label: string) =>
-  [...host!.querySelectorAll("button.edit-btn")].find(
-    (b) => b.textContent?.trim() === label,
+  [...host!.querySelectorAll("button.edit-btn")].find((b) =>
+    b.textContent?.includes(label),
   ) as HTMLButtonElement | undefined;
 
 describe("ObjectToolbar", () => {
@@ -73,18 +76,35 @@ describe("ObjectToolbar", () => {
     mount({ editable: false });
     expect(btn("Editar")).toBeUndefined();
     expect(host!.querySelector(".edit-hint-ro")).toBeTruthy();
-    // A non-editable table hides the data-sync action but keeps schema sync.
-    expect(btn("Sincronizar")).toBeTruthy();
-    const dataSync = [...host!.querySelectorAll("button.edit-btn")].find(
-      (b) => b.textContent?.trim() === "Sincronizar datos",
-    );
-    expect(dataSync).toBeUndefined();
+  });
+
+  it("opens the Sincronizar menu: schema always, data only when editable + columns", () => {
+    const p = mount(); // editable + hasColumns
+    btn("Sincronizar")!.click();
+    let menu = contextMenu();
+    expect(menu?.items.map((i) => i.label)).toEqual([
+      "Estructura (esquema)…",
+      "Datos…",
+    ]);
+    // Invoking the items calls the right callbacks.
+    menu!.items[0].action!();
+    menu!.items[1].action!();
+    expect(p.onSchemaSync).toHaveBeenCalledTimes(1);
+    expect(p.onDataSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits the Datos entry from the Sincronizar menu for a non-editable table", () => {
+    mount({ editable: false });
+    btn("Sincronizar")!.click();
+    expect(contextMenu()?.items.map((i) => i.label)).toEqual([
+      "Estructura (esquema)…",
+    ]);
   });
 
   it("renders the edit-flow buttons while editing", () => {
     const p = mount({ editing: true, hasChanges: true, changeCount: 3 });
     expect(btn("Editar")).toBeUndefined();
-    btn("＋ Fila")!.click();
+    btn("Fila")!.click();
     const confirm = btn("Confirmar (3)")!;
     expect(confirm).toBeTruthy();
     expect(confirm.classList.contains("edit-btn-primary")).toBe(true);
@@ -106,12 +126,15 @@ describe("ObjectToolbar", () => {
     expect(btn("Descartar")!.disabled).toBe(true);
   });
 
-  it("renders chart + one export button per format and fires them", () => {
+  it("opens the Exportar menu with one entry per format and fires them", () => {
     const p = mount();
     btn("Graficar")!.click();
-    btn("CSV")!.click();
-    btn("JSON")!.click();
     expect(p.onChart).toHaveBeenCalledTimes(1);
+    btn("Exportar")!.click();
+    const menu = contextMenu();
+    expect(menu?.items.map((i) => i.label)).toEqual(["CSV", "JSON"]);
+    menu!.items[0].action!();
+    menu!.items[1].action!();
     expect(p.onExport).toHaveBeenNthCalledWith(1, "csv");
     expect(p.onExport).toHaveBeenNthCalledWith(2, "json");
   });
@@ -120,7 +143,7 @@ describe("ObjectToolbar", () => {
     mount({ isTable: false, hasColumns: false });
     expect(btn("Editar")).toBeUndefined();
     expect(btn("Graficar")).toBeUndefined();
-    expect(host!.querySelector(".export-label")).toBeNull();
+    expect(btn("Exportar")).toBeUndefined();
   });
 
   it("surfaces the edit-session error", () => {
