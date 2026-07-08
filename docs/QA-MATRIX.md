@@ -27,8 +27,8 @@ SQL preparado, pero el driver no se distribuye aún.
 |---|:---:|:---:|:---:|:---:|
 | Conexión / desconexión / reconexión | ✅ | ✅ | ✅ 28 | ✅ |
 | Árbol de objetos + carpetas por tipo | ⚠️ 1 | ✅ | ⚠️ 2 | ⚠️ 3 |
-| Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4 |
-| Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5 |
+| Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4·34 |
+| Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5·34 |
 | Paginación real (offset) | ✅ | ✅ | ✅ 28 | ✅ |
 | Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ⚠️ 32 | ➖ 6 |
 | Detalle de fila (form view) | ⏳ | ⏳ | ⏳ | ⚠️ 7 |
@@ -122,6 +122,12 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     programados, usuarios (CREATE/GRANT/SHOW GRANTS/REVOKE/DROP), monitor
     `SHOW PROCESSLIST` + `KILL` de una 2ª sesión, paginación offset sobre 12k
     filas, y edición transaccional con rollback real.
+34. **MongoDB — verificado en vivo (2026-07-08)** contra mongo:7 vía
+    `scripts/smoke/mongo-features.mjs`, 7/7 (solo lectura): árbol de colecciones,
+    describe por muestreo (8 campos inferidos), find + `aggregate`, paginación
+    `skip`+`limit`, y renderizado legible de tipos BSON especiales —
+    ObjectId (hex de 24), ISODate, Decimal128, documentos anidados, arrays y
+    emoji. Confirma que los límites ⚠️ 3/4/5 son correctos (no fallos crípticos).
 
 ## Cobertura del smoke automatizado (#199)
 
@@ -135,7 +141,7 @@ Describe, Ejecutar consulta, Paginación, Edición transaccional, Export.
 | SQLite | ✅ 12/12 + 9/9 features | `smoke.mjs` (camino crítico) + `sqlite-features.mjs` (2026-07-07) |
 | MySQL/MariaDB | ✅ 12/12 + 10/10 features | `smoke.mjs` + `mysql-features.mjs` vs MySQL 8.0.46 (2026-07-08) |
 | Informix | ✅ read-only en vivo | vs IBM IDS 11.70 (ERP de pruebas/tienda), `quaero-rpc` x86 (2026-07-08) — encontró+corrigió el bug de tipos del describe |
-| MongoDB | ✅ 4/4 | driver compilado con `-DQUAERO_MONGOC=ON` vs `mongo:7` (2026-07-05) |
+| MongoDB | ✅ 4/4 + 7/7 features | `smoke.mjs` + `mongo-features.mjs` vs `mongo:7` (2026-07-08) |
 
 Ver [QA-SMOKE.md](./QA-SMOKE.md) para correrlo. Las filas ✅ de SQLite y
 MySQL/MariaDB arriba (conexión, árbol, describe, consulta, paginación, edición
@@ -149,7 +155,7 @@ nombres de objetos, vistas (árbol + DDL), triggers (listado + DDL inline),
 por `PRAGMA foreign_key_list`, y archivo de solo lectura (lectura OK, escritura
 con error honesto). Esas filas de la columna SQLite pasan a ✅.
 
-_Última actualización: 2026-07-08 (#195: MySQL 8.0.46 en vivo vía
-mysql-features.mjs — Monitor/Usuarios/Procedimientos/Triggers/Eventos → ✅.
-#197: Informix en vivo (solo lectura) vs IDS 11.70 + corregido el bug de tipos
-del describe. #196: SQLite en vivo vía sqlite-features.mjs)._
+_Última actualización: 2026-07-08 — **los 4 motores verificados en vivo**:
+#196 SQLite (`sqlite-features.mjs`), #195 MySQL 8.0.46 (`mysql-features.mjs`),
+#197 Informix IDS 11.70 solo-lectura (+ bug de tipos del describe corregido),
+#198 MongoDB mongo:7 (`mongo-features.mjs`)._

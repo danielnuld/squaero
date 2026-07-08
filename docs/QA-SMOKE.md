@@ -84,6 +84,20 @@ docker run -d --name mysql-qa -e MYSQL_ROOT_PASSWORD=test123 -e MYSQL_DATABASE=t
 PATH="$PWD/build/app:$PATH" node scripts/smoke/mysql-features.mjs
 ```
 
+## Feature-smoke de MongoDB (#198)
+
+`scripts/smoke/mongo-features.mjs` verifica la superficie de solo lectura de
+MongoDB contra un `mongo:7`: árbol de colecciones, describe por muestreo,
+`find`/`aggregate`, paginación `skip`+`limit`, y renderizado legible de tipos
+BSON especiales (ObjectId, ISODate, Decimal128, documentos anidados, arrays,
+emoji).
+
+```sh
+# sembrar (colecciones docs con tipos variados + big con 50 docs) en la db quaero_qa:
+docker exec <mongo> mongosh --quiet --eval 'db=db.getSiblingDB("quaero_qa"); db.docs.insertMany([...]); for(let i=0;i<50;i++)db.big.insertOne({n:i,name:"row"+i})'
+PATH="$PWD/build/app:$PATH" node scripts/smoke/mongo-features.mjs
+```
+
 ## Estado por motor
 
 | Motor | Estado | Notas |
@@ -91,7 +105,7 @@ PATH="$PWD/build/app:$PATH" node scripts/smoke/mysql-features.mjs
 | SQLite | ✅ 12/12 + 9/9 features (2026-07-07) | local; `smoke.mjs` + `sqlite-features.mjs` |
 | MySQL/MariaDB | ✅ 12/12 + 10/10 features (2026-07-08) | `smoke.mjs` + `mysql-features.mjs` vs MySQL 8.0.46 |
 | Informix | ⏳ | el driver carga; falta un servidor Informix de prueba |
-| MongoDB | ✅ 4/4 (2026-07-05) | driver compilado con `-DQUAERO_MONGOC=ON`, vs `mongo:7` |
+| MongoDB | ✅ 4/4 + 7/7 features (2026-07-08) | `smoke.mjs` + `mongo-features.mjs` vs `mongo:7` |
 
 ## CI
 
