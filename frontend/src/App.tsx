@@ -127,6 +127,7 @@ import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { AppToolbar } from "./components/AppToolbar";
 import { ObjectListView } from "./components/ObjectListView";
+import { InfoPane } from "./components/InfoPane";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
@@ -1967,6 +1968,19 @@ export function App() {
             </div>
           </Show>
           </div>
+          <Show when={currentQuery()}>
+            <InfoPane
+              info={{
+                loading: currentResult().loading,
+                error: currentResult().error,
+                columns: currentResult().result?.columns.length ?? 0,
+                rows: currentResult().result?.rows.length ?? 0,
+                truncated: currentResult().result?.truncated ?? false,
+                elapsedMs: currentResult().elapsedMs,
+                source: currentResult().source ?? null,
+              }}
+            />
+          </Show>
         </section>
       </div>
 
