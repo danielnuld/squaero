@@ -95,11 +95,10 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 25. **MongoDB — transferencia:** válido como **origen** (lectura); no como destino (escritura).
 26. **Informix — EXPLAIN:** Informix escribe el plan a archivo (`SET EXPLAIN`), no vía SQL.
 27. **MongoDB — EXPLAIN:** usa la superficie `.explain()`, no `EXPLAIN` SQL.
-28. **Informix — verificado en vivo (2026-07-08)** contra un servidor real
-    (ERP de pruebas, IBM Informix Dynamic Server 11.70.FC7, base `tienda`,
-    416 objetos) vía el `quaero-rpc` x86 (el driver ODBC de Informix es 32-bit;
-    ver [[quaero-x86-unified-build]]). Conexión, consulta con literales y
-    paginación offset confirmados.
+28. **Informix — verificado en vivo (2026-07-08)** contra un servidor Informix
+    real (IBM Informix Dynamic Server 11.70.FC7, ~400 objetos) vía el `quaero-rpc`
+    x86 (el driver ODBC de Informix es 32-bit; ver [[quaero-x86-unified-build]]).
+    Conexión, consulta con literales y paginación offset confirmados.
 29. **Informix — describe:** BUG encontrado y **corregido** en esta verificación
     (#197): `describe_table` reportaba TODAS las columnas como `CHAR` porque la
     aritmética `coltype - (coltype/256)*256` asumía división entera, pero el `/`
@@ -113,7 +112,7 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     `trigid` verificados en vivo.
 32. **Informix — edición transaccional:** el control de transacción
     (begin→…→rollback) se verificó en vivo; el DML (insert/update/delete) **no**
-    se ejecutó contra `tienda` (base real → verificación de solo lectura).
+    se ejecutó contra la base real (→ verificación de solo lectura).
     El constructor de DML de Informix tiene test unitario (`informix_dml_test`).
 33. **MySQL — verificado en vivo (2026-07-08)** contra MySQL 8.0.46 (contenedor
     efímero) vía `scripts/smoke/mysql-features.mjs`, 10/10: utf8mb4 (acentos +
@@ -140,7 +139,7 @@ Describe, Ejecutar consulta, Paginación, Edición transaccional, Export.
 |---|:---:|---|
 | SQLite | ✅ 12/12 + 9/9 features | `smoke.mjs` (camino crítico) + `sqlite-features.mjs` (2026-07-07) |
 | MySQL/MariaDB | ✅ 12/12 + 10/10 features | `smoke.mjs` + `mysql-features.mjs` vs MySQL 8.0.46 (2026-07-08) |
-| Informix | ✅ read-only en vivo | vs IBM IDS 11.70 (ERP de pruebas/tienda), `quaero-rpc` x86 (2026-07-08) — encontró+corrigió el bug de tipos del describe |
+| Informix | ✅ read-only en vivo | vs un servidor IBM IDS 11.70 real, `quaero-rpc` x86 (2026-07-08) — encontró+corrigió el bug de tipos del describe |
 | MongoDB | ✅ 4/4 + 7/7 features | `smoke.mjs` + `mongo-features.mjs` vs `mongo:7` (2026-07-08) |
 
 Ver [QA-SMOKE.md](./QA-SMOKE.md) para correrlo. Las filas ✅ de SQLite y
