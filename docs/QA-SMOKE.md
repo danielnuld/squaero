@@ -67,12 +67,29 @@ node scripts/smoke/sqlite-features.mjs            # usa build/drivers/sqlite
 node scripts/smoke/sqlite-features.mjs build/app/drivers
 ```
 
+## Feature-smoke de MySQL (#195)
+
+`scripts/smoke/mysql-features.mjs` verifica los flujos sensibles de MySQL contra
+un servidor real (contenedor efímero; requiere escritura, por eso un servidor
+descartable): utf8mb4 (acentos + emoji) en datos y nombres de objetos,
+procedimientos+funciones (listado + `SHOW CREATE`), triggers, eventos
+programados, usuarios (CREATE/GRANT/SHOW GRANTS/REVOKE/DROP), monitor
+`SHOW PROCESSLIST` + `KILL`, paginación offset sobre >10k filas, y edición
+transaccional con rollback real.
+
+```sh
+# levantar un mysql:8.0 descartable en :13306 (event scheduler ON para el paso de eventos)
+docker run -d --name mysql-qa -e MYSQL_ROOT_PASSWORD=test123 -e MYSQL_DATABASE=testdb -p 13306:3306 mysql:8.0
+# esperar a que acepte auth, luego:
+PATH="$PWD/build/app:$PATH" node scripts/smoke/mysql-features.mjs
+```
+
 ## Estado por motor
 
 | Motor | Estado | Notas |
 |---|:---:|---|
 | SQLite | ✅ 12/12 + 9/9 features (2026-07-07) | local; `smoke.mjs` + `sqlite-features.mjs` |
-| MySQL/MariaDB | ✅ 12/12 (2026-07-05) | contra `mysql:8` en :13306 |
+| MySQL/MariaDB | ✅ 12/12 + 10/10 features (2026-07-08) | `smoke.mjs` + `mysql-features.mjs` vs MySQL 8.0.46 |
 | Informix | ⏳ | el driver carga; falta un servidor Informix de prueba |
 | MongoDB | ✅ 4/4 (2026-07-05) | driver compilado con `-DQUAERO_MONGOC=ON`, vs `mongo:7` |
 

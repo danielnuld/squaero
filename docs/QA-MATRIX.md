@@ -37,11 +37,11 @@ SQL preparado, pero el driver no se distribuye aún.
 | Generación de datos | ⏳ | ⏳ | ⏳ | ➖ 6 |
 | Sort / filtro de grid | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
 | Historial / snippets / ejecutar selección | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
-| Monitor de servidor + kill | ➖ 9 | ⏳ | ➖ 10 | ➖ 11 |
-| Usuarios / permisos (crear/eliminar/grant/revoke) | ➖ 12 | ⏳ | ➖ 13 | ➖ 14 |
-| Procedimientos / funciones | ➖ 15 | ⏳ | ✅ 30 | ➖ 16 |
-| Triggers | ✅ | ⏳ | ✅ 31 | ➖ 17 |
-| Eventos programados | ➖ 18 | ⏳ | ➖ 19 | ➖ 17 |
+| Monitor de servidor + kill | ➖ 9 | ✅ 33 | ➖ 10 | ➖ 11 |
+| Usuarios / permisos (crear/eliminar/grant/revoke) | ➖ 12 | ✅ 33 | ➖ 13 | ➖ 14 |
+| Procedimientos / funciones | ➖ 15 | ✅ 33 | ✅ 30 | ➖ 16 |
+| Triggers | ✅ | ✅ 33 | ✅ 31 | ➖ 17 |
+| Eventos programados | ➖ 18 | ✅ 33 | ➖ 19 | ➖ 17 |
 | Diagrama ER | ⚠️ 20 | ⚠️ 20 | ⚠️ 20 | ⚠️ 20 |
 | Constructor visual de consultas | ⏳ | ⏳ | ⏳ | ➖ 21 |
 | Charts / gráficos | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
@@ -115,6 +115,13 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     (begin→…→rollback) se verificó en vivo; el DML (insert/update/delete) **no**
     se ejecutó contra `tienda` (base real → verificación de solo lectura).
     El constructor de DML de Informix tiene test unitario (`informix_dml_test`).
+33. **MySQL — verificado en vivo (2026-07-08)** contra MySQL 8.0.46 (contenedor
+    efímero) vía `scripts/smoke/mysql-features.mjs`, 10/10: utf8mb4 (acentos +
+    emoji) en datos Y nombres de objetos, procedimientos+funciones (listado por
+    `information_schema.ROUTINES` + `SHOW CREATE`), triggers, eventos
+    programados, usuarios (CREATE/GRANT/SHOW GRANTS/REVOKE/DROP), monitor
+    `SHOW PROCESSLIST` + `KILL` de una 2ª sesión, paginación offset sobre 12k
+    filas, y edición transaccional con rollback real.
 
 ## Cobertura del smoke automatizado (#199)
 
@@ -126,7 +133,7 @@ Describe, Ejecutar consulta, Paginación, Edición transaccional, Export.
 | Motor | Smoke | Notas |
 |---|:---:|---|
 | SQLite | ✅ 12/12 + 9/9 features | `smoke.mjs` (camino crítico) + `sqlite-features.mjs` (2026-07-07) |
-| MySQL/MariaDB | ✅ 12/12 | contra `mysql:8` en :13306 (2026-07-05) |
+| MySQL/MariaDB | ✅ 12/12 + 10/10 features | `smoke.mjs` + `mysql-features.mjs` vs MySQL 8.0.46 (2026-07-08) |
 | Informix | ✅ read-only en vivo | vs IBM IDS 11.70 (ERP de pruebas/tienda), `quaero-rpc` x86 (2026-07-08) — encontró+corrigió el bug de tipos del describe |
 | MongoDB | ✅ 4/4 | driver compilado con `-DQUAERO_MONGOC=ON` vs `mongo:7` (2026-07-05) |
 
@@ -142,7 +149,7 @@ nombres de objetos, vistas (árbol + DDL), triggers (listado + DDL inline),
 por `PRAGMA foreign_key_list`, y archivo de solo lectura (lectura OK, escritura
 con error honesto). Esas filas de la columna SQLite pasan a ✅.
 
-_Última actualización: 2026-07-08 (issue #197: Informix verificado en vivo
-(solo lectura) vs IDS 11.70 — Conexión/Describe/Consulta/Paginación/
-Procedimientos(sobrecargas)/Triggers → ✅; corregido el bug de tipos del
-describe. Antes #196: SQLite en vivo vía sqlite-features.mjs)._
+_Última actualización: 2026-07-08 (#195: MySQL 8.0.46 en vivo vía
+mysql-features.mjs — Monitor/Usuarios/Procedimientos/Triggers/Eventos → ✅.
+#197: Informix en vivo (solo lectura) vs IDS 11.70 + corregido el bug de tipos
+del describe. #196: SQLite en vivo vía sqlite-features.mjs)._
