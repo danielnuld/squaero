@@ -32,7 +32,7 @@ SQL preparado, pero el driver no se distribuye aún.
 | Paginación real (offset) | ✅ | ✅ | ✅ 28 | ✅ |
 | Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ✅ 32 | ➖ 6 |
 | Detalle de fila (form view) | ⏳ | ⏳ | ⏳ | ⚠️ 7 |
-| Export CSV / JSON / SQL / XML / HTML / XLSX | ✅ 8 | ✅ 8 | ⏳ | ⏳ 8 |
+| Export CSV / JSON / SQL / XML / HTML / XLSX | ✅ 8 | ✅ 8 | ✅ 8·35 | ⏳ 8 |
 | Import CSV / JSON / XLSX | ⏳ | ⏳ | ⏳ | ➖ 6 |
 | Generación de datos | ⏳ | ⏳ | ⏳ | ➖ 6 |
 | Sort / filtro de grid | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
@@ -130,6 +130,14 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     `skip`+`limit`, y renderizado legible de tipos BSON especiales —
     ObjectId (hex de 24), ISODate, Decimal128, documentos anidados, arrays y
     emoji. Confirma que los límites ⚠️ 3/4/5 son correctos (no fallos crípticos).
+35. **Informix — export:** el export es client-side (`exportResult`, **sin ramas
+    por motor**); verificado (2026-07-08) corriendo los exportadores reales sobre
+    un resultado real de Informix — CSV/JSON/SQL/XML/HTML preservan acentos
+    (`café ñoño`, ruta Latin-1→UTF-8) y los NULL. XLSX usa el mismo camino
+    `{columns,rows}`→`buildXlsx` (con test unitario). Nota: el volcado SQL
+    (`toInserts`) emite identificadores ANSI entre comillas dobles; para
+    **re-importar** en Informix habría que activar `DELIMIDENT` (sin él, las
+    comillas dobles son literales de cadena). El archivo se genera correctamente.
 
 ## Cobertura del smoke automatizado (#199)
 
