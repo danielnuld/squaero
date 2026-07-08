@@ -126,6 +126,7 @@ import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { AppToolbar } from "./components/AppToolbar";
+import { ObjectToolbar } from "./components/ObjectToolbar";
 import { ObjectListView } from "./components/ObjectListView";
 import { InfoPane } from "./components/InfoPane";
 import { ConnectionForm } from "./components/ConnectionForm";
@@ -1510,97 +1511,30 @@ export function App() {
                       (currentResult().result?.columns.length ?? 0) > 0
                     }
                   >
-                    <div class="edit-toolbar">
-                      <Show when={currentResult().source}>
-                        <Show
-                          when={currentEdit().editing}
-                          fallback={
-                            <>
-                              <Show
-                                when={currentEditable()}
-                                fallback={
-                                  <span class="edit-hint-ro">
-                                    Solo lectura: la tabla no tiene clave primaria.
-                                  </span>
-                                }
-                              >
-                                <button
-                                  class="edit-btn"
-                                  disabled={currentEdit().busy}
-                                  onClick={beginEdit}
-                                >
-                                  Editar
-                                </button>
-                              </Show>
-                              <button class="edit-btn" onClick={openImport}>
-                                Importar
-                              </button>
-                              <button class="edit-btn" onClick={openGen}>
-                                Generar datos
-                              </button>
-                              <button class="edit-btn" onClick={openSchemaSync}>
-                                Sincronizar
-                              </button>
-                              <Show
-                                when={
-                                  currentEditable() &&
-                                  (currentResult().result?.columns.length ?? 0) > 0
-                                }
-                              >
-                                <button class="edit-btn" onClick={openDataSync}>
-                                  Sincronizar datos
-                                </button>
-                              </Show>
-                              <Show
-                                when={(currentResult().result?.columns.length ?? 0) > 0}
-                              >
-                                <button class="edit-btn" onClick={openTransfer}>
-                                  Transferir
-                                </button>
-                              </Show>
-                            </>
-                          }
-                        >
-                          <button class="edit-btn" onClick={onAddInsert}>
-                            ＋ Fila
-                          </button>
-                          <button
-                            class="edit-btn edit-btn-primary"
-                            disabled={
-                              currentEdit().busy || !hasChanges(currentEdit().pending)
-                            }
-                            onClick={confirmEdit}
-                          >
-                            Confirmar ({changeCount(currentEdit().pending)})
-                          </button>
-                          <button
-                            class="edit-btn"
-                            disabled={currentEdit().busy}
-                            onClick={discardEdit}
-                          >
-                            Descartar
-                          </button>
-                        </Show>
-                        <Show when={currentEdit().error}>
-                          <span class="edit-error">{currentEdit().error}</span>
-                        </Show>
-                      </Show>
-
-                      <Show when={(currentResult().result?.columns.length ?? 0) > 0}>
-                        <span class="toolbar-spacer" />
-                        <button class="edit-btn" onClick={openChart}>
-                          Graficar
-                        </button>
-                        <span class="export-label">Exportar:</span>
-                        <For each={EXPORT_FORMATS}>
-                          {(f) => (
-                            <button class="edit-btn" onClick={() => doExport(f.fmt)}>
-                              {f.label}
-                            </button>
-                          )}
-                        </For>
-                      </Show>
-                    </div>
+                    <ObjectToolbar
+                      isTable={!!currentResult().source}
+                      hasColumns={
+                        (currentResult().result?.columns.length ?? 0) > 0
+                      }
+                      editing={currentEdit().editing}
+                      editable={currentEditable()}
+                      busy={currentEdit().busy}
+                      error={currentEdit().error}
+                      changeCount={changeCount(currentEdit().pending)}
+                      hasChanges={hasChanges(currentEdit().pending)}
+                      exportFormats={EXPORT_FORMATS}
+                      onEdit={beginEdit}
+                      onImport={openImport}
+                      onGenerate={openGen}
+                      onSchemaSync={openSchemaSync}
+                      onDataSync={openDataSync}
+                      onTransfer={openTransfer}
+                      onAddRow={onAddInsert}
+                      onConfirm={confirmEdit}
+                      onDiscard={discardEdit}
+                      onChart={openChart}
+                      onExport={(fmt) => doExport(fmt as AnyExportFormat)}
+                    />
                   </Show>
                   <Show when={currentEdit().preview}>
                     {(sqls) => (
