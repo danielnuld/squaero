@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 372 128" width="372" height="128" role="img" aria-label="Quaero">
+  <title>Quaero</title>
+  <!-- isotipo (for dark backgrounds: lighter indigo) -->
+  <g transform="translate(4,8) scale(0.86)">
+    <g fill="none" stroke="#7c7cf0" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="58" cy="56" r="38"/>
+      <path d="M85 83 L104 102"/>
+    </g>
+    <g fill="none" stroke="#7c7cf0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M46 42 L60 56 L46 70"/>
+      <path d="M72 44 L72 68"/>
+    </g>
+  </g>
+  <!-- wordmark -->
+  <text x="120" y="83" font-family="'Space Grotesk','Segoe UI',system-ui,-apple-system,Roboto,sans-serif"
+        font-size="62" font-weight="600" letter-spacing="-1.5" fill="#f7f7fa">Quaero</text>
+</svg>
