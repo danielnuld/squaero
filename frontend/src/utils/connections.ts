@@ -89,6 +89,20 @@ export const SSH_TUNNEL_FIELDS: DriverField[] = [
   { key: "ssh_key_passphrase", label: "Passphrase de la clave", type: "password", required: false, group: SSH_GROUP },
   { key: "ssh_target_host", label: "Host destino (avanzado)", type: "text", required: false, group: SSH_GROUP },
   { key: "ssh_target_port", label: "Puerto destino (avanzado)", type: "number", required: false, group: SSH_GROUP },
+  {
+    key: "ssh_host_key_policy",
+    label: "Clave de host SSH",
+    type: "select",
+    required: false,
+    options: [
+      { value: "", label: "— (predeterminado: aceptar y recordar)" },
+      { value: "accept-new", label: "Aceptar y recordar (TOFU) — rechaza cambios" },
+      { value: "strict", label: "Estricta — solo hosts ya conocidos" },
+      { value: "off", label: "Sin verificar (no recomendado)" },
+    ],
+    group: SSH_GROUP,
+  },
+  { key: "ssh_known_hosts", label: "Archivo known_hosts (avanzado)", type: "text", required: false, placeholder: "~/.ssh/known_hosts", group: SSH_GROUP },
 ];
 
 /** Appends the engine-agnostic SSH-tunnel fields to a driver's base fields. */

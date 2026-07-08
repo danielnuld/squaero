@@ -199,13 +199,23 @@ de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
 | `ssh_key` | Ruta a la clave privada para `ssh_auth=key`. |
 | `ssh_key_passphrase` | Passphrase opcional de la clave. |
 | `ssh_target_host` / `ssh_target_port` | Destino del reenvío (por defecto, el `host`/`port` del DSN). |
+| `ssh_host_key_policy` | `accept-new` (por defecto) \| `strict` \| `off`. Verificación de la clave de host contra `known_hosts`. |
+| `ssh_known_hosts` | Ruta al store `known_hosts` (por defecto `~/.ssh/known_hosts`). |
 
 El reenvío real (libssh2) requiere una compilación con soporte de túnel
 (`QUAERO_SSH`); sin él, abrir una conexión con `ssh_*` devuelve un error
 explícito **no soportado** en lugar de conectarse directo, saltándose el salto
-SSH previsto. La verificación de la clave de host del servidor SSH contra un
-`known_hosts` aún no está implementada (el primer salto se confía al conectar);
-es un seguimiento pendiente.
+SSH previsto.
+
+**Verificación de la clave de host (issue #81):** antes de autenticar, la clave
+de host del servidor SSH se coteja contra `known_hosts` según
+`ssh_host_key_policy`:
+- `accept-new` (por defecto, TOFU): una clave desconocida se acepta y se
+  **registra**; una clave **cambiada** se rechaza (posible MITM) con error explícito.
+- `strict`: solo se aceptan hosts ya presentes en `known_hosts`.
+- `off`: sin verificación (comportamiento heredado; no recomendado).
+Un desajuste o una clave desconocida bajo `strict` aborta la conexión con un
+mensaje claro, nunca entrega las credenciales a un host no verificado.
 
 **`query.run`** — ejecuta SQL en una conexión activa y devuelve el result set
 **paginado**. `params.limit` (opcional) acota las filas; si se omite aplica un

@@ -66,6 +66,7 @@ void ssh_tunnel_close(ssh_tunnel *t)
 #  include <winsock2.h>
 #  include <ws2tcpip.h>
 #  include <process.h>
+#  include <direct.h>   /* _mkdir for the known_hosts directory */
 typedef SOCKET socket_t;
 #  define BAD_SOCKET INVALID_SOCKET
 #  define close_socket closesocket
@@ -83,6 +84,7 @@ typedef HANDLE thread_t;
 #  include <fcntl.h>
 #  include <errno.h>
 #  include <pthread.h>
+#  include <sys/stat.h>   /* mkdir for the known_hosts directory */
 typedef int socket_t;
 #  define BAD_SOCKET (-1)
 #  define close_socket close
@@ -536,6 +538,175 @@ static void tunnel_free(ssh_tunnel *t)
     free(t);
 }
 
+/* Map a libssh2 host-key type to the knownhost key-type bit used when recording
+   a new key. Returns 0 for an unknown type (then we skip persisting it). */
+static int hostkey_type_bit(int type)
+{
+    switch (type) {
+    case LIBSSH2_HOSTKEY_TYPE_RSA:
+        return LIBSSH2_KNOWNHOST_KEY_SSHRSA;
+    case LIBSSH2_HOSTKEY_TYPE_DSS:
+        return LIBSSH2_KNOWNHOST_KEY_SSHDSS;
+    case LIBSSH2_HOSTKEY_TYPE_ECDSA_256:
+        return LIBSSH2_KNOWNHOST_KEY_ECDSA_256;
+    case LIBSSH2_HOSTKEY_TYPE_ECDSA_384:
+        return LIBSSH2_KNOWNHOST_KEY_ECDSA_384;
+    case LIBSSH2_HOSTKEY_TYPE_ECDSA_521:
+        return LIBSSH2_KNOWNHOST_KEY_ECDSA_521;
+    case LIBSSH2_HOSTKEY_TYPE_ED25519:
+        return LIBSSH2_KNOWNHOST_KEY_ED25519;
+    default:
+        return 0;
+    }
+}
+
+/* Resolve the known_hosts path: the explicit cfg value, else ~/.ssh/known_hosts.
+   *is_default is set when the default (home-relative) path was used. */
+static int resolve_known_hosts(const ssh_config *cfg, char *buf, size_t cap,
+                               int *is_default)
+{
+    if (cfg->known_hosts != NULL && cfg->known_hosts[0] != '\0') {
+        snprintf(buf, cap, "%s", cfg->known_hosts);
+        *is_default = 0;
+        return 0;
+    }
+    const char *home = getenv("HOME");
+#ifdef _WIN32
+    if (home == NULL || home[0] == '\0') {
+        home = getenv("USERPROFILE");
+    }
+#endif
+    if (home == NULL || home[0] == '\0') {
+        return -1;
+    }
+    snprintf(buf, cap, "%s/.ssh/known_hosts", home);
+    *is_default = 1;
+    return 0;
+}
+
+/* Best-effort create of the parent directory of `filepath` (e.g. ~/.ssh). */
+static void ensure_parent_dir(const char *filepath)
+{
+    char dir[1024];
+    snprintf(dir, sizeof dir, "%s", filepath);
+    char *slash = strrchr(dir, '/');
+#ifdef _WIN32
+    char *bslash = strrchr(dir, '\\');
+    if (bslash != NULL && (slash == NULL || bslash > slash)) {
+        slash = bslash;
+    }
+#endif
+    if (slash == NULL || slash == dir) {
+        return;
+    }
+    *slash = '\0';
+#ifdef _WIN32
+    _mkdir(dir);
+#else
+    mkdir(dir, 0700);
+#endif
+}
+
+/*
+ * Verify the SSH server's host key against a known_hosts store per cfg policy.
+ * Returns 0 to proceed, -1 to abort (with an explicit reason in err). Runs while
+ * the session is blocking, right after the handshake. Closes the #81 MITM gap.
+ */
+static int verify_host_key(LIBSSH2_SESSION *session, const ssh_config *cfg,
+                           char *err, size_t errcap)
+{
+    if (cfg->hostkey_policy == SSH_HOSTKEY_OFF) {
+        DBG("host-key verification disabled (ssh_host_key_policy=off)");
+        return 0;
+    }
+
+    size_t keylen = 0;
+    int keytype = 0;
+    const char *key = libssh2_session_hostkey(session, &keylen, &keytype);
+    if (key == NULL || keylen == 0) {
+        conn_copy_err(err, errcap, "could not read the SSH server host key");
+        return -1;
+    }
+
+    char path[1024];
+    int is_default = 0;
+    if (resolve_known_hosts(cfg, path, sizeof path, &is_default) != 0) {
+        conn_copy_err(err, errcap,
+                      "cannot locate a known_hosts file (set ssh_known_hosts, "
+                      "or HOME/USERPROFILE)");
+        return -1;
+    }
+
+    LIBSSH2_KNOWNHOSTS *nh = libssh2_knownhost_init(session);
+    if (nh == NULL) {
+        conn_copy_err(err, errcap, "out of memory (known_hosts)");
+        return -1;
+    }
+    /* A missing file is fine — it just means zero known hosts (all NOTFOUND). */
+    libssh2_knownhost_readfile(nh, path, LIBSSH2_KNOWNHOST_FILE_OPENSSH);
+
+    const int checkmask =
+        LIBSSH2_KNOWNHOST_TYPE_PLAIN | LIBSSH2_KNOWNHOST_KEYENC_RAW;
+    struct libssh2_knownhost *found = NULL;
+    int rc = libssh2_knownhost_checkp(nh, cfg->host, cfg->port, key, keylen,
+                                      checkmask, &found);
+
+    int result = -1;
+    switch (rc) {
+    case LIBSSH2_KNOWNHOST_CHECK_MATCH:
+        DBG("host key matches known_hosts");
+        result = 0;
+        break;
+    case LIBSSH2_KNOWNHOST_CHECK_MISMATCH:
+        conn_copy_err(err, errcap,
+                      "SSH host key MISMATCH: the server's key differs from the "
+                      "one in known_hosts (possible man-in-the-middle). Refusing "
+                      "to connect. Remove the stale entry if the key legitimately "
+                      "changed.");
+        result = -1;
+        break;
+    case LIBSSH2_KNOWNHOST_CHECK_NOTFOUND:
+        if (cfg->hostkey_policy == SSH_HOSTKEY_STRICT) {
+            conn_copy_err(err, errcap,
+                          "unknown SSH host key (strict policy): add the server "
+                          "to known_hosts first, or use "
+                          "ssh_host_key_policy=accept-new");
+            result = -1;
+            break;
+        }
+        /* accept-new (TOFU): record the key and proceed. */
+        {
+            int addbits = hostkey_type_bit(keytype);
+            if (addbits != 0) {
+                static const char comment[] = "added by quaero";
+                libssh2_knownhost_addc(
+                    nh, cfg->host, NULL, key, keylen, comment,
+                    sizeof comment - 1,
+                    LIBSSH2_KNOWNHOST_TYPE_PLAIN | LIBSSH2_KNOWNHOST_KEYENC_RAW |
+                        addbits,
+                    NULL);
+                if (is_default) {
+                    ensure_parent_dir(path);
+                }
+                if (libssh2_knownhost_writefile(
+                        nh, path, LIBSSH2_KNOWNHOST_FILE_OPENSSH) != 0) {
+                    DBG("warning: could not persist host key to %s", path);
+                }
+            }
+            DBG("host key not previously known; accepted and recorded (TOFU)");
+            result = 0;
+        }
+        break;
+    default: /* LIBSSH2_KNOWNHOST_CHECK_FAILURE */
+        conn_copy_err(err, errcap, "SSH host key verification failed");
+        result = -1;
+        break;
+    }
+
+    libssh2_knownhost_free(nh);
+    return result;
+}
+
 dbc_status ssh_tunnel_open(const ssh_config *cfg, ssh_tunnel **out,
                            int *out_local_port, char *err, size_t errcap)
 {
@@ -593,8 +764,12 @@ dbc_status ssh_tunnel_open(const ssh_config *cfg, ssh_tunnel **out,
         return DBC_ERR_CONN;
     }
 
-    /* NOTE: host-key verification against a known_hosts store is not yet wired
-       up; the first hop is trusted on connect. Tracked as a follow-up. */
+    /* Verify the server host key BEFORE authenticating — never hand credentials
+       to an unverified (possibly MITM) host (issue #81). */
+    if (verify_host_key(t->session, cfg, err, errcap) != 0) {
+        tunnel_free(t);
+        return DBC_ERR_CONN;
+    }
 
     DBG("handshake ok; authenticating user '%s' (auth %d)", cfg->user, cfg->auth);
     if (authenticate(t->session, cfg) != 0) {

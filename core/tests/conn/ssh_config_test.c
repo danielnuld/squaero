@@ -182,6 +182,49 @@ int main(void)
         ssh_config_dispose(NULL);
     }
 
+    /* --- host-key policy parser (pure, fail-secure defaults) --- */
+    {
+        EXPECT(ssh_hostkey_policy_from_string("strict") == SSH_HOSTKEY_STRICT,
+               "strict parses");
+        EXPECT(ssh_hostkey_policy_from_string("off") == SSH_HOSTKEY_OFF,
+               "off parses");
+        EXPECT(ssh_hostkey_policy_from_string("accept-new") ==
+                   SSH_HOSTKEY_ACCEPT_NEW,
+               "accept-new parses");
+        EXPECT(ssh_hostkey_policy_from_string(NULL) == SSH_HOSTKEY_ACCEPT_NEW,
+               "NULL defaults to accept-new (TOFU)");
+        EXPECT(ssh_hostkey_policy_from_string("bogus") == SSH_HOSTKEY_ACCEPT_NEW,
+               "unknown never weakens to off");
+    }
+
+    /* --- host-key policy + known_hosts flow through the DSN --- */
+    {
+        ssh_config c = {0};
+        char err[128] = "";
+        EXPECT(ssh_config_parse(
+                   "{\"ssh_host\":\"h\",\"ssh_user\":\"u\","
+                   "\"ssh_host_key_policy\":\"strict\","
+                   "\"ssh_known_hosts\":\"/tmp/kh\"}",
+                   &c, err, sizeof err) == DBC_OK,
+               "policy+known_hosts parse");
+        EXPECT(c.hostkey_policy == SSH_HOSTKEY_STRICT, "policy carried");
+        EXPECT(c.known_hosts != NULL && strcmp(c.known_hosts, "/tmp/kh") == 0,
+               "known_hosts carried");
+        ssh_config_dispose(&c);
+    }
+
+    /* --- default policy when unspecified is accept-new, known_hosts NULL --- */
+    {
+        ssh_config c = {0};
+        char err[128] = "";
+        EXPECT(ssh_config_parse("{\"ssh_host\":\"h\",\"ssh_user\":\"u\"}", &c,
+                                err, sizeof err) == DBC_OK,
+               "minimal parses");
+        EXPECT(c.hostkey_policy == SSH_HOSTKEY_ACCEPT_NEW, "default TOFU");
+        EXPECT(c.known_hosts == NULL, "known_hosts defaults to NULL");
+        ssh_config_dispose(&c);
+    }
+
     if (failures == 0) {
         printf("OK: ssh_config (all cases)\n");
         return 0;

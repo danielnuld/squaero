@@ -24,6 +24,11 @@
  *                       127.0.0.1 when the DSN has none).
  *   ssh_target_port     forward target port (default: the DSN "port", or 0,
  *                       which the driver resolves to its engine default).
+ *   ssh_host_key_policy "accept-new" | "strict" | "off" (default "accept-new").
+ *                       accept-new = TOFU: an unknown host key is accepted and
+ *                       recorded, but a CHANGED key is rejected (MITM). strict =
+ *                       reject unknown keys too. off = no verification (legacy).
+ *   ssh_known_hosts     path to the known_hosts store (default ~/.ssh/known_hosts).
  */
 
 #include "dbcore/driver.h"
@@ -40,18 +45,30 @@ typedef enum {
     SSH_AUTH_KEY
 } ssh_auth_method;
 
+typedef enum {
+    SSH_HOSTKEY_ACCEPT_NEW = 0, /* TOFU: record unknown keys, reject changed */
+    SSH_HOSTKEY_STRICT,         /* reject unknown keys as well */
+    SSH_HOSTKEY_OFF             /* no verification (legacy behaviour) */
+} ssh_hostkey_policy;
+
 typedef struct {
-    int             present;        /* 1 when ssh_host was supplied */
-    char           *host;
-    int             port;           /* >0; defaulted to 22 */
-    char           *user;
-    ssh_auth_method auth;
-    char           *password;       /* owned; NULL unless auth=password */
-    char           *key_path;       /* owned; NULL unless auth=key */
-    char           *key_passphrase; /* owned; optional */
-    char           *target_host;    /* owned; forward target */
-    int             target_port;    /* forward target; 0 = engine default */
+    int                present;        /* 1 when ssh_host was supplied */
+    char              *host;
+    int                port;           /* >0; defaulted to 22 */
+    char              *user;
+    ssh_auth_method    auth;
+    char              *password;       /* owned; NULL unless auth=password */
+    char              *key_path;       /* owned; NULL unless auth=key */
+    char              *key_passphrase; /* owned; optional */
+    char              *target_host;    /* owned; forward target */
+    int                target_port;    /* forward target; 0 = engine default */
+    ssh_hostkey_policy hostkey_policy; /* how to verify the server host key */
+    char              *known_hosts;    /* owned; NULL => default ~/.ssh/known_hosts */
 } ssh_config;
+
+/* Parse a host-key policy string ("accept-new" | "strict" | "off"), or the
+   default (accept-new) for NULL/empty/unknown. Pure; exposed for testing. */
+ssh_hostkey_policy ssh_hostkey_policy_from_string(const char *s);
 
 /*
  * Parse the ssh_* fields from a DSN JSON object into *out (zeroed first).

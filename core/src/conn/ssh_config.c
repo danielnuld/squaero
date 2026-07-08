@@ -50,6 +50,21 @@ static int int_field(const cJSON *root, const char *key)
     return 0;
 }
 
+ssh_hostkey_policy ssh_hostkey_policy_from_string(const char *s)
+{
+    if (s != NULL) {
+        if (strcmp(s, "strict") == 0) {
+            return SSH_HOSTKEY_STRICT;
+        }
+        if (strcmp(s, "off") == 0) {
+            return SSH_HOSTKEY_OFF;
+        }
+    }
+    /* Default (also for "accept-new", NULL, empty, or any unknown value): the
+       secure TOFU policy. An unrecognised value must never weaken to "off". */
+    return SSH_HOSTKEY_ACCEPT_NEW;
+}
+
 dbc_status ssh_config_parse(const char *dsn_json, ssh_config *out,
                             char *err, size_t errcap)
 {
@@ -105,8 +120,15 @@ dbc_status ssh_config_parse(const char *dsn_json, ssh_config *out,
     }
     out->target_port = target_port;
 
-    /* Classify auth (default agent) BEFORE freeing root: the string points into
-       the cJSON tree and must not be touched after cJSON_Delete. */
+    out->known_hosts = dup_field(root, "ssh_known_hosts", &oom);
+
+    /* Classify auth (default agent) and host-key policy BEFORE freeing root: the
+       strings point into the cJSON tree and must not be touched after Delete. */
+    const cJSON *policy_item =
+        cJSON_GetObjectItemCaseSensitive(root, "ssh_host_key_policy");
+    out->hostkey_policy = ssh_hostkey_policy_from_string(
+        cJSON_IsString(policy_item) ? policy_item->valuestring : NULL);
+
     const cJSON *auth_item = cJSON_GetObjectItemCaseSensitive(root, "ssh_auth");
     const char *auth = cJSON_IsString(auth_item) ? auth_item->valuestring : NULL;
     int auth_ok = 1;
@@ -175,5 +197,6 @@ void ssh_config_dispose(ssh_config *cfg)
     free(cfg->key_path);
     free(cfg->key_passphrase);
     free(cfg->target_host);
+    free(cfg->known_hosts);
     memset(cfg, 0, sizeof *cfg);
 }
