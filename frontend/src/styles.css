@@ -520,8 +520,11 @@ body {
   color: var(--text-dim);
 }
 .connbar-status {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--number);
+  background: color-mix(in srgb, var(--number) 16%, transparent);
+  padding: 1px 6px;
+  border-radius: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1785,7 +1788,8 @@ kbd {
   flex: 1;
   min-height: 0;
   display: flex;
-  border-top: 1px solid var(--border);
+  /* No border-top: the working-db section above already carries a border-bottom;
+     two adjacent hairlines read as a heavy 2px rule. */
 }
 
 .objtree {
@@ -1906,6 +1910,20 @@ kbd {
 
 .objtree-row:hover {
   background: var(--bg-elev2);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* The node of the current working database: a persistent accent highlight so it
+   stays visible while the user drills into other databases (issue: sidebar
+   visual pass). Toggled by ObjectTree from its `activeDb` prop. */
+.objtree-row.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.objtree-row.is-active .objtree-label {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .objtree-caret {
@@ -3121,7 +3139,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* Working-database selector (sidebar) */
 .sidebar-db {
-  padding: 0.5rem 0.6rem;
+  padding: 0.5rem 0.7rem 0.6rem;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -3129,18 +3147,45 @@ button.grid-action.danger:hover:not(:disabled) {
 .sidebar-db label {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.3rem;
 }
 
 .sidebar-db label > span {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--text-dim);
 }
 
+/* Themed working-database selector (issue: sidebar visual pass). The native
+   <select> rendered with the OS chrome (white box, native arrow) which clashed
+   with both themes; restyle it to match the object-filter input, with a custom
+   caret drawn as an inline SVG (a neutral grey that reads on both palettes). */
 .sidebar-db .map-select {
   width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.4rem 1.7rem 0.4rem 0.55rem;
+  font-size: 12px;
+  color: var(--text);
+  background-color: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 L5 6.5 L8 3.5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 10px;
+}
+
+.sidebar-db .map-select:hover {
+  border-color: var(--text-dim);
+}
+
+.sidebar-db .map-select:focus {
+  outline: none;
+  border-color: var(--accent, #5b5bd6);
 }
 
 /* Settings + About panel (issue #181) */
