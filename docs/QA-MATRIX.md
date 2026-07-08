@@ -107,7 +107,7 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     en vivo sobre `abreviado_jo`.
 30. **Informix — procedimientos/funciones:** listado y cuerpo (`sysprocbody`,
     datakey 'T') verificados; las **sobrecargas** se resuelven por `procid`
-    (p.ej. `sp_audiencias_por_juez_resultado` ×2 devuelve dos cuerpos distintos).
+    (una rutina sobrecargada ×2 devuelve dos cuerpos distintos).
 31. **Informix — triggers:** listado (`systriggers`) y cuerpo (`systrigbody`) por
     `trigid` verificados en vivo.
 32. **Informix — edición transaccional:** el control de transacción
