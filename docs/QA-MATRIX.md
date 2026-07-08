@@ -30,7 +30,7 @@ SQL preparado, pero el driver no se distribuye aún.
 | Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4·34 |
 | Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5·34 |
 | Paginación real (offset) | ✅ | ✅ | ✅ 28 | ✅ |
-| Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ⚠️ 32 | ➖ 6 |
+| Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ✅ 32 | ➖ 6 |
 | Detalle de fila (form view) | ⏳ | ⏳ | ⏳ | ⚠️ 7 |
 | Export CSV / JSON / SQL / XML / HTML / XLSX | ✅ 8 | ✅ 8 | ⏳ | ⏳ 8 |
 | Import CSV / JSON / XLSX | ⏳ | ⏳ | ⏳ | ➖ 6 |
@@ -110,10 +110,13 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     (una rutina sobrecargada ×2 devuelve dos cuerpos distintos).
 31. **Informix — triggers:** listado (`systriggers`) y cuerpo (`systrigbody`) por
     `trigid` verificados en vivo.
-32. **Informix — edición transaccional:** el control de transacción
-    (begin→…→rollback) se verificó en vivo; el DML (insert/update/delete) **no**
-    se ejecutó contra la base real (→ verificación de solo lectura).
-    El constructor de DML de Informix tiene test unitario (`informix_dml_test`).
+32. **Informix — edición transaccional:** verificado en vivo (2026-07-08) sobre
+    una **tabla scratch dedicada** (creada y eliminada al terminar, sin tocar
+    datos de negocio): insert×2 + update + delete visibles dentro de la
+    transacción, `ROLLBACK` los deshizo (→ 0 filas) y `COMMIT` persiste (control
+    positivo). Confirma que la base es *logged* y que el rollback real funciona a
+    través del driver ODBC. El constructor de DML tiene además test unitario
+    (`informix_dml_test`).
 33. **MySQL — verificado en vivo (2026-07-08)** contra MySQL 8.0.46 (contenedor
     efímero) vía `scripts/smoke/mysql-features.mjs`, 10/10: utf8mb4 (acentos +
     emoji) en datos Y nombres de objetos, procedimientos+funciones (listado por
@@ -139,7 +142,7 @@ Describe, Ejecutar consulta, Paginación, Edición transaccional, Export.
 |---|:---:|---|
 | SQLite | ✅ 12/12 + 9/9 features | `smoke.mjs` (camino crítico) + `sqlite-features.mjs` (2026-07-07) |
 | MySQL/MariaDB | ✅ 12/12 + 10/10 features | `smoke.mjs` + `mysql-features.mjs` vs MySQL 8.0.46 (2026-07-08) |
-| Informix | ✅ read-only en vivo | vs un servidor IBM IDS 11.70 real, `quaero-rpc` x86 (2026-07-08) — encontró+corrigió el bug de tipos del describe |
+| Informix | ✅ en vivo | vs un servidor IBM IDS 11.70 real, `quaero-rpc` x86 (2026-07-08) — lectura + edición transaccional (tabla scratch); encontró+corrigió el bug de tipos del describe |
 | MongoDB | ✅ 4/4 + 7/7 features | `smoke.mjs` + `mongo-features.mjs` vs `mongo:7` (2026-07-08) |
 
 Ver [QA-SMOKE.md](./QA-SMOKE.md) para correrlo. Las filas ✅ de SQLite y
