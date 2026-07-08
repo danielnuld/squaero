@@ -209,8 +209,16 @@ jobs:
           chmod 600 "$HOME/.ssh/authorized_keys"
           sudo systemctl start ssh
           # Sanity-check the full SSH path before relying on it from the tunnel.
-          ssh -o StrictHostKeyChecking=no -i "$HOME/.ssh/id_tunnel" \
-            "$(whoami)@127.0.0.1" true
+          # Keep this probe out of the default known_hosts: it would record only
+          # the key type the OpenSSH client negotiates (ed25519), which need not
+          # match the type libssh2 presents from the tunnel — a stale-looking
+          # entry the driver would then reject as a mismatch.
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -i "$HOME/.ssh/id_tunnel" "$(whoami)@127.0.0.1" true
+          # Record ALL of the server's host key types so the tunnel's strict
+          # verification (issue #81) matches whichever one libssh2 negotiates.
+          ssh-keyscan -t rsa,ecdsa,ed25519 -p 22 127.0.0.1 \
+            > "$HOME/.ssh/known_hosts_quaero" 2>/dev/null
 
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest
@@ -227,7 +235,7 @@ jobs:
         env:
           QUAERO_SSH_DEBUG: "1"
         run: |
-          export QUAERO_SSH_DSN="{\"host\":\"127.0.0.1\",\"port\":3306,\"user\":\"root\",\"password\":\"root\",\"database\":\"quaero_test\",\"ssh_host\":\"127.0.0.1\",\"ssh_port\":22,\"ssh_user\":\"$(whoami)\",\"ssh_auth\":\"key\",\"ssh_key\":\"$HOME/.ssh/id_tunnel\"}"
+          export QUAERO_SSH_DSN="{\"host\":\"127.0.0.1\",\"port\":3306,\"user\":\"root\",\"password\":\"root\",\"database\":\"quaero_test\",\"ssh_host\":\"127.0.0.1\",\"ssh_port\":22,\"ssh_user\":\"$(whoami)\",\"ssh_auth\":\"key\",\"ssh_key\":\"$HOME/.ssh/id_tunnel\",\"ssh_known_hosts\":\"$HOME/.ssh/known_hosts_quaero\",\"ssh_host_key_policy\":\"strict\"}"
           ctest --test-dir build --output-on-failure -R ssh_tunnel_integration
 
   # Guards the x86 release build (the shipped installer is x86 because the IBM
