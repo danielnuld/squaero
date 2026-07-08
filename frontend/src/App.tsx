@@ -126,6 +126,7 @@ import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { AppToolbar } from "./components/AppToolbar";
+import { ObjectListView } from "./components/ObjectListView";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
@@ -1333,8 +1334,13 @@ export function App() {
     <div class="app">
       <AppToolbar
         active={!!active()}
+        hasDb={!!activeDb()}
         onNewQuery={newTab}
         onNewTable={() => openTableDesigner()}
+        onObjectList={() => {
+          const db = activeDb();
+          if (db) showTool("objectList", `Objetos · ${db}`, { key: `objlist:${db}`, params: { db } });
+        }}
         onOpenTool={(t) => showTool(t.tool, t.tabTitle, { key: t.key })}
       />
       <div class="main">
@@ -1717,6 +1723,22 @@ export function App() {
           <Show when={currentTool()}>
             {(tt) => (
               <Switch>
+                <Match when={tt().tool === "objectList"}>
+                  <ObjectListView
+                    connId={toolConn()?.connId ?? ""}
+                    engine={activeDialect()}
+                    db={(tt().params as { db: string }).db}
+                    onOpenData={(name, type) =>
+                      openData({
+                        key: `db:${(tt().params as { db: string }).db}/obj:${name}`,
+                        label: name,
+                        kind: type === "view" ? "view" : "table",
+                        db: (tt().params as { db: string }).db,
+                      })
+                    }
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
                 <Match when={tt().tool === "monitor"}>
                   <ServerMonitor
                     connId={toolConn()?.connId ?? ""}

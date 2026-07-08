@@ -18,8 +18,10 @@ function mount(over: Partial<Parameters<typeof AppToolbar>[0]> = {}) {
   document.body.appendChild(host);
   const props = {
     active: true,
+    hasDb: true,
     onNewQuery: vi.fn(),
     onNewTable: vi.fn(),
+    onObjectList: vi.fn(),
     onOpenTool: vi.fn(),
     ...over,
   };
@@ -47,8 +49,15 @@ describe("AppToolbar", () => {
     const p = mount();
     btn("Consulta")!.click();
     btn("Tabla")!.click();
+    btn("Objetos")!.click();
     expect(p.onNewQuery).toHaveBeenCalledTimes(1);
     expect(p.onNewTable).toHaveBeenCalledTimes(1);
+    expect(p.onObjectList).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the object list until a working database is selected", () => {
+    mount({ hasDb: false });
+    expect(btn("Objetos")!.disabled).toBe(true);
   });
 
   it("opens a tool with its catalog entry", () => {

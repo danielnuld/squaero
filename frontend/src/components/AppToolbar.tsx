@@ -10,8 +10,11 @@ import { TOOL_CATALOG, type ToolMenuItem } from "../utils/toolCatalog";
 interface ToolbarProps {
   /** True when there is an active connection (enables object + tool actions). */
   active: boolean;
+  /** True when a working database is selected (enables the object list). */
+  hasDb: boolean;
   onNewQuery: () => void;
   onNewTable: () => void;
+  onObjectList: () => void;
   onOpenTool: (item: ToolMenuItem) => void;
 }
 
@@ -66,6 +69,15 @@ export function AppToolbar(props: ToolbarProps) {
           ink="var(--obj-ink)"
           disabled={!props.active}
           onClick={props.onNewTable}
+        />
+        <Btn
+          label="Objetos"
+          title="Lista de objetos de la base activa"
+          glyph="☰"
+          color="var(--obj-view)"
+          ink="var(--obj-ink)"
+          disabled={!props.active || !props.hasDb}
+          onClick={props.onObjectList}
         />
       </div>
       <div class="att-group">

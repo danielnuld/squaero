@@ -242,6 +242,105 @@ body {
   white-space: nowrap;
 }
 
+/* Object-list view (design proposal, phase 3): a metadata grid of a database's
+   objects with a type-filter strip. */
+.objlist-bar {
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.objlist-tabs {
+  display: flex;
+  gap: 2px;
+}
+.otab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.otab:hover:not(.on) {
+  background: var(--bg-elev2);
+}
+.otab.on {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+.otab-mk {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.otab-ct {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.objlist-scroll {
+  overflow: auto;
+  flex: 1;
+}
+.objlist-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.objlist-grid th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.objlist-grid th.num {
+  text-align: right;
+}
+.objlist-grid td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.objlist-grid td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.objlist-row {
+  cursor: default;
+}
+.objlist-row:hover td {
+  background: var(--bg-elev);
+}
+.objlist-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.objlist-empty {
+  padding: 16px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.objlist-error {
+  padding: 10px 14px;
+  color: var(--error);
+}
+
 /* Sidebar + resizer */
 .sidebar {
   background: var(--bg-elev);

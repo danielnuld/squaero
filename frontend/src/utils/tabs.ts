@@ -26,6 +26,7 @@ export type ToolKind =
   | "triggers"
   | "slowQueries"
   | "explainPlan"
+  | "objectList"
   | "settings"
   | "help";
 
