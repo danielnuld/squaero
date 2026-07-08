@@ -1388,6 +1388,7 @@ export function App() {
                 onOpenTools={openToolsMenu}
                 onObjectsLoaded={setLoadedObjects}
                 onSelectDatabase={syncWorkingDb}
+                activeDb={activeDb() ?? undefined}
                 onImport={(node) =>
                   showTool("import", `Importar · ${node.label}`, {
                     key: `import:${node.label}`,

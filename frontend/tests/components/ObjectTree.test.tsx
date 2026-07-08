@@ -557,4 +557,55 @@ describe("ObjectTree refresh", () => {
     });
     expect(host!.querySelector(".objtree-refresh")).not.toBeNull();
   });
+
+  it("highlights the working-database node via activeDb (sidebar visual pass)", async () => {
+    installBridge(); // root db list => ["main"]
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            onRefresh={() => {}}
+            activeDb="main"
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+
+    const row = [...host!.querySelectorAll(".objtree-row")].find((r) =>
+      r.textContent?.includes("main"),
+    ) as HTMLElement;
+    expect(row.classList.contains("is-active")).toBe(true);
+  });
+
+  it("does not mark any node active when activeDb does not match", async () => {
+    installBridge(); // root db list => ["main"]
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            onRefresh={() => {}}
+            activeDb="other"
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+
+    expect(host!.querySelector(".objtree-row.is-active")).toBeNull();
+  });
 });
