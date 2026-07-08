@@ -36,6 +36,7 @@ import {
   applyTheme,
   type ThemePref,
 } from "./utils/theme";
+import { loadSkin, saveSkin, applySkin, type SkinPref } from "./utils/skin";
 import { matchShortcut } from "./utils/shortcuts";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
@@ -332,6 +333,16 @@ export function App() {
   };
   const toggleTheme = () => applyThemePref(nextTheme(theme()));
 
+  // Accent skin (indigo brand vs an alternate blue), orthogonal to light/dark.
+  const [skin, setSkin] = createSignal<SkinPref>(loadSkin(safeStorage()));
+  const applySkinPref = (s: SkinPref) => {
+    setSkin(s);
+    saveSkin(s, safeStorage());
+    if (typeof document !== "undefined") {
+      applySkin(s, document.documentElement);
+    }
+  };
+
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
     switch (action) {
       case "new-tab":
@@ -395,6 +406,7 @@ export function App() {
   onMount(() => {
     if (typeof document !== "undefined") {
       applyTheme(theme(), document.documentElement, prefersDark());
+      applySkin(skin(), document.documentElement);
     }
     // Follow the OS live while the preference is "system".
     const onSystemChange = () => {
@@ -1900,6 +1912,8 @@ export function App() {
                   <SettingsPanel
                     theme={theme()}
                     onSetTheme={applyThemePref}
+                    skin={skin()}
+                    onSetSkin={applySkinPref}
                     historyLimit={historyLimit()}
                     onSetHistoryLimit={changeHistoryLimit}
                     settings={settings()}

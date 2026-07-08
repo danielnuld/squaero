@@ -20,8 +20,10 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 function mount(over: {
   theme?: "system" | "light" | "dark";
+  skin?: "indigo" | "blue";
   settings?: Settings;
   onSetTheme?: (p: "system" | "light" | "dark") => void;
+  onSetSkin?: (s: "indigo" | "blue") => void;
   onSetHistoryLimit?: (n: number) => void;
   onSetSettings?: (p: Partial<Settings>) => void;
 } = {}) {
@@ -34,6 +36,8 @@ function mount(over: {
         <SettingsPanel
           theme={over.theme ?? "system"}
           onSetTheme={over.onSetTheme ?? (() => {})}
+          skin={over.skin ?? "indigo"}
+          onSetSkin={over.onSetSkin ?? (() => {})}
           historyLimit={200}
           onSetHistoryLimit={over.onSetHistoryLimit ?? (() => {})}
           settings={over.settings ?? DEFAULT_SETTINGS}
@@ -60,6 +64,14 @@ describe("SettingsPanel", () => {
     const light = [...host!.querySelectorAll(".chip")].find((c) => c.textContent === "Claro")!;
     (light as HTMLButtonElement).click();
     expect(onSetTheme).toHaveBeenCalledWith("light");
+  });
+
+  it("reports an accent-skin change through the handler", () => {
+    const onSetSkin = vi.fn();
+    mount({ skin: "indigo", onSetSkin });
+    const blue = [...host!.querySelectorAll(".chip")].find((c) => c.textContent === "Azul")!;
+    (blue as HTMLButtonElement).click();
+    expect(onSetSkin).toHaveBeenCalledWith("blue");
   });
 
   it("patches grid density and clamps the slow threshold", () => {

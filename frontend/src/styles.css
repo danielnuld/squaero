@@ -69,6 +69,25 @@
   --chart-8: #eb6834;
 }
 
+/* Alternate "blue" accent skin: a professional blue, chosen separately from
+   light/dark and layered over either theme. Only the accent tokens change — the
+   per-object-type --obj-* colours are shared. Placed AFTER the theme blocks so
+   it overrides them; the light+skin combo uses a higher-specificity selector to
+   win over the dark defaults. Contrasts hold AA (issue #220 discipline): white
+   on #2f6fed = 4.55; dark ink on #5b9bff = 6.9. */
+:root[data-skin="blue"] {
+  --accent: #5b9bff;
+  --accent-fg: #0c1015;
+  --accent-hover: #7db0ff;
+  --accent-text: #7fb2ff;
+}
+:root[data-theme="light"][data-skin="blue"] {
+  --accent: #2f6fed;
+  --accent-fg: #ffffff;
+  --accent-hover: #245fd0;
+  --accent-text: #2861d6;
+}
+
 :root {
   /* Semantic aliases used across newer components; kept in sync with the
      palette above so both themes drive them. */
@@ -77,6 +96,21 @@
   --bg-alt: var(--bg-elev);
   --font-ui: system-ui, "Segoe UI", sans-serif;
   --font-mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+
+  /* Per-object-type identity colours (design proposal).
+     Distinct, vivid hues — the single strongest "this is a database tool"
+     recognition signal. Shared across the tree, object lists and tabs. Dark
+     ink sits on them (they are self-contained chips), so one set works in both
+     themes. --obj-*-ink is the text/glyph colour drawn ON that colour. */
+  --obj-database: #58c2c9;
+  --obj-schema: #8fb4e6;
+  --obj-table: #4d90fe;
+  --obj-view: #35c15a;
+  --obj-function: #b98cf2;
+  --obj-procedure: #f0a63f;
+  --obj-trigger: #f2726d;
+  --obj-event: #45c8d6;
+  --obj-ink: #16181d;
 }
 
 * {
@@ -1621,17 +1655,21 @@ kbd {
   padding: 1px 4px;
   border-radius: 3px;
   flex-shrink: 0;
-  color: #1a1a20;
+  color: var(--obj-ink);
 }
 
-.objtree-badge.kind-database { background: #c0a0e0; }
-.objtree-badge.kind-schema { background: #8fb8e0; }
-.objtree-badge.kind-table { background: var(--number); }
-.objtree-badge.kind-view { background: #e0c890; }
+/* Per-type identity colours (design proposal). One vivid hue per kind so
+   the object type reads at a glance in the tree, object lists and tabs. */
+.objtree-badge.kind-database { background: var(--obj-database); }
+.objtree-badge.kind-schema { background: var(--obj-schema); }
+.objtree-badge.kind-table { background: var(--obj-table); }
+.objtree-badge.kind-view { background: var(--obj-view); }
 /* Routine/trigger/event leaves (listed on demand, #135 phase 2). */
-.objtree-badge.kind-routine { background: #a0d0b0; }
-.objtree-badge.kind-trigger { background: #e0a890; }
-.objtree-badge.kind-event { background: #90c8d0; }
+.objtree-badge.kind-routine,
+.objtree-badge.kind-procedure { background: var(--obj-procedure); }
+.objtree-badge.kind-function { background: var(--obj-function); }
+.objtree-badge.kind-trigger { background: var(--obj-trigger); }
+.objtree-badge.kind-event { background: var(--obj-event); }
 .objtree-badge.kind-unknown { background: var(--text-dim); }
 /* Type folder (Tablas/Vistas): a neutral count chip. */
 .objtree-badge.kind-group {

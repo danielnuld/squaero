@@ -12,6 +12,7 @@ import {
 } from "../utils/settings";
 import { clampLimit, MIN_HISTORY_LIMIT, MAX_HISTORY_LIMIT } from "../utils/history";
 import { themeLabel, type ThemePref } from "../utils/theme";
+import { skinLabel, type SkinPref } from "../utils/skin";
 
 // Settings + About panel (issue #181), opened as a tool tab. Fully controlled:
 // the workspace (App) owns every preference signal and passes current values +
@@ -24,6 +25,11 @@ const THEME_OPTS: { value: ThemePref; label: string }[] = [
   { value: "system", label: "Sistema" },
   { value: "light", label: "Claro" },
   { value: "dark", label: "Oscuro" },
+];
+
+const SKIN_OPTS: { value: SkinPref; label: string }[] = [
+  { value: "indigo", label: "Quaero (índigo)" },
+  { value: "blue", label: "Azul" },
 ];
 
 const DENSITY_OPTS: { value: GridDensity; label: string }[] = [
@@ -39,6 +45,8 @@ interface CoreInfo {
 export function SettingsPanel(props: {
   theme: ThemePref;
   onSetTheme: (p: ThemePref) => void;
+  skin: SkinPref;
+  onSetSkin: (s: SkinPref) => void;
   historyLimit: number;
   onSetHistoryLimit: (n: number) => void;
   settings: Settings;
@@ -81,6 +89,24 @@ export function SettingsPanel(props: {
                     aria-checked={props.theme === o.value}
                     title={themeLabel(o.value)}
                     onClick={() => props.onSetTheme(o.value)}
+                  >
+                    {o.label}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Estilo (acento)</span>
+            <div class="settings-choice" role="radiogroup" aria-label="Estilo de acento">
+              <For each={SKIN_OPTS}>
+                {(o) => (
+                  <button
+                    class={`chip ${props.skin === o.value ? "active" : ""}`}
+                    role="radio"
+                    aria-checked={props.skin === o.value}
+                    title={skinLabel(o.value)}
+                    onClick={() => props.onSetSkin(o.value)}
                   >
                     {o.label}
                   </button>

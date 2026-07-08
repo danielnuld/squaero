@@ -32,9 +32,9 @@ const BADGES: Record<ObjectKind, ObjectBadge> = {
   schema: { text: "SCH", className: "kind-schema" },
   table: { text: "TBL", className: "kind-table" },
   view: { text: "VW", className: "kind-view" },
-  procedure: { text: "PROC", className: "kind-routine" },
-  function: { text: "FN", className: "kind-routine" },
-  routine: { text: "PROC", className: "kind-routine" },
+  procedure: { text: "PROC", className: "kind-procedure" },
+  function: { text: "FN", className: "kind-function" },
+  routine: { text: "PROC", className: "kind-procedure" },
   trigger: { text: "TRG", className: "kind-trigger" },
   event: { text: "EVT", className: "kind-event" },
 };

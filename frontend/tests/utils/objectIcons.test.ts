@@ -32,10 +32,11 @@ describe("objectBadge", () => {
     expect(objectBadge("event").text).toBe("EVT");
   });
 
-  it("shares the routine colour class across proc/function/routine", () => {
-    expect(objectBadge("procedure").className).toBe("kind-routine");
-    expect(objectBadge("function").className).toBe("kind-routine");
-    expect(objectBadge("routine").className).toBe("kind-routine");
+  it("gives functions their own colour class, procedures/routines share one", () => {
+    // Distinct hues per object type (design proposal).
+    expect(objectBadge("procedure").className).toBe("kind-procedure");
+    expect(objectBadge("routine").className).toBe("kind-procedure");
+    expect(objectBadge("function").className).toBe("kind-function");
   });
 
   it("falls back to a neutral chip for an unknown kind", () => {

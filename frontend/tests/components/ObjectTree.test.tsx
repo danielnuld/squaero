@@ -250,9 +250,10 @@ describe("ObjectTree refresh", () => {
     expect(rowByText("tax_rate")).toBeFalsy(); // a FUNCTION, not in Procedimientos
 
     // Unified iconography (#185): the routine leaf refines its badge to PROC.
+    // Per-type colours (design proposal): a procedure carries the kind-procedure hue class.
     const procBadge = rowByText("add_user").querySelector(".objtree-badge")!;
     expect(procBadge.textContent).toBe("PROC");
-    expect(procBadge.classList.contains("kind-routine")).toBe(true);
+    expect(procBadge.classList.contains("kind-procedure")).toBe(true);
 
     rowByText("add_user").click(); // open its DDL in a new query tab
     await flush();
