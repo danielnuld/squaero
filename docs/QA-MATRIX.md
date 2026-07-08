@@ -26,6 +26,7 @@ SQL preparado, pero el driver no se distribuye aún.
 | Funcionalidad | SQLite | MySQL/MariaDB | Informix | MongoDB |
 |---|:---:|:---:|:---:|:---:|
 | Conexión / desconexión / reconexión | ✅ | ✅ | ✅ 28 | ✅ |
+| Conexión cifrada (SSL/TLS) | ➖ 36 | ✅ 37 | ❌ 38 | ⚠️ 39 |
 | Árbol de objetos + carpetas por tipo | ⚠️ 1 | ✅ | ⚠️ 2 | ⚠️ 3 |
 | Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4·34 |
 | Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5·34 |
@@ -138,6 +139,17 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     (`toInserts`) emite identificadores ANSI entre comillas dobles; para
     **re-importar** en Informix habría que activar `DELIMIDENT` (sin él, las
     comillas dobles son literales de cadena). El archivo se genera correctamente.
+36. **SQLite — SSL/TLS:** no aplica; es una base embebida, sin transporte de red.
+37. **MySQL — SSL/TLS:** **verificado en vivo (2026-07-08)** — `ssl_mode=required`
+    contra `mysql:8.0` → cifrado `TLS_AES_128_GCM_SHA256`, **TLSv1.3**
+    (`SHOW STATUS LIKE 'Ssl_cipher'` no vacío). Campos DSN `ssl_mode` /
+    `ssl_ca` / `ssl_cert` / `ssl_key` (`DBC_FEAT_SSL`).
+38. **Informix — SSL/TLS:** **no implementado todavía** — el driver ODBC no
+    expone opciones SSL (`entry.c` declara TLS ausente honestamente). Es el
+    trabajo restante de **#144** (necesita opciones de connection-string ODBC +
+    un servidor Informix con TLS para verificar).
+39. **MongoDB — SSL/TLS:** el driver soporta `tls`/`ssl` (→ `MONGOC_URI_TLS`);
+    no verificado en vivo (el contenedor de prueba no tiene TLS configurado).
 
 ## Cobertura del smoke automatizado (#199)
 
