@@ -178,6 +178,70 @@ body {
   min-height: 0;
 }
 
+/* Top action ribbon (design proposal, phase 2). Full-width bar of icon+label
+   buttons above the sidebar+workspace split. */
+.apptoolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.att-group {
+  display: flex;
+  gap: 2px;
+  padding-right: 10px;
+  margin-right: 6px;
+  border-right: 1px solid var(--border);
+}
+.att-group:last-child {
+  border-right: 0;
+  margin-right: 0;
+  padding-right: 0;
+}
+.att-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 58px;
+  padding: 5px 8px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.att-btn:hover:not(:disabled) {
+  background: var(--bg-elev2);
+}
+.att-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.att-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.att-ic {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+.att-lb {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 /* Sidebar + resizer */
 .sidebar {
   background: var(--bg-elev);

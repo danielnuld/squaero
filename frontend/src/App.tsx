@@ -125,6 +125,7 @@ import {
 import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
+import { AppToolbar } from "./components/AppToolbar";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
@@ -1330,6 +1331,12 @@ export function App() {
 
   return (
     <div class="app">
+      <AppToolbar
+        active={!!active()}
+        onNewQuery={newTab}
+        onNewTable={() => openTableDesigner()}
+        onOpenTool={(t) => showTool(t.tool, t.tabTitle, { key: t.key })}
+      />
       <div class="main">
         <aside class="sidebar" style={{ width: `${sidebarWidth()}px` }}>
           <ConnectionBar
