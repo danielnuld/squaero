@@ -114,6 +114,14 @@ describe("ObjectTree refresh", () => {
     expect(rowByText("Vistas")).toBeTruthy();
     expect(rowByText("customers")).toBeFalsy();
 
+    // A type folder shows a colored glyph icon + right-aligned count (move 2),
+    // not a text badge; the count reflects its members (2 tables, 1 view).
+    const tablasRow = rowByText("Tablas");
+    expect(tablasRow.querySelector(".objtree-folder-ic")).toBeTruthy();
+    expect(tablasRow.querySelector(".objtree-badge")).toBeFalsy();
+    expect(tablasRow.querySelector(".objtree-count")?.textContent).toBe("2");
+    expect(rowByText("Vistas").querySelector(".objtree-count")?.textContent).toBe("1");
+
     (rowByText("Tablas")).click(); // expand the Tablas folder
     await flush();
     expect(rowByText("customers")).toBeTruthy();

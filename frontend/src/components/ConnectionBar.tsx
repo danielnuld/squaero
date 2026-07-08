@@ -13,6 +13,10 @@ export function ConnectionBar(props: ConnectionManagerProps) {
   let rootEl: HTMLDivElement | undefined;
 
   const active = () => props.connections.find((c) => c.id === props.activeConnId) ?? null;
+  const activeIsOpen = () => {
+    const a = active();
+    return !!a && (props.openIds?.includes(a.id) ?? false);
+  };
 
   // Close the popover after an action that navigates away from it (connecting,
   // or opening the new/edit form), while forwarding the real handler.
@@ -43,30 +47,48 @@ export function ConnectionBar(props: ConnectionManagerProps) {
 
   return (
     <div class="connbar" ref={rootEl}>
-      <button
-        class="connbar-active"
-        aria-expanded={open()}
-        title="Conexiones"
-        style={
-          active()?.color ? { "border-left": `4px solid ${active()!.color}` } : undefined
-        }
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Show
-          when={active()}
-          fallback={<span class="connbar-none">Elegir conexión</span>}
+      <div class="connbar-row">
+        <button
+          class="connbar-active"
+          aria-expanded={open()}
+          title="Conexiones"
+          style={
+            active()?.color ? { "border-left": `4px solid ${active()!.color}` } : undefined
+          }
+          onClick={() => setOpen((v) => !v)}
         >
-          <Show when={active()!.color}>
-            <span class="conn-color" style={{ background: active()!.color }} />
+          <Show
+            when={active()}
+            fallback={<span class="connbar-none">Elegir conexión</span>}
+          >
+            <Show when={active()!.color}>
+              <span class="conn-color" style={{ background: active()!.color }} />
+            </Show>
+            <span class="engine-icon">{engineIcon(active()!.driver)}</span>
+            <span class="connbar-name">{active()!.name}</span>
+            <span class="connbar-status">conectado</span>
           </Show>
-          <span class="engine-icon">{engineIcon(active()!.driver)}</span>
-          <span class="connbar-name">{active()!.name}</span>
-          <span class="connbar-status">conectado</span>
+          <span class="connbar-caret" aria-hidden="true">
+            {open() ? "▴" : "▾"}
+          </span>
+        </button>
+        {/* Disconnect the focused connection right here, without opening the
+            manager popover — the action was previously buried inside it. */}
+        <Show when={activeIsOpen()}>
+          <button
+            class="connbar-disconnect"
+            title="Desconectar"
+            aria-label="Desconectar"
+            disabled={props.connectingId !== null}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onDisconnect(active()!.id);
+            }}
+          >
+            ⏏
+          </button>
         </Show>
-        <span class="connbar-caret" aria-hidden="true">
-          {open() ? "▴" : "▾"}
-        </span>
-      </button>
+      </div>
       <Show when={open()}>
         <div class="connbar-drop">
           <ConnectionManager {...closingProps} />

@@ -491,8 +491,13 @@ body {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
+.connbar-row {
+  display: flex;
+  align-items: stretch;
+}
 .connbar-active {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -507,6 +512,25 @@ body {
 }
 .connbar-active:hover {
   background: var(--bg-elev2);
+}
+/* Disconnect the focused connection straight from the bar. */
+.connbar-disconnect {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 0.7rem;
+}
+.connbar-disconnect:hover:not(:disabled) {
+  color: var(--error);
+  background: var(--bg-elev2);
+}
+.connbar-disconnect:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .connbar-name {
   flex: 1;
@@ -1394,7 +1418,7 @@ kbd {
 }
 
 .conn-item.active {
-  background: rgba(76, 139, 245, 0.16);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
@@ -2031,6 +2055,34 @@ kbd {
   margin-left: auto;
 }
 
+/* Type-folder glyph (Tablas/Vistas/…) + right-aligned count (design proposal
+   move 2): folders read like a Navicat navigator, colored per object type. */
+.objtree-folder-ic {
+  flex-shrink: 0;
+  width: 1.15em;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.objtree-count {
+  margin-left: auto;
+  padding-left: 0.5rem;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sidebar section label (e.g. CONEXIONES), matching the object-tree header. */
+.sidebar-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  padding: 0.5rem 0.7rem 0.3rem;
+}
+
 /* Structure view (modal) */
 .modal-wide {
   width: min(720px, 94vw);
@@ -2198,6 +2250,24 @@ kbd {
   color: var(--accent-text, #4a4ac4);
 }
 
+/* Leading glyph + dropdown caret on toolbar buttons (phase 8). The glyph is a
+   light visual cue; the caret marks a button that opens a menu. */
+.eb-ic {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.eb-caret {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.edit-btn-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .edit-hint-ro {
   font-size: 12px;
   color: var(--fg-dim, #888);
@@ -2285,11 +2355,6 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .toolbar-spacer {
   flex: 1;
-}
-
-.export-label {
-  font-size: 12px;
-  color: var(--fg-dim, #888);
 }
 
 /* --- Import wizard (M8) --------------------------------------------------- */

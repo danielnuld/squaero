@@ -1347,6 +1347,7 @@ export function App() {
       />
       <div class="main">
         <aside class="sidebar" style={{ width: `${sidebarWidth()}px` }}>
+          <div class="sidebar-section-title">Conexiones</div>
           <ConnectionBar
             connections={connections()}
             activeConnId={activeDefId()}
