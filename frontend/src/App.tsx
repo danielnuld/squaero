@@ -1811,6 +1811,7 @@ export function App() {
                 <Match when={tt().tool === "erDiagram"}>
                   <ErDiagram
                     connId={toolConn()?.connId ?? ""}
+                    engine={activeDialect()}
                     db={activeDb() ?? undefined}
                     onClose={() => closeTool(tt().id)}
                   />

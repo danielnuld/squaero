@@ -81,11 +81,12 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 17. **MongoDB — triggers/eventos:** «MongoDB no expone triggers en catálogos SQL.»
 18. **SQLite — eventos:** «SQLite no tiene eventos programados.»
 19. **Informix — eventos:** «Los eventos programados de Informix no están disponibles aquí.»
-20. **Diagrama ER (todos):** las relaciones son **inferidas por nombre**
-    (`customer_id → customers`); no lee claves foráneas reales (fase 2 pendiente).
-    Hallazgo QA (#196): en SQLite las FK reales SÍ están disponibles barato vía
-    `PRAGMA foreign_key_list` (verificado en vivo) pero el ER no las usa —
-    candidato a issue de mejora "ER: FKs reales del catálogo".
+20. **Diagrama ER (#260):** las relaciones se leen de las **llaves foráneas
+    reales** del motor cuando las expone (MySQL `KEY_COLUMN_USAGE`, PostgreSQL
+    `pg_constraint`, SQLite `PRAGMA foreign_key_list`, Informix `sysreferences`);
+    solo se **cae a la inferencia por nombre** (`customer_id → customers`) cuando
+    el motor no tiene FKs (MongoDB) o la consulta falla, marcándolo en la UI.
+    Verificado en vivo con SQLite y MySQL (columna FK sin convención → resuelta).
 21. **MongoDB — constructor visual:** genera SQL `SELECT`; MongoDB usa mongosh.
 22. **SQLite — ALTER:** solo add/drop/rename de columnas; el cambio de tipo in-place
     da error honesto (SQLite no soporta `MODIFY COLUMN`).

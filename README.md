@@ -54,7 +54,7 @@ en C: agregar un motor no requiere tocar el núcleo. Ver
 - **Diseñador de tablas** (crear y ALTER), **editor de índices y constraints**.
 - **Procedimientos / funciones**, **triggers / eventos**, **usuarios y permisos**.
 - **Monitor de servidor** (lista de procesos + kill), **consultas lentas**.
-- **Diagrama ER** (relaciones inferidas) y **constructor visual de consultas**.
+- **Diagrama ER** (llaves foráneas reales del motor) y **constructor visual de consultas**.
 
 **Datos entre conexiones**
 - **Sincronización** de esquema y de datos, **transferencia** de tablas entre

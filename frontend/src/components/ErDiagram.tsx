@@ -2,20 +2,32 @@ import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import { Panel } from "./Panel";
 import { schemaTree, schemaDescribe, parseTreeRows } from "../utils/schema";
+import { runQuery } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
   inferRelations,
+  realEdges,
   tableHeight,
   gridPositions,
   type ErTable,
   type ErColumn,
+  type ErEdge,
 } from "../utils/erDiagram";
+import {
+  foreignKeysFor,
+  sqliteForeignKeySql,
+  parseForeignKeys,
+  type ForeignKey,
+  type ForeignKeyQuery,
+} from "../utils/foreignKeys";
 
-// Entity-relationship diagram (issue #145, phase 1): lay every table out as a box
-// with its columns and draw inferred foreign-key edges (schema.describe exposes
-// no FKs, so relationships are inferred by naming — see utils/erDiagram.ts, and
-// the edges are labelled "inferidas"). Boxes are draggable. Real FK extraction is
-// a later phase needing driver support. Pure logic lives in utils/erDiagram.ts.
+// Entity-relationship diagram (issue #145): lay every table out as a box with its
+// columns and draw foreign-key edges. Relationships come from the engine's REAL
+// foreign keys when it exposes them (issue #260, via query.run over catalogs —
+// see utils/foreignKeys.ts); when it doesn't (MongoDB, or the FK query fails) we
+// fall back to naming-convention inference and label the edges "inferidas" so it
+// stays honest. Boxes are draggable. Pure logic lives in utils/erDiagram.ts +
+// utils/foreignKeys.ts.
 const BOX_W = 200;
 const HEADER_H = 26;
 const ROW_H = 18;
@@ -92,7 +104,37 @@ async function loadTables(connId: string, db: string | undefined, max = MAX_TABL
   return tables;
 }
 
-export function ErDiagram(props: { connId: string; db?: string; onClose: () => void }) {
+/** Fetch and parse the engine's real foreign keys for a supported plan. SQLite
+    needs one PRAGMA per table; the others answer in a single catalog query.
+    `truncated` is true if any FK query hit the core's row cap, so the caller can
+    warn that the graph may be incomplete (docs/IPC.md: query.run caps silently
+    when no limit is given). */
+async function fetchForeignKeys(
+  connId: string,
+  engine: string,
+  plan: ForeignKeyQuery,
+  tables: ErTable[],
+): Promise<{ fks: ForeignKey[]; truncated: boolean }> {
+  if (plan.perTable) {
+    const fks: ForeignKey[] = [];
+    let truncated = false;
+    for (const t of tables) {
+      const r = await runQuery(connId, sqliteForeignKeySql(t.name));
+      truncated = truncated || r.truncated;
+      fks.push(...parseForeignKeys(engine, r.columns, r.rows, t.name));
+    }
+    return { fks, truncated };
+  }
+  const r = await runQuery(connId, plan.bulkSql!);
+  return { fks: parseForeignKeys(engine, r.columns, r.rows), truncated: r.truncated };
+}
+
+export function ErDiagram(props: {
+  connId: string;
+  engine: string;
+  db?: string;
+  onClose: () => void;
+}) {
   const [tables, setTables] = createSignal<ErTable[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
@@ -100,7 +142,14 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
   const [zoom, setZoom] = createSignal(1);
   const zoomBy = (f: number) => setZoom((z) => Math.min(2, Math.max(0.4, Math.round(z * f * 20) / 20)));
 
-  const edges = createMemo(() => inferRelations(tables()));
+  // Edges are set once per (re)load alongside the tables; `realFks` records
+  // whether they came from real FK metadata (vs naming inference) for the label,
+  // `fkTruncated` whether the FK query hit the row cap (graph may be incomplete),
+  // and `fkReason` the engine's honest explanation when it exposes no FKs.
+  const [edges, setEdges] = createSignal<ErEdge[]>([]);
+  const [realFks, setRealFks] = createSignal(false);
+  const [fkTruncated, setFkTruncated] = createSignal(false);
+  const [fkReason, setFkReason] = createSignal<string | null>(null);
   const height = (t: ErTable) => tableHeight(t.columns.length, HEADER_H, ROW_H);
   const center = (name: string, t: ErTable) => {
     const p = pos[name] ?? { x: 0, y: 0 };
@@ -121,9 +170,10 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
     return { w, h };
   });
 
-  // (Re)load whenever the connection or the working database changes.
+  // (Re)load whenever the connection, engine or working database changes.
   createEffect(() => {
     const connId = props.connId;
+    const engine = props.engine;
     const db = props.db;
     setLoading(true);
     setError(null);
@@ -136,6 +186,34 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
         ts.forEach((t, i) => (p[t.name] = grid[i]));
         setPos(p);
         setTables(ts);
+
+        // Prefer the engine's real foreign keys; fall back to naming inference
+        // when the engine exposes none (with its honest reason) or if the FK
+        // query fails (permissions/odd catalog).
+        const names = ts.map((t) => t.name);
+        const plan = foreignKeysFor(engine, db);
+        let built: ErEdge[];
+        let real = false;
+        let truncated = false;
+        let reason: string | null = null;
+        if (plan.supported && (plan.perTable || plan.bulkSql)) {
+          try {
+            const res = await fetchForeignKeys(connId, engine, plan, ts);
+            if (props.connId !== connId || props.db !== db) return; // superseded
+            built = realEdges(res.fks, names);
+            real = true;
+            truncated = res.truncated;
+          } catch {
+            built = inferRelations(ts); // FK query failed → honest name inference
+          }
+        } else {
+          built = inferRelations(ts);
+          reason = plan.reason; // engine has no FKs (e.g. MongoDB)
+        }
+        setRealFks(real);
+        setFkTruncated(truncated);
+        setFkReason(reason);
+        setEdges(built);
       } catch (err) {
         setError(errorText(err));
       } finally {
@@ -185,7 +263,9 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
         <div class="sm-actions">
           <Show when={!loading() && tables().length > 0}>
             <span class="sm-count">
-              {tables().length} tabla(s) · {edges().length} relación(es) inferida(s)
+              {tables().length} tabla(s) · {edges().length} relación(es){" "}
+              {realFks() ? "(FK reales)" : "(inferidas)"}
+              {fkTruncated() ? " · lista incompleta" : ""}
             </span>
             <button class="edit-btn" title="Alejar" onClick={() => zoomBy(1 / 1.2)}>−</button>
             <span class="sm-count">{Math.round(zoom() * 100)}%</span>
@@ -210,8 +290,23 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
           fallback={<p class="grid-empty">No hay tablas para diagramar.</p>}
         >
           <p class="chart-hint">
-            Relaciones inferidas por convención de nombres (p. ej. <code>cliente_id</code> →{" "}
-            <code>clientes</code>). Arrastra las cajas para reorganizar; usa −/+ para el zoom.
+            <Show
+              when={realFks()}
+              fallback={
+                <>
+                  Relaciones <strong>inferidas</strong> por convención de nombres (p. ej.{" "}
+                  <code>cliente_id</code> → <code>clientes</code>):{" "}
+                  {fkReason() ?? "este motor no expone llaves foráneas."}{" "}
+                </>
+              }
+            >
+              Relaciones a partir de las <strong>llaves foráneas reales</strong> del motor.{" "}
+              <Show when={fkTruncated()}>
+                <strong>Lista incompleta</strong>: se alcanzó el límite de filas, pueden faltar
+                aristas.{" "}
+              </Show>
+            </Show>
+            Arrastra las cajas para reorganizar; usa −/+ para el zoom.
           </p>
           <div class="er-canvas">
             <svg
@@ -247,6 +342,7 @@ export function ErDiagram(props: { connId: string; db?: string; onClose: () => v
                           >
                             <title>
                               {edge.fromTable}.{edge.fromColumn} → {edge.toTable}
+                              {edge.toColumn ? `.${edge.toColumn}` : ""}
                             </title>
                           </line>
                         );

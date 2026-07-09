@@ -3,10 +3,12 @@ import {
   fkBase,
   matchTable,
   inferRelations,
+  realEdges,
   tableHeight,
   gridPositions,
   type ErTable,
 } from "../../src/utils/erDiagram";
+import type { ForeignKey } from "../../src/utils/foreignKeys";
 
 describe("fkBase", () => {
   it("recognizes snake and camel FK columns, ignores bare id", () => {
@@ -71,6 +73,37 @@ describe("inferRelations", () => {
       },
     ];
     expect(inferRelations(t)).toEqual([]);
+  });
+});
+
+describe("realEdges", () => {
+  const fk = (fromTable: string, fromColumn: string, toTable: string, toColumn: string): ForeignKey => ({
+    fromTable,
+    fromColumn,
+    toTable,
+    toColumn,
+  });
+
+  it("maps a FK onto an edge carrying the referenced column", () => {
+    expect(realEdges([fk("orders", "customer_id", "customers", "id")], ["orders", "customers"])).toEqual([
+      { fromTable: "orders", fromColumn: "customer_id", toTable: "customers", toColumn: "id" },
+    ]);
+  });
+
+  it("drops FKs whose endpoint is not in the diagram (e.g. truncated at MAX_TABLES)", () => {
+    expect(realEdges([fk("orders", "warehouse_id", "warehouses", "id")], ["orders", "customers"])).toEqual([]);
+  });
+
+  it("normalizes endpoint casing back to the diagram's table names", () => {
+    // catalog reports lower-case; diagram holds the real casing
+    expect(realEdges([fk("orders", "cust_id", "customers", "id")], ["Orders", "Customers"])).toEqual([
+      { fromTable: "Orders", fromColumn: "cust_id", toTable: "Customers", toColumn: "id" },
+    ]);
+  });
+
+  it("keeps both pairs of a composite FK as two edges", () => {
+    const fks = [fk("line", "order_id", "orders", "id"), fk("line", "order_seq", "orders", "seq")];
+    expect(realEdges(fks, ["line", "orders"])).toHaveLength(2);
   });
 });
 

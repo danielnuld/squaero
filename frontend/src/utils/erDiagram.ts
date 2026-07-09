@@ -1,10 +1,12 @@
-// Pure helpers for the entity-relationship diagram (issue #145). The core's
-// schema.describe exposes columns + primary keys but NOT foreign keys, so this
-// phase infers relationships by naming convention (a `customer_id` column points
-// at a `customer`/`customers` table). Real FK extraction needs driver support and
-// is a later phase — edges are labelled "inferidas" in the UI so this is honest.
-// Layout math (initial grid, box height) is pure here; dragging + SVG live in the
-// component.
+// Pure helpers for the entity-relationship diagram (issue #145). Relationships
+// are drawn from the engine's REAL foreign keys when it exposes them (see
+// utils/foreignKeys.ts + realEdges below, issue #260); the naming-convention
+// inference (a `customer_id` column points at `customer`/`customers`) is kept as
+// an honest fallback for engines without FK metadata (MongoDB) and is labelled
+// "inferidas" in the UI. Layout math (initial grid, box height) is pure here;
+// dragging + SVG live in the component.
+
+import type { ForeignKey } from "./foreignKeys";
 
 export interface ErColumn {
   name: string;
@@ -17,11 +19,13 @@ export interface ErTable {
   columns: ErColumn[];
 }
 
-/** An inferred foreign-key relationship: fromTable.fromColumn -> toTable. */
+/** A foreign-key relationship: fromTable.fromColumn -> toTable(.toColumn). The
+    referenced column is only known for real FKs (undefined for name inference). */
 export interface ErEdge {
   fromTable: string;
   fromColumn: string;
   toTable: string;
+  toColumn?: string;
 }
 
 /**
@@ -67,6 +71,23 @@ export function inferRelations(tables: ErTable[]): ErEdge[] {
         edges.push({ fromTable: t.name, fromColumn: col.name, toTable: target });
       }
     }
+  }
+  return edges;
+}
+
+/**
+ * Map real foreign keys onto ER edges, keeping only those whose BOTH endpoints
+ * are tables currently in the diagram. Table names are matched case-insensitively
+ * and normalized back to the diagram's actual casing so edge lookup by name works.
+ */
+export function realEdges(fks: ForeignKey[], tableNames: string[]): ErEdge[] {
+  const byLower = new Map(tableNames.map((n) => [n.toLowerCase(), n]));
+  const edges: ErEdge[] = [];
+  for (const fk of fks) {
+    const from = byLower.get(fk.fromTable.toLowerCase());
+    const to = byLower.get(fk.toTable.toLowerCase());
+    if (!from || !to) continue;
+    edges.push({ fromTable: from, fromColumn: fk.fromColumn, toTable: to, toColumn: fk.toColumn });
   }
   return edges;
 }
