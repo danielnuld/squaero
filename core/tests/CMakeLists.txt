@@ -4,6 +4,13 @@ target_link_libraries(version_test PRIVATE dbcore)
 quaero_set_warnings(version_test)
 add_test(NAME version_test COMMAND version_test)
 
+# dbc_status self-containment: compiles against dbcore/status.h alone (issue #77)
+# and locks the ABI-visible code values.
+add_executable(status_test driver/status_test.c)
+target_link_libraries(status_test PRIVATE dbcore)
+quaero_set_warnings(status_test)
+add_test(NAME status_test COMMAND status_test)
+
 # Driver vtable validation tests (load-time ABI/required-member gate).
 add_executable(driver_validate_test driver/validate_test.c)
 target_link_libraries(driver_validate_test PRIVATE dbcore)

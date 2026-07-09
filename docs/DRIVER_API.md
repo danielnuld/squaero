@@ -57,6 +57,10 @@ ABI 2).
 
 ## Tipos de estado y de dato
 
+`dbc_status` y los códigos `DBC_ERR_*` viven en el header mínimo
+`dbcore/status.h`, que `dbcore/driver.h` re-exporta; un driver solo necesita
+incluir `driver.h`. Los valores no cambian.
+
 ```c
 typedef enum {
     DBC_OK = 0,

@@ -23,6 +23,14 @@
  * driver advertises it.
  */
 
+/*
+ * Result status (dbc_status + the DBC_ERR_* codes) lives in its own minimal
+ * header so modules that only report success/failure need not depend on the
+ * whole driver ABI. It is re-exported here so this header remains the single
+ * include a driver needs.
+ */
+#include "dbcore/status.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -50,20 +58,10 @@ extern "C" {
 #  define DBC_DRIVER_EXPORT
 #endif
 
-/* Opaque handles owned by the driver; the core only ever holds pointers. */
+/* Opaque handles owned by the driver; the core only ever holds pointers.
+   (dbc_status and the DBC_ERR_* codes come from dbcore/status.h, included above.) */
 typedef struct dbc_conn   dbc_conn;
 typedef struct dbc_result dbc_result;
-
-/* Result status of any vtable operation. DBC_OK is always 0. */
-typedef enum {
-    DBC_OK = 0,
-    DBC_ERR_CONN,         /* connection failed or is invalid */
-    DBC_ERR_QUERY,        /* query execution / result error */
-    DBC_ERR_PARAM,        /* invalid argument from the core (e.g. NULL) */
-    DBC_ERR_UNSUPPORTED,  /* operation not supported by this engine */
-    DBC_ERR_ABI,          /* driver ABI is incompatible with the core */
-    DBC_ERR_NOMEM         /* memory allocation failed */
-} dbc_status;
 
 /*
  * Neutral column type. The driver maps engine-specific types onto these; the

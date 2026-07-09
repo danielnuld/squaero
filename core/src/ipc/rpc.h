@@ -3,7 +3,7 @@
 
 #include "cJSON.h"
 
-#include "dbcore/driver.h"
+#include "dbcore/status.h"  /* dbc_status only */
 
 /* JSON-RPC 2.0 standard error codes. */
 #define IPC_ERR_PARSE        (-32700)

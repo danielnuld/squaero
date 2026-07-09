@@ -31,7 +31,7 @@
  *   ssh_known_hosts     path to the known_hosts store (default ~/.ssh/known_hosts).
  */
 
-#include "dbcore/driver.h"
+#include "dbcore/status.h"  /* dbc_status only — no need for the full driver ABI */
 
 #include <stddef.h>
 

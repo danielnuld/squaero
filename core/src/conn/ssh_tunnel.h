@@ -18,7 +18,7 @@
  * the connection manager and its tests link against it regardless of QUAERO_SSH.
  */
 
-#include "ssh_config.h"  /* ssh_config + dbc_status (via dbcore/driver.h) */
+#include "ssh_config.h"  /* ssh_config + dbc_status (via dbcore/status.h) */
 
 #include <stddef.h>
 
