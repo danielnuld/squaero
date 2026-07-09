@@ -26,7 +26,8 @@ difusión.
 | `social-preview.html` | Fuente editable del banner (self-contained; ver cómo regenerar abajo). | ✅ Fuente |
 | `screenshot-initial-dark.png` (1280×800) | Captura oficial de la pantalla inicial (tema oscuro). | ✅ |
 | `screenshot-app-dark.png` / `screenshot-app-light.png` (1360×860) | App real: explorador por tipo + editor SQL + rejilla con datos. Ambos temas. Showcase de la landing (#202). Datos de demostración (ficticios). | ✅ |
-| Set curado por módulo (ER, constructor, monitor, gráficos, usuarios…) | README/landing. | ⏳ Pendiente |
+| `screenshot-{er,builder,monitor,charts,users}.png` (1360×860) | Capturas por módulo (Diagrama ER, constructor visual, monitor, gráficos, usuarios). Galería de la landing (#202). Datos de demostración. | ✅ |
+| Módulos restantes (triggers, rutinas, import/export, detalle de fila…) | README/landing. | ⏳ Pendiente |
 
 ## Configurar el social preview en GitHub
 
