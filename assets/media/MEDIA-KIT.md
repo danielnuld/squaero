@@ -25,7 +25,8 @@ difusión.
 | `social-preview.png` (1280×640) | Social preview de GitHub + hero del README/landing. | ✅ Final |
 | `social-preview.html` | Fuente editable del banner (self-contained; ver cómo regenerar abajo). | ✅ Fuente |
 | `screenshot-initial-dark.png` (1280×800) | Captura oficial de la pantalla inicial (tema oscuro). | ✅ |
-| Set curado de capturas con datos (ver checklist) | README/landing. | ⏳ Capturar con datos reales |
+| `screenshot-app-dark.png` / `screenshot-app-light.png` (1360×860) | App real: explorador por tipo + editor SQL + rejilla con datos. Ambos temas. Showcase de la landing (#202). Datos de demostración (ficticios). | ✅ |
+| Set curado por módulo (ER, constructor, monitor, gráficos, usuarios…) | README/landing. | ⏳ Pendiente |
 
 ## Configurar el social preview en GitHub
 

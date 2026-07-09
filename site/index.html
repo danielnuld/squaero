@@ -139,6 +139,10 @@
   .feature h3 { margin: 0 0 6px; font-size: 17px; }
   .feature p { margin: 0; color: var(--muted); font-size: 14.5px; }
 
+  .showcase { margin: 0 0 30px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 16px 44px color-mix(in srgb, var(--ink) 12%, transparent); }
+  .showcase img { display: block; width: 100%; height: auto; }
+  .showcase figcaption { font-size: 12.5px; color: var(--faint); padding: 8px 14px; background: var(--panel); border-top: 1px solid var(--line); }
+
   /* Comparison */
   .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
   table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 1040px; background: var(--panel); }
@@ -215,8 +219,19 @@
   <!-- FEATURES -->
   <section id="features">
     <h2>Todo lo que esperas de un gestor de bases</h2>
-    <p class="intro">Cada característica descrita aquí es algo que Quaero hace hoy. Las capturas
-      de cada módulo se irán añadiendo desde el kit de medios.</p>
+    <p class="intro">Cada característica descrita aquí es algo que Quaero hace hoy —
+      explorador de objetos, editor SQL y rejilla de resultados, en un solo lugar.</p>
+
+    <figure class="showcase">
+      <picture>
+        <source srcset="img/screenshot-app-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="img/screenshot-app-light.png"
+             alt="Quaero: explorador de objetos por tipo, editor SQL con resaltado y rejilla de resultados con datos tipados"
+             width="1360" height="860" loading="lazy">
+      </picture>
+      <figcaption>Explorador por tipo, editor SQL y rejilla de resultados. Datos de demostración.</figcaption>
+    </figure>
+
     <div class="features">
       <div class="feature"><div class="ic" style="background:var(--accent)">›_</div><h3>Editor SQL</h3><p>Autocompletado por esquema, formateo, historial de consultas y snippets reutilizables.</p></div>
       <div class="feature"><div class="ic" style="background:var(--obj-table)">▦</div><h3>Rejilla editable</h3><p>Edita, inserta y borra filas en una transacción con vista previa; detalle de fila para registros anchos.</p></div>
