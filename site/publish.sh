@@ -1,26 +1,31 @@
 #!/usr/bin/env bash
 # Publish site/ to the gh-pages branch root (GitHub Pages, no Actions needed).
-# Run from anywhere in the repo. Requires a clean-ish working tree (only touches
-# a temporary worktree). See docs/SITE.md.
+# Run from anywhere in the repo. Uses a detached worktree so it never disturbs
+# your current checkout. See docs/SITE.md.
 set -eu
 cd "$(dirname "$0")/.."
-SRC="site"
+SRC="$(pwd)/site"
 BRANCH="gh-pages"
-TMP="$(mktemp -d)"
+WT="$(mktemp -d)"
 
-# Copy the site payload into a scratch dir (excluding this script).
-cp -r "$SRC"/. "$TMP"/
-rm -f "$TMP/publish.sh"
+# A worktree on the (possibly new) gh-pages branch, based on the current commit.
+git worktree add -B "$BRANCH" "$WT" HEAD >/dev/null 2>&1 || git worktree add "$WT" "$BRANCH"
 
-# Materialize (or reset) the gh-pages branch from the payload and push it.
-git worktree add --force -B "$BRANCH" "$TMP/.wt" >/dev/null 2>&1 || git worktree add "$TMP/.wt" "$BRANCH"
-find "$TMP/.wt" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-cp -r "$TMP"/. "$TMP/.wt"/
-rm -rf "$TMP/.wt/.wt"
-( cd "$TMP/.wt"
+# Replace its contents with the site payload (keep .git), excluding this script.
+find "$WT" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+cp -r "$SRC"/. "$WT"/
+rm -f "$WT/publish.sh"
+touch "$WT/.nojekyll"
+
+( cd "$WT"
   git add -A
-  git commit -m "site: publish $(date -u +%Y-%m-%dT%H:%MZ)" >/dev/null 2>&1 || { echo "nothing to publish"; exit 0; }
-  git push -u origin "$BRANCH" --force-with-lease )
-git worktree remove --force "$TMP/.wt" >/dev/null 2>&1 || true
-rm -rf "$TMP"
-echo "Published site/ to origin/$BRANCH. Set Pages source to gh-pages / root (one-time)."
+  if git diff --cached --quiet; then
+    echo "nothing to publish (site unchanged)"
+  else
+    git commit -q -m "site: publish $(date -u +%Y-%m-%dT%H:%MZ)"
+    git push -u origin "$BRANCH" --force-with-lease
+    echo "Published site/ to origin/$BRANCH."
+  fi )
+
+git worktree remove --force "$WT" >/dev/null 2>&1 || true
+rm -rf "$WT"
