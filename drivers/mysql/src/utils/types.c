@@ -106,3 +106,33 @@ dbc_type mysql_type_to_neutral(int mysql_type)
         return DBC_TYPE_TEXT;
     }
 }
+
+int mysql_type_is_bit(int mysql_type)
+{
+    return mysql_type == MYSQL_TYPE_BIT;
+}
+
+void mysql_bit_to_decimal(const unsigned char *bytes, size_t len, char *out, size_t outcap)
+{
+    if (out == NULL || outcap == 0) {
+        return;
+    }
+    unsigned long long v = 0;
+    /* MySQL BIT is at most 64 bits (8 bytes); if more arrive, keep the low 8. */
+    size_t start = len > 8 ? len - 8 : 0;
+    for (size_t i = start; i < len; i++) {
+        v = (v << 8) | (unsigned long long)(bytes != NULL ? bytes[i] : 0u);
+    }
+    /* Base-10 by hand — MinGW's msvcrt printf does not reliably support %llu. */
+    char tmp[24];
+    int ti = 0;
+    do {
+        tmp[ti++] = (char)('0' + (int)(v % 10ULL));
+        v /= 10ULL;
+    } while (v != 0ULL && ti < (int)sizeof tmp);
+    size_t oi = 0;
+    while (ti > 0 && oi + 1 < outcap) {
+        out[oi++] = tmp[--ti];
+    }
+    out[oi] = '\0';
+}

@@ -34,7 +34,15 @@ struct dbc_result {
     int   synthetic;           /* 1 => single "sql" column from synth_sql */
     char *synth_sql;           /* owned DDL string, or NULL (=> zero rows) */
     int   synth_done;          /* cursor state for the synthetic row */
+
+    /* Per-column scratch for BIT cells rendered as decimal (query.c); one slot
+       per column so every pointer in a row stays valid until the row is copied.
+       Owned; allocated lazily on the first BIT cell, freed in free_result. */
+    char *bitbuf;
 };
+
+/* Bytes per BIT scratch slot: enough for a 64-bit decimal (20 digits) + NUL. */
+#define MYSQL_BIT_CELL_CAP 24
 
 /* --- connection.c --- */
 dbc_status   mysql_drv_connect(const char *dsn_json, dbc_conn **out);

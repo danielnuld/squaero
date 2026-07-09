@@ -63,6 +63,7 @@ void mysql_drv_free_result(dbc_result *r)
         mysql_free_result(r->res);
     }
     free(r->synth_sql);
+    free(r->bitbuf);
     free(r);
 }
 
@@ -135,7 +136,27 @@ const char *mysql_drv_cell_text(dbc_result *r, int col)
     if (r->row == NULL || col < 0 || (unsigned int)col >= r->field_count) {
         return NULL;
     }
-    return r->row[col];  /* NULL for a SQL NULL (text protocol) */
+    const char *raw = r->row[col];  /* NULL for a SQL NULL (text protocol) */
+
+    /* BIT columns arrive as raw big-endian bytes (bit(1)=0 is a NUL byte, =1 is
+       0x01) which render blank in the grid; convert to their decimal value. One
+       scratch slot per column keeps every pointer in the row valid until the
+       core copies it (materialize reads all columns of a row before adding it). */
+    if (raw != NULL && r->fields != NULL && mysql_type_is_bit((int)r->fields[col].type)) {
+        if (r->bitbuf == NULL) {
+            r->bitbuf = calloc((size_t)r->field_count, MYSQL_BIT_CELL_CAP);
+            if (r->bitbuf == NULL) {
+                return raw;  /* degraded (raw bytes) rather than crash */
+            }
+        }
+        unsigned long *lengths = mysql_fetch_lengths(r->res);
+        char *slot = r->bitbuf + (size_t)col * MYSQL_BIT_CELL_CAP;
+        mysql_bit_to_decimal((const unsigned char *)raw,
+                             lengths != NULL ? (size_t)lengths[col] : 0,
+                             slot, MYSQL_BIT_CELL_CAP);
+        return slot;
+    }
+    return raw;
 }
 
 long long mysql_drv_rows_affected(dbc_result *r)

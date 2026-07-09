@@ -1,6 +1,7 @@
 #include "types.h"
 
 #include <stdio.h>
+#include <string.h>
 
 /* Unit tests for the MySQL/MariaDB field-type -> neutral type mapping. The
    numeric literals are the stable enum_field_types codes (see types.c). */
@@ -58,6 +59,26 @@ int main(void)
 
     /* Unknown / future codes fall back to text. */
     EXPECT(mysql_type_to_neutral(9999) == DBC_TYPE_TEXT, "unknown -> text");
+
+    /* BIT rendering: raw big-endian bytes -> unsigned decimal (bit shown blank). */
+    EXPECT(mysql_type_is_bit(16), "type 16 is BIT");
+    EXPECT(!mysql_type_is_bit(1), "TINY is not BIT");
+    {
+        char b[24];
+        unsigned char one = 0x01, zero = 0x00;
+        mysql_bit_to_decimal(&one, 1, b, sizeof b);
+        EXPECT(strcmp(b, "1") == 0, "bit(1)=1 -> \"1\"");
+        mysql_bit_to_decimal(&zero, 1, b, sizeof b);
+        EXPECT(strcmp(b, "0") == 0, "bit(1)=0 -> \"0\"");
+        unsigned char be[2] = { 0x01, 0x2C };  /* 300, big-endian */
+        mysql_bit_to_decimal(be, 2, b, sizeof b);
+        EXPECT(strcmp(b, "300") == 0, "bit(16)=300 -> \"300\"");
+        unsigned char full[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+        mysql_bit_to_decimal(full, 8, b, sizeof b);
+        EXPECT(strcmp(b, "18446744073709551615") == 0, "bit(64) all-ones -> u64 max");
+        mysql_bit_to_decimal(NULL, 0, b, sizeof b);
+        EXPECT(strcmp(b, "0") == 0, "empty -> \"0\"");
+    }
 
     if (failures == 0) {
         printf("OK: mysql type mapping (all cases)\n");
