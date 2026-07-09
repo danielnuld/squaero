@@ -1582,6 +1582,9 @@ export function App() {
                           />
                         }
                         onCellContext={onCellContext}
+                        onRequestEdit={
+                          currentEditable() && !currentEdit().editing ? beginEdit : undefined
+                        }
                         edit={
                           currentEditable()
                             ? {

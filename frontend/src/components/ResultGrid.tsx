@@ -1,6 +1,7 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
-import { formatCell, cellAlign } from "../utils/format";
+import { formatCell, cellAlign, boolTo01, classifyType } from "../utils/format";
+import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../utils/gridNav";
 import {
   buildViewIndices,
   cycleSort,
@@ -52,10 +53,21 @@ export function ResultGrid(props: {
   /** Rich content for the no-result state (issue #178). When absent a plain
       "run a query" message is shown. Only rendered before the tab has a result. */
   emptyState?: JSX.Element;
+  /** Ask the workspace to enter edit mode (double-click / Enter on a cell in a
+      read-only but editable table). No-op when absent → the grid stays read-only. */
+  onRequestEdit?: () => void;
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
+  let scrollerEl: HTMLDivElement | undefined;
+
+  // Keyboard selection (spreadsheet-style): a selected cell keyed by its VIEW
+  // position (r) and column (c). Click selects; arrow keys move; double-click or
+  // Enter on a selected cell requests edit mode. `pendingEditFocus` remembers the
+  // cell to focus once the (async) edit session turns on.
+  const [sel, setSel] = createSignal<CellPos | null>(null);
+  const [pendingEditFocus, setPendingEditFocus] = createSignal<CellPos | null>(null);
 
   // The scroller is rendered only once a result with columns exists, and it can
   // come and go across queries, so we measure it from a callback ref rather than
@@ -63,6 +75,7 @@ export function ResultGrid(props: {
   // re-attaches — a ResizeObserver whenever the scroller element appears.
   let ro: ResizeObserver | undefined;
   const attachScroller = (el: HTMLDivElement) => {
+    scrollerEl = el;
     setViewportH(el.clientHeight);
     ro?.disconnect();
     ro = new ResizeObserver(() => setViewportH(el.clientHeight));
@@ -86,12 +99,21 @@ export function ResultGrid(props: {
     props.result; // reset on identity change
     setSort(null);
     setFilters({});
+    setSel(null);
     setWidths(computeColumnWidths(cols(), rows()));
   });
   const view = createMemo(() => buildViewIndices(rows(), cols(), sort(), filters()));
   const filtersActive = () => Object.values(filters()).some((q) => q.trim() !== "");
-  const toggleSort = (col: number) => setSort((s) => cycleSort(s, col));
-  const setFilter = (col: number, q: string) => setFilters((f) => ({ ...f, [col]: q }));
+  // Sort/filter reorder or shrink the view, so a view-position selection would
+  // point at a different row — clear it (matches the reset on a new result).
+  const toggleSort = (col: number) => {
+    setSort((s) => cycleSort(s, col));
+    setSel(null);
+  };
+  const setFilter = (col: number, q: string) => {
+    setFilters((f) => ({ ...f, [col]: q }));
+    setSel(null);
+  };
   const colWidth = (ci: number) => widths()[ci] ?? 180;
   const gridCols = () => {
     const body = cols()
@@ -149,6 +171,85 @@ export function ResultGrid(props: {
     }
   });
 
+  // Height taken by the sticky header + filter rows (so scroll-into-view leaves
+  // the selected row below them, not hidden underneath).
+  const chromeHeight = () => {
+    if (!scrollerEl) return 0;
+    const h = scrollerEl.querySelector(".grid-header") as HTMLElement | null;
+    const f = scrollerEl.querySelector(".grid-filter") as HTMLElement | null;
+    return (h?.clientHeight ?? 0) + (f?.clientHeight ?? 0);
+  };
+
+  // Keep the selected row visible when the SELECTION changes (keyboard nav).
+  // Keyed on `sel` only (via `on`, so the body is untracked): reading scrollTop()
+  // as a live dependency would re-fire on every manual scroll and snap the view
+  // back, trapping the user on the selected row.
+  createEffect(
+    on(sel, (s) => {
+      if (!s || !scrollerEl) return;
+      const target = scrollRowIntoView(s.r, rowHeight(), scrollTop(), viewportH() - chromeHeight());
+      if (target !== null) {
+        scrollerEl.scrollTop = target;
+        setScrollTop(target);
+      }
+    }),
+  );
+
+  // Once the (async) edit session turns on, focus the cell that requested it.
+  createEffect(() => {
+    if (!editing()) return;
+    const f = pendingEditFocus();
+    if (!f || !scrollerEl) return;
+    setPendingEditFocus(null);
+    queueMicrotask(() => {
+      // In edit mode the cell IS the <input> (data-cell is on it); in read mode
+      // it's a <div>. Focus the input either way.
+      const el = scrollerEl?.querySelector(`[data-cell="${f.r}-${f.c}"]`);
+      const input = (el?.tagName === "INPUT" ? el : el?.querySelector("input")) as
+        | HTMLInputElement
+        | null
+        | undefined;
+      input?.focus();
+      input?.select();
+    });
+  });
+
+  const selectCell = (viewPos: number, c: number) => {
+    setSel({ r: viewPos, c });
+    scrollerEl?.focus({ preventScroll: true });
+  };
+
+  // Enter edit mode targeting a cell (double-click / Enter). No-op if already
+  // editing or the table isn't editable (onRequestEdit absent).
+  const requestEditAt = (pos: CellPos) => {
+    if (editing() || !props.onRequestEdit) return;
+    setPendingEditFocus(pos);
+    props.onRequestEdit();
+  };
+
+  const onGridKeyDown = (e: KeyboardEvent) => {
+    // Only act when focus is on the grid surface itself: inputs (edit cells,
+    // filter boxes) and the focusable sort-header cells own their own keys.
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === "INPUT" || t.closest(".grid-head-sort"))) return;
+    if (e.key === "Enter") {
+      const s = sel();
+      if (s) {
+        e.preventDefault();
+        requestEditAt(s);
+      }
+      return;
+    }
+    if (!isNavKey(e.key)) return;
+    e.preventDefault();
+    setSel((s) => moveSelection(s, e.key, view().length, cols().length));
+  };
+
+  const isSelected = (viewPos: number, c: number) => {
+    const s = sel();
+    return !!s && s.r === viewPos && s.c === c;
+  };
+
   return (
     <div class="grid">
       <Show when={props.error}>
@@ -170,8 +271,10 @@ export function ResultGrid(props: {
             <div
               class="grid-scroll"
               ref={attachScroller}
+              tabindex={0}
               style={{ "--grid-row-h": `${rowHeight()}px` }}
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+              onKeyDown={onGridKeyDown}
             >
               <div class="grid-inner">
                 <div
@@ -248,6 +351,9 @@ export function ResultGrid(props: {
                     <For each={view().slice(range().start, range().end)}>
                       {(origIndex, i) => {
                         const rowIndex = () => origIndex;
+                        // Position of this row within the current view (for keyboard
+                        // selection + scroll-into-view, stable under sort/filter).
+                        const viewPos = () => range().start + i();
                         // Reactive lookup: the <For> keys by index value, so this
                         // callback is reused across queries — read the live rows()
                         // each render, never a stale snapshot.
@@ -280,9 +386,15 @@ export function ResultGrid(props: {
                                       const cell = formatCell(original(), col.type);
                                       return (
                                         <div
-                                          class={`grid-cell cell-${cell.kind}`}
+                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""}`}
                                           style={{ "text-align": cellAlign(cell.kind) }}
                                           title={cell.text}
+                                          data-cell={`${viewPos()}-${ci()}`}
+                                          onClick={() => selectCell(viewPos(), ci())}
+                                          onDblClick={() => {
+                                            selectCell(viewPos(), ci());
+                                            requestEditAt({ r: viewPos(), c: ci() });
+                                          }}
                                           onContextMenu={(e) =>
                                             props.onCellContext?.(e, rowIndex(), ci())
                                           }
@@ -295,7 +407,14 @@ export function ResultGrid(props: {
                                     <input
                                       class="grid-cell cell-input"
                                       disabled={isDeleted(rowIndex())}
-                                      value={cellValue(rowIndex(), col.name, original()) ?? ""}
+                                      data-cell={`${viewPos()}-${ci()}`}
+                                      value={(() => {
+                                        const v = cellValue(rowIndex(), col.name, original());
+                                        // A SQL NULL edits as empty, never "0" (a bool
+                                        // NULL must stay distinct from a stored false).
+                                        if (v === null || v === undefined) return "";
+                                        return classifyType(col.type) === "bool" ? boolTo01(v) : v;
+                                      })()}
                                       onInput={(e) =>
                                         props.edit?.onEditCell(
                                           rowIndex(),

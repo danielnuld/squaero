@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   classifyType,
   formatCell,
+  boolTo01,
   cellAlign,
   NULL_LABEL,
 } from "../../src/utils/format";
@@ -46,6 +47,34 @@ describe("formatCell", () => {
 
   it("preserves empty strings (distinct from NULL)", () => {
     expect(formatCell("", "text")).toEqual({ text: "", kind: "text" });
+  });
+
+  it("normalizes boolean/bit values to 0/1", () => {
+    expect(formatCell("true", "bool")).toEqual({ text: "1", kind: "bool" });
+    expect(formatCell("f", "bool")).toEqual({ text: "0", kind: "bool" });
+    expect(formatCell("\x01", "bool")).toEqual({ text: "1", kind: "bool" });
+    // a NULL boolean is still NULL, not 0
+    expect(formatCell(null, "bool")).toEqual({ text: NULL_LABEL, kind: "null" });
+  });
+});
+
+describe("boolTo01", () => {
+  it("maps the many truthy forms to 1", () => {
+    for (const v of ["1", "true", "TRUE", "t", "yes", "Y", "2", "-3"]) {
+      expect(boolTo01(v)).toBe("1");
+    }
+  });
+  it("maps the many falsy forms to 0", () => {
+    for (const v of ["0", "false", "F", "no", "n", ""]) {
+      expect(boolTo01(v)).toBe("0");
+    }
+  });
+  it("reads a raw single bit byte (0x01 -> 1, 0x00 -> 0)", () => {
+    expect(boolTo01("\x01")).toBe("1");
+    expect(boolTo01("\x00")).toBe("0");
+  });
+  it("returns an unrecognized value verbatim", () => {
+    expect(boolTo01("maybe")).toBe("maybe");
   });
 });
 

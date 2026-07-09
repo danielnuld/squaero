@@ -165,6 +165,48 @@ describe("ResultGrid edit mode", () => {
     expect(pending().edits).toEqual({ 1: { name: "B!" } });
   });
 
+  it("shows a bool input as 0/1 but keeps a NULL bool empty (not 0)", () => {
+    const boolRes: ResultSet = {
+      columns: [
+        { name: "id", type: "int" },
+        { name: "activo", type: "bool" },
+      ],
+      rows: [
+        ["1", "true"],
+        ["2", null],
+      ],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [pending] = createSignal(emptyPending());
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={boolRes}
+            loading={false}
+            error={null}
+            edit={{
+              active: true,
+              pending: pending(),
+              onEditCell: () => {},
+              onToggleDelete: () => {},
+              onInsertCell: () => {},
+              onRemoveInsert: () => {},
+            }}
+          />
+        ),
+        host!,
+      );
+    });
+    const inputs = host!.querySelectorAll<HTMLInputElement>(".grid-rows .cell-input");
+    expect(inputs[1].value).toBe("1"); // row 0 activo=true -> 1
+    expect(inputs[3].value).toBe(""); // row 1 activo=NULL -> empty, not "0"
+  });
+
   it("is read-only (no inputs) when edit is inactive", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -366,5 +408,100 @@ describe("ResultGrid column sizing", () => {
       10,
     );
     expect(after).toBe(before + 60);
+  });
+});
+
+// Keyboard navigation, selection, double-click-to-edit and bit display.
+describe("ResultGrid selection + keyboard + bit display", () => {
+  const grid: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "activo", type: "bool" },
+    ],
+    rows: [
+      ["1", "true"],
+      ["2", "\x00"],
+      ["3", "1"],
+    ],
+    truncated: false,
+    rowsAffected: 0,
+  };
+
+  function mountRO(opts: { onRequestEdit?: () => void } = {}) {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={grid}
+            loading={false}
+            error={null}
+            onRequestEdit={opts.onRequestEdit}
+          />
+        ),
+        host!,
+      );
+    });
+  }
+
+  const cells = () => host!.querySelectorAll<HTMLElement>(".grid-rows .grid-cell");
+
+  it("renders boolean/bit values as 0/1", () => {
+    mountRO();
+    const boolCol = [...cells()].filter((c) => c.classList.contains("cell-bool"));
+    expect(boolCol.map((c) => c.textContent)).toEqual(["1", "0", "1"]);
+  });
+
+  it("selects a cell on click", () => {
+    mountRO();
+    const cell = host!.querySelector<HTMLElement>('[data-cell="1-1"]')!; // row 1, col 1
+    cell.click();
+    expect(cell.classList.contains("cell-selected")).toBe(true);
+  });
+
+  it("moves the selection with the arrow keys", () => {
+    mountRO();
+    host!.querySelector<HTMLElement>('[data-cell="0-0"]')!.click();
+    const scroll = host!.querySelector<HTMLElement>(".grid-scroll")!;
+    scroll.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    scroll.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(host!.querySelector('[data-cell="1-1"]')!.classList.contains("cell-selected")).toBe(true);
+    // the origin cell is no longer selected
+    expect(host!.querySelector('[data-cell="0-0"]')!.classList.contains("cell-selected")).toBe(false);
+  });
+
+  it("requests edit mode on double-click of a cell", () => {
+    let asked = 0;
+    mountRO({ onRequestEdit: () => (asked += 1) });
+    const cell = host!.querySelector<HTMLElement>('[data-cell="0-1"]')!;
+    cell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(asked).toBe(1);
+  });
+
+  it("requests edit mode on Enter over the selected cell", () => {
+    let asked = 0;
+    mountRO({ onRequestEdit: () => (asked += 1) });
+    host!.querySelector<HTMLElement>('[data-cell="2-0"]')!.click();
+    const scroll = host!.querySelector<HTMLElement>(".grid-scroll")!;
+    scroll.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(asked).toBe(1);
+  });
+
+  it("does not request edit when the table is not editable (no handler)", () => {
+    mountRO(); // no onRequestEdit
+    const cell = host!.querySelector<HTMLElement>('[data-cell="0-0"]')!;
+    // Should not throw and should still select.
+    cell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(cell.classList.contains("cell-selected")).toBe(true);
+  });
+
+  it("clears the selection when the sort changes (view-position would drift)", () => {
+    mountRO();
+    host!.querySelector<HTMLElement>('[data-cell="0-0"]')!.click();
+    expect(host!.querySelector(".cell-selected")).not.toBeNull();
+    host!.querySelectorAll<HTMLDivElement>(".grid-head-sort")[0].click(); // sort by id
+    expect(host!.querySelector(".cell-selected")).toBeNull();
   });
 });
