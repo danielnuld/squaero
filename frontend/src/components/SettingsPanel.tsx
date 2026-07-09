@@ -179,7 +179,7 @@ export function SettingsPanel(props: {
           <h3>Acerca de</h3>
           <div class="settings-brand">
             <BrandWordmark height={44} />
-            <p class="settings-tagline">Consulta cualquier base de datos.</p>
+            <p class="settings-tagline">Ligero, local y libre.</p>
           </div>
           <dl class="settings-about">
             <dt>Versión de la app</dt>

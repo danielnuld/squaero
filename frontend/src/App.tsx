@@ -1897,7 +1897,7 @@ export function App() {
           <Show when={!current()}>
             <div class="workspace-welcome">
               <BrandWordmark height={56} />
-              <p class="welcome-tagline">Consulta cualquier base de datos.</p>
+              <p class="welcome-tagline">Ligero, local y libre.</p>
               <p class="welcome-hint">
                 Abre una conexión desde la barra lateral o crea una pestaña de consulta para empezar.
               </p>

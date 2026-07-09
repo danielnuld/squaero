@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quaero — Consulta cualquier base de datos</title>
-<meta name="description" content="Quaero es un gestor de bases de datos ligero, nativo y de código abierto. Multi-motor (SQLite, MySQL/MariaDB, Informix, MongoDB), todo local, sin telemetría.">
+<title>Quaero — Gestor de bases de datos ligero, local y libre</title>
+<meta name="description" content="Quaero es un gestor de bases de datos ligero y nativo, local y de código abierto. Sin nube, sin cuentas, sin telemetría — con edición transaccional segura para SQLite, MySQL/MariaDB, Informix y MongoDB.">
 
 <!-- Open Graph / Twitter -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Quaero">
-<meta property="og:title" content="Quaero — Consulta cualquier base de datos">
-<meta property="og:description" content="Gestor de bases de datos ligero, nativo y de código abierto. Multi-motor, local y sin telemetría.">
+<meta property="og:title" content="Quaero — Gestor de bases de datos ligero, local y libre">
+<meta property="og:description" content="Ligero y nativo, local y de código abierto. Sin nube ni telemetría, con edición transaccional segura.">
 <meta property="og:url" content="https://danielnuld.github.io/quaero/">
 <meta property="og:image" content="https://danielnuld.github.io/quaero/img/social-preview.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Quaero — Consulta cualquier base de datos">
+<meta name="twitter:title" content="Quaero — Gestor de bases de datos ligero, local y libre">
 <meta name="twitter:description" content="Gestor de bases de datos ligero, nativo y de código abierto. Multi-motor, local y sin telemetría.">
 <meta name="twitter:image" content="https://danielnuld.github.io/quaero/img/social-preview.png">
 
@@ -141,7 +141,7 @@
 
   /* Comparison */
   .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-  table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 780px; background: var(--panel); }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 1040px; background: var(--panel); }
   table.cmp th, table.cmp td { padding: 11px 12px; text-align: center; border-bottom: 1px solid var(--line); }
   table.cmp thead th { background: var(--panel-2); font-size: 12.5px; position: sticky; top: 0; }
   table.cmp tbody th { text-align: left; font-weight: 600; color: var(--ink); background: var(--panel); white-space: nowrap; }
@@ -189,10 +189,10 @@
   <!-- HERO -->
   <section class="hero" style="border-top:none">
     <p class="eyebrow">Gestor de bases de datos</p>
-    <h1>Consulta <span class="accent">cualquier base de datos</span>.</h1>
-    <p class="lede">Quaero es un gestor de bases de datos ligero y nativo, de código abierto.
-      Un solo programa para SQLite, MySQL/MariaDB, Informix y MongoDB — todo local,
-      sin telemetría, con edición transaccional segura.</p>
+    <h1>Tu gestor de bases de datos: <span class="accent">ligero, local y libre</span>.</h1>
+    <p class="lede">Nativo y sin rodeos, sin el peso de Electron ni una JVM. Todo se queda
+      en tu equipo —sin nube, sin cuentas, sin telemetría— con edición transaccional
+      segura para SQLite, MySQL/MariaDB, Informix y MongoDB.</p>
     <div class="cta">
       <a class="btn" href="#download">Descargar para Windows</a>
       <a class="btn ghost" href="https://github.com/danielnuld/quaero" rel="noopener">Ver en GitHub</a>
@@ -200,7 +200,7 @@
     <p class="sub">Gratis y de código abierto · Windows (macOS y Linux próximamente)</p>
 
     <figure class="shot">
-      <img src="img/social-preview.png" alt="Quaero — Consulta cualquier base de datos" width="1280" height="640">
+      <img src="img/social-preview.png" alt="Quaero — gestor de bases de datos ligero, local y libre" width="1280" height="640">
     </figure>
 
     <ul class="values" style="margin-top:40px">
@@ -246,29 +246,36 @@
             <th>HeidiSQL</th>
             <th>TablePlus</th>
             <th>phpMyAdmin</th>
+            <th>Server Studio*</th>
           </tr>
         </thead>
         <tbody>
-          <tr><th>Precio</th><td class="q">Gratis</td><td>De pago</td><td>Gratis</td><td>Gratis</td><td>Freemium</td><td>Gratis</td></tr>
-          <tr><th>Código abierto</th><td class="q"><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td></tr>
-          <tr><th>Plataforma</th><td class="q">Windows*</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Windows</td><td>Win/mac/Linux</td><td>Web</td></tr>
-          <tr><th>Sin Electron / JVM</th><td class="q"><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td><span class="no">No (JVM)</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td>Web</td></tr>
-          <tr><th>Soporta Informix</th><td class="q"><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
-          <tr><th>Local, sin telemetría</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td></tr>
-          <tr><th>Diagrama ER</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td></tr>
-          <tr><th>Constructor visual</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="no">No</td><td class="partial">~</td><td class="no">No</td></tr>
-          <tr><th>Import/Export amplio</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td></tr>
-          <tr><th>Monitor de servidor</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="partial">~</td></tr>
+          <tr><th>Precio</th><td class="q">Gratis</td><td>De pago</td><td>Gratis</td><td>Gratis</td><td>Freemium</td><td>Gratis</td><td>Freemium</td></tr>
+          <tr><th>Código abierto</th><td class="q"><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td></tr>
+          <tr><th>Plataforma</th><td class="q">Windows*</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Windows</td><td>Win/mac/Linux</td><td>Web</td><td>Win/mac/Linux</td></tr>
+          <tr><th>Ligero (sin Electron/JVM)</th><td class="q"><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td><span class="no">No (JVM)</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td>Web</td><td><span class="no">No (JVM)</span></td></tr>
+          <tr><th>Local, sin telemetría</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td></tr>
+          <tr><th>Soporta Informix</th><td class="q"><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td></tr>
+          <tr><th>Editor SQL con autocompletado</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
+          <tr><th>Edición transaccional (vista previa)</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>Diagrama ER</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>Constructor visual de consultas</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="no">No</td><td class="partial">~</td><td class="no">No</td><td class="partial">~</td></tr>
+          <tr><th>Gráficos</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>Monitor de servidor</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="partial">~</td><td class="yes">Sí</td></tr>
+          <tr><th>Usuarios y permisos</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
+          <tr><th>Import/Export (CSV/JSON/XLSX/XML/HTML/SQL)</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>Generación de datos</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="partial">~</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="cmp-note">* Windows por ahora; macOS y Linux en camino. Revisado: 8 jul 2026. «~» = parcial o según edición/plugin.</p>
+    <p class="cmp-note">Windows por ahora; macOS y Linux en camino. <b>Server Studio</b> = edición gratuita <i>JE (Java Edition)</i> de la suite para Informix. Revisado: 9 jul 2026. «~» = parcial o según edición/plugin. Comparativa preliminar — verificar cada celda.</p>
 
     <div class="fair">
       <b>Dónde la competencia gana.</b> <b>DBeaver</b> soporta muchísimos más motores (80+ vía JDBC)
       y tiene años de madurez. <b>Navicat</b> es más pulido y completo en funciones avanzadas.
+      <b>Server Studio</b> conoce Informix a fondo (administración y monitorización profundas del motor).
       <b>phpMyAdmin</b> no necesita instalar nada en el cliente. Quaero apuesta por ser
-      <b>ligero, local, gratuito y con Informix incluido</b>, no por cubrirlo todo.
+      <b>ligero, local, libre y con Informix incluido</b> en una interfaz moderna, no por cubrirlo todo.
     </div>
   </section>
 

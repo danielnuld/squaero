@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/media/social-preview.png" alt="Quaero — Consulta cualquier base de datos" width="820">
+  <img src="assets/media/social-preview.png" alt="Quaero — gestor de bases de datos ligero, local y libre" width="820">
 </p>
 
 <p align="center">

@@ -11,8 +11,8 @@ directamente a la acción de consultar. Escríbelo siempre capitalizado como
 `Quaero` — nunca en mayúsculas (`QUAERO`) ni en minúsculas (`quaero`) salvo en
 identificadores técnicos (paquetes, rutas, ejecutable `quaero`).
 
-Tagline opcional (ES): «Consulta cualquier base de datos».
-Tagline opcional (EN): «Query any database».
+Tagline (ES): «Tu gestor de bases de datos: ligero, local y libre». Corta: «Ligero, local y libre».
+Tagline (EN): «Your lightweight, local, open-source database client». Corta: «Lightweight. Local. Open source.»
 
 ## Logo
 

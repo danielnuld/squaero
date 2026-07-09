@@ -7,12 +7,16 @@ difusión.
 
 ## Tagline
 
-- **ES (principal):** «Consulta cualquier base de datos.»
-- **EN (principal):** “Query any database.”
-- **Descriptor largo (ES):** «Cliente de bases de datos moderno, ligero y
-  multi-motor: MySQL, PostgreSQL, SQLite, Informix y MongoDB.»
-- **Descriptor largo (EN):** “Modern, lightweight, multi-engine database client —
-  MySQL, PostgreSQL, SQLite, Informix and MongoDB.”
+- **ES (principal):** «Tu gestor de bases de datos: ligero, local y libre.»
+- **ES (corta):** «Ligero, local y libre.»
+- **EN (principal):** “Your lightweight, local, open-source database client.”
+- **EN (corta):** “Lightweight. Local. Open source.”
+- **Descriptor largo (ES):** «Gestor de bases de datos nativo y ligero, local y de
+  código abierto: SQLite, MySQL/MariaDB, Informix y MongoDB, con edición
+  transaccional segura.»
+- **Descriptor largo (EN):** “Native, lightweight, local and open-source database
+  manager — SQLite, MySQL/MariaDB, Informix and MongoDB, with safe transactional
+  editing.”
 
 ## Inventario
 
