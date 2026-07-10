@@ -14,8 +14,10 @@
 
 /* A live connection. The core only holds an opaque dbc_conn pointer. */
 struct dbc_conn {
-    MYSQL *db;
-    char   err[512];  /* stashed reason when there is no usable db to query */
+    MYSQL        *db;
+    char          err[512];  /* stashed reason when there is no usable db to query */
+    unsigned long thread_id; /* server thread id, for KILL QUERY (cancel) */
+    char         *dsn;        /* owned copy of the connect DSN, for the killer conn */
 };
 
 /*
@@ -48,6 +50,9 @@ struct dbc_result {
 dbc_status   mysql_drv_connect(const char *dsn_json, dbc_conn **out);
 void         mysql_drv_disconnect(dbc_conn *c);
 const char  *mysql_drv_last_error(dbc_conn *c);
+/* Cancel the running query (DBC_FEAT_CANCEL). Thread-safe: opens a side
+   connection to issue KILL QUERY, never touching c->db (used by the worker). */
+dbc_status   mysql_drv_cancel(dbc_conn *c);
 
 /* --- query.c --- */
 dbc_status   mysql_drv_query(dbc_conn *c, const char *sql, dbc_result **out);

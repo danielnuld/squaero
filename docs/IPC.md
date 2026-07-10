@@ -257,11 +257,14 @@ falla luego con un error de consulta (`-32003`), que llega como el error normal 
 `query.run`.
 
 La cancelación real requiere que el driver anuncie `DBC_FEAT_CANCEL`; un motor sin
-soporte devuelve `canceled: false` en vez de fingir. A diferencia del resto de los
-métodos, el shell nativo despacha `op.cancel` **sin** encolarlo detrás de la
-consulta que interrumpe, y el hook `cancel` del driver corre en otro hilo mientras
-`query.run` sigue en vuelo — la única excepción documentada a la regla de un hilo
-por conexión (ver `docs/DRIVER_API.md`).
+soporte devuelve `canceled: false` en vez de fingir. Hoy lo respaldan **SQLite**
+(`sqlite3_interrupt`) y **MySQL/MariaDB** (`KILL QUERY` sobre una conexión
+lateral); Informix y MongoDB aún no lo anuncian (para ellos la UI no se congela,
+pero la consulta sigue hasta terminar). A diferencia del resto de los métodos, el
+shell nativo despacha `op.cancel` **sin** encolarlo detrás de la consulta que
+interrumpe, y el hook `cancel` del driver corre en otro hilo mientras `query.run`
+sigue en vuelo — la única excepción documentada a la regla de un hilo por conexión
+(ver `docs/DRIVER_API.md`).
 
 ```jsonc
 { "jsonrpc": "2.0", "id": 3, "method": "op.cancel",

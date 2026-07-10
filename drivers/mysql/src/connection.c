@@ -3,6 +3,7 @@
 
 #include "cJSON.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -25,17 +26,20 @@
  * in the core (issue #76), transparently to this driver.
  */
 
-static void set_err(dbc_conn *c, const char *msg)
+/* Copy a NUL-terminated reason into a fixed buffer (truncating if needed). Used
+   both for the connection's stashed error and for the killer connection's local
+   scratch, so it takes a plain buffer rather than a dbc_conn. */
+static void copy_err(char *buf, size_t cap, const char *msg)
 {
-    if (c == NULL) {
+    if (buf == NULL || cap == 0) {
         return;
     }
     size_t n = strlen(msg);
-    if (n >= sizeof c->err) {
-        n = sizeof c->err - 1;
+    if (n >= cap) {
+        n = cap - 1;
     }
-    memcpy(c->err, msg, n);
-    c->err[n] = '\0';
+    memcpy(buf, msg, n);
+    buf[n] = '\0';
 }
 
 /* Point the MySQL client at its authentication-plugin directory. On Windows the
@@ -124,7 +128,7 @@ static char *dup_string(const cJSON *root, const char *key, int *oom)
  * certificates but cannot enforce the mode (documented; effectively unreachable
  * on supported clients).
  */
-static int configure_ssl(dbc_conn *c, const cJSON *root)
+static int configure_ssl(MYSQL *db, const cJSON *root, char *errbuf, size_t errcap)
 {
     int oom = 0;
     char *ca = dup_string(root, "ssl_ca", &oom);
@@ -134,7 +138,7 @@ static int configure_ssl(dbc_conn *c, const cJSON *root)
         free(ca);
         free(cert);
         free(key);
-        set_err(c, "out of memory parsing ssl dsn fields");
+        copy_err(errbuf, errcap, "out of memory parsing ssl dsn fields");
         return -1;
     }
 
@@ -146,7 +150,7 @@ static int configure_ssl(dbc_conn *c, const cJSON *root)
         free(ca);
         free(cert);
         free(key);
-        set_err(c, "ssl_mode must be disabled, required, verify_ca or "
+        copy_err(errbuf, errcap, "ssl_mode must be disabled, required, verify_ca or "
                    "verify_identity");
         return -1;
     }
@@ -159,7 +163,7 @@ static int configure_ssl(dbc_conn *c, const cJSON *root)
                     mode == MYSQL_SSL_VERIFY_CA ||
                     mode == MYSQL_SSL_VERIFY_IDENTITY);
     if (want_tls || ca != NULL || cert != NULL || key != NULL) {
-        mysql_ssl_set(c->db, key, cert, ca, NULL, NULL);
+        mysql_ssl_set(db, key, cert, ca, NULL, NULL);
     }
     free(ca);
     free(cert);
@@ -175,7 +179,7 @@ static int configure_ssl(dbc_conn *c, const cJSON *root)
         case MYSQL_SSL_VERIFY_IDENTITY: m = SSL_MODE_VERIFY_IDENTITY; break;
         default:                        m = SSL_MODE_REQUIRED; break;
         }
-        mysql_options(c->db, MYSQL_OPT_SSL_MODE, &m);
+        mysql_options(db, MYSQL_OPT_SSL_MODE, &m);
 #endif
         /* MariaDB Connector/C honours SSL_MODE inconsistently across versions;
            its native enforcement knobs are MYSQL_OPT_SSL_ENFORCE (encrypt) and
@@ -184,7 +188,7 @@ static int configure_ssl(dbc_conn *c, const cJSON *root)
 #ifdef MYSQL_OPT_SSL_ENFORCE
         {
             my_bool enforce = (mode != MYSQL_SSL_DISABLED) ? 1 : 0;
-            mysql_options(c->db, MYSQL_OPT_SSL_ENFORCE, &enforce);
+            mysql_options(db, MYSQL_OPT_SSL_ENFORCE, &enforce);
         }
 #endif
 #ifdef MYSQL_OPT_SSL_VERIFY_SERVER_CERT
@@ -192,34 +196,26 @@ static int configure_ssl(dbc_conn *c, const cJSON *root)
             my_bool verify =
                 (mode == MYSQL_SSL_VERIFY_CA || mode == MYSQL_SSL_VERIFY_IDENTITY)
                     ? 1 : 0;
-            mysql_options(c->db, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &verify);
+            mysql_options(db, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &verify);
         }
 #endif
     }
     return 0;
 }
 
-dbc_status mysql_drv_connect(const char *dsn_json, dbc_conn **out)
+/*
+ * Parse the DSN, extract the connection parameters, configure TLS and connect
+ * `db`. Copies a reason into errbuf on failure and returns the status; `db` is
+ * left for the caller to close. Shared by mysql_drv_connect and the cancel-time
+ * killer connection, so both are configured identically (including TLS and the
+ * SSH-tunnel-rewritten host/port). `db` must be mysql_init'd by the caller.
+ */
+static dbc_status connect_handle(MYSQL *db, const char *dsn_json,
+                                 char *errbuf, size_t errcap)
 {
-    *out = NULL;
-    dbc_conn *c = calloc(1, sizeof *c);
-    if (c == NULL) {
-        return DBC_ERR_CONN;
-    }
-
-    c->db = mysql_init(NULL);
-    if (c->db == NULL) {
-        set_err(c, "mysql_init failed (out of memory)");
-        *out = c;
-        return DBC_ERR_CONN;
-    }
-
-    configure_plugin_dir(c->db);
-
     cJSON *root = dsn_json != NULL ? cJSON_Parse(dsn_json) : NULL;
     if (root == NULL) {
-        set_err(c, "dsn must be a JSON object");
-        *out = c;
+        copy_err(errbuf, errcap, "dsn must be a JSON object");
         return DBC_ERR_PARAM;
     }
 
@@ -245,43 +241,65 @@ dbc_status mysql_drv_connect(const char *dsn_json, dbc_conn **out)
     }
 
     /* TLS options must be set on the handle before mysql_real_connect. */
-    int ssl_rc = configure_ssl(c, root);
+    int ssl_rc = configure_ssl(db, root, errbuf, errcap);
     cJSON_Delete(root);
-    if (ssl_rc != 0) {
-        free(host);
-        free(user);
-        free(password);
-        free(database);
-        free(socket);
-        *out = c; /* error reason already stashed by configure_ssl */
-        return DBC_ERR_PARAM;
-    }
 
-    if (oom) {
+    dbc_status st = DBC_OK;
+    if (ssl_rc != 0) {
+        st = DBC_ERR_PARAM; /* reason already copied by configure_ssl */
+    } else if (oom) {
         /* A provided field could not be copied; fail rather than connect with a
            silently-defaulted parameter. */
-        free(host);
-        free(user);
-        free(password);
-        free(database);
-        free(socket);
-        set_err(c, "out of memory parsing dsn");
-        *out = c;
-        return DBC_ERR_NOMEM;
+        copy_err(errbuf, errcap, "out of memory parsing dsn");
+        st = DBC_ERR_NOMEM;
+    } else if (mysql_real_connect(db, host, user, password, database, port,
+                                  socket, 0) == NULL) {
+        copy_err(errbuf, errcap, mysql_error(db));
+        st = DBC_ERR_CONN;
     }
 
-    MYSQL *rc = mysql_real_connect(c->db, host, user, password, database, port,
-                                   socket, 0);
     free(host);
     free(user);
     free(password);
     free(database);
     free(socket);
+    return st;
+}
 
-    if (rc == NULL) {
-        set_err(c, mysql_error(c->db));
+dbc_status mysql_drv_connect(const char *dsn_json, dbc_conn **out)
+{
+    *out = NULL;
+    dbc_conn *c = calloc(1, sizeof *c);
+    if (c == NULL) {
+        return DBC_ERR_CONN;
+    }
+
+    c->db = mysql_init(NULL);
+    if (c->db == NULL) {
+        copy_err(c->err, sizeof c->err, "mysql_init failed (out of memory)");
         *out = c;
         return DBC_ERR_CONN;
+    }
+
+    configure_plugin_dir(c->db);
+
+    dbc_status st = connect_handle(c->db, dsn_json, c->err, sizeof c->err);
+    if (st != DBC_OK) {
+        *out = c; /* error reason already stashed in c->err */
+        return st;
+    }
+
+    /* Remember what a later cancel needs: the server thread id to KILL, and a
+       copy of the (already tunnel-rewritten) DSN so the killer connection is
+       configured identically. Driver-local — never copied into the core. If the
+       DSN copy fails, cancel simply reports unsupported rather than misbehaving. */
+    c->thread_id = mysql_thread_id(c->db);
+    if (dsn_json != NULL) {
+        size_t n = strlen(dsn_json) + 1;
+        c->dsn = malloc(n);
+        if (c->dsn != NULL) {
+            memcpy(c->dsn, dsn_json, n);
+        }
     }
 
     *out = c;
@@ -296,7 +314,46 @@ void mysql_drv_disconnect(dbc_conn *c)
     if (c->db != NULL) {
         mysql_close(c->db);
     }
+    free(c->dsn);
     free(c);
+}
+
+/*
+ * Interrupt the query running on c (DBC_FEAT_CANCEL). A MYSQL connection cannot
+ * be used from two threads at once, so cancel cannot touch c->db (the worker
+ * thread is inside mysql_real_query on it). Instead it opens a short-lived side
+ * connection — configured identically from the stored DSN — and issues
+ * "KILL QUERY <thread_id>", which makes the running statement fail with
+ * ER_QUERY_INTERRUPTED (surfaced as a query error by mysql_drv_query). It reads
+ * only c->dsn and c->thread_id, both immutable after connect, so it is safe to
+ * run concurrently with the query. mysql_thread_init/end bracket the library use
+ * on this (foreign) thread.
+ */
+dbc_status mysql_drv_cancel(dbc_conn *c)
+{
+    if (c == NULL || c->dsn == NULL || c->thread_id == 0) {
+        return DBC_ERR_UNSUPPORTED;
+    }
+
+    mysql_thread_init();
+
+    dbc_status st = DBC_ERR_UNSUPPORTED;
+    MYSQL *killer = mysql_init(NULL);
+    if (killer != NULL) {
+        configure_plugin_dir(killer);
+        char errbuf[512];
+        if (connect_handle(killer, c->dsn, errbuf, sizeof errbuf) == DBC_OK) {
+            char sql[64];
+            snprintf(sql, sizeof sql, "KILL QUERY %lu", c->thread_id);
+            if (mysql_query(killer, sql) == 0) {
+                st = DBC_OK;
+            }
+        }
+        mysql_close(killer);
+    }
+
+    mysql_thread_end();
+    return st;
 }
 
 const char *mysql_drv_last_error(dbc_conn *c)

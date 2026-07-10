@@ -40,6 +40,23 @@ if(TARGET mysql_driver)
   add_test(NAME mysql_integration_test COMMAND mysql_integration_test
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
+  # Cancel: a background thread runs a slow query while the main thread issues
+  # op.cancel, which reaches the driver's KILL QUERY. Asserts the query returns
+  # promptly. SKIPS unless QUAERO_MYSQL_DSN is set; needs a threads library.
+  add_executable(mysql_cancel_integration_test mysql_cancel_integration_test.c)
+  target_link_libraries(mysql_cancel_integration_test PRIVATE dbcore cjson)
+  find_package(Threads REQUIRED)
+  target_link_libraries(mysql_cancel_integration_test PRIVATE Threads::Threads)
+  target_compile_definitions(mysql_cancel_integration_test PRIVATE
+    MYSQL_PLUGIN_PATH="$<TARGET_FILE:mysql_driver>")
+  add_dependencies(mysql_cancel_integration_test mysql_driver)
+  quaero_set_warnings(mysql_cancel_integration_test)
+  add_test(NAME mysql_cancel_integration_test COMMAND mysql_cancel_integration_test
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  # A cancel that silently does nothing would make the slow query run its full
+  # sleep; fail fast rather than stall the suite.
+  set_tests_properties(mysql_cancel_integration_test PROPERTIES TIMEOUT 60)
+
   # SSL: opens an encrypted connection (ssl_mode=required) and checks Ssl_cipher.
   # SKIPS unless QUAERO_MYSQL_SSL_DSN points at a TLS-enabled server.
   add_executable(mysql_ssl_integration_test mysql_ssl_integration_test.c)

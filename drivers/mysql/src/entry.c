@@ -11,7 +11,8 @@
  * layer), so list_schemas is NULL and DBC_FEAT_SCHEMAS is not advertised.
  * TLS is supported (DBC_FEAT_SSL) via the ssl_* DSN fields; the engine-agnostic
  * SSH tunnel is handled in the core. Transactions (begin/commit/rollback) are
- * supported via START TRANSACTION/COMMIT/ROLLBACK.
+ * supported via START TRANSACTION/COMMIT/ROLLBACK. Query cancellation
+ * (DBC_FEAT_CANCEL) issues KILL QUERY over a side connection.
  */
 static const dbc_driver_t k_mysql_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -45,8 +46,10 @@ static const dbc_driver_t k_mysql_driver = {
 
     .build_dml     = mysql_drv_build_dml,
 
+    .cancel        = mysql_drv_cancel,
+
     .features      = DBC_FEAT_SSL | DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL |
-                     DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML,
+                     DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML | DBC_FEAT_CANCEL,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)
