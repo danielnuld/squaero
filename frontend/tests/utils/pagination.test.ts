@@ -22,6 +22,27 @@ describe("previewSelect", () => {
     expect(previewSelect("t", "mysql", 10.9)).toBe("SELECT * FROM t LIMIT 10;");
     expect(previewSelect("t", "informix", 0)).toBe("SELECT FIRST 1 * FROM t;");
   });
+
+  it("pushes the offset into the query for a later page", () => {
+    // LIMIT-dialect: OFFSET clause appended.
+    expect(previewSelect("`t`", "mysql", 1000, 2000)).toBe(
+      "SELECT * FROM `t` LIMIT 1000 OFFSET 2000;",
+    );
+    // Informix: SKIP m precedes FIRST n.
+    expect(previewSelect("db:owner.t", "informix", 1000, 2000)).toBe(
+      "SELECT SKIP 2000 FIRST 1000 * FROM db:owner.t;",
+    );
+  });
+
+  it("omits the offset clause on the first page (offset 0)", () => {
+    expect(previewSelect("`t`", "mysql", 1000, 0)).toBe("SELECT * FROM `t` LIMIT 1000;");
+    expect(previewSelect("t", "informix", 1000, 0)).toBe("SELECT FIRST 1000 * FROM t;");
+  });
+
+  it("floors and clamps the offset to at least 0", () => {
+    expect(previewSelect("t", "mysql", 100, -5)).toBe("SELECT * FROM t LIMIT 100;");
+    expect(previewSelect("t", "mysql", 100, 50.9)).toBe("SELECT * FROM t LIMIT 100 OFFSET 50;");
+  });
 });
 
 describe("objectPreviewQuery", () => {
@@ -42,5 +63,14 @@ describe("objectPreviewQuery", () => {
 
   it("floors and clamps the MongoDB limit", () => {
     expect(objectPreviewQuery({ name: "c" }, "mongodb", 5.7)).toBe("db.c.find({}).limit(5)");
+  });
+
+  it("pages relational and MongoDB with an offset", () => {
+    expect(objectPreviewQuery({ db: "app", name: "users" }, "mysql", 1000, 1000)).toBe(
+      "SELECT * FROM `app`.`users` LIMIT 1000 OFFSET 1000;",
+    );
+    expect(objectPreviewQuery({ name: "c" }, "mongodb", 1000, 2000)).toBe(
+      "db.c.find({}).skip(2000).limit(1000)",
+    );
   });
 });
