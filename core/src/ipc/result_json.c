@@ -1,5 +1,7 @@
 #include "result_json.h"
 
+#include <string.h>
+
 const char *ipc_type_name(dbc_type type)
 {
     switch (type) {
@@ -15,6 +17,21 @@ const char *ipc_type_name(dbc_type type)
     case DBC_TYPE_NULL:      return "null";
     }
     return "null";
+}
+
+dbc_type ipc_type_from_name(const char *name)
+{
+    if (name == NULL)                      return DBC_TYPE_NULL;
+    if (strcmp(name, "int") == 0)          return DBC_TYPE_INT;
+    if (strcmp(name, "float") == 0)        return DBC_TYPE_FLOAT;
+    if (strcmp(name, "bool") == 0)         return DBC_TYPE_BOOL;
+    if (strcmp(name, "text") == 0)         return DBC_TYPE_TEXT;
+    if (strcmp(name, "blob") == 0)         return DBC_TYPE_BLOB;
+    if (strcmp(name, "date") == 0)         return DBC_TYPE_DATE;
+    if (strcmp(name, "time") == 0)         return DBC_TYPE_TIME;
+    if (strcmp(name, "timestamp") == 0)    return DBC_TYPE_TIMESTAMP;
+    if (strcmp(name, "json") == 0)         return DBC_TYPE_JSON;
+    return DBC_TYPE_NULL;
 }
 
 static cJSON *build_columns(const dbcore_result *r)

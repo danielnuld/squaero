@@ -139,6 +139,26 @@ describe("row.* param builders", () => {
       where: { id: "9" },
     });
   });
+
+  it("carries setTypes when given (so numeric columns are emitted unquoted)", () => {
+    expect(
+      updateParams("c1", { table: "t" }, { flag: "0" }, { id: "1" }, false, { flag: "int" }),
+    ).toEqual({
+      connId: "c1",
+      table: "t",
+      set: { flag: "0" },
+      where: { id: "1" },
+      setTypes: { flag: "int" },
+    });
+    expect(
+      insertParams("c1", { table: "t" }, { flag: "1" }, false, { flag: "int" }),
+    ).toEqual({
+      connId: "c1",
+      table: "t",
+      values: { flag: "1" },
+      setTypes: { flag: "int" },
+    });
+  });
 });
 
 describe("parseRowResult", () => {

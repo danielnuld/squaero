@@ -24,6 +24,10 @@
    an unknown value maps to "null". Pure. */
 const char *ipc_type_name(dbc_type type);
 
+/* Reverse of ipc_type_name: map a neutral type name to its dbc_type (unknown /
+   NULL name => DBC_TYPE_NULL). Used to carry column types into row.* DML. */
+dbc_type ipc_type_from_name(const char *name);
+
 /* Build the query.run result object from `r`. Returns a new cJSON object (caller
    owns it), or NULL on allocation failure. */
 cJSON *ipc_result_to_json(const dbcore_result *r);

@@ -102,25 +102,33 @@ function baseParams(
   return params;
 }
 
-/** row.insert params: the new row's {column: value} map. */
+/** row.insert params: the new row's {column: value} map, plus per-column neutral
+    types (`setTypes`) so the driver can emit numeric columns unquoted. */
 export function insertParams(
   connId: string,
   target: EditTarget,
   values: Record<string, string | null>,
   preview = false,
+  setTypes?: Record<string, string>,
 ): Record<string, unknown> {
-  return { ...baseParams(connId, target, preview), values };
+  const params: Record<string, unknown> = { ...baseParams(connId, target, preview), values };
+  if (setTypes) params.setTypes = setTypes;
+  return params;
 }
 
-/** row.update params: assignments (`set`) and the primary-key `where`. */
+/** row.update params: assignments (`set`), the primary-key `where`, and the set
+    columns' neutral types (`setTypes`) so numeric columns are emitted unquoted. */
 export function updateParams(
   connId: string,
   target: EditTarget,
   set: Record<string, string | null>,
   where: Record<string, string | null>,
   preview = false,
+  setTypes?: Record<string, string>,
 ): Record<string, unknown> {
-  return { ...baseParams(connId, target, preview), set, where };
+  const params: Record<string, unknown> = { ...baseParams(connId, target, preview), set, where };
+  if (setTypes) params.setTypes = setTypes;
+  return params;
 }
 
 /** row.delete params: the primary-key `where`. */
@@ -161,8 +169,9 @@ export function rowInsert(
   target: EditTarget,
   values: Record<string, string | null>,
   preview = false,
+  setTypes?: Record<string, string>,
 ): Promise<RowResult> {
-  return rowCall("row.insert", insertParams(connId, target, values, preview));
+  return rowCall("row.insert", insertParams(connId, target, values, preview, setTypes));
 }
 
 /** Update a row identified by its primary key. */
@@ -172,8 +181,9 @@ export function rowUpdate(
   set: Record<string, string | null>,
   where: Record<string, string | null>,
   preview = false,
+  setTypes?: Record<string, string>,
 ): Promise<RowResult> {
-  return rowCall("row.update", updateParams(connId, target, set, where, preview));
+  return rowCall("row.update", updateParams(connId, target, set, where, preview, setTypes));
 }
 
 /** Delete a row identified by its primary key. */
@@ -197,12 +207,12 @@ export function runPlanItem(
   preview = false,
 ): Promise<RowResult> {
   if (item.kind === "update") {
-    return rowUpdate(connId, target, item.set, item.where, preview);
+    return rowUpdate(connId, target, item.set, item.where, preview, item.setTypes);
   }
   if (item.kind === "delete") {
     return rowDelete(connId, target, item.where, preview);
   }
-  return rowInsert(connId, target, item.values, preview);
+  return rowInsert(connId, target, item.values, preview, item.setTypes);
 }
 
 /** Begin a transaction on the connection (for a safe multi-edit session). */

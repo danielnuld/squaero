@@ -286,9 +286,15 @@ MongoDB no los anuncia.
 El cambio se expresa con objetos `{columna: valor}` (un valor `null` JSON es SQL
 NULL); la fila a modificar se identifica por su clave primaria en `where`.
 
-- `row.insert` — `params: { connId, table, schema?, values:{...}, preview? }`.
-- `row.update` — `params: { connId, table, schema?, set:{...}, where:{...}, preview? }`.
+- `row.insert` — `params: { connId, table, schema?, values:{...}, setTypes?, preview? }`.
+- `row.update` — `params: { connId, table, schema?, set:{...}, where:{...}, setTypes?, preview? }`.
 - `row.delete` — `params: { connId, table, schema?, where:{...}, preview? }`.
+
+`setTypes` (opcional) es un objeto `{columna: tipoNeutral}` con el tipo de cada
+columna de `set`/`values` (`"int"`, `"float"`, `"bool"`, `"text"`, …). Permite que
+el driver emita las columnas numéricas **sin comillas** (p. ej. MySQL rechaza un
+string `'0'` en una columna `BIT`); si se omite, el driver entrecomilla todo (como
+antes). Es aditivo y retrocompatible.
 
 Resultado `{ sql: string, rowsAffected?: number }`. Con `preview: true` solo se
 **genera** la sentencia (se devuelve en `sql`, sin ejecutar ni `rowsAffected`);

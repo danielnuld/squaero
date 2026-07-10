@@ -1,6 +1,7 @@
 #include "edit_methods.h"
 
 #include "conn_methods.h"   /* ipc_conn_id_parse */
+#include "result_json.h"    /* ipc_type_from_name */
 #include "rpc.h"
 
 #include "dbcore/edit.h"
@@ -67,9 +68,34 @@ static int extract_kv(const cJSON *obj, const char ***out_cols,
 
 /* Shared body: parse common params, assemble the dbc_dml_row, run it. `set_key`
    and `where_key` name the JSON objects to read (either may be NULL). */
+/* Build a dbc_type array parallel to `cols` from a {col: "typename"} object,
+   looked up by name (order-independent). Returns NULL when the object is absent
+   (drivers then quote every value); a missing/unknown entry maps to DBC_TYPE_NULL.
+   On allocation failure returns NULL — degrading to "no types" is safe. */
+static dbc_type *build_types(const cJSON *params, const char *types_key,
+                            const char **cols, int n)
+{
+    if (types_key == NULL || n <= 0) {
+        return NULL;
+    }
+    const cJSON *obj = cJSON_GetObjectItemCaseSensitive(params, types_key);
+    if (!cJSON_IsObject(obj)) {
+        return NULL;
+    }
+    dbc_type *types = malloc((size_t)n * sizeof *types);
+    if (types == NULL) {
+        return NULL;
+    }
+    for (int i = 0; i < n; i++) {
+        const cJSON *t = cJSON_GetObjectItemCaseSensitive(obj, cols[i]);
+        types[i] = ipc_type_from_name(cJSON_IsString(t) ? t->valuestring : NULL);
+    }
+    return types;
+}
+
 static cJSON *edit_dispatch(const cJSON *params, int *code, const char **message,
                             dbc_dml_kind kind, const char *set_key,
-                            const char *where_key)
+                            const char *where_key, const char *types_key)
 {
     const cJSON *conn_id = cJSON_GetObjectItemCaseSensitive(params, "connId");
     if (!cJSON_IsString(conn_id) || conn_id->valuestring == NULL) {
@@ -117,17 +143,21 @@ static cJSON *edit_dispatch(const cJSON *params, int *code, const char **message
         return NULL;
     }
 
+    /* Neutral type per set value so the driver can emit numeric columns unquoted
+       (e.g. MySQL rejects a quoted string for a BIT column). NULL => quote all. */
+    dbc_type *set_types = build_types(params, types_key, set_cols, n_set);
+
     dbcore_runtime *rt = dbcore_runtime_get();
     dbcore_conn_ref ref;
     if (rt == NULL) {
-        free((void *)set_cols); free((void *)set_vals);
+        free((void *)set_cols); free((void *)set_vals); free(set_types);
         free((void *)where_cols); free((void *)where_vals);
         *code = IPC_ERR_INTERNAL;
         *message = "out of memory";
         return NULL;
     }
     if (!dbcore_conn_manager_get(dbcore_runtime_conns(rt), id, &ref)) {
-        free((void *)set_cols); free((void *)set_vals);
+        free((void *)set_cols); free((void *)set_vals); free(set_types);
         free((void *)where_cols); free((void *)where_vals);
         *code = IPC_ERR_NOT_FOUND;
         *message = "unknown connection id";
@@ -143,6 +173,7 @@ static cJSON *edit_dispatch(const cJSON *params, int *code, const char **message
         .n_where = n_where,
         .where_cols = (const char *const *)where_cols,
         .where_vals = (const char *const *)where_vals,
+        .set_types = set_types,
     };
 
     char *sql = NULL;
@@ -150,7 +181,7 @@ static cJSON *edit_dispatch(const cJSON *params, int *code, const char **message
     dbc_status st = dbcore_row_dml(&ref, kind, &row, preview, &sql,
                                    &rows_affected, g_edit_error,
                                    sizeof g_edit_error);
-    free((void *)set_cols); free((void *)set_vals);
+    free((void *)set_cols); free((void *)set_vals); free(set_types);
     free((void *)where_cols); free((void *)where_vals);
 
     if (st != DBC_OK) {
@@ -177,15 +208,15 @@ static cJSON *edit_dispatch(const cJSON *params, int *code, const char **message
 
 cJSON *ipc_method_row_insert(const cJSON *params, int *code, const char **message)
 {
-    return edit_dispatch(params, code, message, DBC_DML_INSERT, "values", NULL);
+    return edit_dispatch(params, code, message, DBC_DML_INSERT, "values", NULL, "setTypes");
 }
 
 cJSON *ipc_method_row_update(const cJSON *params, int *code, const char **message)
 {
-    return edit_dispatch(params, code, message, DBC_DML_UPDATE, "set", "where");
+    return edit_dispatch(params, code, message, DBC_DML_UPDATE, "set", "where", "setTypes");
 }
 
 cJSON *ipc_method_row_delete(const cJSON *params, int *code, const char **message)
 {
-    return edit_dispatch(params, code, message, DBC_DML_DELETE, NULL, "where");
+    return edit_dispatch(params, code, message, DBC_DML_DELETE, NULL, "where", NULL);
 }

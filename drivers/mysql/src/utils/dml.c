@@ -68,6 +68,49 @@ static void sb_literal(sbuf *b, const char *val)
     sb_putc(b, '\'');
 }
 
+/* True when a value of neutral type `type` is a bare numeric literal safe to emit
+   UNQUOTED. Only int/float columns qualify (a MySQL BIT column is neutral int),
+   and the value must be a plain optionally-signed decimal — so an unquoted value
+   never contains a quote/semicolon and there is no injection risk. Anything else
+   (a non-numeric value, or a text/date/blob/bool column) is quoted. This is what
+   lets a BIT column take `0`/`1` instead of the string `'0'` MySQL rejects.
+   `bool` is deliberately excluded: some engines want a t/f literal, not 0/1. */
+static int dml_is_bare_numeric(dbc_type type, const char *val)
+{
+    if (val == NULL || val[0] == '\0') {
+        return 0;
+    }
+    if (type != DBC_TYPE_INT && type != DBC_TYPE_FLOAT) {
+        return 0;
+    }
+    const char *p = val;
+    if (*p == '+' || *p == '-') {
+        p++;
+    }
+    int digits = 0, dot = 0;
+    for (; *p != '\0'; p++) {
+        if (*p >= '0' && *p <= '9') {
+            digits = 1;
+        } else if (*p == '.' && !dot && type == DBC_TYPE_FLOAT) {
+            dot = 1;
+        } else {
+            return 0;
+        }
+    }
+    return digits;
+}
+
+/* Append a set value: NULL keyword, a bare numeric literal for a numeric column,
+   or an escaped string literal otherwise. */
+static void sb_value(sbuf *b, const char *val, dbc_type type)
+{
+    if (val != NULL && dml_is_bare_numeric(type, val)) {
+        sb_puts(b, val);
+        return;
+    }
+    sb_literal(b, val);
+}
+
 static void sb_qualified(sbuf *b, const dbc_dml_row *row)
 {
     if (row->schema != NULL && row->schema[0] != '\0') {
@@ -126,7 +169,8 @@ char *mysql_build_dml_sql(dbc_dml_kind kind, const dbc_dml_row *row)
             if (i > 0) {
                 sb_puts(&b, ", ");
             }
-            sb_literal(&b, row->set_vals[i]);
+            sb_value(&b, row->set_vals[i],
+                     row->set_types != NULL ? row->set_types[i] : DBC_TYPE_TEXT);
         }
         sb_putc(&b, ')');
         break;
@@ -141,7 +185,8 @@ char *mysql_build_dml_sql(dbc_dml_kind kind, const dbc_dml_row *row)
             }
             sb_ident(&b, row->set_cols[i]);
             sb_puts(&b, " = ");
-            sb_literal(&b, row->set_vals[i]);
+            sb_value(&b, row->set_vals[i],
+                     row->set_types != NULL ? row->set_types[i] : DBC_TYPE_TEXT);
         }
         sb_puts(&b, " WHERE ");
         sb_where(&b, row);

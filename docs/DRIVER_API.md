@@ -7,7 +7,7 @@ Un driver es una biblioteca compartida (`.dll`/`.so`/`.dylib`) que exporta una f
 > documento describe el mismo contrato en prosa y **debe mantenerse
 > sincronizado** con el header. Ante cualquier discrepancia, el header manda.
 
-ABI actual: **`DBC_ABI_VERSION = 4`**.
+ABI actual: **`DBC_ABI_VERSION = 5`**.
 
 ## Punto de entrada
 
@@ -27,7 +27,7 @@ y vive mientras la biblioteca esté cargada.
 ## Versionado de ABI
 
 ```c
-#define DBC_ABI_VERSION 4
+#define DBC_ABI_VERSION 5
 ```
 
 El driver graba en `dbc_driver_t.abi_version` el valor contra el que se compiló.
@@ -177,6 +177,13 @@ columnas/valores a asignar, columnas/valores de la clave para el `WHERE`); un
 valor `NULL` significa SQL NULL. El driver escapa identificadores y literales y
 deja que el motor coaccione el tipo. Ver el header para la definición exacta de
 `dbc_dml_kind` y `dbc_dml_row`.
+
+Desde **ABI 5**, `dbc_dml_row.set_types` lleva el tipo neutral de cada valor de
+`set` (paralelo a `set_cols`/`set_vals`, o `NULL` si se desconoce). Permite al
+driver emitir columnas numéricas (`int`/`float`) **sin comillas** —necesario
+porque algunos motores rechazan un string entrecomillado en una columna numérica
+(p. ej. MySQL rechaza `'0'` en una columna `BIT`)—. Con `set_types == NULL` el
+driver entrecomilla todos los valores (comportamiento previo).
 
 **Convención de las columnas de introspección** (para que el núcleo y la UI las
 consuman de forma uniforme): `list_databases`/`list_schemas` devuelven una

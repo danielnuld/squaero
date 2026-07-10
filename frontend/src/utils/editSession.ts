@@ -25,11 +25,21 @@ export interface PendingChanges {
   inserts: Record<string, string | null>[];
 }
 
-/** One operation to apply on commit, shaped for the edit.ts row.* wrappers. */
+/** Neutral column type per name, so the driver can emit numeric columns unquoted
+    (e.g. MySQL rejects a quoted string for a BIT column). */
+export type ColumnTypes = Record<string, string>;
+
+/** One operation to apply on commit, shaped for the edit.ts row.* wrappers.
+    `setTypes` is optional — when absent the driver quotes every value (as before). */
 export type PlanItem =
-  | { kind: "update"; set: Record<string, string | null>; where: Record<string, string | null> }
+  | {
+      kind: "update";
+      set: Record<string, string | null>;
+      where: Record<string, string | null>;
+      setTypes?: ColumnTypes;
+    }
   | { kind: "delete"; where: Record<string, string | null> }
-  | { kind: "insert"; values: Record<string, string | null> };
+  | { kind: "insert"; values: Record<string, string | null>; setTypes?: ColumnTypes };
 
 /** An empty change set. */
 export function emptyPending(): PendingChanges {
@@ -116,6 +126,14 @@ export function buildPlan(
 ): PlanItem[] {
   const plan: PlanItem[] = [];
   const deleted = new Set(state.deletes);
+  // Column -> neutral type, so each op can carry the types of the columns it sets.
+  const colType: ColumnTypes = {};
+  for (const c of columns) colType[c.name] = c.type;
+  const typesFor = (keys: string[]): ColumnTypes => {
+    const t: ColumnTypes = {};
+    for (const k of keys) if (k in colType) t[k] = colType[k];
+    return t;
+  };
 
   for (const [idxStr, set] of Object.entries(state.edits)) {
     const idx = Number(idxStr);
@@ -125,7 +143,7 @@ export function buildPlan(
     const row = rows[idx];
     const where = row ? whereForRow(columns, row, source.pk) : null;
     if (where !== null) {
-      plan.push({ kind: "update", set, where });
+      plan.push({ kind: "update", set, where, setTypes: typesFor(Object.keys(set)) });
     }
   }
 
@@ -139,7 +157,7 @@ export function buildPlan(
 
   for (const values of state.inserts) {
     if (Object.keys(values).length > 0) {
-      plan.push({ kind: "insert", values });
+      plan.push({ kind: "insert", values, setTypes: typesFor(Object.keys(values)) });
     }
   }
 

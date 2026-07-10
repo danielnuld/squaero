@@ -69,7 +69,7 @@ describe("buildPlan", () => {
   it("emits updates keyed by the original primary key", () => {
     const s = setCell(emptyPending(), 1, "name", "robert");
     expect(buildPlan(source, cols, rows, s)).toEqual([
-      { kind: "update", set: { name: "robert" }, where: { id: "2" } },
+      { kind: "update", set: { name: "robert" }, where: { id: "2" }, setTypes: { name: "text" } },
     ]);
   });
 
@@ -80,9 +80,9 @@ describe("buildPlan", () => {
     s = setInsertCell(s, 0, "id", "4");
     s = setInsertCell(s, 0, "name", "dave");
     expect(buildPlan(source, cols, rows, s)).toEqual([
-      { kind: "update", set: { name: "AL" }, where: { id: "1" } },
+      { kind: "update", set: { name: "AL" }, where: { id: "1" }, setTypes: { name: "text" } },
       { kind: "delete", where: { id: "3" } },
-      { kind: "insert", values: { id: "4", name: "dave" } },
+      { kind: "insert", values: { id: "4", name: "dave" }, setTypes: { id: "int", name: "text" } },
     ]);
   });
 

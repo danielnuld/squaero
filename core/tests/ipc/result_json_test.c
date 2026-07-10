@@ -30,9 +30,33 @@ static void test_type_names(void)
     EXPECT(strcmp(ipc_type_name((dbc_type)999), "null") == 0, "unknown type -> null");
 }
 
+static void test_type_from_name(void)
+{
+    /* Reverse mapping: every known name round-trips to its dbc_type. */
+    EXPECT(ipc_type_from_name("int") == DBC_TYPE_INT, "int from name");
+    EXPECT(ipc_type_from_name("float") == DBC_TYPE_FLOAT, "float from name");
+    EXPECT(ipc_type_from_name("bool") == DBC_TYPE_BOOL, "bool from name");
+    EXPECT(ipc_type_from_name("text") == DBC_TYPE_TEXT, "text from name");
+    EXPECT(ipc_type_from_name("blob") == DBC_TYPE_BLOB, "blob from name");
+    EXPECT(ipc_type_from_name("date") == DBC_TYPE_DATE, "date from name");
+    EXPECT(ipc_type_from_name("time") == DBC_TYPE_TIME, "time from name");
+    EXPECT(ipc_type_from_name("timestamp") == DBC_TYPE_TIMESTAMP, "timestamp from name");
+    EXPECT(ipc_type_from_name("json") == DBC_TYPE_JSON, "json from name");
+    EXPECT(ipc_type_from_name("null") == DBC_TYPE_NULL, "null from name");
+    /* Unknown / NULL degrade to DBC_TYPE_NULL (drivers then quote the value). */
+    EXPECT(ipc_type_from_name("nope") == DBC_TYPE_NULL, "unknown name -> null");
+    EXPECT(ipc_type_from_name("") == DBC_TYPE_NULL, "empty name -> null");
+    EXPECT(ipc_type_from_name(NULL) == DBC_TYPE_NULL, "NULL name -> null");
+    /* Round-trips against ipc_type_name for every real type. */
+    for (dbc_type t = DBC_TYPE_NULL; t <= DBC_TYPE_JSON; t++) {
+        EXPECT(ipc_type_from_name(ipc_type_name(t)) == t, "name<->type round trip");
+    }
+}
+
 int main(void)
 {
     test_type_names();
+    test_type_from_name();
 
     /* Build a result: two typed columns, three rows with a SQL NULL, a UTF-8
        value, and characters that require JSON escaping. */

@@ -40,7 +40,7 @@ extern "C" {
  * into dbc_driver_t.abi_version; the core refuses to load a driver whose value
  * does not match (see dbc_driver_validate).
  */
-#define DBC_ABI_VERSION 4
+#define DBC_ABI_VERSION 5
 
 /* Canonical name of the exported entry symbol, for the dynamic loader. */
 #define DBC_DRIVER_ENTRY_SYMBOL "dbc_driver_entry"
@@ -116,6 +116,13 @@ typedef enum {
  *   UPDATE: set_cols/set_vals are the assignments; where_cols/where_vals
  *           identify the row (its primary key).
  *   DELETE: where_cols/where_vals identify the row; set_* are unused.
+ *
+ * set_types (added in ABI 5) carries the neutral column type of each set value so
+ * the driver can emit numeric columns UNQUOTED — a value quoted as a string is
+ * rejected by some engines (e.g. MySQL rejects '0' for a BIT column). It is
+ * parallel to set_cols/set_vals, or NULL when types are unknown (then the driver
+ * quotes every value, as before). where_* values are always quoted (a numeric key
+ * coerces from its string form on every engine we target).
  */
 typedef struct {
     const char        *schema;      /* container (db/schema), NULL = default */
@@ -126,6 +133,7 @@ typedef struct {
     int                n_where;
     const char *const *where_cols;
     const char *const *where_vals;  /* where_vals[i] == NULL => IS NULL */
+    const dbc_type    *set_types;   /* neutral type per set value, or NULL (ABI 5) */
 } dbc_dml_row;
 
 /*
