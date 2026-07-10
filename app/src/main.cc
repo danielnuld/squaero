@@ -10,9 +10,12 @@ extern "C" {
 
 #include "cJSON.h"
 
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -125,10 +128,129 @@ static void load_drivers()
     }
 }
 
+// --- Asynchronous RPC dispatch ------------------------------------------------
+//
+// webview delivers bound-function calls on the UI thread. Running a slow query
+// there froze the whole window (issue: cancelable queries). So the bridge no
+// longer dispatches on the UI thread: it hands each request to a single worker
+// thread and returns immediately, leaving the JS Promise pending. The worker
+// runs the pure C dispatcher and posts the response back to the UI thread with
+// webview_dispatch (the same pattern as the update download_worker below).
+//
+// A single worker keeps the core effectively single-threaded (only the worker
+// touches the runtime/connection state), so no core locking is needed. The one
+// exception is op.cancel, which must NOT wait behind the slow query it targets:
+// it is dispatched inline on the UI thread and only touches the thread-safe op
+// registry + the driver's thread-safe cancel hook.
+
+// A request to run on the worker: the inner JSON-RPC string plus the bound-call
+// id needed to resolve the right Promise. Both are copied off webview's buffers,
+// which are only valid for the duration of the bound-function call.
+struct RpcJob {
+    std::string id;
+    std::string request;
+    webview_t   w;
+};
+
+static std::deque<RpcJob>       g_rpc_jobs;
+static std::mutex               g_rpc_mtx;
+static std::condition_variable  g_rpc_cv;
+static bool                     g_rpc_stop = false;
+static std::thread              g_rpc_worker;
+
+// Payload carried from the worker back to the UI thread to resolve one Promise.
+struct RpcReturn {
+    std::string id;
+    std::string response;
+};
+
+// UI thread: resolve the awaiting Promise with the response JSON.
+static void deliver_rpc_return(webview_t w, void *arg)
+{
+    auto *r = static_cast<RpcReturn *>(arg);
+    webview_return(w, r->id.c_str(), 0, r->response.c_str());
+    delete r;
+}
+
+// The uniform error envelope used when a request cannot even be dispatched, so
+// the frontend's parseResponse/isError always sees well-formed JSON-RPC.
+static const char *const k_bridge_error =
+    "{\"jsonrpc\":\"2.0\",\"id\":null,"
+    "\"error\":{\"code\":-32600,\"message\":\"invalid bridge call\"}}";
+
+// True when `request` is an op.cancel call — the one method dispatched inline so
+// it is not queued behind the long-running query it is meant to interrupt.
+static bool is_cancel_request(const std::string &request)
+{
+    cJSON *r = cJSON_Parse(request.c_str());
+    bool cancel = false;
+    if (cJSON_IsObject(r)) {
+        const cJSON *m = cJSON_GetObjectItemCaseSensitive(r, "method");
+        cancel = cJSON_IsString(m) && m->valuestring != nullptr &&
+                 std::strcmp(m->valuestring, "op.cancel") == 0;
+    }
+    cJSON_Delete(r);
+    return cancel;
+}
+
+// Run one request through the pure dispatcher, honoring QUAERO_RPC_DEBUG tracing,
+// and return the response JSON (owned by the caller; free with dbcore_ipc_free).
+// On a hang the "RPC>" line prints with no matching "RPC<", naming the culprit.
+static char *dispatch_traced(const std::string &request)
+{
+    static const bool trace = std::getenv("QUAERO_RPC_DEBUG") != nullptr;
+    unsigned long t0 = 0;
+    if (trace) {
+#if defined(_WIN32)
+        t0 = GetTickCount();
+#endif
+        std::fprintf(stderr, "RPC> %.200s\n", request.c_str());
+        std::fflush(stderr);
+    }
+    char *response = dbcore_ipc_handle(request.c_str());
+    if (trace) {
+#if defined(_WIN32)
+        std::fprintf(stderr, "RPC< done in %lu ms\n", GetTickCount() - t0);
+#else
+        std::fprintf(stderr, "RPC< done\n");
+#endif
+        std::fflush(stderr);
+    }
+    return response;
+}
+
+// Worker thread: drain the queue, dispatching each request and posting the
+// response back to the UI thread. Exits when g_rpc_stop is set (window closing);
+// any still-queued jobs are abandoned — their window is going away.
+static void rpc_worker_loop()
+{
+    for (;;) {
+        RpcJob job;
+        {
+            std::unique_lock<std::mutex> lock(g_rpc_mtx);
+            g_rpc_cv.wait(lock,
+                          [] { return g_rpc_stop || !g_rpc_jobs.empty(); });
+            if (g_rpc_stop) {
+                return;
+            }
+            job = std::move(g_rpc_jobs.front());
+            g_rpc_jobs.pop_front();
+        }
+
+        char *response = dispatch_traced(job.request);
+        const char *payload = response != nullptr ? response : k_bridge_error;
+        webview_dispatch(job.w, deliver_rpc_return,
+                         new RpcReturn{job.id, payload});
+        if (response != nullptr) {
+            dbcore_ipc_free(response);
+        }
+    }
+}
+
 // Bridge exposed to the frontend as window.quaeroRpc(requestJson) -> Promise.
-// webview delivers the JS arguments as a JSON array string, e.g. ["{...}"];
-// we unwrap the first element, hand it to the pure C dispatcher, and return
-// the response JSON back to the awaiting Promise.
+// webview delivers the JS arguments as a JSON array string, e.g. ["{...}"]; we
+// unwrap the first element and either dispatch it inline (op.cancel) or hand it
+// to the worker thread, resolving the Promise once the response comes back.
 static void rpc_handler(const char *id, const char *req, void *arg)
 {
     auto w = static_cast<webview_t>(arg);
@@ -141,48 +263,43 @@ static void rpc_handler(const char *id, const char *req, void *arg)
         std::printf("Quaero: frontend connected to the bridge\n");
     }
 
-    char *response = nullptr;
+    // Unwrap ["{...}"] -> the inner JSON-RPC request string, copied off webview's
+    // transient buffer so it can outlive this call on the worker queue.
+    std::string request;
+    bool have_request = false;
     cJSON *args = cJSON_Parse(req);
     if (cJSON_IsArray(args)) {
         const cJSON *first = cJSON_GetArrayItem(args, 0);
         if (cJSON_IsString(first) && first->valuestring != nullptr) {
-            // Opt-in RPC tracing (QUAERO_RPC_DEBUG): log each request before and
-            // after dispatch with a wall-clock delta. On a hang the request line
-            // prints with no matching "done", naming the culprit call + its SQL.
-            static const bool trace = std::getenv("QUAERO_RPC_DEBUG") != nullptr;
-            unsigned long t0 = 0;
-            if (trace) {
-#if defined(_WIN32)
-                t0 = GetTickCount();
-#endif
-                std::fprintf(stderr, "RPC> %.200s\n", first->valuestring);
-                std::fflush(stderr);
-            }
-            response = dbcore_ipc_handle(first->valuestring);
-            if (trace) {
-#if defined(_WIN32)
-                std::fprintf(stderr, "RPC< done in %lu ms\n",
-                             GetTickCount() - t0);
-#else
-                std::fprintf(stderr, "RPC< done\n");
-#endif
-                std::fflush(stderr);
-            }
+            request = first->valuestring;
+            have_request = true;
         }
     }
-
-    if (response != nullptr) {
-        webview_return(w, id, 0, response);
-        dbcore_ipc_free(response);
-    } else {
-        // Keep the channel uniform: always resolve with a parseable JSON-RPC
-        // envelope so the frontend's parseResponse/isError works either way.
-        webview_return(w, id, 0,
-                       "{\"jsonrpc\":\"2.0\",\"id\":null,"
-                       "\"error\":{\"code\":-32600,"
-                       "\"message\":\"invalid bridge call\"}}");
-    }
     cJSON_Delete(args);
+
+    if (!have_request) {
+        webview_return(w, id, 0, k_bridge_error);
+        return;
+    }
+
+    // op.cancel bypasses the queue: it must interrupt the query that is currently
+    // occupying the worker, so it runs here on the UI thread. It only touches the
+    // thread-safe op registry and the driver's thread-safe cancel hook.
+    if (is_cancel_request(request)) {
+        char *response = dispatch_traced(request);
+        webview_return(w, id, 0, response != nullptr ? response : k_bridge_error);
+        if (response != nullptr) {
+            dbcore_ipc_free(response);
+        }
+        return;
+    }
+
+    // Everything else runs on the worker; the Promise stays pending until then.
+    {
+        std::lock_guard<std::mutex> lock(g_rpc_mtx);
+        g_rpc_jobs.push_back(RpcJob{id, std::move(request), w});
+    }
+    g_rpc_cv.notify_one();
 }
 
 // Load the embedded frontend bundle into the webview.
@@ -416,11 +533,27 @@ int main()
     webview_bind(w, "quaeroDownloadAndInstall", download_install_handler, w);
 #endif
 
+    // Start the RPC worker so queries run off the UI thread (the window stays
+    // responsive and op.cancel can interrupt a slow query).
+    g_rpc_worker = std::thread(rpc_worker_loop);
+
     // Load the embedded, self-contained frontend bundle (persistent origin on
     // Windows; set_html fallback otherwise).
     load_frontend(w);
 
     webview_run(w);
+
+    // Window closed: stop the worker and wait for any in-flight dispatch to
+    // finish before tearing down the runtime/plugins it may still be using. A
+    // query already running blocks the join until it returns (the user can
+    // cancel it first); queued-but-not-started jobs are abandoned.
+    {
+        std::lock_guard<std::mutex> lock(g_rpc_mtx);
+        g_rpc_stop = true;
+    }
+    g_rpc_cv.notify_one();
+    g_rpc_worker.join();
+
     webview_destroy(w);
 
     for (dbc_plugin *plugin : g_plugins) {

@@ -40,7 +40,7 @@ extern "C" {
  * into dbc_driver_t.abi_version; the core refuses to load a driver whose value
  * does not match (see dbc_driver_validate).
  */
-#define DBC_ABI_VERSION 5
+#define DBC_ABI_VERSION 6
 
 /* Canonical name of the exported entry symbol, for the dynamic loader. */
 #define DBC_DRIVER_ENTRY_SYMBOL "dbc_driver_entry"
@@ -95,6 +95,7 @@ typedef enum {
 #define DBC_FEAT_INTROSPECTION (1u << 4)  /* list_* / describe_table */
 #define DBC_FEAT_DDL           (1u << 5)  /* get_ddl: CREATE statement of an object */
 #define DBC_FEAT_DML           (1u << 6)  /* build_dml: single-row insert/update/delete */
+#define DBC_FEAT_CANCEL        (1u << 7)  /* cancel: interrupt a running query (ABI 6) */
 
 /*
  * Kind of single-row modification requested of build_dml (see below).
@@ -150,7 +151,9 @@ typedef struct {
  *     the next next_row / free_result call). The core never frees them.
  *
  * Threading: a single dbc_conn is used from one thread at a time; the core
- * serializes access. Distinct connections may be used concurrently.
+ * serializes access. Distinct connections may be used concurrently. The ONE
+ * exception is cancel (below): it may be called from another thread while a
+ * query runs on the same conn, so the driver must make that member thread-safe.
  */
 typedef struct {
     /* --- identity (required) --- */
@@ -213,6 +216,21 @@ typedef struct {
      * Returns DBC_ERR_UNSUPPORTED when the engine does not implement editing.
      */
     dbc_status  (*build_dml)(dbc_conn *c, dbc_dml_kind kind, const dbc_dml_row *row, dbc_result **out);
+
+    /*
+     * --- cancellation (optional; DBC_FEAT_CANCEL; added in ABI 6) ---
+     * Interrupt the query currently executing on `c`. UNLIKE every other vtable
+     * member, cancel MAY be called from a DIFFERENT thread than the one running
+     * query()/next_row() on the same `c` — it is the one documented exception to
+     * the single-thread-per-conn rule, so the driver MUST implement it in a
+     * thread-safe way (e.g. sqlite3_interrupt, or a side connection issuing
+     * KILL QUERY). It is a best-effort request that returns promptly: the running
+     * query observes the interruption and fails with a query error at its next
+     * step. Calling it when no query is running is a harmless no-op. Returns
+     * DBC_OK when the interrupt was delivered, DBC_ERR_UNSUPPORTED when the engine
+     * cannot cancel.
+     */
+    dbc_status  (*cancel)(dbc_conn *c);
 } dbc_driver_t;
 
 /* Type of the exported entry point. Returns the driver's static vtable. */

@@ -18,8 +18,10 @@ extern "C" {
    v2 added the M1 data path (conn.open / conn.close / query.run + -32000..).
    v3 adds schema introspection: schema.tree / schema.describe / schema.ddl.
    v4 adds transaction control: tx.begin / tx.commit / tx.rollback.
-   v5 adds row editing: row.insert / row.update / row.delete. */
-#define DBCORE_IPC_PROTOCOL_VERSION 6
+   v5 adds row editing: row.insert / row.update / row.delete.
+   v6 adds offset pagination to query.run (params.offset).
+   v7 adds op.cancel: interrupt a running query from the frontend. */
+#define DBCORE_IPC_PROTOCOL_VERSION 7
 
 /*
  * Handles a single JSON-RPC request and returns the response as a newly

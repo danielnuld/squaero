@@ -12,6 +12,7 @@ add_library(dbcore STATIC
   src/conn/ssh_tunnel.c
   src/query/result.c
   src/query/run.c
+  src/query/op_registry.c
   src/query/materialize.c
   src/query/schema.c
   src/query/tx.c
@@ -20,6 +21,7 @@ add_library(dbcore STATIC
   src/ipc/methods.c
   src/ipc/conn_methods.c
   src/ipc/query_methods.c
+  src/ipc/op_methods.c
   src/ipc/schema_methods.c
   src/ipc/tx_methods.c
   src/ipc/edit_methods.c
@@ -38,6 +40,13 @@ target_link_libraries(dbcore PRIVATE cjson)
 # The dynamic driver loader needs the platform dl library (libdl on Linux;
 # empty on Windows/macOS where dlopen lives in the C runtime).
 target_link_libraries(dbcore PRIVATE ${CMAKE_DL_LIBS})
+
+# The op registry (src/query/op_registry.c) locks a mutex shared between the RPC
+# worker and the UI thread. Windows uses a CRITICAL_SECTION (no extra library);
+# POSIX uses a pthread mutex, so pull in the threads library there. Threads::Threads
+# is a harmless no-op on Windows.
+find_package(Threads REQUIRED)
+target_link_libraries(dbcore PRIVATE Threads::Threads)
 
 # SSH tunnel: fetch libssh2 and compile the real port-forward (ssh_tunnel.c
 # switches on QUAERO_SSH). OFF by default — the standard build is dependency-free.

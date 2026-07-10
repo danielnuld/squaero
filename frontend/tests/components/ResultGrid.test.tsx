@@ -505,3 +505,40 @@ describe("ResultGrid selection + keyboard + bit display", () => {
     expect(host!.querySelector(".cell-selected")).toBeNull();
   });
 });
+
+describe("ResultGrid loading + cancel", () => {
+  it("shows a Cancelar button while loading and calls onCancel when clicked", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    let canceled = 0;
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={null}
+            loading={true}
+            error={null}
+            onCancel={() => canceled++}
+          />
+        ),
+        host!,
+      );
+    });
+    expect(host!.textContent).toContain("Ejecutando");
+    const btn = host!.querySelector<HTMLButtonElement>("button.grid-cancel")!;
+    expect(btn).not.toBeNull();
+    btn.click();
+    expect(canceled).toBe(1);
+  });
+
+  it("shows no cancel button when onCancel is absent", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ResultGrid result={null} loading={true} error={null} />, host!);
+    });
+    expect(host!.querySelector("button.grid-cancel")).toBeNull();
+  });
+});

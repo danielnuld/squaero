@@ -56,6 +56,14 @@ target_link_libraries(sqlite_smoke_test PRIVATE sqlite3 cjson)
 quaero_set_warnings(sqlite_smoke_test)
 add_test(NAME sqlite_smoke_test COMMAND sqlite_smoke_test)
 
+# Query cancellation: contract + a real, thread-free interrupt via a progress hook.
+add_executable(sqlite_cancel_test cancel_test.c ${SQLITE_DRIVER_TEST_SRC})
+target_include_directories(sqlite_cancel_test PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_SOURCE_DIR}/core/include)
+target_link_libraries(sqlite_cancel_test PRIVATE sqlite3 cjson)
+quaero_set_warnings(sqlite_cancel_test)
+add_test(NAME sqlite_cancel_test COMMAND sqlite_cancel_test)
+
 # Introspection: list_tables / describe_table / get_ddl through the vtable.
 add_executable(sqlite_introspect_test introspect_test.c ${SQLITE_DRIVER_TEST_SRC})
 target_include_directories(sqlite_introspect_test PRIVATE

@@ -7,7 +7,7 @@ Un driver es una biblioteca compartida (`.dll`/`.so`/`.dylib`) que exporta una f
 > documento describe el mismo contrato en prosa y **debe mantenerse
 > sincronizado** con el header. Ante cualquier discrepancia, el header manda.
 
-ABI actual: **`DBC_ABI_VERSION = 5`**.
+ABI actual: **`DBC_ABI_VERSION = 6`**.
 
 ## Punto de entrada
 
@@ -27,7 +27,7 @@ y vive mientras la biblioteca esté cargada.
 ## Versionado de ABI
 
 ```c
-#define DBC_ABI_VERSION 5
+#define DBC_ABI_VERSION 6
 ```
 
 El driver graba en `dbc_driver_t.abi_version` el valor contra el que se compiló.
@@ -101,6 +101,7 @@ significa que la celda sea `NULL` (eso lo indica `cell_text` devolviendo `NULL`)
 #define DBC_FEAT_INTROSPECTION (1u << 4)  /* list_* / describe_table */
 #define DBC_FEAT_DDL           (1u << 5)  /* get_ddl: CREATE de un objeto */
 #define DBC_FEAT_DML           (1u << 6)  /* build_dml: insert/update/delete de una fila */
+#define DBC_FEAT_CANCEL        (1u << 7)  /* cancel: interrumpir una consulta en curso (ABI 6) */
 ```
 
 `dbc_driver_t.features` es el OR de los flags soportados. Un driver advierte una
@@ -163,14 +164,24 @@ typedef struct {
        ("sql"), igual que get_ddl. El núcleo lo previsualiza y/o lo ejecuta por
        la vía normal de query. DBC_ERR_UNSUPPORTED si no se implementa. */
     dbc_status  (*build_dml)(dbc_conn *c, dbc_dml_kind kind, const dbc_dml_row *row, dbc_result **out);
+
+    /* --- cancelación (opcional; DBC_FEAT_CANCEL; añadido en ABI 6) ---
+       Interrumpe la consulta que corre en `c`. A diferencia del resto de la
+       vtable, PUEDE llamarse desde OTRO hilo mientras query()/next_row() corren
+       sobre el mismo `c`, así que el driver debe implementarla de forma
+       thread-safe (p. ej. sqlite3_interrupt, o una conexión lateral que emita
+       KILL QUERY). Best-effort: retorna pronto y la consulta observa la
+       interrupción en su siguiente paso. DBC_OK si se entregó, DBC_ERR_UNSUPPORTED
+       si el motor no puede cancelar. */
+    dbc_status  (*cancel)(dbc_conn *c);
 } dbc_driver_t;
 ```
 
 Los miembros **obligatorios** (identidad, ciclo de vida, ejecución y lectura del
 result set) deben ser no-`NULL` en todo driver y los verifica
 `dbc_driver_validate`. Los miembros **opcionales** (introspección, transacciones,
-`get_ddl`, `build_dml`) pueden ser `NULL` cuando la capacidad correspondiente no
-se advierte en `features`.
+`get_ddl`, `build_dml`, `cancel`) pueden ser `NULL` cuando la capacidad
+correspondiente no se advierte en `features`.
 
 El cambio de una fila viaja al driver como un `dbc_dml_row` neutral (tabla,
 columnas/valores a asignar, columnas/valores de la clave para el `WHERE`); un
@@ -200,7 +211,10 @@ columna `sql`.
   se libera el handle dueño (para `cell_text`/`col_name`, hasta el siguiente
   `next_row`/`free_result`). El núcleo nunca los libera.
 - **Thread-safety:** una `dbc_conn` se usa desde un solo hilo a la vez; el núcleo
-  serializa el acceso. Conexiones distintas pueden usarse en paralelo.
+  serializa el acceso. Conexiones distintas pueden usarse en paralelo. **Única
+  excepción:** `cancel` puede llamarse desde otro hilo mientras una consulta corre
+  sobre la misma `dbc_conn` (para poder interrumpirla), así que ese miembro debe
+  ser thread-safe.
 - **DSN:** la cadena de conexión llega como **JSON**
   (`{"host":...,"port":...,"user":...}`) para no acoplar el núcleo a parámetros
   específicos del motor.

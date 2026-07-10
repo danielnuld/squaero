@@ -2,13 +2,14 @@
 
 El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre el mecanismo `webview_bind`/`webview_eval` de la librería `webview`. Es la **única** frontera entre ambos mundos y se versiona con cuidado.
 
-> **Protocolo v6.** El dispatcher JSON-RPC del núcleo está implementado y
+> **Protocolo v7.** El dispatcher JSON-RPC del núcleo está implementado y
 > testeado (`core/src/ipc/`, entrada pública `dbcore_ipc_handle` en
 > `core/include/dbcore/ipc.h`). Cubre el camino de datos de M1
 > (`conn.open`/`conn.close`/`query.run` y el rango de errores de dominio
 > `-32000..`), la introspección de M3 (`schema.*`), la edición transaccional de
-> M7 (`tx.*` en v4, `row.*` en v5) y la paginación por offset de `query.run`
-> (`params.offset` en v6, issue #134). Este módulo es puro: JSON entra, JSON sale. El
+> M7 (`tx.*` en v4, `row.*` en v5), la paginación por offset de `query.run`
+> (`params.offset` en v6, issue #134) y la cancelación de una consulta en curso
+> (`op.cancel` en v7). Este módulo es puro: JSON entra, JSON sale. El
 > objeto `dsn` de `conn.open` es opaco al protocolo: el núcleo interpreta de él
 > los campos `ssh_*` (túnel, abajo) de forma aditiva y compatible, sin cambiar la
 > forma del método ni la versión.
@@ -50,10 +51,12 @@ del núcleo sería:
   "params": { "op": "transfer", "done": 12000, "total": 50000 } }
 ```
 
-Hoy no hay ninguna operación larga del lado del núcleo: Import/Export y
-Transferencia (M8/M9) corren en el frontend acotadas a la página cargada, así que
-no emiten `progress` ni existe `op.cancel`. Este bloque documenta la convención
-para cuando el núcleo gane una operación larga (p. ej. copia con streaming).
+`query.run` es la primera operación larga del lado del núcleo y **sí** es
+cancelable con `op.cancel` (abajo), pero no emite `progress`: entrega el result
+set de una sola vez (paginado), no en streaming. Import/Export y Transferencia
+(M8/M9) siguen corriendo en el frontend acotados a la página cargada, así que no
+emiten `progress`. Este bloque documenta la convención `progress` para cuando el
+núcleo gane una operación larga con avance incremental (p. ej. copia con streaming).
 
 ## Métodos
 
@@ -67,6 +70,7 @@ están más abajo.
 | `ping` | v2 | Liveness; eco de `params.message` |
 | `conn.open` / `conn.close` | v2 | Abrir/cerrar conexión activa |
 | `query.run` | v2 | Ejecutar SQL, devolver result set paginado |
+| `op.cancel` | v7 | Cancelar la consulta en curso de una conexión (requiere `DBC_FEAT_CANCEL`) |
 | `schema.tree` | v3 | Árbol de objetos (bases/esquemas/tablas), perezoso |
 | `schema.describe` | v3 | Estructura de una tabla |
 | `schema.ddl` | v3 | DDL `CREATE` de un objeto (requiere `DBC_FEAT_DDL`) |
@@ -242,6 +246,29 @@ el `type` neutral de cada columna le dice al frontend cómo formatearla (el núc
 no infiere ni convierte). Una sentencia sin result set (`INSERT`/`UPDATE`/DDL)
 devuelve `columns: []`, `rows: []` y `rowsAffected` con el conteo.
 
+**`op.cancel`** — solicita cancelar la consulta que está corriendo en una
+conexión. `params: { connId }`; resultado `{ canceled: bool }`. Como una conexión
+ejecuta una consulta a la vez, basta el `connId`: el núcleo busca la operación en
+curso y llama al hook `cancel` del driver. `canceled` es `true` **solo** cuando se
+entregó una cancelación al driver; una consulta que ya terminó (carrera benigna) o
+un motor que no puede cancelar devuelven `canceled: false` — ninguno es un error, y
+el frontend rehabilita su UI igual. Es *best-effort*: la consulta interrumpida
+falla luego con un error de consulta (`-32003`), que llega como el error normal de
+`query.run`.
+
+La cancelación real requiere que el driver anuncie `DBC_FEAT_CANCEL`; un motor sin
+soporte devuelve `canceled: false` en vez de fingir. A diferencia del resto de los
+métodos, el shell nativo despacha `op.cancel` **sin** encolarlo detrás de la
+consulta que interrumpe, y el hook `cancel` del driver corre en otro hilo mientras
+`query.run` sigue en vuelo — la única excepción documentada a la regla de un hilo
+por conexión (ver `docs/DRIVER_API.md`).
+
+```jsonc
+{ "jsonrpc": "2.0", "id": 3, "method": "op.cancel",
+  "params": { "connId": "c1" } }
+// -> result: { "canceled": true }
+```
+
 **`schema.tree`** — lista perezosa de un nivel del árbol de objetos. Sin `db`
 devuelve las **bases de datos**; con `db` (y sin `schema`) devuelve los
 **esquemas** del motor que los tenga (`DBC_FEAT_SCHEMAS`) o, si no, las **tablas**
@@ -331,7 +358,7 @@ El `id` de la petición se refleja en la respuesta (o `null` si no venía).
 
 1. **Paginación siempre.** `query.run` devuelve como máximo `limit` filas y marca `truncated`. La UI pide más bajo demanda. Nunca se vuelca un dataset completo de golpe.
 2. **El núcleo es la fuente de verdad de los tipos.** Cada columna lleva su `type` neutral; el frontend formatea, no infiere.
-3. **Operaciones largas (planeado).** El núcleo aún no expone ninguna operación larga: las que existen (import/export/transfer) corren en el frontend acotadas a la página. Cuando el núcleo gane una, emitirá `progress` y podrá cancelarse con `op.cancel` (ambos reservados, no implementados).
+3. **Operaciones largas.** `query.run` es una operación larga del núcleo y es cancelable con `op.cancel` (implementado). El shell la despacha en un hilo worker para no congelar la UI, y `op.cancel` viaja por un canal que no se encola detrás de la consulta que interrumpe. `progress` sigue reservado (no implementado): hoy `query.run` no reporta avance incremental, y import/export/transfer corren en el frontend acotados a la página.
 4. **Versionado:** el handshake inicial (`app.hello`) negocia la versión del protocolo. Ver [«Notas de versionado»](#notas-de-versionado).
 
 ## Notas de versionado
@@ -342,7 +369,7 @@ cuenta el layout de la vtable núcleo↔driver. Suelen subir juntos porque una
 capacidad nueva toca ambos, pero no tienen por qué.
 
 **Cómo se negocia.** Al arrancar, el frontend llama `app.hello` y lee
-`result.protocolVersion` (hoy **5**). Esa es la fuente de verdad en runtime; la
+`result.protocolVersion` (hoy **7**). Esa es la fuente de verdad en runtime; la
 constante vive en el núcleo (`app.hello` la reporta) y este documento la refleja.
 
 **Qué sube la versión del protocolo** (cualquiera de estos es un cambio
@@ -367,7 +394,9 @@ incompatible que debe discutirse en un issue antes, porque rompe a todo cliente)
 | v4 | M7 | `tx.begin`/`tx.commit`/`tx.rollback` |
 | v5 | M7 | `row.insert`/`row.update`/`row.delete` |
 | v6 | M10.6 | `query.run` acepta `params.offset` (paginación por offset, #134) |
+| v7 | M10.6 | `op.cancel`: cancelar la consulta en curso de una conexión |
 
 M8 (Import/Export) y M9 (Transferencia/sincronización) **no** subieron la versión:
 se implementaron en el frontend sobre los métodos existentes. La v6 sí sube porque
-añade un parámetro nuevo a un método (aunque sea opcional y compatible).
+añade un parámetro nuevo a un método (aunque sea opcional y compatible). La v7 sube
+porque agrega un método nuevo (`op.cancel`).

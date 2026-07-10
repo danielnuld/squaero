@@ -11,6 +11,7 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { runQuery, type ResultSet } from "./utils/query";
+import { cancelQuery } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection } from "./utils/conn";
 import {
@@ -960,6 +961,16 @@ export function App() {
     }
   };
 
+  // Cancel the query running in the current tab (op.cancel). Best-effort: the
+  // core interrupts the driver where it can (e.g. SQLite); the awaited runQuery
+  // then rejects with a query error, which the run() catch turns into the tab's
+  // error state. Harmless when nothing is running or the engine cannot cancel.
+  const cancelActive = () => {
+    const tab = current();
+    const conn = tab ? tabConn(tab) : undefined;
+    if (conn) void cancelQuery(conn.connId).catch(() => {});
+  };
+
   // Offset pagination (issue #134): re-run the current result at the previous /
   // next page. Guarded while editing so a page turn never discards pending
   // changes. Table previews regenerate their paged SQL (server-side offset); a
@@ -1669,6 +1680,7 @@ export function App() {
                           />
                         }
                         onCellContext={onCellContext}
+                        onCancel={cancelActive}
                         onRequestEdit={
                           currentEditable() && !currentEdit().editing ? beginEdit : undefined
                         }

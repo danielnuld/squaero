@@ -6,9 +6,10 @@
  *
  * Capabilities: connect + query + result-set (required), plus introspection
  * (list_databases / list_tables / describe_table), DDL generation (get_ddl),
- * transactions (begin / commit / rollback) and single-row data modification
- * (build_dml). SQLite has no schemas within a database, so list_schemas is left
- * NULL and DBC_FEAT_SCHEMAS is not advertised.
+ * transactions (begin / commit / rollback), single-row data modification
+ * (build_dml) and query cancellation (cancel, via sqlite3_interrupt). SQLite has
+ * no schemas within a database, so list_schemas is left NULL and DBC_FEAT_SCHEMAS
+ * is not advertised.
  */
 static const dbc_driver_t k_sqlite_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -41,8 +42,10 @@ static const dbc_driver_t k_sqlite_driver = {
 
     .build_dml     = sqlite_build_dml,
 
+    .cancel        = sqlite_cancel,
+
     .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL |
-                     DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML,
+                     DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML | DBC_FEAT_CANCEL,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)

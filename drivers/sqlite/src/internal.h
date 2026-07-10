@@ -44,6 +44,10 @@ dbc_status   sqlite_begin(dbc_conn *c);
 dbc_status   sqlite_commit(dbc_conn *c);
 dbc_status   sqlite_rollback(dbc_conn *c);
 
+/* --- cancellation (DBC_FEAT_CANCEL) --- */
+/* Thread-safe: may be called while another thread runs sqlite_query/next_row. */
+dbc_status   sqlite_cancel(dbc_conn *c);
+
 /* --- metadata.c (DBC_FEAT_INTROSPECTION) --- */
 /* Prepare a result-set statement and wrap it as a dbc_result without stepping;
    arg1/arg2, when non-NULL, are bound to ?1/?2 as text. Shared by metadata/ddl. */

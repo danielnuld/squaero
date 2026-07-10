@@ -126,3 +126,21 @@ static dbc_status sqlite_exec_control(dbc_conn *c, const char *sql)
 dbc_status sqlite_begin(dbc_conn *c)    { return sqlite_exec_control(c, "BEGIN"); }
 dbc_status sqlite_commit(dbc_conn *c)   { return sqlite_exec_control(c, "COMMIT"); }
 dbc_status sqlite_rollback(dbc_conn *c) { return sqlite_exec_control(c, "ROLLBACK"); }
+
+/*
+ * Interrupt the query running on c (DBC_FEAT_CANCEL). sqlite3_interrupt is the
+ * SQLite primitive purpose-built for this: it is explicitly safe to call from a
+ * DIFFERENT thread than the one inside sqlite3_step, and it makes that step (and
+ * the ones after it, until the statement resets) return SQLITE_INTERRUPT — which
+ * sqlite_next_row / sqlite_query already surface as DBC_ERR_QUERY ("interrupted").
+ * A no-op with no running statement, so calling it after the query finished is
+ * harmless.
+ */
+dbc_status sqlite_cancel(dbc_conn *c)
+{
+    if (c == NULL || c->db == NULL) {
+        return DBC_ERR_UNSUPPORTED;
+    }
+    sqlite3_interrupt(c->db);
+    return DBC_OK;
+}

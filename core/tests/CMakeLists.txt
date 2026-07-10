@@ -109,6 +109,18 @@ target_link_libraries(query_run_test PRIVATE dbcore cjson)
 quaero_set_warnings(query_run_test)
 add_test(NAME query_run_test COMMAND query_run_test)
 
+# In-flight op registry: cancel routing, feature gating, idle/no-op cases.
+add_executable(op_registry_test query/op_registry_test.c)
+target_link_libraries(op_registry_test PRIVATE dbcore)
+quaero_set_warnings(op_registry_test)
+add_test(NAME op_registry_test COMMAND op_registry_test)
+
+# op.cancel IPC method, end-to-end through the public dispatcher.
+add_executable(op_cancel_test ipc/op_cancel_test.c)
+target_link_libraries(op_cancel_test PRIVATE dbcore cjson)
+quaero_set_warnings(op_cancel_test)
+add_test(NAME op_cancel_test COMMAND op_cancel_test)
+
 # Schema introspection layer (routing + unsupported + param validation).
 add_executable(schema_test query/schema_test.c)
 target_link_libraries(schema_test PRIVATE dbcore)

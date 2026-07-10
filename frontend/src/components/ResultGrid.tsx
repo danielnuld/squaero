@@ -56,6 +56,9 @@ export function ResultGrid(props: {
   /** Ask the workspace to enter edit mode (double-click / Enter on a cell in a
       read-only but editable table). No-op when absent → the grid stays read-only. */
   onRequestEdit?: () => void;
+  /** Cancel the running query (op.cancel). When present, a Cancelar button shows
+      alongside the "Ejecutando…" state; absent → no cancel affordance. */
+  onCancel?: () => void;
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
   const [scrollTop, setScrollTop] = createSignal(0);
@@ -500,7 +503,18 @@ export function ResultGrid(props: {
       </Show>
 
       <Show when={props.loading}>
-        <div class="grid-empty">Ejecutando…</div>
+        <div class="grid-empty grid-running">
+          <span>Ejecutando…</span>
+          <Show when={props.onCancel}>
+            <button
+              class="grid-cancel"
+              type="button"
+              onClick={() => props.onCancel?.()}
+            >
+              Cancelar
+            </button>
+          </Show>
+        </div>
       </Show>
     </div>
   );

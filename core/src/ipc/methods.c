@@ -1,6 +1,7 @@
 #include "methods.h"
 #include "conn_methods.h"
 #include "query_methods.h"
+#include "op_methods.h"
 #include "schema_methods.h"
 #include "tx_methods.h"
 #include "edit_methods.h"
@@ -71,6 +72,9 @@ ipc_method_fn ipc_method_lookup(const char *method)
     }
     if (strcmp(method, "query.run") == 0) {
         return ipc_method_query_run;
+    }
+    if (strcmp(method, "op.cancel") == 0) {
+        return ipc_method_op_cancel;
     }
     if (strcmp(method, "schema.tree") == 0) {
         return ipc_method_schema_tree;

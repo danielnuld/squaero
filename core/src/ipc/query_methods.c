@@ -4,6 +4,7 @@
 #include "result_json.h"
 #include "rpc.h"
 
+#include "dbcore/op_registry.h"
 #include "dbcore/query.h"
 #include "dbcore/result.h"
 #include "dbcore/runtime.h"
@@ -80,9 +81,13 @@ cJSON *ipc_method_query_run(const cJSON *params, int *code, const char **message
         return NULL;
     }
 
+    /* Publish the running query so op.cancel (arriving on another thread) can
+       reach the driver's cancel hook while this call blocks. Cleared on return. */
+    dbcore_op_begin(id, ref.driver, ref.handle);
     dbcore_result *res = NULL;
     dbc_status st = dbcore_query_run(&ref, sql->valuestring, limit, offset, &res,
                                      g_query_error, sizeof g_query_error);
+    dbcore_op_end(id);
     if (st != DBC_OK) {
         *code = ipc_status_to_code(st);
         *message = g_query_error[0] != '\0' ? g_query_error : "query failed";

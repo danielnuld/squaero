@@ -5,6 +5,7 @@
 
 import {
   buildRequest,
+  isError,
   nextId,
   parseResponse,
   type JsonRpcResponse,
@@ -42,4 +43,20 @@ export async function call(
   return typeof result === "string"
     ? parseResponse(result)
     : (result as JsonRpcResponse);
+}
+
+/**
+ * Requests cancellation of the query currently running on `connId` (op.cancel).
+ * Resolves with true only when the core actually delivered a cancel to the
+ * driver; a query that already finished, or an engine that cannot cancel, both
+ * resolve false (neither is an error). Safe to call when nothing is running.
+ * This travels on a channel the core dispatches WITHOUT queueing behind the
+ * running query, so it reaches the driver while the query is still in flight.
+ */
+export async function cancelQuery(connId: string): Promise<boolean> {
+  const res = await call("op.cancel", { connId });
+  if (isError(res)) {
+    return false;
+  }
+  return Boolean((res.result as { canceled?: boolean } | undefined)?.canceled);
 }

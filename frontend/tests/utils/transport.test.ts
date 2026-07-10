@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { call, hasBridge } from "../../src/utils/transport";
+import { call, cancelQuery, hasBridge } from "../../src/utils/transport";
 import { isError } from "../../src/utils/ipc";
 
 interface BridgeHost {
@@ -60,6 +60,46 @@ describe("transport", () => {
       if (!isError(response)) {
         expect(response.result).toEqual({ pong: true });
       }
+    });
+  });
+
+  describe("cancelQuery", () => {
+    it("sends op.cancel with the connId and returns the canceled flag", async () => {
+      const rpc = vi.fn(async (raw: string) => {
+        const req = JSON.parse(raw) as { id: number | string };
+        return { jsonrpc: "2.0", id: req.id, result: { canceled: true } };
+      });
+      (globalThis as BridgeHost).quaeroRpc = rpc;
+
+      const canceled = await cancelQuery("c3");
+
+      const sent = JSON.parse(rpc.mock.calls[0][0]) as {
+        method: string;
+        params: unknown;
+      };
+      expect(sent.method).toBe("op.cancel");
+      expect(sent.params).toEqual({ connId: "c3" });
+      expect(canceled).toBe(true);
+    });
+
+    it("returns false when nothing was canceled", async () => {
+      (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+        const req = JSON.parse(raw) as { id: number | string };
+        return { jsonrpc: "2.0", id: req.id, result: { canceled: false } };
+      };
+      expect(await cancelQuery("c1")).toBe(false);
+    });
+
+    it("returns false on an error response instead of throwing", async () => {
+      (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+        const req = JSON.parse(raw) as { id: number | string };
+        return {
+          jsonrpc: "2.0",
+          id: req.id,
+          error: { code: -32602, message: "malformed connId" },
+        };
+      };
+      expect(await cancelQuery("bad")).toBe(false);
     });
   });
 });
