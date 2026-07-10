@@ -128,5 +128,14 @@ dbc_status  ifx_list_databases(dbc_conn *c, dbc_result **out);
 dbc_status  ifx_list_tables(dbc_conn *c, const char *schema, dbc_result **out);
 dbc_status  ifx_describe_table(dbc_conn *c, const char *schema,
                                const char *table, dbc_result **out);
+/* Shared catalog helpers (defined in metadata.c). */
+int         ifx_is_safe_ident(const char *s);      /* safe unquoted identifier? */
+char       *ifx_quote_literal(const char *value);  /* owned '<escaped>' literal  */
+
+/* --- ddl.c (DBC_FEAT_DDL) --- */
+/* Reconstruct the CREATE statement of `object` (table or view) as a one-column
+   ("sql") result, synthesized from the system catalogs. */
+dbc_status  ifx_get_ddl(dbc_conn *c, const char *schema, const char *object,
+                        dbc_result **out);
 
 #endif /* QUAERO_INFORMIX_INTERNAL_H */

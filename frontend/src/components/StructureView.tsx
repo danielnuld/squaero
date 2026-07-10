@@ -28,6 +28,7 @@ export function StructureView(props: {
   const [columns, setColumns] = createSignal<ResultSet | null>(null);
   const [ddl, setDdl] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
+  const [ddlError, setDdlError] = createSignal<string | null>(null);
   const [copied, setCopied] = createSignal(false);
 
   // View-editing state (issue #108).
@@ -46,15 +47,23 @@ export function StructureView(props: {
   };
 
   onMount(() => {
+    // Load the column structure and the DDL INDEPENDENTLY: an engine that cannot
+    // produce a CREATE statement (no get_ddl) must still show the columns, rather
+    // than one failing call hiding the whole structure (issue: Informix DDL).
     void (async () => {
       try {
-        const [cols] = await Promise.all([
-          schemaDescribe(props.connId, props.table, props.db, props.schema),
-          loadDdl(),
-        ]);
-        setColumns(cols);
+        setColumns(
+          await schemaDescribe(props.connId, props.table, props.db, props.schema),
+        );
       } catch (err) {
         setError(errorText(err));
+      }
+    })();
+    void (async () => {
+      try {
+        await loadDdl();
+      } catch (err) {
+        setDdlError(errorText(err));
       }
     })();
   });
@@ -173,7 +182,14 @@ export function StructureView(props: {
 
         <Show
           when={editing()}
-          fallback={<pre class="ddl-text">{ddl() || "—"}</pre>}
+          fallback={
+            <Show
+              when={ddlError()}
+              fallback={<pre class="ddl-text">{ddl() || "—"}</pre>}
+            >
+              <p class="test-error">DDL no disponible: {ddlError()}</p>
+            </Show>
+          }
         >
           <textarea
             class="ddl-edit"

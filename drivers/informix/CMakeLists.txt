@@ -66,6 +66,7 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
     src/connection.c
     src/query.c
     src/metadata.c
+    src/ddl.c
     src/edit.c
     src/utils/types.c
     src/utils/odbc_types.c
@@ -94,6 +95,7 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
       src/connection.c
       src/query.c
       src/metadata.c
+      src/ddl.c
       src/edit.c
       src/utils/types.c
       src/utils/odbc_types.c

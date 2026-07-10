@@ -1,5 +1,7 @@
 #include "types.h"
 
+#include <stdio.h>
+
 /*
  * Informix SQL type codes, mirrored from the CSDK's sqltypes.h. They are a
  * stable part of the client interface; mirroring them here lets the mapping be
@@ -116,5 +118,109 @@ dbc_type informix_type_to_neutral(int informix_type)
     default:
         /* Unknown/future codes exchange as text (their textual form is safe). */
         return DBC_TYPE_TEXT;
+    }
+}
+
+/*
+ * DATETIME/INTERVAL qualifier field name for a time-unit code, or NULL if the
+ * code is not a recognized field. FRACTION codes (11..15) carry a scale of
+ * code-10 and all share the name FRACTION.
+ */
+static const char *dtime_field(int code)
+{
+    switch (code) {
+    case 0:  return "YEAR";
+    case 2:  return "MONTH";
+    case 4:  return "DAY";
+    case 6:  return "HOUR";
+    case 8:  return "MINUTE";
+    case 10: return "SECOND";
+    case 11: case 12: case 13: case 14: case 15: return "FRACTION";
+    default: return NULL;
+    }
+}
+
+/*
+ * Render a DATETIME/INTERVAL qualifier from collength, which encodes
+ *   collength = total_digits*256 + largest_field*16 + smallest_field
+ * (field codes as in dtime_field). Produces "<kw> <largest> TO <smallest>",
+ * with FRACTION carrying its scale, e.g. "DATETIME YEAR TO FRACTION(3)". Falls
+ * back to the bare keyword when the codes are unrecognized.
+ */
+static void render_dtime(int collength, const char *kw, char *buf, size_t cap)
+{
+    int largest  = (collength % 256) / 16;
+    int smallest = collength % 16;
+    const char *lg = dtime_field(largest);
+    const char *sm = dtime_field(smallest);
+    if (lg == NULL || sm == NULL) {
+        snprintf(buf, cap, "%s", kw);
+        return;
+    }
+    if (smallest >= 11) {
+        /* smallest is FRACTION(n): "<kw> <largest> TO FRACTION(n)". */
+        snprintf(buf, cap, "%s %s TO FRACTION(%d)", kw, lg, smallest - 10);
+    } else if (largest == smallest) {
+        snprintf(buf, cap, "%s %s", kw, lg);
+    } else {
+        snprintf(buf, cap, "%s %s TO %s", kw, lg, sm);
+    }
+}
+
+void informix_col_type_str(int coltype, int collength, char *buf, size_t cap)
+{
+    if (buf == NULL || cap == 0) {
+        return;
+    }
+    int cl = collength;  /* signed; the standard encodings are non-negative */
+    switch (coltype & IFX_SQLTYPE_MASK) {
+    case IFX_SQLCHAR:     snprintf(buf, cap, "CHAR(%d)", cl); break;
+    case IFX_SQLSMINT:    snprintf(buf, cap, "SMALLINT"); break;
+    case IFX_SQLINT:      snprintf(buf, cap, "INTEGER"); break;
+    case IFX_SQLFLOAT:    snprintf(buf, cap, "FLOAT"); break;
+    case IFX_SQLSMFLOAT:  snprintf(buf, cap, "SMALLFLOAT"); break;
+    case IFX_SQLDECIMAL: {
+        int prec = cl / 256, scale = cl % 256;
+        if (scale == 255) snprintf(buf, cap, "DECIMAL(%d)", prec);   /* floating */
+        else              snprintf(buf, cap, "DECIMAL(%d,%d)", prec, scale);
+        break;
+    }
+    case IFX_SQLSERIAL:   snprintf(buf, cap, "SERIAL"); break;
+    case IFX_SQLDATE:     snprintf(buf, cap, "DATE"); break;
+    case IFX_SQLMONEY: {
+        int prec = cl / 256, scale = cl % 256;
+        snprintf(buf, cap, "MONEY(%d,%d)", prec, scale);
+        break;
+    }
+    case IFX_SQLDTIME:    render_dtime(cl, "DATETIME", buf, cap); break;
+    case IFX_SQLBYTES:    snprintf(buf, cap, "BYTE"); break;
+    case IFX_SQLTEXT:     snprintf(buf, cap, "TEXT"); break;
+    case IFX_SQLVCHAR: {
+        int max = cl % 256, min = cl / 256;
+        if (min > 0) snprintf(buf, cap, "VARCHAR(%d,%d)", max, min);
+        else         snprintf(buf, cap, "VARCHAR(%d)", max);
+        break;
+    }
+    case IFX_SQLINTERVAL: render_dtime(cl, "INTERVAL", buf, cap); break;
+    case IFX_SQLNCHAR:    snprintf(buf, cap, "NCHAR(%d)", cl); break;
+    case IFX_SQLNVCHAR: {
+        int max = cl % 256, min = cl / 256;
+        if (min > 0) snprintf(buf, cap, "NVARCHAR(%d,%d)", max, min);
+        else         snprintf(buf, cap, "NVARCHAR(%d)", max);
+        break;
+    }
+    case IFX_SQLINT8:     snprintf(buf, cap, "INT8"); break;
+    case IFX_SQLSERIAL8:  snprintf(buf, cap, "SERIAL8"); break;
+    case IFX_SQLLVARCHAR:
+    case IFX_SQLUDTVAR:   snprintf(buf, cap, "LVARCHAR(%d)", cl > 0 ? cl : 1); break;
+    case IFX_SQLBOOL:     snprintf(buf, cap, "BOOLEAN"); break;
+    case IFX_SQLINFXBIGINT: snprintf(buf, cap, "BIGINT"); break;
+    case IFX_SQLBIGSERIAL: snprintf(buf, cap, "BIGSERIAL"); break;
+    default:
+        /* Exotic/opaque types (collections, row, fixed UDT, ...) have no simple
+           declaration; emit a plausible variable-text column so the CREATE still
+           parses rather than emitting a broken type. */
+        snprintf(buf, cap, "LVARCHAR(%d)", cl > 0 ? cl : 1);
+        break;
     }
 }

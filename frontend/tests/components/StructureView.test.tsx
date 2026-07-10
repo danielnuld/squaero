@@ -147,4 +147,47 @@ describe("StructureView view editing", () => {
     );
     expect(hasEdit).toBe(false);
   });
+
+  // Regression (Informix): when schema.ddl fails (engine can't produce a CREATE),
+  // the column structure must still render — a failing DDL call must not hide it.
+  it("still shows the columns when the DDL call errors", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string };
+      if (req.method === "schema.describe") {
+        return {
+          jsonrpc: "2.0",
+          id: req.id,
+          result: {
+            columns: [{ name: "name", type: "text" }, { name: "pk", type: "int" }],
+            rows: [["id", "1"]],
+            truncated: false,
+            rowsAffected: 0,
+          },
+        };
+      }
+      // schema.ddl → domain error (unsupported), like Informix before get_ddl.
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        error: { code: -32001, message: "get_ddl not supported" },
+      };
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <StructureView connId="c1" table="t" kind="table" engine="informix" onClose={() => {}} />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    // Columns render...
+    expect(host!.querySelector("table.struct-table")).not.toBeNull();
+    expect(host!.textContent).toContain("id");
+    // ...and the DDL area degrades to a note instead of taking down the view.
+    expect(host!.textContent).toContain("DDL no disponible");
+  });
 });

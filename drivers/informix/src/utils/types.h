@@ -3,6 +3,8 @@
 
 #include "dbcore/driver.h"
 
+#include <stddef.h>
+
 /*
  * Informix type mapping.
  *
@@ -20,5 +22,18 @@
  * therefore resolved in the value-fetch layer (issue #70 criterion), not here.
  */
 dbc_type informix_type_to_neutral(int informix_type);
+
+/*
+ * Render an Informix column type as its SQL declaration text (e.g. "CHAR(20)",
+ * "VARCHAR(50)", "DECIMAL(10,2)", "DATETIME YEAR TO SECOND"), for get_ddl. This
+ * is the inverse of what the catalog stores: `coltype` is the syscolumns type
+ * code (base in the low byte, flags above — the NOT NULL flag is ignored here)
+ * and `collength` is its length/precision/qualifier encoding, decoded per the
+ * documented syscolumns formulas. Writes a NUL-terminated string into buf (never
+ * overflowing cap); exotic/opaque types fall back to a plausible declaration so
+ * the emitted CREATE stays syntactically valid. Pure — no CSDK headers — so it
+ * is unit-tested without an Informix client.
+ */
+void informix_col_type_str(int coltype, int collength, char *buf, size_t cap);
 
 #endif /* QUAERO_INFORMIX_TYPES_H */
