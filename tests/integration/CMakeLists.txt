@@ -25,6 +25,17 @@ if(TARGET mongodb_driver)
   quaero_set_warnings(mongodb_integration_test)
   add_test(NAME mongodb_integration_test COMMAND mongodb_integration_test
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+  # Cancel contract: asserts the driver honestly does NOT advertise cancellation
+  # (mongoc has no thread-safe interrupt). Needs no server — just the plugin.
+  add_executable(mongodb_cancel_test mongodb_cancel_test.c)
+  target_link_libraries(mongodb_cancel_test PRIVATE dbcore cjson)
+  target_compile_definitions(mongodb_cancel_test PRIVATE
+    MONGODB_PLUGIN_PATH="$<TARGET_FILE:mongodb_driver>")
+  add_dependencies(mongodb_cancel_test mongodb_driver)
+  quaero_set_warnings(mongodb_cancel_test)
+  add_test(NAME mongodb_cancel_test COMMAND mongodb_cancel_test
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
 # MySQL integration runs only when the driver was built (client lib present).

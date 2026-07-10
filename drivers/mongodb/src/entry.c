@@ -14,6 +14,15 @@
  * NULL and their flags unset). TLS is available through the connection URI but no
  * dedicated ssl_* configuration surface is exposed, so DBC_FEAT_SSL is not
  * advertised either.
+ *
+ * Query cancellation (DBC_FEAT_CANCEL) is intentionally NOT advertised. Unlike
+ * SQLite (sqlite3_interrupt), MySQL (KILL QUERY) and Informix (SQLCancel), the
+ * mongo-c-driver offers no thread-safe way to interrupt an in-flight operation:
+ * a mongoc_client_t may not be touched from a second thread while a query runs,
+ * and the only out-of-band mechanism (killOp) needs admin privileges plus racy
+ * opid discovery. Rather than fake a cancel that usually cannot work, the driver
+ * leaves .cancel NULL; the app still runs the query off the UI thread (so the
+ * window stays responsive) and op.cancel honestly reports canceled:false.
  */
 static const dbc_driver_t k_mongodb_driver = {
     .abi_version   = DBC_ABI_VERSION,
