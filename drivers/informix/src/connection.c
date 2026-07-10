@@ -39,6 +39,94 @@ void ifx_set_err(dbc_conn *c, const char *msg)
     c->err[n] = '\0';
 }
 
+/* --- active-statement tracking (thread-safe), for cancel ------------------ */
+
+static void lock_init(dbc_conn *c)
+{
+#if defined(_WIN32)
+    InitializeCriticalSection(&c->stmt_lock);
+#else
+    pthread_mutex_init(&c->stmt_lock, NULL);
+#endif
+    c->lock_ready = 1;
+}
+
+static void lock_destroy(dbc_conn *c)
+{
+    if (!c->lock_ready) {
+        return;
+    }
+#if defined(_WIN32)
+    DeleteCriticalSection(&c->stmt_lock);
+#else
+    pthread_mutex_destroy(&c->stmt_lock);
+#endif
+    c->lock_ready = 0;
+}
+
+static void lock_acquire(dbc_conn *c)
+{
+#if defined(_WIN32)
+    EnterCriticalSection(&c->stmt_lock);
+#else
+    pthread_mutex_lock(&c->stmt_lock);
+#endif
+}
+
+static void lock_release(dbc_conn *c)
+{
+#if defined(_WIN32)
+    LeaveCriticalSection(&c->stmt_lock);
+#else
+    pthread_mutex_unlock(&c->stmt_lock);
+#endif
+}
+
+void ifx_track_stmt(dbc_conn *c, SQLHSTMT s)
+{
+    if (c == NULL || !c->lock_ready) {
+        return;
+    }
+    lock_acquire(c);
+    c->active_stmt = s;
+    lock_release(c);
+}
+
+void ifx_untrack_stmt(dbc_conn *c, SQLHSTMT s)
+{
+    if (c == NULL || !c->lock_ready) {
+        return;
+    }
+    lock_acquire(c);
+    if (c->active_stmt == s) {
+        c->active_stmt = NULL;
+    }
+    lock_release(c);
+}
+
+dbc_status ifx_cancel(dbc_conn *c)
+{
+    if (c == NULL || !c->lock_ready) {
+        return DBC_ERR_UNSUPPORTED;
+    }
+    /* Hold the lock across SQLCancel so the worker's free path (which clears
+       active_stmt then frees the handle, also under the lock) cannot free the
+       statement out from under us. SQLCancel is a quick, thread-safe ODBC call
+       purpose-built to interrupt a SQLExecDirect/SQLFetch running on another
+       thread, so the lock is held only briefly. */
+    lock_acquire(c);
+    dbc_status st;
+    if (c->active_stmt == NULL) {
+        st = DBC_ERR_PARAM;  /* nothing running on this connection */
+    } else {
+        SQLRETURN rc = SQLCancel(c->active_stmt);
+        st = (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO)
+                 ? DBC_OK : DBC_ERR_UNSUPPORTED;
+    }
+    lock_release(c);
+    return st;
+}
+
 void ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h, const char *ctx)
 {
     if (c == NULL) {
@@ -94,6 +182,10 @@ dbc_status ifx_connect(const char *dsn_json, dbc_conn **out)
     if (c == NULL) {
         return DBC_ERR_NOMEM;
     }
+
+    /* Initialize the cancel lock before any early return, so every handle we
+       hand back (including error-state ones) has a valid, destroyable lock. */
+    lock_init(c);
 
     if (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &c->env) != SQL_SUCCESS) {
         ifx_set_err(c, "SQLAllocHandle(ENV) failed");
@@ -180,6 +272,7 @@ void ifx_disconnect(dbc_conn *c)
     if (c->env != NULL) {
         SQLFreeHandle(SQL_HANDLE_ENV, c->env);
     }
+    lock_destroy(c);
     free(c);
 }
 

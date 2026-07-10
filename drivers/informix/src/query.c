@@ -116,9 +116,16 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
         return DBC_ERR_QUERY;
     }
 
+    /* Publish the statement so a concurrent ifx_cancel can SQLCancel it while the
+       (possibly long) SQLExecDirect / SQLFetch below runs. r->conn lets the free
+       paths untrack it. */
+    r->conn = c;
+    ifx_track_stmt(c, r->stmt);
+
     SQLRETURN rc = SQLExecDirect(r->stmt, (SQLCHAR *)sql, SQL_NTS);
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         ifx_stash_diag(c, SQL_HANDLE_STMT, r->stmt, "query");
+        ifx_untrack_stmt(c, r->stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, r->stmt);
         free(r);
         return DBC_ERR_QUERY;
@@ -132,6 +139,7 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
         SQLRowCount(r->stmt, &affected);
         r->affected = (long long)affected;
         r->has_resultset = 0;
+        ifx_untrack_stmt(c, r->stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, r->stmt);
         r->stmt = NULL;
         *out = r;
@@ -158,6 +166,12 @@ void ifx_free_result(dbc_result *r)
         return;
     }
     if (r->stmt != NULL) {
+        /* Stop tracking before freeing so a cancel racing in cannot SQLCancel a
+           freed handle: ifx_untrack_stmt clears active_stmt under the same lock
+           ifx_cancel holds, so once this returns no cancel is mid-flight on it. */
+        if (r->conn != NULL) {
+            ifx_untrack_stmt(r->conn, r->stmt);
+        }
         SQLFreeHandle(SQL_HANDLE_STMT, r->stmt);
     }
     free_result_arrays(r);

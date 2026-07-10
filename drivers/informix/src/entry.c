@@ -7,8 +7,9 @@
  * Capabilities: connect + query + result-set (required), introspection
  * (list_databases / list_tables / describe_table), transactions (begin/commit/
  * rollback via ODBC autocommit + SQLEndTran) and single-row data modification
- * (build_dml). Informix databases play the role of the top tree level (owners
- * are not exposed as a separate schema layer), so list_schemas is NULL and
+ * (build_dml) and query cancellation (cancel, via ODBC SQLCancel on a side
+ * thread). Informix databases play the role of the top tree level (owners are
+ * not exposed as a separate schema layer), so list_schemas is NULL and
  * DBC_FEAT_SCHEMAS is not advertised. DDL generation and TLS are honestly absent
  * for now (their members are NULL and their flags unset).
  */
@@ -42,7 +43,10 @@ static const dbc_driver_t k_informix_driver = {
 
     .build_dml     = ifx_build_dml,
 
-    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML,
+    .cancel        = ifx_cancel,
+
+    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_TRANSACTIONS | DBC_FEAT_DML |
+                     DBC_FEAT_CANCEL,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)

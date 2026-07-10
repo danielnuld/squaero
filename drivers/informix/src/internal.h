@@ -23,12 +23,30 @@
 #include <sql.h>
 #include <sqlext.h>
 
+#if !defined(_WIN32)
+#  include <pthread.h>
+#endif
+
+/* Per-connection lock guarding active_stmt against the cancel thread. Windows
+   uses a CRITICAL_SECTION (no extra library); elsewhere a pthread mutex. */
+#if defined(_WIN32)
+typedef CRITICAL_SECTION ifx_mutex;
+#else
+typedef pthread_mutex_t ifx_mutex;
+#endif
+
 /* A live connection: an ODBC environment + connection handle. */
 struct dbc_conn {
-    SQLHENV env;
-    SQLHDBC dbc;
-    int     connected;     /* 1 once SQLDriverConnect succeeded */
-    char    err[1024];     /* last error (diagnostics or a driver-side reason) */
+    SQLHENV   env;
+    SQLHDBC   dbc;
+    int       connected;     /* 1 once SQLDriverConnect succeeded */
+    char      err[1024];     /* last error (diagnostics or a driver-side reason) */
+    /* The statement currently executing/fetching on this connection, or NULL.
+       Published by the worker thread (query.c) and read by ifx_cancel on another
+       thread to SQLCancel it, so every access is serialized by stmt_lock. */
+    SQLHSTMT  active_stmt;
+    ifx_mutex stmt_lock;
+    int       lock_ready;    /* 1 once stmt_lock is initialized (see ifx_connect) */
 };
 
 /*
@@ -41,6 +59,7 @@ struct dbc_conn {
  */
 struct dbc_result {
     SQLHSTMT   stmt;
+    dbc_conn  *conn;        /* owner, for untracking active_stmt at free (or NULL) */
     int        ncols;
     char     **col_names;   /* [ncols] owned */
     short     *col_types;   /* [ncols] ODBC SQL type codes */
@@ -71,6 +90,13 @@ void        ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h,
                            const char *ctx);
 /* Set a plain driver-side error reason on the connection. */
 void        ifx_set_err(dbc_conn *c, const char *msg);
+/* Cancel the running query (DBC_FEAT_CANCEL). Thread-safe: SQLCancel the tracked
+   active statement under stmt_lock, so it may run while the worker fetches. */
+dbc_status  ifx_cancel(dbc_conn *c);
+/* Publish / clear the statement a cancel should target. Both lock stmt_lock;
+   clear only clears when `s` still matches (a stale untrack is a no-op). */
+void        ifx_track_stmt(dbc_conn *c, SQLHSTMT s);
+void        ifx_untrack_stmt(dbc_conn *c, SQLHSTMT s);
 
 /* --- query.c --- */
 dbc_status  ifx_query(dbc_conn *c, const char *sql, dbc_result **out);

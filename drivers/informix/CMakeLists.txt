@@ -78,8 +78,36 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
   endif()
   # cjson supplies cJSON.h (DSN parsing), exactly as the other drivers do.
   target_link_libraries(informix_driver PRIVATE ${ODBC_LIBRARY} cjson)
+  # The cancel path guards active_stmt with a mutex; on POSIX that is a pthread
+  # mutex, so link the threads library there (a no-op on Windows).
+  find_package(Threads REQUIRED)
+  target_link_libraries(informix_driver PRIVATE Threads::Threads)
   set_target_properties(informix_driver PROPERTIES PREFIX "" OUTPUT_NAME "informix")
   quaero_set_warnings(informix_driver)
+
+  # Cancel wiring test (contract + idle behavior); compiles the driver sources
+  # it needs directly so dbc_driver_entry stays defined. No live server required.
+  if(BUILD_TESTING)
+    add_executable(informix_cancel_test
+      tests/cancel_test.c
+      src/entry.c
+      src/connection.c
+      src/query.c
+      src/metadata.c
+      src/edit.c
+      src/utils/types.c
+      src/utils/odbc_types.c
+      src/utils/connstr.c
+      src/utils/dml.c)
+    target_include_directories(informix_cancel_test PRIVATE
+      src ${CMAKE_SOURCE_DIR}/core/include)
+    if(NOT WIN32 AND ODBC_INCLUDE_DIR)
+      target_include_directories(informix_cancel_test SYSTEM PRIVATE ${ODBC_INCLUDE_DIR})
+    endif()
+    target_link_libraries(informix_cancel_test PRIVATE ${ODBC_LIBRARY} cjson Threads::Threads)
+    quaero_set_warnings(informix_cancel_test)
+    add_test(NAME informix_cancel_test COMMAND informix_cancel_test)
+  endif()
 else()
   message(STATUS "Informix driver: ODBC not found; plugin not built")
 endif()
