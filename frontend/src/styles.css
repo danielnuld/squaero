@@ -2124,12 +2124,19 @@ kbd {
   width: min(720px, 94vw);
 }
 
+/* Cap the column list so a table with many columns leaves room for the DDL
+   below it; the list scrolls within this height instead of pushing it off. */
+.struct-scroll {
+  max-height: 40vh;
+  overflow: auto;
+  margin-bottom: 1rem;
+}
+
 .struct-table {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: 12px;
-  margin-bottom: 1rem;
 }
 
 .struct-table th,
@@ -2183,7 +2190,7 @@ kbd {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 240px;
+  max-height: 50vh;
   overflow: auto;
 }
 

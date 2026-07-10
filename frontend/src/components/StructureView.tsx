@@ -138,24 +138,28 @@ export function StructureView(props: {
 
         <Show when={columns()}>
           {(cols) => (
-            <table class="struct-table">
-              <thead>
-                <tr>
-                  <For each={cols().columns}>{(c) => <th>{c.name}</th>}</For>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={cols().rows}>
-                  {(row) => (
-                    <tr>
-                      <For each={row}>
-                        {(cell) => <td>{cell ?? <span class="cell-null">NULL</span>}</td>}
-                      </For>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
+            // Scroll the column list within a capped height so a wide table does
+            // not push the DDL off-screen (it keeps its own room below).
+            <div class="struct-scroll">
+              <table class="struct-table">
+                <thead>
+                  <tr>
+                    <For each={cols().columns}>{(c) => <th>{c.name}</th>}</For>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={cols().rows}>
+                    {(row) => (
+                      <tr>
+                        <For each={row}>
+                          {(cell) => <td>{cell ?? <span class="cell-null">NULL</span>}</td>}
+                        </For>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </div>
           )}
         </Show>
 
