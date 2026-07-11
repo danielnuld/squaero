@@ -31,6 +31,37 @@ De ese único archivo salen todas las demás:
 
 No hay ningún otro lugar donde escribir la versión a mano.
 
+## Publicar un release (automatizado)
+
+El release lo produce un tag. El workflow
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) (issue #41)
+se dispara al empujar un tag `vX.Y.Z` y hace todo en un runner `windows-latest`:
+
+1. Verifica que el tag coincida con `VERSION` (falla si no).
+2. Instala el MinGW i686 (winlibs), compila el frontend y hace el build **x86**
+   completo con la app y todos los drivers (SSH, MariaDB, mongo-c, libpq desde
+   fuente) — el mismo x86 que exige el ODBC de Informix (32-bit).
+3. Construye el MSI con WiX (`installer/build-msi.sh`).
+4. Genera `SHA256SUMS.txt`.
+5. Publica el release de GitHub adjuntando `quaero-X.Y.Z-x86.msi` +
+   `SHA256SUMS.txt` (o los sube a un release ya existente con `--clobber`).
+
+Flujo típico: bumpea `VERSION`, mergea a `main` con CI en verde, y entonces:
+
+```sh
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+También se puede relanzar para un tag existente desde **Actions → Release →
+Run workflow** (input `tag`).
+
+### Firma
+
+El MSI se publica **sin firmar**, junto al `SHA256SUMS.txt` para verificar
+integridad. Cuando exista un certificado Authenticode, se descomenta el paso
+«Sign the MSI» del workflow y se añaden los secrets `WINDOWS_PFX_BASE64` y
+`WINDOWS_PFX_PASSWORD` (issue #41, «firma donde aplique»).
+
 ## Nombre del producto y ejecutable
 
 - **Nombre de producto:** `Quaero`.

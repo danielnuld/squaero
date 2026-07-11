@@ -42,10 +42,13 @@
       <File Source="build-x86/app/libwinpthread-1.dll" />
     </ComponentGroup>
 
-    <!-- Driver plugins discovered at runtime from <installdir>/drivers. -->
+    <!-- Driver plugins discovered at runtime from <installdir>/drivers.
+         postgres.dll links libpq statically (no 32-bit libpq ships; built from
+         the PostgreSQL source), so like mysql.dll it needs no separate client. -->
     <ComponentGroup Id="DriverFiles" Directory="DriversDir">
       <File Source="build-x86/app/drivers/sqlite.dll" />
       <File Source="build-x86/app/drivers/mysql.dll" />
+      <File Source="build-x86/app/drivers/postgres.dll" />
       <File Source="build-x86/app/drivers/informix.dll" />
       <File Source="build-x86/app/drivers/mongodb.dll" />
     </ComponentGroup>

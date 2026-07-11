@@ -75,7 +75,9 @@ en C: agregar un motor no requiere tocar el núcleo. Ver
 
 **Windows:** descarga el instalador `.msi` más reciente desde
 [**Releases**](https://github.com/danielnuld/quaero/releases) y ejecútalo. Requiere
-el runtime de **WebView2** (ya incluido en Windows 11).
+el runtime de **WebView2** (ya incluido en Windows 11). Cada release adjunta un
+`SHA256SUMS.txt` para verificar la descarga:
+`sha256sum -c SHA256SUMS.txt` (o `CertUtil -hashfile quaero-*.msi SHA256`).
 
 > Linux (AppImage/deb) y macOS (.app) llegan en próximos releases.
 

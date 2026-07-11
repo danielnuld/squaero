@@ -1,0 +1,163 @@
+name: Release
+
+# Tag-triggered release (issue #41). Pushing a version tag (e.g. v0.5.5) builds
+# the x86 Windows app, packages the MSI, generates checksums, and publishes a
+# GitHub release with those artifacts attached. The build is x86 because the IBM
+# Informix ODBC driver is 32-bit only and Quaero loads drivers in-process, so the
+# whole app must be x86 (see cmake/toolchain-i686-mingw.cmake, installer/quaero.wxs).
+#
+# Signing is not wired yet (no certificate available). The MSI ships unsigned
+# alongside a SHA256SUMS.txt so downloads can be integrity-checked. When an
+# Authenticode certificate exists, uncomment the "Sign the MSI" step below and
+# add the WINDOWS_PFX_BASE64 / WINDOWS_PFX_PASSWORD repository secrets.
+
+on:
+  push:
+    tags:
+      - "v*"
+  # Allow re-running the release for an existing tag from the Actions UI.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (e.g. v0.5.5). Must already exist."
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  windows-msi:
+    name: windows-msi (x86)
+    runs-on: windows-latest
+    steps:
+      - name: Resolve the tag
+        id: tag
+        shell: bash
+        # For a tag push, github.ref_name is the tag; for manual runs it is the
+        # workflow input. VERSION drops the leading "v".
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      # The tag must match the committed VERSION so the exe metadata, the MSI
+      # ProductVersion and the frontend "About" all agree. Fail loudly otherwise.
+      - name: Verify tag matches VERSION
+        shell: bash
+        run: |
+          FILE_VERSION="$(cat VERSION)"
+          if [ "$FILE_VERSION" != "${{ steps.tag.outputs.version }}" ]; then
+            echo "::error::tag ${{ steps.tag.outputs.tag }} != VERSION $FILE_VERSION"
+            exit 1
+          fi
+
+      # Standalone winlibs i686 MinGW (GCC 13.2.0, UCRT, posix threads, dwarf EH)
+      # — the toolchain file expects it at C:/mingw32. Keep this pin in step with
+      # cmake/toolchain-i686-mingw.cmake and the windows-x86 job in ci.yml.
+      - name: Install winlibs i686 MinGW
+        shell: pwsh
+        run: |
+          $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0posix-18.1.5-11.0.1-ucrt-r8/winlibs-i686-posix-dwarf-gcc-13.2.0-mingw-w64ucrt-11.0.1-r8.zip"
+          curl.exe -sSL -o mingw32.zip $url
+          tar -xf mingw32.zip -C C:\
+          C:\mingw32\bin\gcc.exe --version
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # The webview app embeds the built frontend at CMake CONFIGURE time
+      # (EmbedAssets), so the dist must exist before configuring below.
+      - name: Build the frontend
+        shell: bash
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      # Full x86 build with the app ON. The from-source deps (MariaDB Connector/C,
+      # mongo-c-driver, libssh2, libpq) build in 32-bit; CMAKE_POLICY_VERSION_MINIMUM
+      # lets CMake 4.x configure the ones whose cmake_minimum_required predates 3.5.
+      - name: Configure (x86, app ON)
+        shell: bash
+        run: >
+          cmake -S . -B build-x86 -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-i686-mingw.cmake
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DQUAERO_BUILD_APP=ON
+          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_LIBPQ=ON
+
+      # Build everything so every driver plugin is produced and staged next to
+      # quaero.exe (build-x86/app/ + build-x86/app/drivers/), which the MSI ships.
+      - name: Build
+        shell: bash
+        run: cmake --build build-x86
+
+      - name: Set up WiX
+        shell: bash
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          "$HOME/.dotnet/tools/wix" extension add -g WixToolset.UI.wixext/5.0.2
+
+      - name: Build the MSI
+        shell: bash
+        run: installer/build-msi.sh "${{ steps.tag.outputs.version }}"
+
+      # --- Sign the MSI (enable once an Authenticode certificate exists) ---------
+      # - name: Sign the MSI
+      #   shell: pwsh
+      #   env:
+      #     WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+      #     WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+      #   run: |
+      #     [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
+      #     $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+      #       Sort-Object FullName | Select-Object -Last 1
+      #     & $signtool.FullName sign /f cert.pfx /p $env:WINDOWS_PFX_PASSWORD `
+      #       /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+      #       "dist/quaero-${{ steps.tag.outputs.version }}-x86.msi"
+      #     Remove-Item cert.pfx
+      # ---------------------------------------------------------------------------
+
+      # SHA256SUMS.txt lets downloaders verify integrity without a code signature.
+      - name: Generate checksums
+        shell: bash
+        working-directory: dist
+        run: sha256sum "quaero-${{ steps.tag.outputs.version }}-x86.msi" > SHA256SUMS.txt
+
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Attach to an existing release (created from the notes) or make one.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "dist/quaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" --clobber
+          else
+            gh release create "$TAG" \
+              "dist/quaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" \
+              --title "Quaero $TAG" --generate-notes
+          fi
