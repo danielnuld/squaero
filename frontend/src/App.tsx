@@ -880,7 +880,7 @@ export function App() {
         error:
           tab.kind === "query" && tab.connDefId
             ? "La conexión de esta pestaña está cerrada. Vuelve a conectarla desde el panel de conexiones."
-            : "No hay conexión activa. Abre una conexión para ejecutar consultas.",
+            : t("error.noActiveConn"),
       });
       return;
     }
@@ -938,7 +938,7 @@ export function App() {
     if (!conn) {
       setResults(tabId, {
         ...emptyResult(),
-        error: "No hay conexión activa. Abre una conexión para ejecutar consultas.",
+        error: t("error.noActiveConn"),
       });
       return;
     }
@@ -1594,43 +1594,43 @@ export function App() {
                       class="status-btn run-btn"
                       title={
                         hasEditorSelection()
-                          ? "Ejecutar la selección (Ctrl/Cmd+Enter)"
-                          : "Ejecutar (Ctrl/Cmd+Enter)"
+                          ? t("editor.runSelectionTitle")
+                          : t("editor.runTitle")
                       }
-                      onClick={() => setRunTick((t) => t + 1)}
+                      onClick={() => setRunTick((n) => n + 1)}
                     >
-                      {hasEditorSelection() ? "Ejecutar selección" : "Ejecutar"}
+                      {hasEditorSelection() ? t("editor.runSelection") : t("editor.run")}
                     </button>
                     <button
                       class="status-btn"
-                      title="Formatear SQL (Ctrl/Cmd+Shift+F)"
-                      onClick={() => setFormatTick((t) => t + 1)}
+                      title={t("editor.formatTitle")}
+                      onClick={() => setFormatTick((n) => n + 1)}
                     >
-                      Formatear
+                      {t("editor.format")}
                     </button>
                     <button
                       class="status-btn"
-                      title="Ver plan de ejecución — EXPLAIN (Ctrl/Cmd+Shift+E)"
+                      title={t("editor.planTitle")}
                       onClick={explainActive}
                     >
-                      Plan
+                      {t("editor.plan")}
                     </button>
                     <button
                       class="status-btn"
-                      title="Historial de consultas"
-                      onClick={() => showTool("history", "Historial", { key: "history" })}
+                      title={t("editor.historyTitle")}
+                      onClick={() => showTool("history", t("editor.history"), { key: "history" })}
                     >
-                      Historial
+                      {t("editor.history")}
                     </button>
                     <button
                       class="status-btn"
-                      title="Favoritos y snippets"
-                      onClick={() => showTool("snippets", "Snippets", { key: "snippets" })}
+                      title={t("editor.snippetsTitle")}
+                      onClick={() => showTool("snippets", t("editor.snippets"), { key: "snippets" })}
                     >
-                      Snippets
+                      {t("editor.snippets")}
                     </button>
                     <span class="editor-hint-spacer" />
-                    <span>Ctrl/Cmd + Enter para ejecutar</span>
+                    <span>{t("editor.runHint")}</span>
                   </div>
                 </div>
                 <div class="result-pane">

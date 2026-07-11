@@ -66,6 +66,26 @@ export const es: Record<string, string> = {
   "tool.notebook.tab": "Notebook",
   "tool.notebook.title": "Notebook: celdas de SQL y Markdown con resultados en línea",
 
+  // SQL editor + its toolbar
+  "editor.run": "Ejecutar",
+  "editor.runSelection": "Ejecutar selección",
+  "editor.runTitle": "Ejecutar (Ctrl/Cmd+Enter)",
+  "editor.runSelectionTitle": "Ejecutar la selección (Ctrl/Cmd+Enter)",
+  "editor.format": "Formatear",
+  "editor.formatTitle": "Formatear SQL (Ctrl/Cmd+Shift+F)",
+  "editor.plan": "Plan",
+  "editor.planTitle": "Ver plan de ejecución — EXPLAIN (Ctrl/Cmd+Shift+E)",
+  "editor.history": "Historial",
+  "editor.historyTitle": "Historial de consultas",
+  "editor.snippets": "Snippets",
+  "editor.snippetsTitle": "Favoritos y snippets",
+  "editor.runHint": "Ctrl/Cmd + Enter para ejecutar",
+  "editor.selectAll": "Seleccionar todo",
+  "editor.copy": "Copiar",
+
+  // errors
+  "error.noActiveConn": "No hay conexión activa. Abre una conexión para ejecutar consultas.",
+
   // language names — shown as endonyms (their own language) in every locale.
   "lang.es": "Español",
   "lang.en": "English",

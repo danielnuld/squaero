@@ -27,6 +27,7 @@ import { formatSql } from "../utils/sqlFormat";
 import { pickRunTarget, type RunScope } from "../utils/runScope";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
+import { t } from "../utils/i18n";
 
 // CodeMirror 6 SQL editor. A single EditorView is reused across query tabs; the
 // active tab's text is swapped in on tab change. Ctrl/Cmd+Enter runs the query
@@ -262,15 +263,15 @@ export function SqlEditor(props: {
       copyText(text);
     };
     return [
-      { label: "Formatear", action: doFormat, disabled: !hasText },
+      { label: t("editor.format"), action: doFormat, disabled: !hasText },
       {
-        label: hasSelection ? "Ejecutar selección" : "Ejecutar",
+        label: hasSelection ? t("editor.runSelection") : t("editor.run"),
         action: runFromView,
         disabled: !hasText,
       },
       { separator: true },
-      { label: "Seleccionar todo", action: selectAll, disabled: !hasText },
-      { label: "Copiar", action: copy, disabled: !hasText },
+      { label: t("editor.selectAll"), action: selectAll, disabled: !hasText },
+      { label: t("editor.copy"), action: copy, disabled: !hasText },
     ];
   };
 
