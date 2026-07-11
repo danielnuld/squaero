@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { ConnectionBar } from "../../src/components/ConnectionBar";
 import type { Connection } from "../../src/utils/connections";
@@ -103,5 +103,78 @@ describe("ConnectionBar", () => {
     expect(onDisconnect).toHaveBeenCalledWith("a");
     // The click must not have toggled the manager popover open.
     expect(host!.querySelector(".connbar-drop")).toBeNull();
+  });
+
+  // Regression: the popover forwarded props via `{...props}`, which SNAPSHOTS the
+  // connection list at mount — so a connection added afterwards never showed
+  // until an app restart. mergeProps keeps it reactive.
+  it("reflects a connection added AFTER mount while the popover is open", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [list, setList] = createSignal<Connection[]>([conns[0]]); // just "Prod"
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ConnectionBar
+            connections={list()}
+            activeConnId={null}
+            connectingId={null}
+            onConnect={() => {}}
+            onEdit={() => {}}
+            onDelete={() => {}}
+            onNew={() => {}}
+            onDisconnect={() => {}}
+            onReconnect={() => {}}
+            onExport={() => {}}
+            onImport={async () => ""}
+          />
+        ),
+        host!,
+      );
+    });
+    bar().click(); // open the popover
+    expect(host!.querySelector(".connbar-drop")!.textContent).toContain("Prod");
+    expect(host!.querySelector(".connbar-drop")!.textContent).not.toContain("Reportes");
+    // Add a connection after mount, exactly as onSaveConnection does.
+    setList([conns[0], { id: "c", name: "Reportes", driver: "postgres", params: {} }]);
+    expect(host!.querySelector(".connbar-drop")!.textContent).toContain("Reportes");
+  });
+
+  it("reopens the popover on an openTick bump (so a saved connection is visible)", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [list, setList] = createSignal<Connection[]>([]);
+    const [tick, setTick] = createSignal(0);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ConnectionBar
+            connections={list()}
+            openTick={tick()}
+            activeConnId={null}
+            connectingId={null}
+            onConnect={() => {}}
+            onEdit={() => {}}
+            onDelete={() => {}}
+            onNew={() => {}}
+            onDisconnect={() => {}}
+            onReconnect={() => {}}
+            onExport={() => {}}
+            onImport={async () => ""}
+          />
+        ),
+        host!,
+      );
+    });
+    // Popover starts closed.
+    expect(host!.querySelector(".connbar-drop")).toBeNull();
+    // Save flow: a connection is added and the app bumps openTick.
+    setList([{ id: "c", name: "Reportes", driver: "postgres", params: {} }]);
+    setTick(1);
+    const drop = host!.querySelector(".connbar-drop");
+    expect(drop).not.toBeNull();
+    expect(drop!.textContent).toContain("Reportes");
   });
 });

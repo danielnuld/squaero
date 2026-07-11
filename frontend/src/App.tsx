@@ -248,6 +248,8 @@ export function App() {
   const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
+  // Bumped to reopen the connections popover (e.g. after saving a connection).
+  const [connbarOpenTick, setConnbarOpenTick] = createSignal(0);
   // Several connections can be open at once; `focusedDefId` names the one the
   // object tree and newly-created query tabs bind to. `active`/`activeDefId` are
   // derived views of the focused connection, so most of the app keeps referring
@@ -718,6 +720,9 @@ export function App() {
   const onSaveConnection = (c: Connection) => {
     persist(upsertConnection(connections(), c));
     closeToolByKind("connectionForm");
+    // Reopen the connections popover so the saved connection is visible (the
+    // list lives inside it, and opening the form had collapsed it).
+    setConnbarOpenTick((t) => t + 1);
   };
 
   // Close one open connection (the focused one when no id is given). Other open
@@ -1457,6 +1462,7 @@ export function App() {
           <div class="sidebar-section-title">Conexiones</div>
           <ConnectionBar
             connections={connections()}
+            openTick={connbarOpenTick()}
             activeConnId={activeDefId()}
             openIds={openConns().map((o) => o.defId)}
             connectingId={connectingId()}

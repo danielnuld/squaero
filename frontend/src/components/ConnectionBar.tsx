@@ -1,5 +1,5 @@
-import { Show, createSignal, onCleanup, onMount } from "solid-js";
-import { engineIcon } from "../utils/connections";
+import { Show, createSignal, createEffect, onCleanup, onMount, mergeProps } from "solid-js";
+import { engineIcon, type Connection } from "../utils/connections";
 import { ConnectionManager, type ConnectionManagerProps } from "./ConnectionManager";
 
 // Explorer-first sidebar header: the active connection collapses to a single
@@ -8,9 +8,21 @@ import { ConnectionManager, type ConnectionManagerProps } from "./ConnectionMana
 // switching and managing connections is one click away without occupying space.
 // Presentational — it forwards every ConnectionManagerProps action and only owns
 // the open/closed state of the popover.
-export function ConnectionBar(props: ConnectionManagerProps) {
+export function ConnectionBar(props: ConnectionManagerProps & { openTick?: number }) {
   const [open, setOpen] = createSignal(false);
   let rootEl: HTMLDivElement | undefined;
+
+  // Reopen the popover when the app asks (bumped after saving a connection), so
+  // a just-added connection is visible in the list — otherwise the form closes
+  // over a collapsed bar and the save appears to have done nothing.
+  let lastOpenTick = props.openTick ?? 0;
+  createEffect(() => {
+    const tick = props.openTick ?? 0;
+    if (tick !== lastOpenTick) {
+      lastOpenTick = tick;
+      setOpen(true);
+    }
+  });
 
   const active = () => props.connections.find((c) => c.id === props.activeConnId) ?? null;
   const activeIsOpen = () => {
@@ -20,9 +32,11 @@ export function ConnectionBar(props: ConnectionManagerProps) {
 
   // Close the popover after an action that navigates away from it (connecting,
   // or opening the new/edit form), while forwarding the real handler.
-  const closingProps: ConnectionManagerProps = {
-    ...props,
-    onConnect: (c) => {
+  // mergeProps (NOT object spread) keeps `props` reactive: spreading `{...props}`
+  // snapshots the connection list at mount time, so a connection added later
+  // never reaches the ConnectionManager below (it only appeared after a restart).
+  const closingProps: ConnectionManagerProps = mergeProps(props, {
+    onConnect: (c: Connection) => {
       props.onConnect(c);
       setOpen(false);
     },
@@ -30,11 +44,11 @@ export function ConnectionBar(props: ConnectionManagerProps) {
       props.onNew();
       setOpen(false);
     },
-    onEdit: (c) => {
+    onEdit: (c: Connection) => {
       props.onEdit(c);
       setOpen(false);
     },
-  };
+  });
 
   // Dismiss on a click outside the bar + popover.
   onMount(() => {

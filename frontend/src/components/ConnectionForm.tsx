@@ -300,6 +300,13 @@ export function ConnectionForm(props: {
           <p class="test-error">{(test() as { msg: string }).msg}</p>
         </Show>
 
+        <Show when={showErrors() && !isValid(errors())}>
+          <p class="test-error">
+            No se pudo guardar: revisa los campos marcados
+            {errors().name ? " — falta el Nombre de la conexión" : ""}.
+          </p>
+        </Show>
+
         <div class="modal-actions">
           <button onClick={runTest} disabled={test().kind === "testing"}>
             {test().kind === "testing" ? "Probando…" : "Probar conexión"}
