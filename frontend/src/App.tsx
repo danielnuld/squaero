@@ -301,6 +301,13 @@ export function App() {
   // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
   const [findTick, setFindTick] = createSignal(0);
 
+  // Bumped by the toolbar Run button to trigger the editor's run (selection,
+  // statement or whole document — the same choice Ctrl/Cmd+Enter makes). The
+  // editor reports whether it currently has a selection so the button can offer
+  // "Ejecutar selección".
+  const [runTick, setRunTick] = createSignal(0);
+  const [hasEditorSelection, setHasEditorSelection] = createSignal(false);
+
   // A newer release found on startup (autoupdater); drives the update modal.
   const [update, setUpdate] = createSignal<UpdateInfo | null>(null);
 
@@ -1568,10 +1575,23 @@ export function App() {
                     dialect={activeDialect()}
                     formatTick={formatTick()}
                     searchTick={findTick()}
+                    runTick={runTick()}
+                    onSelectionChange={setHasEditorSelection}
                     insertRequest={snippetInsert()}
                     schema={sqlSchema()}
                   />
                   <div class="editor-hint">
+                    <button
+                      class="status-btn run-btn"
+                      title={
+                        hasEditorSelection()
+                          ? "Ejecutar la selección (Ctrl/Cmd+Enter)"
+                          : "Ejecutar (Ctrl/Cmd+Enter)"
+                      }
+                      onClick={() => setRunTick((t) => t + 1)}
+                    >
+                      {hasEditorSelection() ? "Ejecutar selección" : "Ejecutar"}
+                    </button>
                     <button
                       class="status-btn"
                       title="Formatear SQL (Ctrl/Cmd+Shift+F)"

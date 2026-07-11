@@ -1354,6 +1354,18 @@ body {
   background: var(--bg-elev2);
 }
 
+/* The editor's Run button is the primary action in the hint bar, so it reads in
+   the accent color rather than as a dim label like its neighbours. */
+.status-btn.run-btn {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.status-btn.run-btn:hover {
+  color: var(--accent);
+  background: var(--bg-elev2);
+}
+
 /* Keyboard-shortcuts help overlay */
 .shortcuts {
   width: min(420px, 92vw);

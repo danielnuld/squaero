@@ -51,6 +51,13 @@ export function SqlEditor(props: {
   formatTick?: number;
   /** Bumping this number opens the find panel (Ctrl/Cmd+F, issue: editor find). */
   searchTick?: number;
+  /** Bumping this number runs the query from the toolbar, exactly as
+      Ctrl/Cmd+Enter does: the selection, else the statement under the cursor,
+      else the whole document. */
+  runTick?: number;
+  /** Reports whether the editor currently holds a non-empty selection, so the
+      toolbar can offer "Ejecutar selección". */
+  onSelectionChange?: (hasSelection: boolean) => void;
   /** Insert this text at the cursor when `tick` changes (snippets, issue #129). */
   insertRequest?: { text: string; tick: number };
   /** Table -> columns map that drives table/column autocomplete (issue #110). */
@@ -149,6 +156,11 @@ export function SqlEditor(props: {
             if (u.docChanged && !swapping) {
               props.onChange(loaded, view!.state.doc.toString());
             }
+            // Keep the toolbar's Run button in sync with the selection so it can
+            // read "Ejecutar selección" when text is highlighted.
+            if ((u.selectionSet || u.docChanged) && props.onSelectionChange) {
+              props.onSelectionChange(!u.state.selection.main.empty);
+            }
           }),
         ],
       }),
@@ -187,6 +199,17 @@ export function SqlEditor(props: {
       lastFormatTick = tick;
       doFormat();
     }
+  });
+
+  // Toolbar Run requests arrive as a bumped counter and run exactly what
+  // Ctrl/Cmd+Enter would (selection / statement / document). The editor keeps its
+  // selection when focus moves to the button, so runFromView still sees it.
+  let lastRunTick = props.runTick ?? 0;
+  createEffect(() => {
+    const tick = props.runTick ?? 0;
+    if (tick === lastRunTick) return;
+    lastRunTick = tick;
+    runFromView();
   });
 
   // Find requests (Ctrl/Cmd+F) arrive as a bumped counter: focus the editor and

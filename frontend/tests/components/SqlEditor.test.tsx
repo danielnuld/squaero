@@ -102,6 +102,62 @@ describe("SqlEditor run scope (issue #130)", () => {
   });
 });
 
+describe("SqlEditor toolbar run (runTick)", () => {
+  it("runs the current selection when runTick bumps", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [tick, setTick] = createSignal(0);
+    let ran: { sql: string; scope?: RunScope } | null = null;
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => "SELECT 1; SELECT 2"}
+            onChange={() => {}}
+            onRun={(sql, scope) => (ran = { sql, scope })}
+            dialect="sqlite"
+            runTick={tick()}
+          />
+        ),
+        host!,
+      );
+    });
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ selection: { anchor: 0, head: 8 } }); // "SELECT 1"
+    setTick(1); // toolbar Run button
+    expect(ran).toEqual({ sql: "SELECT 1", scope: "selection" });
+  });
+
+  it("reports whether a selection exists via onSelectionChange", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const states: boolean[] = [];
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => "SELECT 1"}
+            onChange={() => {}}
+            onRun={() => {}}
+            dialect="sqlite"
+            onSelectionChange={(has) => states.push(has)}
+          />
+        ),
+        host!,
+      );
+    });
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ selection: { anchor: 0, head: 6 } }); // select "SELECT"
+    expect(states.at(-1)).toBe(true);
+    view.dispatch({ selection: { anchor: 3, head: 3 } }); // collapse the selection
+    expect(states.at(-1)).toBe(false);
+  });
+});
+
 describe("SqlEditor snippet insertion (issue #129)", () => {
   it("inserts the requested text at the cursor when the tick bumps", () => {
     host = document.createElement("div");
