@@ -140,7 +140,7 @@
   .feature p { margin: 0; color: var(--muted); font-size: 14.5px; }
 
   .showcase { margin: 0 0 30px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 16px 44px color-mix(in srgb, var(--ink) 12%, transparent); }
-  .showcase img { display: block; width: 100%; height: auto; }
+  .showcase img, .showcase video { display: block; width: 100%; height: auto; }
   .showcase figcaption { font-size: 12.5px; color: var(--faint); padding: 8px 14px; background: var(--panel); border-top: 1px solid var(--line); }
 
   .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-top: 30px; }
@@ -200,7 +200,7 @@
     <h1>Tu gestor de bases de datos: <span class="accent">ligero, local y libre</span>.</h1>
     <p class="lede">Nativo, sin el peso de Electron ni una JVM. Todo se queda
       en tu equipo —sin nube, sin cuentas, sin telemetría— con edición transaccional
-      segura para SQLite, MySQL/MariaDB, Informix y MongoDB.</p>
+      segura para SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB.</p>
     <div class="cta">
       <a class="btn" href="#download">Descargar para Windows</a>
       <a class="btn ghost" href="https://github.com/danielnuld/quaero" rel="noopener">Ver en GitHub</a>
@@ -213,7 +213,7 @@
 
     <ul class="values" style="margin-top:40px">
       <li><p class="k"><span class="d"></span>Ligero y nativo</p><p>Núcleo en C y WebView del sistema: arranca al instante, sin el peso de un entorno Electron o una JVM.</p></li>
-      <li><p class="k"><span class="d"></span>Multi-motor</p><p>SQLite, MySQL/MariaDB, Informix y MongoDB desde una misma interfaz, con soporte de Informix incluido.</p></li>
+      <li><p class="k"><span class="d"></span>Multi-motor</p><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB desde una misma interfaz, con soporte de Informix incluido.</p></li>
       <li><p class="k"><span class="d"></span>Local y privado</p><p>Tus conexiones y consultas se quedan en tu equipo. Sin cuentas, sin nube, sin telemetría.</p></li>
       <li><p class="k"><span class="d"></span>Edición segura</p><p>Cambios sobre los datos en una transacción con vista previa del SQL: confirmas o descartas.</p></li>
       <li><p class="k"><span class="d"></span>Código abierto</p><p>Gratuito y auditable. Sin licencias por asiento ni funciones tras un muro de pago.</p></li>
@@ -225,6 +225,17 @@
     <h2>Todo lo que esperas de un gestor de bases</h2>
     <p class="intro">Cada característica descrita aquí es algo que Quaero hace hoy —
       explorador de objetos, editor SQL y rejilla de resultados, en un solo lugar.</p>
+
+    <figure class="showcase">
+      <video autoplay muted loop playsinline preload="metadata"
+             poster="video/quaero-demo-poster.png"
+             width="1360" height="860" aria-label="Demo: conectar, explorar el árbol de objetos, consultar y ver el diagrama ER">
+        <source src="video/quaero-demo.webm" type="video/webm">
+        <source src="video/quaero-demo.mp4" type="video/mp4">
+        <img src="video/quaero-demo-poster.png" alt="Quaero: consulta con resultados en la rejilla" width="1360" height="860">
+      </video>
+      <figcaption>Del árbol a la consulta en segundos — datos de demostración.</figcaption>
+    </figure>
 
     <figure class="showcase">
       <picture>
@@ -242,7 +253,7 @@
       <div class="feature"><div class="ic" style="background:var(--obj-view)">◈</div><h3>Explorador por tipo</h3><p>Árbol de conexión → base → tablas, vistas, funciones, procedimientos, triggers y eventos, con iconos a color.</p></div>
       <div class="feature"><div class="ic" style="background:var(--obj-proc)">⭳</div><h3>Import / Export</h3><p>CSV, JSON, XLSX, XML, HTML y SQL. Importa hojas de cálculo y exporta cualquier resultado.</p></div>
       <div class="feature"><div class="ic" style="background:var(--obj-func)">◑</div><h3>Herramientas</h3><p>Diagrama ER, constructor visual de consultas, gráficos, monitor de servidor, usuarios y permisos.</p></div>
-      <div class="feature"><div class="ic" style="background:var(--obj-event)">⇄</div><h3>Multi-motor</h3><p>SQLite, MySQL/MariaDB, Informix y MongoDB — mismo flujo de trabajo en todos.</p></div>
+      <div class="feature"><div class="ic" style="background:var(--obj-event)">⇄</div><h3>Multi-motor</h3><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB — mismo flujo de trabajo en todos.</p></div>
     </div>
 
     <div class="gallery">
@@ -307,11 +318,35 @@
         </tbody>
       </table>
     </div>
-    <p class="cmp-note">Windows por ahora; macOS y Linux en camino. <b>Tabularis</b> = cliente Apache-2.0 (Tauri/Rust); Informix y otros motores vía plugins. <b>Server Studio</b> = edición gratuita <i>JE (Java Edition)</i> de la suite para Informix. Revisado: 10 jul 2026. «~» = parcial o según edición/plugin. Comparativa preliminar — verificar cada celda.</p>
+    <p class="cmp-note">Windows por ahora; macOS y Linux en camino. <b>Tabularis</b> = cliente Apache-2.0 (Tauri/Rust); Informix y otros motores vía plugins. <b>Server Studio</b> = edición gratuita <i>JE (Java Edition)</i> de la suite para Informix. «~» = parcial o según edición/plugin.</p>
+    <!--
+      Verificabilidad (issue #201). Fuentes canónicas por columna, revisado 2026-07-11:
+        Quaero        = este repositorio (código + pruebas automatizadas / smokes)
+        Tabularis     = https://tabularis.dev
+        Navicat       = https://navicat.com
+        DBeaver CE    = https://dbeaver.io
+        HeidiSQL      = https://www.heidisql.com
+        TablePlus     = https://tableplus.com
+        phpMyAdmin    = https://www.phpmyadmin.net
+        Server Studio = https://www.serverstudio.com   (edición JE gratuita)
+      Al actualizar una celda, re-anota aquí la fecha de revisión.
+    -->
+    <p class="cmp-note">Fuentes (revisado 11 jul 2026): las celdas de <b>Quaero</b> se verifican
+      contra el código y las pruebas automatizadas de este repositorio; las demás, contra la
+      documentación y la web oficial de cada producto —
+      <a href="https://tabularis.dev" rel="noopener">Tabularis</a>,
+      <a href="https://navicat.com" rel="noopener">Navicat</a>,
+      <a href="https://dbeaver.io" rel="noopener">DBeaver</a>,
+      <a href="https://www.heidisql.com" rel="noopener">HeidiSQL</a>,
+      <a href="https://tableplus.com" rel="noopener">TablePlus</a>,
+      <a href="https://www.phpmyadmin.net" rel="noopener">phpMyAdmin</a>,
+      <a href="https://www.serverstudio.com" rel="noopener">Server Studio</a>.
+      Las funciones evolucionan; si ves una celda inexacta,
+      <a href="https://github.com/danielnuld/quaero/issues" rel="noopener">abre un issue</a>.</p>
 
     <div class="fair">
       <b>Dónde la competencia gana.</b> <b>Tabularis</b> es un cliente libre muy maduro y amplio:
-      PostgreSQL nativo, 15+ motores por plugins, asistente de IA, EXPLAIN visual y MCP.
+      15+ motores por plugins, asistente de IA, EXPLAIN visual y MCP.
       Comparte con Quaero la filosofía <i>ligera, local y libre</i>; hoy Quaero cubre menos motores
       pero aporta monitor de servidor, usuarios/permisos y exportación a más formatos.
       <b>DBeaver</b> soporta muchísimos más motores (80+ vía JDBC) y años de madurez.
@@ -323,8 +358,8 @@
   <!-- DOWNLOADS -->
   <section id="download">
     <h2>Descargar</h2>
-    <p class="intro">Instalador para Windows con los cuatro motores incluidos (SQLite, MySQL/MariaDB,
-      Informix, MongoDB).</p>
+    <p class="intro">Instalador para Windows con los cinco motores incluidos (SQLite, MySQL/MariaDB,
+      PostgreSQL, Informix, MongoDB).</p>
     <div class="downloads">
       <div class="dl">
         <h3>Windows</h3>

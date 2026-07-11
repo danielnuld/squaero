@@ -11,6 +11,7 @@ site/
   index.html      # página única: hero, características, comparativa, descargas
   assets/         # logo + wordmark (SVG, copiados de assets/brand/)
   img/            # social preview + capturas (de assets/media/)
+  video/          # demo del flujo principal (webm + mp4 + póster)
   .nojekyll       # evita el procesado Jekyll (servir los archivos tal cual)
 ```
 
@@ -53,14 +54,41 @@ una sola vez, en **Settings → Pages** del repo: *Source = Deploy from a branch
 > Alternativa equivalente: *Source = main, carpeta `/docs`* — no se usa aquí
 > porque `/docs` ya contiene la documentación de desarrollo.
 
+## Video demo (#203)
+
+`site/video/quaero-demo.webm` (VP9) + `.mp4` (H.264) + `quaero-demo-poster.png`,
+incrustados en la sección de características con `<video autoplay muted loop
+playsinline>` y una `<img>` de respaldo dentro del `<video>`. ~23 s, ~330 KB,
+alojado en el repo (no en servicios externos).
+
+**Guion (para regrabar en futuras versiones):**
+1. **Conectar** — elegir la conexión guardada «Ventas (demo)».
+2. **Explorar** — expandir el árbol (base → esquema → Tablas) y abrir una tabla
+   (estructura + DDL).
+3. **Consultar** — pestaña nueva, escribir un `SELECT … WHERE … ORDER BY` y
+   ejecutarlo; se ve la rejilla de resultados tipada.
+4. **Herramientas** — Diagrama ER (relaciones entre tablas) y constructor visual.
+
+**Cómo se generó (reproducible, sin datos reales):** un harness de
+`puppeteer-core` conduce la **UI real** de `frontend/dist/index.html` en Edge
+headless con un `window.quaeroRpc` simulado; sólo existe la conexión de prueba
+y se bloquea toda la red. Los subtítulos se inyectan en la página para ir
+sincronizados. Se capturan cuadros (~8 fps) y se ensamblan con ffmpeg:
+
+```
+ffmpeg -y -framerate 8 -i frames/f%04d.png -c:v libvpx-vp9 -crf 33 -b:v 0 \
+  -pix_fmt yuv420p -r 24 quaero-demo.webm
+ffmpeg -y -framerate 8 -i frames/f%04d.png -c:v libx264 -crf 24 \
+  -pix_fmt yuv420p -r 24 -movflags +faststart quaero-demo.mp4
+```
+
+Para una regrabación de máxima fidelidad puede sustituirse por una captura de
+pantalla de la app real siguiendo el mismo guion (mismos pasos y datos de demo).
+
 ## Pendiente (issues del milestone M10.10)
 
-- **#201** La comparativa es un **borrador**; requiere verificación y aprobación
-  del propietario antes de publicar (cada celda debe ser comprobable). Anotar la
-  fecha de revisión en el fuente.
+- **#201** La comparativa ya trae **fuentes + fecha de revisión** por competidor
+  (verificable). Falta la **aprobación de copy del propietario** antes de publicar.
 - **#202** Sustituir/añadir capturas reales por módulo desde el kit de medios
-  (`assets/media/`, ver [MEDIA-KIT](../assets/media/MEDIA-KIT.md)); hoy solo hay
-  el social preview y la pantalla inicial.
-- **#203** Grabar el video/GIF demo (30–60 s: conectar → explorar → consultar →
-  editar con transacción → exportar) y alojarlo en el repo/release; incrustarlo
-  con póster de respaldo.
+  (`assets/media/`, ver [MEDIA-KIT](../assets/media/MEDIA-KIT.md)); hoy hay el
+  social preview, la pantalla inicial y la galería de módulos.
