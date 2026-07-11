@@ -28,4 +28,5 @@ export const TOOL_CATALOG: ToolMenuItem[] = [
   { tool: "queryBuilder", key: "qb", icon: "🧱", label: "Constructor de consultas", tabTitle: "Constructor", title: "Constructor visual de consultas" },
   { tool: "routines", key: "routines", icon: "ƒ", label: "Procedimientos y funciones", tabTitle: "Procedimientos", title: "Procedimientos almacenados y funciones" },
   { tool: "triggers", key: "triggers", icon: "⚡", label: "Triggers y eventos", tabTitle: "Triggers y eventos", title: "Triggers y eventos programados" },
+  { tool: "notebook", key: "notebook", icon: "📓", label: "Notebook SQL", tabTitle: "Notebook", title: "Notebook: celdas de SQL y Markdown con resultados en línea" },
 ];

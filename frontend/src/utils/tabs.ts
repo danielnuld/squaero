@@ -27,6 +27,7 @@ export type ToolKind =
   | "slowQueries"
   | "explainPlan"
   | "objectList"
+  | "notebook"
   | "settings"
   | "help";
 

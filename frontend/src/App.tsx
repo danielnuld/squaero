@@ -133,6 +133,7 @@ import { ObjectToolbar } from "./components/ObjectToolbar";
 import { ObjectListView } from "./components/ObjectListView";
 import { InfoPane } from "./components/InfoPane";
 import { ConnectionForm } from "./components/ConnectionForm";
+import { Notebook } from "./components/Notebook";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
@@ -1931,6 +1932,16 @@ export function App() {
                 <Match when={tt().tool === "chart"}>
                   <ChartView
                     result={(tt().params as { result: ResultSet }).result}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "notebook"}>
+                  <Notebook
+                    connId={toolConn()?.connId ?? ""}
+                    notebookId={(tt().params as { notebookId?: string } | undefined)?.notebookId}
+                    onChart={(result) =>
+                      showTool("chart", "Gráfico", { key: "chart", params: { result } })
+                    }
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>

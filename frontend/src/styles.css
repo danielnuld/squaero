@@ -3796,3 +3796,133 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--text-dim);
   margin: 0.2rem 0 0.5rem;
 }
+
+/* --- SQL Notebook (#262) --------------------------------------------------- */
+.nb-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.nb-name {
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 12rem;
+  flex: 1;
+}
+.nb-open {
+  max-width: 12rem;
+}
+.nb-hint {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin: 0 0 0.6rem;
+}
+.nb-params {
+  margin-bottom: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+.nb-params summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.nb-params-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 0.3rem 0;
+}
+.nb-param-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+.nb-param-row input {
+  flex: 1;
+  min-width: 0;
+}
+.nb-cells {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.nb-cell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-elev);
+}
+.nb-cell-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.4rem;
+  background: var(--bg-elev2);
+  border-bottom: 1px solid var(--border);
+}
+.nb-cell-kind {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  padding: 0 0.3rem;
+}
+.nb-src {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  padding: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  min-height: 3.2rem;
+  resize: vertical;
+}
+.nb-src:focus {
+  outline: none;
+}
+.nb-src-sql {
+  min-height: 4rem;
+}
+.nb-md {
+  padding: 0.6rem 0.8rem;
+  line-height: 1.5;
+}
+.nb-md > :first-child {
+  margin-top: 0;
+}
+.nb-md > :last-child {
+  margin-bottom: 0;
+}
+.nb-md-code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.nb-result {
+  border-top: 1px solid var(--border);
+}
+.nb-result-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.nb-result-info {
+  flex: 1;
+}
+/* Cap the inline grid height so a big result does not push the next cell away. */
+.nb-result .grid {
+  max-height: 340px;
+  overflow: auto;
+}
