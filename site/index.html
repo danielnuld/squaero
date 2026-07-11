@@ -21,161 +21,11 @@
 <meta name="twitter:image" content="https://danielnuld.github.io/quaero/img/social-preview.png">
 
 <link rel="icon" href="assets/quaero-mark.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="es" href="https://danielnuld.github.io/quaero/">
+<link rel="alternate" hreflang="en" href="https://danielnuld.github.io/quaero/en/">
+<link rel="alternate" hreflang="x-default" href="https://danielnuld.github.io/quaero/">
 
-<style>
-  :root {
-    --accent: #5b5bd6;
-    --accent-hover: #4a4ac4;
-    --accent-fg: #ffffff;
-    --accent-soft: #e9e9fb;
-    --ink: #1e1e24;
-    --muted: #5c5c68;
-    --faint: #8a8a96;
-    --paper: #f7f7fa;
-    --panel: #ffffff;
-    --panel-2: #eeeef3;
-    --line: #dcdce4;
-    --ok: #227a47;
-    --warn: #b5651d;
-    --no: #c0392b;
-    --obj-table: #2f6fed;
-    --obj-view: #12a150;
-    --obj-func: #8b5cf6;
-    --obj-proc: #e8890c;
-    --obj-trig: #e5484d;
-    --obj-event: #0ea5b7;
-    --radius: 12px;
-    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --maxw: 1080px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --accent: #7c7cf0;
-      --accent-hover: #9a9aff;
-      --accent-fg: #1e1e24;
-      --accent-soft: #26264a;
-      --ink: #e6e6ec;
-      --muted: #a6a6b2;
-      --faint: #7a7a86;
-      --paper: #1e1e24;
-      --panel: #26262e;
-      --panel-2: #2e2e38;
-      --line: #3a3a46;
-      --ok: #4fb26e;
-      --warn: #d98a4b;
-      --no: #f08a8a;
-      --obj-table: #5b9bff;
-      --obj-view: #3bbf74;
-      --obj-func: #a78bfa;
-      --obj-proc: #f0a844;
-      --obj-trig: #f0716f;
-      --obj-event: #34c3d4;
-    }
-  }
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    margin: 0;
-    font-family: var(--font-ui);
-    color: var(--ink);
-    background: var(--paper);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
-  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
-
-  /* Header */
-  header.site {
-    position: sticky; top: 0; z-index: 10;
-    background: color-mix(in srgb, var(--paper) 88%, transparent);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--line);
-  }
-  .nav { display: flex; align-items: center; gap: 18px; height: 60px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
-  .brand img { width: 26px; height: 26px; }
-  .nav .links { margin-left: auto; display: flex; gap: 22px; align-items: center; }
-  .nav .links a { color: var(--muted); font-size: 14px; font-weight: 500; }
-  .nav .links a:hover { color: var(--ink); text-decoration: none; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--accent); color: var(--accent-fg);
-    padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 14px;
-  }
-  .btn:hover { background: var(--accent-hover); text-decoration: none; }
-  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  .btn.ghost:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
-  @media (max-width: 720px) { .nav .links a:not(.btn) { display: none; } }
-
-  /* Hero */
-  .hero { padding: 72px 0 40px; }
-  .hero h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.05; letter-spacing: -.025em; margin: 0 0 18px; font-weight: 800; text-wrap: balance; }
-  .hero h1 .accent { color: var(--accent); }
-  .hero .lede { font-size: 20px; color: var(--muted); max-width: 60ch; margin: 0 0 26px; }
-  .hero .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-  .hero .sub { font-size: 13px; color: var(--faint); margin-top: 12px; }
-  .shot { margin-top: 48px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 20px 50px color-mix(in srgb, var(--ink) 14%, transparent); }
-  .shot img { display: block; width: 100%; height: auto; }
-  .shot figcaption { font-size: 12px; color: var(--faint); padding: 8px 12px; background: var(--panel); border-top: 1px solid var(--line); }
-
-  /* Value bullets */
-  .values { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 8px 0 0; padding: 0; list-style: none; }
-  .values li { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 18px; }
-  .values .k { font-weight: 700; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .values .k .d { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; }
-  .values p { margin: 0; color: var(--muted); font-size: 14.5px; }
-
-  section { padding: 56px 0; border-top: 1px solid var(--line); }
-  section h2 { font-size: clamp(24px, 4vw, 34px); letter-spacing: -.02em; margin: 0 0 8px; font-weight: 800; }
-  section .intro { color: var(--muted); max-width: 68ch; margin: 0 0 28px; font-size: 16px; }
-
-  /* Features */
-  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
-  .feature { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
-  .feature .ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 16px; font-weight: 800; margin-bottom: 12px; }
-  .feature h3 { margin: 0 0 6px; font-size: 17px; }
-  .feature p { margin: 0; color: var(--muted); font-size: 14.5px; }
-
-  .showcase { margin: 0 0 30px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: 0 16px 44px color-mix(in srgb, var(--ink) 12%, transparent); }
-  .showcase img, .showcase video { display: block; width: 100%; height: auto; }
-  .showcase figcaption { font-size: 12.5px; color: var(--faint); padding: 8px 14px; background: var(--panel); border-top: 1px solid var(--line); }
-
-  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-top: 30px; }
-  .gallery figure { margin: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
-  .gallery img { display: block; width: 100%; height: auto; }
-  .gallery figcaption { font-size: 13px; color: var(--muted); padding: 10px 14px; border-top: 1px solid var(--line); }
-  .gallery figcaption b { color: var(--ink); }
-
-  /* Comparison */
-  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-  table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 1180px; background: var(--panel); }
-  table.cmp th, table.cmp td { padding: 11px 12px; text-align: center; border-bottom: 1px solid var(--line); }
-  table.cmp thead th { background: var(--panel-2); font-size: 12.5px; position: sticky; top: 0; }
-  table.cmp tbody th { text-align: left; font-weight: 600; color: var(--ink); background: var(--panel); white-space: nowrap; }
-  table.cmp td.q { background: var(--accent-soft); font-weight: 600; }
-  table.cmp thead th.q { background: var(--accent); color: var(--accent-fg); }
-  .yes { color: var(--ok); font-weight: 700; }
-  .no { color: var(--no); }
-  .partial { color: var(--warn); }
-  .cmp-note { font-size: 12.5px; color: var(--faint); margin-top: 12px; }
-  .fair { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0; padding: 14px 18px; margin-top: 18px; color: var(--muted); font-size: 14px; }
-  .fair b { color: var(--ink); }
-
-  /* Downloads */
-  .downloads { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-  .dl { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; text-align: center; }
-  .dl h3 { margin: 0 0 4px; }
-  .dl .os { font-size: 13px; color: var(--faint); margin-bottom: 14px; }
-  .dl .soon { display: inline-block; font-size: 12px; color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
-  .dl small { display: block; margin-top: 10px; color: var(--faint); font-size: 12px; }
-
-  footer.site { border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--muted); font-size: 14px; }
-  footer.site .row { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
-  footer.site .row .sp { margin-left: auto; }
-</style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -187,6 +37,7 @@
       <a href="#compare">Comparativa</a>
       <a href="#download">Descargas</a>
       <a href="https://github.com/danielnuld/quaero" rel="noopener">GitHub</a>
+      <a class="lang" href="en/" hreflang="en">EN</a>
       <a class="btn" href="#download">Descargar</a>
     </nav>
   </div>

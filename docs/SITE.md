@@ -8,12 +8,21 @@ depender de GitHub Actions.
 
 ```
 site/
-  index.html      # página única: hero, características, comparativa, descargas
+  index.html      # español (por defecto): hero, características, comparativa, descargas
+  en/index.html   # inglés (misma página, /quaero/en/)
+  styles.css      # CSS compartido por ambos idiomas (sin drift)
   assets/         # logo + wordmark (SVG, copiados de assets/brand/)
   img/            # social preview + capturas (de assets/media/)
   video/          # demo del flujo principal (webm + mp4 + póster)
   .nojekyll       # evita el procesado Jekyll (servir los archivos tal cual)
 ```
+
+**Idiomas.** El sitio es bilingüe: `index.html` (ES, en `/quaero/`) y
+`en/index.html` (EN, en `/quaero/en/`). Ambos enlazan el mismo `styles.css` (la
+página EN con `../styles.css`) y llevan un selector de idioma en el nav
+(`ES`/`EN`) + `<link rel="alternate" hreflang>` recíprocos para SEO. Al traducir
+o cambiar contenido, edita **las dos** páginas; los assets se referencian con
+`../` desde `en/`.
 
 - Idioma: **español** primero; el marcado está listo para una variante EN.
 - Tema **claro/oscuro** automático (`prefers-color-scheme`), con la paleta de

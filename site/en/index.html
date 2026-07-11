@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quaero — A lightweight, local, free database manager</title>
+<meta name="description" content="Quaero is a lightweight, native database manager — local and open source. No cloud, no accounts, no telemetry — with safe transactional editing for SQLite, PostgreSQL, MySQL/MariaDB, Informix, and MongoDB.">
+
+<!-- Open Graph / Twitter -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Quaero">
+<meta property="og:title" content="Quaero — A lightweight, local, free database manager">
+<meta property="og:description" content="Lightweight and native, local and open source. No cloud or telemetry, with safe transactional editing.">
+<meta property="og:url" content="https://danielnuld.github.io/quaero/en/">
+<meta property="og:image" content="https://danielnuld.github.io/quaero/img/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Quaero — A lightweight, local, free database manager">
+<meta name="twitter:description" content="Lightweight, native, open-source database manager. Multi-engine, local, and telemetry-free.">
+<meta name="twitter:image" content="https://danielnuld.github.io/quaero/img/social-preview.png">
+
+<link rel="icon" href="../assets/quaero-mark.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="es" href="https://danielnuld.github.io/quaero/">
+<link rel="alternate" hreflang="en" href="https://danielnuld.github.io/quaero/en/">
+<link rel="alternate" hreflang="x-default" href="https://danielnuld.github.io/quaero/">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <span class="brand"><img src="../assets/quaero-mark.svg" alt=""> Quaero</span>
+    <nav class="links">
+      <a href="#features">Features</a>
+      <a href="#compare">Comparison</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/danielnuld/quaero" rel="noopener">GitHub</a>
+      <a class="lang" href="../" hreflang="es">ES</a>
+      <a class="btn" href="#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- HERO -->
+  <section class="hero" style="border-top:none">
+    <p class="eyebrow">Database manager</p>
+    <h1>Your database manager: <span class="accent">lightweight, local, and free</span>.</h1>
+    <p class="lede">Native, without the weight of Electron or a JVM. Everything stays
+      on your machine —no cloud, no accounts, no telemetry— with safe transactional
+      editing for SQLite, MySQL/MariaDB, PostgreSQL, Informix, and MongoDB.</p>
+    <div class="cta">
+      <a class="btn" href="#download">Download for Windows</a>
+      <a class="btn ghost" href="https://github.com/danielnuld/quaero" rel="noopener">View on GitHub</a>
+    </div>
+    <p class="sub">Free and open source · Windows (macOS and Linux coming soon)</p>
+
+    <figure class="shot">
+      <img src="../img/social-preview.png" alt="Quaero — a lightweight, local, free database manager" width="1280" height="640">
+    </figure>
+
+    <ul class="values" style="margin-top:40px">
+      <li><p class="k"><span class="d"></span>Lightweight and native</p><p>A C core and the system WebView: starts instantly, without the weight of an Electron runtime or a JVM.</p></li>
+      <li><p class="k"><span class="d"></span>Multi-engine</p><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix, and MongoDB from one interface, with Informix support built in.</p></li>
+      <li><p class="k"><span class="d"></span>Local and private</p><p>Your connections and queries stay on your machine. No accounts, no cloud, no telemetry.</p></li>
+      <li><p class="k"><span class="d"></span>Safe editing</p><p>Data changes in a transaction with a SQL preview: commit or discard.</p></li>
+      <li><p class="k"><span class="d"></span>Open source</p><p>Free and auditable. No per-seat licenses or features behind a paywall.</p></li>
+    </ul>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <h2>Everything you expect from a database manager</h2>
+    <p class="intro">Every feature described here is something Quaero does today —
+      object explorer, SQL editor, and result grid, all in one place.</p>
+
+    <figure class="showcase">
+      <video autoplay muted loop playsinline preload="metadata"
+             poster="../video/quaero-demo-poster.png"
+             width="1360" height="860" aria-label="Demo: connect, explore the object tree, run a query, and view the ER diagram">
+        <source src="../video/quaero-demo.webm" type="video/webm">
+        <source src="../video/quaero-demo.mp4" type="video/mp4">
+        <img src="../video/quaero-demo-poster.png" alt="Quaero: a query with results in the grid" width="1360" height="860">
+      </video>
+      <figcaption>From the tree to the query in seconds — demo data.</figcaption>
+    </figure>
+
+    <figure class="showcase">
+      <picture>
+        <source srcset="../img/screenshot-app-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="../img/screenshot-app-light.png"
+             alt="Quaero: object explorer by type, SQL editor with highlighting, and result grid with typed data"
+             width="1360" height="860" loading="lazy">
+      </picture>
+      <figcaption>Explorer by type, SQL editor, and result grid. Demo data.</figcaption>
+    </figure>
+
+    <div class="features">
+      <div class="feature"><div class="ic" style="background:var(--accent)">›_</div><h3>SQL editor</h3><p>Schema-aware autocomplete, formatting, query history, and reusable snippets.</p></div>
+      <div class="feature"><div class="ic" style="background:var(--obj-table)">▦</div><h3>Editable grid</h3><p>Edit, insert, and delete rows in a transaction with a preview; row detail for wide records.</p></div>
+      <div class="feature"><div class="ic" style="background:var(--obj-view)">◈</div><h3>Explorer by type</h3><p>Tree from connection → database → tables, views, functions, procedures, triggers, and events, with colored icons.</p></div>
+      <div class="feature"><div class="ic" style="background:var(--obj-proc)">⭳</div><h3>Import / Export</h3><p>CSV, JSON, XLSX, XML, HTML, and SQL. Import spreadsheets and export any result.</p></div>
+      <div class="feature"><div class="ic" style="background:var(--obj-func)">◑</div><h3>Tools</h3><p>ER diagram, visual query builder, charts, server monitor, users and privileges.</p></div>
+      <div class="feature"><div class="ic" style="background:var(--obj-event)">⇄</div><h3>Multi-engine</h3><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix, and MongoDB — the same workflow across all.</p></div>
+    </div>
+
+    <div class="gallery">
+      <figure>
+        <img src="../img/screenshot-er.png" alt="Entity-relationship diagram with real foreign keys" width="1360" height="860" loading="lazy">
+        <figcaption><b>ER diagram</b> — from the engine's real foreign keys.</figcaption>
+      </figure>
+      <figure>
+        <img src="../img/screenshot-builder.png" alt="Visual query builder" width="1360" height="860" loading="lazy">
+        <figcaption><b>Visual builder</b> — assemble the query and see the generated SQL.</figcaption>
+      </figure>
+      <figure>
+        <img src="../img/screenshot-monitor.png" alt="Server monitor with process list" width="1360" height="860" loading="lazy">
+        <figcaption><b>Server monitor</b> — live processes, with the option to cancel them.</figcaption>
+      </figure>
+      <figure>
+        <img src="../img/screenshot-charts.png" alt="Bar chart built from a result" width="1360" height="860" loading="lazy">
+        <figcaption><b>Charts</b> — visualize any result without leaving the app.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section id="compare">
+    <h2>Honest comparison</h2>
+    <p class="intro">Against well-known tools. Only verifiable claims; we also point out
+      where the competition is stronger.</p>
+
+    <div class="table-scroll">
+      <table class="cmp">
+        <thead>
+          <tr>
+            <th>&nbsp;</th>
+            <th class="q">Quaero</th>
+            <th>Tabularis</th>
+            <th>Navicat</th>
+            <th>DBeaver CE</th>
+            <th>HeidiSQL</th>
+            <th>TablePlus</th>
+            <th>phpMyAdmin</th>
+            <th>Server Studio*</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th>Price</th><td class="q">Free</td><td>Free</td><td>Paid</td><td>Free</td><td>Free</td><td>Freemium</td><td>Free</td><td>Freemium</td></tr>
+          <tr><th>Open source</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td><span class="no">No</span></td><td><span class="yes">Yes</span></td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td></tr>
+          <tr><th>Platform</th><td class="q">Windows*</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Windows</td><td>Win/mac/Linux</td><td>Web</td><td>Win/mac/Linux</td></tr>
+          <tr><th>Lightweight (no Electron/JVM)</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td><span class="yes">Yes</span></td><td><span class="no">No (JVM)</span></td><td><span class="yes">Yes</span></td><td><span class="yes">Yes</span></td><td>Web</td><td><span class="no">No (JVM)</span></td></tr>
+          <tr><th>Local, no telemetry</th><td class="q"><span class="yes">Yes</span></td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="yes">Yes</td><td class="partial">~</td><td class="yes">Yes</td><td class="partial">~</td></tr>
+          <tr><th>Informix support</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td><span class="no">No</span></td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="yes">Yes</span></td></tr>
+          <tr><th>SQL editor with autocomplete</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+          <tr><th>Transactional editing (preview)</th><td class="q"><span class="yes">Yes</span></td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>ER diagram</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="partial">~</td><td class="yes">Yes</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>Visual query builder</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No</td><td class="partial">~</td><td class="no">No</td><td class="partial">~</td></tr>
+          <tr><th>Charts</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td class="yes">Yes</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>Server monitor</th><td class="q"><span class="yes">Yes</span></td><td class="partial">~</td><td class="yes">Yes</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="partial">~</td><td class="yes">Yes</td></tr>
+          <tr><th>Users and privileges</th><td class="q"><span class="yes">Yes</span></td><td class="partial">~</td><td class="yes">Yes</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+          <tr><th>Import/Export (CSV/JSON/XLSX/XML/HTML/SQL)</th><td class="q"><span class="yes">Yes</span></td><td class="partial">~</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="partial">~</td><td class="yes">Yes</td><td class="partial">~</td><td class="partial">~</td></tr>
+          <tr><th>Data generation</th><td class="q"><span class="yes">Yes</span></td><td class="partial">~</td><td class="yes">Yes</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="partial">~</td></tr>
+          <tr><th>SQL notebooks</th><td class="q"><span class="yes">Yes</span></td><td class="yes">Yes</td><td class="no">No</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+          <tr><th>AI assistant</th><td class="q"><span class="no">No</span></td><td class="yes">Yes</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cmp-note">Windows for now; macOS and Linux on the way. <b>Tabularis</b> = Apache-2.0 client (Tauri/Rust); Informix and other engines via plugins. <b>Server Studio</b> = free <i>JE (Java Edition)</i> of the Informix suite. "~" = partial or edition/plugin-dependent.</p>
+    <p class="cmp-note">Sources (reviewed 11 Jul 2026): <b>Quaero</b> cells are verified against
+      this repository's code and automated tests; the rest against each product's
+      documentation and official website —
+      <a href="https://tabularis.dev" rel="noopener">Tabularis</a>,
+      <a href="https://navicat.com" rel="noopener">Navicat</a>,
+      <a href="https://dbeaver.io" rel="noopener">DBeaver</a>,
+      <a href="https://www.heidisql.com" rel="noopener">HeidiSQL</a>,
+      <a href="https://tableplus.com" rel="noopener">TablePlus</a>,
+      <a href="https://www.phpmyadmin.net" rel="noopener">phpMyAdmin</a>,
+      <a href="https://www.serverstudio.com" rel="noopener">Server Studio</a>.
+      Features evolve; if you spot an inaccurate cell,
+      <a href="https://github.com/danielnuld/quaero/issues" rel="noopener">open an issue</a>.</p>
+
+    <div class="fair">
+      <b>Where the competition wins.</b> <b>Tabularis</b> is a very mature, broad free client:
+      15+ engines via plugins, an AI assistant, visual EXPLAIN, and MCP.
+      It shares Quaero's <i>lightweight, local, free</i> philosophy; today Quaero covers fewer engines
+      but adds a server monitor, users/privileges, and export to more formats.
+      <b>DBeaver</b> supports far more engines (80+ via JDBC) and years of maturity.
+      <b>Navicat</b> is more polished on advanced features. <b>Server Studio</b> knows Informix inside out.
+      <b>phpMyAdmin</b> needs nothing installed. Quaero doesn't aim to cover everything — just to be minimal and honest.
+    </div>
+  </section>
+
+  <!-- DOWNLOADS -->
+  <section id="download">
+    <h2>Download</h2>
+    <p class="intro">Windows installer with all five engines included (SQLite, MySQL/MariaDB,
+      PostgreSQL, Informix, MongoDB).</p>
+    <div class="downloads">
+      <div class="dl">
+        <h3>Windows</h3>
+        <div class="os">MSI installer (x86) · Windows 10/11</div>
+        <a class="btn" href="https://github.com/danielnuld/quaero/releases/latest" rel="noopener">Download (latest)</a>
+        <small>From GitHub Releases · verify the checksum on the release page.</small>
+      </div>
+      <div class="dl">
+        <h3>macOS</h3>
+        <div class="os">&nbsp;</div>
+        <span class="soon">Coming soon</span>
+        <small>The core is cross-platform; packaging is pending.</small>
+      </div>
+      <div class="dl">
+        <h3>Linux</h3>
+        <div class="os">&nbsp;</div>
+        <span class="soon">Coming soon</span>
+        <small>The core is cross-platform; packaging is pending.</small>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap row">
+    <span class="brand"><img src="../assets/quaero-mark.svg" alt="" style="width:22px;height:22px"> Quaero</span>
+    <span class="sp"></span>
+    <a href="https://github.com/danielnuld/quaero" rel="noopener">GitHub</a>
+    <a href="https://github.com/danielnuld/quaero/releases" rel="noopener">Releases</a>
+    <span>Open source</span>
+  </div>
+</footer>
+
+</body>
+</html>
