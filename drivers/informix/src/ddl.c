@@ -120,7 +120,7 @@ static int append_primary_key(dbc_conn *c, const char *qualifier,
     }
 
     int count = 0, rc = 0;
-    int row;
+    int row = 0;
     while ((row = ifx_next_row(r)) == 1) {
         const char *name = ifx_cell_text(r, 0);
         if (name == NULL) {
@@ -169,7 +169,7 @@ static dbc_status build_table_ddl(dbc_conn *c, const char *qualifier,
 
     struct sbuf sb = {0};
     int rc = sb_add(&sb, "CREATE TABLE ") || sb_add(&sb, object) || sb_add(&sb, " (\n");
-    int ncols = 0, row;
+    int ncols = 0, row = 0;
     while (rc == 0 && (row = ifx_next_row(r)) == 1) {
         const char *name = ifx_cell_text(r, 0);
         const char *ct   = ifx_cell_text(r, 1);
@@ -245,7 +245,7 @@ static dbc_status build_view_ddl(dbc_conn *c, const char *qualifier,
     }
 
     struct sbuf sb = {0};
-    int rc = 0, rows = 0, row;
+    int rc = 0, rows = 0, row = 0;
     while (rc == 0 && (row = ifx_next_row(r)) == 1) {
         const char *seg = ifx_cell_text(r, 0);
         if (seg != NULL) {

@@ -10,6 +10,11 @@
  * Requires a reachable server; SKIPS (exit 0) unless QUAERO_MYSQL_DSN is set.
  * MYSQL_PLUGIN_PATH is injected by CMake as the built plugin's full path.
  */
+/* nanosleep + CLOCK on the POSIX path need the feature-test macro under
+   -std=c11 (strict mode hides POSIX declarations otherwise). Must precede any
+   include. */
+#define _POSIX_C_SOURCE 199309L
+
 #include "dbcore/ipc.h"
 #include "dbcore/loader.h"
 #include "dbcore/runtime.h"
@@ -26,7 +31,7 @@
 #  include <windows.h>
 #else
 #  include <pthread.h>
-#  include <unistd.h>
+#  include <time.h>
 #endif
 
 static int failures = 0;
@@ -81,7 +86,11 @@ static void *thread_entry(void *arg)
     run_slow_query((struct slow_query *)arg);
     return NULL;
 }
-static void sleep_ms(unsigned ms) { usleep(ms * 1000); }
+static void sleep_ms(unsigned ms)
+{
+    struct timespec ts = { ms / 1000, (long)(ms % 1000) * 1000000L };
+    nanosleep(&ts, NULL);
+}
 #endif
 
 int main(void)
