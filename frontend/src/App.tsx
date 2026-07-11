@@ -118,6 +118,7 @@ import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
 import { UpdateModal } from "./components/UpdateModal";
 import { TOOL_CATALOG } from "./utils/toolCatalog";
+import { t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
 import {
   checkForUpdate,
@@ -543,9 +544,9 @@ export function App() {
   // now (the always-open list was removed in the Explorer-first layout): open a
   // context menu of the tool catalog, each launching its tool tab.
   const openToolsMenu = (e: MouseEvent) => {
-    const items: MenuItem[] = TOOL_CATALOG.map((t) => ({
-      label: `${t.icon}  ${t.label}`,
-      action: () => showTool(t.tool, t.tabTitle, { key: t.key }),
+    const items: MenuItem[] = TOOL_CATALOG.map((item) => ({
+      label: `${item.icon}  ${t(item.label)}`,
+      action: () => showTool(item.tool, t(item.tabTitle), { key: item.key }),
     }));
     openContextMenu(e, items);
   };

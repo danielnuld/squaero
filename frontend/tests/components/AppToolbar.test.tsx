@@ -3,6 +3,11 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { AppToolbar } from "../../src/components/AppToolbar";
 import { TOOL_CATALOG } from "../../src/utils/toolCatalog";
+import { translate } from "../../src/utils/i18n";
+
+// The catalog holds i18n keys; the suite runs pinned to es (tests/setup.ts), so
+// resolve each key to its Spanish label to find the rendered button.
+const lbl = (key: string) => translate("es", key);
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -42,7 +47,7 @@ describe("AppToolbar", () => {
     mount();
     expect(btn("Consulta")).toBeTruthy();
     expect(btn("Tabla")).toBeTruthy();
-    for (const t of TOOL_CATALOG) expect(btn(t.label)).toBeTruthy();
+    for (const item of TOOL_CATALOG) expect(btn(lbl(item.label))).toBeTruthy();
   });
 
   it("fires the object handlers", () => {
@@ -62,7 +67,7 @@ describe("AppToolbar", () => {
 
   it("opens a tool with its catalog entry", () => {
     const p = mount();
-    btn(TOOL_CATALOG[0].label)!.click();
+    btn(lbl(TOOL_CATALOG[0].label))!.click();
     expect(p.onOpenTool).toHaveBeenCalledWith(TOOL_CATALOG[0]);
   });
 
@@ -70,6 +75,6 @@ describe("AppToolbar", () => {
     mount({ active: false });
     expect(btn("Consulta")!.disabled).toBe(true);
     expect(btn("Tabla")!.disabled).toBe(true);
-    expect(btn(TOOL_CATALOG[0].label)!.disabled).toBe(true);
+    expect(btn(lbl(TOOL_CATALOG[0].label))!.disabled).toBe(true);
   });
 });

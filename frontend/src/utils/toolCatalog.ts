@@ -12,21 +12,23 @@ export interface ToolMenuItem {
   key: string;
   /** A short icon (emoji) shown before the label. */
   icon: string;
-  /** Display label in the sidebar and the palette. */
+  /** i18n key for the display label (sidebar + palette). Resolve with t(). */
   label: string;
-  /** The tab header passed to showTool (may be shorter than the label). */
+  /** i18n key for the tab header passed to showTool (may be shorter). */
   tabTitle: string;
-  /** Tooltip / accessible description. */
+  /** i18n key for the tooltip / accessible description. */
   title: string;
 }
 
+// label/tabTitle/title are i18n keys (see messages/{es,en}.ts, `tool.*`).
+// Consumers render them with t(); `key`/`icon`/`tool` stay literal.
 export const TOOL_CATALOG: ToolMenuItem[] = [
-  { tool: "monitor", key: "monitor", icon: "🖥️", label: "Monitor de servidor", tabTitle: "Monitor de servidor", title: "Monitor de servidor y lista de procesos" },
-  { tool: "slowQueries", key: "slow", icon: "🐢", label: "Consultas lentas", tabTitle: "Consultas lentas", title: "Consultas más lentas registradas por el servidor" },
-  { tool: "users", key: "users", icon: "👥", label: "Usuarios y permisos", tabTitle: "Usuarios y permisos", title: "Usuarios y permisos" },
-  { tool: "erDiagram", key: "er", icon: "🗺️", label: "Diagrama ER", tabTitle: "Diagrama ER", title: "Diagrama entidad-relación" },
-  { tool: "queryBuilder", key: "qb", icon: "🧱", label: "Constructor de consultas", tabTitle: "Constructor", title: "Constructor visual de consultas" },
-  { tool: "routines", key: "routines", icon: "ƒ", label: "Procedimientos y funciones", tabTitle: "Procedimientos", title: "Procedimientos almacenados y funciones" },
-  { tool: "triggers", key: "triggers", icon: "⚡", label: "Triggers y eventos", tabTitle: "Triggers y eventos", title: "Triggers y eventos programados" },
-  { tool: "notebook", key: "notebook", icon: "📓", label: "Notebook SQL", tabTitle: "Notebook", title: "Notebook: celdas de SQL y Markdown con resultados en línea" },
+  { tool: "monitor", key: "monitor", icon: "🖥️", label: "tool.monitor.label", tabTitle: "tool.monitor.tab", title: "tool.monitor.title" },
+  { tool: "slowQueries", key: "slow", icon: "🐢", label: "tool.slow.label", tabTitle: "tool.slow.tab", title: "tool.slow.title" },
+  { tool: "users", key: "users", icon: "👥", label: "tool.users.label", tabTitle: "tool.users.tab", title: "tool.users.title" },
+  { tool: "erDiagram", key: "er", icon: "🗺️", label: "tool.er.label", tabTitle: "tool.er.tab", title: "tool.er.title" },
+  { tool: "queryBuilder", key: "qb", icon: "🧱", label: "tool.qb.label", tabTitle: "tool.qb.tab", title: "tool.qb.title" },
+  { tool: "routines", key: "routines", icon: "ƒ", label: "tool.routines.label", tabTitle: "tool.routines.tab", title: "tool.routines.title" },
+  { tool: "triggers", key: "triggers", icon: "⚡", label: "tool.triggers.label", tabTitle: "tool.triggers.tab", title: "tool.triggers.title" },
+  { tool: "notebook", key: "notebook", icon: "📓", label: "tool.notebook.label", tabTitle: "tool.notebook.tab", title: "tool.notebook.title" },
 ];

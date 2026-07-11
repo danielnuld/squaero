@@ -1,5 +1,6 @@
 import { For } from "solid-js";
 import { TOOL_CATALOG, type ToolMenuItem } from "../utils/toolCatalog";
+import { t } from "../utils/i18n";
 
 // Top action ribbon (UI design proposal, phase 2). A full-width bar of large
 // icon+label buttons grouped by family — the most recognizable chrome of a
@@ -50,11 +51,11 @@ function Btn(props: {
 
 export function AppToolbar(props: ToolbarProps) {
   return (
-    <div class="apptoolbar" role="toolbar" aria-label="Acciones">
+    <div class="apptoolbar" role="toolbar" aria-label={t("toolbar.actions")}>
       <div class="att-group">
         <Btn
-          label="Consulta"
-          title="Nueva consulta"
+          label={t("toolbar.newQuery.label")}
+          title={t("toolbar.newQuery.title")}
           glyph="›_"
           color="var(--accent)"
           ink="var(--accent-fg)"
@@ -62,8 +63,8 @@ export function AppToolbar(props: ToolbarProps) {
           onClick={props.onNewQuery}
         />
         <Btn
-          label="Tabla"
-          title="Nueva tabla"
+          label={t("toolbar.newTable.label")}
+          title={t("toolbar.newTable.title")}
           glyph="▦"
           color="var(--obj-table)"
           ink="var(--obj-ink)"
@@ -71,8 +72,8 @@ export function AppToolbar(props: ToolbarProps) {
           onClick={props.onNewTable}
         />
         <Btn
-          label="Objetos"
-          title="Lista de objetos de la base activa"
+          label={t("toolbar.objects.label")}
+          title={t("toolbar.objects.title")}
           glyph="☰"
           color="var(--obj-view)"
           ink="var(--obj-ink)"
@@ -82,15 +83,15 @@ export function AppToolbar(props: ToolbarProps) {
       </div>
       <div class="att-group">
         <For each={TOOL_CATALOG}>
-          {(t) => (
+          {(item) => (
             <Btn
-              label={t.label}
-              title={t.title}
-              glyph={t.icon}
+              label={t(item.label)}
+              title={t(item.title)}
+              glyph={item.icon}
               color="var(--bg-elev2)"
               ink="var(--text)"
               disabled={!props.active}
-              onClick={() => props.onOpenTool(t)}
+              onClick={() => props.onOpenTool(item)}
             />
           )}
         </For>
