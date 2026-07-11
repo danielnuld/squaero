@@ -17,9 +17,13 @@ cambiando ⏳ → ✅/⚠️/❌ a medida que se prueba en vivo. El smoke automa
 | ⏳ | Sin verificar todavía |
 
 **Motores:** SQLite (embebido), MySQL/MariaDB (motor de referencia), Informix
-(ODBC, build x86), MongoDB (solo lectura: find/aggregate). PostgreSQL **no** es un
-motor incluido todavía — llega en M12 (#22/#23); varias herramientas ya tienen su
-SQL preparado, pero el driver no se distribuye aún.
+(ODBC, build x86), MongoDB (solo lectura: find/aggregate). **PostgreSQL** (libpq)
+ya se distribuye (#22/#23, PR #275); su camino núcleo + funciones específicas del
+motor están verificados en vivo por `scripts/smoke/postgres-features.mjs` (10/10
+vs `postgres:16`, ver [QA-SMOKE](./QA-SMOKE.md)). Aún no tiene columna propia en
+la matriz de abajo — las funciones a nivel UI (monitor, ER, builder, charts,
+designer, etc.) faltan por recorrer en vivo; los usuarios/permisos no están
+implementados para PG y slow-queries requiere la extensión `pg_stat_statements`.
 
 ## Matriz
 

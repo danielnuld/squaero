@@ -98,12 +98,47 @@ docker exec <mongo> mongosh --quiet --eval 'db=db.getSiblingDB("quaero_qa"); db.
 PATH="$PWD/build/app:$PATH" node scripts/smoke/mongo-features.mjs
 ```
 
+## Feature-smoke de PostgreSQL (#22/#23)
+
+`scripts/smoke/postgres-features.mjs` verifica en vivo, contra un `postgres:16`,
+los caminos específicos de PG que las pruebas unitarias *puras* del driver
+(`postgres_types_test` / `postgres_identifier_test` / `postgres_dml_test`) **no**
+cubren porque emiten consultas de catálogo o usan estado de libpq: UTF-8
+(acentos + emoji) en datos y en nombres de objetos entrecomillados, **esquemas
+reales** (el diferenciador `DBC_FEAT_SCHEMAS`: `schema.tree` lista un esquema no
+`public`; `schema.describe`/`schema.ddl` honran el argumento de esquema),
+renderizado de `format_type` + columnas `notnull`/`dflt_value`/`pk` en describe,
+`CREATE TABLE` reconstruido por `schema.ddl` (columnas + DEFAULT + PRIMARY KEY,
+más error honesto ante un objeto inexistente), tipos de extremo a extremo
+(bool/numeric/jsonb/uuid/timestamptz/bytea/`int[]` → los arreglos caen a text),
+vistas y vistas materializadas ambas como `view`, paginación con offset sobre
+>10k filas, y edición transaccional con ROLLBACK real.
+
+```sh
+docker run --rm -d -e POSTGRES_PASSWORD=test123 -e POSTGRES_DB=testdb \
+  -p 15432:5432 postgres:16
+# IMPORTANTE: correr contra el build x86 — su libpq estático (REL_16_9) hace
+# SCRAM-SHA-256 (autenticación por defecto de PG16). El build x64 de desarrollo
+# se enlaza contra el libpq de Strawberry, demasiado viejo para SCRAM, y la
+# conexión se cuelga hasta agotar el authentication_timeout del servidor.
+PATH="/c/mingw32/bin:$PWD/build-x86/app:$PATH" \
+  QUAERO_RPC=build-x86/tools/quaero-rpc.exe \
+  node scripts/smoke/postgres-features.mjs build-x86/app/drivers
+```
+
+> `op.cancel` en vuelo no se ejercita aquí: `quaero-rpc` es un bucle stdio de un
+> solo hilo (`dbcore_ipc_handle` bloquea hasta que `query.run` retorna), así que
+> un `op.cancel` concurrente nunca alcanza la operación en curso desde un mismo
+> proceso. La ruta de cancelación con hilos (PQcancel) la cubre el
+> `op_cancel_test` del core.
+
 ## Estado por motor
 
 | Motor | Estado | Notas |
 |---|:---:|---|
 | SQLite | ✅ 12/12 + 9/9 features (2026-07-07) | local; `smoke.mjs` + `sqlite-features.mjs` |
 | MySQL/MariaDB | ✅ 12/12 + 10/10 features (2026-07-08) | `smoke.mjs` + `mysql-features.mjs` vs MySQL 8.0.46 |
+| PostgreSQL | ✅ 10/10 features (2026-07-11) | `postgres-features.mjs` vs `postgres:16` (build x86, SCRAM) |
 | Informix | ⏳ | el driver carga; falta un servidor Informix de prueba |
 | MongoDB | ✅ 4/4 + 7/7 features (2026-07-08) | `smoke.mjs` + `mongo-features.mjs` vs `mongo:7` |
 
