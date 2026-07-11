@@ -7,6 +7,26 @@ export const en: Record<string, string> = {
   // common
   "common.settings": "Settings",
   "common.language": "Language",
+  "common.cancel": "Cancel",
+  "common.edit": "Edit",
+  "common.delete": "Delete",
+
+  // connection bar / manager
+  "conn.title": "Connections",
+  "conn.choose": "Choose connection",
+  "conn.statusConnected": "connected",
+  "conn.connectedDot": "Connected",
+  "conn.connect": "Connect",
+  "conn.focus": "Focus",
+  "conn.connecting": "connecting…",
+  "conn.disconnect": "Disconnect",
+  "conn.reconnect": "Reconnect",
+  "conn.new": "New connection",
+  "conn.export": "Export",
+  "conn.import": "Import",
+  "conn.includePasswords": "Include passwords",
+  "conn.plaintextWarn": "⚠ The file will store passwords in <strong>plain text</strong>.",
+  "conn.empty": "No saved connections.",
 
   // language names — endonyms, same in every locale.
   "lang.es": "Español",

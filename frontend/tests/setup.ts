@@ -1,3 +1,10 @@
+// i18n: pin the UI locale to Spanish so component tests are deterministic. jsdom
+// reports navigator.language = "en-US", which would otherwise auto-select English
+// and break the suite's Spanish assertions. A test that specifically checks
+// English can call setLocale("en") itself.
+import { setLocale } from "../src/utils/i18n";
+setLocale("es");
+
 // Test-environment polyfills. jsdom does not implement ResizeObserver, which the
 // virtualized grid uses to track its viewport height; the real webview provides
 // it. A no-op stub is enough for component tests (the grid falls back to its

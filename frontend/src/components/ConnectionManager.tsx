@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from "solid-js";
 import { driverSchema, engineIcon, type Connection } from "../utils/connections";
+import { t } from "../utils/i18n";
 
 // Props for the connection list + CRUD. Shared with ConnectionBar, which wraps
 // this component in a collapsible sidebar popover (Explorer-first layout).
@@ -51,17 +52,17 @@ export function ConnectionManager(props: ConnectionManagerProps) {
   return (
     <div class="conn-manager">
       <button class="conn-new" onClick={props.onNew}>
-        + Nueva conexión
+        + {t("conn.new")}
       </button>
 
       <div class="conn-io">
         <Show when={props.connections.length > 0}>
           <button class="conn-io-btn" onClick={() => setShowExport((v) => !v)}>
-            ⬆ Exportar
+            ⬆ {t("conn.export")}
           </button>
         </Show>
         <button class="conn-io-btn" onClick={() => fileInput?.click()}>
-          ⬇ Importar
+          ⬇ {t("conn.import")}
         </button>
         <input
           ref={fileInput}
@@ -80,19 +81,17 @@ export function ConnectionManager(props: ConnectionManagerProps) {
               checked={includePasswords()}
               onChange={(e) => setIncludePasswords(e.currentTarget.checked)}
             />
-            Incluir contraseñas
+            {t("conn.includePasswords")}
           </label>
           <Show when={includePasswords()}>
-            <p class="conn-warn">
-              ⚠ El archivo guardará las contraseñas en <strong>texto plano</strong>.
-            </p>
+            <p class="conn-warn" innerHTML={t("conn.plaintextWarn")}></p>
           </Show>
           <div class="conn-export-actions">
             <button class="conn-io-btn" onClick={doExport}>
-              Exportar
+              {t("conn.export")}
             </button>
             <button class="conn-io-btn" onClick={() => setShowExport(false)}>
-              Cancelar
+              {t("common.cancel")}
             </button>
           </div>
         </div>
@@ -104,7 +103,7 @@ export function ConnectionManager(props: ConnectionManagerProps) {
 
       <Show
         when={props.connections.length > 0}
-        fallback={<p class="sidebar-hint">No hay conexiones guardadas.</p>}
+        fallback={<p class="sidebar-hint">{t("conn.empty")}</p>}
       >
         <ul class="conn-list">
           <For each={props.connections}>
@@ -117,7 +116,7 @@ export function ConnectionManager(props: ConnectionManagerProps) {
               >
                 <button
                   class="conn-open"
-                  title={props.openIds?.includes(c.id) ? "Enfocar" : "Conectar"}
+                  title={props.openIds?.includes(c.id) ? t("conn.focus") : t("conn.connect")}
                   disabled={props.connectingId !== null}
                   onClick={() => props.onConnect(c)}
                 >
@@ -127,18 +126,18 @@ export function ConnectionManager(props: ConnectionManagerProps) {
                     </Show>
                     <span class="engine-icon">{engineIcon(c.driver)}</span> {c.name}
                     <Show when={props.openIds?.includes(c.id)}>
-                      <span class="conn-live" title="Conectada">●</span>
+                      <span class="conn-live" title={t("conn.connectedDot")}>●</span>
                     </Show>
                   </span>
                   <span class="conn-driver">
                     {driverSchema(c.driver)?.label ?? c.driver}
-                    {props.connectingId === c.id ? " · conectando…" : ""}
+                    {props.connectingId === c.id ? " · " + t("conn.connecting") : ""}
                   </span>
                 </button>
                 <div class="conn-actions">
                   <Show when={c.id === props.activeConnId}>
                     <button
-                      title="Reconectar"
+                      title={t("conn.reconnect")}
                       disabled={props.connectingId !== null}
                       onClick={() => props.onReconnect()}
                     >
@@ -146,14 +145,14 @@ export function ConnectionManager(props: ConnectionManagerProps) {
                     </button>
                   </Show>
                   <Show when={props.openIds?.includes(c.id)}>
-                    <button title="Desconectar" onClick={() => props.onDisconnect(c.id)}>
+                    <button title={t("conn.disconnect")} onClick={() => props.onDisconnect(c.id)}>
                       ⏏
                     </button>
                   </Show>
-                  <button title="Editar" onClick={() => props.onEdit(c)}>
+                  <button title={t("common.edit")} onClick={() => props.onEdit(c)}>
                     ✎
                   </button>
-                  <button class="danger" title="Eliminar" onClick={() => props.onDelete(c.id)}>
+                  <button class="danger" title={t("common.delete")} onClick={() => props.onDelete(c.id)}>
                     🗑
                   </button>
                 </div>

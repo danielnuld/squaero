@@ -1,6 +1,7 @@
 import { Show, createSignal, createEffect, onCleanup, onMount, mergeProps } from "solid-js";
 import { engineIcon, type Connection } from "../utils/connections";
 import { ConnectionManager, type ConnectionManagerProps } from "./ConnectionManager";
+import { t } from "../utils/i18n";
 
 // Explorer-first sidebar header: the active connection collapses to a single
 // bar, so the object tree below gets the whole column. Clicking the bar drops
@@ -65,7 +66,7 @@ export function ConnectionBar(props: ConnectionManagerProps & { openTick?: numbe
         <button
           class="connbar-active"
           aria-expanded={open()}
-          title="Conexiones"
+          title={t("conn.title")}
           style={
             active()?.color ? { "border-left": `4px solid ${active()!.color}` } : undefined
           }
@@ -73,14 +74,14 @@ export function ConnectionBar(props: ConnectionManagerProps & { openTick?: numbe
         >
           <Show
             when={active()}
-            fallback={<span class="connbar-none">Elegir conexión</span>}
+            fallback={<span class="connbar-none">{t("conn.choose")}</span>}
           >
             <Show when={active()!.color}>
               <span class="conn-color" style={{ background: active()!.color }} />
             </Show>
             <span class="engine-icon">{engineIcon(active()!.driver)}</span>
             <span class="connbar-name">{active()!.name}</span>
-            <span class="connbar-status">conectado</span>
+            <span class="connbar-status">{t("conn.statusConnected")}</span>
           </Show>
           <span class="connbar-caret" aria-hidden="true">
             {open() ? "▴" : "▾"}
@@ -91,8 +92,8 @@ export function ConnectionBar(props: ConnectionManagerProps & { openTick?: numbe
         <Show when={activeIsOpen()}>
           <button
             class="connbar-disconnect"
-            title="Desconectar"
-            aria-label="Desconectar"
+            title={t("conn.disconnect")}
+            aria-label={t("conn.disconnect")}
             disabled={props.connectingId !== null}
             onClick={(e) => {
               e.stopPropagation();
