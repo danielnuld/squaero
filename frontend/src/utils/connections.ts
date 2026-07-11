@@ -142,6 +142,31 @@ export const MYSQL_SSL_FIELDS: DriverField[] = [
   { key: "ssl_key", label: "Clave cliente", type: "file", required: false, group: SSL_GROUP },
 ];
 
+// Optional TLS fields for the PostgreSQL driver. libpq takes an sslmode plus the
+// ssl* certificate paths verbatim as connection parameters (see docs/IPC.md), so
+// the values here are libpq's own spellings — distinct from MySQL's ssl_mode.
+export const POSTGRES_SSL_FIELDS: DriverField[] = [
+  {
+    key: "sslmode",
+    label: "Modo SSL",
+    type: "select",
+    required: false,
+    options: [
+      { value: "", label: "— (predeterminado del cliente: prefer)" },
+      { value: "disable", label: "Desactivado" },
+      { value: "allow", label: "Permitir" },
+      { value: "prefer", label: "Preferir (cifrado si es posible)" },
+      { value: "require", label: "Requerido (cifrado)" },
+      { value: "verify-ca", label: "Verificar CA" },
+      { value: "verify-full", label: "Verificar identidad" },
+    ],
+    group: SSL_GROUP,
+  },
+  { key: "sslrootcert", label: "Certificado CA", type: "file", required: false, group: SSL_GROUP },
+  { key: "sslcert", label: "Certificado cliente", type: "file", required: false, group: SSL_GROUP },
+  { key: "sslkey", label: "Clave cliente", type: "file", required: false, group: SSL_GROUP },
+];
+
 // Driver form schemas. SQLite is the reference engine shipped in M2; the
 // PostgreSQL schema is defined for the data-driven form and lands as a usable
 // option when its driver is built (M4). Network engines carry the optional
@@ -169,6 +194,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       { key: "database", label: "Base de datos", type: "text", required: true, fetch: "databases" },
       { key: "user", label: "Usuario", type: "text", required: true },
       { key: "password", label: "Contraseña", type: "password", required: false },
+      ...POSTGRES_SSL_FIELDS,
     ]),
   },
   mysql: {
@@ -231,10 +257,10 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
 
 // Drivers the UI offers. Only engines whose driver actually ships are listed,
 // so the UI never advertises a connection it cannot honor (honest capabilities).
-// sqlite ships everywhere; mysql, informix and mongodb ship where their client
-// libraries are present (mysql via MariaDB Connector/C, informix via the ODBC
-// driver, mongodb via the mongo-c-driver).
-export const AVAILABLE_DRIVERS: string[] = ["sqlite", "mysql", "informix", "mongodb"];
+// sqlite ships everywhere; postgres, mysql, informix and mongodb ship where their
+// client libraries are present (postgres via libpq, mysql via MariaDB
+// Connector/C, informix via the ODBC driver, mongodb via the mongo-c-driver).
+export const AVAILABLE_DRIVERS: string[] = ["sqlite", "postgres", "mysql", "informix", "mongodb"];
 
 /** Schema for a driver name, or undefined when unknown. */
 export function driverSchema(driver: string): DriverSchema | undefined {

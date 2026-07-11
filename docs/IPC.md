@@ -169,6 +169,15 @@ Se cablean con `mysql_ssl_set` + `MYSQL_OPT_SSL_MODE` antes de conectar. Un
 `ssl_mode` no reconocido devuelve error de parámetro. A diferencia del túnel SSH,
 los valores de `ssl_mode` son propios del motor (los de arriba son de MySQL).
 
+En PostgreSQL (`DBC_FEAT_SSL`) los campos son los propios de libpq y se pasan tal
+cual como parámetros de conexión:
+
+| Campo | Descripción |
+|-------|-------------|
+| `sslmode` | `disable` \| `allow` \| `prefer` (predeterminado) \| `require` \| `verify-ca` \| `verify-full`. `require` cifra sin verificar el certificado; `verify-ca` valida la cadena contra la CA; `verify-full` además exige que el host coincida. |
+| `sslrootcert` | Ruta al certificado CA. |
+| `sslcert` / `sslkey` | Certificado y clave del cliente (TLS mutuo). |
+
 *Informix (ODBC).* El driver `informix` se conecta a través del Administrador de
 controladores ODBC, seleccionando en tiempo de ejecución el controlador *IBM
 Informix ODBC Driver*. El `dsn` admite dos formas:
@@ -258,8 +267,9 @@ falla luego con un error de consulta (`-32003`), que llega como el error normal 
 
 La cancelación real requiere que el driver anuncie `DBC_FEAT_CANCEL`; un motor sin
 soporte devuelve `canceled: false` en vez de fingir. Hoy lo respaldan **SQLite**
-(`sqlite3_interrupt`), **MySQL/MariaDB** (`KILL QUERY` sobre una conexión lateral)
-e **Informix** (`SQLCancel` de ODBC desde otro hilo); MongoDB aún no lo anuncia
+(`sqlite3_interrupt`), **MySQL/MariaDB** (`KILL QUERY` sobre una conexión lateral),
+**PostgreSQL** (`PQcancel` de libpq desde otro hilo) e **Informix** (`SQLCancel` de
+ODBC desde otro hilo); MongoDB aún no lo anuncia
 (para él la UI no se congela, pero la consulta sigue hasta terminar). A diferencia
 del resto de los métodos, el
 shell nativo despacha `op.cancel` **sin** encolarlo detrás de la consulta que

@@ -119,6 +119,59 @@ if(TARGET mysql_driver)
   endif()
 endif()
 
+# The PostgreSQL driver is built only when libpq is present; stage it alongside
+# the executable when it exists. Whether a client runtime DLL must be staged too
+# depends on how libpq was found: a static archive (libpq.a) links libpq and its
+# OpenSSL dependency into the plugin, so nothing extra is needed; a shared libpq
+# (an import lib such as libpq.dll.a / libpq.lib) means the plugin loads libpq.dll
+# at startup, so that DLL and its dependencies must sit next to the executable —
+# exactly like the MySQL driver stages libmysql.dll.
+if(TARGET postgres_driver)
+  add_dependencies(quaero postgres_driver)
+  add_custom_command(TARGET quaero POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:postgres_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
+    VERBATIM)
+
+  # PG_LIBRARY / PG_CONFIG are find_* cache variables set by the driver's
+  # CMakeLists, so they are visible here. A ".a" is a static archive (self
+  # contained); anything else on Windows (".dll.a", ".lib") is a shared import
+  # lib whose runtime DLLs must be staged.
+  # QUAERO_LIBPQ links libpq statically into the plugin (no runtime DLL). Only a
+  # discovered *shared* system libpq (PG_LIBRARY set, not a .a archive) needs its
+  # DLLs staged.
+  get_filename_component(_pg_lib_ext "${PG_LIBRARY}" EXT)
+  if(WIN32 AND PG_LIBRARY AND NOT QUAERO_LIBPQ AND NOT _pg_lib_ext STREQUAL ".a")
+    set(_pg_bindir "")
+    if(PG_CONFIG)
+      execute_process(COMMAND ${PG_CONFIG} --bindir
+        OUTPUT_VARIABLE _pg_bindir OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    endif()
+    if(_pg_bindir)
+      # libpq.dll plus the OpenSSL / gettext / iconv / pthread DLLs it depends on,
+      # under whatever versioned names the install ships them (globbed).
+      file(GLOB _pg_runtime_dlls
+        "${_pg_bindir}/libpq*.dll"
+        "${_pg_bindir}/libssl*.dll"
+        "${_pg_bindir}/libcrypto*.dll"
+        "${_pg_bindir}/libintl*.dll"
+        "${_pg_bindir}/libiconv*.dll"
+        "${_pg_bindir}/libwinpthread*.dll")
+      foreach(_dll ${_pg_runtime_dlls})
+        add_custom_command(TARGET quaero POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  "${_dll}" "$<TARGET_FILE_DIR:quaero>/"
+          VERBATIM)
+      endforeach()
+    else()
+      message(WARNING "PostgreSQL driver: a shared libpq was linked (${PG_LIBRARY}) "
+        "but pg_config --bindir is unavailable, so libpq.dll and its dependencies "
+        "cannot be staged next to quaero.exe — the plugin may fail to load at "
+        "runtime. Install a static libpq or ensure pg_config is on PATH.")
+    endif()
+  endif()
+endif()
+
 # The MongoDB driver is built only when the mongo-c-driver is present; stage it
 # alongside the executable when it exists.
 if(TARGET mongodb_driver)

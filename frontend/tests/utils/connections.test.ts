@@ -456,8 +456,8 @@ describe("MongoDB schema", () => {
 });
 
 describe("AVAILABLE_DRIVERS", () => {
-  it("offers sqlite, mysql, informix and mongodb, each with a schema", () => {
-    expect(AVAILABLE_DRIVERS).toEqual(["sqlite", "mysql", "informix", "mongodb"]);
+  it("offers sqlite, postgres, mysql, informix and mongodb, each with a schema", () => {
+    expect(AVAILABLE_DRIVERS).toEqual(["sqlite", "postgres", "mysql", "informix", "mongodb"]);
     for (const d of AVAILABLE_DRIVERS) {
       expect(driverSchema(d)).toBeDefined();
     }

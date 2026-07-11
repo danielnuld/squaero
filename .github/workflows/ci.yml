@@ -242,9 +242,11 @@ jobs:
   # Informix ODBC driver is 32-bit only). Builds the core + all drivers with the
   # same standalone i686 MinGW toolchain used locally, exercising the three
   # from-source dependencies in 32-bit: MariaDB Connector/C (QUAERO_MARIADB,
-  # static), mongo-c-driver (QUAERO_MONGOC) and libssh2 (QUAERO_SSH). The app
-  # shell is skipped (QUAERO_BUILD_APP=OFF) to keep the job lean; unit tests run
-  # (32-bit exes run under WOW64), integration tests self-skip without a server.
+  # static), mongo-c-driver (QUAERO_MONGOC), libssh2 (QUAERO_SSH) and libpq
+  # (QUAERO_LIBPQ, static, from the PostgreSQL source — no 32-bit libpq ships).
+  # The app shell is skipped (QUAERO_BUILD_APP=OFF) to keep the job lean; unit
+  # tests run (32-bit exes run under WOW64), integration tests self-skip without
+  # a server.
   windows-x86:
     name: windows-x86
     runs-on: windows-latest
@@ -279,7 +281,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DQUAERO_BUILD_APP=OFF
-          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON
+          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_LIBPQ=ON
 
       - name: Build
         shell: bash
