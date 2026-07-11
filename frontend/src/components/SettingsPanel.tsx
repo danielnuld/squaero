@@ -13,6 +13,7 @@ import {
 import { clampLimit, MIN_HISTORY_LIMIT, MAX_HISTORY_LIMIT } from "../utils/history";
 import { themeLabel, type ThemePref } from "../utils/theme";
 import { skinLabel, type SkinPref } from "../utils/skin";
+import { locale, setLocale, LOCALES, t } from "../utils/i18n";
 
 // Settings + About panel (issue #181), opened as a tool tab. Fully controlled:
 // the workspace (App) owns every preference signal and passes current values +
@@ -78,6 +79,23 @@ export function SettingsPanel(props: {
       <div class="settings-body">
         <section class="settings-section">
           <h3>Apariencia</h3>
+          <div class="settings-row">
+            <span class="settings-label">{t("common.language")}</span>
+            <div class="settings-choice" role="radiogroup" aria-label={t("common.language")}>
+              <For each={LOCALES}>
+                {(l) => (
+                  <button
+                    class={`chip ${locale() === l ? "active" : ""}`}
+                    role="radio"
+                    aria-checked={locale() === l}
+                    onClick={() => setLocale(l)}
+                  >
+                    {t(`lang.${l}`)}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
           <div class="settings-row">
             <span class="settings-label">Tema</span>
             <div class="settings-choice" role="radiogroup" aria-label="Tema">
