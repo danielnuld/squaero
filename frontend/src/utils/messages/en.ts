@@ -80,6 +80,16 @@ export const en: Record<string, string> = {
   "editor.selectAll": "Select all",
   "editor.copy": "Copy",
 
+  // editor empty state (issue #178)
+  "empty.lead": "Run a query to see results.",
+  "empty.recentTables": "Recent tables",
+  "empty.openTable": "Open {name}",
+  "empty.recentQueries": "Recent queries",
+  "empty.rerunNewTab": "Re-run in a new tab",
+  "empty.insertSnippet": "Insert into the editor",
+  "empty.shortcuts": "Shortcuts",
+  "empty.hint": "Open a table from the tree or write SQL and press {keys}.",
+
   // errors
   "error.noActiveConn": "No active connection. Open a connection to run queries.",
 

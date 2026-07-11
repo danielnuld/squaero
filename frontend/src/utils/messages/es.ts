@@ -83,6 +83,16 @@ export const es: Record<string, string> = {
   "editor.selectAll": "Seleccionar todo",
   "editor.copy": "Copiar",
 
+  // editor empty state (issue #178)
+  "empty.lead": "Ejecuta una consulta para ver resultados.",
+  "empty.recentTables": "Tablas recientes",
+  "empty.openTable": "Abrir {name}",
+  "empty.recentQueries": "Consultas recientes",
+  "empty.rerunNewTab": "Reejecutar en una pestaña nueva",
+  "empty.insertSnippet": "Insertar en el editor",
+  "empty.shortcuts": "Atajos",
+  "empty.hint": "Abre una tabla del árbol o escribe SQL y pulsa {keys}.",
+
   // errors
   "error.noActiveConn": "No hay conexión activa. Abre una conexión para ejecutar consultas.",
 
