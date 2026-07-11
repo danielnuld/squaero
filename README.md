@@ -1,137 +1,144 @@
 <p align="center">
-  <img src="assets/media/social-preview.png" alt="Quaero — gestor de bases de datos ligero, local y libre" width="820">
+  <img src="assets/media/social-preview.png" alt="Quaero — a lightweight, local, free database manager" width="820">
 </p>
 
 <p align="center">
-  <em>Cliente de bases de datos moderno, ligero y multi-motor — alternativa de código abierto al estilo de Navicat.</em>
+  <em>A modern, lightweight, multi-engine database client — an open-source alternative in the spirit of Navicat.</em>
+</p>
+
+<p align="center">
+  <b>English</b> · <a href="README.es.md">Español</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/danielnuld/quaero/releases"><img alt="Release" src="https://img.shields.io/github/v/release/danielnuld/quaero?include_prereleases&sort=semver"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-blue"></a>
-  <img alt="Engines" src="https://img.shields.io/badge/motores-SQLite%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB-5b5bd6">
+  <img alt="Engines" src="https://img.shields.io/badge/engines-SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB-5b5bd6">
 </p>
 
-**Quaero** (del latín *quaero*, «yo busco/indago») es un cliente de bases de datos
-multi-motor con un **núcleo en C** (`libdbcore`) y una **interfaz web sobre el
-webview nativo del sistema operativo** (WebView2 en Windows, WebKitGTK en Linux,
-WKWebView en macOS). Una UI moderna sin el peso de Electron, y un motor nativo que
-habla directo con las librerías cliente de cada base de datos.
+**Quaero** (Latin *quaero*, "I seek / I inquire") is a multi-engine database
+client with a **C core** (`libdbcore`) and a **web UI running on the OS-native
+webview** (WebView2 on Windows, WebKitGTK on Linux, WKWebView on macOS). A modern
+UI without the weight of Electron, and a native engine that talks directly to
+each database's client libraries.
 
-## Motores soportados
+## Supported engines
 
-| Motor | Estado |
+| Engine | Status |
 |---|---|
-| **SQLite** | ✅ Completo (verificado) |
-| **MySQL / MariaDB** | ✅ Completo (verificado) — SSL/TLS, túnel SSH |
-| **Informix** | ✅ Vía ODBC (build x86) |
-| **MongoDB** | ✅ Lectura (find/aggregate, sintaxis mongosh) |
-| PostgreSQL, SQL Server, Oracle | ⏳ Planeado (M12) |
+| **SQLite** | ✅ Complete (verified) |
+| **PostgreSQL** | ✅ Via libpq — SSL/TLS, SCRAM |
+| **MySQL / MariaDB** | ✅ Complete (verified) — SSL/TLS, SSH tunnel |
+| **Informix** | ✅ Via ODBC (x86 build) |
+| **MongoDB** | ✅ Read (find/aggregate, mongosh syntax) |
+| SQL Server, Oracle | ⏳ Planned (M12) |
 
-Los motores se cargan como **plugins** (`.dll`/`.so`) que implementan un contrato
-en C: agregar un motor no requiere tocar el núcleo. Ver
-[cómo escribir un driver](docs/WRITING_A_DRIVER.md).
+Engines load as **plugins** (`.dll`/`.so`) implementing a C contract: adding an
+engine never touches the core. See [how to write a driver](docs/WRITING_A_DRIVER.md).
 
-## Funcionalidades
+## Features
 
-**Editor SQL**
-- Editor CodeMirror con **autocompletado** desde el esquema, **formateo** de SQL,
-  ejecutar **selección / sentencia / documento**.
-- **Historial** de consultas con duración por consulta y marca de lentas.
-- **Snippets / favoritos**; **paleta de comandos** (Ctrl/Cmd+K).
-- **Plan de ejecución visual** (EXPLAIN) como árbol.
+**SQL editor**
+- CodeMirror editor with **schema-aware autocomplete**, SQL **formatting**, and
+  run **selection / statement / document**.
+- Query **history** with per-query duration and slow-query marks.
+- **Snippets / favorites**; **command palette** (Ctrl/Cmd+K).
+- **Visual execution plan** (EXPLAIN) as a tree.
 
-**Grid de resultados**
-- Virtualizado, **orden y filtro** por columna, **paginación real** (offset).
-- **Edición transaccional** en línea (insert/update/delete + preview del SQL +
-  commit/rollback); **detalle de fila** (vista formulario).
-- **Exportar** CSV / JSON / SQL / XML / HTML / **XLSX**; **importar** CSV / JSON / XLSX.
-- **Gráficos** (barras / líneas / pastel).
+**Result grid**
+- Virtualized, per-column **sort and filter**, real **pagination** (offset).
+- Inline **transactional editing** (insert/update/delete + SQL preview +
+  commit/rollback); **row detail** (form view).
+- **Export** CSV / JSON / SQL / XML / HTML / **XLSX**; **import** CSV / JSON / XLSX.
+- **Charts** (bar / line / pie).
 
-**Objetos y diseño**
-- Árbol lazy y virtualizado **agrupado por tipo** (tablas, vistas, procedimientos,
-  funciones, triggers, eventos).
-- **Diseñador de tablas** (crear y ALTER), **editor de índices y constraints**.
-- **Procedimientos / funciones**, **triggers / eventos**, **usuarios y permisos**.
-- **Monitor de servidor** (lista de procesos + kill), **consultas lentas**.
-- **Diagrama ER** (llaves foráneas reales del motor) y **constructor visual de consultas**.
+**Objects and design**
+- Lazy, virtualized object tree **grouped by type** (tables, views, procedures,
+  functions, triggers, events).
+- **Table designer** (create and ALTER), **index and constraint editor**.
+- **Procedures / functions**, **triggers / events**, **users and privileges**.
+- **Server monitor** (process list + kill), **slow queries**.
+- **ER diagram** (real foreign keys from the engine) and a **visual query builder**.
 
-**Datos entre conexiones**
-- **Sincronización** de esquema y de datos, **transferencia** de tablas entre
-  conexiones, **generación de datos** de prueba.
+**Data across connections**
+- Schema and data **sync**, table **transfer** between connections, and test
+  **data generation**.
 
-**Conectividad y plataforma**
-- **Túnel SSH** (todos los motores), **SSL/TLS** (MySQL), **import/export** de
-  conexiones guardadas.
-- Tema **claro/oscuro** con la marca índigo, panel de **Ajustes** y **Acerca de**,
-  **atajos de teclado**, menús contextuales adaptativos.
-- **Un solo ejecutable** (UI incrustada) + drivers como plugins. Sin Electron.
+**Connectivity and platform**
+- **SSH tunnel** (all engines), **SSL/TLS** (MySQL, PostgreSQL), and
+  **import/export** of saved connections.
+- **Light/dark** theme with the indigo brand, **Settings** and **About** panels,
+  **keyboard shortcuts**, adaptive context menus.
+- **Single executable** (embedded UI) + drivers as plugins. No Electron.
 
 <p align="center">
-  <img src="assets/media/screenshot-initial-dark.png" alt="Quaero — pantalla inicial" width="820">
+  <img src="assets/media/screenshot-initial-dark.png" alt="Quaero — initial screen" width="820">
 </p>
 
-## Instalación
+## Install
 
-**Windows:** descarga el instalador `.msi` más reciente desde
-[**Releases**](https://github.com/danielnuld/quaero/releases) y ejecútalo. Requiere
-el runtime de **WebView2** (ya incluido en Windows 11). Cada release adjunta un
-`SHA256SUMS.txt` para verificar la descarga:
-`sha256sum -c SHA256SUMS.txt` (o `CertUtil -hashfile quaero-*.msi SHA256`).
+**Windows:** download the latest `.msi` installer from
+[**Releases**](https://github.com/danielnuld/quaero/releases) and run it. Requires
+the **WebView2** runtime (already bundled in Windows 11). Every release attaches a
+`SHA256SUMS.txt` to verify the download:
+`sha256sum -c SHA256SUMS.txt` (or `CertUtil -hashfile quaero-*.msi SHA256`).
 
-> Linux (AppImage/deb) y macOS (.app) llegan en próximos releases.
+> Linux (AppImage/deb) and macOS (.app) are coming in future releases.
 
-## Compilar desde el código
+## Build from source
 
-Requisitos: **CMake ≥ 3.20**, un compilador C11 (GCC/Clang/MSVC) y, recomendado,
-**Ninja**; **Node + pnpm** para la UI.
+Requirements: **CMake ≥ 3.20**, a C11 compiler (GCC/Clang/MSVC) and, recommended,
+**Ninja**; **Node + pnpm** for the UI.
 
 ```bash
-# UI (genera frontend/dist/index.html, un solo archivo que se incrusta)
+# UI (produces frontend/dist/index.html, a single file that gets embedded)
 pnpm --dir frontend install
 pnpm --dir frontend build
 
-# Núcleo + app
+# Core + app
 cmake -S . -B build -G Ninja
 cmake --build build
-ctest --test-dir build --output-on-failure   # tests del núcleo
+ctest --test-dir build --output-on-failure   # core tests
 ```
 
-El binario queda en `build/app/quaero` (`.exe` en Windows). **Dependencias del
-webview**: Linux `libgtk-4-dev libwebkitgtk-6.0-dev`; macOS WebKit del sistema;
-Windows WebView2 (se descarga al compilar). Para solo el núcleo:
-`-DQUAERO_BUILD_APP=OFF`.
+The binary lands in `build/app/quaero` (`.exe` on Windows). **Webview
+dependencies**: Linux `libgtk-4-dev libwebkitgtk-6.0-dev`; macOS system WebKit;
+Windows WebView2 (downloaded at build time). Core only: `-DQUAERO_BUILD_APP=OFF`.
 
-**MongoDB:** el driver enlaza `libmongoc`. Si no hay una copia del sistema,
-compílalo desde el código con `-DQUAERO_MONGOC=ON` (descarga y enlaza
-mongo-c-driver estáticamente; TLS con Secure Channel en Windows).
+**PostgreSQL:** the driver links `libpq`. On x64 it uses a system libpq; the x86
+release build compiles a static libpq from source with `-DQUAERO_LIBPQ=ON`.
 
-**Instalador (Windows MSI):** ver [`installer/build-msi.sh`](installer/build-msi.sh)
-(WiX v5 vía `dotnet tool`).
+**MongoDB:** the driver links `libmongoc`. Without a system copy, build it from
+source with `-DQUAERO_MONGOC=ON` (fetches and statically links mongo-c-driver;
+TLS via Secure Channel on Windows).
 
-**Smoke por motor:** `scripts/smoke/run.sh <sqlite|mysql|mongodb>` — ver
+**Windows MSI installer:** see [`installer/build-msi.sh`](installer/build-msi.sh)
+(WiX v5 via `dotnet tool`). Releases are cut automatically on a version tag — see
+[docs/VERSIONING.md](docs/VERSIONING.md).
+
+**Per-engine smoke:** `scripts/smoke/run.sh <sqlite|mysql|mongodb>` — see
 [docs/QA-SMOKE.md](docs/QA-SMOKE.md).
 
-## Arquitectura
+## Architecture
 
 ```
-Frontend (webview del SO)  ──IPC JSON──>  Núcleo en C (libdbcore)  ──vtable──>  Drivers (plugins)
-   UI SolidJS, grid virtual,               conexión, queries,                    sqlite, mysql,
-   editor SQL, herramientas                introspección, edición, tx            informix, mongodb, …
+Frontend (OS webview)  ──JSON IPC──>  C core (libdbcore)  ──vtable──>  Drivers (plugins)
+   SolidJS UI, virtual grid,           connection, queries,             sqlite, postgres,
+   SQL editor, tools                   introspection, editing, tx       mysql, informix, mongodb, …
 ```
 
-Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Documentación
+## Documentation
 
-- [ROADMAP](ROADMAP.md) · [Arquitectura](docs/ARCHITECTURE.md)
-- [Contrato de drivers](docs/DRIVER_API.md) · [Cómo escribir un driver](docs/WRITING_A_DRIVER.md)
-- [Protocolo IPC](docs/IPC.md) · [Atajos](docs/SHORTCUTS.md) · [Versionado](docs/VERSIONING.md)
-- [Matriz de verificación](docs/QA-MATRIX.md) · [Marca](assets/brand/BRAND.md)
-- [Cómo contribuir](CONTRIBUTING.md)
+- [ROADMAP](ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md)
+- [Driver contract](docs/DRIVER_API.md) · [How to write a driver](docs/WRITING_A_DRIVER.md)
+- [IPC protocol](docs/IPC.md) · [Shortcuts](docs/SHORTCUTS.md) · [Versioning](docs/VERSIONING.md)
+- [Verification matrix](docs/QA-MATRIX.md) · [Brand](assets/brand/BRAND.md)
+- [Contributing](CONTRIBUTING.md)
 
-## Licencia
+## License
 
-[GPLv3](LICENSE). Los drivers de motores propietarios se distribuyen como plugins
-separados, cargados en tiempo de ejecución, para respetar sus licencias. Inventario
-completo de terceros en [THIRD-PARTY.md](THIRD-PARTY.md).
+[GPLv3](LICENSE). Proprietary-engine drivers ship as separate plugins, loaded at
+runtime, to respect their licenses. Full third-party inventory in
+[THIRD-PARTY.md](THIRD-PARTY.md).
