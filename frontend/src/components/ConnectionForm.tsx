@@ -27,6 +27,9 @@ export function ConnectionForm(props: {
   onSave: (c: Connection) => void;
   onCancel: () => void;
   onTest: (c: Connection) => Promise<void>;
+  /** Lists the server's databases from the details entered so far, for the
+      database picker. Absent → the picker button is not shown. */
+  onListDatabases?: (c: Connection) => Promise<string[]>;
 }) {
   const [draft, setDraft] = createStore<Connection>({
     ...props.initial,
@@ -36,6 +39,12 @@ export function ConnectionForm(props: {
   // so a fresh form is not pre-decorated with "required" messages.
   const [showErrors, setShowErrors] = createSignal(false);
   const [test, setTest] = createSignal<TestState>({ kind: "idle" });
+
+  // Database picker (issue: pick the main DB from a live list). Fetched lazily
+  // when the user clicks "Cargar lista"; reset when the engine changes.
+  const [dbList, setDbList] = createSignal<string[] | null>(null);
+  const [dbLoading, setDbLoading] = createSignal(false);
+  const [dbError, setDbError] = createSignal<string | null>(null);
 
   const schema = () => driverSchema(draft.driver);
   const errors = createMemo(() => fieldErrors(draft));
@@ -65,9 +74,36 @@ export function ConnectionForm(props: {
     setDraft({ driver, params: {} });
     setTest({ kind: "idle" });
     setActiveFormTab(GENERAL);
+    setDbList(null);
+    setDbError(null);
   };
 
   const snapshot = (): Connection => ({ ...draft, params: { ...draft.params } });
+
+  // Populate the database dropdown from a live lookup that reuses the details
+  // entered so far. Requires every OTHER required field (host, user…) to be
+  // valid — the database itself is exactly what we are trying to discover.
+  const canListDatabases = createMemo(() => {
+    if (!props.onListDatabases) return false;
+    const errs = errors().params;
+    return !Object.keys(errs).some((k) => k !== "database");
+  });
+
+  const loadDatabases = async () => {
+    if (!props.onListDatabases) return;
+    setShowErrors(true);
+    if (!canListDatabases()) return;
+    setDbError(null);
+    setDbLoading(true);
+    try {
+      setDbList(await props.onListDatabases(snapshot()));
+    } catch (err) {
+      setDbError(errorText(err));
+      setDbList(null);
+    } finally {
+      setDbLoading(false);
+    }
+  };
 
   const save = () => {
     setShowErrors(true);
@@ -214,6 +250,40 @@ export function ConnectionForm(props: {
                       {(opt) => <option value={opt.value}>{opt.label}</option>}
                     </For>
                   </select>
+                </Show>
+                <Show when={field.fetch === "databases" && props.onListDatabases}>
+                  <div class="db-picker">
+                    <button
+                      type="button"
+                      class="status-btn"
+                      title="Listar las bases del servidor con los datos ya ingresados"
+                      disabled={dbLoading()}
+                      onClick={loadDatabases}
+                    >
+                      {dbLoading() ? "Cargando…" : "Cargar lista"}
+                    </button>
+                    <Show when={dbList()}>
+                      {(list) => (
+                        <select
+                          class="db-picker-select"
+                          value={draft.params[field.key] ?? ""}
+                          onChange={(e) =>
+                            setDraft("params", field.key, e.currentTarget.value)
+                          }
+                        >
+                          <option value="">
+                            {list().length > 0 ? "— elegir base —" : "(sin bases)"}
+                          </option>
+                          <For each={list()}>
+                            {(db) => <option value={db}>{db}</option>}
+                          </For>
+                        </select>
+                      )}
+                    </Show>
+                  </div>
+                  <Show when={dbError()}>
+                    <span class="field-error">{dbError()}</span>
+                  </Show>
                 </Show>
                 <Show when={showErrors() && errors().params[field.key]}>
                   <span class="field-error">{errors().params[field.key]}</span>

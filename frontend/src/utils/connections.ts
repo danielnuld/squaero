@@ -26,6 +26,11 @@ export interface DriverField {
   /** Optional grouping label; consecutive fields sharing a group render under
       one subheading in the form (used for the optional SSH-tunnel section). */
   group?: string;
+  /** When set, the form offers to fill this field from a live lookup that reuses
+      the connection details already entered. "databases" lists the server's
+      databases (schema.tree at the root) so the user picks the main one instead
+      of typing it. */
+  fetch?: "databases";
 }
 
 export interface DriverSchema {
@@ -161,7 +166,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     fields: withSshTunnel([
       { key: "host", label: "Host", type: "text", required: true, placeholder: "localhost" },
       { key: "port", label: "Puerto", type: "number", required: false, placeholder: "5432" },
-      { key: "database", label: "Base de datos", type: "text", required: true },
+      { key: "database", label: "Base de datos", type: "text", required: true, fetch: "databases" },
       { key: "user", label: "Usuario", type: "text", required: true },
       { key: "password", label: "Contraseña", type: "password", required: false },
     ]),
@@ -172,7 +177,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     fields: withSshTunnel([
       { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
       { key: "port", label: "Puerto", type: "number", required: false, placeholder: "3306" },
-      { key: "database", label: "Base de datos", type: "text", required: false },
+      { key: "database", label: "Base de datos", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "Usuario", type: "text", required: true, placeholder: "root" },
       { key: "password", label: "Contraseña", type: "password", required: false },
       ...MYSQL_SSL_FIELDS,
@@ -190,7 +195,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
       { key: "port", label: "Puerto / servicio", type: "text", required: true, placeholder: "1526" },
       { key: "server", label: "Servidor (INFORMIXSERVER)", type: "text", required: true, placeholder: "ol_informix1210" },
-      { key: "database", label: "Base de datos", type: "text", required: false },
+      { key: "database", label: "Base de datos", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "Usuario", type: "text", required: true, placeholder: "informix" },
       { key: "password", label: "Contraseña", type: "password", required: false },
     ]),
@@ -206,7 +211,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     fields: withSshTunnel([
       { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
       { key: "port", label: "Puerto", type: "number", required: false, placeholder: "27017" },
-      { key: "database", label: "Base de datos", type: "text", required: true },
+      { key: "database", label: "Base de datos", type: "text", required: true, fetch: "databases" },
       { key: "user", label: "Usuario", type: "text", required: false },
       { key: "password", label: "Contraseña", type: "password", required: false },
       { key: "auth_source", label: "Base de autenticación", type: "text", required: false, placeholder: "admin" },
@@ -344,6 +349,26 @@ export function buildDsn(conn: Connection): Record<string, string> {
     }
   }
   return dsn;
+}
+
+/**
+ * DSN used to LIST the server's databases (the connection form's database
+ * picker). When the user has already typed a database, connect to it and list
+ * the rest. When it is blank, connect somewhere that still lets us enumerate:
+ * Informix requires a current database, so fall back to `sysmaster` (present on
+ * every instance; ifx_list_databases reads sysmaster:sysdatabases regardless);
+ * other engines connect to the server with no default database.
+ */
+export function dsnForDatabaseList(conn: Connection): Record<string, string> {
+  const params = { ...conn.params };
+  if (!(params.database ?? "").trim()) {
+    if (conn.driver === "informix") {
+      params.database = "sysmaster";
+    } else {
+      delete params.database;
+    }
+  }
+  return buildDsn({ ...conn, params });
 }
 
 /** Next connection id of the form "conn-N", unique within `existing`. */

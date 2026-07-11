@@ -5,6 +5,7 @@
 import { call } from "./transport";
 import { isError, type JsonRpcResponse } from "./ipc";
 import { QueryError } from "./query";
+import { schemaTree, parseTreeRows } from "./schema";
 
 /** Extracts the connId from a conn.open response, or throws QueryError. */
 export function parseConnId(res: JsonRpcResponse): string {
@@ -43,4 +44,23 @@ export async function testConnection(
 ): Promise<void> {
   const connId = await openConnection(driver, dsn);
   await closeConnection(connId);
+}
+
+/**
+ * Opens a temporary connection, lists the server's databases (schema.tree at the
+ * root, i.e. the driver's list_databases), then closes it — so the connection
+ * form can offer the main database as a dropdown once the details are filled in.
+ * Always closes the probe connection, even on error.
+ */
+export async function listDatabases(
+  driver: string,
+  dsn: Record<string, string>,
+): Promise<string[]> {
+  const connId = await openConnection(driver, dsn);
+  try {
+    const rows = parseTreeRows(await schemaTree(connId), "database");
+    return rows.map((r) => r.name);
+  } finally {
+    await closeConnection(connId);
+  }
 }

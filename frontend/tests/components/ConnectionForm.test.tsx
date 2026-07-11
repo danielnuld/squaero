@@ -26,6 +26,7 @@ function mount(over: {
   initial?: Connection;
   onSave?: (c: Connection) => void;
   onTest?: (c: Connection) => Promise<void>;
+  onListDatabases?: (c: Connection) => Promise<string[]>;
 }) {
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -38,6 +39,7 @@ function mount(over: {
           onSave={over.onSave ?? (() => {})}
           onCancel={() => {}}
           onTest={over.onTest ?? (async () => {})}
+          onListDatabases={over.onListDatabases}
         />
       ),
       host!,
@@ -96,6 +98,29 @@ describe("ConnectionForm tabs", () => {
     // Switch to the SSH tab -> SSH fields appear, base fields gone.
     clickText("Túnel SSH");
     expect(visibleFieldLabels().some((l) => l.startsWith("Host SSH"))).toBe(true);
+  });
+});
+
+describe("ConnectionForm database picker", () => {
+  it("loads the database list and offers it as a dropdown", async () => {
+    const onListDatabases = vi.fn(async () => ["appdb", "reporting"]);
+    mount({
+      initial: { id: "c", name: "MY", driver: "mysql", params: { host: "h", user: "root" } },
+      onListDatabases,
+    });
+    clickText("Cargar lista");
+    await flush();
+    expect(onListDatabases).toHaveBeenCalledTimes(1);
+    const select = host!.querySelector("select.db-picker-select") as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    const opts = [...select.options].map((o) => o.value);
+    expect(opts).toContain("appdb");
+    expect(opts).toContain("reporting");
+  });
+
+  it("shows no picker button when onListDatabases is absent", () => {
+    mount({ initial: { id: "c", name: "MY", driver: "mysql", params: {} } });
+    expect(host!.querySelector(".db-picker")).toBeNull();
   });
 });
 

@@ -1642,6 +1642,20 @@ kbd {
   margin-top: 2px;
 }
 
+/* Database picker: the "Cargar lista" button + the fetched-databases dropdown,
+   shown under the database input in the connection form. */
+.db-picker {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.3rem;
+}
+
+.db-picker-select {
+  flex: 1;
+  min-width: 0;
+}
+
 .field input.input-invalid,
 .field select.input-invalid {
   border-color: var(--error);

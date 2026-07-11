@@ -4,6 +4,7 @@ import {
   openConnection,
   closeConnection,
   testConnection,
+  listDatabases,
 } from "../../src/utils/conn";
 import { QueryError } from "../../src/utils/query";
 import type { JsonRpcResponse } from "../../src/utils/ipc";
@@ -116,5 +117,43 @@ describe("closeConnection", () => {
       };
     };
     await expect(closeConnection("c1")).resolves.toBeUndefined();
+  });
+});
+
+describe("listDatabases", () => {
+  it("opens, lists databases from schema.tree, then closes", async () => {
+    const calls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      calls.push(req.method);
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (req.method === "conn.open") return ok({ connId: "c9" });
+      if (req.method === "schema.tree")
+        return ok({
+          columns: [{ name: "name", type: "text" }],
+          rows: [["appdb"], ["reporting"]],
+          truncated: false,
+          rowsAffected: 0,
+        });
+      return ok({ closed: true }); // conn.close
+    };
+    const dbs = await listDatabases("mysql", { host: "h", user: "u" });
+    expect(dbs).toEqual(["appdb", "reporting"]);
+    expect(calls).toEqual(["conn.open", "schema.tree", "conn.close"]);
+  });
+
+  it("closes the probe connection even when listing fails", async () => {
+    const calls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      calls.push(req.method);
+      if (req.method === "conn.open")
+        return { jsonrpc: "2.0", id: req.id, result: { connId: "c9" } };
+      if (req.method === "schema.tree")
+        return { jsonrpc: "2.0", id: req.id, error: { code: -32001, message: "no soportado" } };
+      return { jsonrpc: "2.0", id: req.id, result: { closed: true } };
+    };
+    await expect(listDatabases("mongodb", {})).rejects.toThrow();
+    expect(calls).toContain("conn.close");
   });
 });

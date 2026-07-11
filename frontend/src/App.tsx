@@ -13,7 +13,7 @@ import { createStore } from "solid-js/store";
 import { runQuery, type ResultSet } from "./utils/query";
 import { cancelQuery } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
-import { openConnection, closeConnection, testConnection } from "./utils/conn";
+import { openConnection, closeConnection, testConnection, listDatabases } from "./utils/conn";
 import {
   addTab,
   openTool,
@@ -43,6 +43,7 @@ import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
 import {
   buildDsn,
+  dsnForDatabaseList,
   nextConnectionId,
   upsertConnection,
   removeConnection,
@@ -1922,6 +1923,9 @@ export function App() {
                     onSave={onSaveConnection}
                     onCancel={() => closeTool(tt().id)}
                     onTest={(c) => testConnection(c.driver, buildDsn(c))}
+                    onListDatabases={(c) =>
+                      listDatabases(c.driver, dsnForDatabaseList(c))
+                    }
                   />
                 </Match>
                 <Match when={tt().tool === "chart"}>

@@ -20,6 +20,7 @@ import {
   SSL_GROUP,
   DRIVER_SCHEMAS,
   AVAILABLE_DRIVERS,
+  dsnForDatabaseList,
   type Connection,
   type DriverField,
 } from "../../src/utils/connections";
@@ -148,6 +149,35 @@ describe("buildDsn", () => {
   });
   it("builds the sqlite path dsn", () => {
     expect(buildDsn(sqliteConn())).toEqual({ path: "/tmp/app.db" });
+  });
+});
+
+describe("dsnForDatabaseList", () => {
+  const ifx = (over: Partial<Connection["params"]> = {}): Connection => ({
+    id: "c",
+    name: "IFX",
+    driver: "informix",
+    params: { host: "h", port: "1526", server: "ol", user: "informix", ...over },
+  });
+  const my = (over: Partial<Connection["params"]> = {}): Connection => ({
+    id: "c",
+    name: "MY",
+    driver: "mysql",
+    params: { host: "h", user: "root", ...over },
+  });
+
+  it("uses sysmaster for Informix when no database is set (it needs one)", () => {
+    expect(dsnForDatabaseList(ifx()).database).toBe("sysmaster");
+  });
+  it("keeps the typed Informix database when present", () => {
+    expect(dsnForDatabaseList(ifx({ database: "stores" })).database).toBe("stores");
+  });
+  it("omits the database for other engines when blank (connect to the server)", () => {
+    const dsn = dsnForDatabaseList(my());
+    expect("database" in dsn).toBe(false);
+  });
+  it("keeps the typed database for other engines", () => {
+    expect(dsnForDatabaseList(my({ database: "app" })).database).toBe("app");
   });
 });
 
