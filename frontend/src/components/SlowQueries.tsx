@@ -8,6 +8,7 @@ import {
   type SlowOrder,
 } from "../utils/slowQueries";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 // "Consultas lentas" tool (issue #180): lists the slowest statements the SERVER
 // recorded, via query.run over performance_schema (MySQL) / pg_stat_statements
@@ -17,10 +18,11 @@ import { Panel } from "./Panel";
 // faked result). Per row: open the statement in the editor or run EXPLAIN on it.
 // As a persistent tool tab it reloads via createEffect keyed on conn/engine/order
 // (not onMount), with a monotonic token guarding against out-of-order responses.
+// label holds an i18n key; the <option> renders it with t().
 const ORDER_OPTS: { value: SlowOrder; label: string }[] = [
-  { value: "avg", label: "Latencia media" },
-  { value: "total", label: "Latencia total" },
-  { value: "count", label: "Nº ejecuciones" },
+  { value: "avg", label: "slow.orderAvg" },
+  { value: "total", label: "slow.orderTotal" },
+  { value: "count", label: "slow.orderCount" },
 ];
 
 export function SlowQueries(props: {
@@ -101,28 +103,28 @@ export function SlowQueries(props: {
   const queryText = (row: (string | null)[]) => (queryIndex() >= 0 ? row[queryIndex()] : null);
 
   return (
-    <Panel title="Consultas lentas" class="slow-queries" onClose={props.onClose}>
+    <Panel title={t("tool.slow.tab")} class="slow-queries" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Consultas lentas</h2>
+        <h2>{t("tool.slow.tab")}</h2>
         <div class="sm-actions">
           <Show when={support().supported}>
             <label class="sq-order">
-              Ordenar por
+              {t("slow.orderBy")}
               <select value={order()} onChange={(e) => setOrder(e.currentTarget.value as SlowOrder)}>
-                <For each={ORDER_OPTS}>{(o) => <option value={o.value}>{o.label}</option>}</For>
+                <For each={ORDER_OPTS}>{(o) => <option value={o.value}>{t(o.label)}</option>}</For>
               </select>
             </label>
             <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? "Actualizando…" : "⟳ Refrescar"}
+              {loading() ? t("panel.refreshing") : t("panel.refresh")}
             </button>
             <Show when={support().resetSql}>
-              <button class="edit-btn" disabled={resetting()} onClick={reset} title="Reiniciar las estadísticas del servidor">
-                {resetting() ? "…" : "Reiniciar stats"}
+              <button class="edit-btn" disabled={resetting()} onClick={reset} title={t("slow.resetTitle")}>
+                {resetting() ? "…" : t("slow.resetStats")}
               </button>
             </Show>
           </Show>
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
@@ -139,7 +141,7 @@ export function SlowQueries(props: {
       >
         <Show
           when={rows().length > 0}
-          fallback={<p class="grid-empty">{loading() ? "Cargando…" : "Sin registros de consultas lentas."}</p>}
+          fallback={<p class="grid-empty">{loading() ? t("panel.loading") : t("slow.noRecords")}</p>}
         >
           <div class="sm-scroll">
             <table class="sm-table">
@@ -157,10 +159,10 @@ export function SlowQueries(props: {
                       <tr>
                         <td class="sq-actions-col">
                           <Show when={q()}>
-                            <button class="edit-btn" title="Abrir en el editor" onClick={() => props.onOpenSql(q()!)}>
-                              Abrir
+                            <button class="edit-btn" title={t("slow.openTitle")} onClick={() => props.onOpenSql(q()!)}>
+                              {t("slow.open")}
                             </button>
-                            <button class="edit-btn" title="EXPLAIN de la consulta" onClick={() => props.onExplain(q()!)}>
+                            <button class="edit-btn" title={t("slow.explainTitle")} onClick={() => props.onExplain(q()!)}>
                               EXPLAIN
                             </button>
                           </Show>

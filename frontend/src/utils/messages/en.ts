@@ -90,6 +90,30 @@ export const en: Record<string, string> = {
   "empty.shortcuts": "Shortcuts",
   "empty.hint": "Open a table from the tree or write SQL and press {keys}.",
 
+  // tool panels — shared chrome
+  "panel.refresh": "⟳ Refresh",
+  "panel.refreshing": "Refreshing…",
+  "panel.close": "Close",
+  "panel.loading": "Loading…",
+
+  // server monitor panel (ServerMonitor.tsx)
+  "monitor.sessions": "{n} session(s)",
+  "monitor.kill": "Kill",
+  "monitor.killTitle": "Kill session {id}",
+  "monitor.noSessions": "No active sessions.",
+
+  // slow queries panel (SlowQueries.tsx)
+  "slow.orderBy": "Order by",
+  "slow.orderAvg": "Average latency",
+  "slow.orderTotal": "Total latency",
+  "slow.orderCount": "Executions",
+  "slow.resetStats": "Reset stats",
+  "slow.resetTitle": "Reset the server statistics",
+  "slow.open": "Open",
+  "slow.openTitle": "Open in the editor",
+  "slow.explainTitle": "EXPLAIN the query",
+  "slow.noRecords": "No slow-query records.",
+
   // tab titles (showTool / new-query tabs in App.tsx) + palette object hints
   "tab.explainPlan": "Execution plan",
   "tab.import": "Import · {name}",

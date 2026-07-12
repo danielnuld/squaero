@@ -93,6 +93,30 @@ export const es: Record<string, string> = {
   "empty.shortcuts": "Atajos",
   "empty.hint": "Abre una tabla del árbol o escribe SQL y pulsa {keys}.",
 
+  // tool panels — shared chrome
+  "panel.refresh": "⟳ Refrescar",
+  "panel.refreshing": "Actualizando…",
+  "panel.close": "Cerrar",
+  "panel.loading": "Cargando…",
+
+  // server monitor panel (ServerMonitor.tsx)
+  "monitor.sessions": "{n} sesión(es)",
+  "monitor.kill": "Matar",
+  "monitor.killTitle": "Matar sesión {id}",
+  "monitor.noSessions": "No hay sesiones activas.",
+
+  // slow queries panel (SlowQueries.tsx)
+  "slow.orderBy": "Ordenar por",
+  "slow.orderAvg": "Latencia media",
+  "slow.orderTotal": "Latencia total",
+  "slow.orderCount": "Nº ejecuciones",
+  "slow.resetStats": "Reiniciar stats",
+  "slow.resetTitle": "Reiniciar las estadísticas del servidor",
+  "slow.open": "Abrir",
+  "slow.openTitle": "Abrir en el editor",
+  "slow.explainTitle": "EXPLAIN de la consulta",
+  "slow.noRecords": "Sin registros de consultas lentas.",
+
   // tab titles (showTool / new-query tabs in App.tsx) + palette object hints
   "tab.explainPlan": "Plan de ejecución",
   "tab.import": "Importar · {name}",

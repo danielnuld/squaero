@@ -3,6 +3,7 @@ import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import { monitorFor, buildKillSql, unsupportedReason } from "../utils/serverMonitor";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 // Server monitor / process list (issue #148): lists the server's active
 // sessions/queries for the active connection and, where the engine allows, kills
@@ -60,18 +61,18 @@ export function ServerMonitor(props: {
   const cols = () => result()?.columns ?? [];
 
   return (
-    <Panel title="Monitor de servidor" class="server-monitor" onClose={props.onClose}>
+    <Panel title={t("tool.monitor.tab")} class="server-monitor" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Monitor de servidor</h2>
+        <h2>{t("tool.monitor.tab")}</h2>
         <div class="sm-actions">
           <Show when={support.supported}>
-            <span class="sm-count">{rows().length} sesión(es)</span>
+            <span class="sm-count">{t("monitor.sessions", { n: rows().length })}</span>
             <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? "Actualizando…" : "⟳ Refrescar"}
+              {loading() ? t("panel.refreshing") : t("panel.refresh")}
             </button>
           </Show>
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
@@ -90,7 +91,7 @@ export function ServerMonitor(props: {
           when={rows().length > 0}
           fallback={
             <p class="grid-empty">
-              {loading() ? "Cargando…" : "No hay sesiones activas."}
+              {loading() ? t("panel.loading") : t("monitor.noSessions")}
             </p>
           }
         >
@@ -115,11 +116,11 @@ export function ServerMonitor(props: {
                             <Show when={id() !== null}>
                               <button
                                 class="edit-btn sm-kill"
-                                title={`Matar sesión ${id()}`}
+                                title={t("monitor.killTitle", { id: id()! })}
                                 disabled={killing() !== null}
                                 onClick={() => kill(id()!)}
                               >
-                                {killing() === id() ? "…" : "Matar"}
+                                {killing() === id() ? "…" : t("monitor.kill")}
                               </button>
                             </Show>
                           </td>
