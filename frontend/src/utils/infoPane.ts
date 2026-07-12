@@ -24,24 +24,32 @@ export interface InfoRow {
   v: string;
 }
 
+/**
+ * Translator injected by the component (the reactive i18n `t`), so this pure
+ * module stays locale-agnostic and unit-testable — tests pass a stub that
+ * resolves against a fixed locale. Mirrors the `labelOf` resolver pattern used
+ * by the object tree's `flattenFiltered`.
+ */
+export type InfoTranslate = (key: string, params?: Record<string, string | number>) => string;
+
 /** Key/value facts for the "General" tab. */
-export function generalInfo(i: InfoInput): InfoRow[] {
+export function generalInfo(i: InfoInput, t: InfoTranslate): InfoRow[] {
   const rows: InfoRow[] = [];
   if (i.source) {
     const qualified = [i.source.db, i.source.schema, i.source.table]
       .filter((s): s is string => !!s && s.length > 0)
       .join(".");
-    rows.push({ k: "Objeto", v: qualified || i.source.table });
+    rows.push({ k: t("info.kObject"), v: qualified || i.source.table });
     rows.push({
-      k: "Clave primaria",
-      v: i.source.pk.length > 0 ? i.source.pk.join(", ") : "— (solo lectura)",
+      k: t("info.kPrimaryKey"),
+      v: i.source.pk.length > 0 ? i.source.pk.join(", ") : t("info.pkReadOnly"),
     });
   }
-  rows.push({ k: "Filas", v: i.rows.toLocaleString() });
-  rows.push({ k: "Columnas", v: String(i.columns) });
-  rows.push({ k: "Truncado", v: i.truncated ? "sí (hay más páginas)" : "no" });
+  rows.push({ k: t("info.kRows"), v: i.rows.toLocaleString() });
+  rows.push({ k: t("info.kColumns"), v: String(i.columns) });
+  rows.push({ k: t("info.kTruncated"), v: i.truncated ? t("info.truncYes") : t("info.truncNo") });
   if (i.elapsedMs !== null) {
-    rows.push({ k: "Duración", v: formatDuration(i.elapsedMs) });
+    rows.push({ k: t("info.kDuration"), v: formatDuration(i.elapsedMs) });
   }
   return rows;
 }
@@ -54,27 +62,27 @@ export interface InfoMessage {
 }
 
 /** The single message shown in the "Mensajes" tab. */
-export function messageInfo(i: InfoInput): InfoMessage {
-  if (i.loading) return { kind: "loading", text: "Ejecutando…" };
+export function messageInfo(i: InfoInput, t: InfoTranslate): InfoMessage {
+  if (i.loading) return { kind: "loading", text: t("grid.running") };
   if (i.error) return { kind: "error", text: i.error };
   if (i.columns === 0 && i.rows === 0 && i.elapsedMs === null) {
-    return { kind: "idle", text: "Sin resultados todavía." };
+    return { kind: "idle", text: t("info.idle") };
   }
-  const dur = i.elapsedMs !== null ? ` en ${formatDuration(i.elapsedMs)}` : "";
-  const more = i.truncated ? " (truncado — hay más páginas)" : "";
+  const dur = i.elapsedMs !== null ? t("info.inDuration", { d: formatDuration(i.elapsedMs) }) : "";
+  const more = i.truncated ? t("info.moreTruncated") : "";
   return {
     kind: "ok",
-    text: `Correcto: ${i.rows.toLocaleString()} fila(s)${dur}${more}.`,
+    text: t("info.okText", { rows: i.rows.toLocaleString(), dur, more }),
   };
 }
 
 /** A one-line summary for the collapsed header (rows · duration · truncated). */
-export function summaryLine(i: InfoInput): string {
-  if (i.loading) return "Ejecutando…";
-  if (i.error) return "Error en la última operación";
-  if (i.columns === 0 && i.rows === 0 && i.elapsedMs === null) return "Sin resultados";
-  const parts = [`${i.rows.toLocaleString()} fila(s)`];
+export function summaryLine(i: InfoInput, t: InfoTranslate): string {
+  if (i.loading) return t("grid.running");
+  if (i.error) return t("info.lastOpError");
+  if (i.columns === 0 && i.rows === 0 && i.elapsedMs === null) return t("info.noResults");
+  const parts = [t("info.rowsShort", { rows: i.rows.toLocaleString() })];
   if (i.elapsedMs !== null) parts.push(formatDuration(i.elapsedMs));
-  if (i.truncated) parts.push("truncado");
+  if (i.truncated) parts.push(t("info.truncShort"));
   return parts.join(" · ");
 }

@@ -357,6 +357,30 @@ export const es: Record<string, string> = {
   "rd.deletedBanner": "Esta fila está marcada para eliminación.",
   "rd.editedTag": "editado",
 
+  // information pane (InfoPane.tsx + infoPane.ts derived model)
+  "info.title": "Información",
+  "info.show": "Mostrar información",
+  "info.hide": "Ocultar información",
+  "info.general": "General",
+  "info.messages": "Mensajes",
+  "info.kObject": "Objeto",
+  "info.kPrimaryKey": "Clave primaria",
+  "info.pkReadOnly": "— (solo lectura)",
+  "info.kRows": "Filas",
+  "info.kColumns": "Columnas",
+  "info.kTruncated": "Truncado",
+  "info.truncYes": "sí (hay más páginas)",
+  "info.truncNo": "no",
+  "info.kDuration": "Duración",
+  "info.idle": "Sin resultados todavía.",
+  "info.okText": "Correcto: {rows} fila(s){dur}{more}.",
+  "info.inDuration": " en {d}",
+  "info.moreTruncated": " (truncado — hay más páginas)",
+  "info.lastOpError": "Error en la última operación",
+  "info.noResults": "Sin resultados",
+  "info.rowsShort": "{rows} fila(s)",
+  "info.truncShort": "truncado",
+
   // errors
   "error.noActiveConn": "No hay conexión activa. Abre una conexión para ejecutar consultas.",
 

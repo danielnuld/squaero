@@ -5,6 +5,7 @@ import {
   summaryLine,
   type InfoInput,
 } from "../utils/infoPane";
+import { t } from "../utils/i18n";
 
 // Bottom information pane (UI design proposal, phase 4). A collapsible strip
 // under the workspace summarizing the active result: General facts and the last
@@ -15,9 +16,9 @@ export function InfoPane(props: { info: InfoInput }) {
   const [open, setOpen] = createSignal(false);
   const [tab, setTab] = createSignal<"general" | "mensajes">("general");
 
-  const general = createMemo(() => generalInfo(props.info));
-  const message = createMemo(() => messageInfo(props.info));
-  const summary = createMemo(() => summaryLine(props.info));
+  const general = createMemo(() => generalInfo(props.info, t));
+  const message = createMemo(() => messageInfo(props.info, t));
+  const summary = createMemo(() => summaryLine(props.info, t));
 
   return (
     <div class={`infopane ${open() ? "open" : ""}`}>
@@ -25,24 +26,24 @@ export function InfoPane(props: { info: InfoInput }) {
         <button
           class="infopane-toggle"
           aria-expanded={open()}
-          title={open() ? "Ocultar información" : "Mostrar información"}
+          title={open() ? t("info.hide") : t("info.show")}
           onClick={() => setOpen((v) => !v)}
         >
           <span class="infopane-chevron">{open() ? "▾" : "▸"}</span>
-          Información
+          {t("info.title")}
         </button>
         <Show
           when={open()}
           fallback={<span class="infopane-summary">{summary()}</span>}
         >
-          <div class="infopane-tabs" role="tablist" aria-label="Información">
+          <div class="infopane-tabs" role="tablist" aria-label={t("info.title")}>
             <button
               class={`infopane-tab ${tab() === "general" ? "on" : ""}`}
               role="tab"
               aria-selected={tab() === "general"}
               onClick={() => setTab("general")}
             >
-              General
+              {t("info.general")}
             </button>
             <button
               class={`infopane-tab ${tab() === "mensajes" ? "on" : ""}`}
@@ -50,7 +51,7 @@ export function InfoPane(props: { info: InfoInput }) {
               aria-selected={tab() === "mensajes"}
               onClick={() => setTab("mensajes")}
             >
-              Mensajes
+              {t("info.messages")}
             </button>
           </div>
         </Show>

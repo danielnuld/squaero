@@ -354,6 +354,30 @@ export const en: Record<string, string> = {
   "rd.deletedBanner": "This row is marked for deletion.",
   "rd.editedTag": "edited",
 
+  // information pane (InfoPane.tsx + infoPane.ts derived model)
+  "info.title": "Information",
+  "info.show": "Show information",
+  "info.hide": "Hide information",
+  "info.general": "General",
+  "info.messages": "Messages",
+  "info.kObject": "Object",
+  "info.kPrimaryKey": "Primary key",
+  "info.pkReadOnly": "— (read-only)",
+  "info.kRows": "Rows",
+  "info.kColumns": "Columns",
+  "info.kTruncated": "Truncated",
+  "info.truncYes": "yes (more pages)",
+  "info.truncNo": "no",
+  "info.kDuration": "Duration",
+  "info.idle": "No results yet.",
+  "info.okText": "Success: {rows} row(s){dur}{more}.",
+  "info.inDuration": " in {d}",
+  "info.moreTruncated": " (truncated — more pages)",
+  "info.lastOpError": "Error in the last operation",
+  "info.noResults": "No results",
+  "info.rowsShort": "{rows} row(s)",
+  "info.truncShort": "truncated",
+
   // errors
   "error.noActiveConn": "No active connection. Open a connection to run queries.",
 
