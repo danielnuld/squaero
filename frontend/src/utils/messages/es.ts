@@ -93,6 +93,22 @@ export const es: Record<string, string> = {
   "empty.shortcuts": "Atajos",
   "empty.hint": "Abre una tabla del árbol o escribe SQL y pulsa {keys}.",
 
+  // tab titles (showTool / new-query tabs in App.tsx) + palette object hints
+  "tab.explainPlan": "Plan de ejecución",
+  "tab.import": "Importar · {name}",
+  "tab.generate": "Generar · {name}",
+  "tab.schemaSync": "Sincronizar esquema",
+  "tab.dataSync": "Sincronizar datos",
+  "tab.transfer": "Transferir",
+  "tab.chart": "Gráfico",
+  "tab.structure": "Estructura · {name}",
+  "tab.indexes": "Índices · {name}",
+  "tab.alter": "Modificar · {name}",
+  "tab.objectList": "Objetos · {db}",
+  "tab.editConn": "Editar · {name}",
+  "tab.viewHint": "vista",
+  "tab.tableHint": "tabla",
+
   // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
   "tree.tools": "Herramientas",
   "tree.refresh": "Refrescar",

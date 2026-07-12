@@ -90,6 +90,22 @@ export const en: Record<string, string> = {
   "empty.shortcuts": "Shortcuts",
   "empty.hint": "Open a table from the tree or write SQL and press {keys}.",
 
+  // tab titles (showTool / new-query tabs in App.tsx) + palette object hints
+  "tab.explainPlan": "Execution plan",
+  "tab.import": "Import · {name}",
+  "tab.generate": "Generate · {name}",
+  "tab.schemaSync": "Sync schema",
+  "tab.dataSync": "Sync data",
+  "tab.transfer": "Transfer",
+  "tab.chart": "Chart",
+  "tab.structure": "Structure · {name}",
+  "tab.indexes": "Indexes · {name}",
+  "tab.alter": "Alter · {name}",
+  "tab.objectList": "Objects · {db}",
+  "tab.editConn": "Edit · {name}",
+  "tab.viewHint": "view",
+  "tab.tableHint": "table",
+
   // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
   "tree.tools": "Tools",
   "tree.refresh": "Refresh",

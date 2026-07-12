@@ -243,7 +243,9 @@ const EXPORT_FORMATS: { fmt: AnyExportFormat; label: string }[] = [
 // opens a real connection in the core; running SQL goes through query.run and
 // renders into the virtualized grid — the demonstrable end-to-end path (#17).
 export function App() {
-  const [tabs, setTabs] = createSignal<TabState>(addTab({ tabs: [], activeId: 0 }));
+  const [tabs, setTabs] = createSignal<TabState>(
+    addTab({ tabs: [], activeId: 0 }, t("toolbar.newQuery.label")),
+  );
   const [results, setResults] = createStore<Record<number, TabResult>>({});
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
   const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
@@ -368,7 +370,7 @@ export function App() {
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
     switch (action) {
       case "new-tab":
-        setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined));
+        setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
         break;
       case "close-tab": {
         const t = current();
@@ -388,7 +390,7 @@ export function App() {
         toggleTheme();
         break;
       case "toggle-help":
-        showTool("help", "Atajos de teclado", { key: "help" });
+        showTool("help", t("status.shortcuts"), { key: "help" });
         break;
       case "command-palette":
         setPaletteMode("all");
@@ -594,7 +596,7 @@ export function App() {
     return { idx, res };
   });
 
-  const newTab = () => setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined));
+  const newTab = () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
   const selectTab = (id: number) => setTabs((s) => ({ ...s, activeId: id }));
   const removeTab = (id: number, e: MouseEvent) => {
     e.stopPropagation();
@@ -609,7 +611,7 @@ export function App() {
   const runFromHistory = (sql: string) => {
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s, "Consulta", focusedDefId() ?? undefined);
+      const added = addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -621,7 +623,7 @@ export function App() {
   const openSqlInNewTab = (sql: string) => {
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s, "Consulta", focusedDefId() ?? undefined);
+      const added = addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -660,7 +662,7 @@ export function App() {
   const insertSnippet = (body: string) => {
     const id = lastQueryId();
     if (id !== null) setTabs((s) => ({ ...s, activeId: id }));
-    else setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined));
+    else setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
     setTimeout(() => setSnippetInsert((r) => ({ text: body, tick: r.tick + 1 })), 0);
   };
   const exportSnippets = () =>
@@ -695,7 +697,7 @@ export function App() {
   const openConnForm = (draft: Connection) =>
     showTool(
       "connectionForm",
-      draft.name ? `Editar · ${draft.name}` : "Nueva conexión",
+      draft.name ? t("tab.editConn", { name: draft.name }) : t("conn.new"),
       { key: "connform", params: { draft } },
     );
 
@@ -1030,7 +1032,7 @@ export function App() {
     if (!sql) return;
     // Bind the plan to the originating tab's connection so it explains against
     // the right server; without one it falls back to the focused connection.
-    showTool("explainPlan", "Plan de ejecución", {
+    showTool("explainPlan", t("tab.explainPlan"), {
       key: `plan:${sql}`,
       params: { sql },
       ...(connDefId ? { connDefId } : {}),
@@ -1071,7 +1073,7 @@ export function App() {
     const sql = objectPreviewQuery(preview.parts, preview.engine, PAGE_LIMIT);
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s, "Consulta", focusedDefId() ?? undefined);
+      const added = addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -1230,12 +1232,12 @@ export function App() {
 
   const openImport = () => {
     const src = currentResult().source;
-    const t = currentQuery();
+    const q = currentQuery();
     if (src && active()) {
-      showTool("import", `Importar · ${src.table}`, {
+      showTool("import", t("tab.import", { name: src.table }), {
         key: `import:${src.table}`,
         params: { target: { table: src.table, db: src.db, schema: src.schema } },
-        sourceId: t?.id,
+        sourceId: q?.id,
       });
     }
   };
@@ -1243,12 +1245,12 @@ export function App() {
   // Open the test-data generator for the current table tab (issue #147).
   const openGen = () => {
     const src = currentResult().source;
-    const t = currentQuery();
+    const q = currentQuery();
     if (src && active()) {
-      showTool("generator", `Generar · ${src.table}`, {
+      showTool("generator", t("tab.generate", { name: src.table }), {
         key: `gen:${src.table}`,
         params: { target: { table: src.table, db: src.db, schema: src.schema } },
-        sourceId: t?.id,
+        sourceId: q?.id,
       });
     }
   };
@@ -1256,14 +1258,14 @@ export function App() {
   // Wizards launched from the result toolbar act on the current result; snapshot
   // what they need into the tool tab's params at open time.
   const openSchemaSync = () =>
-    showTool("schemaSync", "Sincronizar esquema", {
+    showTool("schemaSync", t("tab.schemaSync"), {
       key: "schemaSync",
       params: { sourceDb: currentResult().source?.db },
     });
   const openDataSync = () => {
     const res = currentResult();
     if (!res.result || !res.source) return;
-    showTool("dataDiff", "Sincronizar datos", {
+    showTool("dataDiff", t("tab.dataSync"), {
       key: "dataDiff",
       params: {
         sourceResult: res.result,
@@ -1275,7 +1277,7 @@ export function App() {
   const openTransfer = () => {
     const res = currentResult();
     if (!res.result || !res.source) return;
-    showTool("transfer", "Transferir", {
+    showTool("transfer", t("tab.transfer"), {
       key: "transfer",
       params: { sourceResult: res.result, sourceTable: res.source.table },
     });
@@ -1284,7 +1286,7 @@ export function App() {
   const openChart = () => {
     const res = currentResult().result;
     if (!res || res.columns.length === 0) return;
-    showTool("chart", "Gráfico", { key: "chart", params: { result: res } });
+    showTool("chart", t("tab.chart"), { key: "chart", params: { result: res } });
   };
 
   // --- Export (issue #30) ------------------------------------------------
@@ -1350,7 +1352,7 @@ export function App() {
     if (active()) {
       recordRecent(node);
       syncWorkingDb(node.db);
-      showTool("structure", `Estructura · ${node.label}`, {
+      showTool("structure", t("tab.structure", { name: node.label }), {
         key: `struct:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
         params: { node },
       });
@@ -1359,18 +1361,18 @@ export function App() {
 
   // Open the table designer for a db/schema container as a tool tab (create).
   const openTableDesigner = (container?: string) =>
-    showTool("tableDesigner", "Nueva tabla", { key: "tableDesigner", params: { container } });
+    showTool("tableDesigner", t("toolbar.newTable.title"), { key: "tableDesigner", params: { container } });
 
   // Open the index / constraint manager for a table (alter-scoped tool tab).
   const openIndexes = (node: TreeNode) =>
-    showTool("indexes", `Índices · ${node.label}`, {
+    showTool("indexes", t("tab.indexes", { name: node.label }), {
       key: `indexes:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
       params: { table: node.label, db: node.db, schema: node.schema },
     });
 
   // Open the table designer on an existing table (alter mode).
   const openAlterTable = (node: TreeNode) =>
-    showTool("tableDesigner", `Modificar · ${node.label}`, {
+    showTool("tableDesigner", t("tab.alter", { name: node.label }), {
       key: `alter:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
       params: {
         table: node.label,
@@ -1403,16 +1405,16 @@ export function App() {
     const connected = !!active();
 
     // Actions (always available).
-    out.push({ id: "act:new", category: "action", label: "Nueva consulta", run: () => setTabs((s) => addTab(s, "Consulta", focusedDefId() ?? undefined)) });
+    out.push({ id: "act:new", category: "action", label: t("toolbar.newQuery.title"), run: () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined)) });
     if (connected)
-      out.push({ id: "act:reconnect", category: "action", label: "Reconectar", run: reconnect });
-    out.push({ id: "act:settings", category: "action", label: "Ajustes", run: () => showTool("settings", "Ajustes", { key: "settings" }) });
-    out.push({ id: "act:help", category: "action", label: "Atajos de teclado", run: () => showTool("help", "Atajos de teclado", { key: "help" }) });
+      out.push({ id: "act:reconnect", category: "action", label: t("conn.reconnect"), run: reconnect });
+    out.push({ id: "act:settings", category: "action", label: t("common.settings"), run: () => showTool("settings", t("common.settings"), { key: "settings" }) });
+    out.push({ id: "act:help", category: "action", label: t("status.shortcuts"), run: () => showTool("help", t("status.shortcuts"), { key: "help" }) });
 
     // Tools (need a connection to be useful).
     if (connected)
-      for (const t of TOOL_CATALOG)
-        out.push({ id: `tool:${t.tool}`, category: "tool", label: t.label, run: () => showTool(t.tool, t.tabTitle, { key: t.key }) });
+      for (const tool of TOOL_CATALOG)
+        out.push({ id: `tool:${tool.tool}`, category: "tool", label: t(tool.label), run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }) });
 
     // Objects loaded in the tree.
     for (const node of loadedObjects()) {
@@ -1421,7 +1423,7 @@ export function App() {
         id: `obj:${node.key}`,
         category: "object",
         label: node.label,
-        hint: scope || (node.kind === "view" ? "vista" : "tabla"),
+        hint: scope || (node.kind === "view" ? t("tab.viewHint") : t("tab.tableHint")),
         run: () => openData(node),
       });
     }
@@ -1454,13 +1456,13 @@ export function App() {
         onNewTable={() => openTableDesigner()}
         onObjectList={() => {
           const db = activeDb();
-          if (db) showTool("objectList", `Objetos · ${db}`, { key: `objlist:${db}`, params: { db } });
+          if (db) showTool("objectList", t("tab.objectList", { db }), { key: `objlist:${db}`, params: { db } });
         }}
-        onOpenTool={(t) => showTool(t.tool, t.tabTitle, { key: t.key })}
+        onOpenTool={(tool) => showTool(tool.tool, t(tool.tabTitle), { key: tool.key })}
       />
       <div class="main">
         <aside class="sidebar" style={{ width: `${sidebarWidth()}px` }}>
-          <div class="sidebar-section-title">Conexiones</div>
+          <div class="sidebar-section-title">{t("conn.title")}</div>
           <ConnectionBar
             connections={connections()}
             openTick={connbarOpenTick()}
@@ -1505,7 +1507,7 @@ export function App() {
                 onSelectDatabase={syncWorkingDb}
                 activeDb={activeDb() ?? undefined}
                 onImport={(node) =>
-                  showTool("import", `Importar · ${node.label}`, {
+                  showTool("import", t("tab.import", { name: node.label }), {
                     key: `import:${node.label}`,
                     params: {
                       target: { table: node.label, db: node.db, schema: node.schema },
@@ -1952,7 +1954,7 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     notebookId={(tt().params as { notebookId?: string } | undefined)?.notebookId}
                     onChart={(result) =>
-                      showTool("chart", "Gráfico", { key: "chart", params: { result } })
+                      showTool("chart", t("tab.chart"), { key: "chart", params: { result } })
                     }
                     onClose={() => closeTool(tt().id)}
                   />
@@ -2078,8 +2080,8 @@ export function App() {
         ranScope={currentResult().ranScope ?? null}
         theme={theme()}
         onToggleTheme={toggleTheme}
-        onShowHelp={() => showTool("help", "Atajos de teclado", { key: "help" })}
-        onShowSettings={() => showTool("settings", "Ajustes", { key: "settings" })}
+        onShowHelp={() => showTool("help", t("status.shortcuts"), { key: "help" })}
+        onShowSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
       />
 
       <CommandPalette
