@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
 import { classifyType } from "../utils/format";
+import { t } from "../utils/i18n";
 import {
   buildChartData,
   defaultColumns,
@@ -53,27 +54,27 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
   const y = (v: number) => M.top + PLOT_H - (yMax() > 0 ? (v / yMax()) * PLOT_H : 0);
 
   return (
-    <Panel title="Gráfico" class="chart-view" onClose={props.onClose}>
+    <Panel title={t("tab.chart")} class="chart-view" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Gráfico</h2>
+        <h2>{t("tab.chart")}</h2>
         <div class="sm-actions">
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
 
       <div class="chart-controls">
         <label>
-          Tipo
+          {t("chart.type")}
           <select class="map-select" value={type()} onChange={(e) => setType(e.currentTarget.value as ChartType)}>
-            <option value="bar">Barras</option>
-            <option value="line">Líneas</option>
-            <option value="pie">Pastel</option>
+            <option value="bar">{t("chart.bar")}</option>
+            <option value="line">{t("chart.line")}</option>
+            <option value="pie">{t("chart.pie")}</option>
           </select>
         </label>
         <label>
-          Eje (etiquetas)
+          {t("chart.axis")}
           <select
             class="map-select"
             value={labelCol()}
@@ -84,11 +85,11 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
         </label>
         <div class="chart-values">
           <span class="chart-values-label">
-            {type() === "pie" ? "Valor (1)" : "Valores"}
+            {type() === "pie" ? t("chart.valueSingle") : t("chart.values")}
           </span>
           <Show
             when={numericCols().length > 0}
-            fallback={<span class="chart-hint">Sin columnas numéricas.</span>}
+            fallback={<span class="chart-hint">{t("chart.noNumeric")}</span>}
           >
             <For each={numericCols()}>
               {(ci) => (
@@ -107,15 +108,15 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
       </div>
 
       <Show when={type() === "pie" && valueCols().length > 1}>
-        <p class="chart-hint">El pastel usa solo la primera columna de valor seleccionada.</p>
+        <p class="chart-hint">{t("chart.pieSingle")}</p>
       </Show>
 
       <Show
         when={hasData()}
-        fallback={<p class="grid-empty">Elige una columna de etiquetas y al menos un valor numérico.</p>}
+        fallback={<p class="grid-empty">{t("chart.pickHint")}</p>}
       >
         <div class="chart-canvas">
-          <svg viewBox={`0 0 ${W} ${H}`} class="chart-svg" role="img" aria-label={`Gráfico de ${type()}`}>
+          <svg viewBox={`0 0 ${W} ${H}`} class="chart-svg" role="img" aria-label={t("chart.aria", { type: t(`chart.${type()}`) })}>
             <Show when={type() !== "pie"}>
               {/* Y grid + ticks */}
               <For each={axisTicks(yMax())}>

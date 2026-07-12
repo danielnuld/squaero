@@ -20,6 +20,7 @@ import {
   type ForeignKey,
   type ForeignKeyQuery,
 } from "../utils/foreignKeys";
+import { t } from "../utils/i18n";
 
 // Entity-relationship diagram (issue #145): lay every table out as a box with its
 // columns and draw foreign-key edges. Relationships come from the engine's REAL
@@ -257,23 +258,23 @@ export function ErDiagram(props: {
   };
 
   return (
-    <Panel title="Diagrama ER" class="er-diagram" onClose={props.onClose}>
+    <Panel title={t("tool.er.tab")} class="er-diagram" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Diagrama entidad-relación</h2>
+        <h2>{t("tool.er.title")}</h2>
         <div class="sm-actions">
           <Show when={!loading() && tables().length > 0}>
             <span class="sm-count">
-              {tables().length} tabla(s) · {edges().length} relación(es){" "}
-              {realFks() ? "(FK reales)" : "(inferidas)"}
-              {fkTruncated() ? " · lista incompleta" : ""}
+              {t("er.count", { tables: tables().length, edges: edges().length })}{" "}
+              {realFks() ? t("er.realFks") : t("er.inferredFks")}
+              {fkTruncated() ? t("er.listIncomplete") : ""}
             </span>
-            <button class="edit-btn" title="Alejar" onClick={() => zoomBy(1 / 1.2)}>−</button>
+            <button class="edit-btn" title={t("er.zoomOut")} onClick={() => zoomBy(1 / 1.2)}>−</button>
             <span class="sm-count">{Math.round(zoom() * 100)}%</span>
-            <button class="edit-btn" title="Acercar" onClick={() => zoomBy(1.2)}>+</button>
-            <button class="edit-btn" title="Reordenar en cuadrícula" onClick={relayout}>Reordenar</button>
+            <button class="edit-btn" title={t("er.zoomIn")} onClick={() => zoomBy(1.2)}>+</button>
+            <button class="edit-btn" title={t("er.relayoutTitle")} onClick={relayout}>{t("er.relayout")}</button>
           </Show>
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
@@ -284,29 +285,28 @@ export function ErDiagram(props: {
         </div>
       </Show>
 
-      <Show when={!loading()} fallback={<p class="grid-empty">Cargando esquema…</p>}>
+      <Show when={!loading()} fallback={<p class="grid-empty">{t("er.loadingSchema")}</p>}>
         <Show
           when={tables().length > 0}
-          fallback={<p class="grid-empty">No hay tablas para diagramar.</p>}
+          fallback={<p class="grid-empty">{t("er.noTables")}</p>}
         >
           <p class="chart-hint">
             <Show
               when={realFks()}
               fallback={
                 <>
-                  Relaciones <strong>inferidas</strong> por convención de nombres (p. ej.{" "}
-                  <code>cliente_id</code> → <code>clientes</code>):{" "}
-                  {fkReason() ?? "este motor no expone llaves foráneas."}{" "}
+                  {t("er.inferredLead")} <strong>{t("er.inferredWord")}</strong>{t("er.inferredMid")}
+                  <code>{t("er.fkExampleCol")}</code> → <code>{t("er.fkExampleTable")}</code>{t("er.inferredColon")}{" "}
+                  {fkReason() ?? t("er.noFkDefault")}{" "}
                 </>
               }
             >
-              Relaciones a partir de las <strong>llaves foráneas reales</strong> del motor.{" "}
+              {t("er.realLead")} <strong>{t("er.realWord")}</strong>{t("er.realMid")}{" "}
               <Show when={fkTruncated()}>
-                <strong>Lista incompleta</strong>: se alcanzó el límite de filas, pueden faltar
-                aristas.{" "}
+                <strong>{t("er.incompleteWord")}</strong>{t("er.incompleteRest")}{" "}
               </Show>
             </Show>
-            Arrastra las cajas para reorganizar; usa −/+ para el zoom.
+            {t("er.dragHint")}
           </p>
           <div class="er-canvas">
             <svg
