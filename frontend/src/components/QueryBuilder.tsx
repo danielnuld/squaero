@@ -13,6 +13,7 @@ import {
   type Operator,
   type QuerySpec,
 } from "../utils/queryBuilder";
+import { t } from "../utils/i18n";
 
 interface TableRef {
   table: string;
@@ -144,12 +145,12 @@ export function QueryBuilder(props: {
     setConds(i, key as keyof Condition, value as never);
 
   return (
-    <Panel title="Constructor de consultas" class="qb" onClose={props.onClose}>
+    <Panel title={t("tool.qb.label")} class="qb" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Constructor de consultas</h2>
+        <h2>{t("tool.qb.label")}</h2>
         <div class="sm-actions">
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
@@ -160,22 +161,22 @@ export function QueryBuilder(props: {
         </div>
       </Show>
 
-      <Show when={!loading()} fallback={<p class="grid-empty">Cargando tablas…</p>}>
+      <Show when={!loading()} fallback={<p class="grid-empty">{t("qb.loadingTables")}</p>}>
         <Show
           when={tables().length > 0}
-          fallback={<p class="grid-empty">No hay tablas en esta conexión.</p>}
+          fallback={<p class="grid-empty">{t("qb.noTables")}</p>}
         >
           <label class="field">
-            <span>Tabla</span>
+            <span>{t("qb.table")}</span>
             <select
               class="map-select"
               value={tableKey()}
               onChange={(e) => void selectTable(e.currentTarget.value)}
             >
               <For each={tables()}>
-                {(t) => (
-                  <option value={keyOf(t)}>
-                    {t.container ? `${t.container}.${t.table}` : t.table}
+                {(tbl) => (
+                  <option value={keyOf(tbl)}>
+                    {tbl.container ? `${tbl.container}.${tbl.table}` : tbl.table}
                   </option>
                 )}
               </For>
@@ -183,7 +184,7 @@ export function QueryBuilder(props: {
           </label>
 
           <div class="qb-section">
-            <div class="import-subtitle">Columnas (vacío = todas)</div>
+            <div class="import-subtitle">{t("qb.columns")}</div>
             <div class="qb-cols">
               <For each={columns()}>
                 {(c) => (
@@ -202,14 +203,14 @@ export function QueryBuilder(props: {
 
           <div class="qb-section">
             <div class="import-subtitle">
-              Condiciones
+              {t("qb.conditions")}
               <select
                 class="map-select qb-conj"
                 value={conjunction()}
                 onChange={(e) => setConjunction(e.currentTarget.value as "AND" | "OR")}
               >
-                <option value="AND">Y (AND)</option>
-                <option value="OR">O (OR)</option>
+                <option value="AND">{t("qb.and")}</option>
+                <option value="OR">{t("qb.or")}</option>
               </select>
             </div>
             <For each={conds}>
@@ -220,7 +221,7 @@ export function QueryBuilder(props: {
                     value={c.column}
                     onChange={(e) => patchCond(i(), "column", e.currentTarget.value)}
                   >
-                    <option value="">— columna —</option>
+                    <option value="">{t("qb.columnPlaceholder")}</option>
                     <For each={columns()}>{(col) => <option value={col}>{col}</option>}</For>
                   </select>
                   <select
@@ -232,25 +233,25 @@ export function QueryBuilder(props: {
                   </select>
                   <input
                     class="td-in"
-                    placeholder={c.op === "IN" ? "a, b, c" : "valor"}
+                    placeholder={c.op === "IN" ? "a, b, c" : t("qb.valuePlaceholder")}
                     disabled={isNullaryOp(c.op)}
                     value={c.value}
                     onInput={(e) => patchCond(i(), "value", e.currentTarget.value)}
                   />
-                  <button class="grid-action danger" title="Quitar condición" onClick={() => removeCond(i())}>
+                  <button class="grid-action danger" title={t("qb.removeCond")} onClick={() => removeCond(i())}>
                     ✕
                   </button>
                 </div>
               )}
             </For>
             <button class="edit-btn" onClick={addCond}>
-              ＋ Condición
+              {t("qb.addCond")}
             </button>
           </div>
 
           <div class="qb-section qb-order">
             <label class="field">
-              <span>Ordenar por</span>
+              <span>{t("qb.orderBy")}</span>
               <select class="map-select" value={orderCol()} onChange={(e) => setOrderCol(e.currentTarget.value)}>
                 <option value="">—</option>
                 <For each={columns()}>{(c) => <option value={c}>{c}</option>}</For>
@@ -258,12 +259,12 @@ export function QueryBuilder(props: {
             </label>
             <Show when={orderCol()}>
               <select class="map-select" value={orderDir()} onChange={(e) => setOrderDir(e.currentTarget.value as "ASC" | "DESC")}>
-                <option value="ASC">Ascendente</option>
-                <option value="DESC">Descendente</option>
+                <option value="ASC">{t("qb.asc")}</option>
+                <option value="DESC">{t("qb.desc")}</option>
               </select>
             </Show>
             <label class="field">
-              <span>Límite</span>
+              <span>{t("qb.limit")}</span>
               <input
                 class="td-in dg-num"
                 type="number"
@@ -275,17 +276,17 @@ export function QueryBuilder(props: {
           </div>
 
           <div class="ddl-header" style={{ "margin-top": "0.6rem" }}>
-            <span>SQL generado</span>
+            <span>{t("qb.generatedSql")}</span>
           </div>
           <pre class="ddl-text qb-preview">{sql() || "—"}</pre>
 
           <div class="modal-actions">
             <button onClick={() => copyText(sql())} disabled={!sql()}>
-              Copiar
+              {t("editor.copy")}
             </button>
             <span class="status-spacer" />
             <button class="primary" disabled={!sql()} onClick={() => props.onRun(sql())}>
-              Ejecutar
+              {t("editor.run")}
             </button>
           </div>
         </Show>

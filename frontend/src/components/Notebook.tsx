@@ -24,6 +24,7 @@ import {
   type Cell,
   type CellKind,
 } from "../utils/notebook";
+import { t } from "../utils/i18n";
 
 interface CellResult {
   loading: boolean;
@@ -122,7 +123,7 @@ export function Notebook(props: {
     const sql = applyParams(cell.source, current().params).trim();
     if (sql === "") return;
     if (!props.connId) {
-      setResults(cell.id, { loading: false, error: "No hay conexión activa.", result: null });
+      setResults(cell.id, { loading: false, error: t("nb.noConnErr"), result: null });
       return;
     }
     setResults(cell.id, { loading: true, error: null, result: null });
@@ -154,75 +155,75 @@ export function Notebook(props: {
     void saveText(`${current().name}.html`, notebookToHtml(current(), resultsMap()), "text/html");
 
   return (
-    <Panel title="Notebook" onClose={props.onClose}>
+    <Panel title={t("tool.notebook.tab")} onClose={props.onClose}>
       <div class="nb-header">
         <input
           class="nb-name"
           value={current().name}
           onInput={(e) => mutate((nb) => ({ ...nb, name: e.currentTarget.value }))}
-          aria-label="Nombre del notebook"
+          aria-label={t("nb.nameAria")}
         />
         <select
           class="nb-open"
-          title="Abrir notebook"
+          title={t("nb.open")}
           value={currentId()}
           onChange={(e) => setCurrentId(e.currentTarget.value)}
         >
           <For each={list()}>{(n) => <option value={n.id}>{n.name}</option>}</For>
         </select>
-        <button class="status-btn" title="Nuevo notebook" onClick={createNotebook}>
-          + Nuevo
+        <button class="status-btn" title={t("nb.newTitle")} onClick={createNotebook}>
+          {t("nb.new")}
         </button>
         <button
           class="status-btn"
-          title="Eliminar este notebook"
+          title={t("nb.deleteTitle")}
           disabled={list().length <= 1}
           onClick={deleteNotebook}
         >
-          Eliminar
+          {t("common.delete")}
         </button>
         <span class="editor-hint-spacer" />
-        <button class="status-btn run-btn" title="Ejecutar todas las celdas" onClick={runAll}>
-          ▶ Ejecutar todo
+        <button class="status-btn run-btn" title={t("nb.runAllTitle")} onClick={runAll}>
+          {t("nb.runAll")}
         </button>
-        <button class="status-btn" title="Exportar a Markdown" onClick={exportMd}>
+        <button class="status-btn" title={t("nb.exportMd")} onClick={exportMd}>
           .md
         </button>
-        <button class="status-btn" title="Exportar a HTML" onClick={exportHtml}>
+        <button class="status-btn" title={t("nb.exportHtml")} onClick={exportHtml}>
           .html
         </button>
       </div>
 
       <Show when={!props.connId}>
-        <p class="nb-hint">Abre una conexión para ejecutar las celdas SQL.</p>
+        <p class="nb-hint">{t("nb.connHint")}</p>
       </Show>
 
       <details class="nb-params">
-        <summary>Parámetros ({current().params.length})</summary>
+        <summary>{t("nb.params", { n: current().params.length })}</summary>
         <p class="nb-params-hint">
-          Se sustituyen en el SQL como <code>:nombre</code> antes de ejecutar.
+          {t("nb.paramsHintPre")}<code>{t("nb.paramCode")}</code>{t("nb.paramsHintPost")}
         </p>
         <For each={current().params}>
           {(p, i) => (
             <div class="nb-param-row">
               <input
-                placeholder="nombre"
+                placeholder={t("nb.paramName")}
                 value={p.name}
                 onInput={(e) => setParam(i(), "name", e.currentTarget.value)}
               />
               <input
-                placeholder="valor"
+                placeholder={t("nb.paramValue")}
                 value={p.value}
                 onInput={(e) => setParam(i(), "value", e.currentTarget.value)}
               />
-              <button class="status-btn" title="Quitar" onClick={() => removeParam(i())}>
+              <button class="status-btn" title={t("nb.remove")} onClick={() => removeParam(i())}>
                 ✕
               </button>
             </div>
           )}
         </For>
         <button class="status-btn" onClick={addParam}>
-          + Parámetro
+          {t("nb.addParam")}
         </button>
       </details>
 
@@ -235,40 +236,40 @@ export function Notebook(props: {
                 <Show when={cell.kind === "sql"}>
                   <button
                     class="status-btn run-btn"
-                    title="Ejecutar esta celda (▶)"
+                    title={t("nb.runCellTitle")}
                     onClick={() => void runCell(cell)}
                   >
-                    ▶ Ejecutar
+                    {t("nb.runCell")}
                   </button>
                 </Show>
                 <span class="editor-hint-spacer" />
                 <button
                   class="status-btn"
-                  title={cell.kind === "sql" ? "Convertir a Markdown" : "Convertir a SQL"}
+                  title={cell.kind === "sql" ? t("nb.toMd") : t("nb.toSql")}
                   onClick={() => switchKind(cell.id, cell.kind === "sql" ? "markdown" : "sql")}
                 >
                   {cell.kind === "sql" ? "→ MD" : "→ SQL"}
                 </button>
-                <button class="status-btn" title="Subir" disabled={idx() === 0} onClick={() => move(cell.id, -1)}>
+                <button class="status-btn" title={t("nb.moveUp")} disabled={idx() === 0} onClick={() => move(cell.id, -1)}>
                   ↑
                 </button>
                 <button
                   class="status-btn"
-                  title="Bajar"
+                  title={t("nb.moveDown")}
                   disabled={idx() === current().cells.length - 1}
                   onClick={() => move(cell.id, 1)}
                 >
                   ↓
                 </button>
-                <button class="status-btn" title="Añadir celda SQL debajo" onClick={() => addCell(cell.id, "sql")}>
+                <button class="status-btn" title={t("nb.addSqlBelow")} onClick={() => addCell(cell.id, "sql")}>
                   +SQL
                 </button>
-                <button class="status-btn" title="Añadir celda Markdown debajo" onClick={() => addCell(cell.id, "markdown")}>
+                <button class="status-btn" title={t("nb.addMdBelow")} onClick={() => addCell(cell.id, "markdown")}>
                   +MD
                 </button>
                 <button
                   class="status-btn"
-                  title="Eliminar celda"
+                  title={t("nb.deleteCell")}
                   disabled={current().cells.length <= 1}
                   onClick={() => deleteCell(cell.id)}
                 >
@@ -282,7 +283,7 @@ export function Notebook(props: {
                   <div
                     class="nb-md"
                     onDblClick={() => setEditing(cell.id, true)}
-                    title="Doble clic para editar"
+                    title={t("nb.dblClickEdit")}
                     // eslint-disable-next-line solid/no-innerhtml -- renderMarkdown escapes all HTML
                     innerHTML={renderMarkdown(cell.source)}
                   />
@@ -292,7 +293,7 @@ export function Notebook(props: {
                   class={cell.kind === "sql" ? "nb-src nb-src-sql" : "nb-src"}
                   value={cell.source}
                   spellcheck={cell.kind === "markdown"}
-                  placeholder={cell.kind === "sql" ? "SELECT …" : "Escribe Markdown…"}
+                  placeholder={cell.kind === "sql" ? "SELECT …" : t("nb.mdPlaceholder")}
                   onInput={(e) => editSource(cell.id, e.currentTarget.value)}
                   onBlur={() => cell.kind === "markdown" && setEditing(cell.id, false)}
                 />
@@ -304,15 +305,15 @@ export function Notebook(props: {
                     <Show when={r().result && (r().result!.columns.length > 0)}>
                       <div class="nb-result-bar">
                         <span class="nb-result-info">
-                          {r().result!.rows.length} fila(s)
-                          {r().result!.truncated ? " (truncado)" : ""}
+                          {t("nb.rows", { n: r().result!.rows.length })}
+                          {r().result!.truncated ? t("nb.truncatedSuffix") : ""}
                         </span>
                         <button
                           class="status-btn"
-                          title="Graficar este resultado"
+                          title={t("nb.chartTitle")}
                           onClick={() => props.onChart(r().result!)}
                         >
-                          📊 Graficar
+                          {t("nb.chart")}
                         </button>
                       </div>
                     </Show>
