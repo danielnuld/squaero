@@ -11,6 +11,7 @@ import {
 import { readDefinitionText } from "../utils/treeObjects";
 import { objectBadge } from "../utils/objectIcons";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 // Triggers / events explorer (issue #138): lists a database's triggers (and, on
 // engines that have them, scheduled events) and shows each one's definition (DDL)
@@ -137,12 +138,12 @@ export function TriggersExplorer(props: {
     !!a && a.name === b.name && a.table === b.table && a.id === b.id;
 
   const emptyLabel = () =>
-    kind() === "event" ? "No hay eventos programados." : "No hay triggers.";
+    kind() === "event" ? t("explorer.noEvents") : t("explorer.noTriggers");
 
   return (
-    <Panel title="Triggers y eventos" class="routine-explorer" onClose={props.onClose}>
+    <Panel title={t("tool.triggers.label")} class="routine-explorer" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Triggers y eventos</h2>
+        <h2>{t("tool.triggers.label")}</h2>
         <div class="sm-actions">
           <Show when={eventsSupported()}>
             <div class="obj-kind-toggle" role="tablist">
@@ -152,7 +153,7 @@ export function TriggersExplorer(props: {
                 aria-selected={kind() === "trigger"}
                 onClick={() => setKind("trigger")}
               >
-                Triggers
+                {t("explorer.triggersTab")}
               </button>
               <button
                 class={`edit-btn ${kind() === "event" ? "active" : ""}`}
@@ -160,18 +161,18 @@ export function TriggersExplorer(props: {
                 aria-selected={kind() === "event"}
                 onClick={() => setKind("event")}
               >
-                Eventos
+                {t("explorer.eventsTab")}
               </button>
             </div>
           </Show>
           <Show when={support().supported}>
-            <span class="sm-count">{rows().length} objeto(s)</span>
+            <span class="sm-count">{t("explorer.objects", { n: rows().length })}</span>
             <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? "Actualizando…" : "⟳ Refrescar"}
+              {loading() ? t("panel.refreshing") : t("panel.refresh")}
             </button>
           </Show>
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
@@ -190,7 +191,7 @@ export function TriggersExplorer(props: {
           <div class="routine-list">
             <Show
               when={rows().length > 0}
-              fallback={<p class="grid-empty">{loading() ? "Cargando…" : emptyLabel()}</p>}
+              fallback={<p class="grid-empty">{loading() ? t("panel.loading") : emptyLabel()}</p>}
             >
               <ul>
                 <For each={rows()}>
@@ -227,7 +228,7 @@ export function TriggersExplorer(props: {
           <div class="routine-detail">
             <Show
               when={selected()}
-              fallback={<p class="grid-empty">Selecciona un objeto para ver su definición.</p>}
+              fallback={<p class="grid-empty">{t("explorer.selectHint")}</p>}
             >
               {(ref) => (
                 <>
@@ -239,20 +240,20 @@ export function TriggersExplorer(props: {
                     <Show when={definition()}>
                       <button
                         class="edit-btn"
-                        title="Abrir la definición en una nueva consulta para editar/recrear"
+                        title={t("explorer.openInEditorTitle")}
                         onClick={() => props.onOpenSql(definition()!)}
                       >
-                        Abrir en editor
+                        {t("explorer.openInEditor")}
                       </button>
                     </Show>
                   </div>
                   <Show
                     when={!defLoading()}
-                    fallback={<p class="grid-empty">Cargando definición…</p>}
+                    fallback={<p class="grid-empty">{t("explorer.loadingDef")}</p>}
                   >
                     <Show
                       when={definition()}
-                      fallback={<p class="grid-empty">Sin definición disponible.</p>}
+                      fallback={<p class="grid-empty">{t("explorer.noDef")}</p>}
                     >
                       <pre class="routine-ddl">{definition()}</pre>
                     </Show>

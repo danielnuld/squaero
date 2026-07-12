@@ -11,6 +11,7 @@ import {
 import { readDefinitionText } from "../utils/treeObjects";
 import { objectBadge, routineKind } from "../utils/objectIcons";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 // Stored procedures / functions explorer (issue #137): lists the routines of the
 // active database and shows each one's definition (DDL) — all via query.run using
@@ -133,18 +134,18 @@ export function RoutineExplorer(props: {
     a.id === b.id;
 
   return (
-    <Panel title="Procedimientos y funciones" class="routine-explorer" onClose={props.onClose}>
+    <Panel title={t("tool.routines.label")} class="routine-explorer" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Procedimientos y funciones</h2>
+        <h2>{t("tool.routines.label")}</h2>
         <div class="sm-actions">
           <Show when={support().supported}>
-            <span class="sm-count">{rows().length} objeto(s)</span>
+            <span class="sm-count">{t("explorer.objects", { n: rows().length })}</span>
             <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? "Actualizando…" : "⟳ Refrescar"}
+              {loading() ? t("panel.refreshing") : t("panel.refresh")}
             </button>
           </Show>
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
@@ -165,7 +166,7 @@ export function RoutineExplorer(props: {
               when={rows().length > 0}
               fallback={
                 <p class="grid-empty">
-                  {loading() ? "Cargando…" : "No hay procedimientos ni funciones."}
+                  {loading() ? t("panel.loading") : t("explorer.noRoutines")}
                 </p>
               }
             >
@@ -203,7 +204,7 @@ export function RoutineExplorer(props: {
           <div class="routine-detail">
             <Show
               when={selected()}
-              fallback={<p class="grid-empty">Selecciona un objeto para ver su definición.</p>}
+              fallback={<p class="grid-empty">{t("explorer.selectHint")}</p>}
             >
               {(ref) => (
                 <>
@@ -213,20 +214,20 @@ export function RoutineExplorer(props: {
                     <Show when={definition()}>
                       <button
                         class="edit-btn"
-                        title="Abrir la definición en una nueva consulta"
+                        title={t("explorer.openInEditorTitle")}
                         onClick={() => props.onOpenSql(definition()!)}
                       >
-                        Abrir en editor
+                        {t("explorer.openInEditor")}
                       </button>
                     </Show>
                   </div>
                   <Show
                     when={!defLoading()}
-                    fallback={<p class="grid-empty">Cargando definición…</p>}
+                    fallback={<p class="grid-empty">{t("explorer.loadingDef")}</p>}
                   >
                     <Show
                       when={definition()}
-                      fallback={<p class="grid-empty">Sin definición disponible.</p>}
+                      fallback={<p class="grid-empty">{t("explorer.noDef")}</p>}
                     >
                       <pre class="routine-ddl">{definition()}</pre>
                     </Show>

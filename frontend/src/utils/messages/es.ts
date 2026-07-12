@@ -99,6 +99,19 @@ export const es: Record<string, string> = {
   "panel.close": "Cerrar",
   "panel.loading": "Cargando…",
 
+  // routine / trigger explorers (RoutineExplorer.tsx + TriggersExplorer.tsx)
+  "explorer.objects": "{n} objeto(s)",
+  "explorer.selectHint": "Selecciona un objeto para ver su definición.",
+  "explorer.openInEditor": "Abrir en editor",
+  "explorer.openInEditorTitle": "Abrir la definición en una nueva consulta",
+  "explorer.loadingDef": "Cargando definición…",
+  "explorer.noDef": "Sin definición disponible.",
+  "explorer.noRoutines": "No hay procedimientos ni funciones.",
+  "explorer.triggersTab": "Triggers",
+  "explorer.eventsTab": "Eventos",
+  "explorer.noTriggers": "No hay triggers.",
+  "explorer.noEvents": "No hay eventos programados.",
+
   // server monitor panel (ServerMonitor.tsx)
   "monitor.sessions": "{n} sesión(es)",
   "monitor.kill": "Matar",
