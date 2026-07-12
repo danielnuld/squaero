@@ -15,6 +15,7 @@ import {
 } from "../utils/userAdmin";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { t } from "../utils/i18n";
 
 interface UserRow {
   name: string;
@@ -177,18 +178,18 @@ export function UserManager(props: {
   onMount(loadUsers);
 
   return (
-    <Panel title="Usuarios y permisos" wide class="user-mgr" onClose={props.onClose}>
+    <Panel title={t("tool.users.label")} wide class="user-mgr" onClose={props.onClose}>
       <div class="sm-head">
-        <h2>Usuarios y permisos</h2>
+        <h2>{t("tool.users.label")}</h2>
         <div class="sm-actions">
           <Show when={support.supported}>
-            <span class="sm-count">{users().length} usuario(s)</span>
+            <span class="sm-count">{t("users.count", { n: users().length })}</span>
             <button class="edit-btn" disabled={loading()} onClick={loadUsers}>
-              {loading() ? "Actualizando…" : "⟳ Refrescar"}
+              {loading() ? t("panel.refreshing") : t("panel.refresh")}
             </button>
           </Show>
           <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
+            {t("panel.close")}
           </button>
         </div>
       </div>
@@ -205,42 +206,42 @@ export function UserManager(props: {
       >
         <div class="um-body">
           <div class="um-users">
-            <div class="import-subtitle">Nuevo usuario</div>
+            <div class="import-subtitle">{t("users.newUser")}</div>
             <div class="um-new-user">
               <input
                 type="text"
                 value={newName()}
                 onInput={(e) => setNewName(e.currentTarget.value)}
-                placeholder="Nombre de usuario"
-                aria-label="Nombre de usuario"
+                placeholder={t("users.name")}
+                aria-label={t("users.name")}
               />
               <input
                 type="text"
                 value={newHost()}
                 onInput={(e) => setNewHost(e.currentTarget.value)}
-                placeholder="Host (%  |  localhost)"
-                aria-label="Host del nuevo usuario"
+                placeholder={t("users.hostPlaceholder")}
+                aria-label={t("users.hostAria")}
               />
               <input
                 type="password"
                 value={newPass()}
                 onInput={(e) => setNewPass(e.currentTarget.value)}
-                placeholder="Contraseña (opcional)"
-                aria-label="Contraseña del nuevo usuario"
+                placeholder={t("users.passPlaceholder")}
+                aria-label={t("users.passAria")}
               />
               <button
                 class="primary"
                 disabled={busy() || !createUserPreview()}
                 onClick={createUser}
               >
-                Crear usuario
+                {t("users.create")}
               </button>
               <Show when={createUserDisplay()}>
                 <pre class="ddl-text um-preview">{createUserDisplay()};</pre>
               </Show>
             </div>
 
-            <div class="import-subtitle">Usuarios</div>
+            <div class="import-subtitle">{t("users.users")}</div>
             <ul class="um-user-list">
               <For each={users()}>
                 {(u) => (
@@ -254,8 +255,8 @@ export function UserManager(props: {
                     <span class="um-user-host">@{u.host}</span>
                     <button
                       class="grid-action danger um-drop"
-                      title={`Eliminar ${u.name}@${u.host}`}
-                      aria-label={`Eliminar ${u.name}@${u.host}`}
+                      title={t("users.dropTitle", { who: `${u.name}@${u.host}` })}
+                      aria-label={t("users.dropTitle", { who: `${u.name}@${u.host}` })}
                       disabled={busy()}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -273,20 +274,20 @@ export function UserManager(props: {
           <div class="um-detail">
             <Show
               when={selected()}
-              fallback={<p class="grid-empty">Selecciona un usuario para ver sus permisos.</p>}
+              fallback={<p class="grid-empty">{t("users.selectHint")}</p>}
             >
               <div class="import-subtitle">
-                Permisos de {selected()!.name}@{selected()!.host}
+                {t("users.permsOf", { who: `${selected()!.name}@${selected()!.host}` })}
               </div>
               <Show
                 when={grants().length > 0}
-                fallback={<p class="grid-empty">Sin permisos o no legibles.</p>}
+                fallback={<p class="grid-empty">{t("users.noPerms")}</p>}
               >
                 <pre class="ddl-text">{grants().join(";\n")}</pre>
               </Show>
 
               <div class="import-subtitle" style={{ "margin-top": "0.8rem" }}>
-                Otorgar / revocar
+                {t("users.grantRevoke")}
               </div>
               <div class="um-privs">
                 <For each={MYSQL_PRIVILEGES}>
@@ -304,7 +305,7 @@ export function UserManager(props: {
               </div>
               <div class="um-form-row">
                 <label class="field">
-                  <span>Host</span>
+                  <span>{t("users.hostLabel")}</span>
                   <input
                     type="text"
                     value={hostInput()}
@@ -313,12 +314,12 @@ export function UserManager(props: {
                   />
                 </label>
                 <label class="field um-scope">
-                  <span>Ámbito (ON …)</span>
+                  <span>{t("users.scope")}</span>
                   <input
                     type="text"
                     value={scope()}
                     onInput={(e) => setScope(e.currentTarget.value)}
-                    placeholder="*.*  |  mibd.*  |  mibd.tabla"
+                    placeholder={t("users.scopePlaceholder")}
                   />
                 </label>
               </div>
@@ -326,7 +327,7 @@ export function UserManager(props: {
               <pre class="ddl-text um-preview">
                 {grantPreview()
                   ? `${grantPreview()};\n${revokePreview()};`
-                  : "Elige privilegios y ámbito para ver el SQL."}
+                  : t("users.pickHint")}
               </pre>
 
               <div class="modal-actions">
@@ -335,14 +336,14 @@ export function UserManager(props: {
                   disabled={busy() || !grantPreview()}
                   onClick={() => apply(grantPreview()!)}
                 >
-                  Otorgar
+                  {t("users.grant")}
                 </button>
                 <button
                   class="danger"
                   disabled={busy() || !revokePreview()}
                   onClick={() => apply(revokePreview()!)}
                 >
-                  Revocar
+                  {t("users.revoke")}
                 </button>
               </div>
             </Show>
@@ -353,10 +354,10 @@ export function UserManager(props: {
       <Show when={pendingDrop()}>
         {(p) => (
           <ConfirmDialog
-            title="Eliminar usuario"
-            message={`Se eliminará ${p().user.name}@${p().user.host}. Esta acción no se puede deshacer.`}
+            title={t("users.dropDialogTitle")}
+            message={t("users.dropMessage", { who: `${p().user.name}@${p().user.host}` })}
             sql={p().sql}
-            confirmLabel="Eliminar usuario"
+            confirmLabel={t("users.dropDialogTitle")}
             busy={busy()}
             error={error()}
             onConfirm={() => void confirmDropUser()}
