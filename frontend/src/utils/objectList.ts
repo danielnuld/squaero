@@ -11,7 +11,7 @@ import { engineFamily as family } from "./engineFamily";
 export interface ObjectListColumn {
   /** Result column key (lowercased alias produced by the SQL). */
   key: string;
-  /** Header label. */
+  /** i18n message key for the header label; resolved with t() at the grid. */
   label: string;
   /** Right-align + tabular digits when true. */
   numeric?: boolean;
@@ -24,18 +24,18 @@ export interface ObjectListSupport {
   sql: string | null;
   /** Columns present in the result, in display order. */
   columns: ObjectListColumn[];
-  /** Honest reason shown when unsupported. */
+  /** i18n message key for the honest reason shown when unsupported (t() at the view). */
   reason: string | null;
 }
 
 /** Escape a single-quoted SQL string literal. */
 const lit = (s: string) => s.replace(/'/g, "''");
 
-const COL_NAME: ObjectListColumn = { key: "nombre", label: "Nombre" };
-const COL_TYPE: ObjectListColumn = { key: "tipo", label: "Tipo" };
-const COL_ROWS: ObjectListColumn = { key: "filas", label: "Filas", numeric: true };
-const COL_SIZE: ObjectListColumn = { key: "tamano", label: "Tamaño", numeric: true };
-const COL_COMMENT: ObjectListColumn = { key: "comentario", label: "Comentario" };
+const COL_NAME: ObjectListColumn = { key: "nombre", label: "objlist.colName" };
+const COL_TYPE: ObjectListColumn = { key: "tipo", label: "objlist.colType" };
+const COL_ROWS: ObjectListColumn = { key: "filas", label: "objlist.colRows", numeric: true };
+const COL_SIZE: ObjectListColumn = { key: "tamano", label: "objlist.colSize", numeric: true };
+const COL_COMMENT: ObjectListColumn = { key: "comentario", label: "objlist.colComment" };
 
 /**
  * Build the object-list query + column set for an engine and database. `db` is
@@ -102,15 +102,14 @@ export function objectListFor(engine: string, db: string): ObjectListSupport {
         supported: false,
         sql: null,
         columns: [],
-        reason:
-          "MongoDB expone colecciones, no tablas de catálogo SQL: usa el árbol de objetos.",
+        reason: "objlist.reasonMongo",
       };
     default:
       return {
         supported: false,
         sql: null,
         columns: [],
-        reason: "La lista de objetos no está disponible para este motor.",
+        reason: "objlist.reasonUnavailable",
       };
   }
 }

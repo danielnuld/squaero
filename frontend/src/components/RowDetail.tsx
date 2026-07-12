@@ -2,6 +2,7 @@ import { For, Show, createMemo } from "solid-js";
 import { NULL_LABEL } from "../utils/format";
 import { buildRowFields, canStep } from "../utils/rowDetail";
 import type { ResultColumn } from "../utils/query";
+import { t } from "../utils/i18n";
 
 // Row form/detail view (issue #133): shows a single row as a field-by-field form,
 // which reads far better than a wide grid row for many columns or long / JSON
@@ -41,27 +42,27 @@ export function RowDetail(props: {
   const canNext = () => canStep(props.rowIndex, 1, props.total);
 
   return (
-    <div class="row-detail-dock" role="region" aria-label="Detalle de fila">
+    <div class="row-detail-dock" role="region" aria-label={t("rd.title")}>
       <div class="rd-head">
-        <h2>Detalle de fila</h2>
+        <h2>{t("rd.title")}</h2>
         <div class="rd-nav">
-          <button class="rd-nav-btn" disabled={!canPrev()} title="Fila anterior" onClick={props.onPrev}>
+          <button class="rd-nav-btn" disabled={!canPrev()} title={t("rd.prev")} onClick={props.onPrev}>
             ‹
           </button>
           <span class="rd-pos">
-            Fila {props.rowIndex + 1} de {props.total}
+            {t("rd.position", { i: props.rowIndex + 1, total: props.total })}
           </span>
-          <button class="rd-nav-btn" disabled={!canNext()} title="Fila siguiente" onClick={props.onNext}>
+          <button class="rd-nav-btn" disabled={!canNext()} title={t("rd.next")} onClick={props.onNext}>
             ›
           </button>
-          <button class="rd-nav-btn rd-close" title="Cerrar detalle (Esc)" onClick={props.onClose}>
+          <button class="rd-nav-btn rd-close" title={t("rd.closeTitle")} onClick={props.onClose}>
             ✕
           </button>
         </div>
       </div>
 
       <Show when={props.deleted}>
-        <div class="rd-deleted-banner">Esta fila está marcada para eliminación.</div>
+        <div class="rd-deleted-banner">{t("rd.deletedBanner")}</div>
       </Show>
 
       <div class="rd-fields">
@@ -72,7 +73,7 @@ export function RowDetail(props: {
                 <span class="rd-name">{f.name}</span>
                 <span class="rd-type">{f.type}</span>
                 <Show when={f.edited}>
-                  <span class="rd-edited-tag">editado</span>
+                  <span class="rd-edited-tag">{t("rd.editedTag")}</span>
                 </Show>
               </label>
               <Show
@@ -97,16 +98,16 @@ export function RowDetail(props: {
 
       <div class="modal-actions rd-actions">
         <Show when={props.editable && !props.editing}>
-          <button onClick={props.onBeginEdit}>Editar</button>
+          <button onClick={props.onBeginEdit}>{t("common.edit")}</button>
         </Show>
         <Show when={props.editing}>
           <button class={props.deleted ? "" : "danger"} onClick={props.onToggleDelete}>
-            {props.deleted ? "Deshacer borrado" : "Borrar fila"}
+            {props.deleted ? t("grid.undoDelete") : t("grid.deleteRow")}
           </button>
         </Show>
         <span class="toolbar-spacer" />
         <button class="primary" onClick={props.onClose}>
-          Cerrar
+          {t("panel.close")}
         </button>
       </div>
     </div>

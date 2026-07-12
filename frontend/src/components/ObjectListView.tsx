@@ -4,6 +4,7 @@ import { errorText } from "../utils/errors";
 import { objectListFor, formatBytes } from "../utils/objectList";
 import { objectBadge } from "../utils/objectIcons";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 // Object-list view (UI design proposal, phase 3): opening a database shows its
 // objects as a metadata grid (name, type, and per-engine row count / size /
@@ -93,20 +94,20 @@ export function ObjectListView(props: {
   };
 
   return (
-    <Panel title={`Objetos · ${props.db}`} onClose={props.onClose} class="objlist">
+    <Panel title={t("tab.objectList", { db: props.db })} onClose={props.onClose} class="objlist">
       <Show
         when={support().supported}
-        fallback={<p class="objlist-empty">{support().reason}</p>}
+        fallback={<p class="objlist-empty">{t(support().reason ?? "")}</p>}
       >
         <div class="objlist-bar">
-          <div class="objlist-tabs" role="tablist" aria-label="Tipo de objeto">
+          <div class="objlist-tabs" role="tablist" aria-label={t("objlist.typeAria")}>
             <button
               class={`otab ${filter() === "all" ? "on" : ""}`}
               role="tab"
               aria-selected={filter() === "all"}
               onClick={() => setFilter("all")}
             >
-              Todos <span class="otab-ct">{counts().all}</span>
+              {t("objlist.all")} <span class="otab-ct">{counts().all}</span>
             </button>
             <button
               class={`otab ${filter() === "table" ? "on" : ""}`}
@@ -115,7 +116,7 @@ export function ObjectListView(props: {
               onClick={() => setFilter("table")}
             >
               <span class="otab-mk" style={{ background: "var(--obj-table)" }} />
-              Tablas <span class="otab-ct">{counts().tables}</span>
+              {t("tree.tables")} <span class="otab-ct">{counts().tables}</span>
             </button>
             <button
               class={`otab ${filter() === "view" ? "on" : ""}`}
@@ -124,7 +125,7 @@ export function ObjectListView(props: {
               onClick={() => setFilter("view")}
             >
               <span class="otab-mk" style={{ background: "var(--obj-view)" }} />
-              Vistas <span class="otab-ct">{counts().views}</span>
+              {t("tree.views")} <span class="otab-ct">{counts().views}</span>
             </button>
           </div>
         </div>
@@ -133,7 +134,7 @@ export function ObjectListView(props: {
           <p class="objlist-error">{error()}</p>
         </Show>
         <Show when={loading()}>
-          <p class="objlist-empty">Cargando objetos…</p>
+          <p class="objlist-empty">{t("objlist.loading")}</p>
         </Show>
 
         <Show when={result() && !loading()}>
@@ -143,7 +144,7 @@ export function ObjectListView(props: {
                 <tr>
                   <For each={support().columns}>
                     {(c) => (
-                      <th class={c.numeric ? "num" : ""}>{c.label}</th>
+                      <th class={c.numeric ? "num" : ""}>{t(c.label)}</th>
                     )}
                   </For>
                 </tr>
@@ -154,7 +155,7 @@ export function ObjectListView(props: {
                   fallback={
                     <tr>
                       <td colspan={support().columns.length} class="objlist-empty">
-                        Sin objetos.
+                        {t("tree.noObjects")}
                       </td>
                     </tr>
                   }
@@ -168,7 +169,7 @@ export function ObjectListView(props: {
                       <tr
                         class="objlist-row"
                         onDblClick={() => open(rowIdx)}
-                        title="Doble clic para abrir los datos"
+                        title={t("objlist.dblClickOpen")}
                       >
                         <For each={support().columns}>
                           {(c, i) => (

@@ -332,6 +332,28 @@ export const en: Record<string, string> = {
   "nb.chartTitle": "Chart this result",
   "nb.chart": "📊 Chart",
 
+  // object list view (ObjectListView.tsx + objectList.ts column/reason labels)
+  "objlist.typeAria": "Object type",
+  "objlist.all": "All",
+  "objlist.loading": "Loading objects…",
+  "objlist.dblClickOpen": "Double-click to open the data",
+  "objlist.colName": "Name",
+  "objlist.colType": "Type",
+  "objlist.colRows": "Rows",
+  "objlist.colSize": "Size",
+  "objlist.colComment": "Comment",
+  "objlist.reasonMongo": "MongoDB exposes collections, not SQL catalog tables: use the object tree.",
+  "objlist.reasonUnavailable": "The object list is not available for this engine.",
+
+  // row detail dock (RowDetail.tsx)
+  "rd.title": "Row detail",
+  "rd.prev": "Previous row",
+  "rd.next": "Next row",
+  "rd.position": "Row {i} of {total}",
+  "rd.closeTitle": "Close detail (Esc)",
+  "rd.deletedBanner": "This row is marked for deletion.",
+  "rd.editedTag": "edited",
+
   // errors
   "error.noActiveConn": "No active connection. Open a connection to run queries.",
 

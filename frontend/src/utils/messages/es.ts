@@ -335,6 +335,28 @@ export const es: Record<string, string> = {
   "nb.chartTitle": "Graficar este resultado",
   "nb.chart": "📊 Graficar",
 
+  // object list view (ObjectListView.tsx + objectList.ts column/reason labels)
+  "objlist.typeAria": "Tipo de objeto",
+  "objlist.all": "Todos",
+  "objlist.loading": "Cargando objetos…",
+  "objlist.dblClickOpen": "Doble clic para abrir los datos",
+  "objlist.colName": "Nombre",
+  "objlist.colType": "Tipo",
+  "objlist.colRows": "Filas",
+  "objlist.colSize": "Tamaño",
+  "objlist.colComment": "Comentario",
+  "objlist.reasonMongo": "MongoDB expone colecciones, no tablas de catálogo SQL: usa el árbol de objetos.",
+  "objlist.reasonUnavailable": "La lista de objetos no está disponible para este motor.",
+
+  // row detail dock (RowDetail.tsx)
+  "rd.title": "Detalle de fila",
+  "rd.prev": "Fila anterior",
+  "rd.next": "Fila siguiente",
+  "rd.position": "Fila {i} de {total}",
+  "rd.closeTitle": "Cerrar detalle (Esc)",
+  "rd.deletedBanner": "Esta fila está marcada para eliminación.",
+  "rd.editedTag": "editado",
+
   // errors
   "error.noActiveConn": "No hay conexión activa. Abre una conexión para ejecutar consultas.",
 

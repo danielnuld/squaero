@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { objectListFor, formatBytes } from "../../src/utils/objectList";
+import { translate } from "../../src/utils/i18n";
 
 describe("objectListFor", () => {
   it("MySQL: information_schema.TABLES scoped to the db, full metadata", () => {
@@ -41,7 +42,8 @@ describe("objectListFor", () => {
     const r = objectListFor("mongodb", "x");
     expect(r.supported).toBe(false);
     expect(r.sql).toBeNull();
-    expect(r.reason).toMatch(/colecciones/i);
+    // reason is now an i18n key; resolve through the es catalog to assert the text.
+    expect(translate("es", r.reason!)).toMatch(/colecciones/i);
   });
 
   it("unknown engine: unsupported", () => {
