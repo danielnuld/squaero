@@ -90,6 +90,21 @@ export const en: Record<string, string> = {
   "empty.shortcuts": "Shortcuts",
   "empty.hint": "Open a table from the tree or write SQL and press {keys}.",
 
+  // result grid (ResultGrid.tsx)
+  "grid.rowsAffected": "{n} row(s) affected.",
+  "grid.sort": "Sort (asc / desc / none)",
+  "grid.resize": "Adjust column width",
+  "grid.filterPlaceholder": "Filter…",
+  "grid.filterBy": "Filter by {name}",
+  "grid.undoDelete": "Undo delete",
+  "grid.deleteRow": "Delete row",
+  "grid.newRows": "New rows",
+  "grid.removeNewRow": "Remove new row",
+  "grid.noFilterMatch": "No row on the page matches the filter.",
+  "grid.truncated": "Showing the first {n} rows (result truncated). Sorting and filters apply only to the loaded rows, not with ORDER BY/WHERE on the server.",
+  "grid.runToSee": "Run a query to see results.",
+  "grid.running": "Running…",
+
   // errors
   "error.noActiveConn": "No active connection. Open a connection to run queries.",
 

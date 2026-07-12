@@ -12,6 +12,7 @@ import {
 import { computeColumnWidths, resizeColumn, MIN_COL_WIDTH } from "../utils/gridColumns";
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
+import { t } from "../utils/i18n";
 
 const DEFAULT_ROW_HEIGHT = 28;
 const ACTION_WIDTH = 36;
@@ -233,8 +234,8 @@ export function ResultGrid(props: {
   const onGridKeyDown = (e: KeyboardEvent) => {
     // Only act when focus is on the grid surface itself: inputs (edit cells,
     // filter boxes) and the focusable sort-header cells own their own keys.
-    const t = e.target as HTMLElement | null;
-    if (t && (t.tagName === "INPUT" || t.closest(".grid-head-sort"))) return;
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === "INPUT" || target.closest(".grid-head-sort"))) return;
     if (e.key === "Enter") {
       const s = sel();
       if (s) {
@@ -267,7 +268,7 @@ export function ResultGrid(props: {
             when={cols().length > 0}
             fallback={
               <div class="grid-empty">
-                {result().rowsAffected} fila(s) afectada(s).
+                {t("grid.rowsAffected", { n: result().rowsAffected })}
               </div>
             }
           >
@@ -293,7 +294,7 @@ export function ResultGrid(props: {
                         class="grid-cell grid-head grid-head-sort"
                         role="button"
                         tabindex={0}
-                        title="Ordenar (asc / desc / ninguno)"
+                        title={t("grid.sort")}
                         onClick={() => toggleSort(ci())}
                         onKeyDown={(e) =>
                           (e.key === "Enter" || e.key === " ") &&
@@ -305,7 +306,7 @@ export function ResultGrid(props: {
                         <span class="col-sort">{sortGlyph(sort(), ci())}</span>
                         <span
                           class="col-resize"
-                          title="Ajustar ancho de columna"
+                          title={t("grid.resize")}
                           aria-hidden="true"
                           onMouseDown={(e) => startResize(ci(), e)}
                           onClick={(e) => e.stopPropagation()}
@@ -336,8 +337,8 @@ export function ResultGrid(props: {
                         <input
                           class="grid-filter-input"
                           type="search"
-                          placeholder="Filtrar…"
-                          aria-label={`Filtrar por ${cols()[ci()].name}`}
+                          placeholder={t("grid.filterPlaceholder")}
+                          aria-label={t("grid.filterBy", { name: cols()[ci()].name })}
                           value={filters()[ci()] ?? ""}
                           onInput={(e) => setFilter(ci(), e.currentTarget.value)}
                         />
@@ -373,7 +374,7 @@ export function ResultGrid(props: {
                             <Show when={editing()}>
                               <button
                                 class="grid-cell grid-action danger"
-                                title={isDeleted(rowIndex()) ? "Deshacer borrado" : "Borrar fila"}
+                                title={isDeleted(rowIndex()) ? t("grid.undoDelete") : t("grid.deleteRow")}
                                 onClick={() => props.edit?.onToggleDelete(rowIndex())}
                               >
                                 {isDeleted(rowIndex()) ? "↩" : "🗑"}
@@ -444,7 +445,7 @@ export function ResultGrid(props: {
 
             <Show when={editing() && (props.edit?.pending.inserts.length ?? 0) > 0}>
               <div class="grid-inserts">
-                <div class="grid-inserts-title">Nuevas filas</div>
+                <div class="grid-inserts-title">{t("grid.newRows")}</div>
                 <For each={props.edit?.pending.inserts ?? []}>
                   {(ins, ii) => (
                     <div
@@ -453,7 +454,7 @@ export function ResultGrid(props: {
                     >
                       <button
                         class="grid-cell grid-action danger"
-                        title="Quitar fila nueva"
+                        title={t("grid.removeNewRow")}
                         onClick={() => props.edit?.onRemoveInsert(ii())}
                       >
                         ✕
@@ -478,15 +479,13 @@ export function ResultGrid(props: {
 
             <Show when={filtersActive() && view().length === 0}>
               <div class="grid-empty-filter">
-                Ninguna fila de la página coincide con el filtro.
+                {t("grid.noFilterMatch")}
               </div>
             </Show>
 
             <Show when={result().truncated}>
               <div class="grid-truncated">
-                Mostrando las primeras {rows().length} filas (resultado truncado). El
-                orden y los filtros se aplican solo sobre las filas cargadas, no con
-                ORDER BY/WHERE en el servidor.
+                {t("grid.truncated", { n: rows().length })}
               </div>
             </Show>
           </Show>
@@ -496,7 +495,7 @@ export function ResultGrid(props: {
       <Show when={!props.error && !props.result && !props.loading}>
         <Show
           when={props.emptyState}
-          fallback={<div class="grid-empty">Ejecuta una consulta para ver resultados.</div>}
+          fallback={<div class="grid-empty">{t("grid.runToSee")}</div>}
         >
           {props.emptyState}
         </Show>
@@ -504,14 +503,14 @@ export function ResultGrid(props: {
 
       <Show when={props.loading}>
         <div class="grid-empty grid-running">
-          <span>Ejecutando…</span>
+          <span>{t("grid.running")}</span>
           <Show when={props.onCancel}>
             <button
               class="grid-cancel"
               type="button"
               onClick={() => props.onCancel?.()}
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
           </Show>
         </div>
