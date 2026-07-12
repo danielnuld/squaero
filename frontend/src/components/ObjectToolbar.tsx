@@ -1,5 +1,6 @@
 import { Show } from "solid-js";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
+import { t } from "../utils/i18n";
 
 // Contextual object-action toolbar (design proposal, phases 2b + 8). It sits
 // above the result grid and consolidates every action that applies to the
@@ -60,10 +61,10 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
   // table with a result (the old conditional, now spelled out unambiguously).
   const openSyncMenu = (e: MouseEvent) => {
     const items: MenuItem[] = [
-      { label: "Estructura (esquema)…", action: props.onSchemaSync },
+      { label: t("objbar.syncSchema"), action: props.onSchemaSync },
     ];
     if (props.editable && props.hasColumns) {
-      items.push({ label: "Datos…", action: props.onDataSync });
+      items.push({ label: t("objbar.syncData"), action: props.onDataSync });
     }
     openContextMenu(e, items);
   };
@@ -78,7 +79,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
     );
 
   return (
-    <div class="edit-toolbar" role="toolbar" aria-label="Acciones del objeto">
+    <div class="edit-toolbar" role="toolbar" aria-label={t("objbar.aria")}>
       <Show when={props.isTable}>
         <Show
           when={props.editing}
@@ -88,7 +89,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                 when={props.editable}
                 fallback={
                   <span class="edit-hint-ro">
-                    Solo lectura: la tabla no tiene clave primaria.
+                    {t("objbar.readOnlyNoPk")}
                   </span>
                 }
               >
@@ -97,48 +98,48 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                   disabled={props.busy}
                   onClick={props.onEdit}
                 >
-                  <span class="eb-ic" aria-hidden="true">✎</span> Editar
+                  <span class="eb-ic" aria-hidden="true">✎</span> {t("common.edit")}
                 </button>
               </Show>
               <button class="edit-btn" onClick={props.onImport}>
-                <span class="eb-ic" aria-hidden="true">↧</span> Importar
+                <span class="eb-ic" aria-hidden="true">↧</span> {t("objbar.import")}
               </button>
               <button class="edit-btn" onClick={props.onGenerate}>
-                <span class="eb-ic" aria-hidden="true">✦</span> Generar datos
+                <span class="eb-ic" aria-hidden="true">✦</span> {t("objbar.generate")}
               </button>
               <button
                 class="edit-btn edit-btn-menu"
                 aria-haspopup="menu"
-                title="Sincronizar estructura o datos con otra base"
+                title={t("objbar.syncTitle")}
                 onClick={openSyncMenu}
               >
-                <span class="eb-ic" aria-hidden="true">⇅</span> Sincronizar{" "}
+                <span class="eb-ic" aria-hidden="true">⇅</span> {t("objbar.sync")}{" "}
                 <span class="eb-caret" aria-hidden="true">▾</span>
               </button>
               <Show when={props.hasColumns}>
                 <button class="edit-btn" onClick={props.onTransfer}>
-                  <span class="eb-ic" aria-hidden="true">⇄</span> Transferir
+                  <span class="eb-ic" aria-hidden="true">⇄</span> {t("objbar.transfer")}
                 </button>
               </Show>
             </>
           }
         >
           <button class="edit-btn" onClick={props.onAddRow}>
-            <span class="eb-ic" aria-hidden="true">＋</span> Fila
+            <span class="eb-ic" aria-hidden="true">＋</span> {t("objbar.addRow")}
           </button>
           <button
             class="edit-btn edit-btn-primary"
             disabled={props.busy || !props.hasChanges}
             onClick={props.onConfirm}
           >
-            <span class="eb-ic" aria-hidden="true">✓</span> Confirmar ({props.changeCount})
+            <span class="eb-ic" aria-hidden="true">✓</span> {t("objbar.confirm", { n: props.changeCount })}
           </button>
           <button
             class="edit-btn"
             disabled={props.busy}
             onClick={props.onDiscard}
           >
-            Descartar
+            {t("objbar.discard")}
           </button>
         </Show>
         <Show when={props.error}>
@@ -149,15 +150,15 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
       <Show when={props.hasColumns}>
         <span class="toolbar-spacer" />
         <button class="edit-btn" onClick={props.onChart}>
-          <span class="eb-ic" aria-hidden="true">📊</span> Graficar
+          <span class="eb-ic" aria-hidden="true">📊</span> {t("objbar.chart")}
         </button>
         <button
           class="edit-btn edit-btn-menu"
           aria-haspopup="menu"
-          title="Exportar el resultado"
+          title={t("objbar.exportTitle")}
           onClick={openExportMenu}
         >
-          <span class="eb-ic" aria-hidden="true">↥</span> Exportar{" "}
+          <span class="eb-ic" aria-hidden="true">↥</span> {t("objbar.export")}{" "}
           <span class="eb-caret" aria-hidden="true">▾</span>
         </button>
       </Show>

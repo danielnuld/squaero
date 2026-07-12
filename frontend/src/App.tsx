@@ -1314,19 +1314,19 @@ export function App() {
     const row = res.rows[rowIndex];
     const items: MenuItem[] = [];
     if (row) {
-      items.push({ label: "Ver detalle de fila", action: () => setDetailIndex(rowIndex) });
+      items.push({ label: t("result.rowDetail"), action: () => setDetailIndex(rowIndex) });
       items.push({ separator: true });
       const cell = row[colIndex];
-      items.push({ label: "Copiar celda", action: () => copyText(cell ?? "") });
-      items.push({ label: "Copiar fila", action: () => copyText(rowToTsv(row)) });
+      items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
+      items.push({ label: t("result.copyRow"), action: () => copyText(rowToTsv(row)) });
       items.push({
-        label: "Copiar fila como JSON",
+        label: t("result.copyRowJson"),
         action: () => copyText(rowToJson(res.columns, row)),
       });
       items.push({ separator: true });
     }
     for (const f of EXPORT_FORMATS) {
-      items.push({ label: `Exportar ${f.label}`, action: () => doExport(f.fmt) });
+      items.push({ label: t("result.exportFmt", { fmt: f.label }), action: () => doExport(f.fmt) });
     }
     openContextMenu(e, items);
   };
@@ -1669,22 +1669,22 @@ export function App() {
                     {(sqls) => (
                       <div class="edit-preview">
                         <div class="edit-preview-head">
-                          <strong>Confirmar cambios</strong>
+                          <strong>{t("result.confirmChanges")}</strong>
                           <span>
-                            Se ejecutarán {sqls().length} sentencia(s) en la transacción abierta.
+                            {t("result.willRun", { n: sqls().length })}
                           </span>
                         </div>
                         <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
                         <div class="modal-actions">
                           <button disabled={currentEdit().busy} onClick={cancelPreview}>
-                            Cancelar
+                            {t("common.cancel")}
                           </button>
                           <button
                             class="primary"
                             disabled={currentEdit().busy}
                             onClick={applyEdit}
                           >
-                            Aplicar y confirmar
+                            {t("result.applyConfirm")}
                           </button>
                         </div>
                       </div>
@@ -1764,14 +1764,19 @@ export function App() {
                         disabled={(currentResult().offset ?? 0) === 0 || currentEdit().editing}
                         onClick={() => pageBy(-1)}
                       >
-                        ‹ Anterior
+                        {t("result.prev")}
                       </button>
                       <span class="page-info">
-                        Filas {(currentResult().offset ?? 0) +
-                          ((currentResult().result?.rows.length ?? 0) > 0 ? 1 : 0)}
-                        –{(currentResult().offset ?? 0) + (currentResult().result?.rows.length ?? 0)}
+                        {t("result.rowsRange", {
+                          from:
+                            (currentResult().offset ?? 0) +
+                            ((currentResult().result?.rows.length ?? 0) > 0 ? 1 : 0),
+                          to:
+                            (currentResult().offset ?? 0) +
+                            (currentResult().result?.rows.length ?? 0),
+                        })}
                         <Show when={currentEdit().editing}>
-                          {" "}· paginación en pausa durante la edición
+                          {t("result.pagingPaused")}
                         </Show>
                       </span>
                       <button
@@ -1779,7 +1784,7 @@ export function App() {
                         disabled={!currentResult().result?.truncated || currentEdit().editing}
                         onClick={() => pageBy(1)}
                       >
-                        Siguiente ›
+                        {t("result.next")}
                       </button>
                     </div>
                   </Show>

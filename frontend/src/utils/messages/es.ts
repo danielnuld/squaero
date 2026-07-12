@@ -93,6 +93,37 @@ export const es: Record<string, string> = {
   "empty.shortcuts": "Atajos",
   "empty.hint": "Abre una tabla del árbol o escribe SQL y pulsa {keys}.",
 
+  // object-action toolbar (ObjectToolbar.tsx)
+  "objbar.aria": "Acciones del objeto",
+  "objbar.readOnlyNoPk": "Solo lectura: la tabla no tiene clave primaria.",
+  "objbar.import": "Importar",
+  "objbar.generate": "Generar datos",
+  "objbar.syncTitle": "Sincronizar estructura o datos con otra base",
+  "objbar.sync": "Sincronizar",
+  "objbar.syncSchema": "Estructura (esquema)…",
+  "objbar.syncData": "Datos…",
+  "objbar.transfer": "Transferir",
+  "objbar.addRow": "Fila",
+  "objbar.confirm": "Confirmar ({n})",
+  "objbar.discard": "Descartar",
+  "objbar.chart": "Graficar",
+  "objbar.exportTitle": "Exportar el resultado",
+  "objbar.export": "Exportar",
+
+  // result pane: edit preview, pagination bar, cell context menu (App.tsx)
+  "result.confirmChanges": "Confirmar cambios",
+  "result.willRun": "Se ejecutarán {n} sentencia(s) en la transacción abierta.",
+  "result.applyConfirm": "Aplicar y confirmar",
+  "result.prev": "‹ Anterior",
+  "result.next": "Siguiente ›",
+  "result.rowsRange": "Filas {from}–{to}",
+  "result.pagingPaused": " · paginación en pausa durante la edición",
+  "result.rowDetail": "Ver detalle de fila",
+  "result.copyCell": "Copiar celda",
+  "result.copyRow": "Copiar fila",
+  "result.copyRowJson": "Copiar fila como JSON",
+  "result.exportFmt": "Exportar {fmt}",
+
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} fila(s) afectada(s).",
   "grid.sort": "Ordenar (asc / desc / ninguno)",

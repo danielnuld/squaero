@@ -90,6 +90,37 @@ export const en: Record<string, string> = {
   "empty.shortcuts": "Shortcuts",
   "empty.hint": "Open a table from the tree or write SQL and press {keys}.",
 
+  // object-action toolbar (ObjectToolbar.tsx)
+  "objbar.aria": "Object actions",
+  "objbar.readOnlyNoPk": "Read-only: the table has no primary key.",
+  "objbar.import": "Import",
+  "objbar.generate": "Generate data",
+  "objbar.syncTitle": "Sync structure or data with another database",
+  "objbar.sync": "Sync",
+  "objbar.syncSchema": "Structure (schema)…",
+  "objbar.syncData": "Data…",
+  "objbar.transfer": "Transfer",
+  "objbar.addRow": "Row",
+  "objbar.confirm": "Confirm ({n})",
+  "objbar.discard": "Discard",
+  "objbar.chart": "Chart",
+  "objbar.exportTitle": "Export the result",
+  "objbar.export": "Export",
+
+  // result pane: edit preview, pagination bar, cell context menu (App.tsx)
+  "result.confirmChanges": "Confirm changes",
+  "result.willRun": "{n} statement(s) will run in the open transaction.",
+  "result.applyConfirm": "Apply and confirm",
+  "result.prev": "‹ Previous",
+  "result.next": "Next ›",
+  "result.rowsRange": "Rows {from}–{to}",
+  "result.pagingPaused": " · pagination paused while editing",
+  "result.rowDetail": "View row detail",
+  "result.copyCell": "Copy cell",
+  "result.copyRow": "Copy row",
+  "result.copyRowJson": "Copy row as JSON",
+  "result.exportFmt": "Export {fmt}",
+
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} row(s) affected.",
   "grid.sort": "Sort (asc / desc / none)",
