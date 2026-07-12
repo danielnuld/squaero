@@ -90,6 +90,33 @@ export const en: Record<string, string> = {
   "empty.shortcuts": "Shortcuts",
   "empty.hint": "Open a table from the tree or write SQL and press {keys}.",
 
+  // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
+  "tree.tools": "Tools",
+  "tree.refresh": "Refresh",
+  "tree.refreshTitle": "Refresh (F5)",
+  "tree.filterPlaceholder": "Filter objects…",
+  "tree.filterAria": "Filter objects",
+  "tree.clearFilter": "Clear filter",
+  "tree.loading": "Loading…",
+  "tree.noObjects": "No objects.",
+  "tree.connectHint": "Connect to explore the schema.",
+  "tree.viewDef": "View definition…",
+  "tree.copyName": "Copy name",
+  "tree.openData": "Open data",
+  "tree.viewStructure": "View structure",
+  "tree.editDef": "Edit definition…",
+  "tree.alterTable": "Alter table…",
+  "tree.indexes": "Indexes and constraints…",
+  "tree.importData": "Import data…",
+  "tree.newTable": "New table…",
+  // folder labels (data keys, translated at the tree consumer)
+  "tree.tables": "Tables",
+  "tree.views": "Views",
+  "tree.procedures": "Procedures",
+  "tree.functions": "Functions",
+  "tree.triggers": "Triggers",
+  "tree.events": "Events",
+
   // object-action toolbar (ObjectToolbar.tsx)
   "objbar.aria": "Object actions",
   "objbar.readOnlyNoPk": "Read-only: the table has no primary key.",

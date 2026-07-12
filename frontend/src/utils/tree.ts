@@ -63,6 +63,8 @@ export function groupObjectsByType(
 ): { groups: TreeNode[]; members: Record<string, TreeNode[]> } {
   const groups: TreeNode[] = [];
   const members: Record<string, TreeNode[]> = {};
+  // `label` holds an i18n message key (e.g. "tree.tables"); the tree component
+  // resolves it with t() at render, so this pure module stays locale-agnostic.
   const add = (tag: string, label: string, gkind: "table" | "view") => {
     const list = nodes.filter((n) => n.kind === gkind);
     if (list.length === 0) return;
@@ -70,8 +72,8 @@ export function groupObjectsByType(
     groups.push({ key, label, kind: "group", db, schema, groupKind: gkind, count: list.length });
     members[key] = list;
   };
-  add("tbl", "Tablas", "table");
-  add("vw", "Vistas", "view");
+  add("tbl", "tree.tables", "table");
+  add("vw", "tree.views", "view");
   return { groups, members };
 }
 
@@ -190,11 +192,17 @@ export function flattenTree(
  * restores the user's real expansion state untouched. Only already-loaded
  * children (`childrenByKey`) are considered, so lazy folders never trigger a
  * fetch. Returns [] for a blank filter (the caller uses flattenTree then). Pure.
+ *
+ * `labelOf` yields the text to match against — the tree passes a resolver that
+ * translates group-folder label keys (e.g. "tree.tables") to their displayed
+ * name, so filtering by the visible folder name still works. Defaults to the raw
+ * label for object nodes, which already carry their real name.
  */
 export function flattenFiltered(
   roots: TreeNode[],
   childrenByKey: Record<string, TreeNode[]>,
   filter: string,
+  labelOf: (node: TreeNode) => string = (node) => node.label,
 ): FlatNode[] {
   const needle = filter.trim().toLowerCase();
   if (!needle) return [];
@@ -202,7 +210,7 @@ export function flattenFiltered(
     const out: FlatNode[] = [];
     for (const node of nodes) {
       const childFlat = walk(childrenByKey[node.key] ?? [], depth + 1);
-      const selfMatch = node.label.toLowerCase().includes(needle);
+      const selfMatch = labelOf(node).toLowerCase().includes(needle);
       if (!selfMatch && childFlat.length === 0) continue;
       out.push({
         ...node,

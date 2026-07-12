@@ -93,6 +93,33 @@ export const es: Record<string, string> = {
   "empty.shortcuts": "Atajos",
   "empty.hint": "Abre una tabla del árbol o escribe SQL y pulsa {keys}.",
 
+  // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
+  "tree.tools": "Herramientas",
+  "tree.refresh": "Refrescar",
+  "tree.refreshTitle": "Refrescar (F5)",
+  "tree.filterPlaceholder": "Filtrar objetos…",
+  "tree.filterAria": "Filtrar objetos",
+  "tree.clearFilter": "Limpiar filtro",
+  "tree.loading": "Cargando…",
+  "tree.noObjects": "Sin objetos.",
+  "tree.connectHint": "Conecta para explorar el esquema.",
+  "tree.viewDef": "Ver definición…",
+  "tree.copyName": "Copiar nombre",
+  "tree.openData": "Abrir datos",
+  "tree.viewStructure": "Ver estructura",
+  "tree.editDef": "Editar definición…",
+  "tree.alterTable": "Modificar tabla…",
+  "tree.indexes": "Índices y constraints…",
+  "tree.importData": "Importar datos…",
+  "tree.newTable": "Nueva tabla…",
+  // folder labels (data keys, translated at the tree consumer)
+  "tree.tables": "Tablas",
+  "tree.views": "Vistas",
+  "tree.procedures": "Procedimientos",
+  "tree.functions": "Funciones",
+  "tree.triggers": "Triggers",
+  "tree.events": "Eventos",
+
   // object-action toolbar (ObjectToolbar.tsx)
   "objbar.aria": "Acciones del objeto",
   "objbar.readOnlyNoPk": "Solo lectura: la tabla no tiene clave primaria.",

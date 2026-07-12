@@ -5,6 +5,7 @@ import {
   objectLeaves,
   readDefinitionText,
 } from "../../src/utils/treeObjects";
+import { translate } from "../../src/utils/i18n";
 
 describe("objectFolders", () => {
   it("gives MySQL Procedimientos/Funciones/Triggers/Eventos", () => {
@@ -37,7 +38,8 @@ describe("objectFolders", () => {
 
 describe("folderSpec", () => {
   it("finds a specific folder by group kind", () => {
-    expect(folderSpec("mysql", "shop", "function")!.label).toBe("Funciones");
+    // .label is an i18n key; resolve through the es catalog to assert the text.
+    expect(translate("es", folderSpec("mysql", "shop", "function")!.label)).toBe("Funciones");
     expect(folderSpec("sqlite", undefined, "procedure")).toBeNull();
   });
 });

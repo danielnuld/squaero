@@ -16,6 +16,7 @@ export type ObjectGroupKind = "procedure" | "function" | "trigger" | "event";
 /** A lazy object-type folder: its label and how to list + read its members. */
 export interface FolderSpec {
   groupKind: ObjectGroupKind;
+  /** i18n message key (e.g. "tree.procedures"); resolved with t() at the tree. */
   label: string;
   listSql: string;
   nameCol: string;
@@ -62,7 +63,7 @@ export function objectFolders(engine: string, db?: string): FolderSpec[] {
   if (r.supported && r.listSql && r.nameCol) {
     out.push({
       groupKind: "procedure",
-      label: "Procedimientos",
+      label: "tree.procedures",
       listSql: r.listSql,
       nameCol: r.nameCol,
       typeCol: r.typeCol,
@@ -73,7 +74,7 @@ export function objectFolders(engine: string, db?: string): FolderSpec[] {
     });
     out.push({
       groupKind: "function",
-      label: "Funciones",
+      label: "tree.functions",
       listSql: r.listSql,
       nameCol: r.nameCol,
       typeCol: r.typeCol,
@@ -87,7 +88,7 @@ export function objectFolders(engine: string, db?: string): FolderSpec[] {
   if (t.supported && t.listSql && t.nameCol) {
     out.push({
       groupKind: "trigger",
-      label: "Triggers",
+      label: "tree.triggers",
       listSql: t.listSql,
       nameCol: t.nameCol,
       typeCol: null,
@@ -101,7 +102,7 @@ export function objectFolders(engine: string, db?: string): FolderSpec[] {
   if (e.supported && e.listSql && e.nameCol) {
     out.push({
       groupKind: "event",
-      label: "Eventos",
+      label: "tree.events",
       listSql: e.listSql,
       nameCol: e.nameCol,
       typeCol: null,

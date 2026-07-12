@@ -11,6 +11,7 @@ import {
   objectLeafNodes,
   type TreeNode,
 } from "../../src/utils/tree";
+import { translate } from "../../src/utils/i18n";
 
 describe("groupObjectsByType", () => {
   const objs: TreeNode[] = [
@@ -21,7 +22,8 @@ describe("groupObjectsByType", () => {
 
   it("splits tables and views into folders with counts + members", () => {
     const { groups, members } = groupObjectsByType("db:m", "m", undefined, objs);
-    expect(groups.map((g) => [g.label, g.kind, g.count])).toEqual([
+    // g.label holds an i18n key; resolve it through the es catalog to assert text.
+    expect(groups.map((g) => [translate("es", g.label), g.kind, g.count])).toEqual([
       ["Tablas", "group", 2],
       ["Vistas", "group", 1],
     ]);
@@ -33,7 +35,7 @@ describe("groupObjectsByType", () => {
   it("omits a folder for a type with no members", () => {
     const onlyTables = objs.filter((n) => n.kind === "table");
     const { groups, members } = groupObjectsByType("db:m", "m", undefined, onlyTables);
-    expect(groups.map((g) => g.label)).toEqual(["Tablas"]);
+    expect(groups.map((g) => translate("es", g.label))).toEqual(["Tablas"]);
     expect(members["db:m/grp:vw"]).toBeUndefined();
   });
 
@@ -45,7 +47,7 @@ describe("groupObjectsByType", () => {
 describe("lazyObjectFolders", () => {
   it("builds lazy folder nodes for MySQL under a database", () => {
     const folders = lazyObjectFolders("db:shop", "shop", undefined, "mysql");
-    expect(folders.map((f) => f.label)).toEqual([
+    expect(folders.map((f) => translate("es", f.label))).toEqual([
       "Procedimientos",
       "Funciones",
       "Triggers",
