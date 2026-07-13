@@ -356,6 +356,17 @@ export const es: Record<string, string> = {
   "rd.closeTitle": "Cerrar detalle (Esc)",
   "rd.deletedBanner": "Esta fila está marcada para eliminación.",
   "rd.editedTag": "editado",
+  "rd.fkTitle": "Llave foránea: los valores permitidos vienen de esta tabla",
+
+  // foreign-key value picker (FkPicker.tsx + FkBrowser.tsx)
+  "fk.open": "Ver los registros de {table}",
+  "fk.title": "Registros de {table}",
+  "fk.subtitle": "Elige una fila: se guardará su {column} en la celda.",
+  "fk.filterPlaceholder": "Buscar en cualquier columna…",
+  "fk.pick": "Elegir",
+  "fk.count": "{n} registro(s)",
+  "fk.noMatch": "Ningún registro coincide.",
+  "fk.truncated": "solo se cargaron los primeros; filtra para acotar",
 
   // information pane (InfoPane.tsx + infoPane.ts derived model)
   "info.title": "Información",

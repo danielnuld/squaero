@@ -353,6 +353,17 @@ export const en: Record<string, string> = {
   "rd.closeTitle": "Close detail (Esc)",
   "rd.deletedBanner": "This row is marked for deletion.",
   "rd.editedTag": "edited",
+  "rd.fkTitle": "Foreign key: the allowed values come from this table",
+
+  // foreign-key value picker (FkPicker.tsx + FkBrowser.tsx)
+  "fk.open": "Show the rows of {table}",
+  "fk.title": "Rows of {table}",
+  "fk.subtitle": "Pick a row: its {column} is what gets stored in the cell.",
+  "fk.filterPlaceholder": "Search in any column…",
+  "fk.pick": "Pick",
+  "fk.count": "{n} row(s)",
+  "fk.noMatch": "No row matches.",
+  "fk.truncated": "only the first rows were loaded; filter to narrow",
 
   // information pane (InfoPane.tsx + infoPane.ts derived model)
   "info.title": "Information",

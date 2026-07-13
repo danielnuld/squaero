@@ -2,6 +2,8 @@ import { For, Show, createMemo } from "solid-js";
 import { NULL_LABEL } from "../utils/format";
 import { buildRowFields, canStep } from "../utils/rowDetail";
 import type { ResultColumn } from "../utils/query";
+import { fkHint, type FkLookup } from "../utils/fkLookup";
+import { FkPicker } from "./FkPicker";
 import { t } from "../utils/i18n";
 
 // Row form/detail view (issue #133): shows a single row as a field-by-field form,
@@ -34,12 +36,16 @@ export function RowDetail(props: {
   onPrev: () => void;
   onNext: () => void;
   onClose: () => void;
+  /** Foreign-key pickers by column name (see utils/fkLookup): a FK field then
+      edits as a single-line input suggesting the referenced table's rows. */
+  fk?: Record<string, FkLookup>;
 }) {
   const fields = createMemo(() =>
     buildRowFields(props.columns, props.row, props.editing ? props.edits : undefined),
   );
   const canPrev = () => canStep(props.rowIndex, -1, props.total);
   const canNext = () => canStep(props.rowIndex, 1, props.total);
+  const fkFor = (col: string): FkLookup | undefined => props.fk?.[col];
 
   return (
     <div class="row-detail-dock" role="region" aria-label={t("rd.title")}>
@@ -72,6 +78,9 @@ export function RowDetail(props: {
               <label class="rd-label" title={f.type}>
                 <span class="rd-name">{f.name}</span>
                 <span class="rd-type">{f.type}</span>
+                <Show when={fkFor(f.name)}>
+                  {(ref) => <span class="rd-fk-ref" title={t("rd.fkTitle")}>{fkHint(ref())}</span>}
+                </Show>
                 <Show when={f.edited}>
                   <span class="rd-edited-tag">{t("rd.editedTag")}</span>
                 </Show>
@@ -84,12 +93,26 @@ export function RowDetail(props: {
                   </div>
                 }
               >
-                <textarea
-                  class="rd-input"
-                  rows={f.value && f.value.length > 60 ? 4 : 1}
-                  value={f.value ?? ""}
-                  onInput={(e) => props.onEditCell(f.name, e.currentTarget.value)}
-                />
+                <Show
+                  when={fkFor(f.name)}
+                  fallback={
+                    <textarea
+                      class="rd-input"
+                      rows={f.value && f.value.length > 60 ? 4 : 1}
+                      value={f.value ?? ""}
+                      onInput={(e) => props.onEditCell(f.name, e.currentTarget.value)}
+                    />
+                  }
+                >
+                  {(lookup) => (
+                    <FkPicker
+                      lookup={lookup()}
+                      class="rd-input rd-fk-input"
+                      value={f.value ?? ""}
+                      onChange={(v) => props.onEditCell(f.name, v)}
+                    />
+                  )}
+                </Show>
               </Show>
             </div>
           )}

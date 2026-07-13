@@ -24,6 +24,7 @@ import { sql } from "@codemirror/lang-sql";
 import { closeBrackets, autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { search, searchKeymap, openSearchPanel, highlightSelectionMatches } from "@codemirror/search";
 import { formatSql } from "../utils/sqlFormat";
+import { editorDialect } from "../utils/sqlDialect";
 import { pickRunTarget, type RunScope } from "../utils/runScope";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
@@ -66,9 +67,13 @@ export function SqlEditor(props: {
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
-  // Reconfigured when the completion schema changes, so autocomplete tracks the
-  // active connection without rebuilding the editor.
+  // Reconfigured when the completion schema OR the engine changes, so autocomplete
+  // tracks the active connection without rebuilding the editor.
   const sqlConf = new Compartment();
+  // The engine's dialect drives the identifier quote the completer applies: MySQL
+  // must get backticks, since a `"`-quoted name is a string literal there.
+  const sqlExt = () =>
+    sql({ dialect: editorDialect(props.dialect), schema: props.schema ?? {} });
   // Which tab's text is loaded in the view; guards the change listener while we
   // programmatically swap documents on tab switch. Set on mount to match the
   // doc actually loaded into the view.
@@ -120,7 +125,7 @@ export function SqlEditor(props: {
           search({ top: true }),
           highlightSelectionMatches(),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-          sqlConf.of(sql({ schema: props.schema ?? {} })),
+          sqlConf.of(sqlExt()),
           keymap.of([
             {
               key: "Mod-Enter",
@@ -183,12 +188,13 @@ export function SqlEditor(props: {
     swapping = false;
   });
 
-  // Reconfigure autocomplete when the schema map changes (connection switch or
-  // refresh). Guarded until the view exists.
+  // Reconfigure autocomplete when the schema map or the engine changes (both
+  // happen on a connection switch or refresh). Guarded until the view exists.
   createEffect(() => {
     const schema = props.schema ?? {};
+    const dialect = editorDialect(props.dialect);
     if (view) {
-      view.dispatch({ effects: sqlConf.reconfigure(sql({ schema })) });
+      view.dispatch({ effects: sqlConf.reconfigure(sql({ dialect, schema })) });
     }
   });
 

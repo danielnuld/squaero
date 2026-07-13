@@ -207,6 +207,68 @@ describe("ResultGrid edit mode", () => {
     expect(inputs[3].value).toBe(""); // row 1 activo=NULL -> empty, not "0"
   });
 
+  it("shows the referenced table's rows from a foreign-key cell, and picks one", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [pending, setPending] = createSignal(emptyPending());
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={result}
+            loading={false}
+            error={null}
+            fk={{
+              id: {
+                toTable: "clientes",
+                toColumn: "num",
+                columns: [
+                  { name: "num", type: "int" },
+                  { name: "nombre", type: "text" },
+                ],
+                rows: [
+                  ["1", "Ferretería López"],
+                  ["2", "Aceros SA"],
+                ],
+              },
+            }}
+            edit={{
+              active: true,
+              pending: pending(),
+              onEditCell: (r, c, v) => setPending((p) => setCell(p, r, c, v)),
+              onToggleDelete: () => {},
+              onInsertCell: () => {},
+              onRemoveInsert: () => {},
+            }}
+          />
+        ),
+        host!,
+      );
+    });
+    // The FK column has a visible toggle; the plain column does not.
+    const toggles = host.querySelectorAll<HTMLButtonElement>(".grid-rows .fk-toggle");
+    expect(toggles.length).toBe(2); // one per row, only on the FK column
+    // Nothing is shown until it is opened — then the referenced table's rows are.
+    // The dialog is portalled OUT of the grid (a transformed ancestor would break
+    // a positioned popup), so it is looked up in the document, not in `host`.
+    expect(document.querySelector(".fk-browser")).toBeNull();
+    toggles[0].click();
+    const dialog = document.querySelector(".fk-browser")!;
+    expect(dialog).not.toBeNull();
+    const cells = [...dialog.querySelectorAll("tbody tr")].map((tr) =>
+      [...tr.querySelectorAll("td")].slice(1).map((td) => td.textContent),
+    );
+    expect(cells).toEqual([
+      ["1", "Ferretería López"],
+      ["2", "Aceros SA"],
+    ]);
+    // Picking a row writes its key into the pending edit for that row/column.
+    dialog.querySelectorAll<HTMLButtonElement>(".fk-pick")[1].click();
+    expect(pending().edits).toEqual({ 0: { id: "2" } });
+    expect(document.querySelector(".fk-browser")).toBeNull(); // and it closes
+  });
+
   it("is read-only (no inputs) when edit is inactive", () => {
     host = document.createElement("div");
     document.body.appendChild(host);

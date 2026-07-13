@@ -3,6 +3,7 @@ import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { RowDetail } from "../../src/components/RowDetail";
 import type { ResultColumn } from "../../src/utils/query";
+import type { FkLookup } from "../../src/utils/fkLookup";
 
 // Drives the real RowDetail in jsdom: read-only display, edit-mode textareas that
 // write back through onEditCell, navigation bounds, and the delete toggle.
@@ -33,6 +34,7 @@ interface Opts {
   editable?: boolean;
   deleted?: boolean;
   edits?: Record<string, string | null>;
+  fk?: Record<string, FkLookup>;
   onEditCell?: (c: string, v: string) => void;
   onToggleDelete?: () => void;
   onBeginEdit?: () => void;
@@ -57,6 +59,7 @@ function mount(opts: Opts = {}) {
           editable={opts.editable ?? true}
           deleted={opts.deleted ?? false}
           edits={opts.edits}
+          fk={opts.fk}
           onEditCell={opts.onEditCell ?? (() => {})}
           onToggleDelete={opts.onToggleDelete ?? (() => {})}
           onBeginEdit={opts.onBeginEdit ?? (() => {})}
@@ -95,6 +98,37 @@ describe("RowDetail", () => {
     inputs[1].value = "ALICE";
     inputs[1].dispatchEvent(new Event("input", { bubbles: true }));
     expect(captured).toEqual(["name", "ALICE"]);
+  });
+
+  it("edits a foreign-key field by picking a row of the referenced table", () => {
+    let captured: [string, string] | null = null;
+    const el = mount({
+      editing: true,
+      onEditCell: (c, v) => (captured = [c, v]),
+      fk: {
+        id: {
+          toTable: "clientes",
+          toColumn: "num",
+          columns: [
+            { name: "num", type: "int" },
+            { name: "nombre", type: "text" },
+          ],
+          rows: [
+            ["1", "Ferretería López"],
+            ["7", "Aceros SA"],
+          ],
+        },
+      },
+    });
+    // The FK field says where it points and offers a picker; the others stay textareas.
+    expect(el.querySelector(".rd-fk-ref")?.textContent).toBe("→ clientes.num");
+    expect(el.querySelectorAll("textarea.rd-input").length).toBe(2);
+    // Opening it lists the referenced rows even though the field already holds "1".
+    el.querySelector<HTMLButtonElement>(".fk-toggle")!.click();
+    const picks = document.querySelectorAll<HTMLButtonElement>(".fk-browser .fk-pick");
+    expect(picks.length).toBe(2);
+    picks[1].click();
+    expect(captured).toEqual(["id", "7"]);
   });
 
   it("flags an edited field and shows its pending value", () => {

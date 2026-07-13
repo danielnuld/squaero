@@ -67,12 +67,21 @@ const unsupported = (reason: string): ForeignKeyQuery => ({
 /**
  * The FK-query plan for an engine. `db` scopes the catalog to the working
  * database/schema; engines already scoped to one database (SQLite) ignore it.
+ *
+ * `table` narrows the answer to ONE table's foreign keys. Pass it whenever only
+ * that table matters (the value picker of an edit session): a whole-database FK
+ * listing is not just wasteful, it is unsafe to rely on — query.run caps the rows
+ * it returns (IPC_QUERY_DEFAULT_LIMIT), and a schema with a few thousand foreign
+ * keys silently loses the tail, so the table you were editing may simply not be
+ * in the answer. The ER diagram, which genuinely wants them all, omits it.
  */
-export function foreignKeysFor(engine: string, db?: string): ForeignKeyQuery {
+export function foreignKeysFor(engine: string, db?: string, table?: string): ForeignKeyQuery {
   const scope = (db ?? "").trim();
+  const only = (table ?? "").trim();
   switch (family(engine)) {
     case "mysql": {
       const dbScope = scope ? `'${litMy(scope)}'` : "DATABASE()";
+      const tableScope = only ? ` AND TABLE_NAME = '${litMy(only)}'` : "";
       return {
         supported: true,
         perTable: false,
@@ -80,7 +89,7 @@ export function foreignKeysFor(engine: string, db?: string): ForeignKeyQuery {
           "SELECT TABLE_NAME AS from_table, COLUMN_NAME AS from_column, " +
           "REFERENCED_TABLE_NAME AS to_table, REFERENCED_COLUMN_NAME AS to_column " +
           "FROM information_schema.KEY_COLUMN_USAGE " +
-          `WHERE TABLE_SCHEMA = ${dbScope} AND REFERENCED_TABLE_NAME IS NOT NULL ` +
+          `WHERE TABLE_SCHEMA = ${dbScope} AND REFERENCED_TABLE_NAME IS NOT NULL${tableScope} ` +
           "ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION",
         reason: null,
       };
@@ -91,6 +100,7 @@ export function foreignKeysFor(engine: string, db?: string): ForeignKeyQuery {
       const nsScope = scope
         ? `n.nspname = '${lit(scope)}'`
         : "n.nspname NOT IN ('pg_catalog', 'information_schema')";
+      const tableScope = only ? ` AND cl.relname = '${lit(only)}'` : "";
       return {
         supported: true,
         perTable: false,
@@ -104,7 +114,7 @@ export function foreignKeysFor(engine: string, db?: string): ForeignKeyQuery {
           "JOIN generate_subscripts(con.conkey, 1) AS k(i) ON true " +
           "JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = con.conkey[k.i] " +
           "JOIN pg_attribute af ON af.attrelid = con.confrelid AND af.attnum = con.confkey[k.i] " +
-          `WHERE con.contype = 'f' AND ${nsScope} ` +
+          `WHERE con.contype = 'f' AND ${nsScope}${tableScope} ` +
           "ORDER BY cl.relname, con.conname, k.i",
         reason: null,
       };
@@ -127,6 +137,7 @@ export function foreignKeysFor(engine: string, db?: string): ForeignKeyQuery {
           "JOIN sysindexes pi ON pi.idxname = pk.idxname AND pi.tabid = pk.tabid " +
           "JOIN syscolumns pc ON pc.tabid = pk.tabid AND pc.colno = pi.part1 " +
           "WHERE c.constrtype = 'R' AND t.tabid > 99 " +
+          (only ? `AND t.tabname = '${lit(only)}' ` : "") +
           "ORDER BY t.tabname",
         reason: null,
       };

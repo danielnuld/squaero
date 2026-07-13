@@ -12,6 +12,8 @@ import {
 import { computeColumnWidths, resizeColumn, MIN_COL_WIDTH } from "../utils/gridColumns";
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
+import type { FkLookup } from "../utils/fkLookup";
+import { FkPicker } from "./FkPicker";
 import { t } from "../utils/i18n";
 
 const DEFAULT_ROW_HEIGHT = 28;
@@ -60,8 +62,13 @@ export function ResultGrid(props: {
   /** Cancel the running query (op.cancel). When present, a Cancelar button shows
       alongside the "Ejecutando…" state; absent → no cancel affordance. */
   onCancel?: () => void;
+  /** Foreign-key pickers, by column name: an editable FK cell then suggests the
+      referenced table's rows instead of demanding a remembered id. Absent → the
+      cells are plain free-text inputs, exactly as before. */
+  fk?: Record<string, FkLookup>;
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
+  const fkFor = (col: string): FkLookup | undefined => props.fk?.[col];
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
   let scrollerEl: HTMLDivElement | undefined;
@@ -262,6 +269,7 @@ export function ResultGrid(props: {
         </div>
       </Show>
 
+
       <Show when={!props.error && props.result}>
         {(result) => (
           <Show
@@ -408,28 +416,49 @@ export function ResultGrid(props: {
                                       );
                                     })()}
                                   >
-                                    <input
-                                      class="grid-cell cell-input"
-                                      disabled={isDeleted(rowIndex())}
-                                      data-cell={`${viewPos()}-${ci()}`}
-                                      value={(() => {
-                                        const v = cellValue(rowIndex(), col.name, original());
-                                        // A SQL NULL edits as empty, never "0" (a bool
-                                        // NULL must stay distinct from a stored false).
-                                        if (v === null || v === undefined) return "";
-                                        return classifyType(col.type) === "bool" ? boolTo01(v) : v;
-                                      })()}
-                                      onInput={(e) =>
-                                        props.edit?.onEditCell(
-                                          rowIndex(),
-                                          col.name,
-                                          e.currentTarget.value,
-                                        )
+                                    <Show
+                                      when={fkFor(col.name)}
+                                      fallback={
+                                        <input
+                                          class="grid-cell cell-input"
+                                          disabled={isDeleted(rowIndex())}
+                                          data-cell={`${viewPos()}-${ci()}`}
+                                          value={(() => {
+                                            const v = cellValue(rowIndex(), col.name, original());
+                                            // A SQL NULL edits as empty, never "0" (a bool
+                                            // NULL must stay distinct from a stored false).
+                                            if (v === null || v === undefined) return "";
+                                            return classifyType(col.type) === "bool"
+                                              ? boolTo01(v)
+                                              : v;
+                                          })()}
+                                          onInput={(e) =>
+                                            props.edit?.onEditCell(
+                                              rowIndex(),
+                                              col.name,
+                                              e.currentTarget.value,
+                                            )
+                                          }
+                                          onContextMenu={(e) =>
+                                            props.onCellContext?.(e, rowIndex(), ci())
+                                          }
+                                        />
                                       }
-                                      onContextMenu={(e) =>
-                                        props.onCellContext?.(e, rowIndex(), ci())
-                                      }
-                                    />
+                                    >
+                                      {(lookup) => (
+                                        <FkPicker
+                                          lookup={lookup()}
+                                          rootClass="grid-cell cell-fk"
+                                          class="cell-input"
+                                          dataCell={`${viewPos()}-${ci()}`}
+                                          disabled={isDeleted(rowIndex())}
+                                          value={cellValue(rowIndex(), col.name, original()) ?? ""}
+                                          onChange={(v) =>
+                                            props.edit?.onEditCell(rowIndex(), col.name, v)
+                                          }
+                                        />
+                                      )}
+                                    </Show>
                                   </Show>
                                 );
                               }}
@@ -461,14 +490,29 @@ export function ResultGrid(props: {
                       </button>
                       <For each={cols()}>
                         {(col) => (
-                          <input
-                            class="grid-cell cell-input"
-                            placeholder={col.name}
-                            value={ins[col.name] ?? ""}
-                            onInput={(e) =>
-                              props.edit?.onInsertCell(ii(), col.name, e.currentTarget.value)
+                          <Show
+                            when={fkFor(col.name)}
+                            fallback={
+                              <input
+                                class="grid-cell cell-input"
+                                placeholder={col.name}
+                                value={ins[col.name] ?? ""}
+                                onInput={(e) =>
+                                  props.edit?.onInsertCell(ii(), col.name, e.currentTarget.value)
+                                }
+                              />
                             }
-                          />
+                          >
+                            {(lookup) => (
+                              <FkPicker
+                                lookup={lookup()}
+                                rootClass="grid-cell cell-fk"
+                                class="cell-input"
+                                value={ins[col.name] ?? ""}
+                                onChange={(v) => props.edit?.onInsertCell(ii(), col.name, v)}
+                              />
+                            )}
+                          </Show>
                         )}
                       </For>
                     </div>

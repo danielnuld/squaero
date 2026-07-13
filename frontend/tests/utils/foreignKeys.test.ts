@@ -5,6 +5,35 @@ import {
   parseForeignKeys,
 } from "../../src/utils/foreignKeys";
 
+// Scoping the catalog to ONE table is not an optimization: query.run caps the
+// rows it returns, so in a schema with thousands of foreign keys an unscoped
+// listing loses its tail and the edited table can vanish from the answer (the
+// LG_Documento bug — no picker, because its keys were past the cap).
+describe("foreignKeysFor — scoped to one table", () => {
+  it("MySQL filters by table name, escaping the literal", () => {
+    expect(foreignKeysFor("mysql", "shop", "LG_Documento").bulkSql).toContain(
+      "AND TABLE_NAME = 'LG_Documento'",
+    );
+    expect(foreignKeysFor("mysql", "shop", "o'b\\r").bulkSql).toContain(
+      "AND TABLE_NAME = 'o''b\\\\r'",
+    );
+  });
+  it("PostgreSQL filters by relation name", () => {
+    expect(foreignKeysFor("postgres", "public", "pedidos").bulkSql).toContain(
+      "AND cl.relname = 'pedidos'",
+    );
+  });
+  it("Informix filters by tabname", () => {
+    expect(foreignKeysFor("informix", undefined, "pedidos").bulkSql).toContain(
+      "AND t.tabname = 'pedidos'",
+    );
+  });
+  it("omitting the table still lists the whole database (the ER diagram)", () => {
+    expect(foreignKeysFor("mysql", "shop").bulkSql).not.toContain("AND TABLE_NAME =");
+    expect(foreignKeysFor("postgres", "public").bulkSql).not.toContain("AND cl.relname =");
+  });
+});
+
 describe("foreignKeysFor", () => {
   it("MySQL: bulk query scoped to the database, ordered for composite keys", () => {
     const q = foreignKeysFor("mysql", "shop");

@@ -104,6 +104,20 @@ import {
   fileNameFor,
   type ExportFormat,
 } from "./utils/exporters";
+import { queryEditTarget } from "./utils/queryTarget";
+import {
+  foreignKeysFor,
+  parseForeignKeys,
+  sqliteForeignKeySql,
+} from "./utils/foreignKeys";
+import {
+  buildLookup,
+  fkColumnsOf,
+  fkLookupSql,
+  FK_CATALOG_LIMIT,
+  FK_LOOKUP_LIMIT,
+  type FkLookup,
+} from "./utils/fkLookup";
 import { buildXlsx, XLSX_MIME } from "./utils/xlsx";
 import { saveText, saveBytes } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
@@ -248,6 +262,9 @@ export function App() {
   );
   const [results, setResults] = createStore<Record<number, TabResult>>({});
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
+  // Foreign-key pickers per tab, column -> referenced table + its candidate rows.
+  // Filled when an edit session starts (loadFkLookups) and cleared with the result.
+  const [fkLookups, setFkLookups] = createStore<Record<number, Record<string, FkLookup>>>({});
   const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
@@ -585,6 +602,11 @@ export function App() {
     const src = currentResult().source;
     return !!src && src.pk.length > 0;
   });
+  // The FK pickers of the active tab (empty until an edit session loads them).
+  const currentFk = createMemo<Record<string, FkLookup>>(() => {
+    const t = current();
+    return (t && fkLookups[t.id]) || {};
+  });
 
   // Resolve the row-detail target reactively: null unless an in-range row of the
   // current result is selected. Closes itself (returns null) when a reload shrinks
@@ -863,6 +885,37 @@ export function App() {
     });
   };
 
+  // A hand-written single-table SELECT is editable too: the tree's "open table"
+  // path is not the only way to look at a table's rows. Derive the table from the
+  // SQL (utils/queryTarget), describe it, and attach the edit source only when its
+  // primary key came back in the result — without the key a row cannot be
+  // addressed unambiguously. Best-effort and out of band: any failure (a view, a
+  // keyless table, a describe error) simply leaves the tab read-only.
+  const attachQuerySource = async (
+    tabId: number,
+    sql: string,
+    conn: ActiveConnection,
+    result: ResultSet,
+  ) => {
+    const target = queryEditTarget(sql, conn.driver);
+    if (!target) return;
+    try {
+      const desc = await schemaDescribe(conn.connId, target.table, target.db, target.schema);
+      // The describe is done anyway — feed its columns to the autocomplete cache.
+      setColumnCache((c) => ({ ...c, [target.table]: describeColumnNames(desc) }));
+      const pk = describePkColumns(desc);
+      if (pk.length === 0) return;
+      // Every key column must be projected under its own name, or whereForRow
+      // would build no WHERE at all (see utils/edit.ts).
+      if (!pk.every((k) => result.columns.some((c) => c.name === k))) return;
+      // The tab may have run something else while we were describing.
+      if (results[tabId]?.pageSql !== sql) return;
+      setResults(tabId, "source", { ...target, pk });
+    } catch {
+      /* describe failed: the tab stays read-only (no source). */
+    }
+  };
+
   const run = async (sql: string, scope: RunScope = "document", offset = 0) => {
     const tab = current();
     if (!tab) return;
@@ -892,6 +945,7 @@ export function App() {
     const keepSource =
       prev?.source && prev.pageSql === trimmed ? prev.source : undefined;
     setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
+    if (!keepSource) setFkLookups(id, {}); // the pickers belong to the old table
     const started = performance.now();
     try {
       const result = await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
@@ -910,6 +964,8 @@ export function App() {
       // Record after the run so the entry carries its duration (issue #179);
       // page turns (offset > 0) are not logged.
       if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
+      // A page turn keeps the source it already had; a fresh query derives it.
+      if (!keepSource) void attachQuerySource(id, trimmed, conn, result);
     } catch (err) {
       const elapsedMs = performance.now() - started;
       setResults(id, {
@@ -947,6 +1003,7 @@ export function App() {
     const sql = objectPreviewQuery(preview.parts, preview.engine, PAGE_LIMIT, offset);
     // Keep the edit source across page turns of the same table so the grid stays editable.
     const keepSource = results[tabId]?.source ?? undefined;
+    if (!keepSource) setFkLookups(tabId, {}); // a fresh table: drop the old pickers
     setResults(tabId, { ...emptyResult(), loading: true, ranScope: "document", source: keepSource, preview });
     setTabs((s) => updateTabSql(s, tabId, sql));
     const started = performance.now();
@@ -1135,6 +1192,49 @@ export function App() {
     if (t) mutatePending(t.id, (p) => addInsert(p));
   };
 
+  // Foreign-key pickers (issue: "¿qué datos puedo usar en esta llave foránea?").
+  // On entering edit mode, read the table's REAL foreign keys from the engine's
+  // catalog (utils/foreignKeys — the same source the ER diagram uses, no name
+  // guessing) and fetch a bounded list of each referenced table's rows. The
+  // pickers then suggest those values in the grid and the row detail. Entirely
+  // best-effort and out of band: an engine without FK metadata, a failing catalog
+  // query or a missing referenced table just means no picker, never a broken edit.
+  const loadFkLookups = async (tabId: number, conn: ActiveConnection) => {
+    const src = results[tabId]?.source;
+    // Already loaded for the result currently in the tab (it is cleared whenever
+    // the tab runs something else), so re-entering edit mode costs no queries.
+    if (!src || Object.keys(fkLookups[tabId] ?? {}).length > 0) return;
+    const engine = conn.driver;
+    // Scope the catalog to THIS table: a whole-database FK listing is capped by
+    // query.run's row limit, so in a schema with thousands of keys the table we
+    // are editing can fall past the cut and silently get no picker.
+    const plan = foreignKeysFor(engine, src.db, src.table);
+    if (!plan.supported) return;
+    try {
+      const sql = plan.perTable ? sqliteForeignKeySql(src.table) : plan.bulkSql;
+      if (!sql) return;
+      const res = await runQuery(conn.connId, sql, FK_CATALOG_LIMIT);
+      const fks = parseForeignKeys(engine, res.columns, res.rows, src.table);
+      const refs = fkColumnsOf(fks, src.table);
+      for (const [column, ref] of Object.entries(refs)) {
+        try {
+          const rows = await runQuery(
+            conn.connId,
+            fkLookupSql(ref, engine, { db: src.db, schema: src.schema }),
+            FK_LOOKUP_LIMIT, // explicit: never lean on the core's default cap
+          );
+          const lookup = buildLookup(ref, rows);
+          if (!lookup) continue; // empty table, or the key column isn't in it
+          setFkLookups(tabId, (m) => ({ ...(m ?? {}), [column]: lookup }));
+        } catch {
+          /* that referenced table can't be listed: no picker for this column. */
+        }
+      }
+    } catch {
+      /* no FK metadata: every column stays a plain free-text input. */
+    }
+  };
+
   const beginEdit = async () => {
     const t = current();
     const conn = tabConn(t);
@@ -1143,6 +1243,8 @@ export function App() {
     try {
       await txBegin(conn.connId);
       patchEdit(t.id, { editing: true, pending: emptyPending(), busy: false });
+      // Fill the pickers while the user starts typing; they appear as they land.
+      void loadFkLookups(t.id, conn);
     } catch (err) {
       patchEdit(t.id, { busy: false, error: errMsg(err) });
     }
@@ -1715,6 +1817,7 @@ export function App() {
                         onRequestEdit={
                           currentEditable() && !currentEdit().editing ? beginEdit : undefined
                         }
+                        fk={currentFk()}
                         edit={
                           currentEditable()
                             ? {
@@ -1740,6 +1843,7 @@ export function App() {
                           editable={currentEditable()}
                           deleted={currentEdit().pending.deletes.includes(d().idx)}
                           edits={currentEdit().pending.edits[d().idx]}
+                          fk={currentFk()}
                           onEditCell={(col, val) => onEditCell(d().idx, col, val)}
                           onToggleDelete={() => onToggleDelete(d().idx)}
                           onBeginEdit={beginEdit}
