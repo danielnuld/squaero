@@ -30,6 +30,7 @@ export const es: Record<string, string> = {
   "conn.includePasswords": "Incluir contraseñas",
   "conn.plaintextWarn": "⚠ El archivo guardará las contraseñas en <strong>texto plano</strong>.",
   "conn.empty": "No hay conexiones guardadas.",
+  "conn.failed": 'No se pudo conectar a "{name}": {detail}',
 
   // top action ribbon
   "toolbar.actions": "Acciones",

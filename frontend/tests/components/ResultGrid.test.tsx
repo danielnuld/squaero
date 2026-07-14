@@ -118,6 +118,35 @@ describe("ResultGrid edit mode", () => {
     expect(pending().inserts).toEqual([{ id: "9" }]);
   });
 
+  it("keeps the same focused input while typing into an inserted row", () => {
+    // Each keystroke replaces the insert's object (setInsertCell is immutable);
+    // a referentially-keyed <For> recreated the row's DOM and blurred the input
+    // after every character. The input must survive the update, still focused.
+    const { pending } = mountEditable(addInsert(emptyPending()));
+    const input = host!.querySelector<HTMLInputElement>(".row-insert .cell-input")!;
+    input.focus();
+    type(input, "9");
+    expect(input.isConnected, "the input must not be recreated by the edit").toBe(true);
+    expect(document.activeElement).toBe(input);
+    type(input, "99"); // a second keystroke keeps accumulating in the same input
+    expect(pending().inserts).toEqual([{ id: "99" }]);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("mirrors horizontal scroll between the grid and the new-rows section", () => {
+    // Wide tables overflow the pane; the inserts section scrolls horizontally
+    // (its columns stay aligned with the grid's) so far cells stay reachable.
+    mountEditable(addInsert(emptyPending()));
+    const scroll = host!.querySelector<HTMLElement>(".grid-scroll")!;
+    const inserts = host!.querySelector<HTMLElement>(".grid-inserts")!;
+    scroll.scrollLeft = 120;
+    scroll.dispatchEvent(new Event("scroll"));
+    expect(inserts.scrollLeft).toBe(120);
+    inserts.scrollLeft = 40;
+    inserts.dispatchEvent(new Event("scroll"));
+    expect(scroll.scrollLeft).toBe(40);
+  });
+
   it("keeps cell edits keyed by original row index after sorting", () => {
     const sortable: ResultSet = {
       columns: [

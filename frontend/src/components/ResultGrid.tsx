@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
+import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
 import { formatCell, cellAlign, boolTo01, classifyType } from "../utils/format";
 import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../utils/gridNav";
@@ -93,6 +93,16 @@ export function ResultGrid(props: {
     ro.observe(el);
   };
   onCleanup(() => ro?.disconnect());
+
+  // The new-rows section lives OUTSIDE the scroller (so it never scrolls out of
+  // view vertically) but shares its column widths, so their horizontal scrolls
+  // are kept in lockstep — each pane's onScroll assigns the other's scrollLeft
+  // (assigning an equal value fires no event, so this cannot loop).
+  let insertsEl: HTMLDivElement | undefined;
+  const attachInserts = (el: HTMLDivElement) => {
+    insertsEl = el;
+    el.scrollLeft = scrollerEl?.scrollLeft ?? 0;
+  };
 
   const cols = () => props.result?.columns ?? [];
   const rows = () => props.result?.rows ?? [];
@@ -285,7 +295,10 @@ export function ResultGrid(props: {
               ref={attachScroller}
               tabindex={0}
               style={{ "--grid-row-h": `${rowHeight()}px` }}
-              onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+              onScroll={(e) => {
+                setScrollTop(e.currentTarget.scrollTop);
+                if (insertsEl) insertsEl.scrollLeft = e.currentTarget.scrollLeft;
+              }}
               onKeyDown={onGridKeyDown}
             >
               <div class="grid-inner">
@@ -473,9 +486,19 @@ export function ResultGrid(props: {
             </div>
 
             <Show when={editing() && (props.edit?.pending.inserts.length ?? 0) > 0}>
-              <div class="grid-inserts">
+              <div
+                class="grid-inserts"
+                ref={attachInserts}
+                onScroll={(e) => {
+                  if (scrollerEl) scrollerEl.scrollLeft = e.currentTarget.scrollLeft;
+                }}
+              >
                 <div class="grid-inserts-title">{t("grid.newRows")}</div>
-                <For each={props.edit?.pending.inserts ?? []}>
+                {/* <Index>, not <For>: each keystroke replaces the row OBJECT
+                    (setInsertCell is immutable), and a referentially-keyed <For>
+                    would recreate the row's DOM — blurring the input after every
+                    character. <Index> keys by position and updates in place. */}
+                <Index each={props.edit?.pending.inserts ?? []}>
                   {(ins, ii) => (
                     <div
                       class="grid-row row-insert"
@@ -484,7 +507,7 @@ export function ResultGrid(props: {
                       <button
                         class="grid-cell grid-action danger"
                         title={t("grid.removeNewRow")}
-                        onClick={() => props.edit?.onRemoveInsert(ii())}
+                        onClick={() => props.edit?.onRemoveInsert(ii)}
                       >
                         ✕
                       </button>
@@ -496,9 +519,9 @@ export function ResultGrid(props: {
                               <input
                                 class="grid-cell cell-input"
                                 placeholder={col.name}
-                                value={ins[col.name] ?? ""}
+                                value={ins()[col.name] ?? ""}
                                 onInput={(e) =>
-                                  props.edit?.onInsertCell(ii(), col.name, e.currentTarget.value)
+                                  props.edit?.onInsertCell(ii, col.name, e.currentTarget.value)
                                 }
                               />
                             }
@@ -508,8 +531,8 @@ export function ResultGrid(props: {
                                 lookup={lookup()}
                                 rootClass="grid-cell cell-fk"
                                 class="cell-input"
-                                value={ins[col.name] ?? ""}
-                                onChange={(v) => props.edit?.onInsertCell(ii(), col.name, v)}
+                                value={ins()[col.name] ?? ""}
+                                onChange={(v) => props.edit?.onInsertCell(ii, col.name, v)}
                               />
                             )}
                           </Show>
@@ -517,7 +540,7 @@ export function ResultGrid(props: {
                       </For>
                     </div>
                   )}
-                </For>
+                </Index>
               </div>
             </Show>
 

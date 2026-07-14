@@ -298,6 +298,10 @@ export function App() {
   const [databases, setDatabases] = createSignal<string[]>([]);
   const [activeDb, setActiveDb] = createSignal<string | null>(null);
   const [connectingId, setConnectingId] = createSignal<string | null>(null);
+  // Connect failure shown as a global toast: a failed conn.open must be visible
+  // wherever the user is — before this, it was written into the current tab's
+  // results, and with no tab open (first connect) it vanished entirely.
+  const [connError, setConnError] = createSignal<string | null>(null);
   const [treeReload, setTreeReload] = createSignal(0);
   // Row form/detail view (issue #133): index of the loaded row shown as a form,
   // or null when closed. Navigation walks the loaded rows in original order.
@@ -785,6 +789,7 @@ export function App() {
       return;
     }
     setConnectingId(c.id);
+    setConnError(null);
     try {
       if (existing) {
         // Reconnect: drop the stale session before opening a fresh one.
@@ -802,14 +807,8 @@ export function App() {
       ]);
       setFocusedDefId(c.id);
     } catch (err) {
-      const tab = current();
       const f = describeError(err);
-      if (tab) {
-        setResults(tab.id, {
-          ...emptyResult(),
-          error: `No se pudo conectar a "${c.name}": ${f.detail ?? f.title}`,
-        });
-      }
+      setConnError(t("conn.failed", { name: c.name, detail: f.detail ?? f.title }));
     } finally {
       setConnectingId(null);
     }
@@ -2175,6 +2174,20 @@ export function App() {
           </Show>
         </section>
       </div>
+
+      <Show when={connError()}>
+        <div class="app-toast app-toast-error" role="alert">
+          <span class="app-toast-text">{connError()}</span>
+          <button
+            class="app-toast-close"
+            title={t("panel.close")}
+            aria-label={t("panel.close")}
+            onClick={() => setConnError(null)}
+          >
+            ×
+          </button>
+        </div>
+      </Show>
 
       <StatusBar
         connection={active()?.name ?? null}

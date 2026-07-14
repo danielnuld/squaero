@@ -2562,6 +2562,16 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .grid-inserts {
   border-top: 2px solid var(--accent, #5b5bd6);
+  /* Wide tables overflow the pane; without a scroll the far columns were
+     clipped and unreachable. Kept in sync with the grid's scrollLeft. */
+  overflow-x: auto;
+}
+
+/* The title must not cap the row width, or rows wider than the pane would
+   collapse the scroll range. */
+.grid-inserts .grid-row {
+  width: max-content;
+  min-width: 100%;
 }
 
 .grid-inserts-title {
@@ -4098,4 +4108,48 @@ button.grid-action.danger:hover:not(:disabled) {
 .nb-result .grid {
   max-height: 340px;
   overflow: auto;
+}
+
+/* --- Global toast (connect failures) ---------------------------------------
+   Floats above the workspace, bottom-right, clear of the status bar. Errors
+   stay until dismissed: a credentials failure must be readable, not fleeting. */
+.app-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 2.4rem;
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 26rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev2);
+  color: var(--text);
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.app-toast-error {
+  border-color: var(--error);
+}
+
+.app-toast-text {
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.app-toast-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.1rem;
+}
+
+.app-toast-close:hover {
+  color: var(--text);
 }
