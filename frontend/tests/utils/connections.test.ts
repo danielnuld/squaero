@@ -21,6 +21,10 @@ import {
   DRIVER_SCHEMAS,
   AVAILABLE_DRIVERS,
   dsnForDatabaseList,
+  connIcon,
+  connectionGroups,
+  groupConnections,
+  setConnectionGroup,
   type Connection,
   type DriverField,
 } from "../../src/utils/connections";
@@ -465,5 +469,73 @@ describe("AVAILABLE_DRIVERS", () => {
 
   it("defaults to sqlite (the first offered driver)", () => {
     expect(AVAILABLE_DRIVERS[0]).toBe("sqlite");
+  });
+});
+
+describe("connection groups and icons", () => {
+  const list: Connection[] = [
+    sqliteConn({ id: "a", name: "scratch" }),
+    sqliteConn({ id: "b", name: "prod", group: "Producción" }),
+    sqliteConn({ id: "c", name: "dev", group: "Desarrollo" }),
+    sqliteConn({ id: "d", name: "prod2", group: "Producción" }),
+  ];
+
+  it("puts the ungrouped bucket first, then groups alphabetically", () => {
+    expect(groupConnections(list).map((g) => g.name)).toEqual([
+      null,
+      "Desarrollo",
+      "Producción",
+    ]);
+  });
+
+  it("keeps each group's connections in list order", () => {
+    const prod = groupConnections(list).find((g) => g.name === "Producción");
+    expect(prod?.conns.map((c) => c.id)).toEqual(["b", "d"]);
+  });
+
+  it("omits the ungrouped bucket when every connection has a group", () => {
+    const grouped = list.filter((c) => c.group);
+    expect(groupConnections(grouped).map((g) => g.name)).toEqual(["Desarrollo", "Producción"]);
+  });
+
+  it("yields a single unnamed group when nothing is grouped", () => {
+    const groups = groupConnections([sqliteConn()]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBeNull();
+  });
+
+  it("treats a blank group as ungrouped", () => {
+    expect(connectionGroups([sqliteConn({ group: "   " })])).toEqual([]);
+    expect(groupConnections([sqliteConn({ group: "   " })])[0].name).toBeNull();
+  });
+
+  it("lists each group name once", () => {
+    expect(connectionGroups(list)).toEqual(["Desarrollo", "Producción"]);
+  });
+
+  it("moves one connection without touching the rest", () => {
+    const moved = setConnectionGroup(list, "c", "Producción");
+    expect(moved.find((c) => c.id === "c")?.group).toBe("Producción");
+    expect(moved.find((c) => c.id === "b")?.group).toBe("Producción");
+    expect(setConnectionGroup(list, "b", "").find((c) => c.id === "b")?.group).toBe("");
+  });
+
+  it("prefers the connection's own icon over the engine's", () => {
+    expect(connIcon(sqliteConn())).toBe(engineIcon("sqlite"));
+    expect(connIcon(sqliteConn({ icon: "🧪" }))).toBe("🧪");
+    expect(connIcon(sqliteConn({ icon: "" }))).toBe(engineIcon("sqlite"));
+  });
+
+  it("round-trips group and icon through storage", () => {
+    const saved = parseConnections(
+      serializeConnections([sqliteConn({ group: "Producción", icon: "⚠️" })]),
+    );
+    expect(saved[0].group).toBe("Producción");
+    expect(saved[0].icon).toBe("⚠️");
+  });
+
+  it("drops a blank group when parsing", () => {
+    const saved = parseConnections(JSON.stringify([{ ...sqliteConn(), group: "  " }]));
+    expect(saved[0].group).toBeUndefined();
   });
 });

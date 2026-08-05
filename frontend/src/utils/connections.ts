@@ -49,6 +49,12 @@ export interface Connection {
   /** Optional accent color (a CONNECTION_COLORS hex) to tell connections apart
       at a glance — e.g. production red vs development green. */
   color?: string;
+  /** Optional group label ("Producción", "ERP"…). A group is just this label:
+      it exists while some connection names it, so there is no group entity, id
+      or CRUD. Empty/absent means the connection is ungrouped. */
+  group?: string;
+  /** Optional per-connection emoji, overriding the engine's icon. */
+  icon?: string;
 }
 
 /** Curated accent palette for connections (config + sidebar). Chosen to stay
@@ -325,6 +331,64 @@ export function engineIcon(driver: string): string {
   return ENGINE_ICON[driver?.toLowerCase()] ?? "🛢️";
 }
 
+/** The icon to show for a connection: its own emoji, else the engine's. */
+export function connIcon(conn: Pick<Connection, "driver" | "icon">): string {
+  return conn.icon || engineIcon(conn.driver);
+}
+
+/** Suggested emoji offered in the connection form (any emoji can be pasted). */
+export const CONNECTION_ICONS: string[] = [
+  "⚠️", "🧪", "🏛️", "🏦", "📊", "🔒", "🚀", "🐢", "📁", "⭐",
+];
+
+/** Group label of a connection, normalized ("" for ungrouped). */
+function groupOf(conn: Connection): string {
+  return (conn.group ?? "").trim();
+}
+
+/** Existing group names, sorted, without duplicates or the ungrouped bucket. */
+export function connectionGroups(list: Connection[]): string[] {
+  const names = new Set<string>();
+  for (const c of list) {
+    const g = groupOf(c);
+    if (g) names.add(g);
+  }
+  return [...names].sort((a, b) => a.localeCompare(b, "es"));
+}
+
+/** A group of connections as rendered in the sidebar; `name` null = ungrouped. */
+export interface ConnectionGroup {
+  name: string | null;
+  conns: Connection[];
+}
+
+/**
+ * Splits connections into the ungrouped bucket (first, so users who never touch
+ * groups see the list unchanged) followed by each named group in alphabetical
+ * order. Connections keep their relative order inside a group. Empty buckets are
+ * omitted, so a list with no groups yields a single unnamed one.
+ */
+export function groupConnections(list: Connection[]): ConnectionGroup[] {
+  const groups: ConnectionGroup[] = [];
+  const loose = list.filter((c) => !groupOf(c));
+  if (loose.length > 0) {
+    groups.push({ name: null, conns: loose });
+  }
+  for (const name of connectionGroups(list)) {
+    groups.push({ name, conns: list.filter((c) => groupOf(c) === name) });
+  }
+  return groups;
+}
+
+/** Moves a connection to `group` ("" = ungrouped), leaving the rest untouched. */
+export function setConnectionGroup(
+  list: Connection[],
+  id: string,
+  group: string,
+): Connection[] {
+  return list.map((c) => (c.id === id ? { ...c, group: group.trim() } : c));
+}
+
 /** Per-field validation errors (issue #109): name + each param field. */
 export interface FieldErrors {
   /** Error for the connection name, or null when valid. */
@@ -458,6 +522,12 @@ export function coerceConnection(item: unknown): Connection | null {
   const conn: Connection = { id: c.id, name: c.name, driver: c.driver, params };
   if (typeof c.color === "string" && c.color) {
     conn.color = c.color;
+  }
+  if (typeof c.group === "string" && c.group.trim()) {
+    conn.group = c.group.trim();
+  }
+  if (typeof c.icon === "string" && c.icon) {
+    conn.icon = c.icon;
   }
   return conn;
 }

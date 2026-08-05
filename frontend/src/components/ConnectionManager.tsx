@@ -1,5 +1,13 @@
 import { For, Show, createSignal } from "solid-js";
-import { driverSchema, engineIcon, type Connection } from "../utils/connections";
+import {
+  connIcon,
+  connectionGroups,
+  driverSchema,
+  groupConnections,
+  type Connection,
+} from "../utils/connections";
+import { loadCollapsedGroups, saveCollapsedGroups } from "../utils/connectionStore";
+import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
 
 // Props for the connection list + CRUD. Shared with ConnectionBar, which wraps
@@ -24,6 +32,9 @@ export interface ConnectionManagerProps {
   onExport: (includePasswords: boolean) => void;
   /** Import connections from a file; resolves with a message to show the user. */
   onImport: (file: File) => Promise<string>;
+  /** Move a connection to a group ("" = ungrouped). New groups are named in the
+      connection form; the context menu only moves between existing ones. */
+  onMoveToGroup: (id: string, group: string) => void;
 }
 
 // Sidebar list of saved connections with CRUD + connect actions. Clicking a
@@ -48,6 +59,82 @@ export function ConnectionManager(props: ConnectionManagerProps) {
     if (!file) return;
     setImportMsg(await props.onImport(file));
   };
+
+  // Collapsed groups persist across restarts (UI state, its own storage key).
+  const [collapsed, setCollapsed] = createSignal<string[]>(loadCollapsedGroups());
+  const toggleGroup = (name: string, open: boolean) => {
+    const next = open ? collapsed().filter((n) => n !== name) : [...collapsed(), name];
+    setCollapsed(next);
+    saveCollapsedGroups(next);
+  };
+
+  // Right-click a connection to move it between the groups that already exist.
+  // Creating a group is done in the connection form, where it can be typed.
+  const rowMenu = (e: MouseEvent, c: Connection) => {
+    const current = (c.group ?? "").trim();
+    const items: MenuItem[] = connectionGroups(props.connections)
+      .filter((g) => g !== current)
+      .map((g) => ({ label: t("conn.moveTo", { group: g }), action: () => props.onMoveToGroup(c.id, g) }));
+    if (current) {
+      items.push({ label: t("conn.moveToNone"), action: () => props.onMoveToGroup(c.id, "") });
+    }
+    if (items.length > 0) items.push({ separator: true });
+    items.push({ label: t("common.edit"), action: () => props.onEdit(c) });
+    openContextMenu(e, items);
+  };
+
+  const row = (c: Connection) => (
+    <li
+      class={`conn-item ${c.id === props.activeConnId ? "active" : ""} ${
+        props.openIds?.includes(c.id) ? "open" : ""
+      }`}
+      style={c.color ? { "border-left": `3px solid ${c.color}` } : undefined}
+      onContextMenu={(e) => rowMenu(e, c)}
+    >
+      <button
+        class="conn-open"
+        title={props.openIds?.includes(c.id) ? t("conn.focus") : t("conn.connect")}
+        disabled={props.connectingId !== null}
+        onClick={() => props.onConnect(c)}
+      >
+        <span class="conn-name">
+          <Show when={c.color}>
+            <span class="conn-color" style={{ background: c.color }} />
+          </Show>
+          <span class="engine-icon">{connIcon(c)}</span> {c.name}
+          <Show when={props.openIds?.includes(c.id)}>
+            <span class="conn-live" title={t("conn.connectedDot")}>●</span>
+          </Show>
+        </span>
+        <span class="conn-driver">
+          {driverSchema(c.driver)?.label ?? c.driver}
+          {props.connectingId === c.id ? " · " + t("conn.connecting") : ""}
+        </span>
+      </button>
+      <div class="conn-actions">
+        <Show when={c.id === props.activeConnId}>
+          <button
+            title={t("conn.reconnect")}
+            disabled={props.connectingId !== null}
+            onClick={() => props.onReconnect()}
+          >
+            ↻
+          </button>
+        </Show>
+        <Show when={props.openIds?.includes(c.id)}>
+          <button title={t("conn.disconnect")} onClick={() => props.onDisconnect(c.id)}>
+            ⏏
+          </button>
+        </Show>
+        <button title={t("common.edit")} onClick={() => props.onEdit(c)}>
+          ✎
+        </button>
+        <button class="danger" title={t("common.delete")} onClick={() => props.onDelete(c.id)}>
+          🗑
+        </button>
+      </div>
+    </li>
+  );
 
   return (
     <div class="conn-manager">
@@ -105,61 +192,37 @@ export function ConnectionManager(props: ConnectionManagerProps) {
         when={props.connections.length > 0}
         fallback={<p class="sidebar-hint">{t("conn.empty")}</p>}
       >
-        <ul class="conn-list">
-          <For each={props.connections}>
-            {(c) => (
-              <li
-                class={`conn-item ${c.id === props.activeConnId ? "active" : ""} ${
-                  props.openIds?.includes(c.id) ? "open" : ""
-                }`}
-                style={c.color ? { "border-left": `3px solid ${c.color}` } : undefined}
-              >
-                <button
-                  class="conn-open"
-                  title={props.openIds?.includes(c.id) ? t("conn.focus") : t("conn.connect")}
-                  disabled={props.connectingId !== null}
-                  onClick={() => props.onConnect(c)}
+        <For each={groupConnections(props.connections)}>
+          {(g) => (
+            <Show
+              when={g.name}
+              fallback={
+                <ul class="conn-list">
+                  <For each={g.conns}>{row}</For>
+                </ul>
+              }
+            >
+              {(name) => (
+                <details
+                  class="conn-group"
+                  open={!collapsed().includes(name())}
+                  onToggle={(e) => toggleGroup(name(), e.currentTarget.open)}
                 >
-                  <span class="conn-name">
-                    <Show when={c.color}>
-                      <span class="conn-color" style={{ background: c.color }} />
-                    </Show>
-                    <span class="engine-icon">{engineIcon(c.driver)}</span> {c.name}
-                    <Show when={props.openIds?.includes(c.id)}>
+                  <summary>
+                    <span class="conn-group-name">{name()}</span>
+                    <Show when={g.conns.some((c) => props.openIds?.includes(c.id))}>
                       <span class="conn-live" title={t("conn.connectedDot")}>●</span>
                     </Show>
-                  </span>
-                  <span class="conn-driver">
-                    {driverSchema(c.driver)?.label ?? c.driver}
-                    {props.connectingId === c.id ? " · " + t("conn.connecting") : ""}
-                  </span>
-                </button>
-                <div class="conn-actions">
-                  <Show when={c.id === props.activeConnId}>
-                    <button
-                      title={t("conn.reconnect")}
-                      disabled={props.connectingId !== null}
-                      onClick={() => props.onReconnect()}
-                    >
-                      ↻
-                    </button>
-                  </Show>
-                  <Show when={props.openIds?.includes(c.id)}>
-                    <button title={t("conn.disconnect")} onClick={() => props.onDisconnect(c.id)}>
-                      ⏏
-                    </button>
-                  </Show>
-                  <button title={t("common.edit")} onClick={() => props.onEdit(c)}>
-                    ✎
-                  </button>
-                  <button class="danger" title={t("common.delete")} onClick={() => props.onDelete(c.id)}>
-                    🗑
-                  </button>
-                </div>
-              </li>
-            )}
-          </For>
-        </ul>
+                    <span class="conn-group-count">{g.conns.length}</span>
+                  </summary>
+                  <ul class="conn-list">
+                    <For each={g.conns}>{row}</For>
+                  </ul>
+                </details>
+              )}
+            </Show>
+          )}
+        </For>
       </Show>
     </div>
   );

@@ -46,6 +46,9 @@ import {
   dsnForDatabaseList,
   nextConnectionId,
   upsertConnection,
+  connIcon,
+  connectionGroups,
+  setConnectionGroup,
   removeConnection,
   AVAILABLE_DRIVERS,
   type Connection,
@@ -748,6 +751,10 @@ export function App() {
       void disconnect(id);
     }
   };
+
+  // Move a connection between existing groups from the list's context menu.
+  const moveConnToGroup = (id: string, group: string) =>
+    persist(setConnectionGroup(connections(), id, group));
 
   const onSaveConnection = (c: Connection) => {
     persist(upsertConnection(connections(), c));
@@ -1582,6 +1589,7 @@ export function App() {
             onReconnect={reconnect}
             onExport={exportConns}
             onImport={importConns}
+            onMoveToGroup={moveConnToGroup}
           />
           <Show when={active()}>
             <Show when={databases().length > 0}>
@@ -1654,8 +1662,13 @@ export function App() {
                     <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
                   </Show>
                   <span class="tab-title">{tab.title}</span>
-                  <Show when={tabConn(tab)?.name}>
-                    {(name) => <span class="tab-conn">({name()})</span>}
+                  <Show when={tabConn(tab)}>
+                    {(conn) => (
+                      <span class="tab-conn">
+                        {connIcon(connections().find((c) => c.id === conn().defId) ?? conn())} (
+                        {conn().name})
+                      </span>
+                    )}
                   </Show>
                   <button
                     class="tab-close"
@@ -2051,6 +2064,7 @@ export function App() {
                     onListDatabases={(c) =>
                       listDatabases(c.driver, dsnForDatabaseList(c))
                     }
+                    groups={connectionGroups(connections())}
                   />
                 </Match>
                 <Match when={tt().tool === "chart"}>

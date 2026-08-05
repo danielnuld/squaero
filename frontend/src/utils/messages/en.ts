@@ -27,6 +27,8 @@ export const en: Record<string, string> = {
   "conn.includePasswords": "Include passwords",
   "conn.plaintextWarn": "⚠ The file will store passwords in <strong>plain text</strong>.",
   "conn.empty": "No saved connections.",
+  "conn.moveTo": "Move to “{group}”",
+  "conn.moveToNone": "Remove from group",
   "conn.failed": 'Could not connect to "{name}": {detail}',
 
   // top action ribbon

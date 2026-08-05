@@ -698,6 +698,43 @@ body {
     var(--bg-elev2);
 }
 
+/* Per-connection emoji picker: a few suggestions plus a free field, so any
+   emoji can be pasted (Win + . opens the system picker) without a picker lib. */
+.icon-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.icon-swatch {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-elev2);
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-swatch.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.icon-swatch.icon-engine {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.icon-input {
+  width: 4rem;
+  text-align: center;
+}
+
 .resizer {
   width: 5px;
   cursor: col-resize;
@@ -1461,6 +1498,55 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Connection groups are plain <details>, so collapsing, keyboard support and
+   accessibility come from the browser instead of an accordion component. */
+.conn-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.35rem;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.conn-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.conn-group > summary::before {
+  content: "▸";
+  font-size: 10px;
+}
+
+.conn-group[open] > summary::before {
+  content: "▾";
+}
+
+.conn-group > summary:hover {
+  background: var(--bg-elev2);
+  color: var(--text);
+}
+
+.conn-group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-group-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.conn-group .conn-list {
+  padding-left: 0.4rem;
 }
 
 .conn-item {

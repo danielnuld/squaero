@@ -1,5 +1,5 @@
 import { Show, createSignal, createEffect, onCleanup, onMount, mergeProps } from "solid-js";
-import { engineIcon, type Connection } from "../utils/connections";
+import { connIcon, type Connection } from "../utils/connections";
 import { ConnectionManager, type ConnectionManagerProps } from "./ConnectionManager";
 import { t } from "../utils/i18n";
 
@@ -54,7 +54,11 @@ export function ConnectionBar(props: ConnectionManagerProps & { openTick?: numbe
   // Dismiss on a click outside the bar + popover.
   onMount(() => {
     const onDown = (e: MouseEvent) => {
-      if (open() && rootEl && !rootEl.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The context menu of a connection row renders outside this popover (it
+      // lives in App); clicking one of its items must not collapse the list.
+      if (target instanceof Element && target.closest(".context-menu")) return;
+      if (open() && rootEl && !rootEl.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     onCleanup(() => document.removeEventListener("mousedown", onDown));
@@ -79,7 +83,7 @@ export function ConnectionBar(props: ConnectionManagerProps & { openTick?: numbe
             <Show when={active()!.color}>
               <span class="conn-color" style={{ background: active()!.color }} />
             </Show>
-            <span class="engine-icon">{engineIcon(active()!.driver)}</span>
+            <span class="engine-icon">{connIcon(active()!)}</span>
             <span class="connbar-name">{active()!.name}</span>
             <span class="connbar-status">{t("conn.statusConnected")}</span>
           </Show>

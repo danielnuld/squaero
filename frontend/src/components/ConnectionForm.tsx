@@ -4,10 +4,12 @@ import {
   driverSchema,
   fieldErrors,
   isValid,
+  connIcon,
   engineIcon,
   AVAILABLE_DRIVERS,
   DRIVER_SCHEMAS,
   CONNECTION_COLORS,
+  CONNECTION_ICONS,
   type Connection,
 } from "../utils/connections";
 import { errorText } from "../utils/errors";
@@ -30,6 +32,8 @@ export function ConnectionForm(props: {
   /** Lists the server's databases from the details entered so far, for the
       database picker. Absent → the picker button is not shown. */
   onListDatabases?: (c: Connection) => Promise<string[]>;
+  /** Group names already in use, offered as suggestions in the group field. */
+  groups?: string[];
 }) {
   const [draft, setDraft] = createStore<Connection>({
     ...props.initial,
@@ -132,7 +136,7 @@ export function ConnectionForm(props: {
       onClose={props.onCancel}
     >
       <h2>
-        <span class="engine-icon">{engineIcon(draft.driver)}</span>{" "}
+        <span class="engine-icon">{connIcon(draft)}</span>{" "}
         {props.initial.name ? "Editar conexión" : "Nueva conexión"}
       </h2>
 
@@ -176,6 +180,60 @@ export function ConnectionForm(props: {
                 />
               )}
             </For>
+          </div>
+        </div>
+
+        {/* A group is just this label: typing a new name creates it, clearing it
+            from the last connection removes it. The datalist suggests the ones
+            already in use. */}
+        <label class="field">
+          <span>Grupo</span>
+          <input
+            type="text"
+            list="conn-groups"
+            value={draft.group ?? ""}
+            onInput={(e) => setDraft("group", e.currentTarget.value)}
+            placeholder="Sin grupo"
+          />
+          <datalist id="conn-groups">
+            <For each={props.groups ?? []}>{(g) => <option value={g} />}</For>
+          </datalist>
+        </label>
+
+        <div class="field">
+          <span>Icono</span>
+          <div class="icon-swatches">
+            <button
+              type="button"
+              class={`icon-swatch icon-engine ${!draft.icon ? "selected" : ""}`}
+              title="Usar el icono del motor"
+              aria-pressed={!draft.icon}
+              onClick={() => setDraft("icon", undefined)}
+            >
+              {engineIcon(draft.driver)} del motor
+            </button>
+            <For each={CONNECTION_ICONS}>
+              {(emoji) => (
+                <button
+                  type="button"
+                  class={`icon-swatch ${draft.icon === emoji ? "selected" : ""}`}
+                  title={emoji}
+                  aria-pressed={draft.icon === emoji}
+                  onClick={() => setDraft("icon", draft.icon === emoji ? undefined : emoji)}
+                >
+                  {emoji}
+                </button>
+              )}
+            </For>
+            <input
+              type="text"
+              class="icon-input"
+              maxLength={4}
+              value={draft.icon ?? ""}
+              title="Pega cualquier emoji (Win + .)"
+              aria-label="Otro emoji"
+              onInput={(e) => setDraft("icon", e.currentTarget.value || undefined)}
+            />
           </div>
         </div>
 

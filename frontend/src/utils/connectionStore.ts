@@ -34,3 +34,27 @@ export function saveConnections(list: Connection[]): void {
     /* best-effort: a full/blocked store should not crash the UI */
   }
 }
+
+// Which connection groups the user has collapsed. UI state, not connection data,
+// so it lives in its own key instead of on the Connection (a group is only a
+// label — see connections.ts).
+const COLLAPSED_KEY = "quaero.groups.collapsed";
+
+/** Names of the collapsed groups. Returns [] when none/corrupt. */
+export function loadCollapsedGroups(): string[] {
+  try {
+    const data: unknown = JSON.parse(store.getItem(COLLAPSED_KEY) ?? "[]");
+    return Array.isArray(data) ? data.filter((n): n is string => typeof n === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Persists the collapsed group names. Silent on storage failure. */
+export function saveCollapsedGroups(names: string[]): void {
+  try {
+    store.setItem(COLLAPSED_KEY, JSON.stringify(names));
+  } catch {
+    /* best-effort */
+  }
+}
