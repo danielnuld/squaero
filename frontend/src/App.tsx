@@ -646,10 +646,13 @@ export function App() {
 
   // Open SQL in a fresh tab WITHOUT running it (e.g. a routine's CREATE DDL,
   // which would error if executed against an object that already exists).
-  const openSqlInNewTab = (sql: string) => {
+  // `name` (when the caller knows the object) titles the tab instead of "Consulta N".
+  const openSqlInNewTab = (sql: string, name?: string) => {
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
+      const added = name
+        ? addTab(s, name, focusedDefId() ?? undefined, false)
+        : addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -1129,7 +1132,8 @@ export function App() {
     const sql = objectPreviewQuery(preview.parts, preview.engine, PAGE_LIMIT);
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
+      // The tab is named after the object it opens, not "Consulta N".
+      const added = addTab(s, node.label, focusedDefId() ?? undefined, false);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -1650,6 +1654,9 @@ export function App() {
                     <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
                   </Show>
                   <span class="tab-title">{tab.title}</span>
+                  <Show when={tabConn(tab)?.name}>
+                    {(name) => <span class="tab-conn">({name()})</span>}
+                  </Show>
                   <button
                     class="tab-close"
                     title="Cerrar pestaña"

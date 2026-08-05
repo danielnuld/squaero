@@ -23,7 +23,7 @@ export function TriggersExplorer(props: {
   connId: string;
   engine: string;
   db?: string;
-  onOpenSql: (sql: string) => void;
+  onOpenSql: (sql: string, name?: string) => void;
   onClose: () => void;
 }) {
   const [kind, setKind] = createSignal<ObjectKind>("trigger");
@@ -241,7 +241,7 @@ export function TriggersExplorer(props: {
                       <button
                         class="edit-btn"
                         title={t("explorer.openInEditorTitle")}
-                        onClick={() => props.onOpenSql(definition()!)}
+                        onClick={() => props.onOpenSql(definition()!, ref().name)}
                       >
                         {t("explorer.openInEditor")}
                       </button>

@@ -62,6 +62,11 @@ describe("addTab", () => {
     expect(s2.activeId).toBe(s2.tabs[1].id);
     expect(s2.tabs[1].id).not.toBe(s2.tabs[0].id);
   });
+
+  it("numbers generic titles but keeps an object name as-is", () => {
+    expect(addTab(empty, "Consulta").tabs[0].title).toBe("Consulta 1");
+    expect(addTab(empty, "clientes", undefined, false).tabs[0].title).toBe("clientes");
+  });
 });
 
 describe("closeTab", () => {

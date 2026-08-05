@@ -75,10 +75,23 @@ export function nextTabId(tabs: Tab[]): number {
 }
 
 /** Appends a fresh empty query tab and makes it active. Binds it to `connDefId`
-    (the connection focused at creation) so its queries stay on that connection. */
-export function addTab(state: TabState, title = "Consulta", connDefId?: string): TabState {
+    (the connection focused at creation) so its queries stay on that connection.
+    Generic tabs get a numbered title ("Consulta 3"); pass `numbered: false` when
+    the title already names something (a table, a routine) so it is used as-is. */
+export function addTab(
+  state: TabState,
+  title = "Consulta",
+  connDefId?: string,
+  numbered = true,
+): TabState {
   const id = nextTabId(state.tabs);
-  const tab: QueryTab = { id, kind: "query", title: `${title} ${id}`, sql: "", connDefId };
+  const tab: QueryTab = {
+    id,
+    kind: "query",
+    title: numbered ? `${title} ${id}` : title,
+    sql: "",
+    connDefId,
+  };
   return { tabs: [...state.tabs, tab], activeId: id };
 }
 

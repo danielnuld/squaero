@@ -69,7 +69,7 @@ export function ObjectTree(props: {
   /** Single-click a table/view -> open its data (a SELECT). */
   onOpenData: (node: TreeNode) => void;
   /** Open SQL (a routine/trigger DDL) in a new query tab. */
-  onOpenSql?: (sql: string) => void;
+  onOpenSql?: (sql: string, name?: string) => void;
   /** Bumping this re-fetches the tree from the current connection (issue #107). */
   reloadKey?: number;
   /** Refresh button in the header (re-runs the active query + reloads the tree). */
@@ -294,7 +294,7 @@ export function ObjectTree(props: {
     if (!connId || !props.onOpenSql) return;
     // SQLite triggers carry their DDL in the listing row — open it directly.
     if (node.objDef) {
-      props.onOpenSql(node.objDef);
+      props.onOpenSql(node.objDef, node.label);
       return;
     }
     const engine = props.engine ?? "";
@@ -318,7 +318,7 @@ export function ObjectTree(props: {
       if (myGen !== generation) return;
       const cols = res.columns.map((c) => c.name);
       const text = readDefinitionText(cols, res.rows, query.column, query.concatRows);
-      if (text) props.onOpenSql(text);
+      if (text) props.onOpenSql(text, node.label);
     } catch (err) {
       if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
     } finally {

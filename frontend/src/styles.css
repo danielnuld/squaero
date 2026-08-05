@@ -759,6 +759,15 @@ body {
   text-overflow: ellipsis;
 }
 
+/* The tab's connection name, dimmed so the title still reads first. */
+.tab-conn {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .tab-close,
 .tab-new {
   background: none;
