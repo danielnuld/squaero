@@ -34,7 +34,7 @@ const rs = (columns: { name: string; type: string }[], rows: (string | null)[][]
 });
 
 // `fkMode` shapes the query.run responses: "mysql" answers the bulk FK query,
-// "sqlite" answers the per-table PRAGMA, "error" makes the FK query fail.
+// "sqlite" answers the pragma table-valued function, "error" makes it fail.
 function installBridge(fkMode: "mysql" | "sqlite" | "error" = "mysql") {
   (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
     const req = JSON.parse(raw) as { id: number; method: string; params: Record<string, unknown> };
@@ -77,15 +77,22 @@ function installBridge(fkMode: "mysql" | "sqlite" | "error" = "mysql") {
           ),
         );
       }
-      // SQLite per-table PRAGMA foreign_key_list: only `orders` has a FK.
-      if (sql.includes("foreign_key_list")) {
-        const cols = ["id", "seq", "table", "from", "to", "on_update", "on_delete", "match"].map(
-          (name) => ({ name, type: "text" }),
+      // SQLite answers the same shape through pragma_foreign_key_list joined to
+      // sqlite_master: one query for the whole database, like the other engines.
+      if (sql.includes("pragma_foreign_key_list")) {
+        return ok(
+          rs(
+            [
+              { name: "from_table", type: "text" },
+              { name: "from_column", type: "text" },
+              { name: "to_table", type: "text" },
+              { name: "to_column", type: "text" },
+              { name: "constraint_name", type: "text" },
+              { name: "position", type: "int" },
+            ],
+            [["orders", "customer_id", "customers", "id", "0", "0"]],
+          ),
         );
-        if (sql.includes("'orders'")) {
-          return ok(rs(cols, [["0", "0", "customers", "customer_id", "id", "NO ACTION", "NO ACTION", "NONE"]]));
-        }
-        return ok(rs(cols, []));
       }
     }
     return { jsonrpc: "2.0", id: req.id, result: {} };
@@ -122,13 +129,13 @@ describe("ErDiagram", () => {
     expect(host!.querySelector(".er-col-pk")).not.toBeNull();
   });
 
-  it("resolves real FKs through the SQLite per-table PRAGMA loop", async () => {
+  it("resolves real FKs on SQLite through the pragma table-valued function", async () => {
     installBridge("sqlite");
     mount("sqlite");
     await flush();
 
     expect(host!.querySelectorAll(".er-box").length).toBe(2);
-    // Only `orders` returns a FK row; aggregated across the per-table queries.
+    // Only `orders` has a FK, resolved by the single catalog query.
     const edges = host!.querySelectorAll(".er-edge");
     expect(edges.length).toBe(1);
     expect(edges[0].querySelector("title")?.textContent).toContain("customers.id");

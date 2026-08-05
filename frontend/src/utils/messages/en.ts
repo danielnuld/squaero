@@ -10,6 +10,18 @@ export const en: Record<string, string> = {
   "common.cancel": "Cancel",
   "common.edit": "Edit",
   "common.delete": "Delete",
+  "common.close": "Close",
+  "related.menu": "Related data for {column} = {value}",
+  "related.title": "Data linked to {table}.{column} = {value}",
+  "related.counting": "Dependents · counting…",
+  "related.withData": "Dependents · {n} with data",
+  "related.none": "No table references {table} through a foreign key.",
+  "related.blocked": "The result does not carry the {column} column, which this relationship needs to filter.",
+  "related.truncated": "⚠ The catalog returned more relationships than fit in one query: this list may be incomplete.",
+  "related.rows": "{n} rows",
+  "related.openTab": "Open in a tab",
+  "related.toEditor": "Send to the editor",
+  "related.refColumn": "Column referenced by other tables",
 
   // connection bar / manager
   "conn.title": "Connections",

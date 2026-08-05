@@ -13,6 +13,18 @@ export const es: Record<string, string> = {
   "common.cancel": "Cancelar",
   "common.edit": "Editar",
   "common.delete": "Eliminar",
+  "common.close": "Cerrar",
+  "related.menu": "Datos relacionados de {column} = {value}",
+  "related.title": "Datos vinculados a {table}.{column} = {value}",
+  "related.counting": "Dependientes · contando…",
+  "related.withData": "Dependientes · {n} con datos",
+  "related.none": "Ninguna tabla referencia a {table} por llave foránea.",
+  "related.blocked": "El resultado no trae la columna {column}, que esta relación necesita para filtrar.",
+  "related.truncated": "⚠ El catálogo devolvió más relaciones de las que caben en una consulta: la lista puede estar incompleta.",
+  "related.rows": "{n} filas",
+  "related.openTab": "Abrir en pestaña",
+  "related.toEditor": "Enviar al editor",
+  "related.refColumn": "Columna referenciada por otras tablas",
 
   // connection bar / manager
   "conn.title": "Conexiones",

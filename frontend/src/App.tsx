@@ -110,8 +110,9 @@ import {
 import { queryEditTarget } from "./utils/queryTarget";
 import {
   foreignKeysFor,
+  groupForeignKeys,
   parseForeignKeys,
-  sqliteForeignKeySql,
+  type ForeignKeyRelation,
 } from "./utils/foreignKeys";
 import {
   buildLookup,
@@ -151,6 +152,15 @@ import { ObjectToolbar } from "./components/ObjectToolbar";
 import { ObjectListView } from "./components/ObjectListView";
 import { InfoPane } from "./components/InfoPane";
 import { ConnectionForm } from "./components/ConnectionForm";
+import { RelatedData } from "./components/RelatedData";
+import {
+  relatedCount,
+  relatedQueries,
+  relatedSelect,
+  relationsForColumn,
+  RELATED_LIMIT,
+  type RelatedQuery,
+} from "./utils/relatedData";
 import { Notebook } from "./components/Notebook";
 import { ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
@@ -1218,13 +1228,11 @@ export function App() {
     // Scope the catalog to THIS table: a whole-database FK listing is capped by
     // query.run's row limit, so in a schema with thousands of keys the table we
     // are editing can fall past the cut and silently get no picker.
-    const plan = foreignKeysFor(engine, src.db, src.table);
-    if (!plan.supported) return;
+    const plan = foreignKeysFor(engine, src.db, { table: src.table, direction: "from" });
+    if (!plan.supported || !plan.bulkSql) return;
     try {
-      const sql = plan.perTable ? sqliteForeignKeySql(src.table) : plan.bulkSql;
-      if (!sql) return;
-      const res = await runQuery(conn.connId, sql, FK_CATALOG_LIMIT);
-      const fks = parseForeignKeys(engine, res.columns, res.rows, src.table);
+      const res = await runQuery(conn.connId, plan.bulkSql, FK_CATALOG_LIMIT);
+      const fks = parseForeignKeys(res.columns, res.rows);
       const refs = fkColumnsOf(fks, src.table);
       for (const [column, ref] of Object.entries(refs)) {
         try {
@@ -1243,6 +1251,167 @@ export function App() {
     } catch {
       /* no FK metadata: every column stays a plain free-text input. */
     }
+  };
+
+  // --- Related data (issue #310) -----------------------------------------
+  // The INBOUND foreign keys of the focused result's table: which tables depend
+  // on it. Loaded once per tab so the grid can mark the referenced columns and
+  // the cell menu can offer the modal without a round trip per right-click.
+  const [inbound, setInbound] = createStore<
+    Record<number, { rels: ForeignKeyRelation[]; truncated: boolean; reason: string | null }>
+  >({});
+
+  const loadInboundFks = async (tabId: number, conn: ActiveConnection) => {
+    const src = results[tabId]?.source;
+    if (!src || inbound[tabId]) return;
+    const plan = foreignKeysFor(conn.driver, src.db, { table: src.table, direction: "to" });
+    if (!plan.supported || !plan.bulkSql) {
+      setInbound(tabId, { rels: [], truncated: false, reason: plan.reason });
+      return;
+    }
+    try {
+      const res = await runQuery(conn.connId, plan.bulkSql, FK_CATALOG_LIMIT);
+      setInbound(tabId, {
+        rels: groupForeignKeys(parseForeignKeys(res.columns, res.rows)),
+        truncated: res.truncated,
+        reason: null,
+      });
+    } catch {
+      // No catalog access: no marks and no action, rather than a wrong list.
+      setInbound(tabId, { rels: [], truncated: false, reason: null });
+    }
+  };
+
+  // Load them as soon as a result knows which table it came from.
+  createEffect(() => {
+    const tab = current();
+    const conn = tabConn(tab);
+    if (!tab || !conn || !results[tab.id]?.source?.table || inbound[tab.id]) return;
+    void loadInboundFks(tab.id, conn);
+  });
+
+  /** Columns of the focused result that other tables reference. */
+  const referencedColumns = createMemo(() => {
+    const tab = current();
+    const rels = tab ? inbound[tab.id]?.rels : undefined;
+    if (!rels) return [];
+    return [...new Set(rels.flatMap((r) => r.columns.map((c) => c.to)))];
+  });
+
+  const emptyRelated = () => ({
+    open: false,
+    table: "",
+    column: "",
+    value: "",
+    queries: [] as RelatedQuery[],
+    counts: {} as Record<number, number | null>,
+    selected: 0,
+    sql: null as string | null,
+    result: null as ResultSet | null,
+    loading: false,
+    error: null as string | null,
+    truncated: false,
+    unsupported: null as string | null,
+  });
+  const [related, setRelated] = createStore(emptyRelated());
+
+  const closeRelated = () => setRelated(emptyRelated());
+
+  /** Open the modal for the cell at (rowIndex, colIndex) of the focused result. */
+  const openRelated = (rowIndex: number, colIndex: number) => {
+    const tab = current();
+    const conn = tabConn(tab);
+    const res = currentResult().result;
+    const src = tab ? results[tab.id]?.source : null;
+    if (!tab || !conn || !res || !src) return;
+    const column = res.columns[colIndex]?.name;
+    const row = res.rows[rowIndex];
+    if (!column || !row) return;
+    const state = inbound[tab.id];
+    const rels = relationsForColumn(state?.rels ?? [], column);
+    const queries = relatedQueries(rels, res.columns, row, conn.driver);
+    setRelated({
+      ...emptyRelated(),
+      open: true,
+      table: src.table,
+      column,
+      value: row[colIndex] ?? "NULL",
+      queries,
+      truncated: state?.truncated ?? false,
+      unsupported: queries.length === 0 ? (state?.reason ?? null) : null,
+    });
+    if (queries.length > 0) {
+      void runRelated(0);
+      void countRelated(conn, src, queries);
+    }
+  };
+
+  /** Run the selected relationship's SELECT into the modal's grid. */
+  const runRelated = async (index: number) => {
+    const tab = current();
+    const conn = tabConn(tab);
+    const src = tab ? results[tab.id]?.source : null;
+    const query = related.queries[index];
+    if (!conn || !src || !query) return;
+    const sql = relatedSelect(query, conn.driver, { db: src.db, schema: src.schema });
+    setRelated({ selected: index, sql, result: null, error: null, loading: sql !== null });
+    if (!sql) return;
+    try {
+      setRelated("result", await runQuery(conn.connId, sql, RELATED_LIMIT));
+      setRelated("loading", false);
+    } catch (err) {
+      setRelated({ loading: false, error: errMsg(err) });
+    }
+  };
+
+  /**
+   * Count each relationship's dependent rows. Sequential on purpose: a single
+   * COUNT per relationship is the point, but firing them all at once would pile
+   * up on engines that serialize a connection (Informix).
+   */
+  const countRelated = async (
+    conn: ActiveConnection,
+    src: { db?: string; schema?: string },
+    queries: RelatedQuery[],
+  ) => {
+    for (let i = 0; i < queries.length; i++) {
+      const sql = relatedCount(queries[i], conn.driver, { db: src.db, schema: src.schema });
+      if (!sql) {
+        setRelated("counts", i, null); // cannot be filtered: unknown, not zero
+        continue;
+      }
+      try {
+        const res = await runQuery(conn.connId, sql, 1);
+        const n = Number(res.rows[0]?.[0] ?? NaN);
+        setRelated("counts", i, Number.isFinite(n) ? n : null);
+      } catch {
+        setRelated("counts", i, null);
+      }
+      if (!related.open) return; // the user closed it; stop querying
+    }
+  };
+
+  /**
+   * Carry the modal's query out: `execute` opens it in a tab and runs it, else it
+   * just lands in a new tab's editor. Both open a NEW tab because the SQL editor
+   * only reloads its document when the active tab changes.
+   */
+  const relatedToTab = (execute: boolean) => {
+    const sql = related.sql;
+    const table = related.queries[related.selected]?.relation.fromTable;
+    if (!sql || !table) return;
+    closeRelated();
+    if (!execute) {
+      openSqlInNewTab(sql, table);
+      return;
+    }
+    let newId = 0;
+    setTabs((s) => {
+      const added = addTab(s, table, focusedDefId() ?? undefined, false);
+      newId = added.activeId;
+      return updateTabSql(added, newId, sql);
+    });
+    void run(sql);
   };
 
   const beginEdit = async () => {
@@ -1429,6 +1598,15 @@ export function App() {
     const items: MenuItem[] = [];
     if (row) {
       items.push({ label: t("result.rowDetail"), action: () => setDetailIndex(rowIndex) });
+      // Only over a column other tables reference: elsewhere there is nothing
+      // to relate, so the action would be a dead end (issue #310).
+      const column = res.columns[colIndex]?.name ?? "";
+      if (referencedColumns().some((c) => c.toLowerCase() === column.toLowerCase())) {
+        items.push({
+          label: t("related.menu", { column, value: row[colIndex] ?? "NULL" }),
+          action: () => openRelated(rowIndex, colIndex),
+        });
+      }
       items.push({ separator: true });
       const cell = row[colIndex];
       items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
@@ -1832,6 +2010,7 @@ export function App() {
                           />
                         }
                         onCellContext={onCellContext}
+                        referencedColumns={referencedColumns()}
                         onCancel={cancelActive}
                         onRequestEdit={
                           currentEditable() && !currentEdit().editing ? beginEdit : undefined
@@ -2247,6 +2426,27 @@ export function App() {
         }}
         onInstall={canInstall() ? installUpdate : undefined}
       />
+
+      <Show when={related.open}>
+        <RelatedData
+          table={related.table}
+          column={related.column}
+          value={related.value}
+          queries={related.queries}
+          counts={related.counts}
+          selected={related.selected}
+          onSelect={(i) => void runRelated(i)}
+          sql={related.sql}
+          result={related.result}
+          loading={related.loading}
+          error={related.error}
+          truncated={related.truncated}
+          unsupported={related.unsupported}
+          onOpenTab={() => relatedToTab(true)}
+          onToEditor={() => relatedToTab(false)}
+          onClose={closeRelated}
+        />
+      </Show>
 
       <ContextMenu />
     </div>

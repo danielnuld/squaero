@@ -15,7 +15,6 @@ import {
 } from "../utils/erDiagram";
 import {
   foreignKeysFor,
-  sqliteForeignKeySql,
   parseForeignKeys,
   type ForeignKey,
   type ForeignKeyQuery,
@@ -105,29 +104,16 @@ async function loadTables(connId: string, db: string | undefined, max = MAX_TABL
   return tables;
 }
 
-/** Fetch and parse the engine's real foreign keys for a supported plan. SQLite
-    needs one PRAGMA per table; the others answer in a single catalog query.
-    `truncated` is true if any FK query hit the core's row cap, so the caller can
+/** Fetch and parse the engine's real foreign keys for a supported plan.
+    `truncated` is true if the FK query hit the core's row cap, so the caller can
     warn that the graph may be incomplete (docs/IPC.md: query.run caps silently
     when no limit is given). */
 async function fetchForeignKeys(
   connId: string,
-  engine: string,
   plan: ForeignKeyQuery,
-  tables: ErTable[],
 ): Promise<{ fks: ForeignKey[]; truncated: boolean }> {
-  if (plan.perTable) {
-    const fks: ForeignKey[] = [];
-    let truncated = false;
-    for (const t of tables) {
-      const r = await runQuery(connId, sqliteForeignKeySql(t.name));
-      truncated = truncated || r.truncated;
-      fks.push(...parseForeignKeys(engine, r.columns, r.rows, t.name));
-    }
-    return { fks, truncated };
-  }
   const r = await runQuery(connId, plan.bulkSql!);
-  return { fks: parseForeignKeys(engine, r.columns, r.rows), truncated: r.truncated };
+  return { fks: parseForeignKeys(r.columns, r.rows), truncated: r.truncated };
 }
 
 export function ErDiagram(props: {
@@ -197,9 +183,9 @@ export function ErDiagram(props: {
         let real = false;
         let truncated = false;
         let reason: string | null = null;
-        if (plan.supported && (plan.perTable || plan.bulkSql)) {
+        if (plan.supported && plan.bulkSql) {
           try {
-            const res = await fetchForeignKeys(connId, engine, plan, ts);
+            const res = await fetchForeignKeys(connId, plan);
             if (props.connId !== connId || props.db !== db) return; // superseded
             built = realEdges(res.fks, names);
             real = true;

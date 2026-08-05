@@ -25,15 +25,17 @@ export function previewSelect(
   engine: string,
   limit: number,
   offset = 0,
+  where?: string,
 ): string {
   const n = Math.max(1, Math.floor(limit));
   const m = Math.max(0, Math.floor(offset));
+  const filter = where ? ` WHERE ${where}` : "";
   if (engineFamily(engine) === "informix") {
     const skip = m > 0 ? `SKIP ${m} ` : "";
-    return `SELECT ${skip}FIRST ${n} * FROM ${qualified};`;
+    return `SELECT ${skip}FIRST ${n} * FROM ${qualified}${filter};`;
   }
   const off = m > 0 ? ` OFFSET ${m}` : "";
-  return `SELECT * FROM ${qualified} LIMIT ${n}${off};`;
+  return `SELECT * FROM ${qualified}${filter} LIMIT ${n}${off};`;
 }
 
 /**

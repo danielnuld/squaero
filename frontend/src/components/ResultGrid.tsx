@@ -66,8 +66,13 @@ export function ResultGrid(props: {
       referenced table's rows instead of demanding a remembered id. Absent → the
       cells are plain free-text inputs, exactly as before. */
   fk?: Record<string, FkLookup>;
+  /** Columns other tables reference (issue #310). Marked in the header, so the
+      user can see where "datos relacionados" is available without probing. */
+  referencedColumns?: string[];
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
+  const isReferenced = (name: string) =>
+    !!props.referencedColumns?.some((c) => c.toLowerCase() === name.toLowerCase());
   const fkFor = (col: string): FkLookup | undefined => props.fk?.[col];
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
@@ -322,7 +327,14 @@ export function ResultGrid(props: {
                           (e.preventDefault(), toggleSort(ci()))
                         }
                       >
-                        <span class="col-name">{col.name}</span>
+                        <span class={`col-name ${isReferenced(col.name) ? "col-referenced" : ""}`}>
+                          {col.name}
+                        </span>
+                        <Show when={isReferenced(col.name)}>
+                          <span class="col-ref-mark" title={t("related.refColumn")} aria-hidden="true">
+                            ⇲
+                          </span>
+                        </Show>
                         <span class="col-type">{col.type}</span>
                         <span class="col-sort">{sortGlyph(sort(), ci())}</span>
                         <span

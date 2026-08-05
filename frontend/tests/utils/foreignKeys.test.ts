@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   foreignKeysFor,
-  sqliteForeignKeySql,
+  groupForeignKeys,
   parseForeignKeys,
+  type ForeignKey,
 } from "../../src/utils/foreignKeys";
 
 // Scoping the catalog to ONE table is not an optimization: query.run caps the
@@ -10,22 +11,29 @@ import {
 // listing loses its tail and the edited table can vanish from the answer (the
 // LG_Documento bug — no picker, because its keys were past the cap).
 describe("foreignKeysFor — scoped to one table", () => {
+  const from = (table: string) => ({ table, direction: "from" as const });
+
   it("MySQL filters by table name, escaping the literal", () => {
-    expect(foreignKeysFor("mysql", "shop", "LG_Documento").bulkSql).toContain(
+    expect(foreignKeysFor("mysql", "shop", from("LG_Documento")).bulkSql).toContain(
       "AND TABLE_NAME = 'LG_Documento'",
     );
-    expect(foreignKeysFor("mysql", "shop", "o'b\\r").bulkSql).toContain(
+    expect(foreignKeysFor("mysql", "shop", from("o'b\\r")).bulkSql).toContain(
       "AND TABLE_NAME = 'o''b\\\\r'",
     );
   });
   it("PostgreSQL filters by relation name", () => {
-    expect(foreignKeysFor("postgres", "public", "pedidos").bulkSql).toContain(
+    expect(foreignKeysFor("postgres", "public", from("pedidos")).bulkSql).toContain(
       "AND cl.relname = 'pedidos'",
     );
   });
   it("Informix filters by tabname", () => {
-    expect(foreignKeysFor("informix", undefined, "pedidos").bulkSql).toContain(
+    expect(foreignKeysFor("informix", undefined, from("pedidos")).bulkSql).toContain(
       "AND t.tabname = 'pedidos'",
+    );
+  });
+  it("SQLite filters by the child table", () => {
+    expect(foreignKeysFor("sqlite", undefined, from("pedidos")).bulkSql).toContain(
+      "AND m.name = 'pedidos'",
     );
   });
   it("omitting the table still lists the whole database (the ER diagram)", () => {
@@ -34,15 +42,45 @@ describe("foreignKeysFor — scoped to one table", () => {
   });
 });
 
+// The inbound direction is what "related data" needs: not the keys leaving a
+// table, but the ones pointing AT it (issue #310).
+describe("foreignKeysFor — inbound direction", () => {
+  const to = (table: string) => ({ table, direction: "to" as const });
+
+  it("MySQL filters by the referenced table", () => {
+    const sql = foreignKeysFor("mysql", "shop", to("cuadernos")).bulkSql!;
+    expect(sql).toContain("AND REFERENCED_TABLE_NAME = 'cuadernos'");
+    expect(sql).not.toContain("AND TABLE_NAME = 'cuadernos'");
+  });
+
+  it("PostgreSQL filters by the referenced relation", () => {
+    const sql = foreignKeysFor("postgres", "public", to("cuadernos")).bulkSql!;
+    expect(sql).toContain("AND cf.relname = 'cuadernos'");
+    expect(sql).not.toContain("AND cl.relname = 'cuadernos'");
+  });
+
+  it("Informix filters by the parent table", () => {
+    const sql = foreignKeysFor("informix", undefined, to("cuadernos")).bulkSql!;
+    expect(sql).toContain("AND pt.tabname = 'cuadernos'");
+    expect(sql).not.toContain("AND t.tabname = 'cuadernos'");
+  });
+
+  it("SQLite filters by the referenced table of the pragma", () => {
+    const sql = foreignKeysFor("sqlite", undefined, to("cuadernos")).bulkSql!;
+    expect(sql).toContain(`AND f."table" = 'cuadernos'`);
+  });
+});
+
 describe("foreignKeysFor", () => {
   it("MySQL: bulk query scoped to the database, ordered for composite keys", () => {
     const q = foreignKeysFor("mysql", "shop");
     expect(q.supported).toBe(true);
-    expect(q.perTable).toBe(false);
     expect(q.bulkSql).toContain("information_schema.KEY_COLUMN_USAGE");
     expect(q.bulkSql).toContain("TABLE_SCHEMA = 'shop'");
     expect(q.bulkSql).toContain("REFERENCED_TABLE_NAME IS NOT NULL");
     expect(q.bulkSql).toContain("ORDINAL_POSITION");
+    // The constraint identity travels, so composite keys can be regrouped.
+    expect(q.bulkSql).toContain("CONSTRAINT_NAME AS constraint_name");
   });
 
   it("MySQL: falls back to DATABASE() with no db and treats mariadb the same", () => {
@@ -57,6 +95,7 @@ describe("foreignKeysFor", () => {
     expect(q.bulkSql).toContain("con.contype = 'f'");
     expect(q.bulkSql).toContain("generate_subscripts(con.conkey, 1)");
     expect(q.bulkSql).toContain("n.nspname = 'public'");
+    expect(q.bulkSql).toContain("con.conname AS constraint_name");
     // no db → excludes the system schemas rather than filtering one
     expect(foreignKeysFor("postgresql").bulkSql).toContain("NOT IN ('pg_catalog'");
   });
@@ -69,11 +108,23 @@ describe("foreignKeysFor", () => {
     expect(q.bulkSql).toContain("c.constrtype = 'R'");
   });
 
-  it("SQLite: reports per-table (no bulk SQL)", () => {
+  it("Informix: resolves every key position, not just part1", () => {
+    const sql = foreignKeysFor("informix").bulkSql!;
+    // One branch per index position, both sides, skipping the unused positions.
+    expect(sql).toContain("ABS(fi.part1)");
+    expect(sql).toContain("ABS(pi.part16)");
+    expect(sql).toContain("AND fi.part5 <> 0 AND pi.part5 <> 0");
+    expect(sql.match(/UNION ALL/g)).toHaveLength(15);
+    // Ordered by table, constraint and position so composite keys stay ordered.
+    expect(sql.endsWith("ORDER BY 1, 5, 6")).toBe(true);
+  });
+
+  it("SQLite: one query through the pragma table-valued function", () => {
     const q = foreignKeysFor("sqlite");
     expect(q.supported).toBe(true);
-    expect(q.perTable).toBe(true);
-    expect(q.bulkSql).toBeNull();
+    expect(q.bulkSql).toContain("pragma_foreign_key_list(m.name)");
+    expect(q.bulkSql).toContain("sqlite_master");
+    expect(q.bulkSql).toContain("m.name NOT LIKE 'sqlite_%'");
   });
 
   it("MongoDB: honestly unsupported", () => {
@@ -98,94 +149,128 @@ describe("foreignKeysFor", () => {
   });
 });
 
-describe("sqliteForeignKeySql", () => {
-  it("builds the per-table pragma, escaping the name", () => {
-    expect(sqliteForeignKeySql("orders")).toBe("PRAGMA foreign_key_list('orders')");
-    expect(sqliteForeignKeySql("o'r")).toBe("PRAGMA foreign_key_list('o''r')");
-  });
-});
-
-describe("parseForeignKeys — bulk engines", () => {
+describe("parseForeignKeys", () => {
   const columns = [
     { name: "from_table" },
     { name: "from_column" },
     { name: "to_table" },
     { name: "to_column" },
+    { name: "constraint_name" },
+    { name: "position" },
   ];
 
-  it("parses each column pair (nominal)", () => {
-    const rows = [["orders", "customer_id", "customers", "id"]];
-    expect(parseForeignKeys("mysql", columns, rows)).toEqual([
-      { fromTable: "orders", fromColumn: "customer_id", toTable: "customers", toColumn: "id" },
+  it("parses each column pair with its constraint and position (nominal)", () => {
+    const rows = [["orders", "customer_id", "customers", "id", "fk_ord_cust", "1"]];
+    expect(parseForeignKeys(columns, rows)).toEqual([
+      {
+        fromTable: "orders",
+        fromColumn: "customer_id",
+        toTable: "customers",
+        toColumn: "id",
+        constraint: "fk_ord_cust",
+        position: 1,
+      },
     ]);
   });
 
   it("keeps every row of a composite FK (two column pairs)", () => {
     const rows = [
-      ["line", "order_id", "orders", "id"],
-      ["line", "order_seq", "orders", "seq"],
+      ["line", "order_id", "orders", "id", "fk_line", "1"],
+      ["line", "order_seq", "orders", "seq", "fk_line", "2"],
     ];
-    const fks = parseForeignKeys("postgres", columns, rows);
+    const fks = parseForeignKeys(columns, rows);
     expect(fks).toHaveLength(2);
     expect(fks.map((f) => f.fromColumn)).toEqual(["order_id", "order_seq"]);
   });
 
+  it("works without the constraint columns (older catalogs)", () => {
+    const bare = columns.slice(0, 4);
+    const fks = parseForeignKeys(bare, [["orders", "customer_id", "customers", "id"]]);
+    expect(fks[0].constraint).toBeUndefined();
+    expect(fks[0].position).toBeUndefined();
+  });
+
   it("returns [] when there are no FKs", () => {
-    expect(parseForeignKeys("mysql", columns, [])).toEqual([]);
+    expect(parseForeignKeys(columns, [])).toEqual([]);
   });
 
   it("trims Informix-style padded names and drops rows missing a table", () => {
     const rows = [
-      ["  order  ", " cust_id ", " client ", " id "],
-      [null, "x", "client", "id"], // no source table → dropped
+      ["  order  ", " cust_id ", " client ", " id ", " fk_o ", "1"],
+      [null, "x", "client", "id", "fk_x", "1"], // no source table → dropped
     ];
-    const fks = parseForeignKeys("informix", columns, rows);
-    expect(fks).toEqual([
-      { fromTable: "order", fromColumn: "cust_id", toTable: "client", toColumn: "id" },
-    ]);
+    const fks = parseForeignKeys(columns, rows);
+    expect(fks).toHaveLength(1);
+    expect(fks[0]).toMatchObject({ fromTable: "order", fromColumn: "cust_id", toTable: "client" });
+  });
+
+  it("tolerates a null 'to' (SQLite FK referencing the implicit primary key)", () => {
+    const rows = [["orders", "customer_id", "customers", null, "0", "0"]];
+    expect(parseForeignKeys(columns, rows)[0].toColumn).toBe("");
   });
 
   it("returns [] when the expected columns are absent", () => {
-    expect(parseForeignKeys("mysql", [{ name: "foo" }], [["bar"]])).toEqual([]);
+    expect(parseForeignKeys([{ name: "foo" }], [["bar"]])).toEqual([]);
   });
 });
 
-describe("parseForeignKeys — SQLite pragma", () => {
-  // PRAGMA foreign_key_list columns: id, seq, table (referenced), from, to, …
-  const columns = [
-    { name: "id" },
-    { name: "seq" },
-    { name: "table" },
-    { name: "from" },
-    { name: "to" },
-    { name: "on_update" },
-    { name: "on_delete" },
-    { name: "match" },
-  ];
-
-  it("injects the source table (the pragma echoes only the target)", () => {
-    const rows = [["0", "0", "customers", "customer_id", "id", "NO ACTION", "NO ACTION", "NONE"]];
-    expect(parseForeignKeys("sqlite", columns, rows, "orders")).toEqual([
-      { fromTable: "orders", fromColumn: "customer_id", toTable: "customers", toColumn: "id" },
-    ]);
+describe("groupForeignKeys", () => {
+  const pair = (over: Partial<ForeignKey>): ForeignKey => ({
+    fromTable: "pedido_producto",
+    fromColumn: "ciudad",
+    toTable: "cuadernos",
+    toColumn: "ciudad",
+    ...over,
   });
 
-  it("tolerates a null 'to' (FK referencing the implicit primary key)", () => {
-    const rows = [["0", "0", "customers", "customer_id", null, "NO ACTION", "NO ACTION", "NONE"]];
-    const fks = parseForeignKeys("sqlite", columns, rows, "orders");
-    expect(fks).toEqual([
-      { fromTable: "orders", fromColumn: "customer_id", toTable: "customers", toColumn: "" },
-    ]);
+  it("groups a composite key into one relationship with its columns in order", () => {
+    const fks = [
+      pair({ fromColumn: "ciudad", toColumn: "ciudad", constraint: "fk_ci", position: 1 }),
+      pair({ fromColumn: "anio_ped", toColumn: "anio_ped", constraint: "fk_ci", position: 2 }),
+      pair({ fromColumn: "cuaderno", toColumn: "cuaderno", constraint: "fk_ci", position: 3 }),
+    ];
+    const rels = groupForeignKeys(fks);
+    expect(rels).toHaveLength(1);
+    expect(rels[0].fromTable).toBe("pedido_producto");
+    expect(rels[0].toTable).toBe("cuadernos");
+    expect(rels[0].columns.map((c) => c.from)).toEqual(["ciudad", "anio_ped", "cuaderno"]);
   });
 
-  it("returns [] with no source table rows", () => {
-    expect(parseForeignKeys("sqlite", columns, [], "orders")).toEqual([]);
+  it("orders the columns by catalog position, not row order", () => {
+    const fks = [
+      pair({ fromColumn: "b", constraint: "fk", position: 2 }),
+      pair({ fromColumn: "a", constraint: "fk", position: 1 }),
+    ];
+    expect(groupForeignKeys(fks)[0].columns.map((c) => c.from)).toEqual(["a", "b"]);
   });
 
-  it("drops rows when no source table is supplied (symmetric with the bulk branch)", () => {
-    const rows = [["0", "0", "customers", "customer_id", "id", "NO ACTION", "NO ACTION", "NONE"]];
-    // Missing sourceTable → fromTable is "" → the row is dropped rather than
-    // producing a bogus edge with an empty source.
-    expect(parseForeignKeys("sqlite", columns, rows)).toEqual([]);
+  it("keeps two constraints to the same table apart", () => {
+    const fks = [
+      pair({ fromColumn: "alta_por", constraint: "fk_alta", position: 1 }),
+      pair({ fromColumn: "baja_por", constraint: "fk_baja", position: 1 }),
+    ];
+    const rels = groupForeignKeys(fks);
+    expect(rels).toHaveLength(2);
+    expect(rels.map((r) => r.constraint)).toEqual(["fk_alta", "fk_baja"]);
+  });
+
+  it("keeps the same constraint name in different tables apart", () => {
+    const fks = [
+      pair({ fromTable: "a", constraint: "fk", position: 1 }),
+      pair({ fromTable: "b", constraint: "fk", position: 1 }),
+    ];
+    expect(groupForeignKeys(fks).map((r) => r.fromTable)).toEqual(["a", "b"]);
+  });
+
+  it("falls back to the target table when the catalog gave no constraint", () => {
+    const fks = [pair({ fromColumn: "ciudad" }), pair({ fromColumn: "anio_ped" })];
+    const rels = groupForeignKeys(fks);
+    expect(rels).toHaveLength(1);
+    expect(rels[0].constraint).toBe("cuadernos");
+    expect(rels[0].columns).toHaveLength(2);
+  });
+
+  it("returns [] for no keys", () => {
+    expect(groupForeignKeys([])).toEqual([]);
   });
 });
