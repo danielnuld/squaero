@@ -1,5 +1,6 @@
 #include "internal.h"
 #include "utils/connstr.h"
+#include "utils/text.h"
 
 #include "cJSON.h"
 
@@ -161,7 +162,15 @@ void ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h, const char *ctx
         /* No diagnostic records were available. */
         snprintf(c->err, sizeof c->err, "%s: no diagnostic available",
                  ctx != NULL ? ctx : "error");
+        return;
     }
+
+    /* Informix messages are localized, so a Spanish message carries accented
+       bytes in the server's code set. Left as-is they are invalid UTF-8, and the
+       error then breaks the very frame that was supposed to report it — the user
+       sees nothing at all. Convert the assembled text, truncating if widening no
+       longer fits: losing the tail of a message beats losing the message. */
+    ifx_text_fix_utf8_inplace(c->err, sizeof c->err);
 }
 
 /* Borrowed (not copied) string field of root, or NULL when absent/empty. */
@@ -233,6 +242,9 @@ dbc_status ifx_connect(const char *dsn_json, dbc_conn **out)
         .database = str_field(root, "database"),
         .user     = str_field(root, "user"),
         .password = str_field(root, "password"),
+        /* Optional; absent leaves the CSDK's own defaults in place (issue #323). */
+        .client_locale = str_field(root, "client_locale"),
+        .db_locale     = str_field(root, "db_locale"),
     };
 
     char conn_str[2048];

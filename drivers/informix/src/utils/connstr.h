@@ -28,6 +28,13 @@ struct informix_conn_params {
     const char *database;
     const char *user;
     const char *password;
+    /* Informix locale keywords (issue #323). `client_locale` is the code set the
+       CSDK is asked to deliver and defaults to "en_us.utf8", so text arrives
+       already converted; `db_locale` declares the database's own and is omitted
+       when absent, because the client normally deduces it. Both exist as escape
+       hatches for a database whose code set the client cannot work out. */
+    const char *client_locale;  /* NULL/"" => "en_us.utf8" */
+    const char *db_locale;
 };
 
 /*

@@ -95,6 +95,13 @@ target_include_directories(conn_methods_test PRIVATE ${CMAKE_SOURCE_DIR}/core/sr
 quaero_set_warnings(conn_methods_test)
 add_test(NAME conn_methods_test COMMAND conn_methods_test)
 
+# UTF-8 boundary guard: nothing invalid may reach cJSON (issue #323).
+add_executable(utf8_test ipc/utf8_test.c)
+target_link_libraries(utf8_test PRIVATE dbcore cjson)
+target_include_directories(utf8_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/ipc)
+quaero_set_warnings(utf8_test)
+add_test(NAME utf8_test COMMAND utf8_test)
+
 # Result-set JSON serialization. Uses the internal result builder + serializer.
 add_executable(result_json_test ipc/result_json_test.c)
 target_link_libraries(result_json_test PRIVATE dbcore cjson)

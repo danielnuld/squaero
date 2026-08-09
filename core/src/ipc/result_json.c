@@ -1,5 +1,7 @@
 #include "result_json.h"
 
+#include "utf8.h"
+
 #include <string.h>
 
 const char *ipc_type_name(dbc_type type)
@@ -48,8 +50,11 @@ static cJSON *build_columns(const dbcore_result *r)
             cJSON_Delete(columns);
             return NULL;
         }
+        /* A column name comes from the driver too, so it gets the same guard as
+           a cell value: an alias with accented bytes in a legacy code set would
+           otherwise wreck the frame. */
         const char *name = dbcore_result_col_name(r, c);
-        if (cJSON_AddStringToObject(col, "name", name != NULL ? name : "") == NULL ||
+        if (ipc_utf8_add_string(col, "name", name) == NULL ||
             cJSON_AddStringToObject(col, "type",
                                     ipc_type_name(dbcore_result_col_type(r, c))) == NULL) {
             cJSON_Delete(columns);
@@ -75,13 +80,14 @@ static cJSON *build_rows(const dbcore_result *r)
             return NULL;
         }
         for (int col = 0; col < ncols; col++) {
-            /* SQL NULL -> JSON null; otherwise the text value as a JSON string
-               (cJSON escapes and emits valid UTF-8). */
+            /* SQL NULL -> JSON null; otherwise the text value as a JSON string.
+               cJSON escapes the string but does NOT validate its UTF-8, so the
+               value goes through the boundary guard first (see utf8.h). */
             cJSON *value;
             if (dbcore_result_cell_is_null(r, row, col)) {
                 value = cJSON_CreateNull();
             } else {
-                value = cJSON_CreateString(dbcore_result_cell(r, row, col));
+                value = ipc_utf8_string(dbcore_result_cell(r, row, col));
             }
             if (value == NULL || !cJSON_AddItemToArray(cells, value)) {
                 cJSON_Delete(value);

@@ -1,5 +1,6 @@
 #include "result_json.h"     /* serializer under test (internal IPC header) */
 #include "result_priv.h"     /* internal builder, to construct a known result */
+#include "utf8.h"            /* to assert the emitted frame is decodable */
 
 #include "cJSON.h"
 
@@ -120,6 +121,41 @@ int main(void)
     cJSON_Delete(json_t);
 
     dbcore_result_free(r);
+
+    /* A driver handing back bytes that are not UTF-8 — a column name and a cell
+       both in a Latin-1 code set. Before the boundary guard this printed a frame
+       the webview bridge could not decode, so the response never arrived and the
+       grid loaded forever (issue #315). The frame must now be decodable, and the
+       readable parts of both strings must survive. */
+    dbcore_result *bad = dbcore_result_create(1);
+    EXPECT(bad != NULL, "result allocates");
+    dbcore_result_set_column(bad, 0, "a\xf1o", DBC_TYPE_TEXT);   /* "año" latin-1 */
+    const char *bad_row[] = { "Nog\xe1les" };                    /* "Nogáles" latin-1 */
+    dbcore_result_add_row(bad, bad_row);
+
+    cJSON *json_bad = ipc_result_to_json(bad);
+    EXPECT(json_bad != NULL, "invalid bytes still serialize");
+    char *bad_text = cJSON_PrintUnformatted(json_bad);
+    EXPECT(bad_text != NULL, "invalid bytes still print");
+    if (bad_text != NULL) {
+        EXPECT(ipc_utf8_valid(bad_text), "frame with repaired text is valid UTF-8");
+        cJSON *reparsed_bad = cJSON_Parse(bad_text);
+        EXPECT(reparsed_bad != NULL, "repaired frame round-trips through a parse");
+        cJSON *bad_cols = cJSON_GetObjectItem(reparsed_bad, "columns");
+        cJSON *bad_c0 = cJSON_GetArrayItem(bad_cols, 0);
+        const char *bad_name = cJSON_GetObjectItem(bad_c0, "name")->valuestring;
+        EXPECT(strncmp(bad_name, "a", 1) == 0 && strstr(bad_name, "o") != NULL,
+               "column name keeps its decodable characters");
+        cJSON *bad_rows = cJSON_GetObjectItem(reparsed_bad, "rows");
+        const char *bad_cell =
+            cJSON_GetArrayItem(cJSON_GetArrayItem(bad_rows, 0), 0)->valuestring;
+        EXPECT(strncmp(bad_cell, "Nog", 3) == 0 && strstr(bad_cell, "les") != NULL,
+               "cell value keeps its decodable characters");
+        cJSON_Delete(reparsed_bad);
+        cJSON_free(bad_text);
+    }
+    cJSON_Delete(json_bad);
+    dbcore_result_free(bad);
 
     if (failures == 0) {
         printf("OK: result JSON serialization (all cases)\n");

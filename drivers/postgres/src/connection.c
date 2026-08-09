@@ -105,6 +105,10 @@ dbc_status pg_drv_connect(const char *dsn_json, dbc_conn **out)
     add_param(keywords, values, &n, "connect_timeout",
               field_str(root, "connect_timeout"));
     add_param(keywords, values, &n, "application_name", "quaero");
+    /* The IPC transport is UTF-8 only, so ask the server to convert rather than
+       guessing at the bytes later: a LATIN1 database otherwise hands back Latin-1
+       untouched (issue #323). libpq applies this to error messages too. */
+    add_param(keywords, values, &n, "client_encoding", "UTF8");
     keywords[n] = NULL;
     values[n] = NULL;
 

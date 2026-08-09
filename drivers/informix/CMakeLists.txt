@@ -36,6 +36,20 @@ if(BUILD_TESTING)
   quaero_set_warnings(informix_connstr_test)
   add_test(NAME informix_connstr_test COMMAND informix_connstr_test)
 
+  add_executable(informix_text_test
+    tests/text_test.c
+    src/utils/text.c)
+  target_include_directories(informix_text_test PRIVATE src/utils)
+  quaero_set_warnings(informix_text_test)
+  add_test(NAME informix_text_test COMMAND informix_text_test)
+
+  add_executable(informix_utf16_test
+    tests/utf16_test.c
+    src/utils/utf16.c)
+  target_include_directories(informix_utf16_test PRIVATE src/utils)
+  quaero_set_warnings(informix_utf16_test)
+  add_test(NAME informix_utf16_test COMMAND informix_utf16_test)
+
   add_executable(informix_dml_test
     tests/dml_test.c
     src/utils/dml.c)
@@ -71,7 +85,9 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
     src/utils/types.c
     src/utils/odbc_types.c
     src/utils/connstr.c
-    src/utils/dml.c)
+    src/utils/dml.c
+    src/utils/utf16.c
+    src/utils/text.c)
   target_include_directories(informix_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)
   if(NOT WIN32 AND ODBC_INCLUDE_DIR)
@@ -100,7 +116,9 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
       src/utils/types.c
       src/utils/odbc_types.c
       src/utils/connstr.c
-      src/utils/dml.c)
+      src/utils/dml.c
+      src/utils/utf16.c
+      src/utils/text.c)
     target_include_directories(informix_cancel_test PRIVATE
       src ${CMAKE_SOURCE_DIR}/core/include)
     if(NOT WIN32 AND ODBC_INCLUDE_DIR)

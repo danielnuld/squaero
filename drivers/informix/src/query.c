@@ -1,5 +1,7 @@
 #include "internal.h"
 #include "utils/odbc_types.h"
+#include "utils/text.h"
+#include "utils/utf16.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -71,11 +73,26 @@ static int alloc_columns(dbc_result *r, int ncols)
     return 0;
 }
 
+/*
+ * How many of the characters a describe call reported are safe to read out of a
+ * buffer of `cap` elements. name_len counts the characters *available*, so it
+ * exceeds the buffer when the name was truncated; and a driver may terminate
+ * earlier than it claimed, so an embedded NUL still wins. Never trust plain
+ * NUL-termination here: a driver that cannot represent a name through the entry
+ * point it was asked with may leave the buffer untouched, and a strlen over that
+ * runs off the end of the array.
+ */
+static size_t describe_name_len(SQLSMALLINT name_len, size_t cap)
+{
+    size_t avail = (name_len > 0) ? (size_t)name_len : 0;
+    return (avail > cap - 1) ? cap - 1 : avail;
+}
+
 /* Describe each column: cache its name and ODBC SQL type. */
 static int describe_columns(dbc_result *r)
 {
     for (int i = 0; i < r->ncols; i++) {
-        SQLCHAR     name[256];
+        SQLCHAR     name[256] = { 0 };
         SQLSMALLINT name_len = 0;
         SQLSMALLINT sql_type = 0;
         SQLULEN     col_size = 0;
@@ -87,13 +104,24 @@ static int describe_columns(dbc_result *r)
         if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
             return -1;
         }
-        r->col_types[i] = (short)sql_type;
-        size_t n = strlen((const char *)name) + 1;
-        r->col_names[i] = malloc(n);
+
+        size_t len = describe_name_len(name_len, sizeof name);
+        const void *nul = memchr(name, '\0', len);
+        if (nul != NULL) {
+            len = (size_t)((const SQLCHAR *)nul - name);
+        }
+        name[len] = '\0';
+
+        /* A column name is text from the database too, so it gets the same UTF-8
+           treatment as a cell value — an accented alias in a single-byte code set
+           would otherwise be exactly as unsafe to transport. Converting once here
+           keeps ifx_col_name a plain accessor and honours its stable-pointer
+           contract without a second buffer. */
+        r->col_names[i] = ifx_text_to_utf8_dup((const char *)name);
         if (r->col_names[i] == NULL) {
             return -1;
         }
-        memcpy(r->col_names[i], name, n);
+        r->col_types[i] = (short)sql_type;
     }
     return 0;
 }
@@ -122,7 +150,23 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
     r->conn = c;
     ifx_track_stmt(c, r->stmt);
 
-    SQLRETURN rc = SQLExecDirect(r->stmt, (SQLCHAR *)sql, SQL_NTS);
+    /* A statement whose accents all live inside string literals goes through the
+       wide entry point, so the driver converts it to the database's code set. The
+       ANSI SQLExecDirect passes the bytes through untouched, which against a
+       single-byte database makes an accented literal match nothing at all —
+       silently, no error (issue #324). See ifx_sql_wide_safe for why the wide path
+       is deliberately not used for non-ASCII outside a literal.
+       A statement that is not well-formed UTF-8 also falls back: the conversion
+       returns NULL rather than guessing, and the old path is no worse than today. */
+    SQLRETURN rc;
+    unsigned short *wsql = ifx_sql_wide_safe(sql) ? ifx_utf8_to_utf16(sql, NULL)
+                                                  : NULL;
+    if (wsql != NULL) {
+        rc = SQLExecDirectW(r->stmt, (SQLWCHAR *)wsql, SQL_NTS);
+        free(wsql);
+    } else {
+        rc = SQLExecDirect(r->stmt, (SQLCHAR *)sql, SQL_NTS);
+    }
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         ifx_stash_diag(c, SQL_HANDLE_STMT, r->stmt, "query");
         ifx_untrack_stmt(c, r->stmt);
@@ -258,82 +302,26 @@ int ifx_next_row(dbc_result *r)
     if (!r->has_resultset || r->stmt == NULL) {
         return 0;
     }
+    /* Both failure paths below must leave a reason behind: the core reads
+       last_error when next_row returns -1, and returning -1 without stashing the
+       diagnostic is how a failed fetch used to surface as a bare "query failed"
+       with nothing to act on. A row the engine refuses to convert does that
+       (issue #323). */
     SQLRETURN rc = SQLFetch(r->stmt);
     if (rc == SQL_NO_DATA) {
         return 0;
     }
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+        ifx_stash_diag(r->conn, SQL_HANDLE_STMT, r->stmt, "fetch");
         return -1;
     }
     for (int i = 0; i < r->ncols; i++) {
         if (fetch_cell(r, i) != 0) {
+            ifx_stash_diag(r->conn, SQL_HANDLE_STMT, r->stmt, "fetch");
             return -1;
         }
     }
     return 1;
-}
-
-/* True when [s, s+n) is well-formed UTF-8. */
-static int is_valid_utf8(const unsigned char *s, size_t n)
-{
-    size_t i = 0;
-    while (i < n) {
-        unsigned char c = s[i];
-        size_t extra;
-        if (c < 0x80) {
-            i++;
-            continue;
-        } else if ((c & 0xE0) == 0xC0) {
-            extra = 1;
-        } else if ((c & 0xF0) == 0xE0) {
-            extra = 2;
-        } else if ((c & 0xF8) == 0xF0) {
-            extra = 3;
-        } else {
-            return 0;
-        }
-        if (i + extra >= n) {
-            return 0;
-        }
-        for (size_t k = 1; k <= extra; k++) {
-            if ((s[i + k] & 0xC0) != 0x80) {
-                return 0;
-            }
-        }
-        i += extra + 1;
-    }
-    return 1;
-}
-
-/* Widen Latin-1 (ISO-8859-1) bytes to UTF-8 into *buf (grown to fit). Returns
-   *buf, or NULL on allocation failure. Each 0x80-0xFF byte becomes two bytes. */
-static const char *latin1_to_utf8(const unsigned char *s, size_t n,
-                                  char **buf, size_t *cap)
-{
-    size_t need = 1; /* trailing NUL */
-    for (size_t i = 0; i < n; i++) {
-        need += (s[i] < 0x80) ? 1 : 2;
-    }
-    if (need > *cap) {
-        char *nb = realloc(*buf, need);
-        if (nb == NULL) {
-            return NULL;
-        }
-        *buf = nb;
-        *cap = need;
-    }
-    char *o = *buf;
-    for (size_t i = 0; i < n; i++) {
-        unsigned char c = s[i];
-        if (c < 0x80) {
-            *o++ = (char)c;
-        } else {
-            *o++ = (char)(0xC0 | (c >> 6));
-            *o++ = (char)(0x80 | (c & 0x3F));
-        }
-    }
-    *o = '\0';
-    return *buf;
 }
 
 const char *ifx_cell_text(dbc_result *r, int col)
@@ -344,17 +332,13 @@ const char *ifx_cell_text(dbc_result *r, int col)
     if (r->cell_null[col]) {
         return NULL;
     }
-    /* The neutral contract (and the JSON/webview transport) require UTF-8, but an
-       Informix database in a Latin-1 code set returns 8-bit text that is not
-       valid UTF-8 (e.g. 0xD1 for 'Ñ'). Such a response silently breaks the
-       webview bridge, leaving the grid loading forever. Pass valid UTF-8 through
-       untouched; otherwise widen the bytes from Latin-1. */
-    const unsigned char *raw = (const unsigned char *)r->cell[col];
-    size_t n = strlen(r->cell[col]);
-    if (is_valid_utf8(raw, n)) {
-        return r->cell[col];
-    }
-    const char *u = latin1_to_utf8(raw, n, &r->cellu8[col], &r->cellu8_cap[col]);
+    /* The neutral contract and the JSON/webview transport require UTF-8. The
+       connection asks the CSDK for it, so this is normally a pass-through; the
+       safety net matters when that request was overridden or ignored (see
+       utils/text.h). On allocation failure hand back the raw bytes: the core's own
+       boundary guard will still make them safe to transport. */
+    const char *u = ifx_text_to_utf8(r->cell[col], &r->cellu8[col],
+                                     &r->cellu8_cap[col]);
     return u != NULL ? u : r->cell[col];
 }
 

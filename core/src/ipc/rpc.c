@@ -1,5 +1,7 @@
 #include "rpc.h"
 
+#include "utf8.h"
+
 #include <stddef.h>
 
 int ipc_status_to_code(dbc_status status)
@@ -81,7 +83,14 @@ char *ipc_response_error(const cJSON *id, int code, const char *message)
         return NULL;
     }
     cJSON_AddNumberToObject(error, "code", code);
-    cJSON_AddStringToObject(error, "message", message != NULL ? message : "");
+    /* Every error message leaves through here, driver-supplied ones included. A
+       database engine reporting a localized message in a legacy code set used to
+       corrupt the frame, so the error never reached the user at all. */
+    if (ipc_utf8_add_string(error, "message", message) == NULL) {
+        cJSON_Delete(error);
+        cJSON_Delete(envelope);
+        return NULL;
+    }
 
     if (!cJSON_AddItemToObject(envelope, "error", error)) {
         cJSON_Delete(error);

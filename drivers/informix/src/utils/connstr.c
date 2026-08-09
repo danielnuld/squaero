@@ -78,6 +78,31 @@ static int present(const char *s)
     return s != NULL && s[0] != '\0';
 }
 
+/*
+ * Append the locale keywords. Both connection shapes accept them.
+ *
+ * CLIENT_LOCALE defaults to UTF-8 because the CSDK then converts the database's
+ * code set for us, which was measured to be the only reliable way to get correct
+ * text out of a single-byte database (issue #323): the environment variable of the
+ * same name is ignored by the ODBC driver, and inspecting the bytes afterwards
+ * cannot tell a Latin-1 "Ã±" from a UTF-8 "ñ" — they are the same two bytes.
+ * Without it, a row holding bytes in the 0x80-0x9F range fails the whole query.
+ *
+ * DB_LOCALE is sent only when given: the client normally deduces the database's
+ * own code set by itself, and saying it wrongly is worse than not saying it.
+ */
+static int append_locales(char *buf, size_t buflen, size_t *pos,
+                          const struct informix_conn_params *p)
+{
+    if (present(p->db_locale) &&
+        append_pair(buf, buflen, pos, "DB_LOCALE", p->db_locale) != 0) {
+        return -1;
+    }
+    const char *client_locale =
+        present(p->client_locale) ? p->client_locale : "en_us.utf8";
+    return append_pair(buf, buflen, pos, "CLIENT_LOCALE", client_locale);
+}
+
 int informix_build_conn_str(const struct informix_conn_params *p,
                             char *buf, size_t buflen)
 {
@@ -97,6 +122,9 @@ int informix_build_conn_str(const struct informix_conn_params *p,
         }
         if (present(p->password) &&
             append_pair(buf, buflen, &pos, "Pwd", p->password) != 0) {
+            return -1;
+        }
+        if (append_locales(buf, buflen, &pos, p) != 0) {
             return -1;
         }
         return (int)pos;
@@ -127,6 +155,9 @@ int informix_build_conn_str(const struct informix_conn_params *p,
     }
     if (present(p->password) &&
         append_pair(buf, buflen, &pos, "Pwd", p->password) != 0) {
+        return -1;
+    }
+    if (append_locales(buf, buflen, &pos, p) != 0) {
         return -1;
     }
     return (int)pos;

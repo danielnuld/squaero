@@ -35,7 +35,8 @@ int main(void)
         EXPECT(strcmp(buf,
                       "DRIVER={IBM INFORMIX ODBC DRIVER};Host=10.0.0.5;"
                       "Service=1526;Server=ol_inf;Protocol=onsoctcp;"
-                      "Database=stores;Uid=informix;Pwd=secret;") == 0,
+                      "Database=stores;Uid=informix;Pwd=secret;"
+                      "CLIENT_LOCALE=en_us.utf8;") == 0,
                "direct: exact connection string");
         EXPECT(len == (int)strlen(buf), "direct: returns length");
     }
@@ -59,8 +60,58 @@ int main(void)
             .host = "ignored", .server = "ignored",
         };
         EXPECT(build(&p, buf, sizeof buf) > 0, "dsn: builds");
-        EXPECT(strcmp(buf, "DSN=stores_demo;Uid=u;Pwd=p;") == 0,
+        EXPECT(strcmp(buf, "DSN=stores_demo;Uid=u;Pwd=p;"
+                           "CLIENT_LOCALE=en_us.utf8;") == 0,
                "dsn: exact string");
+    }
+
+    /* Locale keywords (issue #323). CLIENT_LOCALE defaults to UTF-8 so the CSDK
+       converts the database's code set for us; DB_LOCALE is only sent when the
+       caller declares it, because the client normally deduces it. */
+    {
+        struct informix_conn_params p = {
+            .host = "h", .service = "svc", .server = "s", .database = "d",
+        };
+        EXPECT(build(&p, buf, sizeof buf) > 0, "locale: builds with defaults");
+        EXPECT(strstr(buf, "CLIENT_LOCALE=en_us.utf8;") != NULL,
+               "locale: CLIENT_LOCALE defaults to utf8");
+        EXPECT(strstr(buf, "DB_LOCALE") == NULL, "locale: no DB_LOCALE when absent");
+    }
+
+    /* An explicit client locale replaces the default — the escape hatch for a
+       database whose code set the client cannot work out. */
+    {
+        struct informix_conn_params p = {
+            .host = "h", .service = "svc", .server = "s",
+            .client_locale = "en_us.819",
+        };
+        EXPECT(build(&p, buf, sizeof buf) > 0, "locale: override builds");
+        EXPECT(strstr(buf, "CLIENT_LOCALE=en_us.819;") != NULL,
+               "locale: explicit client locale wins");
+        EXPECT(strstr(buf, "en_us.utf8") == NULL,
+               "locale: default not also emitted");
+    }
+
+    /* An empty string counts as absent, so a blank form field still gets UTF-8. */
+    {
+        struct informix_conn_params p = {
+            .host = "h", .service = "svc", .server = "s", .client_locale = "",
+        };
+        EXPECT(build(&p, buf, sizeof buf) > 0, "locale: empty override builds");
+        EXPECT(strstr(buf, "CLIENT_LOCALE=en_us.utf8;") != NULL,
+               "locale: empty client locale falls back to the default");
+    }
+
+    /* Both are emitted when the database locale is declared too, DB_LOCALE first:
+       it says what to convert from, CLIENT_LOCALE what to convert to. */
+    {
+        struct informix_conn_params p = {
+            .host = "h", .service = "svc", .server = "s", .database = "d",
+            .db_locale = "en_us.819",
+        };
+        EXPECT(build(&p, buf, sizeof buf) > 0, "locale: builds with both");
+        EXPECT(strstr(buf, "DB_LOCALE=en_us.819;CLIENT_LOCALE=en_us.utf8;") != NULL,
+               "locale: both emitted in order");
     }
 
     /* Password with special characters is brace-quoted; a literal '}' doubles. */

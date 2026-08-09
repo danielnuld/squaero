@@ -18,6 +18,7 @@ add_library(dbcore STATIC
   src/query/tx.c
   src/query/edit.c
   src/ipc/rpc.c
+  src/ipc/utf8.c
   src/ipc/methods.c
   src/ipc/conn_methods.c
   src/ipc/query_methods.c

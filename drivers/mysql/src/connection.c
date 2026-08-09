@@ -240,6 +240,16 @@ static dbc_status connect_handle(MYSQL *db, const char *dsn_json,
         }
     }
 
+    /* The IPC transport is UTF-8 only, and the session character set would
+       otherwise be whatever the linked client library defaults to — which differs
+       between libmysql and MariaDB Connector/C (issue #323). Setting it as an
+       option rather than calling mysql_set_character_set afterwards means it
+       applies during the handshake, so connect-time errors come back in the same
+       encoding, it survives an auto-reconnect, and a server that cannot supply
+       utf8mb4 fails the connect below with its own reason instead of handing back
+       a working handle that delivers mojibake. */
+    mysql_options(db, MYSQL_SET_CHARSET_NAME, "utf8mb4");
+
     /* TLS options must be set on the handle before mysql_real_connect. */
     int ssl_rc = configure_ssl(db, root, errbuf, errcap);
     cJSON_Delete(root);
