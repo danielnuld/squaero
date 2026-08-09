@@ -38,8 +38,12 @@ export function parseTreeRows(
     if (name === null || name === undefined) {
       continue;
     }
+    // Trimmed before comparing: an engine whose catalog types the column as
+    // fixed-width CHAR pads the value ('view ' on Informix, where the type comes
+    // from a CASE whose longest branch is 'table'), and an exact match would then
+    // file every view under Tablas (issue #315).
     const kind: NodeKind =
-      typeIdx !== -1 ? (row[typeIdx] === "view" ? "view" : "table") : fallback;
+      typeIdx !== -1 ? (row[typeIdx]?.trim() === "view" ? "view" : "table") : fallback;
     rows.push({ name, kind });
   }
   return rows;

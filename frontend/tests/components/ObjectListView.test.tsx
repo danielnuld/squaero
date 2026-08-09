@@ -21,7 +21,13 @@ afterEach(() => {
 });
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-function installBridge() {
+const DEFAULT_ROWS: (string | null)[][] = [
+  ["clientes", "table", "1280", "43008", "Cartera"],
+  ["pedidos", "table", "61000", "1048576", ""],
+  ["v_ventas", "view", null, null, "Resumen"],
+];
+
+function installBridge(listRows: (string | null)[][] = DEFAULT_ROWS) {
   (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
     const req = JSON.parse(requestJson) as { id: number; method: string };
     return {
@@ -35,11 +41,7 @@ function installBridge() {
           { name: "tamano", type: "int" },
           { name: "comentario", type: "text" },
         ],
-        rows: [
-          ["clientes", "table", "1280", "43008", "Cartera"],
-          ["pedidos", "table", "61000", "1048576", ""],
-          ["v_ventas", "view", null, null, "Resumen"],
-        ],
+        rows: listRows,
         truncated: false,
         rowsAffected: 0,
       },
@@ -47,8 +49,8 @@ function installBridge() {
   };
 }
 
-async function mount(onOpenData = vi.fn()) {
-  installBridge();
+async function mount(onOpenData = vi.fn(), listRows?: (string | null)[][]) {
+  installBridge(listRows);
   host = document.createElement("div");
   document.body.appendChild(host);
   createRoot((d) => {
@@ -97,5 +99,24 @@ describe("ObjectListView", () => {
     const onOpenData = await mount();
     rows()[1].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(onOpenData).toHaveBeenCalledWith("pedidos", "table");
+  });
+
+  // An engine typing the catalog column as fixed-width CHAR pads the short value
+  // ('view ' on Informix, whose CASE is CHAR(5) because of 'table') — issue #315.
+  it("counts, filters and opens padded type values as views", async () => {
+    const onOpenData = await mount(vi.fn(), [
+      ["clientes", "table", "1280", null, null],
+      ["v_ventas", "view ", null, null, null],
+    ]);
+    const viewsTab = [...host!.querySelectorAll(".otab")].find((t) =>
+      t.textContent?.includes("Vistas"),
+    ) as HTMLButtonElement;
+    expect(viewsTab.textContent).toContain("1");
+    viewsTab.click();
+    await flush();
+    expect(rows().length).toBe(1);
+    expect(rowText(0)).toContain("v_ventas");
+    rows()[0].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(onOpenData).toHaveBeenCalledWith("v_ventas", "view");
   });
 });

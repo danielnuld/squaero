@@ -44,6 +44,28 @@ describe("parseTreeRows", () => {
     ]);
   });
 
+  it("trims a padded type value (Informix CHAR(5) 'view ')", () => {
+    const res = rs(
+      [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+      [["users", "table"], ["adults", "view "]],
+    );
+    expect(parseTreeRows(res, "schema")).toEqual([
+      { name: "users", kind: "table" },
+      { name: "adults", kind: "view" },
+    ]);
+  });
+
+  it("falls back to table for an unrecognized type value", () => {
+    const res = rs(
+      [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+      [["seq1", "sequence"], ["nada", null]],
+    );
+    expect(parseTreeRows(res, "schema")).toEqual([
+      { name: "seq1", kind: "table" },
+      { name: "nada", kind: "table" },
+    ]);
+  });
+
   it("returns [] when there is no name column", () => {
     expect(parseTreeRows(rs([{ name: "x", type: "text" }], [["a"]]), "database")).toEqual([]);
   });

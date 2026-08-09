@@ -52,6 +52,15 @@ export function ObjectListView(props: {
   const colIndex = (key: string) =>
     (result()?.columns ?? []).findIndex((c) => c.name.toLowerCase() === key);
 
+  // A row's object type, trimmed: engines that type the catalog column as
+  // fixed-width CHAR pad the value ('view ' on Informix), and an exact match
+  // would leave the Vistas filter and count empty (issue #315). Defaults to
+  // "table" when the listing has no type column.
+  const typeAt = (row: (string | null)[]): string => {
+    const ti = colIndex("tipo");
+    return ti >= 0 ? String(row[ti] ?? "").trim() : "table";
+  };
+
   // Row indices (into result.rows) matching the active type filter.
   const view = createMemo<number[]>(() => {
     const rows = result()?.rows ?? [];
@@ -59,19 +68,17 @@ export function ObjectListView(props: {
     const f = filter();
     const out: number[] = [];
     rows.forEach((row, i) => {
-      if (f === "all" || ti < 0 || String(row[ti]) === f) out.push(i);
+      if (f === "all" || ti < 0 || typeAt(row) === f) out.push(i);
     });
     return out;
   });
 
   const counts = createMemo(() => {
     const rows = result()?.rows ?? [];
-    const ti = colIndex("tipo");
     let tables = 0;
     let views = 0;
     for (const row of rows) {
-      const t = ti >= 0 ? String(row[ti]) : "table";
-      if (t === "view") views++;
+      if (typeAt(row) === "view") views++;
       else tables++;
     }
     return { tables, views, all: rows.length };
@@ -86,11 +93,9 @@ export function ObjectListView(props: {
 
   const open = (rowIdx: number) => {
     const ni = colIndex("nombre");
-    const ti = colIndex("tipo");
     if (ni < 0) return;
     const name = String(result()!.rows[rowIdx][ni]).trim();
-    const type = ti >= 0 ? String(result()!.rows[rowIdx][ti]) : "table";
-    props.onOpenData(name, type);
+    props.onOpenData(name, typeAt(result()!.rows[rowIdx]));
   };
 
   return (

@@ -91,10 +91,14 @@ dbc_status ifx_list_tables(dbc_conn *c, const char *schema, dbc_result **out)
         snprintf(qualifier, sizeof qualifier, "%s:", schema);
     }
 
+    /* TRIM the CASE: its result type is CHAR(n) with n = the LONGEST branch
+       ('table', 5), so the short branch comes back padded — 'view ' — and the
+       frontend, which compares the type against the neutral contract value,
+       would file every view under Tablas (issue #315). */
     char sql[512];
     snprintf(sql, sizeof sql,
              "SELECT TRIM(tabname) AS name, "
-             "CASE WHEN tabtype = 'V' THEN 'view' ELSE 'table' END AS type "
+             "TRIM(CASE WHEN tabtype = 'V' THEN 'view' ELSE 'table' END) AS type "
              "FROM %ssystables WHERE tabid > 99 AND tabtype IN ('T','V') "
              "ORDER BY 2, 1",
              qualifier);

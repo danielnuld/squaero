@@ -22,6 +22,9 @@ describe("objectListFor", () => {
     expect(r.sql).toContain("FROM systables");
     expect(r.sql).toContain("tabid > 99");
     expect(r.columns.map((c) => c.key)).toEqual(["nombre", "tipo", "filas"]);
+    // The type CASE is CHAR(5) there ('table'), so 'view' comes back padded
+    // unless it is trimmed in the query itself (issue #315).
+    expect(r.sql).toContain("TRIM(CASE WHEN tabtype = 'V' THEN 'view' ELSE 'table' END)");
   });
 
   it("SQLite: sqlite_master, name+type, skips internal objects", () => {

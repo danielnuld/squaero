@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextOffset, pageHasMore } from "../../src/utils/gridPaging";
+import { nextOffset, pageHasMore, refreshAction } from "../../src/utils/gridPaging";
 
 describe("nextOffset", () => {
   it("steps forward and back by the page size", () => {
@@ -25,5 +25,35 @@ describe("pageHasMore", () => {
     expect(pageHasMore(1001, 1000)).toBe(true);
     expect(pageHasMore(999, 1000)).toBe(false);
     expect(pageHasMore(0, 1000)).toBe(false);
+  });
+});
+
+describe("refreshAction", () => {
+  it("re-runs the SQL that produced the page, not the editor's text", () => {
+    expect(refreshAction({ pageSql: "SELECT * FROM users", offset: 0 })).toEqual({
+      kind: "query",
+      sql: "SELECT * FROM users",
+      offset: 0,
+    });
+  });
+
+  it("keeps the current page", () => {
+    expect(refreshAction({ pageSql: "SELECT * FROM users", offset: 2000 })).toEqual({
+      kind: "query",
+      sql: "SELECT * FROM users",
+      offset: 2000,
+    });
+  });
+
+  it("sends a table preview through the preview path, at its page", () => {
+    const r = { pageSql: "SELECT FIRST 1000 SKIP 1000 * FROM users", offset: 1000, preview: {} };
+    expect(refreshAction(r)).toEqual({ kind: "preview", offset: 1000 });
+  });
+
+  it("does nothing when the tab has never run a query", () => {
+    expect(refreshAction(undefined)).toBeNull();
+    expect(refreshAction({})).toBeNull();
+    // An error left the tab with no page: there is nothing on screen to refresh.
+    expect(refreshAction({ offset: 0 })).toBeNull();
   });
 });

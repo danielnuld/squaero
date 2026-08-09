@@ -74,11 +74,14 @@ export function objectListFor(engine: string, db: string): ObjectListSupport {
       };
     case "informix":
       // systables exposes the row estimate; size/comment are not a plain column.
+      // The type CASE is TRIMmed: its result type is CHAR(n) with n = the longest
+      // branch ('table'), so an untrimmed 'view ' never matches the type filter
+      // and no view is ever counted as one (issue #315).
       return {
         supported: true,
         sql:
           "SELECT TRIM(tabname) AS nombre, " +
-          "CASE WHEN tabtype = 'V' THEN 'view' ELSE 'table' END AS tipo, " +
+          "TRIM(CASE WHEN tabtype = 'V' THEN 'view' ELSE 'table' END) AS tipo, " +
           "nrows AS filas " +
           "FROM systables WHERE tabid > 99 AND tabtype IN ('T', 'V') " +
           "ORDER BY tabname",

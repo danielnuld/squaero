@@ -78,7 +78,7 @@ import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
 import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
 import { objectPreviewQuery } from "./utils/pagination";
-import { nextOffset, pageHasMore } from "./utils/gridPaging";
+import { nextOffset, pageHasMore, refreshAction } from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
@@ -935,8 +935,16 @@ export function App() {
     }
   };
 
-  const run = async (sql: string, scope: RunScope = "document", offset = 0) => {
-    const tab = current();
+  // `tabId` names the tab to run into; omitted it is the focused one. A refresh
+  // must pass it explicitly (like runPreviewPage) — the request can come from a
+  // tool tab that is focused while its SOURCE tab is the one to re-run (#314).
+  const run = async (
+    sql: string,
+    scope: RunScope = "document",
+    offset = 0,
+    tabId?: number,
+  ) => {
+    const tab = tabId !== undefined ? tabs().tabs.find((x) => x.id === tabId) : current();
     if (!tab) return;
     const id = tab.id;
     const trimmed = sql.trim();
@@ -1429,17 +1437,22 @@ export function App() {
     }
   };
 
+  // Refresh what the tab is SHOWING. A table preview reloads its current page
+  // through the preview path so the descriptor + server-side offset survive
+  // (re-running the paged SQL as a plain query would double-apply the baked
+  // OFFSET and lose paging); anything else re-runs the SQL that produced the
+  // page. Never the editor's text: it may have been changed since the query ran,
+  // and refreshing after a row edit would then execute a statement the user
+  // never asked to run (issue #314).
   const reloadCurrent = (id: number) => {
-    // A table preview reloads its current page through the preview path so the
-    // descriptor + server-side offset survive (re-running the paged SQL as a
-    // plain query would double-apply the baked OFFSET and lose paging).
     const r = results[id];
-    if (r?.preview) {
-      void runPreviewPage(id, r.preview, r.offset ?? 0);
+    const action = refreshAction(r);
+    if (!action) return;
+    if (action.kind === "preview") {
+      void runPreviewPage(id, r.preview!, action.offset);
       return;
     }
-    const sql = tabs().tabs.find((x) => x.id === id)?.sql;
-    if (sql) void run(sql);
+    void run(action.sql, r?.ranScope ?? "document", action.offset, id);
   };
 
   const discardEdit = async () => {

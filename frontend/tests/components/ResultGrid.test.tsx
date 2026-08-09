@@ -633,3 +633,65 @@ describe("ResultGrid loading + cancel", () => {
     expect(host!.querySelector("button.grid-cancel")).toBeNull();
   });
 });
+
+describe("ResultGrid scroll reset (issue #313)", () => {
+  // The virtualized window is computed from a `scrollTop` signal that only moves
+  // on the scroller's onScroll. The scroller is destroyed while an error is shown
+  // and recreated (at the top) for the next result, so without a reset the window
+  // kept computing from the old position and rendered the new result's rows
+  // outside the viewport — a grid that looked empty until the user scrolled.
+  const many = (n: number): ResultSet => ({
+    columns: [{ name: "id", type: "int" }],
+    rows: Array.from({ length: n }, (_, i) => [String(i)]),
+    truncated: false,
+    rowsAffected: 0,
+  });
+
+  function mountSwitchable() {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [result, setResult] = createSignal<ResultSet | null>(many(500));
+    const [error, setError] = createSignal<string | null>(null);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <ResultGrid result={result()} loading={false} error={error()} />,
+        host!,
+      );
+    });
+    return { setResult, setError };
+  }
+
+  const scroller = () => host!.querySelector<HTMLElement>(".grid-scroll");
+  const firstRow = () =>
+    host!.querySelector(".grid-rows .grid-row .grid-cell")?.textContent ?? null;
+
+  const scrollDown = () => {
+    scroller()!.scrollTop = 4000;
+    scroller()!.dispatchEvent(new Event("scroll"));
+  };
+
+  it("shows a new result from the top after an error replaced the grid", () => {
+    const { setResult, setError } = mountSwitchable();
+    scrollDown();
+    expect(firstRow()).not.toBe("0"); // scrolled well past the first rows
+    // A syntax error: the grid (and its scroller) is replaced by the error.
+    setResult(null);
+    setError("syntax error at or near ...");
+    expect(scroller()).toBeNull();
+    // A valid query again: the rows must be visible without touching the scroll.
+    setError(null);
+    setResult(many(500));
+    expect(scroller()).not.toBeNull();
+    expect(firstRow()).toBe("0");
+  });
+
+  it("shows a new result from the top when it replaces a scrolled one", () => {
+    const { setResult } = mountSwitchable();
+    scrollDown();
+    expect(firstRow()).not.toBe("0");
+    setResult(many(500));
+    expect(firstRow()).toBe("0");
+    expect(scroller()!.scrollTop).toBe(0);
+  });
+});

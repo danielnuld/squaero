@@ -92,6 +92,13 @@ export function ResultGrid(props: {
   let ro: ResizeObserver | undefined;
   const attachScroller = (el: HTMLDivElement) => {
     scrollerEl = el;
+    // A remounted scroller starts at the top, but `scrollTop` only ever moves on
+    // its onScroll — so without this the virtualized window would keep computing
+    // from the position the OLD element had, and render the new result's rows
+    // outside the viewport (a blank grid until the user scrolls). The scroller is
+    // destroyed and recreated whenever an error replaces the grid, which is how
+    // this showed up: query, syntax error, valid query -> nothing (issue #313).
+    setScrollTop(el.scrollTop);
     setViewportH(el.clientHeight);
     ro?.disconnect();
     ro = new ResizeObserver(() => setViewportH(el.clientHeight));
@@ -127,6 +134,11 @@ export function ResultGrid(props: {
     setFilters({});
     setSel(null);
     setWidths(computeColumnWidths(cols(), rows()));
+    // A new result is read from its first row: the scroller survives when one
+    // result replaces another, so its position would otherwise carry over into
+    // rows that have nothing to do with the old ones (issue #313).
+    setScrollTop(0);
+    if (scrollerEl) scrollerEl.scrollTop = 0;
   });
   const view = createMemo(() => buildViewIndices(rows(), cols(), sort(), filters()));
   const filtersActive = () => Object.values(filters()).some((q) => q.trim() !== "");
