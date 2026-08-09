@@ -617,3 +617,76 @@ describe("ObjectTree refresh", () => {
     expect(host!.querySelector(".objtree-row.is-active")).toBeNull();
   });
 });
+
+describe("ObjectTree soft reload (issue #317)", () => {
+  it("re-lists the open levels after DDL, keeping the tree expanded", async () => {
+    // The catalog grows between the first listing and the soft reload, the way
+    // it does when the user runs CREATE TABLE in the editor.
+    let tables = [["customers", "table"]];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (!req.params.db) {
+        return ok({
+          columns: [{ name: "name", type: "text" }],
+          rows: [["main"]],
+          truncated: false,
+          rowsAffected: 0,
+        });
+      }
+      return ok({
+        columns: [
+          { name: "name", type: "text" },
+          { name: "type", type: "text" },
+        ],
+        rows: tables,
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    const [soft, setSoft] = createSignal(0);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            softReloadKey={soft()}
+            onRefresh={() => {}}
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as
+        | HTMLElement
+        | undefined;
+
+    rowByText("main")!.click(); // expand the database
+    await flush();
+    rowByText("Tablas")!.click(); // expand the Tablas folder
+    await flush();
+    expect(rowByText("customers")).toBeTruthy();
+
+    // A CREATE TABLE ran: the app asks for a soft reload.
+    tables = [
+      ["customers", "table"],
+      ["invoices", "table"],
+    ];
+    setSoft(1);
+    await flush();
+
+    // The new object is listed, and the user's place is untouched: the database
+    // and the Tablas folder are still open (an explicit refresh would collapse).
+    expect(rowByText("invoices")).toBeTruthy();
+    expect(rowByText("customers")).toBeTruthy();
+    expect(rowByText("Tablas")?.textContent).toContain("2");
+  });
+});

@@ -108,6 +108,7 @@ import {
   type ExportFormat,
 } from "./utils/exporters";
 import { queryEditTarget } from "./utils/queryTarget";
+import { changesCatalog } from "./utils/sqlEffects";
 import {
   foreignKeysFor,
   groupForeignKeys,
@@ -316,6 +317,10 @@ export function App() {
   // results, and with no tab open (first connect) it vanished entirely.
   const [connError, setConnError] = createSignal<string | null>(null);
   const [treeReload, setTreeReload] = createSignal(0);
+  // Bumped when executed SQL changed the catalog (issue #317): the tree re-lists
+  // what is open instead of collapsing, which is what an explicit refresh does.
+  const [treeSoftReload, setTreeSoftReload] = createSignal(0);
+  const refreshTreeInPlace = () => setTreeSoftReload((n) => n + 1);
   // Row form/detail view (issue #133): index of the loaded row shown as a form,
   // or null when closed. Navigation walks the loaded rows in original order.
   const [detailIndex, setDetailIndex] = createSignal<number | null>(null);
@@ -993,6 +998,9 @@ export function App() {
       if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
       // A page turn keeps the source it already had; a fresh query derives it.
       if (!keepSource) void attachQuerySource(id, trimmed, conn, result);
+      // DDL from the editor is the only way to create a stored routine, and it
+      // left the tree showing yesterday's catalog until a manual refresh (#317).
+      if (changesCatalog(trimmed)) refreshTreeInPlace();
     } catch (err) {
       const elapsedMs = performance.now() - started;
       setResults(id, {
@@ -1805,6 +1813,7 @@ export function App() {
                 onOpenStructure={openStructure}
                 onOpenSql={openSqlInNewTab}
                 reloadKey={treeReload()}
+                softReloadKey={treeSoftReload()}
                 onRefresh={refreshAll}
                 onOpenTools={openToolsMenu}
                 onObjectsLoaded={setLoadedObjects}
@@ -2272,6 +2281,7 @@ export function App() {
                     onChart={(result) =>
                       showTool("chart", t("tab.chart"), { key: "chart", params: { result } })
                     }
+                    onCatalogChanged={refreshTreeInPlace}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>

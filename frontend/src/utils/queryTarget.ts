@@ -35,8 +35,10 @@ const FROM_END =
 /** Anything here means a result row is no longer one table row. */
 const RESHAPING = /\b(join|distinct|union|intersect|except|minus|group\s+by|into)\b/i;
 
-/** Strip comments and string literals so keywords inside them can't fool us. */
-function scrub(sql: string): string {
+/** Strip comments and string literals so keywords inside them can't fool us.
+    Exported for utils/sqlEffects.ts, which asks a different question of the same
+    scrubbed text. */
+export function scrub(sql: string): string {
   return sql
     .replace(/\/\*[\s\S]*?\*\//g, " ")
     .replace(/--[^\n]*/g, " ")

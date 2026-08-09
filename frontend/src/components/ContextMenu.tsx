@@ -1,5 +1,10 @@
 import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
-import { contextMenu, closeContextMenu, type MenuItem } from "../utils/contextMenu";
+import {
+  contextMenu,
+  closeContextMenu,
+  clampToViewport,
+  type MenuItem,
+} from "../utils/contextMenu";
 
 // Renders the app-global context menu at its stored position. A single instance
 // lives in App; surfaces open it via openContextMenu(). It closes on item
@@ -9,24 +14,39 @@ export function ContextMenu() {
   let el: HTMLDivElement | undefined;
   const [pos, setPos] = createSignal<{ x: number; y: number } | null>(null);
 
-  // Clamp the menu inside the viewport once it has a measured size.
   const measure = (node: HTMLDivElement) => {
     el = node;
-    const state = contextMenu();
-    if (!state) return;
-    const rect = node.getBoundingClientRect();
-    const margin = 4;
-    const x = Math.min(state.x, window.innerWidth - rect.width - margin);
-    const y = Math.min(state.y, window.innerHeight - rect.height - margin);
-    setPos({ x: Math.max(margin, x), y: Math.max(margin, y) });
   };
 
-  // Reset the provisional position to the raw click each time a menu opens; the
-  // callback ref then clamps it against the measured size.
+  // Open at the raw click, then clamp against the MEASURED box. The measuring
+  // waits a microtask because the element is still detached when the ref runs
+  // (Solid applies refs before insertion) and a detached element measures 0x0 —
+  // which silently turned the clamp into a no-op, so every menu opened at the
+  // click position and menus near an edge (the export button of a wide result)
+  // hung off-screen. A microtask runs after insertion and before paint, so the
+  // final position is the first one painted. Issue #318.
   createEffect(() => {
     const state = contextMenu();
-    if (state) setPos({ x: state.x, y: state.y });
-    else setPos(null);
+    if (!state) {
+      setPos(null);
+      return;
+    }
+    setPos({ x: state.x, y: state.y });
+    queueMicrotask(() => {
+      // Untracked reads: a menu closed or replaced meanwhile owns the position.
+      if (contextMenu() !== state || !el?.isConnected) return;
+      const rect = el.getBoundingClientRect();
+      setPos(
+        clampToViewport({
+          x: state.x,
+          y: state.y,
+          width: rect.width,
+          height: rect.height,
+          viewportW: window.innerWidth,
+          viewportH: window.innerHeight,
+        }),
+      );
+    });
   });
 
   // While a menu is open, global listeners close it on the usual triggers.

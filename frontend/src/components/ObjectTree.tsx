@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
 import { visibleRange } from "../utils/virtualize";
 import {
   flattenTree,
@@ -70,8 +70,14 @@ export function ObjectTree(props: {
   onOpenData: (node: TreeNode) => void;
   /** Open SQL (a routine/trigger DDL) in a new query tab. */
   onOpenSql?: (sql: string, name?: string) => void;
-  /** Bumping this re-fetches the tree from the current connection (issue #107). */
+  /** Bumping this re-fetches the tree from the current connection (issue #107).
+      An explicit refresh: it reloads from the root and collapses the tree. */
   reloadKey?: number;
+  /** Bumping this re-lists the levels the user already has open, KEEPING the
+      expansion, filter and scroll — for a refresh the app decided on its own
+      (DDL executed from the editor, issue #317), where collapsing would throw
+      away the navigation the user is in the middle of. */
+  softReloadKey?: number;
   /** Refresh button in the header (re-runs the active query + reloads the tree). */
   onRefresh?: () => void;
   /** Opens the connection tools menu (🧰 in the header). */
@@ -241,9 +247,11 @@ export function ObjectTree(props: {
     }
   };
 
-  const loadChildren = async (node: TreeNode) => {
+  // `force` re-fetches a level whose children are already cached (the soft
+  // reload); expanding a node keeps using the cache.
+  const loadChildren = async (node: TreeNode, force = false) => {
     const connId = props.connId;
-    if (!connId || children()[node.key]) {
+    if (!connId || (children()[node.key] && !force)) {
       return;
     }
     if (node.kind === "group") {
@@ -286,6 +294,37 @@ export function ObjectTree(props: {
       if (myGen === generation) setBusy(node.key, false);
     }
   };
+
+  // Soft reload (issue #317): re-list every level the user has open, in place.
+  // The roots, the expansion, the filter and the scroll are left alone — this
+  // fires on its own after DDL, and collapsing the tree under the user would
+  // trade one annoyance for another. Re-listing a database rebuilds its
+  // Tablas/Vistas folders and members; a lazy folder (Procedimientos/…) is
+  // re-listed when it is itself expanded.
+  createEffect(
+    on(
+      () => props.softReloadKey ?? 0,
+      () => {
+        if (!props.connId) return;
+        const myGen = generation;
+        void (async () => {
+          for (const key of [...expanded()]) {
+            if (myGen !== generation) return; // connection changed mid-flight
+            const node = nodeByKey(key);
+            if (node) await loadChildren(node, true);
+          }
+        })();
+      },
+      { defer: true },
+    ),
+  );
+
+  /** A loaded node by key: the roots, or any level already fetched. */
+  const nodeByKey = (key: string): TreeNode | undefined =>
+    roots().find((n) => n.key === key) ??
+    Object.values(children())
+      .flat()
+      .find((n) => n.key === key);
 
   // Fetch a routine/trigger/event leaf's definition (DDL) and open it in a new
   // query tab. Reuses the per-engine definition SQL from routines.ts/triggers.ts.

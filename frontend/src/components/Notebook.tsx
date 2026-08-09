@@ -4,6 +4,7 @@ import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
+import { changesCatalog } from "../utils/sqlEffects";
 import { renderMarkdown } from "../utils/markdown";
 import { saveText } from "../utils/download";
 import { loadNotebooks, saveNotebooks } from "../utils/notebookStore";
@@ -44,6 +45,8 @@ export function Notebook(props: {
   notebookId?: string;
   /** Chart a cell's result by opening the chart tool. */
   onChart: (result: ResultSet) => void;
+  /** A cell ran DDL: the object tree is stale (issue #317). */
+  onCatalogChanged?: () => void;
   onClose: () => void;
 }) {
   const boot = (): NotebookModel[] => {
@@ -130,6 +133,9 @@ export function Notebook(props: {
     try {
       const result = await runQuery(props.connId, sql);
       setResults(cell.id, { loading: false, error: null, result });
+      // A cell can create or drop objects too — the tree must hear about it
+      // (issue #317), the same as a run from the editor.
+      if (changesCatalog(sql)) props.onCatalogChanged?.();
     } catch (err) {
       setResults(cell.id, { loading: false, error: errorText(err), result: null });
     }

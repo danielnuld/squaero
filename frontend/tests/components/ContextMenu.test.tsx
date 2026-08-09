@@ -67,3 +67,50 @@ describe("ContextMenu", () => {
     expect(host!.querySelector(".context-menu")).toBeNull();
   });
 });
+
+describe("ContextMenu placement (issue #318)", () => {
+  // jsdom has no layout: every element measures 0x0, which is exactly the shape
+  // of the bug (the clamp used to measure a still-detached element and so never
+  // moved anything). Stub the box so the clamp has a real size to work with.
+  const stubSize = (width: number, height: number) => {
+    const proto = HTMLDivElement.prototype;
+    const original = proto.getBoundingClientRect;
+    proto.getBoundingClientRect = function (this: HTMLDivElement) {
+      return this.classList?.contains("context-menu")
+        ? ({ width, height, x: 0, y: 0, top: 0, left: 0, right: width, bottom: height } as DOMRect)
+        : original.call(this);
+    };
+    return () => {
+      proto.getBoundingClientRect = original;
+    };
+  };
+  const flush = () => new Promise((r) => queueMicrotask(() => r(null)));
+  const menu = () => host!.querySelector<HTMLElement>(".context-menu")!;
+
+  it("pulls a menu opened at the right edge back inside the window", async () => {
+    const restore = stubSize(180, 120);
+    try {
+      mount();
+      // jsdom's window is 1024x768.
+      openContextMenu(evAt(1000, 40), [{ label: "CSV" }, { label: "JSON" }]);
+      await flush();
+      expect(menu().style.left).toBe(`${1024 - 180 - 4}px`);
+      expect(menu().style.top).toBe("40px");
+    } finally {
+      restore();
+    }
+  });
+
+  it("leaves a menu with room to spare at the click position", async () => {
+    const restore = stubSize(180, 120);
+    try {
+      mount();
+      openContextMenu(evAt(120, 60), [{ label: "CSV" }]);
+      await flush();
+      expect(menu().style.left).toBe("120px");
+      expect(menu().style.top).toBe("60px");
+    } finally {
+      restore();
+    }
+  });
+});

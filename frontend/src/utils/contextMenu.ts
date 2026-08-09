@@ -53,3 +53,29 @@ export function openContextMenu(e: MouseEvent, items: MenuItem[]): void {
 export function closeContextMenu(): void {
   setMenu(null);
 }
+
+/** A menu box to place: where it was asked for, how big it is, and the window. */
+export interface ClampInput {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  viewportW: number;
+  viewportH: number;
+  /** Gap kept from the window edges (default 4px). */
+  margin?: number;
+}
+
+/**
+ * Where to place a menu so its whole box stays inside the window: the requested
+ * position, moved in when the box would stick out on the right or at the bottom,
+ * and never past the top-left margin (a menu larger than the window is pinned
+ * there rather than pushed off-screen). Pure — the caller measures. Issue #318.
+ */
+export function clampToViewport(i: ClampInput): { x: number; y: number } {
+  const m = i.margin ?? 4;
+  return {
+    x: Math.max(m, Math.min(i.x, i.viewportW - i.width - m)),
+    y: Math.max(m, Math.min(i.y, i.viewportH - i.height - m)),
+  };
+}
