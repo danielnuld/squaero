@@ -19,6 +19,12 @@ export interface Command {
   hint?: string;
   /** Perform the command. */
   run: () => void;
+  /** Text shown beside the list while this command is highlighted — the body of
+      a snippet, so it is not chosen by name alone (issue #320). */
+  preview?: string;
+  /** Alternate activations: Shift+Enter and Mod+Enter. A command that offers
+      none is activated by `run` whatever the modifier. */
+  runAlt?: (alt: "shift" | "mod") => void;
 }
 
 /** Section headers, in the order sections appear in the palette. */

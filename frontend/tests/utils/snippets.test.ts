@@ -9,6 +9,8 @@ import {
   serializeSnippets,
   parseSnippets,
   type Snippet,
+  proposedSnippetName,
+  uniqueSnippetName,
 } from "../../src/utils/snippets";
 
 const snip = (id: string, name: string, body: string): Snippet => ({ id, name, body });
@@ -96,5 +98,47 @@ describe("serializeSnippets / parseSnippets", () => {
       { id: 5, name: "b", body: "y" },
     ]);
     expect(parseSnippets(raw)).toEqual([snip("snip-1", "a", "x")]);
+  });
+});
+
+describe("proposedSnippetName", () => {
+  it("names a single-table SELECT after its table", () => {
+    expect(proposedSnippetName("SELECT * FROM cuadernos WHERE anio = 2026")).toBe("cuadernos");
+  });
+
+  it("keeps just the table of a qualified name", () => {
+    expect(proposedSnippetName("SELECT * FROM erp:cuadernos", "informix")).toBe("cuadernos");
+    expect(proposedSnippetName("SELECT * FROM shop.orders", "mysql")).toBe("orders");
+  });
+
+  it("has nothing to propose for a query with no single table", () => {
+    expect(proposedSnippetName("SELECT a.x FROM a JOIN b ON b.id = a.id")).toBeNull();
+    expect(proposedSnippetName("CREATE TABLE t (id INTEGER)")).toBeNull();
+    expect(proposedSnippetName("")).toBeNull();
+  });
+});
+
+describe("uniqueSnippetName", () => {
+  const list = [
+    { id: "snip-1", name: "cuadernos", body: "SELECT 1" },
+    { id: "snip-2", name: "cuadernos (2)", body: "SELECT 2" },
+  ];
+
+  it("keeps a free name as it is", () => {
+    expect(uniqueSnippetName(list, "pedidos")).toBe("pedidos");
+    expect(uniqueSnippetName([], "cuadernos")).toBe("cuadernos");
+  });
+
+  it("numbers a taken name past the variants already in use", () => {
+    expect(uniqueSnippetName(list, "cuadernos")).toBe("cuadernos (3)");
+  });
+
+  it("trims before deciding, so a padded name is still a duplicate", () => {
+    expect(uniqueSnippetName(list, "  cuadernos  ")).toBe("cuadernos (3)");
+  });
+
+  it("never overwrites: the existing snippet keeps its name", () => {
+    const name = uniqueSnippetName(list, "cuadernos");
+    expect(list.some((s) => s.name === name)).toBe(false);
   });
 });

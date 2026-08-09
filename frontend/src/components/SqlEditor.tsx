@@ -57,6 +57,12 @@ export function SqlEditor(props: {
       Ctrl/Cmd+Enter does: the selection, else the statement under the cursor,
       else the whole document. */
   runTick?: number;
+  /** Bumping this number asks for the text to save as a snippet (issue #320).
+      Resolved exactly like a run — selection, else the statement under the
+      cursor, else the whole document — so "you save what you would run". */
+  saveTick?: number;
+  /** Answers a saveTick with the resolved text and the scope it came from. */
+  onSaveRequest?: (sql: string, scope: RunScope) => void;
   /** Reports whether the editor currently holds a non-empty selection, so the
       toolbar can offer "Ejecutar selección". */
   onSelectionChange?: (hasSelection: boolean) => void;
@@ -217,6 +223,20 @@ export function SqlEditor(props: {
     if (tick === lastRunTick) return;
     lastRunTick = tick;
     runFromView();
+  });
+
+  // Save-as-snippet requests arrive the same way, and resolve the same target as
+  // a run: the user saves exactly what they would execute (issue #320).
+  let lastSaveTick = props.saveTick ?? 0;
+  createEffect(() => {
+    const tick = props.saveTick ?? 0;
+    if (tick === lastSaveTick) return;
+    lastSaveTick = tick;
+    if (!view) return;
+    const { doc, selection } = view.state;
+    const { from, to, head } = selection.main;
+    const target = pickRunTarget(doc.toString(), from, to, head);
+    props.onSaveRequest?.(target.text, target.scope);
   });
 
   // Find requests (Ctrl/Cmd+F) arrive as a bumped counter: focus the editor and

@@ -17,6 +17,10 @@ export function CommandPalette(props: {
   commands: Command[];
   /** Overrides the search input's placeholder (e.g. object-only mode). */
   placeholder?: string;
+  /** Hints shown under the results (what Enter and its modifiers do). */
+  footer?: string;
+  /** Message when the palette opens with nothing to search (issue #320). */
+  emptySetLabel?: string;
   onClose: () => void;
 }) {
   const [query, setQuery] = createSignal("");
@@ -41,11 +45,17 @@ export function CommandPalette(props: {
     }
   });
 
-  const runAt = (index: number) => {
+  /** The highlighted command, whose body the preview pane shows. */
+  const activeCmd = () => flat()[Math.min(active(), flat().length - 1)];
+
+  const runAt = (index: number, alt?: "shift" | "mod") => {
     const cmd = flat()[index];
     if (!cmd) return;
     props.onClose();
-    cmd.run();
+    // A command with no alternate activation runs its primary action whatever
+    // the modifier — pressing Shift must never silently do nothing.
+    if (alt && cmd.runAlt) cmd.runAlt(alt);
+    else cmd.run();
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -60,7 +70,10 @@ export function CommandPalette(props: {
         break;
       case "Enter":
         e.preventDefault();
-        runAt(Math.min(active(), flat().length - 1));
+        runAt(
+          Math.min(active(), flat().length - 1),
+          e.shiftKey ? "shift" : e.ctrlKey || e.metaKey ? "mod" : undefined,
+        );
         break;
       case "Escape":
         e.preventDefault();
@@ -93,10 +106,17 @@ export function CommandPalette(props: {
             }}
             onKeyDown={onKeyDown}
           />
+          <div class="cmdk-body">
           <div class="cmdk-results">
             <Show
               when={flat().length > 0}
-              fallback={<div class="cmdk-empty">Sin resultados</div>}
+              fallback={
+                <div class="cmdk-empty">
+                  {props.commands.length === 0 && props.emptySetLabel
+                    ? props.emptySetLabel
+                    : "Sin resultados"}
+                </div>
+              }
             >
               <For each={groups()}>
                 {(g) => (
@@ -125,6 +145,13 @@ export function CommandPalette(props: {
               </For>
             </Show>
           </div>
+          <Show when={activeCmd()?.preview}>
+            {(body) => <pre class="cmdk-preview">{body()}</pre>}
+          </Show>
+          </div>
+          <Show when={props.footer}>
+            <div class="cmdk-footer">{props.footer}</div>
+          </Show>
         </div>
       </div>
     </Show>

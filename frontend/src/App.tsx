@@ -64,6 +64,9 @@ import {
 } from "./utils/historyStore";
 import {
   addSnippet,
+  nextSnippetId,
+  proposedSnippetName,
+  uniqueSnippetName,
   renameSnippet,
   removeSnippet,
   mergeSnippets,
@@ -341,7 +344,7 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   // "all" is the full palette (Mod+K); "objects" scopes it to the connection's
   // tables/views (Mod+P), for a quick go-to-object jump.
-  const [paletteMode, setPaletteMode] = createSignal<"all" | "objects">("all");
+  const [paletteMode, setPaletteMode] = createSignal<"all" | "objects" | "snippets">("all");
   const [loadedObjects, setLoadedObjects] = createSignal<TreeNode[]>([]);
 
   // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
@@ -440,6 +443,15 @@ export function App() {
         // toggle — pressing Ctrl+P should reliably land on the object search.
         setPaletteMode("objects");
         setPaletteOpen(true);
+        break;
+      case "snippet-palette":
+        // Always open scoped to snippets, never a toggle — the same rule as the
+        // object palette (issue #320).
+        setPaletteMode("snippets");
+        setPaletteOpen(true);
+        break;
+      case "save-snippet":
+        requestSaveSnippet();
         break;
       case "editor-find":
         setFindTick((t) => t + 1);
@@ -712,6 +724,58 @@ export function App() {
     else setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
     setTimeout(() => setSnippetInsert((r) => ({ text: body, tick: r.tick + 1 })), 0);
   };
+  // --- Save the query being written as a snippet (issue #320) -------------
+  // The editor answers a bumped saveTick with the text it WOULD RUN (selection /
+  // statement / document), which then gets named in the editor's own toolbar —
+  // never a tab over the query the user is looking at.
+  const [saveTick, setSaveTick] = createSignal(0);
+  const [naming, setNaming] = createSignal<{ body: string; scope: RunScope; name: string } | null>(
+    null,
+  );
+  const [snipToast, setSnipToast] = createSignal<{ text: string; undoId: string } | null>(null);
+
+  const requestSaveSnippet = () => {
+    setSnipToast(null);
+    setSaveTick((n) => n + 1);
+  };
+
+  const beginNaming = (body: string, scope: RunScope) => {
+    if (!body.trim()) {
+      setSnipToast(null);
+      setConnError(t("snip.emptyQuery"));
+      return;
+    }
+    const proposed = proposedSnippetName(body, activeDialect()) ?? t("snip.fallbackName");
+    setNaming({ body, scope, name: proposed });
+  };
+
+  const commitNaming = () => {
+    const pending = naming();
+    if (!pending) return;
+    const typed = pending.name.trim();
+    if (!typed) return;
+    // A name already in use never overwrites the snippet holding it: the save
+    // lands under a numbered variant and the toast says which.
+    const list = snippets();
+    const name = uniqueSnippetName(list, typed);
+    const id = nextSnippetId(list);
+    const next = addSnippet(list, name, pending.body);
+    if (next === list) return; // rejected (blank body) — nothing to report
+    persistSnippets(next);
+    setNaming(null);
+    const scope = t(`snip.scope.${pending.scope}`);
+    setSnipToast({
+      text: t(name === typed ? "snip.saved" : "snip.savedRenamed", { name, scope }),
+      undoId: id,
+    });
+  };
+
+  const undoSaveSnippet = () => {
+    const toast = snipToast();
+    if (toast) removeSnip(toast.undoId);
+    setSnipToast(null);
+  };
+
   const exportSnippets = () =>
     void saveText("quaero-snippets.json", serializeSnippets(snippets()), "application/json");
   const importSnippets = (file: File) => {
@@ -1739,9 +1803,20 @@ export function App() {
       });
     }
 
-    // Snippets.
+    // Snippets. The body travels as the preview so the palette can show it, and
+    // the alternates run it or open it in its own tab (issue #320).
     for (const s of snippets())
-      out.push({ id: `snip:${s.id}`, category: "snippet", label: s.name, run: () => insertSnippet(s.body) });
+      out.push({
+        id: `snip:${s.id}`,
+        category: "snippet",
+        label: s.name,
+        preview: s.body,
+        run: () => insertSnippet(s.body),
+        // Running one lands it in its own tab, the same way the history palette
+        // re-runs a past query: the tab you were in keeps its text.
+        runAlt: (alt) =>
+          alt === "shift" ? runFromHistory(s.body) : openSqlInNewTab(s.body, s.name),
+      });
 
     // Recent history (cap so the palette stays snappy; fuzzy filters the rest).
     for (const [i, h] of history().slice(0, 30).entries())
@@ -1752,11 +1827,12 @@ export function App() {
 
   // What the palette shows depends on how it was opened: Mod+P scopes it to the
   // connection's objects (a go-to-table/view jump), Mod+K shows everything.
-  const visiblePaletteCommands = createMemo<Command[]>(() =>
-    paletteMode() === "objects"
-      ? paletteCommands().filter((c) => c.category === "object")
-      : paletteCommands(),
-  );
+  const visiblePaletteCommands = createMemo<Command[]>(() => {
+    const mode = paletteMode();
+    if (mode === "all") return paletteCommands();
+    const only = mode === "objects" ? "object" : "snippet";
+    return paletteCommands().filter((c) => c.category === only);
+  });
 
   return (
     <div class="app">
@@ -1908,6 +1984,8 @@ export function App() {
                     formatTick={formatTick()}
                     searchTick={findTick()}
                     runTick={runTick()}
+                    saveTick={saveTick()}
+                    onSaveRequest={beginNaming}
                     onSelectionChange={setHasEditorSelection}
                     insertRequest={snippetInsert()}
                     schema={sqlSchema()}
@@ -1947,13 +2025,56 @@ export function App() {
                     </button>
                     <button
                       class="status-btn"
+                      title={t("editor.saveSnippetTitle")}
+                      onClick={requestSaveSnippet}
+                    >
+                      {t("editor.saveSnippet")}
+                    </button>
+                    <button
+                      class="status-btn"
                       title={t("editor.snippetsTitle")}
                       onClick={() => showTool("snippets", t("editor.snippets"), { key: "snippets" })}
                     >
                       {t("editor.snippets")}
                     </button>
                     <span class="editor-hint-spacer" />
-                    <span>{t("editor.runHint")}</span>
+                    {/* Naming a snippet happens HERE, in the editor's own bar:
+                        it takes the place of the run hint while it is open, so
+                        the query stays on screen (issue #320). */}
+                    <Show
+                      when={naming()}
+                      fallback={<span>{t("editor.runHint")}</span>}
+                    >
+                      {(pending) => (
+                        <span class="snip-save">
+                          <span class="snip-save-label">{t("snip.nameLabel")}</span>
+                          <input
+                            class="snip-save-input"
+                            type="text"
+                            autofocus
+                            aria-label={t("snip.nameAria")}
+                            placeholder={t("snip.namePlaceholder")}
+                            value={pending().name}
+                            onInput={(e) =>
+                              setNaming((n) => (n ? { ...n, name: e.currentTarget.value } : n))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitNaming();
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                setNaming(null);
+                              }
+                            }}
+                          />
+                          <span class="snip-save-scope">
+                            {t(`snip.scope.${pending().scope}`)} · {t("snip.nameHint")}
+                          </span>
+                        </span>
+                      )}
+                    </Show>
                   </div>
                 </div>
                 <div class="result-pane">
@@ -2398,6 +2519,25 @@ export function App() {
         </section>
       </div>
 
+      <Show when={snipToast()}>
+        {(toast) => (
+          <div class="app-toast" role="status">
+            <span class="app-toast-text">{toast().text}</span>
+            <button class="app-toast-action" onClick={undoSaveSnippet}>
+              {t("snip.undo")}
+            </button>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setSnipToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </Show>
+
       <Show when={connError()}>
         <div class="app-toast app-toast-error" role="alert">
           <span class="app-toast-text">{connError()}</span>
@@ -2430,7 +2570,13 @@ export function App() {
         placeholder={
           paletteMode() === "objects"
             ? "Buscar tablas, vistas… (Enter para abrir)"
-            : undefined
+            : paletteMode() === "snippets"
+              ? t("snip.palettePlaceholder")
+              : undefined
+        }
+        footer={paletteMode() === "snippets" ? t("snip.paletteFooter") : undefined}
+        emptySetLabel={
+          paletteMode() === "snippets" ? t("snip.paletteEmptySet") : undefined
         }
         onClose={() => setPaletteOpen(false)}
       />

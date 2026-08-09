@@ -4461,3 +4461,93 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--accent-text);
   opacity: 0.8;
 }
+
+/* --- Snippets: save from the editor + snippet palette (issue #320) ----------
+   The palette grows a preview pane beside the list (so a snippet is not chosen
+   by name alone) and a footer of key hints; the editor toolbar grows an inline
+   name field, which replaces the hint text while a save is being named. */
+.cmdk-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.cmdk-body .cmdk-results {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+
+.cmdk-preview {
+  flex: 1 1 50%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+}
+
+.cmdk-footer {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* Inline "save as snippet" field, in the editor's own toolbar. */
+.snip-save {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.snip-save-label {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.snip-save-input {
+  flex: 1;
+  min-width: 6rem;
+  max-width: 22rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font: inherit;
+  outline: none;
+}
+
+.snip-save-scope {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Undo action inside the global toast. */
+.app-toast-action {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.app-toast-action:hover {
+  color: var(--accent-hover);
+}

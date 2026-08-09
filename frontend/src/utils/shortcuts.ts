@@ -18,7 +18,9 @@ export type ActionId =
   | "refresh"
   | "toggle-theme"
   | "toggle-help"
-  | "command-palette";
+  | "command-palette"
+  | "snippet-palette"
+  | "save-snippet";
 
 export interface Shortcut {
   id: ActionId;
@@ -41,6 +43,8 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "toggle-help", keys: "F1", description: "Mostrar/ocultar atajos", global: true },
   { id: "command-palette", keys: "Mod+K", description: "Paleta de comandos", global: true },
   { id: "object-palette", keys: "Mod+P", description: "Buscar objetos (tablas, vistas…)", global: true },
+  { id: "snippet-palette", keys: "Mod+J", description: "Buscar snippets guardados", global: true },
+  { id: "save-snippet", keys: "Mod+Shift+S", description: "Guardar la consulta como snippet", global: true },
   { id: "editor-find", keys: "Mod+F", description: "Buscar en el editor", global: true },
 ];
 
@@ -78,6 +82,12 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
   // host would otherwise give to print / browser-find. Neither takes Alt/Shift
   // (Mod+Shift+F is the editor's formatter).
   if (mod(e) && !e.altKey && !e.shiftKey && k === "p") return "object-palette";
+  // Ctrl/Cmd+J searches the saved snippets (issue #320) — the third palette
+  // mode, alongside commands and objects.
+  if (mod(e) && !e.altKey && !e.shiftKey && k === "j") return "snippet-palette";
+  // Ctrl/Cmd+Shift+S saves what the editor would run as a snippet. Shift is what
+  // separates it from anything the host might claim on a bare Mod+S.
+  if (mod(e) && !e.altKey && e.shiftKey && k === "s") return "save-snippet";
   if (mod(e) && !e.altKey && !e.shiftKey && k === "f") return "editor-find";
 
   // Ctrl+PageUp/PageDown cycle tabs (matches common editor/browser convention).

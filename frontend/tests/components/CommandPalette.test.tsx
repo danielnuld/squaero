@@ -25,7 +25,15 @@ function makeCommands(runs: Record<string, () => void> = {}): Command[] {
   ];
 }
 
-function mount(over: { open?: boolean; commands?: Command[]; onClose?: () => void } = {}) {
+function mount(
+  over: {
+    open?: boolean;
+    commands?: Command[];
+    onClose?: () => void;
+    footer?: string;
+    emptySetLabel?: string;
+  } = {},
+) {
   host = document.createElement("div");
   document.body.appendChild(host);
   const [open, setOpen] = createSignal(over.open ?? true);
@@ -36,6 +44,8 @@ function mount(over: { open?: boolean; commands?: Command[]; onClose?: () => voi
         <CommandPalette
           open={open()}
           commands={over.commands ?? makeCommands()}
+          footer={over.footer}
+          emptySetLabel={over.emptySetLabel}
           onClose={over.onClose ?? (() => setOpen(false))}
         />
       ),
@@ -126,5 +136,88 @@ describe("CommandPalette", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await flush();
     expect(host!.querySelector(".cmdk-empty")).not.toBeNull();
+  });
+});
+
+describe("CommandPalette — snippet mode (issue #320)", () => {
+  const snippets = (alt?: (a: "shift" | "mod") => void): Command[] => [
+    {
+      id: "snip:1",
+      category: "snippet",
+      label: "cuadernos por año",
+      preview: "SELECT * FROM cuadernos WHERE anio = 2026",
+      run: () => {},
+      runAlt: alt,
+    },
+    {
+      id: "snip:2",
+      category: "snippet",
+      label: "carga por sucursal",
+      preview: "SELECT sucursal, COUNT(*) FROM cuadernos GROUP BY 1",
+      run: () => {},
+      runAlt: alt,
+    },
+  ];
+  const keyWith = (el: Element, k: string, mods: KeyboardEventInit) =>
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, ...mods }));
+  const input = () => host!.querySelector(".cmdk-input") as HTMLInputElement;
+
+  it("shows the body of the highlighted snippet", () => {
+    mount({ commands: snippets() });
+    expect(host!.querySelector(".cmdk-preview")?.textContent).toContain("anio = 2026");
+  });
+
+  it("follows the highlight to the next snippet's body", () => {
+    mount({ commands: snippets() });
+    key(input(), "ArrowDown");
+    expect(host!.querySelector(".cmdk-preview")?.textContent).toContain("GROUP BY");
+  });
+
+  it("Enter takes the primary action, Shift+Enter and Mod+Enter the alternates", () => {
+    const alts: string[] = [];
+    const run = vi.fn();
+    const cmds = snippets((a) => alts.push(a));
+    cmds[0].run = run;
+
+    mount({ commands: cmds });
+    key(input(), "Enter");
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(alts).toEqual([]);
+
+    mount({ commands: cmds });
+    keyWith(input(), "Enter", { shiftKey: true });
+    mount({ commands: cmds });
+    keyWith(input(), "Enter", { ctrlKey: true });
+    expect(alts).toEqual(["shift", "mod"]);
+    // The alternates replace the primary action, they do not add to it.
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the primary action when a command offers no alternates", () => {
+    const run = vi.fn();
+    const cmds = snippets();
+    cmds[0].run = run;
+    mount({ commands: cmds });
+    keyWith(input(), "Enter", { shiftKey: true });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("says the set is empty rather than showing 'no results'", () => {
+    mount({ commands: [], emptySetLabel: "Todavía no has guardado ningún snippet." });
+    expect(host!.querySelector(".cmdk-empty")?.textContent).toBe(
+      "Todavía no has guardado ningún snippet.",
+    );
+  });
+
+  it("still says 'no results' when the set has snippets but none match", () => {
+    mount({ commands: snippets(), emptySetLabel: "Todavía no has guardado ningún snippet." });
+    input().value = "zzz";
+    input().dispatchEvent(new Event("input", { bubbles: true }));
+    expect(host!.querySelector(".cmdk-empty")?.textContent).toBe("Sin resultados");
+  });
+
+  it("shows the key hints in the footer", () => {
+    mount({ commands: snippets(), footer: "Enter insertar · Shift+Enter ejecutar" });
+    expect(host!.querySelector(".cmdk-footer")?.textContent).toContain("Shift+Enter");
   });
 });

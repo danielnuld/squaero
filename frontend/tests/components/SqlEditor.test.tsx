@@ -190,3 +190,63 @@ describe("SqlEditor snippet insertion (issue #129)", () => {
     expect(view.state.selection.main.head).toBe(8); // cursor after the inserted text
   });
 });
+
+describe("SqlEditor save-as-snippet (issue #320)", () => {
+  // Saving must capture exactly what running would, so the user never has to
+  // learn a second rule for "what does this button act on".
+  const mount = (doc: string) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [tick, setTick] = createSignal(0);
+    let asked: { sql: string; scope: RunScope } | null = null;
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => doc}
+            onChange={() => {}}
+            onRun={() => {}}
+            dialect="sqlite"
+            saveTick={tick()}
+            onSaveRequest={(sql, scope) => (asked = { sql, scope })}
+          />
+        ),
+        host!,
+      );
+    });
+    return {
+      view: EditorView.findFromDOM(host!)!,
+      save: () => setTick((n) => n + 1),
+      asked: () => asked,
+    };
+  };
+
+  it("captures the selection", () => {
+    const e = mount("SELECT 1; SELECT 2");
+    e.view.dispatch({ selection: { anchor: 0, head: 8 } });
+    e.save();
+    expect(e.asked()).toEqual({ sql: "SELECT 1", scope: "selection" });
+  });
+
+  it("captures the statement under the cursor", () => {
+    const e = mount("SELECT 1;\nSELECT 2;");
+    e.view.dispatch({ selection: { anchor: 2, head: 2 } });
+    e.save();
+    expect(e.asked()).toEqual({ sql: "SELECT 1", scope: "statement" });
+  });
+
+  it("captures the whole document when there is one statement", () => {
+    const e = mount("SELECT * FROM t");
+    e.save();
+    expect(e.asked()).toEqual({ sql: "SELECT * FROM t", scope: "document" });
+  });
+
+  it("does not ask again until the tick moves", () => {
+    const e = mount("SELECT * FROM t");
+    expect(e.asked()).toBeNull();
+    e.save();
+    expect(e.asked()).not.toBeNull();
+  });
+});

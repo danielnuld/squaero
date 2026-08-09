@@ -4,6 +4,8 @@
 // snippetStore.ts and the panel in components/SnippetsPanel.tsx. Client-side
 // only, like saved connections and query history.
 
+import { queryEditTarget } from "./queryTarget";
+
 export interface Snippet {
   /** Stable id of the form "snip-N". */
   id: string;
@@ -11,6 +13,33 @@ export interface Snippet {
   name: string;
   /** The SQL text inserted at the cursor / loaded into the editor. */
   body: string;
+}
+
+/**
+ * A name to propose when saving the query being written (issue #320), so
+ * accepting the save is one key: the table the query reads, since that is what
+ * the user would have called it anyway. Null when no single table can be read
+ * from it (a join, an aggregation, DDL) — the caller offers its own neutral
+ * default, which stays editable either way. Pure.
+ */
+export function proposedSnippetName(sql: string, engine = ""): string | null {
+  const target = queryEditTarget(sql, engine);
+  return target ? target.table : null;
+}
+
+/**
+ * `name` if no snippet carries it, else the first free "name (N)" variant.
+ * Saving under a name already in use must never overwrite the snippet that has
+ * it — with names proposed automatically, collisions are the normal case, not
+ * the exception (issue #320). Pure.
+ */
+export function uniqueSnippetName(list: Snippet[], name: string): string {
+  const base = name.trim();
+  if (!base || !list.some((s) => s.name === base)) return base;
+  for (let n = 2; ; n++) {
+    const candidate = `${base} (${n})`;
+    if (!list.some((s) => s.name === candidate)) return candidate;
+  }
 }
 
 /** Next snippet id of the form "snip-N", unique within `list`. */
