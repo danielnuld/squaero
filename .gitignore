@@ -39,3 +39,9 @@ connections.json
 # Claude Code (config personal / índice de código)
 .claude/settings.local.json
 .codegraph/
+
+# Playwright e2e (artefactos de ejecución, no fuentes)
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/blob-report/
+/frontend/e2e/.availability.json

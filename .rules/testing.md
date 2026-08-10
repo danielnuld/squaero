@@ -35,6 +35,27 @@ Everything testable is tested. Tests run in CI and before any change is "done".
   including edge cases.
 - **Run:** `pnpm test` (watch: `pnpm test --watch`; coverage: `pnpm test --coverage`).
 
+## End-to-end (frontend + core + drivers + a real database)
+
+- **Framework:** Playwright, in `frontend/e2e/`. Run with `pnpm e2e`
+  (`pnpm e2e:install` once, to fetch Chromium).
+- **What it is:** the only place the interface and the core are tested *together*.
+  Playwright drives the built frontend and injects `window.quaeroRpc` — the single
+  global the native shell binds — pointing at a real `quaero-rpc` process. Nothing
+  between the browser and the database is mocked.
+- **What to test:** journeys, not units. Anything whose failure needs a real engine
+  to reproduce: paging, transactional editing, DDL refresh, exports, and text
+  encoding.
+- **Engines:** an engine whose database or driver is missing **skips with a
+  reason**; it never fails. `QUAERO_E2E_REQUIRE=a,b` turns a skip into a failure,
+  so a CI job cannot pass having tested nothing.
+- **House rules:** locate by role or accessible name, never by CSS class or DOM
+  position; never wait on time, wait on a condition; assert exact values for
+  encoding (`ñ` vs `Ã±` is the whole difference). No retries are configured on
+  purpose — a flaky test is fixed or deleted the same day.
+- Details, and what this deliberately does NOT cover (the native shell), are in
+  `frontend/e2e/README.md`.
+
 ## Organization
 
 Mirror module structure with `describe` blocks (TS) / test groups (C). Name tests

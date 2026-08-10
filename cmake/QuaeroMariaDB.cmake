@@ -5,10 +5,18 @@
 # (its ODBC driver is 32-bit only). Mirrors cmake/QuaeroMongoc.cmake.
 #
 # Static link => the plugin (mysql.dll) carries the client and its auth plugins
-# (mysql_native_password is compiled in) inside it: no libmariadb.dll to ship
-# and no external plugin directory to locate. TLS is OFF — the connector's
-# Secure Channel backend needs wincrypt constants absent from the i686 MinGW
-# headers, and Quaero's saved connections do not request TLS.
+# inside it: no libmariadb.dll to ship and no external plugin directory to locate.
+# TLS is OFF — the connector's Secure Channel backend needs wincrypt constants
+# absent from the i686 MinGW headers, and Quaero's saved connections do not
+# request TLS.
+#
+# Both auth plugins MySQL/MariaDB servers actually default to must be among those
+# compiled in. caching_sha2_password is the default for every MySQL since 8.0, and
+# it defaults to DYNAMIC in the connector — a separate DLL this build does not
+# ship, so connecting to a stock MySQL 8 failed with "Plugin
+# caching_sha2_password could not be loaded". Forcing it STATIC is enough: on
+# Windows the connector's crypto comes from WinCrypt (crypt32/bcrypt), chosen
+# before WITH_SSL is consulted, so the plugin builds fine with TLS off.
 #
 # The connector needs a one-line source patch on 32-bit (STDCALL on the
 # mysql_load_plugin declaration); see cmake/patches/mariadb-connector-c-stdcall.cmake.
@@ -28,6 +36,11 @@ function(quaero_enable_mariadb target)
   set(WITH_CURL OFF CACHE BOOL "" FORCE)
   set(WITH_SSL OFF CACHE STRING "" FORCE)
   set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+  # Compile the auth plugins in rather than leaving them as DLLs we do not ship.
+  # The connector honours CLIENT_PLUGIN_<UPPERCASE TARGET> (cmake/plugins.cmake).
+  set(CLIENT_PLUGIN_CACHING_SHA2_PASSWORD STATIC CACHE STRING "" FORCE)
+  set(CLIENT_PLUGIN_SHA256_PASSWORD STATIC CACHE STRING "" FORCE)
 
   # Built as a subproject, the connector skips its install-dir setup, leaving
   # INSTALL_PLUGINDIR empty — its INSTALL(TARGETS) rules for the dynamic auth
