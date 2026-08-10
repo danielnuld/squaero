@@ -90,8 +90,16 @@
         Un detalle que corregí a mitad: puse `role="gridcell"` en el propio `<input>`
         y eso **anula su rol de textbox**, así que un lector de pantalla dejaría de
         anunciarlo como editable — peor para el usuario que el hueco original. El
-        `<input>` se queda con su rol y sólo lleva la etiqueta; envolverlo en un
-        `gridcell` de verdad exige tocar el CSS grid y queda como seguimiento.
+        `<input>` se queda con su rol y sólo lleva la etiqueta.
+        **Seguimiento cerrado**: la celda editable ya va envuelta en un
+        `role="gridcell"` de verdad, con el input dentro conservando su rol de
+        textbox. No hizo falta inventar nada: el propio código ya usaba esa forma
+        para el selector de claves ajenas (`rootClass="grid-cell cell-fk"` con
+        `class="cell-input"` dentro), así que se replicó. `data-cell` pasa al
+        envoltorio, que es donde ya lo ponía FkPicker, y el ayudante de foco lo
+        soportaba de antemano. Con una prueba que exige **los dos** roles a la vez:
+        la celda como `gridcell` y el control como `textbox` editable con el nombre
+        de su columna.
 
 - [x] 2.2 Crear una conexión **rellenando el formulario**, que sobreviva a una
       recarga y se pueda abrir. Las etiquetas de los campos se leen de

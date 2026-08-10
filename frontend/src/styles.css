@@ -2479,6 +2479,18 @@ kbd {
   opacity: 0.5;
 }
 
+/* An editable cell: the grid item is a wrapper carrying role="gridcell", with the
+   input inside it. The input cannot be the grid item itself and also claim that
+   role — that would override its own textbox role and stop assistive tech saying it
+   is editable. Same shape the foreign-key picker already used below. */
+.cell-edit {
+  padding: 0;
+}
+
+.cell-edit > .cell-input {
+  height: 100%;
+}
+
 /* Foreign-key value picker: a free-text input plus a visible ▾ that opens the
    referenced table's rows. The popup is position:fixed (placed from the input's
    rect) so it escapes the grid cell's clipping instead of being cut off. */

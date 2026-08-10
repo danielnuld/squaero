@@ -101,4 +101,29 @@ describeEngine("sqlite", () => {
     await expect(grid).toHaveAttribute("aria-colcount", "2");
     await expect(page.getByRole("row").first()).toHaveAttribute("aria-rowindex", "1");
   });
+
+  test("an editable cell is a gridcell that still announces its input", async ({
+    app,
+  }) => {
+    const { page } = app;
+    await app.open();
+    await connect(app);
+    await page.getByRole("treeitem", { name: "main", exact: true }).click();
+    await page.getByRole("treeitem", { name: "Tablas", exact: true }).click();
+    await page.getByRole("treeitem", { name: "e2e_items", exact: true }).click();
+    await expect(page.getByText("Nogales", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Editar", exact: true }).click();
+
+    // Both roles have to exist: the cell as a gridcell, and the editable control
+    // inside it as a textbox named after its column. Putting the gridcell role on
+    // the input itself would satisfy the first and destroy the second — assistive
+    // tech would stop announcing that the value can be changed.
+    const cellRole = page.getByRole("gridcell").first();
+    await expect(cellRole).toBeVisible();
+
+    const input = page.getByRole("textbox", { name: "nombre", exact: true }).first();
+    await expect(input).toBeVisible();
+    await expect(input).toBeEditable();
+  });
 });

@@ -240,8 +240,10 @@ export function ResultGrid(props: {
     if (!f || !scrollerEl) return;
     setPendingEditFocus(null);
     queueMicrotask(() => {
-      // In edit mode the cell IS the <input> (data-cell is on it); in read mode
-      // it's a <div>. Focus the input either way.
+      // data-cell is on the cell element: a <div> in both modes now (an editable
+      // cell wraps its input so the wrapper can be the gridcell). Reach the input
+      // through it, and tolerate the older shape where the input carried the
+      // attribute itself.
       const el = scrollerEl?.querySelector(`[data-cell="${f.r}-${f.c}"]`);
       const input = (el?.tagName === "INPUT" ? el : el?.querySelector("input")) as
         | HTMLInputElement
@@ -480,20 +482,22 @@ export function ResultGrid(props: {
                                     <Show
                                       when={fkFor(col.name)}
                                       fallback={
-                                        <input
-                                          class="grid-cell cell-input"
-                                          // Named by its column, so a cell can be
-                                          // addressed by what it is instead of by
-                                          // counting inputs. No role="gridcell"
-                                          // here: this IS the input, and overriding
-                                          // its textbox role would stop it being
-                                          // announced as editable. A proper gridcell
-                                          // wrapper needs a CSS grid change and is
-                                          // left as follow-up.
+                                        <div
+                                          class="grid-cell cell-edit"
+                                          role="gridcell"
                                           aria-colindex={ci() + 1}
+                                          data-cell={`${viewPos()}-${ci()}`}
+                                        >
+                                        <input
+                                          class="cell-input"
+                                          // Named by its column, so a cell can be
+                                          // addressed by what it is rather than by
+                                          // counting inputs. The role stays on the
+                                          // wrapper: putting gridcell on the input
+                                          // would override its textbox role and stop
+                                          // it being announced as editable.
                                           aria-label={col.name}
                                           disabled={isDeleted(rowIndex())}
-                                          data-cell={`${viewPos()}-${ci()}`}
                                           value={(() => {
                                             const v = cellValue(rowIndex(), col.name, original());
                                             // A SQL NULL edits as empty, never "0" (a bool
@@ -514,6 +518,7 @@ export function ResultGrid(props: {
                                             props.onCellContext?.(e, rowIndex(), ci())
                                           }
                                         />
+                                        </div>
                                       }
                                     >
                                       {(lookup) => (
@@ -575,15 +580,17 @@ export function ResultGrid(props: {
                           <Show
                             when={fkFor(col.name)}
                             fallback={
-                              <input
-                                class="grid-cell cell-input"
-                                aria-label={t("grid.newRowCell", { name: col.name })}
-                                placeholder={col.name}
-                                value={ins()[col.name] ?? ""}
-                                onInput={(e) =>
-                                  props.edit?.onInsertCell(ii, col.name, e.currentTarget.value)
-                                }
-                              />
+                              <div class="grid-cell cell-edit" role="gridcell">
+                                <input
+                                  class="cell-input"
+                                  aria-label={t("grid.newRowCell", { name: col.name })}
+                                  placeholder={col.name}
+                                  value={ins()[col.name] ?? ""}
+                                  onInput={(e) =>
+                                    props.edit?.onInsertCell(ii, col.name, e.currentTarget.value)
+                                  }
+                                />
+                              </div>
                             }
                           >
                             {(lookup) => (
