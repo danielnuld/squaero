@@ -2151,6 +2151,20 @@ kbd {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* The keyboard-active row. Focus stays on the tree container and the active item is
+   published with aria-activedescendant, so there is no :focus to style — without an
+   explicit marker a sighted keyboard user would be moving an invisible cursor. */
+.objtree-row.is-focused {
+  background: var(--bg-elev2);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.objtree-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* The node of the current working database: a persistent accent highlight so it
    stays visible while the user drills into other databases (issue: sidebar
    visual pass). Toggled by ObjectTree from its `activeDb` prop. */

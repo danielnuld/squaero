@@ -43,9 +43,17 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await openFixtureTable(app);
 
     // The grid header names the column and its type, which is the describe a user
-    // actually sees when opening a table.
-    await expect(app.page.getByRole("button", { name: /^id / })).toBeVisible();
-    await expect(app.page.getByRole("button", { name: /^nombre / })).toBeVisible();
+    // actually sees when opening a table. They are column headers, not buttons, so
+    // assistive tech can report which column it is reading and how it is sorted.
+    const id = app.page.getByRole("columnheader", { name: /^id / });
+    const nombre = app.page.getByRole("columnheader", { name: /^nombre / });
+    await expect(id).toBeVisible();
+    await expect(nombre).toBeVisible();
+
+    // Unsorted to begin with, and the header says so once it is sorted.
+    await expect(id).toHaveAttribute("aria-sort", "none");
+    await id.click();
+    await expect(id).toHaveAttribute("aria-sort", "ascending");
   });
 
   test("pages through a table larger than one page", async ({ app }) => {

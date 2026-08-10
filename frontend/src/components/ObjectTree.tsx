@@ -444,6 +444,104 @@ export function ObjectTree(props: {
       ? flattenFiltered(roots(), children(), filter(), nodeLabel)
       : flattenTree(roots(), children(), expanded()),
   );
+  // Keyboard navigation (issue #326). The rows were plain divs with an onClick: no
+  // role, no tabIndex, so the object tree could not be reached at all without a
+  // mouse and assistive tech saw a pile of generic boxes.
+  //
+  // Focus stays on the SCROLLER and the active row is published with
+  // aria-activedescendant, rather than moving DOM focus onto the row itself. That is
+  // the composite-widget half of the ARIA tree pattern, and it is the half that
+  // survives virtualization: rows are recycled as the window slides, so a focused
+  // row element can be destroyed under the user's feet.
+  const [activeIndex, setActiveIndex] = createSignal(-1);
+
+  const rowId = (index: number) => `objtree-row-${index}`;
+
+  /** Moves the active row, keeping it inside the rendered window. */
+  const moveActive = (next: number) => {
+    const items = flat();
+    if (items.length === 0) return;
+    const clamped = Math.max(0, Math.min(items.length - 1, next));
+    setActiveIndex(clamped);
+    // Scroll it into view ourselves: the element may not exist yet.
+    if (scrollerEl) {
+      const top = clamped * ROW_HEIGHT;
+      const bottom = top + ROW_HEIGHT;
+      if (top < scrollerEl.scrollTop) {
+        scrollerEl.scrollTop = top;
+      } else if (bottom > scrollerEl.scrollTop + scrollerEl.clientHeight) {
+        scrollerEl.scrollTop = bottom - scrollerEl.clientHeight;
+      }
+    }
+  };
+
+  /** Enter/Space do what a click does. */
+  const activate = (node: FlatNode) => {
+    if (node.expandable) onToggle(node);
+    else if (isObjectLeaf(node.kind)) void openObjectDef(node);
+    else props.onOpenData(node);
+  };
+
+  const onTreeKeyDown = (e: KeyboardEvent) => {
+    const items = flat();
+    if (items.length === 0) return;
+    const i = activeIndex();
+    const node = i >= 0 ? items[i] : undefined;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        moveActive(i < 0 ? 0 : i + 1);
+        return;
+      case "ArrowUp":
+        e.preventDefault();
+        moveActive(i < 0 ? 0 : i - 1);
+        return;
+      case "Home":
+        e.preventDefault();
+        moveActive(0);
+        return;
+      case "End":
+        e.preventDefault();
+        moveActive(items.length - 1);
+        return;
+      case "ArrowRight":
+        // Open a closed node; on an open one, step into its first child.
+        if (node?.expandable) {
+          e.preventDefault();
+          if (node.expanded) moveActive(i + 1);
+          else onToggle(node);
+        }
+        return;
+      case "ArrowLeft":
+        // Close an open node; otherwise go out to the parent.
+        if (node !== undefined) {
+          e.preventDefault();
+          if (node.expandable && node.expanded) {
+            onToggle(node);
+          } else {
+            for (let j = i - 1; j >= 0; j--) {
+              const candidate = items[j];
+              if (candidate !== undefined && candidate.depth < node.depth) {
+                moveActive(j);
+                break;
+              }
+            }
+          }
+        }
+        return;
+      case "Enter":
+      case " ":
+        if (node !== undefined) {
+          e.preventDefault();
+          activate(node);
+        }
+        return;
+      default:
+        return;
+    }
+  };
+
   const range = () =>
     visibleRange({
       scrollTop: scrollTop(),
@@ -514,23 +612,39 @@ export function ObjectTree(props: {
         <div
           class="objtree-scroll"
           ref={attachScroller}
+          role="tree"
+          aria-label={t("tree.ariaLabel")}
+          tabindex={0}
+          aria-activedescendant={
+            activeIndex() >= 0 ? rowId(activeIndex()) : undefined
+          }
+          onKeyDown={onTreeKeyDown}
           onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         >
           <div class="objtree-spacer" style={{ height: `${range().totalHeight}px` }}>
             <div class="objtree-rows" style={{ transform: `translateY(${range().offsetY}px)` }}>
               <For each={flat().slice(range().start, range().end)}>
-                {(node) => (
+                {(node, i) => {
+                  // Absolute position in the flattened tree, so ids and the active
+                  // marker keep meaning as the virtual window slides.
+                  const index = () => range().start + i();
+                  return (
                   <div
+                    id={rowId(index())}
                     class={`objtree-row ${
                       node.kind === "database" && node.db === props.activeDb
                         ? "is-active"
                         : ""
-                    }`}
+                    } ${activeIndex() === index() ? "is-focused" : ""}`}
+                    role="treeitem"
+                    aria-label={nodeLabel(node)}
+                    aria-level={node.depth + 1}
+                    aria-expanded={node.expandable ? node.expanded : undefined}
+                    aria-selected={activeIndex() === index()}
                     style={{ "padding-left": `${node.depth * 14 + 4}px` }}
                     onClick={() => {
-                      if (node.expandable) onToggle(node);
-                      else if (isObjectLeaf(node.kind)) void openObjectDef(node);
-                      else props.onOpenData(node);
+                      setActiveIndex(index());
+                      activate(node);
                     }}
                     onDblClick={() =>
                       (node.kind === "table" || node.kind === "view") &&
@@ -539,7 +653,7 @@ export function ObjectTree(props: {
                     onContextMenu={(e) => openContextMenu(e, nodeMenu(node))}
                     title={nodeLabel(node)}
                   >
-                    <span class="objtree-caret">
+                    <span class="objtree-caret" aria-hidden="true">
                       {node.expandable ? (node.expanded ? "▾" : "▸") : ""}
                     </span>
                     <Show
@@ -568,7 +682,8 @@ export function ObjectTree(props: {
                       <span class="objtree-loading">…</span>
                     </Show>
                   </div>
-                )}
+                  );
+                }}
               </For>
             </div>
           </div>

@@ -28,15 +28,14 @@ export async function disconnect(page: Page): Promise<void> {
 /**
  * Expands the tree down to the fixture table and opens its data tab.
  *
- * ACCESSIBILITY GAP: tree rows are plain <div>s with an onClick — no
- * role="treeitem", no tabIndex — so they cannot be reached by keyboard or by a
- * screen reader, and getByRole cannot see them. They do carry title={nodeLabel},
- * which is at least something a user perceives, so that is what these locators
- * use. Fixing the tree is recorded as task 2.12.
+ * Addressed by role and accessible name, now that the tree is a real ARIA tree of
+ * treeitems. It used to need the rows' title attribute, because they were divs with
+ * an onClick that no role could reach.
  */
 export async function openFixtureTable(app: App): Promise<void> {
   const { page, engine } = app;
-  const row = (name: string) => page.getByTitle(name, { exact: true }).first();
+  const row = (name: string) =>
+    page.getByRole("treeitem", { name, exact: true }).first();
   const table = row("e2e_items");
 
   // Expand only what is still closed: PostgreSQL opens its active database for
@@ -88,40 +87,29 @@ export function cell(page: Page, value: string) {
 }
 
 /**
- * Puts the grid into edit mode and narrows it to the single row `id`, so that row's
- * cells are the only ones on screen.
- *
- * ACCESSIBILITY GAP: an editable cell is a textbox with no accessible name, so
- * there is no way to ask for "the nombre cell of row 1". Filtering down to one row
- * first makes the remaining two textboxes unambiguous without depending on grid
- * geometry. Labelling the cells is recorded as task 2.12.
+ * Puts the grid into edit mode and narrows it to the single row matching
+ * `nameFragment`, so that row's cells are the only ones on screen.
  */
 export async function editRow(page: Page, nameFragment: string): Promise<void> {
   await page.getByRole("button", { name: "Editar", exact: true }).click();
-  // Filtering is by substring, so an id of "1" also matches 11, 12, 21… — narrow on
-  // a name fragment instead, and one that survives the edit so the row does not
+  // Filtering is by substring, so an id of "1" would also match 11, 12, 21… — narrow
+  // on a name fragment instead, and one that survives the edit so the row does not
   // vanish from under the test halfway through.
   await page.getByRole("searchbox", { name: "Filtrar por nombre" }).fill(nameFragment);
-  // Identify the cell by the value it holds rather than by a position: counting
-  // textboxes was wrong twice already (the object filter and the SQL editor are
-  // textboxes too), and an index would break again the next time the chrome
-  // changes.
   await expect(nombreCell(page)).toHaveValue(new RegExp(nameFragment));
 }
 
 /**
  * The `nombre` cell of the single row `editRow` narrowed to.
  *
- * Restricted to real <input> elements: by role, the SQL editor is a textbox too —
- * it is a contenteditable, and on Informix it rendered after the grid, so "the last
- * textbox" grabbed it and the assertion failed with "Not an input element". That was
- * the fourth positional assumption to bite in this file, which is the argument for
- * the grid exposing cell roles (task 2.12). Until it does, editRow asserts this
- * element's value, so picking the wrong one fails loudly instead of quietly editing
- * something else.
+ * Asked for by the column it belongs to, now that editable cells are labelled with
+ * their column name. Four different positional guesses failed here before that —
+ * counting textboxes without allowing for the object filter, then without the SQL
+ * editor, then a fixed index, then "the last textbox", which on Informix grabbed
+ * CodeMirror's contenteditable. All four were the same missing label.
  */
 export function nombreCell(page: Page) {
-  return page.locator("input").last();
+  return page.getByRole("textbox", { name: "nombre", exact: true });
 }
 
 /** Reads a value straight from the database, to check what the UI really did. */

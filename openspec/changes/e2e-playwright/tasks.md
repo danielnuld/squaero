@@ -70,17 +70,28 @@
 - [x] 2.12 **Tres huecos de accesibilidad encontrados al escribir las pruebas.** Van
       como trabajo sobre el componente, no como `data-testid`: un testid sólo lo ve
       la prueba, una etiqueta la ve también el usuario.
-      - **`ObjectTree`**: las filas son `<div>` con `onClick`, sin `role="treeitem"`
-        ni `tabIndex`. No se alcanzan por teclado ni por lector de pantalla, y
-        `getByRole` no las ve. Las pruebas usan el `title` de la fila, que al menos
-        es perceptible. Es el hueco más serio: un árbol de objetos inutilizable sin
-        ratón.
-      - **`SqlEditor`**: el textbox de CodeMirror no tiene nombre accesible, así que
-        no se distingue del filtro de objetos por rol —
-        `getByRole("textbox").first()` escribía la consulta en el filtro. Un
-        `aria-label` lo arregla.
-      - **`ResultGrid`**: no expone `role="grid"` ni roles de celda, así que no hay
-        forma de acotar una aserción «dentro del grid».
+      - **`ObjectTree`** — **ARREGLADO.** Ahora es un `role="tree"` de `treeitem`
+        con `aria-label`, `aria-level`, `aria-expanded` y `aria-selected`, navegable
+        con flechas / Home / End / Enter. El foco se queda en el contenedor y la fila
+        activa se publica con `aria-activedescendant`: es la mitad del patrón ARIA
+        que **sobrevive a la virtualización**, porque las filas se reciclan al
+        desplazar y un elemento enfocado puede destruirse bajo los pies del usuario.
+        Con estilo visible (`.is-focused`), que sin él sería un cursor invisible.
+      - **`SqlEditor`**: sigue sin nombre accesible (fuera del alcance de este
+        arreglo, que era grid y árbol). Es una línea, y quitaría el último
+        localizador por clase CSS que queda en `app-actions.ts`.
+      - **`ResultGrid`** — **ARREGLADO.** `role="grid"` con `aria-rowcount` /
+        `aria-colcount` **totales** (no lo que renderiza la ventana virtual: para eso
+        existen `aria-rowindex`/`aria-rowcount`), filas `role="row"` con su
+        `aria-rowindex` absoluto, celdas `role="gridcell"`, y cabeceras
+        `role="columnheader"` con `aria-sort`. Y lo que mató los localizadores
+        posicionales: **las celdas editables llevan `aria-label` con el nombre de su
+        columna**.
+        Un detalle que corregí a mitad: puse `role="gridcell"` en el propio `<input>`
+        y eso **anula su rol de textbox**, así que un lector de pantalla dejaría de
+        anunciarlo como editable — peor para el usuario que el hueco original. El
+        `<input>` se queda con su rol y sólo lleva la etiqueta; envolverlo en un
+        `gridcell` de verdad exige tocar el CSS grid y queda como seguimiento.
 
 - [ ] 2.2 Crear una conexión rellenando el formulario, que sobreviva a una recarga.
       **Escrito pero `test.fixme`**: rellenando nombre, motor y todos los campos por
@@ -198,3 +209,12 @@ los 44 componentes de `frontend/src/components`.
       an input element». Acotado a `<input>` de verdad. Las cuatro veces han sido
       variantes de lo mismo, y es el argumento concreto para que el grid exponga
       roles de celda (2.12). Verificado con dos pasadas seguidas en verde.
+
+- [x] 4.10 Los localizadores del e2e reescritos sobre los roles nuevos: el árbol por
+      `getByRole("treeitem", { name })` en vez del `title` de la fila, y la celda por
+      `getByRole("textbox", { name: "nombre" })` en vez de adivinar posiciones. Las
+      cuatro suposiciones posicionales que fallaron eran **la misma etiqueta que
+      faltaba**. Añadido `a11y-keyboard.spec.ts`: llegar a la tabla y abrirla **sólo
+      con teclado**, colapsar y salir con flecha izquierda, y que los roles digan lo
+      que prometen (incluido que el grid reporte el total de filas, no lo que
+      renderiza la ventana virtual). 56 pruebas en verde.

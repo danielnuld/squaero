@@ -310,6 +310,14 @@ export function ResultGrid(props: {
             <div
               class="grid-scroll"
               ref={attachScroller}
+              // Roles, so the result is a grid to assistive tech and not a pile of
+              // divs. The counts are the TOTALS, not what the virtual window happens
+              // to render: aria-rowcount/aria-rowindex exist precisely so a
+              // virtualized grid can still say "row 1001 of 1200" (issue #326).
+              role="grid"
+              aria-label={t("grid.ariaLabel")}
+              aria-rowcount={rows().length + 1}
+              aria-colcount={cols().length}
               tabindex={0}
               style={{ "--grid-row-h": `${rowHeight()}px` }}
               onScroll={(e) => {
@@ -321,6 +329,8 @@ export function ResultGrid(props: {
               <div class="grid-inner">
                 <div
                   class="grid-header"
+                  role="row"
+                  aria-rowindex={1}
                   style={{ "grid-template-columns": gridCols() }}
                 >
                   <Show when={editing()}>
@@ -330,7 +340,15 @@ export function ResultGrid(props: {
                     {(col, ci) => (
                       <div
                         class="grid-cell grid-head grid-head-sort"
-                        role="button"
+                        role="columnheader"
+                        aria-colindex={ci() + 1}
+                        aria-sort={
+                          sort()?.col === ci()
+                            ? sort()?.dir === "asc"
+                              ? "ascending"
+                              : "descending"
+                            : "none"
+                        }
                         tabindex={0}
                         title={t("grid.sort")}
                         onClick={() => toggleSort(ci())}
@@ -371,6 +389,7 @@ export function ResultGrid(props: {
 
                 <div
                   class="grid-filter"
+                  role="row"
                   style={{ "grid-template-columns": gridCols() }}
                 >
                   <Show when={editing()}>
@@ -378,7 +397,7 @@ export function ResultGrid(props: {
                   </Show>
                   <For each={cols()}>
                     {(_col, ci) => (
-                      <div class="grid-cell grid-filter-cell">
+                      <div class="grid-cell grid-filter-cell" role="gridcell">
                         <input
                           class="grid-filter-input"
                           type="search"
@@ -414,6 +433,8 @@ export function ResultGrid(props: {
                         return (
                           <div
                             class={`grid-row ${zebra()} ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
+                            role="row"
+                            aria-rowindex={viewPos() + 2}
                             style={{ "grid-template-columns": gridCols() }}
                           >
                             <Show when={editing()}>
@@ -436,6 +457,9 @@ export function ResultGrid(props: {
                                       return (
                                         <div
                                           class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""}`}
+                                          role="gridcell"
+                                          aria-colindex={ci() + 1}
+                                          aria-selected={isSelected(viewPos(), ci())}
                                           style={{ "text-align": cellAlign(cell.kind) }}
                                           title={cell.text}
                                           data-cell={`${viewPos()}-${ci()}`}
@@ -458,6 +482,16 @@ export function ResultGrid(props: {
                                       fallback={
                                         <input
                                           class="grid-cell cell-input"
+                                          // Named by its column, so a cell can be
+                                          // addressed by what it is instead of by
+                                          // counting inputs. No role="gridcell"
+                                          // here: this IS the input, and overriding
+                                          // its textbox role would stop it being
+                                          // announced as editable. A proper gridcell
+                                          // wrapper needs a CSS grid change and is
+                                          // left as follow-up.
+                                          aria-colindex={ci() + 1}
+                                          aria-label={col.name}
                                           disabled={isDeleted(rowIndex())}
                                           data-cell={`${viewPos()}-${ci()}`}
                                           value={(() => {
@@ -526,6 +560,7 @@ export function ResultGrid(props: {
                   {(ins, ii) => (
                     <div
                       class="grid-row row-insert"
+                      role="row"
                       style={{ "grid-template-columns": gridCols() }}
                     >
                       <button
@@ -542,6 +577,7 @@ export function ResultGrid(props: {
                             fallback={
                               <input
                                 class="grid-cell cell-input"
+                                aria-label={t("grid.newRowCell", { name: col.name })}
                                 placeholder={col.name}
                                 value={ins()[col.name] ?? ""}
                                 onInput={(e) =>
