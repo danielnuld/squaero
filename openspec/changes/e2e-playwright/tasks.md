@@ -93,12 +93,22 @@
         `<input>` se queda con su rol y sólo lleva la etiqueta; envolverlo en un
         `gridcell` de verdad exige tocar el CSS grid y queda como seguimiento.
 
-- [ ] 2.2 Crear una conexión rellenando el formulario, que sobreviva a una recarga.
-      **Escrito pero `test.fixme`**: rellenando nombre, motor y todos los campos por
-      sus etiquetas de producción, pulsar Guardar deja la lista en «No hay conexiones
-      guardadas» y no aparece ningún error. Sin causa identificada todavía; siguiente
-      paso, mirar qué tráfico emite el clic por el puente. Marcado para que se vea en
-      el código y no pueda dar falso verde.
+- [x] 2.2 Crear una conexión **rellenando el formulario**, que sobreviva a una
+      recarga y se pueda abrir. Las etiquetas de los campos se leen de
+      `DRIVER_SCHEMAS`, el propio código de producción, así que renombrar una etiqueta
+      no puede dejar la prueba asertando un texto que la interfaz ya no muestra.
+      **El formulario nunca estuvo roto: lo estaba el arnés.** `seedBrowserState`
+      sembraba con un `addInitScript`, y eso corre en **cada navegación**, así que el
+      `page.reload()` de la prueba borraba las claves `quaero.*` — incluida la
+      conexión que acababa de crear. Una prueba de persistencia que destruía lo que
+      iba a comprobar. Ahora la siembra ocurre sólo en la primera carga, con un
+      centinela en `sessionStorage`: sobrevive a una recarga dentro de la pestaña y
+      muere con ella, así que la prueba siguiente sigue empezando limpia.
+      Y mi diagnóstico anterior («pulsar Guardar deja la lista vacía sin error») era
+      **falso**: lo leí de un artefacto de la primera ejecución, cuando un
+      `selectOption` con una expresión regular expiraba antes de rellenar los campos.
+      Segunda vez en esta sesión que concluyo de un artefacto viejo.
+
 - [x] 2.7 Edición: editar una celda, ver el contador de cambios pendientes, y que la
       confirmación **muestre el SQL exacto** (`UPDATE … WHERE "id" = '1'`) antes de
       aplicarlo. Verificado releyendo de la base, no del grid: que el grid muestre un

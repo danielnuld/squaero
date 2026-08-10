@@ -23,17 +23,6 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
   // The connection must NOT be pre-saved: the point is to create it.
   test.use({ seedConnection: false });
 
-  // UNFINISHED, not a product bug as far as anything here shows: filling the form
-  // and pressing Guardar leaves the list saying "No hay conexiones guardadas", and
-  // I have not yet found why — the engine select and every field are filled by their
-  // own production labels, and no error surfaces. Marked fixme so it is visible in
-  // the code instead of quietly dropped, and so it cannot report false green.
-  // Next step: watch the bridge for what conn/save traffic (if any) the click emits.
-  test.fixme(
-    true,
-    "form save does not persist under automation; cause not yet identified",
-  );
-
   test("creates a connection through the form and keeps it across a reload", async ({
     app,
   }) => {
@@ -57,7 +46,6 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     }
 
     await page.getByRole("button", { name: "Guardar" }).click();
-
     // It is listed, and it survives a reload — which is what "saved" has to mean.
     await expect(page.getByRole("button", { name: new RegExp(name) })).toBeVisible();
     await page.reload();

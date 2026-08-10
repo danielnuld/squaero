@@ -51,9 +51,18 @@ export async function seedBrowserState(
   const connections = (options.connections ?? []).map(connectionRecord);
   const locale: Locale = options.locale ?? "es";
 
+  // Only on the FIRST load of the page. addInitScript runs on every navigation, so
+  // seeding unconditionally meant a page.reload() wiped whatever the test had just
+  // created — which quietly turned "does this survive a reload?" into a test of the
+  // harness deleting it. The sentinel lives in sessionStorage, which survives a
+  // reload within the tab and dies with it, so the next test still starts clean.
   await page.addInitScript(
-    ({ keys, connections: conns, locale: loc }) => {
+    ({ keys, connections: conns, locale: loc, sentinel }) => {
       try {
+        if (sessionStorage.getItem(sentinel) !== null) {
+          return;
+        }
+        sessionStorage.setItem(sentinel, "1");
         for (const key of keys) {
           localStorage.removeItem(key);
         }
@@ -66,6 +75,6 @@ export async function seedBrowserState(
         // that with an in-memory store, so a test must not die on it either.
       }
     },
-    { keys: KEYS, connections, locale },
+    { keys: KEYS, connections, locale, sentinel: "quaero.e2e.seeded" },
   );
 }
