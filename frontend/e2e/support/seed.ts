@@ -59,6 +59,25 @@ export async function reseed(rpc: RpcClient, name: EngineName): Promise<void> {
 }
 
 /**
+ * Adds the bulk rows on top of the base fixture, for the paging case only.
+ *
+ * Kept out of the base fixture on purpose: reseeding runs before every test, and
+ * making every one of them insert a thousand rows would tax the whole suite for the
+ * benefit of a single case.
+ */
+export async function bulkFill(rpc: RpcClient, name: EngineName): Promise<void> {
+  const engine = engineByName(name);
+  const connId = await openConn(rpc, engine);
+  try {
+    for (const sql of engine.bulk) {
+      await run(rpc, connId, sql);
+    }
+  } finally {
+    await rpc.call("conn.close", { connId });
+  }
+}
+
+/**
  * Probes every engine once: did its driver load, and does its database answer?
  * Runs in globalSetup, before any browser exists.
  */

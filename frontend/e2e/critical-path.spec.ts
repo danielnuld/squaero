@@ -14,6 +14,7 @@ import {
   runSql,
 } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
+import { bulkFill } from "./support/seed";
 
 describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => {
   test("connects and shows the connection as open", async ({ app }) => {
@@ -47,21 +48,37 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await expect(app.page.getByRole("button", { name: /^nombre / })).toBeVisible();
   });
 
-  test("shows the whole table as one page and says how many rows", async ({ app }) => {
+  test("pages through a table larger than one page", async ({ app }) => {
+    // The grid pages at 1000 rows, so the base fixture of 28 would never reach a
+    // second page: the case has to grow the table itself. Only this test pays that
+    // cost, and the per-test reseed takes the rows away again afterwards.
+    await bulkFill(app.rpc, app.engine.name);
+
     await app.open();
     await connect(app);
     await openFixtureTable(app);
 
-    // The page size is 1000 rows, so this fixture is a single page. Both pager
-    // buttons must therefore be dead, and the count must be the truth.
-    //
-    // This is NOT the paging test it looks like: exercising a second page needs a
-    // fixture of more than a thousand rows, which is recorded as work to do rather
-    // than asserted here. A test that passes because the branch never runs is worse
-    // than no test, because it reads as coverage.
-    await expect(app.page.getByRole("button", { name: /Anterior/ })).toBeDisabled();
-    await expect(app.page.getByRole("button", { name: /Siguiente/ })).toBeDisabled();
-    await expect(app.page.getByText(/Filas 1–28/)).toBeVisible();
+    const previous = app.page.getByRole("button", { name: /Anterior/ });
+    const next = app.page.getByRole("button", { name: /Siguiente/ });
+
+    // First page: nothing before it, something after it, and the first row present.
+    await expect(previous).toBeDisabled();
+    await expect(next).toBeEnabled();
+    await expect(app.page.getByText(/Filas 1–1000/)).toBeVisible();
+    await expect(cell(app.page, "Nogales")).toBeVisible();
+
+    await next.click();
+
+    // Second page: different rows, and the pager reflects where we are. Asserting
+    // the row window moved is what proves the offset was really applied — a page
+    // that silently re-ran the same query would still look busy and full.
+    await expect(app.page.getByText(/Filas 1001–/)).toBeVisible();
+    await expect(cell(app.page, "Nogales")).toBeHidden();
+    await expect(previous).toBeEnabled();
+
+    // And back, so the pager is not one-way.
+    await previous.click();
+    await expect(app.page.getByText(/Filas 1–1000/)).toBeVisible();
     await expect(cell(app.page, "Nogales")).toBeVisible();
   });
 

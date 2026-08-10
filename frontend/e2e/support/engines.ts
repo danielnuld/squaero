@@ -36,6 +36,16 @@ export interface EngineSpec {
   /** How this engine spells "drop the fixture table if it is there". */
   readonly dropFixture: string;
   /**
+   * Statements that add `BULK_ROWS` more rows in one go, for the paging case.
+   *
+   * One statement per engine rather than a thousand INSERTs, and engine-specific
+   * because there is no portable row generator: PostgreSQL has generate_series,
+   * SQLite and MySQL have recursive CTEs (MySQL's needs its recursion cap raised
+   * past the default 1000), and Informix has neither — so it cross-joins systables
+   * with itself and derives a unique id from the two tabids.
+   */
+  readonly bulk: readonly string[];
+  /**
    * Container nodes to expand, in order, to reach the fixture table in the object
    * tree. The shape genuinely differs: PostgreSQL puts a schema between the
    * database and the tables, and opens its active database already expanded, while
@@ -43,6 +53,12 @@ export interface EngineSpec {
    */
   readonly treePath: readonly string[];
 }
+
+/**
+ * Rows the paging case adds on top of the base fixture. The grid pages at 1000, so
+ * this has to clear that on its own.
+ */
+export const BULK_ROWS = 1200;
 
 /**
  * Filler rows, so paging has something to page through.
@@ -84,6 +100,9 @@ export const ENGINES: readonly EngineSpec[] = [
       ...filler(),
     ],
     encodingRows: { discriminator: "Ã±", accented: "Cd. Obregón" },
+    bulk: [
+      `INSERT INTO e2e_items (id, nombre) WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<${BULK_ROWS}) SELECT i+1000, 'fila '||i FROM n`,
+    ],
     treePath: ["main", "Tablas"],
   },
   {
@@ -107,6 +126,9 @@ export const ENGINES: readonly EngineSpec[] = [
       ...filler(),
     ],
     encodingRows: { discriminator: "Ã±", accented: "Cd. Obregón" },
+    bulk: [
+      `INSERT INTO e2e_items SELECT i+1000, 'fila '||i FROM generate_series(1,${BULK_ROWS}) AS g(i)`,
+    ],
     // Three levels: PostgreSQL puts a schema between the database and the tables.
     treePath: ["testdb", "public", "Tablas"],
   },
@@ -130,6 +152,11 @@ export const ENGINES: readonly EngineSpec[] = [
       ...filler(),
     ],
     encodingRows: { discriminator: "Ã±", accented: "Cd. Obregón" },
+    bulk: [
+      // The recursive-CTE depth cap defaults to 1000, one short of what we need.
+      "SET SESSION cte_max_recursion_depth = 5000",
+      `INSERT INTO e2e_items (id, nombre) WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<${BULK_ROWS}) SELECT i+1000, CONCAT('fila ',i) FROM n`,
+    ],
     treePath: ["testdb", "Tablas"],
   },
   {
@@ -155,6 +182,11 @@ export const ENGINES: readonly EngineSpec[] = [
       ...filler(),
     ],
     encodingRows: { discriminator: "Ã±", accented: "Cd. Obregón" },
+    bulk: [
+      // No generator at all: cross-join the catalogue and build a unique id from the
+      // two tabids (tabid < 1000, so a*1000+b never collides and never hits 1..35).
+      `INSERT INTO e2e_items SELECT FIRST ${BULK_ROWS} a.tabid*1000+b.tabid, 'fila '||(a.tabid*1000+b.tabid) FROM systables a, systables b WHERE a.tabid>0 AND b.tabid>0`,
+    ],
     treePath: ["quaero_enc", "Tablas"],
   },
 ];

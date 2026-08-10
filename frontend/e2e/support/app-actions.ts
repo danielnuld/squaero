@@ -110,11 +110,18 @@ export async function editRow(page: Page, nameFragment: string): Promise<void> {
 }
 
 /**
- * The `nombre` cell of the single row `editRow` narrowed to: the last textbox on the
- * page, since the grid renders after all of the surrounding chrome.
+ * The `nombre` cell of the single row `editRow` narrowed to.
+ *
+ * Restricted to real <input> elements: by role, the SQL editor is a textbox too —
+ * it is a contenteditable, and on Informix it rendered after the grid, so "the last
+ * textbox" grabbed it and the assertion failed with "Not an input element". That was
+ * the fourth positional assumption to bite in this file, which is the argument for
+ * the grid exposing cell roles (task 2.12). Until it does, editRow asserts this
+ * element's value, so picking the wrong one fails loudly instead of quietly editing
+ * something else.
  */
 export function nombreCell(page: Page) {
-  return page.getByRole("textbox").last();
+  return page.locator("input").last();
 }
 
 /** Reads a value straight from the database, to check what the UI really did. */

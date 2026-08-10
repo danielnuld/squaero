@@ -46,8 +46,16 @@
       esquema, así que la ruta se declara en la matriz de motores.
 - [x] 2.4 Columnas con su tipo: la cabecera del grid las nombra (`id int`,
       `nombre text`), que es el «describe» que ve un usuario al abrir la tabla.
-- [x] 2.5 SELECT paginado: primera página con «Anterior» deshabilitado, y la
-      siguiente muestra filas distintas.
+- [x] 2.5 **Paginación real**, ya no la versión que fingía. El grid pagina a 1000
+      filas, así que el caso hace crecer la tabla él mismo: `bulk` en la matriz añade
+      1200 filas **en una sentencia** por motor, porque no hay generador portable —
+      PostgreSQL tiene `generate_series`, SQLite y MySQL CTE recursiva (a MySQL hay
+      que subirle el tope de recursión, que por defecto es 1000), e Informix no tiene
+      ninguno, así que cruza `systables` consigo misma y saca un id único de los dos
+      `tabid`. Sólo esta prueba paga ese coste, y la resiembra por prueba lo deshace.
+      Se asserta que **la ventana de filas se mueve** (`Filas 1–1000` →
+      `Filas 1001–`): es lo que prueba que el offset se aplicó de verdad, porque una
+      página que reejecutara la misma consulta también se vería llena.
 - [x] 2.6 Sentencia rechazada: llega el mensaje del motor y la interfaz sigue
       usable — una consulta buena después funciona.
 - [ ] 2.7 Edición transaccional: insert + update + delete + commit, verificado
@@ -183,3 +191,10 @@ los 44 componentes de `frontend/src/components`.
       Un falso fallo cuesta una tarde; un falso verde se cree.
       Verificado en las dos direcciones: con una fuente tocada aborta con la lista,
       y tras recompilar el x86 completo pasan las 41.
+
+- [x] 4.9 Cazada una cuarta suposición posicional: `nombreCell` usaba «el último
+      textbox», y en Informix el editor CodeMirror —que es un `contenteditable` con
+      rol textbox— se renderiza después del grid, así que la aserción moría con «Not
+      an input element». Acotado a `<input>` de verdad. Las cuatro veces han sido
+      variantes de lo mismo, y es el argumento concreto para que el grid exponga
+      roles de celda (2.12). Verificado con dos pasadas seguidas en verde.
