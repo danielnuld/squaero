@@ -16,33 +16,10 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { installBridge } from "../support/bridge";
-import { DEMO_CONNECTION, DEMO_SQL } from "../support/demo";
-import { startRpc, unwrap, type RpcClient } from "../support/rpc";
+import { DEMO_CONNECTION, seedDemo } from "../support/demo";
 import { seedBrowserState } from "../support/state";
 
 const OUT = join(import.meta.dirname, "..", "..", "..", "assets", "media");
-
-/** Builds the demo database through the real core, then hands back the client. */
-async function seedDemo(): Promise<RpcClient> {
-  const rpc = await startRpc();
-  // Connect without a database first: the script creates it.
-  const opened = await rpc.call("conn.open", {
-    driver: DEMO_CONNECTION.driver,
-    dsn: { ...DEMO_CONNECTION.params, database: "" },
-  });
-  const connId = (unwrap(opened, "conn.open") as { connId: string }).connId;
-  try {
-    for (const sql of DEMO_SQL) {
-      const res = await rpc.call("query.run", { connId, sql });
-      if (res.error !== undefined) {
-        throw new Error(`demo seed failed on "${sql.slice(0, 60)}…": ${res.error.message}`);
-      }
-    }
-  } finally {
-    await rpc.call("conn.close", { connId });
-  }
-  return rpc;
-}
 
 test.describe.configure({ mode: "serial" });
 

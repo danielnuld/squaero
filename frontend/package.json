@@ -13,7 +13,8 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:install": "playwright install chromium",
-    "media": "playwright test --config=playwright.media.config.ts"
+    "media": "playwright test --config=playwright.media.config.ts screenshots.spec.ts",
+    "video": "playwright test --config=playwright.media.config.ts video.spec.ts && node e2e/media/build-video.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

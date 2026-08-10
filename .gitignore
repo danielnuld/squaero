@@ -45,3 +45,6 @@ connections.json
 /frontend/playwright-report/
 /frontend/blob-report/
 /frontend/e2e/.availability.json
+
+# Raw recording left behind if `pnpm video` fails before encoding.
+site/video/.raw.webm

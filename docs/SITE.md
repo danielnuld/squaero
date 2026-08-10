@@ -72,32 +72,47 @@ una sola vez, en **Settings → Pages** del repo: *Source = Deploy from a branch
 
 `site/video/quaero-demo.webm` (VP9) + `.mp4` (H.264) + `quaero-demo-poster.png`,
 incrustados en la sección de características con `<video autoplay muted loop
-playsinline>` y una `<img>` de respaldo dentro del `<video>`. ~23 s, ~330 KB,
-alojado en el repo (no en servicios externos).
+playsinline>` y una `<img>` de respaldo dentro del `<video>`. ~22 s, ~370 KB,
+alojado en el repo (no en servicios externos). Dos formatos porque el `<video>`
+lista los dos: WebM/VP9 pesa menos, MP4/H.264 es lo que reproduce Safari.
 
-**Guion (para regrabar en futuras versiones):**
+**Se regraba, no se edita:**
+
+```
+docker start quaero-demo-mysql       # la BD del demo (ver e2e/support/demo.ts)
+cd frontend && pnpm video            # graba, codifica y escribe el póster
+```
+
+`e2e/media/video.spec.ts` conduce el frontend real contra el **núcleo y una base
+de datos reales** siguiendo el guion de abajo, y `e2e/media/build-video.mjs`
+codifica con ffmpeg (hace falta ffmpeg en el PATH). El póster no se recorta de un
+cuadro: lo escribe el propio spec en el instante que describe, la consulta con sus
+resultados.
+
+**Guion:**
 1. **Conectar** — elegir la conexión guardada «Ventas (demo)».
-2. **Explorar** — expandir el árbol (base → esquema → Tablas) y abrir una tabla
-   (estructura + DDL).
+2. **Explorar** — expandir el árbol (base → Tablas) y abrir la estructura de una
+   tabla desde su menú contextual (columnas, tipos y DDL).
 3. **Consultar** — pestaña nueva, escribir un `SELECT … WHERE … ORDER BY` y
-   ejecutarlo; se ve la rejilla de resultados tipada.
-4. **Herramientas** — Diagrama ER (relaciones entre tablas) y constructor visual.
+   ejecutarlo; se ve el autocompletado por esquema y la rejilla tipada.
+4. **Herramientas** — Diagrama ER (llaves foráneas reales) y constructor visual.
 
-**Cómo se generó (reproducible, sin datos reales):** un harness de
-`puppeteer-core` conduce la **UI real** de `frontend/dist/index.html` en Edge
-headless con un `window.quaeroRpc` simulado; sólo existe la conexión de prueba
-y se bloquea toda la red. Los subtítulos se inyectan en la página para ir
-sincronizados. Se capturan cuadros (~8 fps) y se ensamblan con ffmpeg:
+Los subtítulos se inyectan en la página, así van sincronizados con lo que
+describen sin trabajo extra: el vídeo se reproduce en silencio y en bucle, así que
+son la única narración.
 
-```
-ffmpeg -y -framerate 8 -i frames/f%04d.png -c:v libvpx-vp9 -crf 33 -b:v 0 \
-  -pix_fmt yuv420p -r 24 quaero-demo.webm
-ffmpeg -y -framerate 8 -i frames/f%04d.png -c:v libx264 -crf 24 \
-  -pix_fmt yuv420p -r 24 -movflags +faststart quaero-demo.mp4
-```
+**Dos cosas que no se pueden dar por hechas:**
 
-Para una regrabación de máxima fidelidad puede sustituirse por una captura de
-pantalla de la app real siguiendo el mismo guion (mismos pasos y datos de demo).
+- El vídeo **antiguo** se grabó con un harness de `puppeteer-core` y un
+  `window.quaeroRpc` **simulado** — nada de lo que salía en pantalla tenía que
+  funcionar de verdad. Ahora cada fila y cada diagrama vienen de una base de datos,
+  así que el vídeo no puede prometer algo que el producto no haga.
+- La grabación arranca al crear el contexto del navegador, o sea **antes** de que
+  la app pinte, así que empieza en blanco. Cuánto dura eso depende de la máquina:
+  `build-video.mjs` **mide** el primer cuadro pintado (luma media por `signalstats`)
+  en vez de recortar una cantidad fija, y después comprueba que el archivo generado
+  no abre en blanco. Un solo cuadro blanco no se ve en un listado de archivos y
+  destella en cada vuelta del bucle.
 
 ## Pendiente (issues del milestone M10.10)
 

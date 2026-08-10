@@ -13,6 +13,8 @@
 // The data is invented: Sonoran cities and Spanish names, so accents appear
 // naturally in the grid instead of being a special case nobody sees.
 
+import { startRpc, unwrap, type RpcClient } from "./rpc";
+
 export const DEMO_DB = "ventas";
 
 /** Statements that build the demo, in order. Idempotent: it drops first. */
@@ -151,3 +153,31 @@ export const DEMO_CONNECTION = {
     database: DEMO_DB,
   },
 } as const;
+
+/**
+ * Builds the demo database through the real core and hands back the live client,
+ * for the caller to install as the page's bridge.
+ *
+ * Seeding goes through the core rather than the UI: it is fast, and a broken
+ * interface should fail the capture it belongs to, not the setup of every other one.
+ */
+export async function seedDemo(): Promise<RpcClient> {
+  const rpc = await startRpc();
+  // Connect without a database first: the script is what creates it.
+  const opened = await rpc.call("conn.open", {
+    driver: DEMO_CONNECTION.driver,
+    dsn: { ...DEMO_CONNECTION.params, database: "" },
+  });
+  const connId = (unwrap(opened, "conn.open") as { connId: string }).connId;
+  try {
+    for (const sql of DEMO_SQL) {
+      const res = await rpc.call("query.run", { connId, sql });
+      if (res.error !== undefined) {
+        throw new Error(`demo seed failed on "${sql.slice(0, 60)}…": ${res.error.message}`);
+      }
+    }
+  } finally {
+    await rpc.call("conn.close", { connId });
+  }
+  return rpc;
+}

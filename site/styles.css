@@ -114,7 +114,12 @@ section .intro { color: var(--muted); max-width: 68ch; margin: 0 0 28px; font-si
 /* Features */
 .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
 .feature { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
-.feature .ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 16px; font-weight: 800; margin-bottom: 12px; }
+/* The tile holds a Lucide vector (same set as the app's ribbon), inheriting the
+   tile's white ink through currentColor — which is why the icon is an <svg> and
+   not the character it used to be: a glyph paints itself and rendered differently
+   on every OS, so the product's own iconography was not stable across platforms. */
+.feature .ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: #fff; margin-bottom: 12px; }
+.feature .ic svg { width: 19px; height: 19px; display: block; }
 .feature h3 { margin: 0 0 6px; font-size: 17px; }
 .feature p { margin: 0; color: var(--muted); font-size: 14.5px; }
 
