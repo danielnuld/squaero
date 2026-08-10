@@ -81,6 +81,7 @@ export const en: Record<string, string> = {
   // SQL editor + its toolbar
   "editor.run": "Run",
   "editor.runSelection": "Run selection",
+  "editor.ariaLabel": "SQL editor",
   "editor.runTitle": "Run (Ctrl/Cmd+Enter)",
   "editor.runSelectionTitle": "Run the selection (Ctrl/Cmd+Enter)",
   "editor.format": "Format",

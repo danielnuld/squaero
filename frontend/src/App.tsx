@@ -111,6 +111,7 @@ import {
   type ExportFormat,
 } from "./utils/exporters";
 import { queryEditTarget } from "./utils/queryTarget";
+import { tablesInStatement } from "./utils/queryTables";
 import { changesCatalog } from "./utils/sqlEffects";
 import {
   foreignKeysFor,
@@ -558,11 +559,79 @@ export function App() {
     void treeReload(); // a connection switch or refresh clears the cache
     setColumnCache({});
   });
+  // Columns for the tables the statement being written actually mentions.
+  //
+  // Until now the cache only filled when a table was OPENED, so typing
+  // `SELECT ... FROM clientes` offered the table's name and then nothing: no column
+  // suggestions for a table you had not already browsed, which is most of them.
+  //
+  // Deliberately NOT gated on the object tree having been expanded. That was the
+  // first attempt and it fixed nothing: the tree only reports objects for branches
+  // the user has opened, so the very case being complained about — a table you never
+  // browsed — still came up empty.
+  //
+  // Describing every table at connect remains off the table: that is what
+  // monopolized a single-connection engine and left the first table-open hanging for
+  // seconds. This asks only about names the query itself mentions, once per name per
+  // connection, and after the typing settles — so a name being typed one letter at a
+  // time does not fire a describe per keystroke. A name that turns out not to exist
+  // costs one failed describe, swallowed: completions are a convenience, not a
+  // contract.
+  const describedColumns = new Set<string>();
+  let columnFetchTimer: ReturnType<typeof setTimeout> | undefined;
+  createEffect(() => {
+    const conn = active();
+    const sql = lastQuerySql();
+    if (columnFetchTimer !== undefined) clearTimeout(columnFetchTimer);
+    if (!conn || sql.trim() === "") return;
+
+    // Where the tree HAS loaded an object, reuse its db/schema qualifiers so the
+    // describe lands on the right one; otherwise ask by bare name.
+    const known = new Map(
+      loadedObjects()
+        .filter((n) => n.kind === "table" || n.kind === "view")
+        .map((n) => [n.label.toLowerCase(), n]),
+    );
+    const names = tablesInStatement(sql);
+
+    columnFetchTimer = setTimeout(() => {
+      const cache = columnCache();
+      for (const name of names) {
+        const node = known.get(name.toLowerCase());
+        const label = node?.label ?? name;
+        if (cache[label] !== undefined) continue;
+        const guard = `${conn.connId}:${label}`;
+        if (describedColumns.has(guard)) continue;
+        describedColumns.add(guard);
+        void (async () => {
+          try {
+            const desc = await schemaDescribe(conn.connId, label, node?.db, node?.schema);
+            const cols = describeColumnNames(desc);
+            if (cols.length > 0) {
+              setColumnCache((c) => ({ ...c, [label]: cols }));
+            }
+          } catch {
+            // Not a table, or not reachable. Either way the name suggestions still
+            // work and nothing needs to be said about it.
+          }
+        })();
+      }
+    }, 400);
+  });
+  onCleanup(() => {
+    if (columnFetchTimer !== undefined) clearTimeout(columnFetchTimer);
+  });
+
   const sqlSchema = createMemo<Record<string, string[]>>(() => {
     const cache = columnCache();
     const out: Record<string, string[]> = {};
     for (const n of loadedObjects()) {
       if (n.kind === "table" || n.kind === "view") out[n.label] = cache[n.label] ?? [];
+    }
+    // Tables the query mentioned and we described, even though the tree never
+    // listed them: without this the columns were fetched and then thrown away.
+    for (const [table, cols] of Object.entries(cache)) {
+      if (out[table] === undefined || out[table].length === 0) out[table] = cols;
     }
     return out;
   });
@@ -621,6 +690,21 @@ export function App() {
     const t = id !== null ? tabs().tabs.find((x) => x.id === id) : undefined;
     return t && t.kind === "query" ? t.sql : "";
   };
+
+  // The table whose columns may be suggested unqualified: the first one the
+  // statement names that we have columns for. Without it lang-sql completes keywords
+  // where a column was wanted — `e2e_items.nom` worked while a bare `nom` did not.
+  const sqlDefaultTable = createMemo<string | undefined>(() => {
+    const cache = columnCache();
+    const names = tablesInStatement(lastQuerySql());
+    for (const name of names) {
+      const key = Object.keys(cache).find(
+        (k) => k.toLowerCase() === name.toLowerCase(),
+      );
+      if (key !== undefined && (cache[key]?.length ?? 0) > 0) return key;
+    }
+    return names[0];
+  });
   // A memo so reads in JSX/StatusBar track the per-tab store entry reactively.
   const currentResult = createMemo<TabResult>(() => {
     const t = current();
@@ -1989,6 +2073,7 @@ export function App() {
                     onSelectionChange={setHasEditorSelection}
                     insertRequest={snippetInsert()}
                     schema={sqlSchema()}
+                    defaultTable={sqlDefaultTable()}
                   />
                   <div class="editor-hint">
                     <button

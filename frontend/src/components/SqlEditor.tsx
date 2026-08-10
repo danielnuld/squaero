@@ -21,7 +21,13 @@ import {
   indentOnInput,
 } from "@codemirror/language";
 import { sql } from "@codemirror/lang-sql";
-import { closeBrackets, autocompletion, completionKeymap } from "@codemirror/autocomplete";
+import {
+  closeBrackets,
+  autocompletion,
+  completionKeymap,
+  completionStatus,
+  startCompletion,
+} from "@codemirror/autocomplete";
 import { search, searchKeymap, openSearchPanel, highlightSelectionMatches } from "@codemirror/search";
 import { formatSql } from "../utils/sqlFormat";
 import { editorDialect } from "../utils/sqlDialect";
@@ -70,6 +76,15 @@ export function SqlEditor(props: {
   insertRequest?: { text: string; tick: number };
   /** Table -> columns map that drives table/column autocomplete (issue #110). */
   schema?: Record<string, string[]>;
+  /**
+   * The table whose columns can be suggested WITHOUT qualifying them.
+   *
+   * lang-sql only offers a column name unqualified when it knows which table is
+   * meant; with the schema alone, `WHERE nom…` completed keywords and nothing else,
+   * while `e2e_items.nom…` completed correctly. This is the table the statement being
+   * written reads from.
+   */
+  defaultTable?: string;
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
@@ -79,7 +94,11 @@ export function SqlEditor(props: {
   // The engine's dialect drives the identifier quote the completer applies: MySQL
   // must get backticks, since a `"`-quoted name is a string literal there.
   const sqlExt = () =>
-    sql({ dialect: editorDialect(props.dialect), schema: props.schema ?? {} });
+    sql({
+      dialect: editorDialect(props.dialect),
+      schema: props.schema ?? {},
+      defaultTable: props.defaultTable,
+    });
   // Which tab's text is loaded in the view; guards the change listener while we
   // programmatically swap documents on tab switch. Set on mount to match the
   // doc actually loaded into the view.
@@ -164,6 +183,10 @@ export function SqlEditor(props: {
             ...historyKeymap,
           ]),
           EditorView.lineWrapping,
+          // Name the editable surface. CodeMirror's content is a contenteditable
+          // with the textbox role, and without a name it was indistinguishable from
+          // the object filter to anything asking by role — a screen reader included.
+          EditorView.contentAttributes.of({ "aria-label": t("editor.ariaLabel") }),
           EditorView.updateListener.of((u) => {
             if (u.docChanged && !swapping) {
               props.onChange(loaded, view!.state.doc.toString());
@@ -199,8 +222,22 @@ export function SqlEditor(props: {
   createEffect(() => {
     const schema = props.schema ?? {};
     const dialect = editorDialect(props.dialect);
-    if (view) {
-      view.dispatch({ effects: sqlConf.reconfigure(sql({ dialect, schema })) });
+    const defaultTable = props.defaultTable;
+    if (!view) return;
+    view.dispatch({
+      effects: sqlConf.reconfigure(sql({ dialect, schema, defaultTable })),
+    });
+    // Columns arrive asynchronously — they are fetched for the table the statement
+    // mentions, which is only known once it is written. Anything computed before
+    // they landed is stale: an open popup keeps showing the old list, and a popup
+    // that closed because nothing matched stays closed. Either way the user would
+    // have to type another character to discover the columns exist.
+    //
+    // So recompute whenever the editor is the focused element, which means the user
+    // is writing the very statement these columns belong to. A suggestion list
+    // appearing there is expected; it is not opened behind their back elsewhere.
+    if (completionStatus(view.state) !== null || view.hasFocus) {
+      startCompletion(view);
     }
   });
 

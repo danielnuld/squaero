@@ -58,13 +58,12 @@ export async function openFixtureTable(app: App): Promise<void> {
 /**
  * Runs `sql` through the editor.
  *
- * ACCESSIBILITY GAP: the SQL editor's textbox has no accessible name, so it cannot
- * be told apart from the object filter by role — getByRole("textbox").first()
- * silently typed the query into the filter box. Until the editor gets an
- * aria-label (recorded as task 2.12) it is reached by its CodeMirror container.
+ * By name, now that the editor has one. It used to be reached through its
+ * CodeMirror container class, because by role it was indistinguishable from the
+ * object filter — which is how queries ended up typed into the filter box.
  */
 export async function runSql(page: Page, sql: string): Promise<void> {
-  const editor = page.locator(".cm-content").first();
+  const editor = page.getByRole("textbox", { name: "Editor SQL", exact: true });
   await editor.click();
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(sql);
