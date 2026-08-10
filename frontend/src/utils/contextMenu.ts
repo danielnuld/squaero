@@ -7,11 +7,18 @@
 // is open. State lives at module scope because there is exactly one app instance
 // and it saves prop-drilling a menu opener through every component.
 
-import { createSignal } from "solid-js";
+import { createSignal, type JSX } from "solid-js";
 
 export interface MenuItem {
   /** Visible label. Omit for a separator. */
   label?: string;
+  /**
+   * Optional icon drawn before the label. Decorative: the row's accessible name
+   * is the label, so an icon must not be part of it — which is also why this is a
+   * component rather than a character glued onto the label string, as the tools
+   * menu used to do with an emoji.
+   */
+  Icon?: () => JSX.Element;
   /** Invoked on click; the menu closes first, then this runs. */
   action?: () => void;
   /** Greyed out and non-interactive. */

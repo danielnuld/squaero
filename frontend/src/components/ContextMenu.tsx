@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import {
   contextMenu,
   closeContextMenu,
@@ -104,6 +105,13 @@ export function ContextMenu() {
                   disabled={item.disabled}
                   onClick={() => activate(item)}
                 >
+                  <Show when={item.Icon}>
+                    {(Icon) => (
+                      <span class="context-menu-ic" aria-hidden="true">
+                        <Dynamic component={Icon()} />
+                      </span>
+                    )}
+                  </Show>
                   {item.label}
                 </button>
               </Show>

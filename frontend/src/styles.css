@@ -227,19 +227,34 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+/* Monochrome tiles: no coloured plate, so the accent is spent on state instead of
+   on eleven buttons competing at rest. The icon inherits `color`, which is what
+   makes hover/focus able to move it at all — the emoji this replaced painted
+   themselves and ignored the colour they were given. */
 .att-ic {
   width: 28px;
   height: 28px;
   border-radius: 7px;
   display: grid;
   place-items: center;
-  font-size: 14px;
-  font-weight: 700;
+  color: var(--text-dim);
+}
+.att-ic svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+.att-btn:hover:not(:disabled) .att-ic,
+.att-btn:focus-visible .att-ic {
+  color: var(--accent);
 }
 .att-lb {
   font-size: 11px;
   color: var(--text-dim);
   white-space: nowrap;
+}
+.att-btn:hover:not(:disabled) .att-lb {
+  color: var(--text);
 }
 
 /* Object-list view (design proposal, phase 3): a metadata grid of a database's
@@ -1324,7 +1339,9 @@ body {
 }
 
 .context-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
   text-align: left;
   background: none;
@@ -1336,6 +1353,24 @@ body {
   padding: 0.35rem 0.7rem;
   border-radius: 4px;
   white-space: nowrap;
+}
+
+/* The icon column: fixed width so labels line up whether or not a row has one,
+   and currentColor so it follows the row's text into the hover state. */
+.context-menu-ic {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  flex: 0 0 15px;
+  color: var(--text-dim);
+}
+.context-menu-ic svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+.context-menu-item:hover:not(:disabled) .context-menu-ic {
+  color: inherit;
 }
 
 .context-menu-item:hover:not(:disabled) {

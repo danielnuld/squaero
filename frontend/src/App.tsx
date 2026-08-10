@@ -667,7 +667,8 @@ export function App() {
   // context menu of the tool catalog, each launching its tool tab.
   const openToolsMenu = (e: MouseEvent) => {
     const items: MenuItem[] = TOOL_CATALOG.map((item) => ({
-      label: `${item.icon}  ${t(item.label)}`,
+      label: t(item.label),
+      Icon: item.Icon,
       action: () => showTool(item.tool, t(item.tabTitle), { key: item.key }),
     }));
     openContextMenu(e, items);

@@ -76,6 +76,7 @@ núcleo GPL.
 | [@codemirror/*](https://codemirror.net) (state, view, commands, language, lang-sql, autocomplete) | MIT |
 | [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) | MIT |
 | [fflate](https://github.com/101arrowz/fflate) | MIT |
+| [Lucide](https://lucide.dev) — iconos de la barra de acciones, trazados en `src/components/icons.tsx` (no se enlaza el paquete) | ISC |
 
 Herramientas de desarrollo **no distribuidas** (dev-dependencies): Vite,
 vite-plugin-solid, vite-plugin-singlefile, Vitest, TypeScript, jsdom — todas
@@ -150,7 +151,7 @@ máquina del usuario, a través de una frontera de proceso/carga dinámica.
 Incluye junto al binario el texto de licencia de cada componente **realmente
 enlazado en ese artefacto**:
 
-- Siempre: GPLv3 (Quaero), MIT (cJSON, webview, solid-js, CodeMirror).
+- Siempre: GPLv3 (Quaero), MIT (cJSON, webview, solid-js, CodeMirror), ISC (Lucide).
 - Si trae el driver `sqlite`: aviso de dominio público de SQLite.
 - Si trae el driver `mysql`: LGPL-2.1 de MariaDB Connector/C.
 - Si trae el driver `mongodb`: Apache-2.0 + `NOTICE` de mongo-c-driver.

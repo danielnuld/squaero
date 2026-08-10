@@ -8,7 +8,10 @@ describe("TOOL_CATALOG", () => {
     expect(new Set(keys).size).toBe(keys.length);
     expect(new Set(tools).size).toBe(tools.length);
     for (const t of TOOL_CATALOG) {
-      expect(t.icon).toBeTruthy();
+      // The icon is a component now, not an emoji string: every surface that shows
+      // one (the ribbon, the tree's tools menu) renders it, so a missing one would
+      // leave a hole rather than fall back to text.
+      expect(typeof t.Icon).toBe("function");
       expect(t.label).toBeTruthy();
       expect(t.tabTitle).toBeTruthy();
       expect(t.title).toBeTruthy();

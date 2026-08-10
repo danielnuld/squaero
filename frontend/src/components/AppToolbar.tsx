@@ -1,5 +1,11 @@
 import { For } from "solid-js";
 import { TOOL_CATALOG, type ToolMenuItem } from "../utils/toolCatalog";
+import {
+  IconObjects,
+  IconQuery,
+  IconTable,
+  type IconComponent,
+} from "./icons";
 import { t } from "../utils/i18n";
 
 // Top action ribbon (UI design proposal, phase 2). A full-width bar of large
@@ -19,14 +25,21 @@ interface ToolbarProps {
   onOpenTool: (item: ToolMenuItem) => void;
 }
 
-/** One ribbon button: a coloured icon tile over a small label. `ink` is the
-    glyph colour drawn on the tile so it stays legible on its background. */
+/**
+ * One ribbon button: a vector icon over a small label.
+ *
+ * Monochrome by design. Eleven coloured tiles meant every button shouted, which
+ * left the accent saying nothing; now the accent is free to carry STATE — hover,
+ * focus, the disabled dimming — and `.att-ic` inherits its colour so the icon
+ * follows. That inheritance is the part emoji could never do: they paint
+ * themselves and ignored the colour this component used to pass them.
+ *
+ * The icon is decorative: the visible label is the button's accessible name.
+ */
 function Btn(props: {
   label: string;
   title: string;
-  glyph: string;
-  color: string;
-  ink: string;
+  Icon: IconComponent;
   disabled?: boolean;
   onClick: () => void;
 }) {
@@ -37,12 +50,8 @@ function Btn(props: {
       disabled={props.disabled}
       onClick={props.onClick}
     >
-      <span
-        class="att-ic"
-        style={{ background: props.color, color: props.ink }}
-        aria-hidden="true"
-      >
-        {props.glyph}
+      <span class="att-ic" aria-hidden="true">
+        <props.Icon />
       </span>
       <span class="att-lb">{props.label}</span>
     </button>
@@ -56,27 +65,21 @@ export function AppToolbar(props: ToolbarProps) {
         <Btn
           label={t("toolbar.newQuery.label")}
           title={t("toolbar.newQuery.title")}
-          glyph="›_"
-          color="var(--accent)"
-          ink="var(--accent-fg)"
+          Icon={IconQuery}
           disabled={!props.active}
           onClick={props.onNewQuery}
         />
         <Btn
           label={t("toolbar.newTable.label")}
           title={t("toolbar.newTable.title")}
-          glyph="▦"
-          color="var(--obj-table)"
-          ink="var(--obj-ink)"
+          Icon={IconTable}
           disabled={!props.active}
           onClick={props.onNewTable}
         />
         <Btn
           label={t("toolbar.objects.label")}
           title={t("toolbar.objects.title")}
-          glyph="☰"
-          color="var(--obj-view)"
-          ink="var(--obj-ink)"
+          Icon={IconObjects}
           disabled={!props.active || !props.hasDb}
           onClick={props.onObjectList}
         />
@@ -87,9 +90,7 @@ export function AppToolbar(props: ToolbarProps) {
             <Btn
               label={t(item.label)}
               title={t(item.title)}
-              glyph={item.icon}
-              color="var(--bg-elev2)"
-              ink="var(--text)"
+              Icon={item.Icon}
               disabled={!props.active}
               onClick={() => props.onOpenTool(item)}
             />
