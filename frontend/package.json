@@ -1,6 +1,6 @@
 {
   "name": "quaero-frontend",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "description": "Quaero web UI (rendered in the OS webview)",
@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "e2e:install": "playwright install chromium"
+    "e2e:install": "playwright install chromium",
+    "media": "playwright test --config=playwright.media.config.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

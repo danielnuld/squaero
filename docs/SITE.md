@@ -39,8 +39,13 @@ de marca/medios para que el sitio sea autocontenido:
 cp assets/brand/quaero-mark.svg          site/assets/
 cp assets/brand/quaero-wordmark*.svg     site/assets/
 cp assets/media/social-preview.png       site/img/
-cp assets/media/screenshot-initial-dark.png site/img/
+cp assets/media/screenshot-*.png         site/img/
 ```
+
+Las capturas se **regeneran**, no se editan a mano:
+`cd frontend && pnpm media` las vuelve a tomar contra una base de datos real
+(ver `frontend/e2e/media/screenshots.spec.ts`). Después de regenerarlas hay que
+copiarlas a `site/img/` con la orden de arriba.
 
 Previsualiza en local abriendo `site/index.html` en el navegador, o:
 `python -m http.server -d site 8080` → http://localhost:8080

@@ -6,6 +6,10 @@ const PORT = Number(process.env.QUAERO_E2E_PORT ?? 4173);
 
 export default defineConfig({
   testDir: "./e2e",
+  // The media capture lives under e2e/media with its own config: it is a release
+  // chore that needs the demo database, and the suite should neither run it nor
+  // report it as skipped.
+  testIgnore: ["**/media/**"],
   globalSetup: "./e2e/global-setup.ts",
 
   // ponytail: serial. The engines share one fixture table, so two workers mutating
