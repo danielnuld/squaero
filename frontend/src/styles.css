@@ -1456,6 +1456,15 @@ body {
   background: var(--bg-elev2);
 }
 
+.status-btn.danger {
+  color: var(--danger, #e5484d);
+}
+
+.status-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* The editor's Run button is the primary action in the hint bar, so it reads in
    the accent color rather than as a dim label like its neighbours. */
 .status-btn.run-btn {
@@ -1469,12 +1478,11 @@ body {
 }
 
 /* Keyboard-shortcuts help overlay */
-.shortcuts {
-  width: min(420px, 92vw);
-}
-
+/* The pane is full width now; the table is not, or the keys column drifts an
+   arm's length away from the action it belongs to. */
 .shortcuts-list {
   width: 100%;
+  max-width: 46rem;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -1836,31 +1844,43 @@ kbd {
   margin-top: 1rem;
 }
 
-.modal-actions button {
+/* The app's ordinary button. Was reachable only under `.modal-actions`, so a
+   button anywhere else (the filter panel's Apply, the snippet detail's Open)
+   fell back to the OS default; `.btn` and a bare `.primary` now get the look
+   wherever they sit. */
+.modal-actions button,
+button.btn,
+button.primary {
   background: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.4rem 0.8rem;
   cursor: pointer;
+  font: inherit;
 }
 
-.modal-actions button:hover:not(:disabled) {
+.modal-actions button:hover:not(:disabled),
+button.btn:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
-.modal-actions button:disabled {
+.modal-actions button:disabled,
+button.btn:disabled,
+button.primary:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
-.modal-actions button.primary {
+.modal-actions button.primary,
+button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-fg);
 }
 
-.modal-actions button.primary:hover:not(:disabled) {
+.modal-actions button.primary:hover:not(:disabled),
+button.primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
@@ -1878,10 +1898,6 @@ kbd {
 }
 
 /* Query history panel (issue #128) */
-.history {
-  width: min(680px, 94vw);
-}
-
 .history-controls {
   display: flex;
   align-items: center;
@@ -1994,8 +2010,10 @@ kbd {
 /* Snippet library panel (issues #129, #338): a filterable list beside the full
    body of whatever is selected, replacing the scroll of every snippet with its
    body permanently unfolded. */
-.snippets {
-  width: min(860px, 96vw);
+/* Fills the tool pane: the library is the content of its own tab, not a dialog
+   floating over one, so a leftover modal width left the rest of the pane empty. */
+.snippets .modal-actions {
+  flex: 0 0 auto;
 }
 
 .snippet-library {
@@ -2005,13 +2023,15 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
-  min-height: 340px;
+  flex: 1;
+  min-height: 240px;
 }
 
 .snippet-list-pane {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   border-right: 1px solid var(--border);
 }
 
@@ -2035,7 +2055,6 @@ kbd {
   padding: 0;
   flex: 1;
   min-height: 0;
-  max-height: 50vh;
   overflow-y: auto;
 }
 
@@ -2086,6 +2105,7 @@ kbd {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .snippet-detail-head {
@@ -2109,12 +2129,8 @@ kbd {
   min-width: 0;
 }
 
+/* Shares `.btn`; only the glyph's tighter box is its own. */
 .snippet-more {
-  background: var(--bg-elev2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
   padding: 0.2rem 0.5rem;
   line-height: 1;
 }
@@ -2129,7 +2145,7 @@ kbd {
   white-space: pre-wrap;
   word-break: break-word;
   overflow: auto;
-  max-height: 50vh;
+  min-height: 0;
 }
 
 .snippet-count {

@@ -151,7 +151,7 @@ export function DataFilterBar(props: {
                     </Show>
 
                     <button
-                      class="link danger filter-drop"
+                      class="status-btn danger filter-drop"
                       aria-label={t("filter.removeCond")}
                       title={t("filter.removeCond")}
                       onClick={() => props.onRemove(i())}
@@ -169,7 +169,7 @@ export function DataFilterBar(props: {
           </Show>
 
           <div class="filter-actions">
-            <button class="link" onClick={props.onAdd}>
+            <button class="status-btn" onClick={props.onAdd}>
               {t("filter.addCond")}
             </button>
             <Show when={props.state.conditions.length > 1}>
@@ -200,7 +200,7 @@ export function DataFilterBar(props: {
                     <For each={props.columns}>{(col) => <option value={col}>{col}</option>}</For>
                   </select>
                   <button
-                    class="link"
+                    class="status-btn"
                     aria-label={t(o.dir === "ASC" ? "filter.asc" : "filter.desc")}
                     title={t(o.dir === "ASC" ? "filter.asc" : "filter.desc")}
                     onClick={() =>
@@ -210,7 +210,7 @@ export function DataFilterBar(props: {
                     {o.dir === "ASC" ? "↑" : "↓"}
                   </button>
                   <button
-                    class="link danger"
+                    class="status-btn danger"
                     aria-label={t("filter.removeSort")}
                     onClick={() => props.onRemoveSort(i())}
                   >
@@ -219,7 +219,7 @@ export function DataFilterBar(props: {
                 </span>
               )}
             </For>
-            <button class="link" onClick={props.onAddSort} disabled={props.columns.length === 0}>
+            <button class="status-btn" onClick={props.onAddSort} disabled={props.columns.length === 0}>
               {t("filter.addSort")}
             </button>
           </div>

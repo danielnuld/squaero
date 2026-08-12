@@ -153,7 +153,7 @@ export function SnippetsPanel(props: {
                     {t("snip.open")}
                   </button>
                   <button
-                    class="snippet-more"
+                    class="btn snippet-more"
                     aria-label={t("snip.more")}
                     title={t("snip.more")}
                     onClick={(e) => menu(e, s())}
