@@ -821,11 +821,15 @@ export function App() {
     setSnippets(list);
     saveSnippets(list);
   };
-  const saveSnippet = (name: string, body: string) =>
-    persistSnippets(addSnippet(snippets(), name, body));
   const renameSnip = (id: string, name: string) =>
     persistSnippets(renameSnippet(snippets(), id, name));
   const removeSnip = (id: string) => persistSnippets(removeSnippet(snippets(), id));
+  // A copy to take somewhere else, under the first free "name (N)" so duplicating
+  // twice does not silently make one of them unfindable.
+  const duplicateSnip = (s: Snippet) => {
+    const list = snippets();
+    persistSnippets(addSnippet(list, uniqueSnippetName(list, s.name), s.body));
+  };
   // Opening a snippet is what activating one means (issue #338): it lands in a
   // tab of its own, so the query the user was writing is never merged with it.
   const openSnippet = (s: Snippet) =>
@@ -2528,11 +2532,10 @@ export function App() {
                 <Match when={tt().tool === "snippets"}>
                   <SnippetsPanel
                     entries={snippets()}
-                    currentSql={lastQuerySql()}
-                    onSave={saveSnippet}
                     onOpen={openSnippet}
                     onInsert={insertSnippet}
                     onRename={renameSnip}
+                    onDuplicate={duplicateSnip}
                     onRemove={removeSnip}
                     onExport={exportSnippets}
                     onImport={importSnippets}

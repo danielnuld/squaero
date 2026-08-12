@@ -4,6 +4,7 @@ import {
   addSnippet,
   renameSnippet,
   updateSnippetBody,
+  searchSnippets,
   removeSnippet,
   mergeSnippets,
   insertIntoText,
@@ -45,6 +46,36 @@ describe("renameSnippet / removeSnippet", () => {
 
   it("removes by id", () => {
     expect(removeSnippet(base, "snip-1")).toEqual([snip("snip-2", "b", "y")]);
+  });
+});
+
+describe("searchSnippets", () => {
+  const list = [
+    snip("snip-1", "Orders", "SELECT * FROM orders"),
+    snip("snip-2", "Impagadas", "SELECT f.folio FROM facturas f LEFT JOIN clientes c"),
+  ];
+
+  it("keeps the whole list for an empty or blank query", () => {
+    expect(searchSnippets(list, "")).toEqual(list);
+    expect(searchSnippets(list, "   ")).toEqual(list);
+  });
+
+  it("matches the name", () => {
+    expect(searchSnippets(list, "impag")).toEqual([list[1]]);
+  });
+
+  it("matches the body, which is what you actually remember about a query", () => {
+    // "left join" appears in no name at all.
+    expect(searchSnippets(list, "left join")).toEqual([list[1]]);
+  });
+
+  it("ignores case on both sides", () => {
+    expect(searchSnippets(list, "ORDERS")).toEqual([list[0]]);
+    expect(searchSnippets(list, "impagadas")).toEqual([list[1]]);
+  });
+
+  it("returns nothing when nothing matches", () => {
+    expect(searchSnippets(list, "zzz")).toEqual([]);
   });
 });
 

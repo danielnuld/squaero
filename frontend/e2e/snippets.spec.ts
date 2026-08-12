@@ -92,7 +92,7 @@ describeEngine("sqlite", () => {
     await expect(page.getByRole("tab")).toHaveCount(1); // inserting opens nothing
   });
 
-  test("the panel opens a snippet, and stays open for the next one", async ({ app }) => {
+  test("the library searches by body, opens, and stays open for the next one", async ({ app }) => {
     const { page } = app;
     await openWithSnippets(app);
     // The ribbon only lights up with a connection open, so this is also the one
@@ -103,11 +103,17 @@ describeEngine("sqlite", () => {
       .getByRole("toolbar", { name: "Acciones" })
       .getByRole("button", { name: "Snippets", exact: true })
       .click();
-    // Every row's button is just "Abrir" today; the library rewrite names them.
-    await page.getByRole("button", { name: "Abrir", exact: true }).first().click();
 
-    await expect(tab(page, "artículos por ciudad")).toHaveAttribute("aria-selected", "true");
-    await expect(tab(page, "Snippets")).toBeVisible();
+    const rows = page.getByRole("button", { name: /^(conteo|artículos por ciudad)/ });
+    await expect(rows).toHaveCount(2);
+
+    // "count(*)" is in no name at all — searching what a query DOES is the point.
+    await page.getByRole("searchbox", { name: "Buscar en tus snippets" }).fill("count(*)");
+    await expect(rows).toHaveCount(1);
+
+    await page.getByRole("button", { name: "Abrir", exact: true }).click();
+    await expect(tab(page, "conteo")).toHaveAttribute("aria-selected", "true");
+    await expect(tab(page, "Snippets")).toBeVisible(); // left behind for the next one
   });
 
   test("an edit saved back survives a reload, without forking a copy", async ({ app }) => {

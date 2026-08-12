@@ -42,6 +42,23 @@ export function uniqueSnippetName(list: Snippet[], name: string): string {
   }
 }
 
+/**
+ * Snippets whose name **or body** contains `query`, case-insensitively; an empty
+ * query keeps the whole list (issue #338). Mirrors `searchHistory`.
+ *
+ * Matching the body is the point: the thing you remember about a saved query is
+ * usually what it does — "the left join to facturas" — not what you called it.
+ * Plain substring, not the palette's fuzzy match: the palette is for typing four
+ * letters and going, this is for looking through what you have.
+ */
+export function searchSnippets(list: Snippet[], query: string): Snippet[] {
+  const q = query.trim().toLowerCase();
+  if (q === "") return list;
+  return list.filter(
+    (s) => s.name.toLowerCase().includes(q) || s.body.toLowerCase().includes(q),
+  );
+}
+
 /** Next snippet id of the form "snip-N", unique within `list`. */
 export function nextSnippetId(list: Snippet[]): string {
   const max = list.reduce((acc, s) => {

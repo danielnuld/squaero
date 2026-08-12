@@ -39,28 +39,31 @@ fusionarse y de empezar la siguiente.
 
 ## 3. Biblioteca buscable (fase C)
 
-- [ ] 3.1 `searchSnippets` puro: nombre **y** cuerpo, insensible a mayúsculas,
+- [x] 3.1 `searchSnippets` puro: nombre **y** cuerpo, insensible a mayúsculas,
       consulta vacía devuelve todo
-- [ ] 3.2 Panel maestro-detalle: lista filtrable a la izquierda, cuerpo completo
+- [x] 3.2 Panel maestro-detalle: lista filtrable a la izquierda, cuerpo completo
       a la derecha
-- [ ] 3.3 Una acción visible por fila (**Abrir**); renombrar, duplicar, insertar
-      y borrar en el menú `⋯`
-- [ ] 3.4 Estados vacíos honestos y distintos: sin snippets guardados vs. sin
+- [x] 3.3 Una acción visible (**Abrir**); renombrar, duplicar, insertar y borrar
+      en el menú `⋯`, que también abre con clic derecho sobre la fila
+- [x] 3.4 Estados vacíos honestos y distintos: sin snippets guardados vs. sin
       coincidencias
-- [ ] 3.5 Navegación con ↑/↓ y `Enter`; importar/exportar al pie
-- [ ] 3.6 Pruebas: filtrado puro, y de componente para filtro, estados vacíos,
+- [x] 3.5 Navegación con ↑/↓ y `Enter`; importar/exportar al pie
+- [x] 3.6 Pruebas: filtrado puro, y de componente para filtro, estados vacíos,
       detalle y acciones
+- [x] 3.7 Retirado el «Guardar consulta actual» del panel: guardaba el documento
+      entero bajo un nombre escrito a mano, sin alcance, sin aviso de colisión y
+      sin deshacer — todo lo que la barra del editor sí hace desde #320
 
 ## 4. Idioma
 
-- [ ] 4.1 Todo el texto nuevo por `t()`, con espejo en `messages/en.ts`
-- [ ] 4.2 Las pruebas se fijan al español, como el resto de la suite
+- [x] 4.1 Todo el texto nuevo por `t()`, con espejo en `messages/en.ts`
+- [x] 4.2 Las pruebas se fijan al español, como el resto de la suite
 
 ## 5. Cierre
 
-- [ ] 5.1 `pnpm test` verde en las tres fases
-- [ ] 5.2 `pnpm e2e` **entero** verde en las tres fases (no solo la de snippets):
+- [x] 5.1 `pnpm test` verde en las tres fases
+- [x] 5.2 `pnpm e2e` **entero** verde en las tres fases (no solo la de snippets):
       los roles nuevos de la barra de pestañas tocan a toda la app
 - [ ] 5.3 Probar a mano el ciclo completo en la ventana nativa: abrir, editar,
       guardar, buscar
-- [ ] 5.4 Commits en Conventional Commits referenciando #338
+- [x] 5.4 Commits en Conventional Commits referenciando #338

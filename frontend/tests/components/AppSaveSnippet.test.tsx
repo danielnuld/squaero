@@ -218,10 +218,14 @@ describe("The snippet palette (Ctrl+J)", () => {
 // even mounted) and after closing the only query tab.
 describe("Reaching the editor from the snippets panel", () => {
   const openPanel = () => byText(".editor-hint .status-btn", "Snippets").click();
-  const panelAction = (label: string) =>
-    ([...host!.querySelectorAll(".snippet-actions .link")].find(
-      (b) => b.textContent === label,
-    ) as HTMLButtonElement);
+  /** "Abrir" is the detail pane's own button; the rest live in the row's menu. */
+  const panelOpen = () => byText(".snippet-detail-head .primary", "Abrir").click();
+  const panelInsert = () => {
+    host!.querySelector(".snippet-row")!.dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true }),
+    );
+    byText(".context-menu button", "Insertar en el cursor").click();
+  };
 
   it("inserts into the query editor from the panel's own tab", () => {
     seed();
@@ -229,7 +233,7 @@ describe("Reaching the editor from the snippets panel", () => {
     openPanel();
     expect(host!.querySelector(".editor-pane")).toBeNull(); // the panel took over
 
-    panelAction("Insertar").click();
+    panelInsert();
     // The editor is remounted by the switch back, so re-read it from the DOM.
     expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
     expect(selectedTabName()).toBe("Consulta 1");
@@ -243,7 +247,7 @@ describe("Reaching the editor from the snippets panel", () => {
     (tabByName("Consulta 1").querySelector(".tab-close") as HTMLElement).click();
     expect(tabNames()).toEqual(["Snippets"]);
 
-    panelAction("Abrir").click();
+    panelOpen();
     expect(tabNames()).toEqual(["Snippets", "cuadernos"]);
     expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
   });
@@ -254,7 +258,7 @@ describe("Reaching the editor from the snippets panel", () => {
     openPanel();
     (tabByName("Consulta 1").querySelector(".tab-close") as HTMLElement).click();
 
-    panelAction("Insertar").click();
+    panelInsert();
     expect(tabNames()).toEqual(["Snippets", "cuadernos"]);
     expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
   });
