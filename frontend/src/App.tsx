@@ -33,6 +33,7 @@ import { engineFamily } from "./utils/engineFamily";
 import { DataFilterBar } from "./components/DataFilterBar";
 import {
   applyFilter,
+  cycleSortColumn,
   emptyFilter,
   filterIsDirty,
   type FilterState,
@@ -1542,6 +1543,25 @@ export function App() {
     setFilters(id, fn(filterOf(id)));
   };
 
+  /**
+   * A header click on a data tab sorts at the server: it writes the ORDER BY
+   * into the panel and re-runs the page (issue #347). Clicking a header always
+   * looked like it sorted the table; over a truncated result it reordered
+   * whichever rows had been fetched, which is a different answer entirely.
+   */
+  const sortDataColumn = (id: number, column: string) => {
+    const preview = results[id]?.preview;
+    if (!preview) return;
+    withFilter(id, (f) =>
+      applyFilter(
+        preview.engine,
+        { ...f, order: cycleSortColumn(f.order, column) },
+        colsOf(id).types,
+      ),
+    );
+    void runPreviewPage(id, preview, 0);
+  };
+
   const applyDataFilter = (id: number) => {
     const preview = results[id]?.preview;
     if (!preview) return;
@@ -2516,6 +2536,14 @@ export function App() {
                         }
                         onCellContext={onCellContext}
                         referencedColumns={referencedColumns()}
+                        onSortColumn={
+                          isDataTab(tab().id)
+                            ? (column) => sortDataColumn(tab().id, column)
+                            : undefined
+                        }
+                        sortedColumn={
+                          isDataTab(tab().id) ? (filterOf(tab().id).order[0] ?? null) : null
+                        }
                         onCancel={cancelActive}
                         onRequestEdit={
                           currentEditable() && !currentEdit().editing ? beginEdit : undefined

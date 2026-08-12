@@ -341,6 +341,8 @@ export const es: Record<string, string> = {
   "grid.rowsAffected": "{n} fila(s) afectada(s).",
   "grid.sort": "Ordenar (asc / desc / ninguno)",
   "grid.pkColumn": "Llave primaria",
+  // truncado con orden en servidor (#347): el ORDER BY sí va sobre toda la tabla
+  "grid.truncatedServerSort": "Mostrando las primeras {n} filas de la consulta. El orden se aplica en el servidor sobre toda la tabla; los filtros de columna de la rejilla, solo sobre las filas cargadas.",
   "grid.resize": "Ajustar ancho de columna",
   "grid.filterPlaceholder": "Filtrar…",
   "grid.ariaLabel": "Resultados de la consulta",

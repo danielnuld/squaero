@@ -115,3 +115,47 @@ describeEngine("sqlite", () => {
     );
   });
 });
+
+// Issue #347, the sort half: a header click used to reorder the rows already
+// fetched. Over a truncated result that is a different answer than the one it
+// looks like, and the grid said so in small print under every page.
+describeEngine("sqlite", () => {
+  test("a header click sorts in the query, and the panel says so", async ({ app }) => {
+    const { page } = app;
+    await app.open();
+    await connect(app);
+    await openFixtureTable(app);
+
+    const header = page.getByRole("columnheader", { name: /^nombre/ });
+    await expect(header).toHaveAttribute("aria-sort", "none");
+
+    await header.click();
+    await expect(header).toHaveAttribute("aria-sort", "ascending");
+    // The click wrote the sort into the panel, which is where it now lives.
+    await expect(
+      page
+        .getByRole("region", { name: "Filtro y orden de la tabla" })
+        .getByRole("combobox", { name: "Columna de ordenación" }),
+    ).toHaveValue("nombre");
+    // And it went into the query, not into the loaded page.
+    await page.getByRole("button", { name: "SQL", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Editor SQL", exact: true })).toContainText(
+      "ORDER BY",
+    );
+  });
+
+  test("a header click cycles ascending, descending, off", async ({ app }) => {
+    const { page } = app;
+    await app.open();
+    await connect(app);
+    await openFixtureTable(app);
+
+    const header = page.getByRole("columnheader", { name: /^nombre/ });
+    await header.click();
+    await expect(header).toHaveAttribute("aria-sort", "ascending");
+    await header.click();
+    await expect(header).toHaveAttribute("aria-sort", "descending");
+    await header.click();
+    await expect(header).toHaveAttribute("aria-sort", "none");
+  });
+});

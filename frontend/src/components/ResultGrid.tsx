@@ -69,6 +69,14 @@ export function ResultGrid(props: {
   /** Columns other tables reference (issue #310). Marked in the header, so the
       user can see where "datos relacionados" is available without probing. */
   referencedColumns?: string[];
+  /**
+   * Sort at the SERVER instead of in the browser (issue #347). Given, a header
+   * click hands the column name up rather than reordering the rows already
+   * fetched — which over a truncated result reordered an arbitrary sample. The
+   * current server sort comes back as `sortedColumn` so the header can show it.
+   */
+  onSortColumn?: (column: string) => void;
+  sortedColumn?: { column: string; dir: "ASC" | "DESC" } | null;
   /** The table's primary key columns. Marked in the header so a grid of rows
       from a table you did not open says which column identifies each one —
       asked for on the related-data modal, where the rows belong to a table the
@@ -152,8 +160,26 @@ export function ResultGrid(props: {
   // Sort/filter reorder or shrink the view, so a view-position selection would
   // point at a different row — clear it (matches the reset on a new result).
   const toggleSort = (col: number) => {
+    const server = props.onSortColumn;
+    if (server) {
+      const name = cols()[col]?.name;
+      if (name) server(name);
+      setSel(null);
+      return;
+    }
     setSort((s) => cycleSort(s, col));
     setSel(null);
+  };
+
+  /** How this column is sorted: by the server when it owns the sort, else here. */
+  const sortDirOf = (ci: number): "ascending" | "descending" | "none" => {
+    if (props.onSortColumn) {
+      const s = props.sortedColumn;
+      if (!s || s.column.toLowerCase() !== (cols()[ci]?.name ?? "").toLowerCase()) return "none";
+      return s.dir === "ASC" ? "ascending" : "descending";
+    }
+    if (sort()?.col !== ci) return "none";
+    return sort()?.dir === "asc" ? "ascending" : "descending";
   };
   const setFilter = (col: number, q: string) => {
     setFilters((f) => ({ ...f, [col]: q }));
@@ -351,13 +377,7 @@ export function ResultGrid(props: {
                         class="grid-cell grid-head grid-head-sort"
                         role="columnheader"
                         aria-colindex={ci() + 1}
-                        aria-sort={
-                          sort()?.col === ci()
-                            ? sort()?.dir === "asc"
-                              ? "ascending"
-                              : "descending"
-                            : "none"
-                        }
+                        aria-sort={sortDirOf(ci())}
                         tabindex={0}
                         title={t("grid.sort")}
                         onClick={() => toggleSort(ci())}
@@ -384,7 +404,11 @@ export function ResultGrid(props: {
                           </span>
                         </Show>
                         <span class="col-type">{col.type}</span>
-                        <span class="col-sort">{sortGlyph(sort(), ci())}</span>
+                        <span class="col-sort">
+                          {props.onSortColumn
+                            ? { ascending: "▲", descending: "▼", none: "" }[sortDirOf(ci())]
+                            : sortGlyph(sort(), ci())}
+                        </span>
                         <span
                           class="col-resize"
                           title={t("grid.resize")}
@@ -635,7 +659,9 @@ export function ResultGrid(props: {
 
             <Show when={result().truncated}>
               <div class="grid-truncated">
-                {t("grid.truncated", { n: rows().length })}
+                {t(props.onSortColumn ? "grid.truncatedServerSort" : "grid.truncated", {
+                  n: rows().length,
+                })}
               </div>
             </Show>
           </Show>

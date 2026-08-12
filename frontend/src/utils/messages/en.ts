@@ -338,6 +338,8 @@ export const en: Record<string, string> = {
   "grid.rowsAffected": "{n} row(s) affected.",
   "grid.sort": "Sort (asc / desc / none)",
   "grid.pkColumn": "Primary key",
+  // truncated with a server-side sort (#347): the ORDER BY does cover the table
+  "grid.truncatedServerSort": "Showing the first {n} rows of the query. The sort is applied on the server over the whole table; the grid's column filters, only over the loaded rows.",
   "grid.resize": "Adjust column width",
   "grid.filterPlaceholder": "Filter…",
   "grid.ariaLabel": "Query results",
