@@ -65,6 +65,25 @@ export function describeColumnNames(describe: ResultSet): string[] {
 }
 
 /**
+ * Declared type per column name from a schema.describe result (issue #347). The
+ * filter panel needs it to quote a value the way its column expects: `= 235`
+ * against an integer, `= '235'` against text. Columns the describe reports
+ * without a type are left out rather than guessed at.
+ */
+export function describeColumnTypes(describe: ResultSet): Record<string, string> {
+  const nameIdx = describe.columns.findIndex((c) => c.name === "name");
+  const typeIdx = describe.columns.findIndex((c) => c.name === "type");
+  if (nameIdx === -1 || typeIdx === -1) return {};
+  const out: Record<string, string> = {};
+  for (const row of describe.rows) {
+    const name = row[nameIdx];
+    const type = row[typeIdx];
+    if (name != null && name !== "" && type != null && type !== "") out[name] = type;
+  }
+  return out;
+}
+
+/**
  * The WHERE map that identifies one result row by its primary key: {pkCol:
  * value} taken from the row's cells. Returns null when a PK column is missing
  * from the result's columns (the SELECT did not project it), so the caller can

@@ -29,6 +29,15 @@ import {
   type Tab,
 } from "./utils/tabs";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
+import { engineFamily } from "./utils/engineFamily";
+import { DataFilterBar } from "./components/DataFilterBar";
+import {
+  applyFilter,
+  emptyFilter,
+  filterIsDirty,
+  type FilterState,
+} from "./utils/dataFilter";
+import { emptyCondition, type ColumnTypes } from "./utils/queryBuilder";
 import { autoFocus } from "./utils/autoFocus";
 import { type RunScope } from "./utils/runScope";
 import { rowToTsv, rowToJson, copyText } from "./utils/rowCopy";
@@ -88,6 +97,7 @@ import { nextOffset, pageHasMore, refreshAction } from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
+  describeColumnTypes,
   describeColumnNames,
   runPlanItem,
   txBegin,
@@ -1256,7 +1266,15 @@ export function App() {
       });
       return;
     }
-    const sql = objectPreviewQuery(preview.parts, preview.engine, PAGE_LIMIT, offset);
+    // The filter the panel applied travels INTO the paged query, so narrowing a
+    // table narrows the table and not the page (issue #347).
+    const sql = objectPreviewQuery(
+      preview.parts,
+      preview.engine,
+      PAGE_LIMIT,
+      offset,
+      filters[tabId]?.applied ?? undefined,
+    );
     // Keep the edit source across page turns of the same table so the grid stays editable.
     const keepSource = results[tabId]?.source ?? undefined;
     if (!keepSource) setFkLookups(tabId, {}); // a fresh table: drop the old pickers
@@ -1399,7 +1417,12 @@ export function App() {
       try {
         const desc = await schemaDescribe(conn.connId, node.label, node.db, node.schema);
         // Feed this table's columns into the autocomplete cache (lazy schema).
-        setColumnCache((c) => ({ ...c, [node.label]: describeColumnNames(desc) }));
+        const names = describeColumnNames(desc);
+        setColumnCache((c) => ({ ...c, [node.label]: names }));
+        // And into the filter panel, which needs the same describe: the names to
+        // offer, and the declared types to quote each value the way its column
+        // expects (issue #347).
+        setDataCols(newId, { columns: names, types: describeColumnTypes(desc) });
         const source: EditSource = {
           table: node.label,
           db: node.db,
@@ -1491,6 +1514,47 @@ export function App() {
   };
 
   // --- Related data (issue #310) -----------------------------------------
+  // --- The data tab's filter panel (issue #347) --------------------------
+  // A tab opened from the tree browses a table through this instead of through
+  // the editor, and what it writes becomes the WHERE/ORDER BY of the paged
+  // preview above. Per tab, because two tables open at once filter separately.
+  const [filters, setFilters] = createStore<Record<number, FilterState>>({});
+  const [dataCols, setDataCols] = createStore<
+    Record<number, { columns: string[]; types: ColumnTypes }>
+  >({});
+
+  /** A tab that shows a table's rows rather than a query the user wrote. Mongo
+      is excluded: its preview is find({}), not a SELECT, so the panel would be
+      offering something it cannot build. */
+  const isDataTab = (id: number): boolean => {
+    const preview = results[id]?.preview;
+    return !!preview && engineFamily(preview.engine) !== "mongodb";
+  };
+  const filterOf = (id: number): FilterState => filters[id] ?? emptyFilter();
+  const colsOf = (id: number) => dataCols[id] ?? { columns: [], types: {} };
+  const filterDirty = (id: number): boolean => {
+    const engine = results[id]?.preview?.engine ?? "";
+    return filterIsDirty(engine, filterOf(id), colsOf(id).types);
+  };
+
+  /** Ensure the tab has a filter entry before writing into a path of it. */
+  const withFilter = (id: number, fn: (state: FilterState) => FilterState) => {
+    setFilters(id, fn(filterOf(id)));
+  };
+
+  const applyDataFilter = (id: number) => {
+    const preview = results[id]?.preview;
+    if (!preview) return;
+    withFilter(id, (f) => applyFilter(preview.engine, f, colsOf(id).types));
+    void runPreviewPage(id, preview, 0);
+  };
+
+  const clearDataFilter = (id: number) => {
+    const preview = results[id]?.preview;
+    withFilter(id, (f) => ({ ...emptyFilter(), collapsed: f.collapsed }));
+    if (preview) void runPreviewPage(id, preview, 0);
+  };
+
   // The INBOUND foreign keys of the focused result's table: which tables depend
   // on it. Loaded once per tab so the grid can mark the referenced columns and
   // the cell menu can offer the modal without a round trip per right-click.
@@ -2199,7 +2263,57 @@ export function App() {
           <Show when={currentQuery()}>
             {(tab) => (
               <div class="panes">
-                <div class="editor-pane">
+                <div class={`editor-pane ${isDataTab(tab().id) ? "data-pane" : ""}`}>
+                  <Show when={isDataTab(tab().id)}>
+                    {/* A table opened from the tree is browsed, not written: the
+                        editor gives way to the filter and sort that narrow the
+                        whole table rather than the page on screen (#347). */}
+                    <DataFilterBar
+                      state={filterOf(tab().id)}
+                      columns={colsOf(tab().id).columns}
+                      dirty={filterDirty(tab().id)}
+                      loaded={currentResult().result?.rows.length}
+                      onChange={(i, patch) =>
+                        setFilters(tab().id, "conditions", i, patch)
+                      }
+                      onAdd={() =>
+                        withFilter(tab().id, (f) => ({
+                          ...f,
+                          conditions: [...f.conditions, emptyCondition()],
+                        }))
+                      }
+                      onRemove={(i) =>
+                        withFilter(tab().id, (f) => ({
+                          ...f,
+                          conditions: f.conditions.filter((_, n) => n !== i),
+                        }))
+                      }
+                      onConjunction={(value) => setFilters(tab().id, "conjunction", value)}
+                      onSort={(i, patch) => setFilters(tab().id, "order", i, patch)}
+                      onAddSort={() =>
+                        withFilter(tab().id, (f) => ({
+                          ...f,
+                          order: [
+                            ...f.order,
+                            { column: colsOf(tab().id).columns[0] ?? "", dir: "ASC" as const },
+                          ],
+                        }))
+                      }
+                      onRemoveSort={(i) =>
+                        withFilter(tab().id, (f) => ({
+                          ...f,
+                          order: f.order.filter((_, n) => n !== i),
+                        }))
+                      }
+                      onApply={() => applyDataFilter(tab().id)}
+                      onClear={() => clearDataFilter(tab().id)}
+                      onToggleCollapsed={() =>
+                        setFilters(tab().id, "collapsed", (v) => !v)
+                      }
+                      onOpenSql={() => openSqlInNewTab(sqlOfTab(tab().id), tab().title)}
+                    />
+                  </Show>
+                  <Show when={!isDataTab(tab().id)}>
                   <SqlEditor
                     activeId={tab().id}
                     sqlFor={sqlOfTab}
@@ -2217,7 +2331,12 @@ export function App() {
                     schema={sqlSchema()}
                     defaultTable={sqlDefaultTable()}
                   />
+                  </Show>
                   <div class="editor-hint">
+                    {/* Without an editor below, three of these lose their object:
+                        running IS applying, there is no text to format, and
+                        saving a snippet resolves the editor's own selection. */}
+                    <Show when={!isDataTab(tab().id)}>
                     <button
                       class="status-btn run-btn"
                       title={
@@ -2236,6 +2355,7 @@ export function App() {
                     >
                       {t("editor.format")}
                     </button>
+                    </Show>
                     <button
                       class="status-btn"
                       title={t("editor.planTitle")}
@@ -2250,13 +2370,15 @@ export function App() {
                     >
                       {t("editor.history")}
                     </button>
-                    <button
-                      class="status-btn"
-                      title={t("editor.saveSnippetTitle")}
-                      onClick={requestSaveSnippet}
-                    >
-                      {t("editor.saveSnippet")}
-                    </button>
+                    <Show when={!isDataTab(tab().id)}>
+                      <button
+                        class="status-btn"
+                        title={t("editor.saveSnippetTitle")}
+                        onClick={requestSaveSnippet}
+                      >
+                        {t("editor.saveSnippet")}
+                      </button>
+                    </Show>
                     <button
                       class="status-btn"
                       title={t("editor.snippetsTitle")}
@@ -2278,7 +2400,10 @@ export function App() {
                       fallback={
                         <>
                           <span class="editor-hint-spacer" />
-                          <span>{t("editor.runHint")}</span>
+                          {/* No editor, nothing to run with Ctrl+Enter. */}
+                          <Show when={!isDataTab(tab().id)}>
+                            <span>{t("editor.runHint")}</span>
+                          </Show>
                         </>
                       }
                     >

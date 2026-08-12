@@ -907,6 +907,15 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+/* A data tab has no editor to give 40% of the height to (issue #347): the panel
+   takes what it needs, the grid gets the rest, and only a very long list of
+   conditions makes the panel scroll rather than squeeze the rows. */
+.editor-pane.data-pane {
+  height: auto;
+  min-height: 0;
+  max-height: 60%;
+}
+
 .editor {
   flex: 1;
   min-height: 0;
@@ -4714,3 +4723,124 @@ button.grid-action.danger:hover:not(:disabled) {
 .app-toast-action:hover {
   color: var(--accent-hover);
 }
+
+/* --- Data tab filter panel (issue #347) -------------------------------------
+   Takes the editor's place on a tab opened from the tree. Laid out as rows of
+   predicates so the shape on screen matches the shape of the WHERE it builds. */
+.filterbar {
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Sticky inside the panel's own scroller: with several conditions the panel
+   scrolls, and the header carries the fold toggle and the SQL escape hatch —
+   the two controls you must never have to scroll back up to find. */
+.filterbar-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.filterbar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.1rem 0;
+}
+
+.filterbar-chev { color: var(--text-dim); font-size: 10px; }
+.filterbar-summary { color: var(--accent-text); font-size: 11px; }
+.filterbar-spacer { flex: 1; }
+
+.filter-body { padding: 0.2rem 0.6rem 0.6rem; }
+
+.filter-list { list-style: none; margin: 0; padding: 0; }
+
+.filter-cond {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  flex-wrap: wrap;
+}
+
+/* An unchecked row keeps its text readable: it is a criterion being held back,
+   not one being discarded, and it has to stay editable while it is off. */
+.filter-cond.off .filter-col,
+.filter-cond.off .filter-op,
+.filter-cond.off .filter-val { opacity: 0.55; }
+
+.filter-check { display: flex; align-items: center; }
+
+.filter-col,
+.filter-op,
+.filter-conj,
+.filter-sort-pill select {
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.3rem;
+  font: inherit;
+  max-width: 14rem;
+}
+
+.filter-val {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  min-width: 6rem;
+  flex: 1;
+  max-width: 22rem;
+}
+.filter-val.range { flex: 0 1 9rem; min-width: 5rem; }
+.filter-sep { color: var(--text-dim); }
+
+.filter-join { color: var(--text-dim); }
+.filter-drop { font-size: 13px; line-height: 1; }
+
+.filter-actions,
+.filter-sort,
+.filter-apply {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.4rem;
+}
+
+.filter-sort { border-top: 1px dashed var(--border); margin-top: 0.4rem; }
+.filter-sort-label { font-weight: 600; }
+
+.filter-sort-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+}
+
+.filter-empty { color: var(--text-dim); margin: 0.3rem 0; }
+.filter-state { color: var(--null); }
+.filter-count { color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
