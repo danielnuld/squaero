@@ -137,6 +137,15 @@ describeEngine("sqlite", () => {
     // `name.press()` hid that by focusing first — so the name went into the query
     // and Enter inserted a newline, which only showed up in the native window.
     await expect(name).toBeFocused();
+    // And it fits: the bar used to overflow its own pane, so the right half of
+    // the field sat outside the window, unreadable and unclickable.
+    expect(
+      await page.evaluate(() => {
+        const bar = document.querySelector(".editor-hint")!;
+        return bar.scrollWidth - bar.clientWidth;
+      }),
+      "the editor bar does not overflow while naming",
+    ).toBeLessThanOrEqual(0);
     await page.keyboard.press("Enter");
     await expect(tab(page, "conteo")).toBeVisible(); // the mark is gone
 

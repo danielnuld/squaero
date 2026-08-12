@@ -2203,13 +2203,23 @@ export function App() {
                     >
                       {t("editor.snippets")}
                     </button>
-                    <span class="editor-hint-spacer" />
                     {/* Naming a snippet happens HERE, in the editor's own bar:
                         it takes the place of the run hint while it is open, so
-                        the query stays on screen (issue #320). */}
+                        the query stays on screen (issue #320).
+
+                        The spacer goes with the hint, not before it: its whole
+                        job is pushing that hint to the right edge, and leaving it
+                        in while naming made it claim half the free room as a
+                        second flex:1 sibling — which squeezed the field to its
+                        6rem minimum and pushed its right half off the window. */}
                     <Show
                       when={naming()}
-                      fallback={<span>{t("editor.runHint")}</span>}
+                      fallback={
+                        <>
+                          <span class="editor-hint-spacer" />
+                          <span>{t("editor.runHint")}</span>
+                        </>
+                      }
                     >
                       {(pending) => (
                         <span class="snip-save">

@@ -1012,7 +1012,11 @@ body {
 .editor-hint {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  /* Wraps rather than spilling: on a narrow window the buttons alone can outrun
+     the bar, and a row that overflows puts its tail outside the window where it
+     cannot be read or clicked at all. */
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
   padding: 0.2rem 0.6rem;
   font-size: 11px;
   color: var(--text-dim);
@@ -4644,7 +4648,10 @@ button.grid-action.danger:hover:not(:disabled) {
   align-items: center;
   gap: 0.4rem;
   flex: 1;
-  min-width: 0;
+  /* No `min-width: 0` here on purpose. It let this box shrink below its own
+     content, so the bar never wrapped and the field spilled out of the window
+     instead: the automatic min-content minimum is what makes it move to a second
+     row when the buttons have taken the first. */
 }
 
 .snip-save-label {
