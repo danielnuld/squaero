@@ -13,7 +13,7 @@
 
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { delimiter, join } from "node:path";
 
 export interface JsonRpcResponse {
@@ -66,6 +66,27 @@ export function driversPath(): string {
 export interface CoreTarget {
   readonly binary: string;
   readonly drivers: string;
+}
+
+/** How many plugin files sit in `dir` — the number of load lines to expect. */
+function pluginCount(dir: string): number {
+  const ext = IS_WIN ? ".dll" : process.platform === "darwin" ? ".dylib" : ".so";
+  try {
+    return readdirSync(dir).filter((f) => f.endsWith(ext)).length;
+  } catch {
+    return 0; // a missing directory is reported by the child, not guessed at here
+  }
+}
+
+/** Polls `done` until it holds, then resolves; throws `message` after 15s. */
+async function waitFor(done: () => boolean, message: string): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (!done()) {
+    if (Date.now() > deadline) {
+      throw new Error(message);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
 }
 
 export function defaultTarget(): CoreTarget {
@@ -155,9 +176,18 @@ export async function startRpc(target: CoreTarget = defaultTarget()): Promise<Rp
   );
   child.on("error", (err) => die(`failed to start: ${err.message}`));
 
-  // Give the loader a moment to register the plugins so loadedDrivers() is
-  // meaningful on the first call; the handshake below also proves it answers.
-  const ready = new Promise<void>((resolve) => setTimeout(resolve, 250));
+  // Wait for the plugins to be registered, so loadedDrivers() is meaningful on the
+  // first call — and wait on the condition, not on a clock. This was a flat 250 ms,
+  // which on a slower machine expired part-way down the alphabet: `sqlite` loads
+  // last of the five, so its whole engine silently skipped while the run still
+  // reported success. A skip that looks like a pass is the one failure mode this
+  // suite cannot afford, so running out of patience here is an error.
+  const expected = pluginCount(target.drivers);
+  const ready = waitFor(
+    () => drivers.length >= expected || dead !== null,
+    `quaero-rpc registered ${String(drivers.length)} of ${String(expected)} plugins ` +
+      `in ${target.drivers} within 15s (loaded: ${drivers.join(", ") || "none"})`,
+  );
 
   let counter = 0;
   const send = (requestJson: string, id: string, what: string) =>

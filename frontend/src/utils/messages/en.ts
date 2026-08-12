@@ -113,7 +113,7 @@ export const en: Record<string, string> = {
   // snippet palette (Ctrl/Cmd+J)
   "snip.palettePlaceholder": "Search your snippets…",
   "snip.paletteEmptySet": "You have not saved any snippets yet.",
-  "snip.paletteFooter": "Enter insert · Shift+Enter run · Ctrl/Cmd+Enter in a new tab",
+  "snip.paletteFooter": "Enter open · Shift+Enter run · Ctrl/Cmd+Enter insert at the cursor",
   "editor.runHint": "Ctrl/Cmd + Enter to run",
   "editor.selectAll": "Select all",
   "editor.copy": "Copy",
@@ -204,6 +204,7 @@ export const en: Record<string, string> = {
   "tab.editConn": "Edit · {name}",
   "tab.viewHint": "view",
   "tab.tableHint": "table",
+  "tab.listLabel": "Open tabs",
 
   // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
   "tree.tools": "Tools",

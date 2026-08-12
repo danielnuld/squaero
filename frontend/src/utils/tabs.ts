@@ -43,6 +43,10 @@ export interface QueryTab {
       keeps hitting its own connection even when another is focused. Undefined for
       a tab created with no connection (it then follows whatever is focused). */
   connDefId?: string;
+  /** The snippet this tab was opened from (issue #338). Its identity: one tab per
+      snippet, and it is what lets the editor save changes back to that snippet
+      instead of piling a second copy onto the list. */
+  snippetId?: string;
 }
 
 /** A tool tab hosting a panel that used to be a modal. */
@@ -114,6 +118,39 @@ export function openTool(
   }
   const id = nextTabId(state.tabs);
   const tab: ToolTab = { id, kind: "tool", title, tool, ...opts };
+  return { tabs: [...state.tabs, tab], activeId: id };
+}
+
+/**
+ * Open a snippet in a query tab of its own (issue #338), the same
+ * focus-instead-of-duplicate rule `openTool` applies: a snippet already open is
+ * refocused rather than opened twice.
+ *
+ * This is what "open a snippet" means now. Dropping the body at the cursor of
+ * whatever tab happened to be active mixed two queries into one editor, so what
+ * ran stopped being what the user thought they had in front of them; inserting
+ * is still available, but it is asked for explicitly.
+ */
+export function openSnippetTab(
+  state: TabState,
+  snip: { id: string; name: string; body: string },
+  connDefId?: string,
+): TabState {
+  const open = state.tabs.find(
+    (t): t is QueryTab => t.kind === "query" && t.snippetId === snip.id,
+  );
+  if (open) {
+    return { ...state, activeId: open.id };
+  }
+  const id = nextTabId(state.tabs);
+  const tab: QueryTab = {
+    id,
+    kind: "query",
+    title: snip.name,
+    sql: snip.body,
+    connDefId,
+    snippetId: snip.id,
+  };
   return { tabs: [...state.tabs, tab], activeId: id };
 }
 

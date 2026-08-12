@@ -23,6 +23,7 @@ function mount(props: Partial<Parameters<typeof SnippetsPanel>[0]> = {}) {
     entries,
     currentSql: "SELECT 1",
     onSave: () => {},
+    onOpen: () => {},
     onInsert: () => {},
     onRename: () => {},
     onRemove: () => {},
@@ -42,6 +43,11 @@ const typeInto = (el: HTMLInputElement, value: string) => {
   el.dispatchEvent(new Event("input", { bubbles: true }));
 };
 
+const action = (label: string) =>
+  [...host!.querySelectorAll(".snippet-actions .link")].find(
+    (b) => b.textContent === label,
+  ) as HTMLButtonElement;
+
 describe("SnippetsPanel", () => {
   it("saves the current query as a named favorite", () => {
     const onSave = vi.fn();
@@ -57,16 +63,24 @@ describe("SnippetsPanel", () => {
     expect(btn.disabled).toBe(true);
   });
 
-  it("inserts a snippet and closes", () => {
+  it("opens a snippet in its own tab, and stays open for the next one", () => {
+    const onOpen = vi.fn();
+    const onClose = vi.fn();
+    mount({ onOpen, onClose });
+    action("Abrir").click();
+    expect(onOpen).toHaveBeenCalledWith(entries[0]);
+    // Opening moves the focus to the new tab; the library is left behind, not
+    // torn down, so a second snippet is one click away.
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("still offers inserting at the cursor, as a separate action", () => {
     const onInsert = vi.fn();
     const onClose = vi.fn();
     mount({ onInsert, onClose });
-    const insertBtn = [...host!.querySelectorAll(".snippet-actions .link")].find(
-      (b) => b.textContent === "Insertar",
-    ) as HTMLButtonElement;
-    insertBtn.click();
-    expect(onInsert).toHaveBeenCalledWith("SELECT * FROM orders");
-    expect(onClose).toHaveBeenCalled();
+    action("Insertar").click();
+    expect(onInsert).toHaveBeenCalledWith(entries[0]);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("renames a snippet inline on Enter", () => {

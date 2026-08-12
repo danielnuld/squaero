@@ -25,10 +25,41 @@ const KEYS = [
   "quaero.update.skip",
 ] as const;
 
+/** The stored snippet shape (`src/utils/snippets.ts`), for pre-saving a set. */
+export interface SeedSnippet {
+  readonly id: string;
+  readonly name: string;
+  readonly body: string;
+}
+
 export interface SeedOptions {
   /** Connections to pre-save. Empty means the user has none yet. */
   readonly connections?: readonly EngineSpec[];
   readonly locale?: Locale;
+}
+
+/**
+ * Pre-saves a set of snippets, for tests about *using* the library rather than
+ * filling it. Call it before `app.open()`.
+ *
+ * A plain helper and not a fixture option on purpose: Playwright reads an option
+ * whose value is an array as the `[value, details]` tuple its own fixture syntax
+ * uses, so a list of snippets arrived as its first element and the seed silently
+ * did nothing. Init scripts run in the order they are registered and the `app`
+ * fixture registers `seedBrowserState` first, so this write lands after that
+ * function has cleared the key.
+ */
+export async function seedSnippets(
+  page: Page,
+  snippets: readonly SeedSnippet[],
+): Promise<void> {
+  await page.addInitScript((list) => {
+    try {
+      localStorage.setItem("quaero.snippets", JSON.stringify(list));
+    } catch {
+      // Same tolerance as seedBrowserState: a blocked store must not kill a test.
+    }
+  }, snippets);
 }
 
 /**

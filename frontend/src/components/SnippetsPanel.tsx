@@ -11,7 +11,9 @@ export function SnippetsPanel(props: {
   /** Current editor text, offered as the body of a new favorite. */
   currentSql: string;
   onSave: (name: string, body: string) => void;
-  onInsert: (body: string) => void;
+  /** Open the snippet in a tab of its own — the primary action (issue #338). */
+  onOpen: (s: Snippet) => void;
+  onInsert: (s: Snippet) => void;
   onRename: (id: string, name: string) => void;
   onRemove: (id: string) => void;
   onExport: () => void;
@@ -41,10 +43,9 @@ export function SnippetsPanel(props: {
     setEditingId(null);
   };
 
-  const insert = (body: string) => {
-    props.onInsert(body);
-    props.onClose();
-  };
+  // Neither action closes this panel. Both move the focus to a query tab, so the
+  // library simply stays behind for the next one — and closing its own tab from
+  // inside meant tearing down the very component still running the handler.
 
   const onFile = (e: Event) => {
     const file = (e.currentTarget as HTMLInputElement).files?.[0];
@@ -103,7 +104,18 @@ export function SnippetsPanel(props: {
                     />
                   </Show>
                   <span class="snippet-actions">
-                    <button class="link" onClick={() => insert(s.body)} title="Insertar en el cursor">
+                    <button
+                      class="link"
+                      onClick={() => props.onOpen(s)}
+                      title="Abrir en su propia pestaña"
+                    >
+                      Abrir
+                    </button>
+                    <button
+                      class="link"
+                      onClick={() => props.onInsert(s)}
+                      title="Insertar en el cursor"
+                    >
                       Insertar
                     </button>
                     <button class="link" onClick={() => startRename(s)} title="Renombrar">

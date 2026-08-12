@@ -40,6 +40,21 @@ const nameField = () => host!.querySelector(".snip-save-input") as HTMLInputElem
 const toast = () => host!.querySelector(".app-toast");
 const stored = () => parseSnippets(localStorage.getItem("quaero.snippets"));
 
+const tabs = () => [...host!.querySelectorAll('[role="tab"]')] as HTMLElement[];
+const tabNames = () => tabs().map((t) => t.getAttribute("aria-label"));
+const tabByName = (name: string) => tabs().find((t) => t.getAttribute("aria-label") === name)!;
+const selectedTabName = () =>
+  tabs().find((t) => t.getAttribute("aria-selected") === "true")?.getAttribute("aria-label");
+
+/** The live editor: it is torn down and rebuilt whenever a tool tab takes over. */
+const editor = () => EditorView.findFromDOM(host!)!;
+
+const seed = () =>
+  localStorage.setItem(
+    "quaero.snippets",
+    JSON.stringify([{ id: "snip-1", name: "cuadernos", body: "SELECT * FROM cuadernos" }]),
+  );
+
 const type = (el: HTMLInputElement, value: string) => {
   el.value = value;
   el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -136,10 +151,7 @@ describe("The snippet palette (Ctrl+J)", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "j", ctrlKey: true, bubbles: true }));
 
   it("opens scoped to snippets, with the body and the key hints", () => {
-    localStorage.setItem(
-      "quaero.snippets",
-      JSON.stringify([{ id: "snip-1", name: "cuadernos", body: "SELECT * FROM cuadernos" }]),
-    );
+    seed();
     mount();
     ctrlJ();
     expect(host!.querySelector(".cmdk")).not.toBeNull();
@@ -156,18 +168,94 @@ describe("The snippet palette (Ctrl+J)", () => {
     expect(host!.querySelector(".cmdk-empty")?.textContent).toContain("no has guardado");
   });
 
-  it("inserts the snippet into the editor on Enter", () => {
-    localStorage.setItem(
-      "quaero.snippets",
-      JSON.stringify([{ id: "snip-1", name: "cuadernos", body: "SELECT * FROM cuadernos" }]),
-    );
+  it("opens the snippet in its own tab on Enter, leaving the query alone", () => {
+    seed();
     const view = mount();
+    view.dispatch({ changes: { from: 0, insert: "SELECT lo_que_estaba_escribiendo" } });
+
     ctrlJ();
-    const input = host!.querySelector(".cmdk-input") as HTMLInputElement;
-    press(input, "Enter");
-    return new Promise((r) => setTimeout(r, 10)).then(() => {
-      expect(view.state.doc.toString()).toContain("SELECT * FROM cuadernos");
-      expect(host!.querySelector(".cmdk")).toBeNull();
-    });
+    press(host!.querySelector(".cmdk-input")!, "Enter");
+
+    // A second tab, named after the snippet and holding its body.
+    expect(tabNames()).toEqual(["Consulta 1", "cuadernos"]);
+    expect(selectedTabName()).toBe("cuadernos");
+    expect(view.state.doc.toString()).toBe("SELECT * FROM cuadernos");
+    // And the query it was written over is untouched, which is the whole point.
+    tabByName("Consulta 1").click();
+    expect(view.state.doc.toString()).toBe("SELECT lo_que_estaba_escribiendo");
+  });
+
+  it("reopens the tab a snippet already has instead of a second one", () => {
+    seed();
+    mount();
+    ctrlJ();
+    press(host!.querySelector(".cmdk-input")!, "Enter");
+    ctrlJ();
+    press(host!.querySelector(".cmdk-input")!, "Enter");
+    expect(tabNames()).toEqual(["Consulta 1", "cuadernos"]);
+    expect(selectedTabName()).toBe("cuadernos");
+  });
+
+  it("inserts at the cursor with Ctrl+Enter, the explicit ask", () => {
+    seed();
+    const view = mount();
+    view.dispatch({ changes: { from: 0, insert: "SELECT 1; " } });
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+
+    ctrlJ();
+    host!
+      .querySelector(".cmdk-input")!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+
+    expect(view.state.doc.toString()).toBe("SELECT 1; SELECT * FROM cuadernos");
+    expect(tabNames()).toEqual(["Consulta 1"]); // no new tab for an insertion
+  });
+});
+
+// Issue #338: the reported failure was "I open one and nothing happens". Its
+// cause was the remembered query tab being gone; these drive the two paths that
+// used to hit it — from the panel (which is itself a tab, so the editor is not
+// even mounted) and after closing the only query tab.
+describe("Reaching the editor from the snippets panel", () => {
+  const openPanel = () => byText(".editor-hint .status-btn", "Snippets").click();
+  const panelAction = (label: string) =>
+    ([...host!.querySelectorAll(".snippet-actions .link")].find(
+      (b) => b.textContent === label,
+    ) as HTMLButtonElement);
+
+  it("inserts into the query editor from the panel's own tab", () => {
+    seed();
+    mount();
+    openPanel();
+    expect(host!.querySelector(".editor-pane")).toBeNull(); // the panel took over
+
+    panelAction("Insertar").click();
+    // The editor is remounted by the switch back, so re-read it from the DOM.
+    expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
+    expect(selectedTabName()).toBe("Consulta 1");
+  });
+
+  it("opens the snippet even when its remembered query tab was closed", () => {
+    seed();
+    mount();
+    openPanel();
+    // Close the only query tab: the remembered id now points at nothing.
+    (tabByName("Consulta 1").querySelector(".tab-close") as HTMLElement).click();
+    expect(tabNames()).toEqual(["Snippets"]);
+
+    panelAction("Abrir").click();
+    expect(tabNames()).toEqual(["Snippets", "cuadernos"]);
+    expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
+  });
+
+  it("falls back to opening when there is no editor left to insert into", () => {
+    seed();
+    mount();
+    openPanel();
+    (tabByName("Consulta 1").querySelector(".tab-close") as HTMLElement).click();
+
+    panelAction("Insertar").click();
+    expect(tabNames()).toEqual(["Snippets", "cuadernos"]);
+    expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
   });
 });

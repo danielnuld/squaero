@@ -116,7 +116,7 @@ export const es: Record<string, string> = {
   // paleta de snippets (Ctrl/Cmd+J)
   "snip.palettePlaceholder": "Buscar entre tus snippets…",
   "snip.paletteEmptySet": "Todavía no has guardado ningún snippet.",
-  "snip.paletteFooter": "Enter insertar · Shift+Enter ejecutar · Ctrl/Cmd+Enter en pestaña nueva",
+  "snip.paletteFooter": "Enter abrir · Shift+Enter ejecutar · Ctrl/Cmd+Enter insertar en el cursor",
   "editor.runHint": "Ctrl/Cmd + Enter para ejecutar",
   "editor.selectAll": "Seleccionar todo",
   "editor.copy": "Copiar",
@@ -207,6 +207,7 @@ export const es: Record<string, string> = {
   "tab.editConn": "Editar · {name}",
   "tab.viewHint": "vista",
   "tab.tableHint": "tabla",
+  "tab.listLabel": "Pestañas abiertas",
 
   // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
   "tree.tools": "Herramientas",

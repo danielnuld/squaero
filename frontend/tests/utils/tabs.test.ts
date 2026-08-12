@@ -3,6 +3,7 @@ import {
   nextTabId,
   addTab,
   openTool,
+  openSnippetTab,
   closeTab,
   closeOtherTabs,
   updateTabSql,
@@ -49,6 +50,55 @@ describe("openTool", () => {
     let s = openTool(empty, "generator", "Generar · a", { key: "gen:a" });
     s = openTool(s, "generator", "Generar · b", { key: "gen:b" });
     expect(s.tabs).toHaveLength(2);
+  });
+});
+
+describe("openSnippetTab", () => {
+  const snip = { id: "snip-1", name: "facturas impagadas", body: "SELECT * FROM facturas" };
+  const other = { id: "snip-2", name: "clientes", body: "SELECT * FROM clientes" };
+
+  it("opens the snippet in a query tab of its own, named after it", () => {
+    const s = openSnippetTab(empty, snip, "conn-1");
+    expect(s.tabs).toHaveLength(1);
+    expect(s.tabs[0]).toEqual({
+      id: 1,
+      kind: "query",
+      title: "facturas impagadas", // its own name, not "Consulta 1"
+      sql: "SELECT * FROM facturas",
+      connDefId: "conn-1",
+      snippetId: "snip-1",
+    });
+    expect(s.activeId).toBe(1);
+  });
+
+  it("focuses the tab a snippet already has instead of opening a second one", () => {
+    let s = openSnippetTab(empty, snip);
+    s = addTab(s); // the user moved on to another query, now active
+    const reopened = openSnippetTab(s, snip);
+    expect(reopened.tabs).toHaveLength(2); // no duplicate
+    expect(reopened.activeId).toBe(1);
+  });
+
+  it("gives each snippet its own tab", () => {
+    let s = openSnippetTab(empty, snip);
+    s = openSnippetTab(s, other);
+    expect(s.tabs).toHaveLength(2);
+    expect(s.tabs.map((t) => t.kind === "query" && t.snippetId)).toEqual(["snip-1", "snip-2"]);
+  });
+
+  it("leaves the text of every other tab untouched", () => {
+    let s = addTab(empty);
+    s = updateTabSql(s, 1, "SELECT lo_que_estaba_escribiendo");
+    s = openSnippetTab(s, snip);
+    const untouched = s.tabs.find((t) => t.id === 1);
+    expect(untouched).toMatchObject({ sql: "SELECT lo_que_estaba_escribiendo" });
+  });
+
+  it("reuses the tab only when the snippet matches, not any tab without one", () => {
+    // A plain query tab has no snippetId; it must never be mistaken for one.
+    const s = openSnippetTab(addTab(empty), snip);
+    expect(s.tabs).toHaveLength(2);
+    expect(s.activeId).toBe(2);
   });
 });
 

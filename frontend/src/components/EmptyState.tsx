@@ -25,7 +25,7 @@ export function EmptyState(props: {
   isMac: boolean;
   onOpenTable: (node: TreeNode) => void;
   onRunHistory: (sql: string) => void;
-  onInsertSnippet: (body: string) => void;
+  onInsertSnippet: (s: Snippet) => void;
 }) {
   const shortcuts = () =>
     KEY_SHORTCUTS.map((id) => SHORTCUTS.find((s) => s.id === id)).filter(
@@ -90,7 +90,7 @@ export function EmptyState(props: {
                     <button
                       class="empty-link"
                       title={t("empty.insertSnippet")}
-                      onClick={() => props.onInsertSnippet(s.body)}
+                      onClick={() => props.onInsertSnippet(s)}
                     >
                       {s.name}
                     </button>

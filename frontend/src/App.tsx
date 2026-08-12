@@ -17,6 +17,7 @@ import { openConnection, closeConnection, testConnection, listDatabases } from "
 import {
   addTab,
   openTool,
+  openSnippetTab,
   closeTab,
   closeOtherTabs,
   cycleTab,
@@ -686,11 +687,16 @@ export function App() {
     const q = currentQuery();
     if (q) setLastQueryId(q.id);
   });
-  const lastQuerySql = () => {
+  // The remembered id is only good while that tab is still open: nothing clears
+  // it when the tab is closed, so acting on it blindly used to focus a tab that
+  // no longer existed — leaving the workspace blank and swallowing the action
+  // (issue #338). Every reader goes through here.
+  const liveQueryTab = (): QueryTab | undefined => {
     const id = lastQueryId();
     const t = id !== null ? tabs().tabs.find((x) => x.id === id) : undefined;
-    return t && t.kind === "query" ? t.sql : "";
+    return t && t.kind === "query" ? t : undefined;
   };
+  const lastQuerySql = () => liveQueryTab()?.sql ?? "";
 
   // The table whose columns may be suggested unqualified: the first one the
   // statement names that we have columns for. Without it lang-sql completes keywords
@@ -739,6 +745,17 @@ export function App() {
 
   const newTab = () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
   const selectTab = (id: number) => setTabs((s) => ({ ...s, activeId: id }));
+  // Arrows walk the tab list, selection following focus (the usual tablist
+  // behaviour, and the same wrap-around Ctrl+PageUp/PageDown already gives).
+  const onTabKeyDown = (e: KeyboardEvent, id: number) => {
+    const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (dir === 0) return;
+    e.preventDefault();
+    const bar = (e.currentTarget as HTMLElement).parentElement;
+    setTabs((s) => cycleTab({ ...s, activeId: id }, dir));
+    // The roving tabindex only moves once the new active tab has rendered.
+    queueMicrotask(() => bar?.querySelector<HTMLElement>('[role="tab"][tabindex="0"]')?.focus());
+  };
   const removeTab = (id: number, e: MouseEvent) => {
     e.stopPropagation();
     setTabs((s) => closeTab(s, id));
@@ -800,14 +817,22 @@ export function App() {
   const renameSnip = (id: string, name: string) =>
     persistSnippets(renameSnippet(snippets(), id, name));
   const removeSnip = (id: string) => persistSnippets(removeSnippet(snippets(), id));
-  // Drop a snippet into the editor at the cursor via a bumped insert request.
-  // Snippets live in their own tab now, so first jump back to the last query
-  // editor (or open one), then bump the insert tick once it has (re)mounted.
-  const insertSnippet = (body: string) => {
-    const id = lastQueryId();
-    if (id !== null) setTabs((s) => ({ ...s, activeId: id }));
-    else setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
-    setTimeout(() => setSnippetInsert((r) => ({ text: body, tick: r.tick + 1 })), 0);
+  // Opening a snippet is what activating one means (issue #338): it lands in a
+  // tab of its own, so the query the user was writing is never merged with it.
+  const openSnippet = (s: Snippet) =>
+    setTabs((st) => openSnippetTab(st, s, focusedDefId() ?? undefined));
+  // Inserting at the cursor stays available, but has to be asked for. It acts on
+  // the last query editor — which may have been closed since, and then there is
+  // no cursor to insert at, so the snippet opens in its own tab instead of the
+  // action silently doing nothing.
+  const insertSnippet = (s: Snippet) => {
+    const target = liveQueryTab();
+    if (!target) {
+      openSnippet(s);
+      return;
+    }
+    setTabs((st) => ({ ...st, activeId: target.id }));
+    setSnippetInsert((r) => ({ text: s.body, tick: r.tick + 1 }));
   };
   // --- Save the query being written as a snippet (issue #320) -------------
   // The editor answers a bumped saveTick with the text it WOULD RUN (selection /
@@ -1889,18 +1914,17 @@ export function App() {
     }
 
     // Snippets. The body travels as the preview so the palette can show it, and
-    // the alternates run it or open it in its own tab (issue #320).
+    // the alternates run it or drop it at the cursor (issues #320, #338).
     for (const s of snippets())
       out.push({
         id: `snip:${s.id}`,
         category: "snippet",
         label: s.name,
         preview: s.body,
-        run: () => insertSnippet(s.body),
-        // Running one lands it in its own tab, the same way the history palette
-        // re-runs a past query: the tab you were in keeps its text.
-        runAlt: (alt) =>
-          alt === "shift" ? runFromHistory(s.body) : openSqlInNewTab(s.body, s.name),
+        // Enter opens it in its own tab: the tab you were in keeps its text, and
+        // reopening the same snippet returns to the tab it already has.
+        run: () => openSnippet(s),
+        runAlt: (alt) => (alt === "shift" ? runFromHistory(s.body) : insertSnippet(s)),
       });
 
     // Recent history (cap so the palette stays snappy; fuzzy filters the rest).
@@ -2008,15 +2032,25 @@ export function App() {
               title="Conexión de la pestaña activa"
             />
           </Show>
-          <div class="tabbar">
+          {/* A real tablist (issue #338): these were bare divs, so nothing but
+              sight could tell which tab was selected — and "one tab per snippet"
+              is a promise about exactly that. aria-label pins the accessible name
+              to the title, which the close button's × and the connection name
+              would otherwise pad. */}
+          <div class="tabbar" role="tablist" aria-label={t("tab.listLabel")}>
             <For each={tabs().tabs}>
               {(tab) => (
                 <div
                   class={`tab ${tab.id === tabs().activeId ? "active" : ""} ${
                     tab.kind === "tool" ? "tab-tool" : ""
                   }`}
+                  role="tab"
+                  aria-selected={tab.id === tabs().activeId}
+                  aria-label={tab.title}
+                  tabindex={tab.id === tabs().activeId ? 0 : -1}
                   style={tabColor(tab) ? { "border-top": `2px solid ${tabColor(tab)}` } : undefined}
                   onClick={() => selectTab(tab.id)}
+                  onKeyDown={(e) => onTabKeyDown(e, tab.id)}
                   onContextMenu={(e) => tabMenu(e, tab.id)}
                 >
                   <Show when={tabColor(tab)}>
@@ -2455,6 +2489,7 @@ export function App() {
                     entries={snippets()}
                     currentSql={lastQuerySql()}
                     onSave={saveSnippet}
+                    onOpen={openSnippet}
                     onInsert={insertSnippet}
                     onRename={renameSnip}
                     onRemove={removeSnip}

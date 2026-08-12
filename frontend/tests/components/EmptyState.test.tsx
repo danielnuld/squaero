@@ -73,16 +73,17 @@ describe("EmptyState", () => {
     expect(onRunHistory).toHaveBeenCalledWith("SELECT 1");
   });
 
-  it("inserts a snippet body (not its name) via its handler", () => {
+  it("hands the whole snippet, listed by name, to its handler", () => {
     const onInsertSnippet = vi.fn();
-    mount({ snippets: [snip("s1", "count", "SELECT count(*) FROM t")], onInsertSnippet });
+    const entry = snip("s1", "count", "SELECT count(*) FROM t");
+    mount({ snippets: [entry], onInsertSnippet });
     const card = [...host!.querySelectorAll(".empty-card")].find(
       (c) => c.querySelector("h4")?.textContent === "Snippets",
     )!;
     const btn = card.querySelector(".empty-link") as HTMLButtonElement;
     expect(btn.textContent).toBe("count");
     btn.click();
-    expect(onInsertSnippet).toHaveBeenCalledWith("SELECT count(*) FROM t");
+    expect(onInsertSnippet).toHaveBeenCalledWith(entry);
   });
 
   it("caps each list at five items", () => {
