@@ -110,6 +110,37 @@ describeEngine("sqlite", () => {
     await expect(tab(page, "Snippets")).toBeVisible();
   });
 
+  test("an edit saved back survives a reload, without forking a copy", async ({ app }) => {
+    const { page } = app;
+    await openWithSnippets(app);
+    await openFromPalette(page, "conteo");
+
+    await editor(page).click();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type("SELECT count(*) FROM e2e_items WHERE id > 2");
+    await page.keyboard.press("Escape");
+
+    // The tab says it is out of step with what is stored.
+    await expect(tab(page, "conteo · con cambios sin guardar")).toBeVisible();
+
+    // Ctrl+Shift+S offers this snippet's own name; accepting it saves back.
+    await page.keyboard.press("ControlOrMeta+Shift+S");
+    const name = page.getByRole("textbox", { name: "Nombre del snippet" });
+    await expect(name).toHaveValue("conteo");
+    await name.press("Enter");
+    await expect(tab(page, "conteo")).toBeVisible(); // the mark is gone
+
+    // The seed only runs on the first load, so what comes back is what was stored.
+    await page.reload();
+    await openFromPalette(page, "conteo");
+    await expect(editor(page)).toContainText("WHERE id > 2");
+
+    // And there is still one "conteo", not a numbered second copy.
+    await page.keyboard.press("ControlOrMeta+j");
+    const palette = page.getByRole("dialog", { name: "Paleta de comandos" });
+    await expect(palette.getByRole("button", { name: /^conteo/ })).toHaveCount(1);
+  });
+
   test("arrows walk the tab list", async ({ app }) => {
     const { page } = app;
     await openWithSnippets(app);

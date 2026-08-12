@@ -48,6 +48,10 @@ export interface SeedOptions {
  * did nothing. Init scripts run in the order they are registered and the `app`
  * fixture registers `seedBrowserState` first, so this write lands after that
  * function has cleared the key.
+ *
+ * First load only, for the same reason and with its own sentinel: without one, a
+ * `page.reload()` rewrote the seed over whatever the test had just saved, which
+ * turns "does this edit survive a reload?" into a test of the harness undoing it.
  */
 export async function seedSnippets(
   page: Page,
@@ -55,6 +59,10 @@ export async function seedSnippets(
 ): Promise<void> {
   await page.addInitScript((list) => {
     try {
+      if (sessionStorage.getItem("quaero.e2e.snippets-seeded") !== null) {
+        return;
+      }
+      sessionStorage.setItem("quaero.e2e.snippets-seeded", "1");
       localStorage.setItem("quaero.snippets", JSON.stringify(list));
     } catch {
       // Same tolerance as seedBrowserState: a blocked store must not kill a test.

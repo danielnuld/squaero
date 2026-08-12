@@ -3,6 +3,7 @@ import {
   nextSnippetId,
   addSnippet,
   renameSnippet,
+  updateSnippetBody,
   removeSnippet,
   mergeSnippets,
   insertIntoText,
@@ -44,6 +45,26 @@ describe("renameSnippet / removeSnippet", () => {
 
   it("removes by id", () => {
     expect(removeSnippet(base, "snip-1")).toEqual([snip("snip-2", "b", "y")]);
+  });
+});
+
+describe("updateSnippetBody", () => {
+  const base = [snip("snip-1", "a", "SELECT 1"), snip("snip-2", "b", "SELECT 2")];
+
+  it("replaces the body in place, keeping the id and the name", () => {
+    expect(updateSnippetBody(base, "snip-2", "SELECT 22")).toEqual([
+      snip("snip-1", "a", "SELECT 1"),
+      snip("snip-2", "b", "SELECT 22"),
+    ]);
+  });
+
+  it("ignores a blank body, so a stray save cannot empty a saved query", () => {
+    expect(updateSnippetBody(base, "snip-1", "   ")).toEqual(base);
+    expect(updateSnippetBody(base, "snip-1", "")).toEqual(base);
+  });
+
+  it("leaves the list alone for an id it does not hold", () => {
+    expect(updateSnippetBody(base, "snip-9", "SELECT 9")).toEqual(base);
   });
 });
 

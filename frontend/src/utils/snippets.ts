@@ -61,6 +61,17 @@ export function addSnippet(list: Snippet[], name: string, body: string): Snippet
   return [...list, { id: nextSnippetId(list), name: n, body }];
 }
 
+/**
+ * Replace the body of a snippet by id (issue #338), so an edit made in the tab
+ * the snippet was opened in goes back to the snippet instead of piling a second
+ * copy onto the list. A blank body is ignored — that would be a way to lose the
+ * saved query by accident, not a way to empty it on purpose. Returns a new array.
+ */
+export function updateSnippetBody(list: Snippet[], id: string, body: string): Snippet[] {
+  if (!body.trim()) return list;
+  return list.map((s) => (s.id === id ? { ...s, body } : s));
+}
+
 /** Rename a snippet by id; a blank name is ignored. Returns a new array. */
 export function renameSnippet(list: Snippet[], id: string, name: string): Snippet[] {
   const n = name.trim();

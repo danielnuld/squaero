@@ -811,6 +811,14 @@ body {
   text-overflow: ellipsis;
 }
 
+/* A snippet's tab holding edits it has not saved back yet (issue #338). Purely
+   decorative: the tab's aria-label carries the same fact in words. */
+.tab-unsaved {
+  color: var(--null);
+  font-size: 1.1em;
+  line-height: 0;
+}
+
 /* The tab's connection name, dimmed so the title still reads first. */
 .tab-conn {
   max-width: 120px;

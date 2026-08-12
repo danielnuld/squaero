@@ -107,6 +107,7 @@ export const en: Record<string, string> = {
   "snip.scope.statement": "statement",
   "snip.scope.document": "document",
   "snip.saved": "Saved “{name}” ({scope})",
+  "snip.updated": "Updated “{name}” ({scope})",
   "snip.savedRenamed": "That name was taken: saved as “{name}” ({scope})",
   "snip.undo": "Undo",
   "snip.emptyQuery": "Nothing to save: the query is empty.",
@@ -205,6 +206,7 @@ export const en: Record<string, string> = {
   "tab.viewHint": "view",
   "tab.tableHint": "table",
   "tab.listLabel": "Open tabs",
+  "tab.unsaved": "{title} · unsaved changes",
 
   // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
   "tree.tools": "Tools",

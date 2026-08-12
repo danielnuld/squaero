@@ -23,18 +23,18 @@ fusionarse y de empezar la siguiente.
 
 ## 2. Editar y guardar de vuelta (fase B)
 
-- [ ] 2.1 `updateSnippetBody` puro, con sus casos borde
-- [ ] 2.2 En una pestaña ligada, el campo «Guardar como» se precarga con el
+- [x] 2.1 `updateSnippetBody` puro, con sus casos borde
+- [x] 2.2 En una pestaña ligada, el campo «Guardar como» se precarga con el
       nombre del snippet
-- [ ] 2.3 `Enter` con el nombre intacto actualiza ese snippet; cambiarlo guarda
+- [x] 2.3 `Enter` con el nombre intacto actualiza ese snippet; cambiarlo guarda
       uno nuevo sin tocar el original
-- [ ] 2.4 **Deshacer** restaura el cuerpo anterior tras una actualización (no
+- [x] 2.4 **Deshacer** restaura el cuerpo anterior tras una actualización (no
       borra el snippet, que es lo que hace tras una creación)
-- [ ] 2.5 La pestaña indica que tiene cambios sin guardar, y lo dice también en
+- [x] 2.5 La pestaña indica que tiene cambios sin guardar, y lo dice también en
       su nombre accesible
-- [ ] 2.6 Pruebas: unitarias del helper, y sobre el `App` real para los dos
+- [x] 2.6 Pruebas: unitarias del helper, y sobre el `App` real para los dos
       caminos (actualizar vs. guardar como nuevo)
-- [ ] 2.7 Prueba e2e: editar, guardar, recargar y reabrir conserva el cuerpo
+- [x] 2.7 Prueba e2e: editar, guardar, recargar y reabrir conserva el cuerpo
       nuevo y no crea un segundo snippet
 
 ## 3. Biblioteca buscable (fase C)

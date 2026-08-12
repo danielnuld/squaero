@@ -259,3 +259,82 @@ describe("Reaching the editor from the snippets panel", () => {
     expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
   });
 });
+
+// Issue #338: a snippet's tab behaves like the document it is — Ctrl+Shift+S
+// offers that snippet's own name, and accepting it saves back rather than
+// leaving a second copy behind.
+describe("Editing a snippet in its own tab", () => {
+  const openSnippet = () => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "j", ctrlKey: true, bubbles: true }));
+    press(host!.querySelector(".cmdk-input")!, "Enter");
+    return editor();
+  };
+
+  it("offers the snippet's own name and replaces its body", () => {
+    seed();
+    mount();
+    const view = openSnippet();
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "SELECT 1 FROM cuadernos" } });
+
+    saveButton().click();
+    expect(nameField()!.value).toBe("cuadernos"); // its own name, not a proposal
+    press(nameField()!, "Enter");
+
+    expect(stored()).toEqual([
+      { id: "snip-1", name: "cuadernos", body: "SELECT 1 FROM cuadernos" },
+    ]);
+    expect(toast()?.textContent).toContain("Actualizado");
+  });
+
+  it("forks a new snippet when the name is changed, leaving the original", () => {
+    seed();
+    mount();
+    const view = openSnippet();
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "SELECT 1" } });
+
+    saveButton().click();
+    type(nameField()!, "cuadernos de este año");
+    press(nameField()!, "Enter");
+
+    expect(stored()).toEqual([
+      { id: "snip-1", name: "cuadernos", body: "SELECT * FROM cuadernos" }, // untouched
+      { id: "snip-2", name: "cuadernos de este año", body: "SELECT 1" },
+    ]);
+  });
+
+  it("undoing an update restores the previous body, it does not delete", () => {
+    seed();
+    mount();
+    const view = openSnippet();
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "SELECT 1" } });
+    saveButton().click();
+    press(nameField()!, "Enter");
+
+    byText(".app-toast-action", "Deshacer").click();
+    expect(stored()).toEqual([
+      { id: "snip-1", name: "cuadernos", body: "SELECT * FROM cuadernos" },
+    ]);
+  });
+
+  it("marks the tab while the body differs from the saved one", () => {
+    seed();
+    mount();
+    const view = openSnippet();
+    expect(tabNames()).toContain("cuadernos"); // in step with what is stored
+
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "SELECT 1" } });
+    expect(tabNames()).toContain("cuadernos · con cambios sin guardar");
+
+    saveButton().click();
+    press(nameField()!, "Enter");
+    expect(tabNames()).toContain("cuadernos");
+  });
+
+  it("leaves a plain query tab on the proposed name", () => {
+    seed();
+    const view = mount();
+    view.dispatch({ changes: { from: 0, insert: "SELECT * FROM pedidos" } });
+    saveButton().click();
+    expect(nameField()!.value).toBe("pedidos"); // the table, not any open snippet
+  });
+});

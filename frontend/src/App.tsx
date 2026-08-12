@@ -69,6 +69,7 @@ import {
   proposedSnippetName,
   uniqueSnippetName,
   renameSnippet,
+  updateSnippetBody,
   removeSnippet,
   mergeSnippets,
   parseSnippets,
@@ -745,6 +746,14 @@ export function App() {
 
   const newTab = () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
   const selectTab = (id: number) => setTabs((s) => ({ ...s, activeId: id }));
+  // A snippet's tab holding text the snippet does not have yet (issue #338). Shown
+  // as a dot, but the tab's accessible name says it in words — a bullet next to a
+  // title tells a screen reader nothing about unsaved work.
+  const isUnsaved = (tab: Tab): boolean => {
+    if (tab.kind !== "query" || tab.snippetId === undefined) return false;
+    const snip = snippets().find((s) => s.id === tab.snippetId);
+    return snip !== undefined && snip.body !== tab.sql;
+  };
   // Arrows walk the tab list, selection following focus (the usual tablist
   // behaviour, and the same wrap-around Ctrl+PageUp/PageDown already gives).
   const onTabKeyDown = (e: KeyboardEvent, id: number) => {
@@ -842,7 +851,17 @@ export function App() {
   const [naming, setNaming] = createSignal<{ body: string; scope: RunScope; name: string } | null>(
     null,
   );
-  const [snipToast, setSnipToast] = createSignal<{ text: string; undoId: string } | null>(null);
+  // Undo travels as the action, not as an id: undoing a save deletes the snippet
+  // that was just created, while undoing an update puts the previous body back —
+  // and deleting the user's snippet because the two shared a shape would be the
+  // worst possible reading of "Deshacer".
+  const [snipToast, setSnipToast] = createSignal<{ text: string; undo: () => void } | null>(null);
+
+  /** The snippet the active query tab was opened from, if it still exists. */
+  const boundSnippet = (): Snippet | undefined => {
+    const id = currentQuery()?.snippetId;
+    return id === undefined ? undefined : snippets().find((s) => s.id === id);
+  };
 
   const requestSaveSnippet = () => {
     setSnipToast(null);
@@ -855,7 +874,11 @@ export function App() {
       setConnError(t("snip.emptyQuery"));
       return;
     }
-    const proposed = proposedSnippetName(body, activeDialect()) ?? t("snip.fallbackName");
+    // In a snippet's own tab the offered name is that snippet's, so accepting it
+    // saves back to where the text came from; typing another name forks a new one.
+    const bound = boundSnippet();
+    const proposed =
+      bound?.name ?? proposedSnippetName(body, activeDialect()) ?? t("snip.fallbackName");
     setNaming({ body, scope, name: proposed });
   };
 
@@ -864,25 +887,36 @@ export function App() {
     if (!pending) return;
     const typed = pending.name.trim();
     if (!typed) return;
+    if (!pending.body.trim()) return; // nothing to store either way
+    const list = snippets();
+    const scope = t(`snip.scope.${pending.scope}`);
+    setNaming(null);
+
+    // Accepting a bound tab's own name replaces that snippet's body in place.
+    const bound = boundSnippet();
+    if (bound && typed === bound.name) {
+      const previous = bound.body;
+      persistSnippets(updateSnippetBody(list, bound.id, pending.body));
+      setSnipToast({
+        text: t("snip.updated", { name: bound.name, scope }),
+        undo: () => persistSnippets(updateSnippetBody(snippets(), bound.id, previous)),
+      });
+      return;
+    }
+
     // A name already in use never overwrites the snippet holding it: the save
     // lands under a numbered variant and the toast says which.
-    const list = snippets();
     const name = uniqueSnippetName(list, typed);
     const id = nextSnippetId(list);
-    const next = addSnippet(list, name, pending.body);
-    if (next === list) return; // rejected (blank body) — nothing to report
-    persistSnippets(next);
-    setNaming(null);
-    const scope = t(`snip.scope.${pending.scope}`);
+    persistSnippets(addSnippet(list, name, pending.body));
     setSnipToast({
       text: t(name === typed ? "snip.saved" : "snip.savedRenamed", { name, scope }),
-      undoId: id,
+      undo: () => removeSnip(id),
     });
   };
 
   const undoSaveSnippet = () => {
-    const toast = snipToast();
-    if (toast) removeSnip(toast.undoId);
+    snipToast()?.undo();
     setSnipToast(null);
   };
 
@@ -2046,7 +2080,9 @@ export function App() {
                   }`}
                   role="tab"
                   aria-selected={tab.id === tabs().activeId}
-                  aria-label={tab.title}
+                  aria-label={
+                    isUnsaved(tab) ? t("tab.unsaved", { title: tab.title }) : tab.title
+                  }
                   tabindex={tab.id === tabs().activeId ? 0 : -1}
                   style={tabColor(tab) ? { "border-top": `2px solid ${tabColor(tab)}` } : undefined}
                   onClick={() => selectTab(tab.id)}
@@ -2057,6 +2093,11 @@ export function App() {
                     <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
                   </Show>
                   <span class="tab-title">{tab.title}</span>
+                  <Show when={isUnsaved(tab)}>
+                    <span class="tab-unsaved" aria-hidden="true">
+                      •
+                    </span>
+                  </Show>
                   <Show when={tabConn(tab)}>
                     {(conn) => (
                       <span class="tab-conn">

@@ -110,6 +110,7 @@ export const es: Record<string, string> = {
   "snip.scope.statement": "sentencia",
   "snip.scope.document": "documento",
   "snip.saved": "Guardado «{name}» ({scope})",
+  "snip.updated": "Actualizado «{name}» ({scope})",
   "snip.savedRenamed": "Ya existía ese nombre: guardado como «{name}» ({scope})",
   "snip.undo": "Deshacer",
   "snip.emptyQuery": "No hay nada que guardar: la consulta está vacía.",
@@ -208,6 +209,7 @@ export const es: Record<string, string> = {
   "tab.viewHint": "vista",
   "tab.tableHint": "tabla",
   "tab.listLabel": "Pestañas abiertas",
+  "tab.unsaved": "{title} · con cambios sin guardar",
 
   // object tree sidebar (ObjectTree.tsx + treeObjects.ts / tree.ts folder labels)
   "tree.tools": "Herramientas",
