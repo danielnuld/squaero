@@ -82,6 +82,18 @@ describe("Saving a query as a snippet from the editor", () => {
     expect(toast()?.textContent).toContain("documento");
   });
 
+  it("puts the caret in the name field, so the hint it shows is true", () => {
+    const view = mount();
+    view.dispatch({ changes: { from: 0, insert: "SELECT * FROM cuadernos" } });
+    saveButton().click();
+    // Not an assertion about a prop: `autofocus` does nothing on an element
+    // inserted after parsing, so the field looked focused while every keystroke
+    // still went into the query and Enter inserted a newline.
+    return Promise.resolve().then(() => {
+      expect(document.activeElement).toBe(nameField());
+    });
+  });
+
   it("saves the typed name when the user replaces the proposal", () => {
     const view = mount();
     view.dispatch({ changes: { from: 0, insert: "SELECT * FROM cuadernos" } });

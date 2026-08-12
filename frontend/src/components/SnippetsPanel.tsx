@@ -3,6 +3,7 @@ import { Panel } from "./Panel";
 import { searchSnippets, type Snippet } from "../utils/snippets";
 import { openContextMenu } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
+import { autoFocus } from "../utils/autoFocus";
 
 // The snippet library (issues #129, #338): find a saved query among many, look at
 // it, and act on it. Master-detail — a filterable list beside the full body — in
@@ -95,7 +96,7 @@ export function SnippetsPanel(props: {
               aria-label={t("snip.searchLabel")}
               value={query()}
               onInput={(e) => setQuery(e.currentTarget.value)}
-              autofocus
+              ref={autoFocus}
             />
             <Show
               when={results().length > 0}
@@ -135,7 +136,7 @@ export function SnippetsPanel(props: {
                       class="snippet-rename"
                       value={draft()}
                       aria-label={t("snip.renameLabel")}
-                      autofocus
+                      ref={autoFocus}
                       onInput={(e) => setDraft(e.currentTarget.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") commitRename();

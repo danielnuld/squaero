@@ -64,6 +64,17 @@ fusionarse y de empezar la siguiente.
 - [x] 5.1 `pnpm test` verde en las tres fases
 - [x] 5.2 `pnpm e2e` **entero** verde en las tres fases (no solo la de snippets):
       los roles nuevos de la barra de pestañas tocan a toda la app
-- [ ] 5.3 Probar a mano el ciclo completo en la ventana nativa: abrir, editar,
-      guardar, buscar
+- [x] 5.3 Probado a mano en la ventana nativa (WebView2, build x86): guardar
+      desde la barra, `Ctrl+J` para abrirlo en su propia pestaña dejando intacta
+      la consulta anterior, editar (aparece el punto de sin guardar),
+      `Ctrl+Shift+S` con el nombre precargado y `Enter` para guardar de vuelta
+      (el punto se va y no aparece copia numerada).
+      **El panel no se pudo accionar ahí**: la entrada de ratón sintética no
+      llega al contenido de WebView2 y el panel no tiene ruta de teclado —
+      queda verificado en Chromium por la suite e2e
+- [x] 5.5 Arreglado lo que solo se veía en la ventana nativa: el campo «Guardar
+      como» no recibía el foco, así que el flujo que anuncia («Enter para
+      guardar») metía el nombre del snippet en la consulta. `autofocus` no hace
+      nada en un elemento insertado después del parseo; las pruebas lo tapaban
+      porque enfocaban el campo antes de escribir
 - [x] 5.4 Commits en Conventional Commits referenciando #338

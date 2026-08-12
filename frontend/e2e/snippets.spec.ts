@@ -133,7 +133,11 @@ describeEngine("sqlite", () => {
     await page.keyboard.press("ControlOrMeta+Shift+S");
     const name = page.getByRole("textbox", { name: "Nombre del snippet" });
     await expect(name).toHaveValue("conteo");
-    await name.press("Enter");
+    // Typed, not filled: the field must already hold the caret. It did not, and
+    // `name.press()` hid that by focusing first — so the name went into the query
+    // and Enter inserted a newline, which only showed up in the native window.
+    await expect(name).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(tab(page, "conteo")).toBeVisible(); // the mark is gone
 
     // The seed only runs on the first load, so what comes back is what was stored.

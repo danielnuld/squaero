@@ -29,6 +29,7 @@ import {
   type Tab,
 } from "./utils/tabs";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
+import { autoFocus } from "./utils/autoFocus";
 import { type RunScope } from "./utils/runScope";
 import { rowToTsv, rowToJson, copyText } from "./utils/rowCopy";
 import {
@@ -2216,7 +2217,7 @@ export function App() {
                           <input
                             class="snip-save-input"
                             type="text"
-                            autofocus
+                            ref={autoFocus}
                             aria-label={t("snip.nameAria")}
                             placeholder={t("snip.namePlaceholder")}
                             value={pending().name}

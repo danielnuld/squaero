@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
+import { autoFocus } from "../utils/autoFocus";
 import { searchHistory, type HistoryEntry } from "../utils/history";
 import { formatDuration, isSlow } from "../utils/duration";
 
@@ -40,7 +41,7 @@ export function HistoryPanel(props: {
           aria-label="Buscar en el historial"
           value={query()}
           onInput={(e) => setQuery(e.currentTarget.value)}
-          autofocus
+          ref={autoFocus}
         />
         <label class="history-only-slow" title="Mostrar solo consultas lentas">
           <input
