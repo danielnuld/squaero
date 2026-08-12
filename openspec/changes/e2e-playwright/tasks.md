@@ -37,9 +37,12 @@
 
 - [x] 2.1 Conectar desde una conexión guardada: el pie deja de decir «Sin conexión»,
       la fila pasa a «conectado» y las acciones de objeto se habilitan.
-- [ ] 2.2 Crear una conexión **rellenando el formulario**, que sobreviva a una
+- [x] 2.2 Crear una conexión **rellenando el formulario**, que sobreviva a una
       recarga. Es el primer camino de cualquier usuario nuevo y no puede quedar
-      cubierto sólo por siembra.
+      cubierto sólo por siembra. (`e2e/connection-form.spec.ts`, PR #330 — obligó a
+      sembrar el estado del navegador **sólo en la primera carga**: el `addInitScript`
+      se reejecuta en cada `page.reload()` y borraba lo que la prueba acababa de
+      guardar, lo que parecía un fallo del formulario.)
 - [x] 2.3 Árbol de objetos: la tabla de fixture aparece expandiendo la ruta del
       motor. **La forma del árbol difiere de verdad**: Postgres mete un nivel de
       esquema (`testdb` → `public` → Tablas) y SQLite llama `main` a su único
@@ -58,10 +61,11 @@
       página que reejecutara la misma consulta también se vería llena.
 - [x] 2.6 Sentencia rechazada: llega el mensaje del motor y la interfaz sigue
       usable — una consulta buena después funciona.
-- [ ] 2.7 Edición transaccional: insert + update + delete + commit, verificado
-      releyendo.
-- [ ] 2.8 Rollback: el cambio no queda.
-- [ ] 2.9 Export del resultado: el contenido lleva las mismas filas y valores.
+- [x] 2.7 Edición transaccional verificada releyendo por el núcleo, no por la
+      interfaz («saves an edit and the database really changed»).
+- [x] 2.8 Rollback: el cambio no queda («discards an edit and the database is
+      untouched»).
+- [x] 2.9 Export del resultado con sus valores acentuados intactos.
 - [x] 2.10 Desconectar: vuelve «Sin conexión» y las acciones se deshabilitan.
 - [x] 2.11 Encoding: valor acentuado y la fila discriminadora, por valor **exacto**,
       más que `ñ` NO aparezca donde el dato es `Ã±`. Y filtrar por un valor acentuado
@@ -176,7 +180,7 @@ los 44 componentes de `frontend/src/components`.
       motores que sí caben, y decidir —midiendo, no adivinando— si entra en la
       puerta o queda nocturna. Informix se queda fuera por su ODBC de 32 bits.
 
-## 4. Cierre de la fase 1 (grupo 1 cerrado; del grupo 2 faltan 2.2 y 2.7–2.9)
+## 4. Cierre de la fase 1 (grupos 1 y 2 cerrados)
 
 - [x] 4.1 La suite del arnés pasa en verde con los cuatro motores listos
       (sqlite, postgres, mysql, informix), y se salta limpiamente los que no:
