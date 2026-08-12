@@ -99,7 +99,11 @@ export async function saveBytes(
   bytes: Uint8Array,
   mime: string,
 ): Promise<void> {
-  const blob = new Blob([bytes], { type: mime });
+  // `new Uint8Array(bytes)` rather than `bytes`: TypeScript 5.7 made Uint8Array
+  // generic over its buffer, and BlobPart only takes a view over a real
+  // ArrayBuffer -- which a SharedArrayBuffer-backed one is not. The copy is what
+  // makes that true rather than asserted, and an export is bytes we just built.
+  const blob = new Blob([new Uint8Array(bytes)], { type: mime });
   const picker = (globalThis as SaveFilePicker).showSaveFilePicker;
   if (typeof picker === "function") {
     const ext = extensionOf(filename);

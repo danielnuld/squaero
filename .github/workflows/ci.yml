@@ -83,6 +83,11 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Before the build, because `vite build` does not check types at all: the
+      # tree had accumulated 21 type errors that nothing here would ever fail on.
+      - name: Typecheck
+        run: pnpm typecheck
+
       - name: Build
         run: pnpm build
 

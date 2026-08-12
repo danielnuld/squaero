@@ -300,7 +300,6 @@ export function App() {
   const [focusedDefId, setFocusedDefId] = createSignal<string | null>(null);
   const active = () => openConns().find((o) => o.defId === focusedDefId()) ?? null;
   const activeDefId = focusedDefId;
-  const focusConn = (defId: string) => setFocusedDefId(defId);
   // The connection a tab runs against: its bound one (if still open), else — for
   // an unbound tab — the focused connection.
   const tabConn = (tab: Tab | undefined): ActiveConnection | null => {
@@ -747,6 +746,14 @@ export function App() {
   });
 
   const newTab = () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
+  /** The SQL held by the query tab with `id`; "" for a tool tab or none. Read
+      through here rather than off `Tab` directly: only a query tab has `sql`,
+      and reaching for it on the union quietly relied on `?? ""` to cover a tool
+      tab instead of saying so. */
+  const sqlOfTab = (id: number): string => {
+    const tab = tabs().tabs.find((t) => t.id === id);
+    return tab?.kind === "query" ? tab.sql : "";
+  };
   const selectTab = (id: number) => setTabs((s) => ({ ...s, activeId: id }));
   // A snippet's tab holding text the snippet does not have yet (issue #338). Shown
   // as a dot, but the tab's accessible name says it in words — a bullet next to a
@@ -1350,7 +1357,7 @@ export function App() {
   const explainActive = () => {
     const tab = current();
     if (!tab) return;
-    const sql = (tabs().tabs.find((t) => t.id === tab.id)?.sql ?? "").trim();
+    const sql = sqlOfTab(tab.id).trim();
     if (!sql) {
       setResults(tab.id, { ...emptyResult(), error: "La consulta está vacía." });
       return;
@@ -2195,9 +2202,7 @@ export function App() {
                 <div class="editor-pane">
                   <SqlEditor
                     activeId={tab().id}
-                    sqlFor={(id) =>
-                      tabs().tabs.find((t) => t.id === id)?.sql ?? ""
-                    }
+                    sqlFor={sqlOfTab}
                     onChange={onEditorChange}
                     onRun={runEditor}
                     onExplain={explainActive}

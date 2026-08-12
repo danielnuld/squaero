@@ -13,6 +13,10 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    // The icon packer is plain JS outside src/; allowJs lets its exports be
+    // inferred instead of importing it as `any`. checkJs stays off: the file is
+    // a dev-only tool, not something to hold to the app's strictness.
+    "allowJs": true,
     "skipLibCheck": true
   },
   "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"]

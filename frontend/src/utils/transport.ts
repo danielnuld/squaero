@@ -14,9 +14,12 @@ import {
 // webview already JSON-parses the value passed to webview_return, so the bound
 // function resolves with a parsed object (not a string). Typed as unknown to
 // stay honest about that.
-type QuaeroRpc = (requestJson: string) => Promise<unknown>;
+export type QuaeroRpc = (requestJson: string) => Promise<unknown>;
 
-interface BridgeHost {
+/** Exported so tests bind the bridge through the same shape the app reads. A
+    private copy in the test drifted to `Promise<string>`, which contradicted the
+    comment right above and every mock the test itself writes. */
+export interface BridgeHost {
   quaeroRpc?: QuaeroRpc;
 }
 

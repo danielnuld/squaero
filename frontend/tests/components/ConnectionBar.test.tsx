@@ -38,6 +38,7 @@ function mount(
           onConnect={onConnect}
           onEdit={() => {}}
           onDelete={() => {}}
+          onMoveToGroup={() => {}}
           onNew={() => {}}
           onDisconnect={extra.onDisconnect ?? (() => {})}
           onReconnect={() => {}}
@@ -123,6 +124,7 @@ describe("ConnectionBar", () => {
             onConnect={() => {}}
             onEdit={() => {}}
             onDelete={() => {}}
+            onMoveToGroup={() => {}}
             onNew={() => {}}
             onDisconnect={() => {}}
             onReconnect={() => {}}
@@ -158,6 +160,7 @@ describe("ConnectionBar", () => {
             onConnect={() => {}}
             onEdit={() => {}}
             onDelete={() => {}}
+            onMoveToGroup={() => {}}
             onNew={() => {}}
             onDisconnect={() => {}}
             onReconnect={() => {}}

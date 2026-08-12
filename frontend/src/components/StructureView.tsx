@@ -6,7 +6,7 @@ import { buildViewApply } from "../utils/viewEdit";
 import { formatSql } from "../utils/sqlFormat";
 import { errorText } from "../utils/errors";
 import { Panel } from "./Panel";
-import type { NodeKind } from "../utils/schema";
+import type { TreeNodeKind } from "../utils/tree";
 
 // Modal showing a table/view structure: the column list (schema.describe) and
 // the engine's CREATE statement (schema.ddl) with a copy button (#20/#21). For
@@ -17,8 +17,9 @@ export function StructureView(props: {
   table: string;
   db?: string;
   schema?: string;
-  /** Object kind; only a view can have its definition edited. */
-  kind?: NodeKind;
+  /** Object kind, as the tree spells it; only a view can have its definition
+      edited, and every other kind simply is not one. */
+  kind?: TreeNodeKind;
   /** Active engine name, selects how the edited view is applied. */
   engine?: string;
   onClose: () => void;

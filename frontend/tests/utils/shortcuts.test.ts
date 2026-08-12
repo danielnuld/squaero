@@ -84,19 +84,19 @@ describe("SHORTCUTS table", () => {
 
 describe("matchShortcut — snippets (issue #320)", () => {
   it("maps Mod+J to the snippet palette", () => {
-    expect(matchShortcut({ key: "j", ctrlKey: true })).toBe("snippet-palette");
-    expect(matchShortcut({ key: "J", metaKey: true })).toBe("snippet-palette");
+    expect(matchShortcut(ev({ key: "j", ctrlKey: true }))).toBe("snippet-palette");
+    expect(matchShortcut(ev({ key: "J", metaKey: true }))).toBe("snippet-palette");
   });
 
   it("maps Mod+Shift+S to saving the query as a snippet", () => {
-    expect(matchShortcut({ key: "s", ctrlKey: true, shiftKey: true })).toBe("save-snippet");
-    expect(matchShortcut({ key: "S", metaKey: true, shiftKey: true })).toBe("save-snippet");
+    expect(matchShortcut(ev({ key: "s", ctrlKey: true, shiftKey: true }))).toBe("save-snippet");
+    expect(matchShortcut(ev({ key: "S", metaKey: true, shiftKey: true }))).toBe("save-snippet");
   });
 
   it("does not fire either without its modifiers", () => {
-    expect(matchShortcut({ key: "j" })).toBeNull();
-    expect(matchShortcut({ key: "s", ctrlKey: true })).toBeNull();
-    expect(matchShortcut({ key: "j", ctrlKey: true, shiftKey: true })).toBeNull();
+    expect(matchShortcut(ev({ key: "j" }))).toBeNull();
+    expect(matchShortcut(ev({ key: "s", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "j", ctrlKey: true, shiftKey: true }))).toBeNull();
   });
 
   it("lists both in the help overlay", () => {

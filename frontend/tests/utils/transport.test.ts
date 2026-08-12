@@ -1,10 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { call, cancelQuery, hasBridge } from "../../src/utils/transport";
+import { call, cancelQuery, hasBridge, type BridgeHost } from "../../src/utils/transport";
 import { isError } from "../../src/utils/ipc";
-
-interface BridgeHost {
-  quaeroRpc?: (requestJson: string) => Promise<string>;
-}
 
 afterEach(() => {
   delete (globalThis as BridgeHost).quaeroRpc;

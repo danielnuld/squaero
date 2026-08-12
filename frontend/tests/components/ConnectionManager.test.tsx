@@ -49,6 +49,7 @@ function mount(
           onConnect={() => {}}
           onEdit={() => {}}
           onDelete={() => {}}
+          onMoveToGroup={() => {}}
           onNew={() => {}}
           onDisconnect={onDisconnect}
           onReconnect={onReconnect}
