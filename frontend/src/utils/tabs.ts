@@ -71,11 +71,18 @@ export type Tab = QueryTab | ToolTab;
 export interface TabState {
   tabs: Tab[];
   activeId: number;
+  /** Highest id ever handed out in this session, kept so a closed tab's id is
+      never reused. The app keys per-tab state (results, filters, columns, edit
+      sessions) by tab id, and a recycled id made a brand-new tab inherit the
+      previous one's grid — a table's `preview` even hid the editor behind the
+      filter panel — besides letting an in-flight query land in it. */
+  seq?: number;
 }
 
-/** Returns an id greater than every existing tab id (1 for an empty list). */
-export function nextTabId(tabs: Tab[]): number {
-  return tabs.reduce((max, t) => Math.max(max, t.id), 0) + 1;
+/** Returns an id greater than every existing tab id AND than every id already
+    handed out (`seq`), so ids only ever move forward. 1 for an empty list. */
+export function nextTabId(tabs: Tab[], seq = 0): number {
+  return tabs.reduce((max, t) => Math.max(max, t.id), seq) + 1;
 }
 
 /** Appends a fresh empty query tab and makes it active. Binds it to `connDefId`
@@ -88,7 +95,7 @@ export function addTab(
   connDefId?: string,
   numbered = true,
 ): TabState {
-  const id = nextTabId(state.tabs);
+  const id = nextTabId(state.tabs, state.seq);
   const tab: QueryTab = {
     id,
     kind: "query",
@@ -96,7 +103,7 @@ export function addTab(
     sql: "",
     connDefId,
   };
-  return { tabs: [...state.tabs, tab], activeId: id };
+  return { tabs: [...state.tabs, tab], activeId: id, seq: id };
 }
 
 /**
@@ -116,9 +123,9 @@ export function openTool(
   if (existing) {
     return { ...state, activeId: existing.id };
   }
-  const id = nextTabId(state.tabs);
+  const id = nextTabId(state.tabs, state.seq);
   const tab: ToolTab = { id, kind: "tool", title, tool, ...opts };
-  return { tabs: [...state.tabs, tab], activeId: id };
+  return { tabs: [...state.tabs, tab], activeId: id, seq: id };
 }
 
 /**
@@ -142,7 +149,7 @@ export function openSnippetTab(
   if (open) {
     return { ...state, activeId: open.id };
   }
-  const id = nextTabId(state.tabs);
+  const id = nextTabId(state.tabs, state.seq);
   const tab: QueryTab = {
     id,
     kind: "query",
@@ -151,7 +158,7 @@ export function openSnippetTab(
     connDefId,
     snippetId: snip.id,
   };
-  return { tabs: [...state.tabs, tab], activeId: id };
+  return { tabs: [...state.tabs, tab], activeId: id, seq: id };
 }
 
 /**
@@ -166,14 +173,14 @@ export function closeTab(state: TabState, id: number): TabState {
   }
   const tabs = state.tabs.filter((t) => t.id !== id);
   if (tabs.length === 0) {
-    return { tabs, activeId: 0 };
+    return { ...state, tabs, activeId: 0 };
   }
   let activeId = state.activeId;
   if (state.activeId === id) {
     const neighbor = tabs[Math.max(0, index - 1)];
     activeId = neighbor.id;
   }
-  return { tabs, activeId };
+  return { ...state, tabs, activeId };
 }
 
 /**
@@ -185,7 +192,7 @@ export function closeOtherTabs(state: TabState, id: number): TabState {
   if (!keep) {
     return state;
   }
-  return { tabs: [keep], activeId: id };
+  return { ...state, tabs: [keep], activeId: id };
 }
 
 /** Replaces the SQL text of the query tab with `id` (no-op if not found or not a

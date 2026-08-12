@@ -151,7 +151,24 @@ describe("closeTab", () => {
 
   it("empties out when closing the last tab", () => {
     const s = addTab(empty);
-    expect(closeTab(s, s.activeId)).toEqual({ tabs: [], activeId: 0 });
+    expect(closeTab(s, s.activeId)).toMatchObject({ tabs: [], activeId: 0 });
+  });
+
+  // The app keys per-tab state (results, filters, columns) by tab id: a recycled
+  // id made a new tab open showing the closed tab's grid, and a closed TABLE's id
+  // made it open as a filter panel with no editor at all.
+  it("never reuses the id of a closed tab", () => {
+    let s = addTab(empty); // 1
+    s = addTab(s); // 2
+    s = closeTab(s, 2);
+    s = addTab(s);
+    expect(s.activeId).toBe(3);
+    s = closeTab(closeTab(s, 3), 1); // back to no tabs at all
+    expect(addTab(s).activeId).toBe(4);
+    expect(openTool(s, "monitor", "Monitor").activeId).toBe(4);
+    expect(
+      openSnippetTab(s, { id: "snip-1", name: "n", body: "" }).activeId,
+    ).toBe(4);
   });
 });
 
