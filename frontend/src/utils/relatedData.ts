@@ -18,8 +18,8 @@
 // The dependent table is assumed to live in the SAME db/schema as the source
 // table, the same assumption utils/fkLookup makes for the opposite direction.
 
-import { classifyType } from "./format";
 import type { ForeignKeyRelation } from "./foreignKeys";
+import { sqlLiteral } from "./queryBuilder";
 import { previewSelect } from "./pagination";
 import type { ResultColumn } from "./query";
 import { qualifiedName, quoteIdentifier } from "./schema";
@@ -93,13 +93,12 @@ export interface RelatedQuery {
  * unquoted; everything else is quoted with doubled single quotes. Booleans stay
  * quoted on purpose (engines spell them t/f, TRUE, 1 — the stored text is what
  * round-trips), mirroring the same decision in the row-editing path.
+ *
+ * Re-exported from utils/queryBuilder, where the filter panel needs the same
+ * rule: two copies of "how do I quote this" is how two filters over the same
+ * column end up disagreeing.
  */
-export function sqlLiteral(value: string, type: string): string {
-  if (classifyType(type) === "number" && /^-?\d+(\.\d+)?$/.test(value.trim())) {
-    return value.trim();
-  }
-  return `'${value.replace(/'/g, "''")}'`;
-}
+export { sqlLiteral };
 
 /** Case-insensitive column lookup in a result's projection. */
 function indexOfColumn(columns: ResultColumn[], name: string): number {

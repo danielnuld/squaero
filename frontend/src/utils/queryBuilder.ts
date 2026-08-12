@@ -1,11 +1,14 @@
-// Pure SELECT builder for the visual query builder (issue #146). The component
-// collects a table, columns, WHERE conditions, ORDER BY and LIMIT into a
-// QuerySpec; buildSelect renders it to SQL with per-engine identifier quoting and
-// single-quoted string literals. Values are always quoted as strings (engines
-// coerce for numeric comparisons) except NULL checks (no value) and IN (a
-// comma-separated list). All pure and unit-tested; the component just runs the
-// SQL this returns.
+// Pure SQL predicate building, shared by two callers with different shapes:
+// the visual query builder (issue #146), which composes a whole SELECT through
+// buildSelect, and the data tab's filter panel (issue #347), which needs only the
+// WHERE and ORDER BY bodies to hand to previewSelect. One implementation, so the
+// two cannot disagree about what "contains" means.
+//
+// Identifiers are quoted per engine. Values are quoted as strings unless the
+// column's declared type is known and numeric -- see sqlLiteral, which is also
+// what the related-data modal builds its filters with.
 
+import { classifyType } from "./format";
 import { quoteIdentifier, qualifiedName } from "./schema";
 
 export type Operator =
@@ -16,12 +19,15 @@ export type Operator =
   | "<="
   | ">="
   | "LIKE"
+  | "CONTAINS"
+  | "BETWEEN"
   | "IN"
   | "IS NULL"
   | "IS NOT NULL";
 
 export const OPERATORS: Operator[] = [
-  "=", "!=", "<", ">", "<=", ">=", "LIKE", "IN", "IS NULL", "IS NOT NULL",
+  "=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN",
+  "IS NULL", "IS NOT NULL",
 ];
 
 /** An operator that takes no value on the right-hand side. */
@@ -29,10 +35,25 @@ export function isNullaryOp(op: Operator): boolean {
   return op === "IS NULL" || op === "IS NOT NULL";
 }
 
+/** An operator whose value is two values: `a … b` (issue #347). */
+export function isRangeOp(op: Operator): boolean {
+  return op === "BETWEEN";
+}
+
+/** How a BETWEEN row's two bounds travel inside one `value` string. */
+export const RANGE_SEPARATOR = "…";
+
 export interface Condition {
   column: string;
   op: Operator;
   value: string;
+  /**
+   * Unchecked rows keep their criteria but stay out of the WHERE (issue #347).
+   * Trying a hypothesis without losing what you wrote is half of what a filter
+   * panel is for. Undefined means active, so the query builder that predates
+   * this does not have to set it.
+   */
+  enabled?: boolean;
 }
 
 export interface OrderBy {
@@ -51,28 +72,86 @@ export interface QuerySpec {
   conjunction: "AND" | "OR";
   orderBy?: OrderBy | null;
   limit?: number | null;
+  /** Declared column types, when known: numbers then go unquoted. */
+  types?: ColumnTypes;
 }
 
-/** Single-quote a SQL string literal, doubling embedded quotes. */
-function literal(value: string): string {
+/**
+ * A SQL literal for `value`. Without a declared `type` everything is quoted as a
+ * string, which is what this builder always did and what engines coerce for a
+ * scalar comparison. WITH one, a numeric column gets an unquoted number — which
+ * starts to matter in a long `IN` list, and matters to the plan: a quoted literal
+ * against an integer column can cost the index.
+ */
+export function sqlLiteral(value: string, type?: string): string {
+  if (type !== undefined && classifyType(type) === "number" && /^-?\d+(\.\d+)?$/.test(value.trim())) {
+    return value.trim();
+  }
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+/** Declared type per column name, as `schema.describe` reports it. */
+export type ColumnTypes = Record<string, string>;
+
+/** The declared type of `column`, matched case-insensitively as catalogs vary. */
+function typeOf(types: ColumnTypes | undefined, column: string): string | undefined {
+  if (!types) return undefined;
+  const hit = Object.keys(types).find((k) => k.toLowerCase() === column.toLowerCase());
+  return hit === undefined ? undefined : types[hit];
+}
+
 /** Render one WHERE condition to SQL (empty string if the column is blank). */
-function renderCondition(engine: string, c: Condition): string {
+function renderCondition(engine: string, c: Condition, types?: ColumnTypes): string {
   if (!c.column.trim()) return "";
   const col = quoteIdentifier(c.column, engine);
+  const lit = (v: string) => sqlLiteral(v, typeOf(types, c.column));
   if (isNullaryOp(c.op)) return `${col} ${c.op}`;
   if (c.op === "IN") {
     const items = c.value
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
-      .map(literal);
+      .map(lit);
     if (items.length === 0) return "";
     return `${col} IN (${items.join(", ")})`;
   }
-  return `${col} ${c.op} ${literal(c.value)}`;
+  if (c.op === "CONTAINS") {
+    // Always a string comparison: the pattern is text even over a number column.
+    if (!c.value.trim()) return "";
+    return `${col} LIKE ${sqlLiteral(`%${c.value}%`)}`;
+  }
+  if (c.op === "BETWEEN") {
+    const [from, to] = c.value.split(RANGE_SEPARATOR).map((s) => s.trim());
+    if (!from || !to) return ""; // half a range is not a filter
+    return `${col} BETWEEN ${lit(from)} AND ${lit(to)}`;
+  }
+  return `${col} ${c.op} ${lit(c.value)}`;
+}
+
+/**
+ * The WHERE body (no keyword) for `conditions`, or "" when none of them says
+ * anything. Unchecked rows and rows that render to nothing are dropped, which is
+ * what lets the panel hold an unfinished criterion without breaking the query.
+ */
+export function renderWhere(
+  engine: string,
+  conditions: Condition[],
+  conjunction: "AND" | "OR" = "AND",
+  types?: ColumnTypes,
+): string {
+  return conditions
+    .filter((c) => c.enabled !== false)
+    .map((c) => renderCondition(engine, c, types))
+    .filter((s) => s.length > 0)
+    .join(` ${conjunction} `);
+}
+
+/** The ORDER BY body (no keyword) for `order`, or "" when it says nothing. */
+export function renderOrderBy(engine: string, order: OrderBy[]): string {
+  return order
+    .filter((o) => o.column.trim().length > 0)
+    .map((o) => `${quoteIdentifier(o.column, engine)} ${o.dir}`)
+    .join(", ");
 }
 
 /**
@@ -90,15 +169,14 @@ export function buildSelect(engine: string, spec: QuerySpec): string {
 
   let sql = `SELECT ${cols} FROM ${name}`;
 
-  const where = spec.conditions
-    .map((c) => renderCondition(engine, c))
-    .filter((s) => s.length > 0);
-  if (where.length > 0) {
-    sql += ` WHERE ${where.join(` ${spec.conjunction} `)}`;
+  const where = renderWhere(engine, spec.conditions, spec.conjunction, spec.types);
+  if (where) {
+    sql += ` WHERE ${where}`;
   }
 
-  if (spec.orderBy && spec.orderBy.column.trim()) {
-    sql += ` ORDER BY ${quoteIdentifier(spec.orderBy.column, engine)} ${spec.orderBy.dir}`;
+  const order = renderOrderBy(engine, spec.orderBy ? [spec.orderBy] : []);
+  if (order) {
+    sql += ` ORDER BY ${order}`;
   }
 
   if (spec.limit != null && spec.limit > 0) {
