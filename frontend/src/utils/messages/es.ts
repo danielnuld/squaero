@@ -25,6 +25,11 @@ export const es: Record<string, string> = {
   "related.openTab": "Abrir en pestaña",
   "related.toEditor": "Enviar al editor",
   "related.refColumn": "Columna referenciada por otras tablas",
+  // por qué la acción no está disponible (#344): el menú lo dice en vez de callar
+  "related.needsTable": "Datos relacionados: solo para el resultado de una sola tabla",
+  "related.checking": "Datos relacionados: buscando relaciones…",
+  "related.noReferences": "Datos relacionados: ninguna tabla referencia a esta",
+  "related.otherColumn": "Datos relacionados: solo desde {columns}",
 
   // connection bar / manager
   "conn.title": "Conexiones",
@@ -292,6 +297,7 @@ export const es: Record<string, string> = {
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} fila(s) afectada(s).",
   "grid.sort": "Ordenar (asc / desc / ninguno)",
+  "grid.pkColumn": "Llave primaria",
   "grid.resize": "Ajustar ancho de columna",
   "grid.filterPlaceholder": "Filtrar…",
   "grid.ariaLabel": "Resultados de la consulta",

@@ -4601,6 +4601,27 @@ button.grid-action.danger:hover:not(:disabled) {
   opacity: 0.8;
 }
 
+/* The primary-key mark in a column header (issue #344). */
+.col-key-mark {
+  font-size: 9px;
+  opacity: 0.85;
+}
+
+/* Text only assistive technology reads: kept in the accessibility tree, so it
+   must not be `display: none`. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* --- Snippets: save from the editor + snippet palette (issue #320) ----------
    The palette grows a preview pane beside the list (so a snippet is not chosen
    by name alone) and a footer of key hints; the editor toolbar grows an inline

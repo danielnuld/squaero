@@ -69,10 +69,17 @@ export function ResultGrid(props: {
   /** Columns other tables reference (issue #310). Marked in the header, so the
       user can see where "datos relacionados" is available without probing. */
   referencedColumns?: string[];
+  /** The table's primary key columns. Marked in the header so a grid of rows
+      from a table you did not open says which column identifies each one —
+      asked for on the related-data modal, where the rows belong to a table the
+      user never chose and whose key they have no reason to know. */
+  keyColumns?: string[];
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
   const isReferenced = (name: string) =>
     !!props.referencedColumns?.some((c) => c.toLowerCase() === name.toLowerCase());
+  const isKey = (name: string) =>
+    !!props.keyColumns?.some((c) => c.toLowerCase() === name.toLowerCase());
   const fkFor = (col: string): FkLookup | undefined => props.fk?.[col];
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportH, setViewportH] = createSignal(0);
@@ -362,6 +369,15 @@ export function ResultGrid(props: {
                         <span class={`col-name ${isReferenced(col.name) ? "col-referenced" : ""}`}>
                           {col.name}
                         </span>
+                        <Show when={isKey(col.name)}>
+                          {/* Not aria-hidden like the reference mark beside it:
+                              "this is the key" is the sort of thing a header has
+                              to say out loud, not only draw. */}
+                          <span class="col-key-mark" title={t("grid.pkColumn")}>
+                            <span aria-hidden="true">🔑</span>
+                            <span class="visually-hidden">{t("grid.pkColumn")}</span>
+                          </span>
+                        </Show>
                         <Show when={isReferenced(col.name)}>
                           <span class="col-ref-mark" title={t("related.refColumn")} aria-hidden="true">
                             ⇲

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { ForeignKeyRelation } from "../../src/utils/foreignKeys";
 import {
+  relatedAvailability,
   relatedCount,
   relatedQueries,
   relatedSelect,
@@ -147,5 +148,70 @@ describe("relatedSelect / relatedCount", () => {
     const blocked = relatedQueries([rel()], cols("ciudad"), ["8"], "informix")[0];
     expect(relatedSelect(blocked, "informix")).toBeNull();
     expect(relatedCount(blocked, "informix")).toBeNull();
+  });
+});
+
+// Issue #344: the menu entry used to vanish whenever any of four conditions
+// failed, so "I don't know when it activates, they stopped appearing" was an
+// accurate description of the feature. Each cause is now its own answer.
+describe("relatedAvailability", () => {
+  const rel = (to: string): ForeignKeyRelation => ({
+    fromTable: "audiencias",
+    toTable: "cuadernos",
+    constraint: "fk_det_pedido",
+    columns: [{ from: "id_pedido", to }],
+  });
+  const loaded = (rels: ForeignKeyRelation[]) => ({ rels, reason: null });
+
+  it("is available on a referenced column", () => {
+    expect(
+      relatedAvailability({ hasSourceTable: true, inbound: loaded([rel("id")]), column: "id" }),
+    ).toEqual({ kind: "ok" });
+  });
+
+  it("ignores case, like the catalog does", () => {
+    expect(
+      relatedAvailability({ hasSourceTable: true, inbound: loaded([rel("ID")]), column: "id" }),
+    ).toEqual({ kind: "ok" });
+  });
+
+  it("says the result is not one table's rows", () => {
+    expect(
+      relatedAvailability({ hasSourceTable: false, inbound: loaded([rel("id")]), column: "id" }),
+    ).toEqual({ kind: "noTable" });
+  });
+
+  it("says it is still looking while the catalog has not answered", () => {
+    expect(
+      relatedAvailability({ hasSourceTable: true, inbound: undefined, column: "id" }),
+    ).toEqual({ kind: "checking" });
+  });
+
+  it("passes the engine's own reason through when it cannot answer", () => {
+    expect(
+      relatedAvailability({
+        hasSourceTable: true,
+        inbound: { rels: [], reason: "MongoDB no declara llaves foráneas." },
+        column: "id",
+      }),
+    ).toEqual({ kind: "unsupported", reason: "MongoDB no declara llaves foráneas." });
+  });
+
+  it("distinguishes 'nobody references this table' from 'wrong column'", () => {
+    expect(
+      relatedAvailability({ hasSourceTable: true, inbound: loaded([]), column: "id" }),
+    ).toEqual({ kind: "noReferences" });
+    expect(
+      relatedAvailability({ hasSourceTable: true, inbound: loaded([rel("id")]), column: "nombre" }),
+    ).toEqual({ kind: "otherColumn", columns: ["id"] });
+  });
+
+  it("names every referenced column once, so the user knows where to click", () => {
+    const state = relatedAvailability({
+      hasSourceTable: true,
+      inbound: loaded([rel("id"), rel("id"), rel("folio")]),
+      column: "nombre",
+    });
+    expect(state).toEqual({ kind: "otherColumn", columns: ["id", "folio"] });
   });
 });

@@ -164,6 +164,7 @@ import { RelatedData } from "./components/RelatedData";
 import {
   relatedCount,
   relatedQueries,
+  relatedAvailability,
   relatedSelect,
   relationsForColumn,
   RELATED_LIMIT,
@@ -1519,6 +1520,34 @@ export function App() {
     void loadInboundFks(tab.id, conn);
   });
 
+  /**
+   * The sentence the cell menu shows in place of the related-data action, or
+   * null when the action is available. Every branch names a different cause, so
+   * "it stopped appearing" becomes something a user can read and act on.
+   */
+  const relatedBlockedReason = (column: string): string | null => {
+    const tab = current();
+    const state = relatedAvailability({
+      hasSourceTable: !!(tab && results[tab.id]?.source?.table),
+      inbound: tab ? inbound[tab.id] : undefined,
+      column,
+    });
+    switch (state.kind) {
+      case "ok":
+        return null;
+      case "noTable":
+        return t("related.needsTable");
+      case "checking":
+        return t("related.checking");
+      case "unsupported":
+        return state.reason;
+      case "noReferences":
+        return t("related.noReferences");
+      case "otherColumn":
+        return t("related.otherColumn", { columns: state.columns.join(", ") });
+    }
+  };
+
   /** Columns of the focused result that other tables reference. */
   const referencedColumns = createMemo(() => {
     const tab = current();
@@ -1541,6 +1570,7 @@ export function App() {
     error: null as string | null,
     truncated: false,
     unsupported: null as string | null,
+    keyColumns: [] as string[],
   });
   const [related, setRelated] = createStore(emptyRelated());
 
@@ -1583,13 +1613,33 @@ export function App() {
     const query = related.queries[index];
     if (!conn || !src || !query) return;
     const sql = relatedSelect(query, conn.driver, { db: src.db, schema: src.schema });
-    setRelated({ selected: index, sql, result: null, error: null, loading: sql !== null });
+    setRelated({
+      selected: index,
+      sql,
+      result: null,
+      error: null,
+      loading: sql !== null,
+      keyColumns: [],
+    });
     if (!sql) return;
     try {
       setRelated("result", await runQuery(conn.connId, sql, RELATED_LIMIT));
       setRelated("loading", false);
     } catch (err) {
       setRelated({ loading: false, error: errMsg(err) });
+      return;
+    }
+    // Which column identifies a row of the DEPENDENT table. Out of band and
+    // best-effort: the rows are already on screen, and a table whose key cannot
+    // be described simply goes unmarked rather than holding up the result.
+    const dependent = query.relation.fromTable;
+    try {
+      const desc = await schemaDescribe(conn.connId, dependent, src.db, src.schema);
+      if (related.queries[related.selected]?.relation.fromTable === dependent) {
+        setRelated("keyColumns", describePkColumns(desc));
+      }
+    } catch {
+      /* no catalog access: no mark, rather than a wrong one */
     }
   };
 
@@ -1832,15 +1882,21 @@ export function App() {
     const items: MenuItem[] = [];
     if (row) {
       items.push({ label: t("result.rowDetail"), action: () => setDetailIndex(rowIndex) });
-      // Only over a column other tables reference: elsewhere there is nothing
-      // to relate, so the action would be a dead end (issue #310).
+      // The entry is ALWAYS here, disabled with the reason when it cannot run.
+      // It used to be added only over a referenced column and simply vanish
+      // otherwise, which left "I don't know when this appears — it stopped
+      // showing up" as the honest description of the feature (issue #344): four
+      // separate conditions gate it and silence gave no way to tell them apart.
       const column = res.columns[colIndex]?.name ?? "";
-      if (referencedColumns().some((c) => c.toLowerCase() === column.toLowerCase())) {
-        items.push({
-          label: t("related.menu", { column, value: row[colIndex] ?? "NULL" }),
-          action: () => openRelated(rowIndex, colIndex),
-        });
-      }
+      const blocked = relatedBlockedReason(column);
+      items.push(
+        blocked === null
+          ? {
+              label: t("related.menu", { column, value: row[colIndex] ?? "NULL" }),
+              action: () => openRelated(rowIndex, colIndex),
+            }
+          : { label: blocked, disabled: true },
+      );
       items.push({ separator: true });
       const cell = row[colIndex];
       items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
@@ -2782,6 +2838,7 @@ export function App() {
           selected={related.selected}
           onSelect={(i) => void runRelated(i)}
           sql={related.sql}
+          keyColumns={related.keyColumns}
           result={related.result}
           loading={related.loading}
           error={related.error}

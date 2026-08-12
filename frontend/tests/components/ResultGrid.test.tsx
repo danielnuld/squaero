@@ -695,3 +695,50 @@ describe("ResultGrid scroll reset (issue #313)", () => {
     expect(scroller()!.scrollTop).toBe(0);
   });
 });
+
+// Issue #344: the related-data modal shows rows of a table the user never
+// opened, so nothing on screen said which column identified one.
+describe("ResultGrid column marks", () => {
+  const mount = (props: Partial<Parameters<typeof ResultGrid>[0]>) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <ResultGrid result={result} loading={false} error={null} {...props} />,
+        host!,
+      );
+    });
+  };
+  const header = (name: string) =>
+    [...host!.querySelectorAll("[role='columnheader']")].find((h) =>
+      h.querySelector(".col-name")?.textContent === name,
+    )!;
+
+  it("marks the primary key, and only it", () => {
+    mount({ keyColumns: ["id"] });
+    expect(header("id").querySelector(".col-key-mark")).not.toBeNull();
+    expect(header("name").querySelector(".col-key-mark")).toBeNull();
+  });
+
+  it("says 'primary key' in words, not only with a glyph", () => {
+    mount({ keyColumns: ["id"] });
+    // The reference mark next to it is aria-hidden; this one must not be, or the
+    // header claims something only sighted users can read.
+    const mark = header("id").querySelector(".col-key-mark")!;
+    expect(mark.getAttribute("aria-hidden")).toBeNull();
+    expect(mark.textContent).toContain("Llave primaria");
+  });
+
+  it("matches the column name case-insensitively, like the catalog", () => {
+    mount({ keyColumns: ["ID"] });
+    expect(header("id").querySelector(".col-key-mark")).not.toBeNull();
+  });
+
+  it("marks nothing when the key is unknown", () => {
+    mount({ keyColumns: [] });
+    expect(host!.querySelector(".col-key-mark")).toBeNull();
+    mount({});
+    expect(host!.querySelector(".col-key-mark")).toBeNull();
+  });
+});

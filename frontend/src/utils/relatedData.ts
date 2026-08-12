@@ -27,6 +27,50 @@ import { qualifiedName, quoteIdentifier } from "./schema";
 /** Rows loaded per relationship. Bounded: this is a peek, not a table view. */
 export const RELATED_LIMIT = 200;
 
+/**
+ * Why the "related data" action is or is not available on a given column
+ * (issue #344).
+ *
+ * Four separate conditions gate it, and the menu entry used to be omitted when
+ * any of them failed — so the feature read as appearing and disappearing at
+ * random, with no way to tell "this engine cannot" from "nobody references this
+ * table" from "you are on the wrong column". Naming each case is what lets the
+ * menu say which one it is.
+ */
+export type RelatedAvailability =
+  | { kind: "ok" }
+  /** The result is not one table's rows (a join, an aggregate, a keyless table). */
+  | { kind: "noTable" }
+  /** The catalog lookup for this tab has not come back yet. */
+  | { kind: "checking" }
+  /** The engine cannot answer the question at all. */
+  | { kind: "unsupported"; reason: string }
+  /** Nothing declares a foreign key to this table. */
+  | { kind: "noReferences" }
+  /** Other columns are referenced, just not this one — so name them. */
+  | { kind: "otherColumn"; columns: string[] };
+
+/** Pure decision behind the menu entry; App only turns it into a sentence. */
+export function relatedAvailability(input: {
+  /** Whether the focused result knows which single table it came from. */
+  hasSourceTable: boolean;
+  /** The tab's inbound-foreign-key state; undefined while still loading. */
+  inbound: { rels: ForeignKeyRelation[]; reason: string | null } | undefined;
+  /** The column the user right-clicked. */
+  column: string;
+}): RelatedAvailability {
+  if (!input.hasSourceTable) return { kind: "noTable" };
+  if (!input.inbound) return { kind: "checking" };
+  if (input.inbound.reason !== null) {
+    return { kind: "unsupported", reason: input.inbound.reason };
+  }
+  const referenced = [...new Set(input.inbound.rels.flatMap((r) => r.columns.map((c) => c.to)))];
+  if (referenced.length === 0) return { kind: "noReferences" };
+  const wanted = input.column.toLowerCase();
+  if (referenced.some((c) => c.toLowerCase() === wanted)) return { kind: "ok" };
+  return { kind: "otherColumn", columns: referenced };
+}
+
 /** Where the dependent table is looked up (the source row's own scope). */
 export interface RelatedScope {
   db?: string;

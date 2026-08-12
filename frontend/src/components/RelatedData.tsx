@@ -28,6 +28,10 @@ export function RelatedData(props: {
   onSelect: (index: number) => void;
   /** The SQL of the selected relationship (null when it cannot be filtered). */
   sql: string | null;
+  /** Primary key of the dependent table being shown, marked in its header: the
+      rows belong to a table the user did not open, so nothing else says which
+      column identifies one. Empty while it is still being described. */
+  keyColumns: string[];
   result: ResultSet | null;
   loading: boolean;
   error: string | null;
@@ -151,6 +155,7 @@ export function RelatedData(props: {
                       result={props.result}
                       loading={props.loading}
                       error={props.error}
+                      keyColumns={props.keyColumns}
                     />
                   </div>
                   <Show when={props.sql}>

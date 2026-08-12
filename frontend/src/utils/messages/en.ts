@@ -22,6 +22,11 @@ export const en: Record<string, string> = {
   "related.openTab": "Open in a tab",
   "related.toEditor": "Send to the editor",
   "related.refColumn": "Column referenced by other tables",
+  // why the action is unavailable (#344): the menu says so instead of vanishing
+  "related.needsTable": "Related data: only for one table's rows",
+  "related.checking": "Related data: looking for relationships…",
+  "related.noReferences": "Related data: no table references this one",
+  "related.otherColumn": "Related data: only from {columns}",
 
   // connection bar / manager
   "conn.title": "Connections",
@@ -289,6 +294,7 @@ export const en: Record<string, string> = {
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} row(s) affected.",
   "grid.sort": "Sort (asc / desc / none)",
+  "grid.pkColumn": "Primary key",
   "grid.resize": "Adjust column width",
   "grid.filterPlaceholder": "Filter…",
   "grid.ariaLabel": "Query results",
