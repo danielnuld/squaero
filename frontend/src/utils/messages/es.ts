@@ -16,8 +16,8 @@ export const es: Record<string, string> = {
   "common.close": "Cerrar",
   "related.menu": "Datos relacionados de {column} = {value}",
   "related.title": "Datos vinculados a {table}.{column} = {value}",
-  "related.counting": "Dependientes · contando…",
-  "related.withData": "Dependientes · {n} con datos",
+  "related.counting": "Relacionados · contando…",
+  "related.withData": "Relacionados · {n} con datos",
   "related.none": "Ninguna tabla referencia a {table} por llave foránea.",
   "related.blocked": "El resultado no trae la columna {column}, que esta relación necesita para filtrar.",
   "related.truncated": "⚠ El catálogo devolvió más relaciones de las que caben en una consulta: la lista puede estar incompleta.",
@@ -26,6 +26,7 @@ export const es: Record<string, string> = {
   "related.toEditor": "Enviar al editor",
   "related.refColumn": "Columna referenciada por otras tablas",
   "related.cellArrow": "Ver los datos relacionados con este valor",
+  "related.parentTag": "referencia",
   // por qué la acción no está disponible (#344): el menú lo dice en vez de callar
   "related.needsTable": "Datos relacionados: solo para el resultado de una sola tabla",
   "related.checking": "Datos relacionados: buscando relaciones…",

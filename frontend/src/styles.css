@@ -4731,6 +4731,19 @@ button.grid-action.danger:hover:not(:disabled) {
   background: var(--bg-elev2);
 }
 
+/* Which way an entry of the related list reads: the row this cell points AT
+   (tagged) versus the rows that point at it (untagged, the common case). */
+.related-dir {
+  margin-left: 0.35rem;
+  padding: 0.02rem 0.28rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .col-ref-mark {
   font-size: 9px;
   color: var(--accent-text);

@@ -6,6 +6,7 @@ import {
   relatedQueries,
   relatedSelect,
   relationsForColumn,
+  invertRelation,
   sqlLiteral,
 } from "../../src/utils/relatedData";
 import type { ResultColumn } from "../../src/utils/query";
@@ -213,5 +214,76 @@ describe("relatedAvailability", () => {
       column: "nombre",
     });
     expect(state).toEqual({ kind: "otherColumn", columns: ["id", "folio"] });
+  });
+
+  it("is available on a column that IS a foreign key, without waiting for the inbound catalog", () => {
+    expect(
+      relatedAvailability({
+        hasSourceTable: true,
+        inbound: undefined,
+        parentColumns: ["id_pedido"],
+        column: "ID_PEDIDO",
+      }),
+    ).toEqual({ kind: "ok" });
+  });
+
+  it("names the foreign-key columns too when the click landed elsewhere", () => {
+    expect(
+      relatedAvailability({
+        hasSourceTable: true,
+        inbound: loaded([rel("id")]),
+        parentColumns: ["id_sucursal"],
+        column: "nombre",
+      }),
+    ).toEqual({ kind: "otherColumn", columns: ["id", "id_sucursal"] });
+  });
+});
+
+// The lookup direction (issue #364): the row a cell points AT.
+describe("invertRelation", () => {
+  const outbound: ForeignKeyRelation = {
+    fromTable: "audiencias",
+    toTable: "cuadernos",
+    constraint: "fk_det_pedido",
+    columns: [
+      { from: "id_pedido", to: "id" },
+      { from: "ciudad", to: "ciudad" },
+    ],
+  };
+
+  it("swaps the tables and every column pair", () => {
+    expect(invertRelation(outbound)).toEqual({
+      fromTable: "cuadernos",
+      toTable: "audiencias",
+      constraint: "fk_det_pedido",
+      columns: [
+        { from: "id", to: "id_pedido" },
+        { from: "ciudad", to: "ciudad" },
+      ],
+    });
+  });
+
+  it("is its own inverse", () => {
+    expect(invertRelation(invertRelation(outbound))).toEqual(outbound);
+  });
+
+  it("filters the parent table by the values this row holds in its key columns", () => {
+    const columns: ResultColumn[] = [
+      { name: "id_pedido", type: "int" },
+      { name: "ciudad", type: "varchar" },
+    ];
+    const [q] = relatedQueries([invertRelation(outbound)], columns, ["25", "hermosillo"], "mysql");
+    expect(q.where).toBe("`id` = 25 AND `ciudad` = 'hermosillo'");
+    expect(q.relation.fromTable).toBe("cuadernos");
+    expect(q.label).toBe("cuadernos where id=25 and ciudad=hermosillo");
+  });
+
+  it("selects the parent row through the same builder as the dependents", () => {
+    const columns: ResultColumn[] = [{ name: "id_pedido", type: "int" }];
+    const single = { ...outbound, columns: [{ from: "id_pedido", to: "id" }] };
+    const [q] = relatedQueries([invertRelation(single)], columns, ["25"], "mysql");
+    expect(relatedSelect(q, "mysql", {})).toBe(
+      "SELECT * FROM `cuadernos` WHERE `id` = 25 LIMIT 200;",
+    );
   });
 });

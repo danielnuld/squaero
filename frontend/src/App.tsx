@@ -178,6 +178,7 @@ import {
   relatedAvailability,
   relatedSelect,
   relationsForColumn,
+  invertRelation,
   RELATED_LIMIT,
   type RelatedQuery,
 } from "./utils/relatedData";
@@ -1603,12 +1604,42 @@ export function App() {
     }
   };
 
+  // The OUTBOUND foreign keys of the same table: which row each of its own key
+  // columns points AT. Same catalog, opposite direction — the lookup half of
+  // "related data" (issue #364), which until now existed only while editing a
+  // cell, as a value picker.
+  const [outbound, setOutbound] = createStore<
+    Record<number, { rels: ForeignKeyRelation[] }>
+  >({});
+
+  const loadOutboundFks = async (tabId: number, conn: ActiveConnection) => {
+    const src = results[tabId]?.source;
+    if (!src || outbound[tabId]) return;
+    const plan = foreignKeysFor(conn.driver, src.db, { table: src.table, direction: "from" });
+    if (!plan.supported || !plan.bulkSql) {
+      setOutbound(tabId, { rels: [] });
+      return;
+    }
+    try {
+      const res = await runQuery(conn.connId, plan.bulkSql, FK_CATALOG_LIMIT);
+      setOutbound(tabId, { rels: groupForeignKeys(parseForeignKeys(res.columns, res.rows)) });
+    } catch {
+      setOutbound(tabId, { rels: [] });
+    }
+  };
+
+  /** This table's own foreign keys, read from the other end: one relation per
+      key, pointing at the row the cell references. */
+  const parentRelations = (tabId: number): ForeignKeyRelation[] =>
+    (outbound[tabId]?.rels ?? []).map(invertRelation);
+
   // Load them as soon as a result knows which table it came from.
   createEffect(() => {
     const tab = current();
     const conn = tabConn(tab);
-    if (!tab || !conn || !results[tab.id]?.source?.table || inbound[tab.id]) return;
-    void loadInboundFks(tab.id, conn);
+    if (!tab || !conn || !results[tab.id]?.source?.table) return;
+    if (!inbound[tab.id]) void loadInboundFks(tab.id, conn);
+    if (!outbound[tab.id]) void loadOutboundFks(tab.id, conn);
   });
 
   /**
@@ -1621,6 +1652,9 @@ export function App() {
     const state = relatedAvailability({
       hasSourceTable: !!(tab && results[tab.id]?.source?.table),
       inbound: tab ? inbound[tab.id] : undefined,
+      parentColumns: tab
+        ? parentRelations(tab.id).flatMap((r) => r.columns.map((c) => c.to))
+        : [],
       column,
     });
     switch (state.kind) {
@@ -1639,12 +1673,18 @@ export function App() {
     }
   };
 
-  /** Columns of the focused result that other tables reference. */
+  /** Columns of the focused result that lead somewhere: referenced by another
+      table (their dependents) or foreign keys themselves (their parent row).
+      Both get the cell affordance, because from the user's side it is the same
+      question — "what else is attached to this value?". */
   const referencedColumns = createMemo(() => {
     const tab = current();
-    const rels = tab ? inbound[tab.id]?.rels : undefined;
-    if (!rels) return [];
-    return [...new Set(rels.flatMap((r) => r.columns.map((c) => c.to)))];
+    if (!tab) return [];
+    const children = inbound[tab.id]?.rels ?? [];
+    const parents = parentRelations(tab.id);
+    return [
+      ...new Set([...children, ...parents].flatMap((r) => r.columns.map((c) => c.to))),
+    ];
   });
 
   const emptyRelated = () => ({
@@ -1678,8 +1718,21 @@ export function App() {
     const row = res.rows[rowIndex];
     if (!column || !row) return;
     const state = inbound[tab.id];
-    const rels = relationsForColumn(state?.rels ?? [], column);
-    const queries = relatedQueries(rels, res.columns, row, conn.driver);
+    // The row this cell points at first (one row, the answer to "which one is
+    // it?"), then the rows that point at this one.
+    const parents = relatedQueries(
+      relationsForColumn(parentRelations(tab.id), column),
+      res.columns,
+      row,
+      conn.driver,
+    ).map((q) => ({ ...q, parent: true }));
+    const children = relatedQueries(
+      relationsForColumn(state?.rels ?? [], column),
+      res.columns,
+      row,
+      conn.driver,
+    );
+    const queries = [...parents, ...children];
     setRelated({
       ...emptyRelated(),
       open: true,

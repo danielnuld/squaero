@@ -20,7 +20,8 @@ export function RelatedData(props: {
   table: string;
   column: string;
   value: string;
-  /** One entry per dependent relationship, already filtered for this row. */
+  /** One entry per relationship, already filtered for this row: the row this
+      cell points at (tagged `parent`) and the rows that point at it. */
   queries: RelatedQuery[];
   /** Row count by query index: absent = still counting, null = unknown (failed). */
   counts: Record<number, number | null>;
@@ -120,6 +121,11 @@ export function RelatedData(props: {
                               onClick={() => props.onSelect(i())}
                             >
                               <span class="related-item-table">{q.relation.fromTable}</span>
+                              <Show when={q.parent}>
+                                {/* Which way this entry reads: the row the cell
+                                    points at, not the rows that point at it. */}
+                                <span class="related-dir">{t("related.parentTag")}</span>
+                              </Show>
                               <span
                                 class={`related-count ${
                                   count() === undefined || count() === null ? "pending" : ""

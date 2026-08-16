@@ -56,18 +56,31 @@ export function relatedAvailability(input: {
   hasSourceTable: boolean;
   /** The tab's inbound-foreign-key state; undefined while still loading. */
   inbound: { rels: ForeignKeyRelation[]; reason: string | null } | undefined;
+  /** Columns of this table that ARE foreign keys, each leading to its parent
+      row. A hit here answers the question on its own, so it does not wait on
+      the inbound catalog. */
+  parentColumns?: string[];
   /** The column the user right-clicked. */
   column: string;
 }): RelatedAvailability {
   if (!input.hasSourceTable) return { kind: "noTable" };
+  const parents = input.parentColumns ?? [];
+  const clicked = input.column.toLowerCase();
+  if (parents.some((c) => c.toLowerCase() === clicked)) return { kind: "ok" };
   if (!input.inbound) return { kind: "checking" };
   if (input.inbound.reason !== null) {
     return { kind: "unsupported", reason: input.inbound.reason };
   }
-  const referenced = [...new Set(input.inbound.rels.flatMap((r) => r.columns.map((c) => c.to)))];
+  const referenced = [
+    ...new Set([
+      ...input.inbound.rels.flatMap((r) => r.columns.map((c) => c.to)),
+      ...parents,
+    ]),
+  ];
   if (referenced.length === 0) return { kind: "noReferences" };
-  const wanted = input.column.toLowerCase();
-  if (referenced.some((c) => c.toLowerCase() === wanted)) return { kind: "ok" };
+  if (referenced.some((c) => c.toLowerCase() === clicked)) return { kind: "ok" };
+  // Naming every column that DOES lead somewhere, in both directions: the point
+  // of the message is to send the user to a column that works.
   return { kind: "otherColumn", columns: referenced };
 }
 
@@ -80,6 +93,12 @@ export interface RelatedScope {
 /** One dependent relationship prepared against a concrete source row. */
 export interface RelatedQuery {
   relation: ForeignKeyRelation;
+  /**
+   * This query looks UP the chain: the single row the cell points at, rather
+   * than the rows that point at it. Only the label changes — the SELECT, the
+   * count and the buttons are the same in both directions.
+   */
+  parent?: boolean;
   /** The WHERE body (no keyword), or null when the row cannot fill it. */
   where: string | null;
   /** The source column the result did not project (only when `where` is null). */
@@ -107,6 +126,29 @@ function indexOfColumn(columns: ResultColumn[], name: string): number {
 }
 
 /** The relationships whose referenced key includes `column`. */
+/**
+ * The same foreign key read from the other end.
+ *
+ * A key says "pedidos.cliente_id references clientes.id". Read forwards it
+ * answers "which pedidos belong to this cliente?"; inverted it answers "which
+ * cliente is this pedido's?" — the question a user asks standing on the
+ * `cliente_id` cell, and the one the whole feature could not answer outside of
+ * edit mode.
+ *
+ * Swapping the tables and each column pair is all it takes: everything
+ * downstream (the filter, the SELECT, the count) already works off "filter
+ * `fromTable` by the values this row holds in the `to` columns", which is
+ * exactly the parent lookup once the pairs point the other way.
+ */
+export function invertRelation(rel: ForeignKeyRelation): ForeignKeyRelation {
+  return {
+    fromTable: rel.toTable,
+    toTable: rel.fromTable,
+    constraint: rel.constraint,
+    columns: rel.columns.map((c) => ({ from: c.to, to: c.from })),
+  };
+}
+
 export function relationsForColumn(
   relations: ForeignKeyRelation[],
   column: string,

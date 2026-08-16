@@ -13,8 +13,8 @@ export const en: Record<string, string> = {
   "common.close": "Close",
   "related.menu": "Related data for {column} = {value}",
   "related.title": "Data linked to {table}.{column} = {value}",
-  "related.counting": "Dependents · counting…",
-  "related.withData": "Dependents · {n} with data",
+  "related.counting": "Related · counting…",
+  "related.withData": "Related · {n} with data",
   "related.none": "No table references {table} through a foreign key.",
   "related.blocked": "The result does not carry the {column} column, which this relationship needs to filter.",
   "related.truncated": "⚠ The catalog returned more relationships than fit in one query: this list may be incomplete.",
@@ -23,6 +23,7 @@ export const en: Record<string, string> = {
   "related.toEditor": "Send to the editor",
   "related.refColumn": "Column referenced by other tables",
   "related.cellArrow": "See the data related to this value",
+  "related.parentTag": "reference",
   // why the action is unavailable (#344): the menu says so instead of vanishing
   "related.needsTable": "Related data: only for one table's rows",
   "related.checking": "Related data: looking for relationships…",
