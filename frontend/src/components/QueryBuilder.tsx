@@ -20,7 +20,10 @@ interface TableRef {
   container?: string;
 }
 
-const MAX_TABLES = 200;
+// Safety bound on the walk, not a display limit. It used to be 200, which a real
+// database blows past: the listing comes back ordered by type then name, so the
+// truncation ate every view first and then most of the tables (reported bug).
+const MAX_TABLES = 5000;
 const keyOf = (t: TableRef) => `${t.container ?? ""}|${t.table}`;
 
 /** Walk the object tree (bounded) into a flat table list with db/schema
@@ -80,6 +83,7 @@ export function QueryBuilder(props: {
 }) {
   const [tables, setTables] = createSignal<TableRef[]>([]);
   const [loading, setLoading] = createSignal(true);
+  const [truncated, setTruncated] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [tableKey, setTableKey] = createSignal("");
   const [columns, setColumns] = createSignal<string[]>([]);
@@ -130,6 +134,7 @@ export function QueryBuilder(props: {
         const ts = await loadTableList(connId, db);
         if (props.connId !== connId || props.db !== db) return; // superseded
         setTables(ts);
+        setTruncated(ts.length >= MAX_TABLES);
         if (ts.length > 0) await selectTable(keyOf(ts[0]));
       } catch (err) {
         setError(errorText(err));
@@ -182,6 +187,10 @@ export function QueryBuilder(props: {
               </For>
             </select>
           </label>
+
+          <Show when={truncated()}>
+            <p class="grid-empty" role="status">{t("qb.truncated", { n: MAX_TABLES })}</p>
+          </Show>
 
           <div class="qb-section">
             <div class="import-subtitle">{t("qb.columns")}</div>

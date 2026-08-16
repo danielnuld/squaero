@@ -399,6 +399,7 @@ export const es: Record<string, string> = {
   "qb.loadingTables": "Cargando tablas…",
   "qb.noTables": "No hay tablas en esta conexión.",
   "qb.table": "Tabla",
+  "qb.truncated": "Mostrando los primeros {n} objetos; la base de datos tiene más.",
   "qb.columns": "Columnas (vacío = todas)",
   "qb.conditions": "Condiciones",
   "qb.and": "Y (AND)",

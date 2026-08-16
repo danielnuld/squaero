@@ -49,6 +49,26 @@ function installBridge() {
   };
 }
 
+/** A listing with `n` tables followed by the views, the order every driver
+    returns (ORDER BY type, name) — so a truncating walk loses the views first. */
+function installBigBridge(n: number) {
+  (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+    const req = JSON.parse(raw) as { id: number; method: string; params: Record<string, unknown> };
+    const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+    if (req.method === "schema.tree") {
+      if (!req.params.db) return ok(rs([{ name: "name", type: "text" }], [["testdb"]]));
+      const rows: string[][] = [];
+      for (let i = 0; i < n; i++) rows.push([`t${i}`, "table"]);
+      rows.push(["v_last", "view"]);
+      return ok(rs([{ name: "name", type: "text" }, { name: "type", type: "text" }], rows));
+    }
+    if (req.method === "schema.describe") {
+      return ok(rs([{ name: "name", type: "text" }], [["id"]]));
+    }
+    return { jsonrpc: "2.0", id: req.id, result: {} };
+  };
+}
+
 function mount(onRun = vi.fn()) {
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -96,6 +116,16 @@ describe("QueryBuilder", () => {
     val.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(preview()).toBe("SELECT `name` FROM `testdb`.`users` WHERE `age` > '18';");
+  });
+
+  it("lists every table and the trailing views past the old 200 cap", async () => {
+    installBigBridge(300);
+    mount();
+    await flush();
+    const opts = [...host!.querySelectorAll<HTMLOptionElement>("select option")].map((o) => o.textContent);
+    expect(opts).toContain("testdb.t299");
+    expect(opts).toContain("testdb.v_last");
+    expect(host!.textContent).not.toContain("Mostrando los primeros");
   });
 
   it("runs the built SQL through onRun", async () => {

@@ -396,6 +396,7 @@ export const en: Record<string, string> = {
   "qb.loadingTables": "Loading tables…",
   "qb.noTables": "No tables in this connection.",
   "qb.table": "Table",
+  "qb.truncated": "Showing the first {n} objects; the database has more.",
   "qb.columns": "Columns (empty = all)",
   "qb.conditions": "Conditions",
   "qb.and": "And (AND)",
