@@ -111,6 +111,9 @@
   --obj-trigger: #f2726d;
   --obj-event: #45c8d6;
   --obj-ink: #16181d;
+  /* Elevated-privilege marker (SUPER). Amber like the other self-contained
+     chips: dark --obj-ink on it, so one value serves both themes. */
+  --super: #f0a63f;
 }
 
 * {
@@ -3339,8 +3342,10 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* The user-manager delete button is the shared `.grid-action.danger` icon button
    (#185); `.um-drop` only adds the reveal-on-row-hover layout on top of it. */
+/* No `margin-left: auto` here: `.um-chips` (always rendered, even empty) carries
+   it and pushes both to the right edge. Two auto margins in one flex row SPLIT
+   the free space instead of stacking, which left the badges floating mid-row. */
 .um-drop {
-  margin-left: auto;
   opacity: 0;
 }
 
@@ -3360,6 +3365,67 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .um-user.active {
   background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Search + quick filters over the loaded user list (issue #360). */
+.um-search {
+  width: 100%;
+  margin: 0.3rem 0 0.35rem;
+}
+
+.um-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.3rem;
+}
+
+.um-filter {
+  font-size: 11px;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.um-filter.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Privilege markers. Self-contained chips like the object-tree badges: one
+   vivid fill with dark ink works on both themes, so they need no theme pair.
+   Amber, not red — a superuser is elevated privilege, not an error. */
+.um-chips {
+  display: flex;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.um-chip {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.05rem 0.25rem;
+  border-radius: 3px;
+  background: var(--super);
+  color: var(--obj-ink);
+  white-space: nowrap;
+}
+
+.um-chip.grant {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.um-user.active .um-chip.grant {
+  border-color: var(--accent-fg);
   color: var(--accent-fg);
 }
 

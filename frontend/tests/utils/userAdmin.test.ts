@@ -7,7 +7,11 @@ import {
   buildCreateUserSql,
   buildDropUserSql,
   unsupportedReason,
+  parseUserRows,
+  searchUsers,
+  isSystemUser,
   MYSQL_PRIVILEGES,
+  type UserRow,
 } from "../../src/utils/userAdmin";
 
 describe("userAdminFor", () => {
@@ -18,6 +22,12 @@ describe("userAdminFor", () => {
       expect(s.listUsersSql).toContain("mysql.user");
       expect(s.userNameCol).toBe("User");
       expect(s.userHostCol).toBe("Host");
+      // The privilege markers ride along on the same query, superusers first.
+      expect(s.listUsersSql).toContain("Super_priv");
+      expect(s.listUsersSql).toContain("Grant_priv");
+      expect(s.listUsersSql).toContain("ORDER BY Super_priv DESC");
+      expect(s.userSuperCol).toBe("Super_priv");
+      expect(s.userGrantCol).toBe("Grant_priv");
     }
   });
 
@@ -127,6 +137,99 @@ describe("buildDropUserSql", () => {
   it("returns null for unsupported engines or empty user", () => {
     expect(buildDropUserSql("postgres", "a")).toBeNull();
     expect(buildDropUserSql("mysql", "")).toBeNull();
+  });
+});
+
+describe("parseUserRows", () => {
+  const support = userAdminFor("mysql");
+  const cols = (...names: string[]) => names.map((name) => ({ name }));
+
+  it("reads name, host and the privilege flags", () => {
+    const rows = parseUserRows(
+      {
+        columns: cols("User", "Host", "Super_priv", "Grant_priv"),
+        rows: [
+          ["root", "localhost", "Y", "Y"],
+          ["app", "%", "N", "Y"],
+        ],
+      },
+      support,
+    );
+    expect(rows).toEqual([
+      { name: "root", host: "localhost", superuser: true, grantOption: true },
+      { name: "app", host: "%", superuser: false, grantOption: true },
+    ]);
+  });
+
+  it("accepts a padded or lowercase flag", () => {
+    const rows = parseUserRows(
+      { columns: cols("User", "Host", "Super_priv"), rows: [["a", "%", " y "]] },
+      support,
+    );
+    expect(rows[0].superuser).toBe(true);
+  });
+
+  it("leaves the flags false when the catalog has no privilege columns", () => {
+    const rows = parseUserRows({ columns: cols("User", "Host"), rows: [["a", "%"]] }, support);
+    expect(rows).toEqual([{ name: "a", host: "%", superuser: false, grantOption: false }]);
+  });
+
+  it("skips nameless rows and yields nothing without a name column", () => {
+    expect(
+      parseUserRows({ columns: cols("User", "Host"), rows: [["", "%"], [null, "%"]] }, support),
+    ).toEqual([]);
+    expect(parseUserRows({ columns: cols("Nope"), rows: [["x"]] }, support)).toEqual([]);
+  });
+});
+
+describe("isSystemUser", () => {
+  it("matches the servers' own internal accounts", () => {
+    expect(isSystemUser("mysql.sys")).toBe(true);
+    expect(isSystemUser("mysql.infoschema")).toBe(true);
+    expect(isSystemUser("mariadb.sys")).toBe(true);
+    expect(isSystemUser("root")).toBe(false);
+    expect(isSystemUser("mysqlmonitor")).toBe(false);
+  });
+});
+
+describe("searchUsers", () => {
+  const u = (name: string, host: string, superuser = false, grantOption = false): UserRow => ({
+    name,
+    host,
+    superuser,
+    grantOption,
+  });
+  const list = [
+    u("root", "localhost", true, true),
+    u("app", "%"),
+    u("app", "10.0.0.5"),
+    u("mysql.sys", "localhost"),
+  ];
+  const none = { onlySuper: false, hideSystem: false };
+  const names = (rows: UserRow[]) => rows.map((r) => `${r.name}@${r.host}`);
+
+  it("returns everything for a blank or whitespace query", () => {
+    expect(searchUsers(list, { query: "", ...none })).toHaveLength(4);
+    expect(searchUsers(list, { query: "   ", ...none })).toHaveLength(4);
+  });
+
+  it("matches name and host, ignoring case", () => {
+    expect(names(searchUsers(list, { query: "APP", ...none }))).toEqual(["app@%", "app@10.0.0.5"]);
+    expect(names(searchUsers(list, { query: "10.0.0", ...none }))).toEqual(["app@10.0.0.5"]);
+    // The query can span the user@host text itself.
+    expect(names(searchUsers(list, { query: "root@local", ...none }))).toEqual(["root@localhost"]);
+  });
+
+  it("applies the superuser and system-account filters, combined with the query", () => {
+    expect(names(searchUsers(list, { query: "", onlySuper: true, hideSystem: false }))).toEqual([
+      "root@localhost",
+    ]);
+    expect(names(searchUsers(list, { query: "", onlySuper: false, hideSystem: true }))).toEqual([
+      "root@localhost",
+      "app@%",
+      "app@10.0.0.5",
+    ]);
+    expect(searchUsers(list, { query: "app", onlySuper: true, hideSystem: false })).toEqual([]);
   });
 });
 

@@ -17,6 +17,27 @@ export interface UserAdminSupport {
   userNameCol: string | null;
   /** Result column holding the host part, or null when the engine has none. */
   userHostCol: string | null;
+  /** Result column flagging a superuser ('Y'/'N'), or null when the engine has none. */
+  userSuperCol: string | null;
+  /** Result column flagging who can grant privileges ('Y'/'N'), or null. */
+  userGrantCol: string | null;
+}
+
+/** One row of the user list. */
+export interface UserRow {
+  name: string;
+  host: string;
+  /** Holds the SUPER privilege (`Super_priv = 'Y'`). */
+  superuser: boolean;
+  /** Can grant privileges to others (`Grant_priv = 'Y'`). */
+  grantOption: boolean;
+}
+
+/** The panel's search box plus its two quick filters. */
+export interface UserFilter {
+  query: string;
+  onlySuper: boolean;
+  hideSystem: boolean;
 }
 
 /** Options for a GRANT/REVOKE statement built from the form. */
@@ -48,12 +69,80 @@ export function userAdminFor(engine: string): UserAdminSupport {
   if (family(engine) === "mysql") {
     return {
       supported: true,
-      listUsersSql: "SELECT User, Host FROM mysql.user ORDER BY User, Host",
+      // Super_priv / Grant_priv come from the same catalog row the list already
+      // reads, so the privilege markers cost no extra round trip. Superusers
+      // sort first ('Y' > 'N' descending): that is the order the list is read in
+      // when auditing who can do what.
+      listUsersSql:
+        "SELECT User, Host, Super_priv, Grant_priv FROM mysql.user " +
+        "ORDER BY Super_priv DESC, User, Host",
       userNameCol: "User",
       userHostCol: "Host",
+      userSuperCol: "Super_priv",
+      userGrantCol: "Grant_priv",
     };
   }
-  return { supported: false, listUsersSql: null, userNameCol: null, userHostCol: null };
+  return {
+    supported: false,
+    listUsersSql: null,
+    userNameCol: null,
+    userHostCol: null,
+    userSuperCol: null,
+    userGrantCol: null,
+  };
+}
+
+/**
+ * Read the user list result into rows. A missing name column yields no rows; a
+ * missing privilege column just leaves the flag false, so an engine (or a
+ * cut-down catalog) that does not expose it degrades to "no badge" rather than
+ * claiming something untrue.
+ */
+export function parseUserRows(
+  result: { columns: { name: string }[]; rows: (string | null)[][] },
+  support: UserAdminSupport,
+): UserRow[] {
+  const idx = (col: string | null) =>
+    col === null ? -1 : result.columns.findIndex((c) => c.name === col);
+  const ni = idx(support.userNameCol);
+  if (ni === -1) return [];
+  const hi = idx(support.userHostCol);
+  const si = idx(support.userSuperCol);
+  const gi = idx(support.userGrantCol);
+  const yes = (row: (string | null)[], i: number) =>
+    i >= 0 && (row[i] ?? "").trim().toUpperCase() === "Y";
+  return result.rows
+    .map((r) => ({
+      name: r[ni] ?? "",
+      host: hi >= 0 ? (r[hi] ?? "") : "",
+      superuser: yes(r, si),
+      grantOption: yes(r, gi),
+    }))
+    .filter((u) => u.name);
+}
+
+/**
+ * The engine's own internal accounts (`mysql.sys`, `mysql.session`,
+ * `mariadb.sys`…). They are never logged into by a person, so the panel can hide
+ * them; matched by prefix because that is how both servers name them.
+ */
+export function isSystemUser(name: string): boolean {
+  const n = name.toLowerCase();
+  return n.startsWith("mysql.") || n.startsWith("mariadb.");
+}
+
+/**
+ * Filter the loaded user list: the query matches `user@host` (the same account
+ * exists once per host in MySQL, so the host has to be searchable), and the two
+ * quick filters narrow it further. A blank query matches everything.
+ */
+export function searchUsers(list: UserRow[], filter: UserFilter): UserRow[] {
+  const q = filter.query.trim().toLowerCase();
+  return list.filter((u) => {
+    if (filter.onlySuper && !u.superuser) return false;
+    if (filter.hideSystem && isSystemUser(u.name)) return false;
+    return q === "" || `${u.name}@${u.host}`.toLowerCase().includes(q);
+  });
 }
 
 /**

@@ -161,6 +161,14 @@ export const en: Record<string, string> = {
 
   // users & privileges panel (UserManager.tsx)
   "users.count": "{n} user(s)",
+  "users.countFiltered": "{n} of {m}",
+  "users.searchPlaceholder": "Search user…",
+  "users.searchAria": "Search users by name or host",
+  "users.onlySuper": "Superusers only",
+  "users.hideSystem": "Hide system accounts",
+  "users.noMatches": "No user matches the filter.",
+  "users.superTitle": "Holds the SUPER privilege",
+  "users.grantTitle": "Can grant privileges to others",
   "users.newUser": "New user",
   "users.name": "Username",
   "users.hostPlaceholder": "Host (%  |  localhost)",

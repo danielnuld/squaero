@@ -1,6 +1,6 @@
 import { For, Show, createMemo, createSignal, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
-import { runQuery, type ResultSet } from "../utils/query";
+import { runQuery } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
   userAdminFor,
@@ -10,22 +10,22 @@ import {
   buildCreateUserSql,
   buildDropUserSql,
   unsupportedReason,
+  parseUserRows,
+  searchUsers,
   MYSQL_PRIVILEGES,
   type GrantOptions,
+  type UserRow,
 } from "../utils/userAdmin";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
 
-interface UserRow {
-  name: string;
-  host: string;
-}
-
 // User / privilege management (issue #140): list the server's users, view a
 // selected user's grants, and grant/revoke privileges from a form with a live SQL
 // preview — all via query.run using the per-engine SQL in utils/userAdmin.ts.
 // MySQL/MariaDB are supported; other engines show an honest message.
+// Issue #360 adds the search box, the SUPER/GRANT markers and the two quick
+// filters; all of that is pure filtering over the already-loaded list.
 export function UserManager(props: {
   connId: string;
   engine: string;
@@ -40,6 +40,20 @@ export function UserManager(props: {
   const [error, setError] = createSignal<string | null>(null);
   const [pendingDrop, setPendingDrop] = createSignal<{ user: UserRow; sql: string } | null>(null);
 
+  // Search + quick filters (issue #360). Everything filters the loaded list in
+  // memory — no re-query, so typing stays instant on a server with many accounts.
+  const [query, setQuery] = createSignal("");
+  const [onlySuper, setOnlySuper] = createSignal(false);
+  const [hideSystem, setHideSystem] = createSignal(false);
+  const shown = createMemo(() =>
+    searchUsers(users(), {
+      query: query(),
+      onlySuper: onlySuper(),
+      hideSystem: hideSystem(),
+    }),
+  );
+  const filtering = createMemo(() => shown().length !== users().length);
+
   // Grant/revoke form.
   const [privs, setPrivs] = createStore<Record<string, boolean>>({});
   const [scope, setScope] = createSignal("*.*");
@@ -52,20 +66,12 @@ export function UserManager(props: {
   const [newHost, setNewHost] = createSignal("%");
   const [newPass, setNewPass] = createSignal("");
 
-  const usersFromResult = (res: ResultSet): UserRow[] => {
-    const ni = res.columns.findIndex((c) => c.name === support.userNameCol);
-    const hi = res.columns.findIndex((c) => c.name === support.userHostCol);
-    return res.rows
-      .map((r) => ({ name: ni >= 0 ? (r[ni] ?? "") : "", host: hi >= 0 ? (r[hi] ?? "") : "" }))
-      .filter((u) => u.name);
-  };
-
   const loadUsers = async () => {
     if (!support.supported || !support.listUsersSql) return;
     setLoading(true);
     setError(null);
     try {
-      setUsers(usersFromResult(await runQuery(props.connId, support.listUsersSql)));
+      setUsers(parseUserRows(await runQuery(props.connId, support.listUsersSql), support));
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -137,11 +143,15 @@ export function UserManager(props: {
     setError(null);
     try {
       await runQuery(props.connId, sql);
-      const created = { name: newName().trim(), host: (newHost().trim() || "%") };
+      const name = newName().trim();
+      const host = newHost().trim() || "%";
       setNewName("");
       setNewPass("");
       await loadUsers();
-      await selectUser(created); // focus the just-created user
+      // Focus the just-created user, taking its row from the reloaded list so
+      // its privilege flags are the server's, not assumed.
+      const created = users().find((u) => u.name === name && u.host === host);
+      await selectUser(created ?? { name, host, superuser: false, grantOption: false });
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -183,7 +193,11 @@ export function UserManager(props: {
         <h2>{t("tool.users.label")}</h2>
         <div class="sm-actions">
           <Show when={support.supported}>
-            <span class="sm-count">{t("users.count", { n: users().length })}</span>
+            <span class="sm-count">
+              {filtering()
+                ? t("users.countFiltered", { n: shown().length, m: users().length })
+                : t("users.count", { n: users().length })}
+            </span>
             <button class="edit-btn" disabled={loading()} onClick={loadUsers}>
               {loading() ? t("panel.refreshing") : t("panel.refresh")}
             </button>
@@ -242,8 +256,40 @@ export function UserManager(props: {
             </div>
 
             <div class="import-subtitle">{t("users.users")}</div>
+            <input
+              class="um-search"
+              type="search"
+              value={query()}
+              placeholder={t("users.searchPlaceholder")}
+              aria-label={t("users.searchAria")}
+              onInput={(e) => setQuery(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setQuery("");
+                // Enter opens the only thing the search is pointing at.
+                if (e.key === "Enter" && shown().length > 0) void selectUser(shown()[0]);
+              }}
+            />
+            <div class="um-filters">
+              <button
+                class={`um-filter ${onlySuper() ? "on" : ""}`}
+                aria-pressed={onlySuper()}
+                onClick={() => setOnlySuper(!onlySuper())}
+              >
+                {t("users.onlySuper")}
+              </button>
+              <button
+                class={`um-filter ${hideSystem() ? "on" : ""}`}
+                aria-pressed={hideSystem()}
+                onClick={() => setHideSystem(!hideSystem())}
+              >
+                {t("users.hideSystem")}
+              </button>
+            </div>
+            <Show when={users().length > 0 && shown().length === 0}>
+              <p class="grid-empty">{t("users.noMatches")}</p>
+            </Show>
             <ul class="um-user-list">
-              <For each={users()}>
+              <For each={shown()}>
                 {(u) => (
                   <li
                     class={`um-user ${
@@ -253,6 +299,14 @@ export function UserManager(props: {
                   >
                     <span class="um-user-name">{u.name}</span>
                     <span class="um-user-host">@{u.host}</span>
+                    <span class="um-chips">
+                      <Show when={u.superuser}>
+                        <span class="um-chip" title={t("users.superTitle")}>SUPER</span>
+                      </Show>
+                      <Show when={u.grantOption}>
+                        <span class="um-chip grant" title={t("users.grantTitle")}>GRANT</span>
+                      </Show>
+                    </span>
                     <button
                       class="grid-action danger um-drop"
                       title={t("users.dropTitle", { who: `${u.name}@${u.host}` })}

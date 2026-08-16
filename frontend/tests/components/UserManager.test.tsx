@@ -31,10 +31,13 @@ const usersResult = (id: number) => ({
     columns: [
       { name: "User", type: "text" },
       { name: "Host", type: "text" },
+      { name: "Super_priv", type: "text" },
+      { name: "Grant_priv", type: "text" },
     ],
     rows: [
-      ["root", "localhost"],
-      ["app", "%"],
+      ["root", "localhost", "Y", "Y"],
+      ["app", "%", "N", "N"],
+      ["mysql.sys", "localhost", "N", "N"],
     ],
     truncated: false,
     rowsAffected: 0,
@@ -84,8 +87,71 @@ describe("UserManager", () => {
     mount("mysql");
     await flush();
     const items = host!.querySelectorAll(".um-user");
-    expect(items.length).toBe(2);
-    expect(host!.textContent).toContain("2 usuario");
+    expect(items.length).toBe(3);
+    expect(host!.textContent).toContain("3 usuario");
+  });
+
+  it("marks the superuser and who can grant (issue #360)", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const row = (name: string) =>
+      [...host!.querySelectorAll<HTMLElement>(".um-user")].find((el) =>
+        el.querySelector(".um-user-name")?.textContent === name,
+      )!;
+    expect([...row("root").querySelectorAll(".um-chip")].map((c) => c.textContent)).toEqual([
+      "SUPER",
+      "GRANT",
+    ]);
+    expect(row("app").querySelectorAll(".um-chip").length).toBe(0);
+  });
+
+  const search = () => host!.querySelector<HTMLInputElement>(".um-search")!;
+  const type = (value: string) => {
+    search().value = value;
+    search().dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const names = () =>
+    [...host!.querySelectorAll<HTMLElement>(".um-user-name")].map((el) => el.textContent);
+
+  it("filters as you type and counts n of m", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    type("APP");                       // case-insensitive
+    expect(names()).toEqual(["app"]);
+    expect(host!.textContent).toContain("1 de 3");
+    type("localhost");                 // matches on the host part too
+    expect(names()).toEqual(["root", "mysql.sys"]);
+    type("");
+    expect(names().length).toBe(3);
+    expect(host!.textContent).toContain("3 usuario");
+  });
+
+  it("says so when nothing matches instead of showing an empty list", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    type("nobody");
+    expect(names()).toEqual([]);
+    expect(host!.textContent).toContain("Ningún usuario coincide");
+  });
+
+  it("filters with the superuser and system-account chips", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const filter = (label: string) =>
+      [...host!.querySelectorAll<HTMLButtonElement>(".um-filter")].find(
+        (b) => b.textContent === label,
+      )!;
+
+    filter("Ocultar cuentas del sistema").click();
+    expect(names()).toEqual(["root", "app"]);
+
+    filter("Sólo superusuarios").click();
+    expect(names()).toEqual(["root"]);
+    expect(filter("Sólo superusuarios").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows a user's grants on selection", async () => {
