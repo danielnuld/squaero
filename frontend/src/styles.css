@@ -3244,6 +3244,41 @@ button.grid-action.danger:hover:not(:disabled) {
   cursor: default;
 }
 
+/* One field vocabulary for the tool panels (#372, phase 2). Element selectors on
+   purpose: fifteen fields across the panels carried no class at all and so
+   rendered with the operating system's own look — the loudest single reason the
+   query builder read as a foreign dialog rather than as part of Quaero.
+   The values are `.field input/select`'s, deliberately: that is the app's field
+   look already, and answering the "everything looks different" report with a
+   SECOND vocabulary would be the same mistake in a new place.
+   Wrapped in :where() so it carries NO specificity: every existing class rule
+   (.td-in, .snippet-search, the grid's own inputs) still wins, and this only
+   fills in where nothing else styles the control. */
+:where(.tool-pane)
+  :where(
+    select,
+    textarea,
+    input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"])
+  ) {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+:where(.tool-pane)
+  :where(select, textarea, input):focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+:where(.tool-pane) :where(select, textarea, input):disabled {
+  opacity: 0.6;
+}
+
 /* The ER canvas's zoom readout, between its − and + buttons. */
 .panel-zoom {
   font-size: 12px;
