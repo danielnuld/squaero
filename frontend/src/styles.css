@@ -667,6 +667,9 @@ body {
   gap: 0.5rem;
   padding: 0.9rem 1.3rem;
   border-top: 1px solid var(--border);
+  /* The footer sits flush against its separator; the shared rule's top margin
+     would push it away from the border. */
+  margin-top: 0;
 }
 .update-skip {
   color: var(--text-dim);

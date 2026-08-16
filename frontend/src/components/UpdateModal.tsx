@@ -72,7 +72,10 @@ export function UpdateModal(props: {
             <p class="update-error">{error()}</p>
           </Show>
 
-          <div class="update-actions">
+          {/* Composed with modal-actions, like every other dialog footer: on its
+              own this row's buttons fell back to the OS look, so the modal mixed
+              one styled button with three system ones. */}
+          <div class="modal-actions update-actions">
             <button class="update-skip" disabled={installing()} onClick={() => props.onSkip(props.update!.version)}>
               Omitir esta versión
             </button>
