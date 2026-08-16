@@ -141,42 +141,38 @@ export function TriggersExplorer(props: {
     kind() === "event" ? t("explorer.noEvents") : t("explorer.noTriggers");
 
   return (
-    <Panel title={t("tool.triggers.label")} class="routine-explorer" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>{t("tool.triggers.label")}</h2>
-        <div class="sm-actions">
-          <Show when={eventsSupported()}>
-            <div class="obj-kind-toggle" role="tablist">
-              <button
-                class={`edit-btn ${kind() === "trigger" ? "active" : ""}`}
-                role="tab"
-                aria-selected={kind() === "trigger"}
-                onClick={() => setKind("trigger")}
-              >
-                {t("explorer.triggersTab")}
-              </button>
-              <button
-                class={`edit-btn ${kind() === "event" ? "active" : ""}`}
-                role="tab"
-                aria-selected={kind() === "event"}
-                onClick={() => setKind("event")}
-              >
-                {t("explorer.eventsTab")}
-              </button>
-            </div>
-          </Show>
-          <Show when={support().supported}>
-            <span class="sm-count">{t("explorer.objects", { n: rows().length })}</span>
-            <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? t("panel.refreshing") : t("panel.refresh")}
+    <Panel
+      title={t("tool.triggers.label")}
+      class="routine-explorer"
+      onClose={props.onClose}
+      actions={
+        <Show when={eventsSupported()}>
+          <div class="obj-kind-toggle" role="tablist">
+            <button
+              class={`edit-btn ${kind() === "trigger" ? "active" : ""}`}
+              role="tab"
+              aria-selected={kind() === "trigger"}
+              onClick={() => setKind("trigger")}
+            >
+              {t("explorer.triggersTab")}
             </button>
-          </Show>
-          <button class="edit-btn" onClick={props.onClose}>
-            {t("panel.close")}
-          </button>
-        </div>
-      </div>
-
+            <button
+              class={`edit-btn ${kind() === "event" ? "active" : ""}`}
+              role="tab"
+              aria-selected={kind() === "event"}
+              onClick={() => setKind("event")}
+            >
+              {t("explorer.eventsTab")}
+            </button>
+          </div>
+        </Show>
+      }
+      status={
+        <Show when={support().supported}>{t("explorer.objects", { n: rows().length })}</Show>
+      }
+      onRefresh={support().supported ? load : undefined}
+      refreshing={loading()}
+    >
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}

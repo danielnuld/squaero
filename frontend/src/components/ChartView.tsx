@@ -55,15 +55,6 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
 
   return (
     <Panel title={t("tab.chart")} class="chart-view" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>{t("tab.chart")}</h2>
-        <div class="sm-actions">
-          <button class="edit-btn" onClick={props.onClose}>
-            {t("panel.close")}
-          </button>
-        </div>
-      </div>
-
       <div class="chart-controls">
         <label>
           {t("chart.type")}

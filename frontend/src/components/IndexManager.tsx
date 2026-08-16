@@ -235,19 +235,13 @@ export function IndexManager(props: {
     !b.ok ? b.error : null;
 
   return (
-    <Panel title={`Índices y constraints · ${props.table}`} wide onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>Índices y constraints · {props.table}</h2>
-        <div class="sm-actions">
-          <button class="edit-btn" disabled={loading()} onClick={() => void load()}>
-            {loading() ? "Actualizando…" : "⟳ Refrescar"}
-          </button>
-          <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
-          </button>
-        </div>
-      </div>
-
+    <Panel
+      title={`Índices y constraints · ${props.table}`}
+      wide
+      onClose={props.onClose}
+      onRefresh={() => void load()}
+      refreshing={loading()}
+    >
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}

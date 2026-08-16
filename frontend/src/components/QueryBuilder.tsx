@@ -150,16 +150,16 @@ export function QueryBuilder(props: {
     setConds(i, key as keyof Condition, value as never);
 
   return (
-    <Panel title={t("tool.qb.label")} class="qb" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>{t("tool.qb.label")}</h2>
-        <div class="sm-actions">
-          <button class="edit-btn" onClick={props.onClose}>
-            {t("panel.close")}
-          </button>
-        </div>
-      </div>
-
+    <Panel
+      title={t("tool.qb.label")}
+      class="qb"
+      onClose={props.onClose}
+      status={
+        <Show when={!loading() && tables().length > 0}>
+          {t("qb.tableCount", { n: tables().length })}
+        </Show>
+      }
+    >
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}

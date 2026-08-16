@@ -61,22 +61,18 @@ export function ServerMonitor(props: {
   const cols = () => result()?.columns ?? [];
 
   return (
-    <Panel title={t("tool.monitor.tab")} class="server-monitor" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>{t("tool.monitor.tab")}</h2>
-        <div class="sm-actions">
-          <Show when={support.supported}>
-            <span class="sm-count">{t("monitor.sessions", { n: rows().length })}</span>
-            <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? t("panel.refreshing") : t("panel.refresh")}
-            </button>
-          </Show>
-          <button class="edit-btn" onClick={props.onClose}>
-            {t("panel.close")}
-          </button>
-        </div>
-      </div>
-
+    <Panel
+      title={t("tool.monitor.tab")}
+      class="server-monitor"
+      onClose={props.onClose}
+      status={
+        <Show when={support.supported}>
+          <span>{t("monitor.sessions", { n: rows().length })}</span>
+        </Show>
+      }
+      onRefresh={support.supported ? load : undefined}
+      refreshing={loading()}
+    >
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}

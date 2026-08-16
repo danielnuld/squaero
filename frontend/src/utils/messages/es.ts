@@ -159,7 +159,7 @@ export const es: Record<string, string> = {
   "empty.hint": "Abre una tabla del árbol o escribe SQL y pulsa {keys}.",
 
   // tool panels — shared chrome
-  "panel.refresh": "⟳ Refrescar",
+  "panel.refresh": "Refrescar",
   "panel.refreshing": "Actualizando…",
   "panel.close": "Cerrar",
   "panel.loading": "Cargando…",
@@ -225,6 +225,7 @@ export const es: Record<string, string> = {
   "slow.open": "Abrir",
   "slow.openTitle": "Abrir en el editor",
   "slow.explainTitle": "EXPLAIN de la consulta",
+  "slow.count": "{n} consulta(s)",
   "slow.noRecords": "Sin registros de consultas lentas.",
 
   // panel de filtros de una pestaña de datos (#347)
@@ -409,6 +410,7 @@ export const es: Record<string, string> = {
   "qb.loadingTables": "Cargando tablas…",
   "qb.noTables": "No hay tablas en esta conexión.",
   "qb.table": "Tabla",
+  "qb.tableCount": "{n} tabla(s)",
   "qb.truncated": "Mostrando los primeros {n} objetos; la base de datos tiene más.",
   "qb.columns": "Columnas (vacío = todas)",
   "qb.conditions": "Condiciones",

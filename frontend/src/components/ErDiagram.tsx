@@ -244,27 +244,30 @@ export function ErDiagram(props: {
   };
 
   return (
-    <Panel title={t("tool.er.tab")} class="er-diagram" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>{t("tool.er.title")}</h2>
-        <div class="sm-actions">
-          <Show when={!loading() && tables().length > 0}>
-            <span class="sm-count">
-              {t("er.count", { tables: tables().length, edges: edges().length })}{" "}
-              {realFks() ? t("er.realFks") : t("er.inferredFks")}
-              {fkTruncated() ? t("er.listIncomplete") : ""}
-            </span>
-            <button class="edit-btn" title={t("er.zoomOut")} onClick={() => zoomBy(1 / 1.2)}>−</button>
-            <span class="sm-count">{Math.round(zoom() * 100)}%</span>
-            <button class="edit-btn" title={t("er.zoomIn")} onClick={() => zoomBy(1.2)}>+</button>
-            <button class="edit-btn" title={t("er.relayoutTitle")} onClick={relayout}>{t("er.relayout")}</button>
-          </Show>
-          <button class="edit-btn" onClick={props.onClose}>
-            {t("panel.close")}
-          </button>
-        </div>
-      </div>
-
+    <Panel
+      title={t("tool.er.tab")}
+      class="er-diagram"
+      onClose={props.onClose}
+      actions={
+        <Show when={!loading() && tables().length > 0}>
+          {/* The canvas's own controls: they act on what is drawn, so they lead
+              the bar rather than sitting with the status. */}
+          <button class="edit-btn" title={t("er.zoomOut")} onClick={() => zoomBy(1 / 1.2)}>−</button>
+          <span class="panel-zoom">{Math.round(zoom() * 100)}%</span>
+          <button class="edit-btn" title={t("er.zoomIn")} onClick={() => zoomBy(1.2)}>+</button>
+          <button class="edit-btn" title={t("er.relayoutTitle")} onClick={relayout}>{t("er.relayout")}</button>
+        </Show>
+      }
+      status={
+        <Show when={!loading() && tables().length > 0}>
+          <span>
+            {t("er.count", { tables: tables().length, edges: edges().length })}{" "}
+            {realFks() ? t("er.realFks") : t("er.inferredFks")}
+            {fkTruncated() ? t("er.listIncomplete") : ""}
+          </span>
+        </Show>
+      }
+    >
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}

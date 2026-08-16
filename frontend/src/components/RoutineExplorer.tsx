@@ -134,22 +134,16 @@ export function RoutineExplorer(props: {
     a.id === b.id;
 
   return (
-    <Panel title={t("tool.routines.label")} class="routine-explorer" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>{t("tool.routines.label")}</h2>
-        <div class="sm-actions">
-          <Show when={support().supported}>
-            <span class="sm-count">{t("explorer.objects", { n: rows().length })}</span>
-            <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? t("panel.refreshing") : t("panel.refresh")}
-            </button>
-          </Show>
-          <button class="edit-btn" onClick={props.onClose}>
-            {t("panel.close")}
-          </button>
-        </div>
-      </div>
-
+    <Panel
+      title={t("tool.routines.label")}
+      class="routine-explorer"
+      onClose={props.onClose}
+      status={
+        <Show when={support().supported}>{t("explorer.objects", { n: rows().length })}</Show>
+      }
+      onRefresh={support().supported ? load : undefined}
+      refreshing={loading()}
+    >
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}

@@ -167,7 +167,8 @@ describe("SnippetsPanel", () => {
     const onImport = vi.fn();
     const onExport = vi.fn();
     mount({ onImport, onExport });
-    const exportBtn = byText(".modal-actions button", "Exportar") as HTMLButtonElement;
+    // Import/export moved from a footer to the shared panel bar (#372).
+    const exportBtn = byText(".panel-bar button", "Exportar") as HTMLButtonElement;
     expect(exportBtn.disabled).toBe(false);
     exportBtn.click();
     expect(onExport).toHaveBeenCalled();

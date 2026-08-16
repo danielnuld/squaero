@@ -80,9 +80,42 @@ export function SnippetsPanel(props: {
   };
 
   return (
-    <Panel title={t("editor.snippetsTitle")} class="snippets" onClose={props.onClose}>
-      <h2>{t("editor.snippetsTitle")}</h2>
-
+    <Panel
+      title={t("editor.snippetsTitle")}
+      class="snippets"
+      onClose={props.onClose}
+      actions={
+        <>
+          {/* Import/export are the tool's own actions, so they belong in the bar
+              rather than in a footer next to a Cerrar the tab already offers. */}
+          <button class="edit-btn" onClick={() => fileInput.click()} title={t("snip.importTitle")}>
+            {t("snip.import")}
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            style="display:none"
+            onChange={onFile}
+          />
+          <button
+            class="edit-btn"
+            onClick={props.onExport}
+            disabled={props.entries.length === 0}
+            title={t("snip.exportTitle")}
+          >
+            {t("snip.export")}
+          </button>
+        </>
+      }
+      status={
+        <Show when={props.entries.length > 0}>
+          {props.entries.length === 1
+            ? t("snip.countOne")
+            : t("snip.count", { n: props.entries.length })}
+        </Show>
+      }
+    >
       <Show
         when={props.entries.length > 0}
         fallback={<p class="snippet-empty">{t("snip.paletteEmptySet")}</p>}
@@ -168,34 +201,6 @@ export function SnippetsPanel(props: {
         </div>
       </Show>
 
-      <div class="modal-actions">
-        <span class="snippet-count">
-          {props.entries.length === 1
-            ? t("snip.countOne")
-            : t("snip.count", { n: props.entries.length })}
-        </span>
-        <span class="modal-actions-spacer" />
-        <button onClick={() => fileInput.click()} title={t("snip.importTitle")}>
-          {t("snip.import")}
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          accept="application/json,.json"
-          style="display:none"
-          onChange={onFile}
-        />
-        <button
-          onClick={props.onExport}
-          disabled={props.entries.length === 0}
-          title={t("snip.exportTitle")}
-        >
-          {t("snip.export")}
-        </button>
-        <button class="primary" onClick={props.onClose}>
-          {t("common.close")}
-        </button>
-      </div>
     </Panel>
   );
 }

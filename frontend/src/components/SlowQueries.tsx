@@ -103,32 +103,29 @@ export function SlowQueries(props: {
   const queryText = (row: (string | null)[]) => (queryIndex() >= 0 ? row[queryIndex()] : null);
 
   return (
-    <Panel title={t("tool.slow.tab")} class="slow-queries" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>{t("tool.slow.tab")}</h2>
-        <div class="sm-actions">
-          <Show when={support().supported}>
-            <label class="sq-order">
-              {t("slow.orderBy")}
-              <select value={order()} onChange={(e) => setOrder(e.currentTarget.value as SlowOrder)}>
-                <For each={ORDER_OPTS}>{(o) => <option value={o.value}>{t(o.label)}</option>}</For>
-              </select>
-            </label>
-            <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? t("panel.refreshing") : t("panel.refresh")}
+    <Panel
+      title={t("tool.slow.tab")}
+      class="slow-queries"
+      onClose={props.onClose}
+      actions={
+        <Show when={support().supported}>
+          <label class="sq-order">
+            {t("slow.orderBy")}
+            <select value={order()} onChange={(e) => setOrder(e.currentTarget.value as SlowOrder)}>
+              <For each={ORDER_OPTS}>{(o) => <option value={o.value}>{t(o.label)}</option>}</For>
+            </select>
+          </label>
+          <Show when={support().resetSql}>
+            <button class="edit-btn" disabled={resetting()} onClick={reset} title={t("slow.resetTitle")}>
+              {resetting() ? "…" : t("slow.resetStats")}
             </button>
-            <Show when={support().resetSql}>
-              <button class="edit-btn" disabled={resetting()} onClick={reset} title={t("slow.resetTitle")}>
-                {resetting() ? "…" : t("slow.resetStats")}
-              </button>
-            </Show>
           </Show>
-          <button class="edit-btn" onClick={props.onClose}>
-            {t("panel.close")}
-          </button>
-        </div>
-      </div>
-
+        </Show>
+      }
+      status={<Show when={support().supported}>{t("slow.count", { n: rows().length })}</Show>}
+      onRefresh={support().supported ? load : undefined}
+      refreshing={loading()}
+    >
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}

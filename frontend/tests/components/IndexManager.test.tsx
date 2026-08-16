@@ -137,8 +137,11 @@ describe("IndexManager", () => {
     await flush();
     expect(host!.textContent).toContain("idx_total");
     expect(host!.textContent).not.toContain("idx_email");
-    // Title reflects the new table.
-    expect(host!.querySelector("h2")!.textContent).toContain("orders");
+    // The panel still says which table it is on — through its accessible name
+    // now, since the title lives in the tab and no longer in an <h2> (#372).
+    expect(host!.querySelector("[role='region']")!.getAttribute("aria-label")).toContain(
+      "orders",
+    );
   });
 
   it("keeps the confirmation dialog open and shows the error when a drop fails", async () => {

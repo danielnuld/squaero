@@ -11,6 +11,7 @@ import {
   type PlanNode,
 } from "../utils/explainPlan";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 // Visual EXPLAIN plan (issue #187): renders the execution plan as an SVG node
 // tree (self-contained, like the ER diagram #145 — no graph library), with each
@@ -75,20 +76,13 @@ export function ExplainPlan(props: {
   const { nodeW, nodeH } = DEFAULT_LAYOUT;
 
   return (
-    <Panel title="Plan de ejecución" class="explain-plan" onClose={props.onClose}>
-      <div class="sm-head">
-        <h2>Plan de ejecución</h2>
-        <div class="sm-actions">
-          <Show when={kind()}>
-            <button class="edit-btn" disabled={loading()} onClick={load}>
-              {loading() ? "Analizando…" : "⟳ Actualizar"}
-            </button>
-          </Show>
-          <button class="edit-btn" onClick={props.onClose}>
-            Cerrar
-          </button>
-        </div>
-      </div>
+    <Panel
+      title={t("tab.explainPlan")}
+      class="explain-plan"
+      onClose={props.onClose}
+      onRefresh={kind() ? load : undefined}
+      refreshing={loading()}
+    >
 
       <Show when={error()}>
         <div class="grid-error" role="alert">{error()}</div>

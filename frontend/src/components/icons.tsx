@@ -53,6 +53,14 @@ export const IconQuery: IconComponent = () => (
   </Svg>
 );
 
+/** lucide/rotate-cw — reload what a panel is showing. */
+export const IconRefresh: IconComponent = () => (
+  <Svg>
+    <path d="M21 12a9 9 0 1 1-3.5-7.1" />
+    <path d="M21 3v6h-6" />
+  </Svg>
+);
+
 /** lucide/arrow-right — jump from a cell to the rows related to it. */
 export const IconRelated: IconComponent = () => (
   <Svg>
