@@ -251,6 +251,12 @@ static void rpc_worker_loop()
 // webview delivers the JS arguments as a JSON array string, e.g. ["{...}"]; we
 // unwrap the first element and either dispatch it inline (op.cancel) or hand it
 // to the worker thread, resolving the Promise once the response comes back.
+#if defined(_WIN32)
+/* Defined with the window setup below; called from here on the first bridge
+   call, which is the moment the interface exists. */
+void reveal_ui(webview_t w);
+#endif
+
 static void rpc_handler(const char *id, const char *req, void *arg)
 {
     auto w = static_cast<webview_t>(arg);
@@ -261,6 +267,10 @@ static void rpc_handler(const char *id, const char *req, void *arg)
     if (first_call) {
         first_call = false;
         std::printf("Quaero: frontend connected to the bridge\n");
+#if defined(_WIN32)
+        // The interface has booted: swap the window's own background for it.
+        reveal_ui(w);
+#endif
     }
 
     // Unwrap ["{...}"] -> the inner JSON-RPC request string, copied off webview's
@@ -401,6 +411,118 @@ static void apply_window_icon(webview_t w)
         SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon_small));
     }
 }
+
+/* The app's own --bg, picked from the system light/dark preference — which is
+   also what the interface itself defaults to, so the two agree. */
+static COLORREF startup_background(void)
+{
+    DWORD light = 0;
+    DWORD size = sizeof light;
+    LSTATUS st = RegGetValueW(
+        HKEY_CURRENT_USER,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        L"AppsUseLightTheme", RRF_RT_REG_DWORD, nullptr, &light, &size);
+    if (st == ERROR_SUCCESS && light != 0) {
+        return RGB(0xf7, 0xf7, 0xfa);  /* light theme --bg */
+    }
+    return RGB(0x1e, 0x1e, 0x24);      /* dark theme --bg (the default) */
+}
+
+/* Set once the interface has booted and the browser surface is on screen. */
+static bool g_ui_visible = false;
+
+/* Show or hide the browser surface. Hidden, the window paints its class brush;
+   visible, WebView2 covers the whole client area. */
+static void set_webview_visible(webview_t w, BOOL visible)
+{
+    auto controller = static_cast<ICoreWebView2Controller *>(
+        webview_get_native_handle(w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER));
+    if (controller != nullptr) {
+        controller->put_IsVisible(visible);
+    }
+}
+
+/* Reveal the interface: called when the frontend makes its first RPC call (it
+   has booted and painted) and, as a backstop, from a timer — a frontend that
+   never calls must not leave a permanently blank window. */
+void reveal_ui(webview_t w)
+{
+    if (g_ui_visible) {
+        return;
+    }
+    g_ui_visible = true;
+    set_webview_visible(w, TRUE);
+}
+
+static webview_t g_reveal_target = nullptr;
+
+static void CALLBACK reveal_timer(HWND hwnd, UINT, UINT_PTR id, DWORD)
+{
+    KillTimer(hwnd, id);
+    if (g_reveal_target != nullptr) {
+        reveal_ui(g_reveal_target);
+    }
+}
+
+// The window is on screen a couple of seconds before the interface is: the
+// bundle is one self-contained ~1.2 MB document, and nothing in it paints until
+// it has run — measured at ~2.5 s from launch. All that time WebView2 painted
+// its own default (#121212), which reads as a black, broken window.
+//
+// So the browser surface starts HIDDEN and the window paints the app's own --bg
+// through its class brush; the surface is revealed when the frontend makes its
+// first RPC call. That is the splash screen, without a splash window to build,
+// show and tear down — the "loading" state is the app's own background, and the
+// interface simply appears in it.
+//
+// DefaultBackgroundColor is set as well: it costs two lines and covers a
+// reload, where the surface is already visible. It does NOT cover the first
+// boot — measured: the runtime keeps painting #121212 regardless until the
+// document itself paints.
+//
+// The brush lives for the process: it is one GDI object, and the class outlives
+// every place we could sensibly free it.
+static void apply_startup_background(webview_t w)
+{
+    HWND hwnd = static_cast<HWND>(webview_get_window(w));
+    if (hwnd == nullptr) {
+        return;
+    }
+    /* Hidden while the brush is swapped, so the first frame the user sees is
+       already the app's colour instead of the class's original white. */
+    ShowWindow(hwnd, SW_HIDE);
+    COLORREF color = startup_background();
+    HBRUSH brush = CreateSolidBrush(color);
+    if (brush != nullptr) {
+        SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND,
+                         reinterpret_cast<LONG_PTR>(brush));
+        InvalidateRect(hwnd, nullptr, TRUE);
+    }
+
+    auto controller = static_cast<ICoreWebView2Controller *>(
+        webview_get_native_handle(w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER));
+    if (controller == nullptr) {
+        return;
+    }
+    ICoreWebView2Controller2 *controller2 = nullptr;
+    HRESULT hr = controller->QueryInterface(IID_ICoreWebView2Controller2,
+                                            reinterpret_cast<void **>(&controller2));
+    if (!SUCCEEDED(hr) || controller2 == nullptr) {
+        std::printf("Quaero: webview background not settable (older runtime)\n");
+        return;  /* older WebView2 runtime: the class brush alone still helps */
+    }
+    COREWEBVIEW2_COLOR bg = {255, GetRValue(color), GetGValue(color), GetBValue(color)};
+    controller2->put_DefaultBackgroundColor(bg);
+    controller2->Release();
+
+    /* Hide the surface until the interface has booted; the window shows the
+       brush above meanwhile. The timer is the backstop for a frontend that
+       never calls back — five seconds is well past the ~2.5 s it takes. */
+    set_webview_visible(w, FALSE);
+    ShowWindow(hwnd, SW_SHOW);
+    g_reveal_target = w;
+    SetTimer(hwnd, 1, 5000, reveal_timer);
+}
 #endif
 
 #if defined(_WIN32)
@@ -525,6 +647,7 @@ int main()
     webview_set_title(w, "Quaero");
 #if defined(_WIN32)
     apply_window_icon(w);
+    apply_startup_background(w);
 #endif
     webview_set_size(w, 1100, 720, WEBVIEW_HINT_NONE);
     webview_bind(w, "quaeroRpc", rpc_handler, w);

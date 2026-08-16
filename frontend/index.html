@@ -4,6 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Quaero</title>
+    <!-- Boot background. The bundle is one ~1.2 MB self-contained file, so the
+         app takes a couple of seconds to paint, and until it does the webview
+         shows its own default (#121212) — which reads as a black, broken window.
+         Painting the app's own --bg first makes that gap look like the app
+         opening. Kept as a literal here, before anything else in the document:
+         it has to apply without waiting for the stylesheet the bundler inlines
+         further down. -->
+    <style>
+      /* Background only: `color-scheme` here would outlive the boot and force
+         dark scrollbars on a light-themed app, since nothing later sets it. */
+      html { background: #1e1e24; }
+      @media (prefers-color-scheme: light) {
+        html { background: #f7f7fa; }
+      }
+    </style>
     <!-- Brand favicon: solid Q mark (issue #189/#191). Canonical source: assets/brand/quaero-mark-solid.svg -->
     <link
       rel="icon"
