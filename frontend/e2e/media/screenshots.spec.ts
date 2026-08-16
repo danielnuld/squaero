@@ -138,7 +138,9 @@ test("capture the published screenshots", async ({ page }) => {
         .click();
       await expect(page.getByText(ready).first()).toBeVisible({ timeout: 30_000 });
       await shot(file);
-      await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+      // Escape, not a "Cerrar" button: the panels stopped printing one when the
+      // tab's own ✕ became the only close (#372).
+      await page.keyboard.press("Escape");
     }
 
     // 8. The chart view, which needs a result to chart: run a query, then chart it.
