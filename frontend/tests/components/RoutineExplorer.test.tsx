@@ -128,6 +128,30 @@ describe("RoutineExplorer", () => {
     expect(host!.textContent).toContain("2 objeto");
   });
 
+  it("filters the list by name as you type (#376)", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const search = host!.querySelector<HTMLInputElement>(".panel-search")!;
+    const names = () =>
+      [...host!.querySelectorAll(".routine-name")].map((el) => el.textContent);
+
+    search.value = "TAX"; // case-insensitive, like the tree and the snippets
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(names()).toEqual(["tax_rate"]);
+    expect(host!.textContent).toContain("1 de 2");
+
+    search.value = "nada";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(names()).toEqual([]);
+    expect(host!.textContent).toContain("Ningún objeto coincide");
+
+    search.value = "";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(names()).toEqual(["add_user", "tax_rate"]);
+    expect(host!.textContent).toContain("2 objeto");
+  });
+
   it("fetches and renders a routine's definition when selected", async () => {
     const calls = installBridge();
     mount("mysql");

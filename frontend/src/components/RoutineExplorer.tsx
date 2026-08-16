@@ -8,7 +8,7 @@ import {
   type RoutineRef,
   type RoutineType,
 } from "../utils/routines";
-import { readDefinitionText } from "../utils/treeObjects";
+import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
 import { objectBadge, routineKind } from "../utils/objectIcons";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -30,6 +30,7 @@ export function RoutineExplorer(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [selected, setSelected] = createSignal<RoutineRef | null>(null);
+  const [search, setSearch] = createSignal("");
   const [definition, setDefinition] = createSignal<string | null>(null);
   const [defLoading, setDefLoading] = createSignal(false);
 
@@ -123,8 +124,11 @@ export function RoutineExplorer(props: {
     }
   };
 
-  const rows = () => list()?.rows ?? [];
+  const allRows = () => list()?.rows ?? [];
   const nameIdx = createMemo(() => colIndex(support().nameCol));
+  /* Declared after nameIdx: an eagerly-run memo cannot read a const below it. */
+  const rows = createMemo(() => filterObjectRows(allRows(), [nameIdx()], search()));
+  const filtering = () => rows().length !== allRows().length;
 
   const sameRef = (a: RoutineRef | null, b: RoutineRef) =>
     !!a &&
@@ -139,7 +143,11 @@ export function RoutineExplorer(props: {
       class="routine-explorer"
       onClose={props.onClose}
       status={
-        <Show when={support().supported}>{t("explorer.objects", { n: rows().length })}</Show>
+        <Show when={support().supported}>
+          {filtering()
+            ? t("explorer.objectsFiltered", { n: rows().length, m: allRows().length })
+            : t("explorer.objects", { n: rows().length })}
+        </Show>
       }
       onRefresh={support().supported ? load : undefined}
       refreshing={loading()}
@@ -156,11 +164,26 @@ export function RoutineExplorer(props: {
       >
         <div class="routine-body">
           <div class="routine-list">
+            <input
+              class="panel-search"
+              type="search"
+              value={search()}
+              placeholder={t("explorer.searchPlaceholder")}
+              aria-label={t("explorer.searchAria")}
+              onInput={(e) => setSearch(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setSearch("");
+              }}
+            />
             <Show
               when={rows().length > 0}
               fallback={
                 <p class="grid-empty">
-                  {loading() ? t("panel.loading") : t("explorer.noRoutines")}
+                  {loading()
+                    ? t("panel.loading")
+                    : filtering() || search().trim()
+                      ? t("explorer.noMatches")
+                      : t("explorer.noRoutines")}
                 </p>
               }
             >

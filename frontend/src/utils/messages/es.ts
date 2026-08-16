@@ -198,6 +198,12 @@ export const es: Record<string, string> = {
 
   // routine / trigger explorers (RoutineExplorer.tsx + TriggersExplorer.tsx)
   "explorer.objects": "{n} objeto(s)",
+  "explorer.objectsFiltered": "{n} de {m}",
+  "explorer.searchPlaceholder": "Buscar por nombre…",
+  "explorer.searchAria": "Buscar objetos por nombre",
+  "explorer.searchPlaceholderTable": "Buscar por nombre o tabla…",
+  "explorer.searchAriaTable": "Buscar objetos por nombre o por su tabla",
+  "explorer.noMatches": "Ningún objeto coincide con la búsqueda.",
   "explorer.selectHint": "Selecciona un objeto para ver su definición.",
   "explorer.openInEditor": "Abrir en editor",
   "explorer.openInEditorTitle": "Abrir la definición en una nueva consulta",

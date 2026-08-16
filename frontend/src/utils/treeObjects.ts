@@ -159,6 +159,31 @@ export function objectLeaves(
 
 /** Extract the DDL text from a definition result: the named column of the first
     row, or all rows of that column concatenated (Informix multi-row bodies). */
+/**
+ * The rows matching `query` in any of `columns`, case-insensitively; an empty
+ * query (or no usable column) keeps the whole list. Shared by the routine and
+ * trigger explorers, whose lists are long enough on a real schema that scrolling
+ * them is the slow way to find one object (#376).
+ *
+ * Several columns because the trigger list shows `name · table`, and "which
+ * triggers does facturas have?" is the question that explorer exists to answer —
+ * searching only the name would answer half of what the row displays.
+ *
+ * Plain substring, like the snippet library and the object tree — not the
+ * command palette's fuzzy match. This is for looking through what is there, not
+ * for typing four letters and jumping.
+ */
+export function filterObjectRows(
+  rows: (string | null)[][],
+  columns: number[],
+  query: string,
+): (string | null)[][] {
+  const q = query.trim().toLowerCase();
+  const cols = columns.filter((i) => i >= 0);
+  if (q === "" || cols.length === 0) return rows;
+  return rows.filter((row) => cols.some((i) => (row[i] ?? "").toLowerCase().includes(q)));
+}
+
 export function readDefinitionText(
   columns: string[],
   rows: (string | null)[][],

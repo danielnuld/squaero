@@ -8,7 +8,7 @@ import {
   type ObjectKind,
   type ObjectRef,
 } from "../utils/triggers";
-import { readDefinitionText } from "../utils/treeObjects";
+import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
 import { objectBadge } from "../utils/objectIcons";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -41,6 +41,7 @@ export function TriggersExplorer(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [selected, setSelected] = createSignal<ObjectRef | null>(null);
+  const [search, setSearch] = createSignal("");
   const [definition, setDefinition] = createSignal<string | null>(null);
   const [defLoading, setDefLoading] = createSignal(false);
 
@@ -131,14 +132,24 @@ export function TriggersExplorer(props: {
     }
   };
 
-  const rows = () => list()?.rows ?? [];
+  const allRows = () => list()?.rows ?? [];
   const nameIdx = createMemo(() => colIndex(support().nameCol));
+  const tableIdx = createMemo(() => colIndex(support().tableCol));
+  /* Declared after both: an eagerly-run memo cannot read a const below it.
+     The table counts as searchable because the row shows it — "which triggers
+     does facturas have?" is what this explorer is for. */
+  const rows = createMemo(() => filterObjectRows(allRows(), [nameIdx(), tableIdx()], search()));
+  const filtering = () => rows().length !== allRows().length;
 
   const sameRef = (a: ObjectRef | null, b: ObjectRef) =>
     !!a && a.name === b.name && a.table === b.table && a.id === b.id;
 
   const emptyLabel = () =>
-    kind() === "event" ? t("explorer.noEvents") : t("explorer.noTriggers");
+    filtering() || search().trim()
+      ? t("explorer.noMatches")
+      : kind() === "event"
+        ? t("explorer.noEvents")
+        : t("explorer.noTriggers");
 
   return (
     <Panel
@@ -168,7 +179,11 @@ export function TriggersExplorer(props: {
         </Show>
       }
       status={
-        <Show when={support().supported}>{t("explorer.objects", { n: rows().length })}</Show>
+        <Show when={support().supported}>
+          {filtering()
+            ? t("explorer.objectsFiltered", { n: rows().length, m: allRows().length })
+            : t("explorer.objects", { n: rows().length })}
+        </Show>
       }
       onRefresh={support().supported ? load : undefined}
       refreshing={loading()}
@@ -185,6 +200,17 @@ export function TriggersExplorer(props: {
       >
         <div class="routine-body">
           <div class="routine-list">
+            <input
+              class="panel-search"
+              type="search"
+              value={search()}
+              placeholder={t("explorer.searchPlaceholderTable")}
+              aria-label={t("explorer.searchAriaTable")}
+              onInput={(e) => setSearch(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setSearch("");
+              }}
+            />
             <Show
               when={rows().length > 0}
               fallback={<p class="grid-empty">{loading() ? t("panel.loading") : emptyLabel()}</p>}

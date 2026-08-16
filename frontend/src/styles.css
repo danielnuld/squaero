@@ -3414,9 +3414,13 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 /* Search + quick filters over the loaded user list (issue #360). */
+/* The one search box a panel puts above its list (#376). Users and Snippets each
+   had their own; the explorers now use the same one rather than adding a third. */
+.panel-search,
 .um-search {
   width: 100%;
-  margin: 0.3rem 0 0.35rem;
+  margin: 0.3rem 0 0.5rem;
+  flex: 0 0 auto;
 }
 
 .um-filters {

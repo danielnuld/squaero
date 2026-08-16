@@ -4,6 +4,7 @@ import {
   folderSpec,
   objectLeaves,
   readDefinitionText,
+  filterObjectRows,
 } from "../../src/utils/treeObjects";
 import { translate } from "../../src/utils/i18n";
 
@@ -105,5 +106,55 @@ describe("readDefinitionText", () => {
 
   it("falls back to the first column when the name isn't found", () => {
     expect(readDefinitionText(["only"], [["x"]], "missing", false)).toBe("x");
+  });
+});
+
+// The search box the routine and trigger explorers grew (#376).
+describe("filterObjectRows", () => {
+  const rows = [
+    ["sp_factura_alta", "PROCEDURE"],
+    ["sp_factura_baja", "PROCEDURE"],
+    ["fn_total", "FUNCTION"],
+    [null, "FUNCTION"],
+  ];
+
+  it("keeps the rows whose name contains the query, ignoring case", () => {
+    expect(filterObjectRows(rows, [0], "FACTURA").map((r) => r[0])).toEqual([
+      "sp_factura_alta",
+      "sp_factura_baja",
+    ]);
+    expect(filterObjectRows(rows, [0], "total").map((r) => r[0])).toEqual(["fn_total"]);
+  });
+
+  it("matches anywhere in the name, not just at the start", () => {
+    expect(filterObjectRows(rows, [0], "_baja").map((r) => r[0])).toEqual(["sp_factura_baja"]);
+  });
+
+  it("keeps everything for an empty or whitespace query", () => {
+    expect(filterObjectRows(rows, [0], "")).toHaveLength(4);
+    expect(filterObjectRows(rows, [0], "   ")).toHaveLength(4);
+  });
+
+  it("drops a nameless row rather than crashing on it", () => {
+    expect(filterObjectRows(rows, [0], "f").map((r) => r[0])).toEqual([
+      "sp_factura_alta",
+      "sp_factura_baja",
+      "fn_total",
+    ]);
+  });
+
+  it("keeps the list untouched when the catalog has no usable column", () => {
+    expect(filterObjectRows(rows, [-1], "factura")).toHaveLength(4);
+  });
+
+  it("matches any of the given columns, so a trigger is findable by its table", () => {
+    const triggers = [
+      ["trg_alta", "facturas"],
+      ["trg_baja", "clientes"],
+    ];
+    expect(filterObjectRows(triggers, [0, 1], "facturas").map((r) => r[0])).toEqual(["trg_alta"]);
+    expect(filterObjectRows(triggers, [0, 1], "trg_baja").map((r) => r[0])).toEqual(["trg_baja"]);
+    // A column the catalog does not have is skipped, not treated as a miss.
+    expect(filterObjectRows(triggers, [0, -1], "facturas")).toEqual([]);
   });
 });
