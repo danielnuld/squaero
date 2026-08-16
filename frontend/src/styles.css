@@ -4686,6 +4686,51 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--accent-text);
 }
 
+/* A cell whose row has dependents: underlined so the affordance is visible at
+   rest, with the arrow appearing on hover or once the cell is selected. Before
+   this the only way in was the right-click menu, which is not something anyone
+   finds by accident. `position: relative` sits on this class rather than on
+   `.grid-cell` so nothing changes for the thousands of ordinary cells. */
+.cell-related {
+  position: relative;
+  padding-right: 1.3rem;
+  text-decoration: underline dotted var(--accent-text);
+  text-underline-offset: 2px;
+}
+
+.cell-related-btn {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--accent-text);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.cell-related-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.cell-related:hover .cell-related-btn,
+.cell-related.cell-selected .cell-related-btn {
+  opacity: 1;
+}
+
+.cell-related-btn:hover {
+  background: var(--bg-elev2);
+}
+
 .col-ref-mark {
   font-size: 9px;
   color: var(--accent-text);

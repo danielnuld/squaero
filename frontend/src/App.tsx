@@ -1979,15 +1979,24 @@ export function App() {
       // showing up" as the honest description of the feature (issue #344): four
       // separate conditions gate it and silence gave no way to tell them apart.
       const column = res.columns[colIndex]?.name ?? "";
-      const blocked = relatedBlockedReason(column);
-      items.push(
-        blocked === null
-          ? {
-              label: t("related.menu", { column, value: row[colIndex] ?? "NULL" }),
-              action: () => openRelated(rowIndex, colIndex),
-            }
-          : { label: blocked, disabled: true },
-      );
+      // Getters, not values computed here: the catalog answer can land while the
+      // menu is already open, and a string captured at open time left the entry
+      // stuck on "buscando relaciones…" until the menu was closed and reopened —
+      // which on a large schema, where the lookup takes a moment, is what every
+      // right-click looked like. ContextMenu reads both inside JSX, so a getter
+      // re-renders the entry when the state changes.
+      items.push({
+        get label() {
+          return (
+            relatedBlockedReason(column) ??
+            t("related.menu", { column, value: row[colIndex] ?? "NULL" })
+          );
+        },
+        get disabled() {
+          return relatedBlockedReason(column) !== null;
+        },
+        action: () => openRelated(rowIndex, colIndex),
+      });
       items.push({ separator: true });
       const cell = row[colIndex];
       items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
@@ -2536,6 +2545,7 @@ export function App() {
                         }
                         onCellContext={onCellContext}
                         referencedColumns={referencedColumns()}
+                        onRelated={openRelated}
                         onSortColumn={
                           isDataTab(tab().id)
                             ? (column) => sortDataColumn(tab().id, column)

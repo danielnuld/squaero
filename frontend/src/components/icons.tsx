@@ -53,6 +53,14 @@ export const IconQuery: IconComponent = () => (
   </Svg>
 );
 
+/** lucide/arrow-right — jump from a cell to the rows related to it. */
+export const IconRelated: IconComponent = () => (
+  <Svg>
+    <path d="M5 12h14" />
+    <path d="m12 5 7 7-7 7" />
+  </Svg>
+);
+
 /** lucide/table — a new table. */
 export const IconTable: IconComponent = () => (
   <Svg>

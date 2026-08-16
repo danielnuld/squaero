@@ -14,6 +14,7 @@ import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
+import { IconRelated } from "./icons";
 import { t } from "../utils/i18n";
 
 const DEFAULT_ROW_HEIGHT = 28;
@@ -69,6 +70,15 @@ export function ResultGrid(props: {
   /** Columns other tables reference (issue #310). Marked in the header, so the
       user can see where "datos relacionados" is available without probing. */
   referencedColumns?: string[];
+  /**
+   * Open the related data of one cell. Given together with `referencedColumns`,
+   * every cell of a referenced column is underlined and grows an arrow on hover
+   * or when selected — the feature was only reachable through the right-click
+   * menu, which meant nobody found it. The arrow is a MOUSE affordance and stays
+   * out of the tab order (a page of rows would otherwise add a tab stop per
+   * cell); the keyboard route is the cell menu, which is where it already was.
+   */
+  onRelated?: (rowIndex: number, colIndex: number) => void;
   /**
    * Sort at the SERVER instead of in the browser (issue #347). Given, a header
    * click hands the column name up rather than reordering the rows already
@@ -496,9 +506,11 @@ export function ResultGrid(props: {
                                     when={editing()}
                                     fallback={(() => {
                                       const cell = formatCell(original(), col.type);
+                                      const related = () =>
+                                        !!props.onRelated && isReferenced(col.name);
                                       return (
                                         <div
-                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""}`}
+                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${related() ? "cell-related" : ""}`}
                                           role="gridcell"
                                           aria-colindex={ci() + 1}
                                           aria-selected={isSelected(viewPos(), ci())}
@@ -515,6 +527,24 @@ export function ResultGrid(props: {
                                           }
                                         >
                                           {cell.text}
+                                          <Show when={related()}>
+                                            <button
+                                              class="cell-related-btn"
+                                              type="button"
+                                              tabindex="-1"
+                                              aria-hidden="true"
+                                              title={t("related.cellArrow")}
+                                              onClick={(e) => {
+                                                // Without this the cell's own click
+                                                // handler also runs and the grid
+                                                // fights the dialog for focus.
+                                                e.stopPropagation();
+                                                props.onRelated?.(rowIndex(), ci());
+                                              }}
+                                            >
+                                              <IconRelated />
+                                            </button>
+                                          </Show>
                                         </div>
                                       );
                                     })()}

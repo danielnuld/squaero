@@ -742,3 +742,63 @@ describe("ResultGrid column marks", () => {
     expect(host!.querySelector(".col-key-mark")).toBeNull();
   });
 });
+
+// The cell affordance for related data: without it the feature lived only in the
+// right-click menu, where nobody found it.
+describe("ResultGrid related-data cells", () => {
+  const mount = (props: Partial<Parameters<typeof ResultGrid>[0]>) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <ResultGrid result={result} loading={false} error={null} {...props} />,
+        host!,
+      );
+    });
+  };
+  const cellsOf = (colIndex: number) =>
+    [...host!.querySelectorAll<HTMLElement>("[role='gridcell']")].filter(
+      (c) => c.getAttribute("aria-colindex") === String(colIndex + 1),
+    );
+
+  it("marks every cell of a referenced column, and only those", () => {
+    mount({ referencedColumns: ["id"], onRelated: () => {} });
+    expect(cellsOf(0).every((c) => c.classList.contains("cell-related"))).toBe(true);
+    expect(cellsOf(1).some((c) => c.classList.contains("cell-related"))).toBe(false);
+    // One arrow per row of that column, not one for the whole grid.
+    expect(host!.querySelectorAll(".cell-related-btn").length).toBe(2);
+  });
+
+  it("opens the related data of the clicked row and column", () => {
+    const calls: [number, number][] = [];
+    mount({ referencedColumns: ["id"], onRelated: (r, c) => calls.push([r, c]) });
+    host!.querySelectorAll<HTMLButtonElement>(".cell-related-btn")[1].click();
+    expect(calls).toEqual([[1, 0]]);
+  });
+
+  it("matches the column name case-insensitively, like the catalog", () => {
+    mount({ referencedColumns: ["ID"], onRelated: () => {} });
+    expect(cellsOf(0)[0].classList.contains("cell-related")).toBe(true);
+  });
+
+  it("stays out of the tab order: a page of rows is not a page of tab stops", () => {
+    mount({ referencedColumns: ["id"], onRelated: () => {} });
+    const arrow = host!.querySelector<HTMLButtonElement>(".cell-related-btn")!;
+    expect(arrow.getAttribute("tabindex")).toBe("-1");
+    // The keyboard route stays the cell menu, so the arrow is not announced.
+    expect(arrow.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("shows no arrow without a handler or without referenced columns", () => {
+    mount({ referencedColumns: ["id"] });
+    expect(host!.querySelector(".cell-related-btn")).toBeNull();
+    mount({ onRelated: () => {} });
+    expect(host!.querySelector(".cell-related-btn")).toBeNull();
+  });
+
+  it("leaves the cell text alone, so the value is still what the row reads", () => {
+    mount({ referencedColumns: ["id"], onRelated: () => {} });
+    expect(cellsOf(0)[0].textContent).toBe("1");
+  });
+});

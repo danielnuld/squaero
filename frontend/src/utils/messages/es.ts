@@ -25,6 +25,7 @@ export const es: Record<string, string> = {
   "related.openTab": "Abrir en pestaña",
   "related.toEditor": "Enviar al editor",
   "related.refColumn": "Columna referenciada por otras tablas",
+  "related.cellArrow": "Ver los datos relacionados con este valor",
   // por qué la acción no está disponible (#344): el menú lo dice en vez de callar
   "related.needsTable": "Datos relacionados: solo para el resultado de una sola tabla",
   "related.checking": "Datos relacionados: buscando relaciones…",

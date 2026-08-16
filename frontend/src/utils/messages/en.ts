@@ -22,6 +22,7 @@ export const en: Record<string, string> = {
   "related.openTab": "Open in a tab",
   "related.toEditor": "Send to the editor",
   "related.refColumn": "Column referenced by other tables",
+  "related.cellArrow": "See the data related to this value",
   // why the action is unavailable (#344): the menu says so instead of vanishing
   "related.needsTable": "Related data: only for one table's rows",
   "related.checking": "Related data: looking for relationships…",
