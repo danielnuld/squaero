@@ -3337,45 +3337,6 @@ button.grid-action.danger:hover:not(:disabled) {
   margin-bottom: 0.4rem;
 }
 
-.sm-scroll {
-  margin-top: 0.8rem;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-}
-
-.sm-table {
-  border-collapse: collapse;
-  font-size: 12px;
-  width: 100%;
-}
-
-.sm-table th,
-.sm-table td {
-  border-bottom: 1px solid var(--border);
-  padding: 0.3rem 0.5rem;
-  text-align: left;
-  white-space: nowrap;
-  max-width: 28rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sm-table th {
-  position: sticky;
-  top: 0;
-  background: var(--bg-elev2);
-  color: var(--text-dim);
-}
-
-.sm-kill-col {
-  width: 1%;
-}
-
-.sm-kill {
-  color: var(--danger, #e5484d);
-}
-
 /* User / privilege management (issue #140) */
 .um-body {
   display: grid;
@@ -4269,15 +4230,6 @@ button.grid-action.danger:hover:not(:disabled) {
   gap: 0.35rem;
   font-size: 12px;
   color: var(--text-dim);
-}
-
-.sq-actions-col {
-  white-space: nowrap;
-  width: 1%;
-}
-
-.sq-actions-col .edit-btn {
-  margin-right: 0.25rem;
 }
 
 /* Visual EXPLAIN plan (issue #187) */

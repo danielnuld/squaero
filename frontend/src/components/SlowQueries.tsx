@@ -8,6 +8,7 @@ import {
   type SlowOrder,
 } from "../utils/slowQueries";
 import { Panel } from "./Panel";
+import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
 
 // "Consultas lentas" tool (issue #180): lists the slowest statements the SERVER
@@ -38,6 +39,7 @@ export function SlowQueries(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [resetting, setResetting] = createSignal(false);
+  const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
 
   let token = 0;
 
@@ -99,8 +101,18 @@ export function SlowQueries(props: {
   };
 
   const rows = () => result()?.rows ?? [];
-  const cols = () => result()?.columns ?? [];
   const queryText = (row: (string | null)[]) => (queryIndex() >= 0 ? row[queryIndex()] : null);
+
+  /* The SQL of the selected row, which is what "Abrir" and EXPLAIN act on now
+     that the buttons live in the bar rather than in a column of their own.
+     After queryIndex, deliberately: an eagerly-run memo cannot read a const
+     declared below it. */
+  const selectedQuery = createMemo(() => {
+    const r = selectedRow();
+    if (r === null) return null;
+    const row = result()?.rows[r];
+    return row ? queryText(row) : null;
+  });
 
   return (
     <Panel
@@ -109,6 +121,24 @@ export function SlowQueries(props: {
       onClose={props.onClose}
       actions={
         <Show when={support().supported}>
+          {/* Both act on the selected row (#372): the grid has no column for
+              per-row buttons, and the bar is where every panel keeps actions. */}
+          <button
+            class="edit-btn"
+            disabled={!selectedQuery()}
+            title={t("slow.openTitle")}
+            onClick={() => props.onOpenSql(selectedQuery()!)}
+          >
+            {t("slow.open")}
+          </button>
+          <button
+            class="edit-btn"
+            disabled={!selectedQuery()}
+            title={t("slow.explainTitle")}
+            onClick={() => props.onExplain(selectedQuery()!)}
+          >
+            EXPLAIN
+          </button>
           <label class="sq-order">
             {t("slow.orderBy")}
             <select value={order()} onChange={(e) => setOrder(e.currentTarget.value as SlowOrder)}>
@@ -136,45 +166,13 @@ export function SlowQueries(props: {
         when={support().supported}
         fallback={<p class="grid-empty">{support().reason}</p>}
       >
-        <Show
-          when={rows().length > 0}
-          fallback={<p class="grid-empty">{loading() ? t("panel.loading") : t("slow.noRecords")}</p>}
-        >
-          <div class="sm-scroll">
-            <table class="sm-table">
-              <thead>
-                <tr>
-                  <th class="sq-actions-col" />
-                  <For each={cols()}>{(c) => <th>{c.name}</th>}</For>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={rows()}>
-                  {(row) => {
-                    const q = () => queryText(row);
-                    return (
-                      <tr>
-                        <td class="sq-actions-col">
-                          <Show when={q()}>
-                            <button class="edit-btn" title={t("slow.openTitle")} onClick={() => props.onOpenSql(q()!)}>
-                              {t("slow.open")}
-                            </button>
-                            <button class="edit-btn" title={t("slow.explainTitle")} onClick={() => props.onExplain(q()!)}>
-                              EXPLAIN
-                            </button>
-                          </Show>
-                        </td>
-                        <For each={cols()}>
-                          {(_c, i) => <td title={row[i()] ?? ""}>{row[i()] ?? ""}</td>}
-                        </For>
-                      </tr>
-                    );
-                  }}
-                </For>
-              </tbody>
-            </table>
-          </div>
-        </Show>
+        <ResultGrid
+          result={result()}
+          loading={loading()}
+          error={null}
+          emptyState={<p class="grid-empty">{t("slow.noRecords")}</p>}
+          onSelectedRowChange={setSelectedRow}
+        />
       </Show>
     </Panel>
   );

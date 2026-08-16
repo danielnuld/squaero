@@ -1,8 +1,9 @@
-import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { Show, createMemo, createSignal, onMount } from "solid-js";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import { monitorFor, buildKillSql, unsupportedReason } from "../utils/serverMonitor";
 import { Panel } from "./Panel";
+import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
 
 // Server monitor / process list (issue #148): lists the server's active
@@ -20,11 +21,21 @@ export function ServerMonitor(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [killing, setKilling] = createSignal<string | null>(null);
+  const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
 
   const idIndex = createMemo(() => {
     const cols = result()?.columns ?? [];
     if (!support.idColumn) return -1;
     return cols.findIndex((c) => c.name.toLowerCase() === support.idColumn!.toLowerCase());
+  });
+
+  /* The session id of the selected row, or null when there is nothing to kill.
+     Declared AFTER idIndex on purpose: a createMemo runs eagerly, so reading a
+     const declared below it throws before the panel ever renders. */
+  const selectedId = createMemo(() => {
+    const r = selectedRow();
+    if (r === null || idIndex() < 0) return null;
+    return result()?.rows[r]?.[idIndex()] ?? null;
   });
 
   const load = async () => {
@@ -58,13 +69,31 @@ export function ServerMonitor(props: {
   onMount(load);
 
   const rows = () => result()?.rows ?? [];
-  const cols = () => result()?.columns ?? [];
 
   return (
     <Panel
       title={t("tool.monitor.tab")}
       class="server-monitor"
       onClose={props.onClose}
+      actions={
+        <Show when={support.supported && support.canKill}>
+          {/* Acts on the selected row: a column of buttons is not something the
+              result grid has a place for, and every other panel's actions live
+              in the bar (#372). */}
+          <button
+            class="edit-btn"
+            disabled={selectedId() === null || killing() !== null}
+            title={
+              selectedId() === null
+                ? t("monitor.killHint")
+                : t("monitor.killTitle", { id: selectedId()! })
+            }
+            onClick={() => void kill(selectedId()!)}
+          >
+            {killing() !== null ? "…" : t("monitor.kill")}
+          </button>
+        </Show>
+      }
       status={
         <Show when={support.supported}>
           <span>{t("monitor.sessions", { n: rows().length })}</span>
@@ -83,55 +112,13 @@ export function ServerMonitor(props: {
         when={support.supported}
         fallback={<p class="grid-empty">{unsupportedReason(props.engine)}</p>}
       >
-        <Show
-          when={rows().length > 0}
-          fallback={
-            <p class="grid-empty">
-              {loading() ? t("panel.loading") : t("monitor.noSessions")}
-            </p>
-          }
-        >
-          <div class="sm-scroll">
-            <table class="sm-table">
-              <thead>
-                <tr>
-                  <Show when={support.canKill}>
-                    <th class="sm-kill-col" />
-                  </Show>
-                  <For each={cols()}>{(c) => <th>{c.name}</th>}</For>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={rows()}>
-                  {(row) => {
-                    const id = () => (idIndex() >= 0 ? row[idIndex()] : null);
-                    return (
-                      <tr>
-                        <Show when={support.canKill}>
-                          <td class="sm-kill-col">
-                            <Show when={id() !== null}>
-                              <button
-                                class="edit-btn sm-kill"
-                                title={t("monitor.killTitle", { id: id()! })}
-                                disabled={killing() !== null}
-                                onClick={() => kill(id()!)}
-                              >
-                                {killing() === id() ? "…" : t("monitor.kill")}
-                              </button>
-                            </Show>
-                          </td>
-                        </Show>
-                        <For each={cols()}>
-                          {(_c, i) => <td title={row[i()] ?? ""}>{row[i()] ?? ""}</td>}
-                        </For>
-                      </tr>
-                    );
-                  }}
-                </For>
-              </tbody>
-            </table>
-          </div>
-        </Show>
+        <ResultGrid
+          result={result()}
+          loading={loading()}
+          error={null}
+          emptyState={<p class="grid-empty">{t("monitor.noSessions")}</p>}
+          onSelectedRowChange={setSelectedRow}
+        />
       </Show>
     </Panel>
   );

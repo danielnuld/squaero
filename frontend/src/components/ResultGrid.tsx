@@ -80,6 +80,14 @@ export function ResultGrid(props: {
    */
   onRelated?: (rowIndex: number, colIndex: number) => void;
   /**
+   * The row the selection sits on, by index into `result.rows`, or null when
+   * nothing is selected (#372). A panel whose rows carry actions — kill this
+   * session, explain this query — uses it to act on the selected row from the
+   * panel bar, instead of growing a column of buttons the grid has no place
+   * for. Fires for keyboard navigation too, since that moves the same selection.
+   */
+  onSelectedRowChange?: (rowIndex: number | null) => void;
+  /**
    * Sort at the SERVER instead of in the browser (issue #347). Given, a header
    * click hands the column name up rather than reordering the rows already
    * fetched — which over a truncated result reordered an arbitrary sample. The
@@ -332,6 +340,13 @@ export function ResultGrid(props: {
     const s = sel();
     return !!s && s.r === viewPos && s.c === c;
   };
+
+  // Publish the selected ROW (index into result.rows, not into the sorted or
+  // filtered view) for panels that act on it from their bar.
+  createEffect(() => {
+    const s = sel();
+    props.onSelectedRowChange?.(s === null ? null : (view()[s.r] ?? null));
+  });
 
   return (
     <div class="grid">

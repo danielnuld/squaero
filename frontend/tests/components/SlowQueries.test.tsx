@@ -92,27 +92,34 @@ describe("SlowQueries", () => {
     expect(calls.some((s) => s.includes("ORDER BY SUM_TIMER_WAIT DESC"))).toBe(true);
   });
 
-  it("opens a row's statement in the editor", async () => {
+  // The per-row buttons became bar actions over the selected row (#372).
+  const barButton = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find(
+      (b) => b.textContent === label,
+    )!;
+  const selectFirstRow = () =>
+    host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
+
+  it("opens the SELECTED row's statement in the editor", async () => {
     installBridge();
     const onOpenSql = vi.fn();
     mount({ onOpenSql });
     await flush();
-    const open = [...host!.querySelectorAll<HTMLButtonElement>(".sq-actions-col .edit-btn")].find(
-      (b) => b.textContent === "Abrir",
-    )!;
-    open.click();
+    expect(barButton("Abrir").disabled).toBe(true); // nothing selected yet
+    selectFirstRow();
+    await flush();
+    barButton("Abrir").click();
     expect(onOpenSql).toHaveBeenCalledWith("SELECT * FROM orders");
   });
 
-  it("requests EXPLAIN for a row's statement", async () => {
+  it("requests EXPLAIN for the SELECTED row's statement", async () => {
     installBridge();
     const onExplain = vi.fn();
     mount({ onExplain });
     await flush();
-    const explain = [...host!.querySelectorAll<HTMLButtonElement>(".sq-actions-col .edit-btn")].find(
-      (b) => b.textContent === "EXPLAIN",
-    )!;
-    explain.click();
+    selectFirstRow();
+    await flush();
+    barButton("EXPLAIN").click();
     expect(onExplain).toHaveBeenCalledWith("SELECT * FROM orders");
   });
 

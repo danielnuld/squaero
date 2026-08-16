@@ -208,7 +208,8 @@ export const en: Record<string, string> = {
 
   // server monitor panel (ServerMonitor.tsx)
   "monitor.sessions": "{n} session(s)",
-  "monitor.kill": "Kill",
+  "monitor.kill": "Kill session",
+  "monitor.killHint": "Select a row to kill that session",
   "monitor.killTitle": "Kill session {id}",
   "monitor.noSessions": "No active sessions.",
 
