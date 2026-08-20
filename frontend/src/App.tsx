@@ -2852,6 +2852,7 @@ export function App() {
                   <Notebook
                     connId={toolConn()?.connId ?? ""}
                     notebookId={(tt().params as { notebookId?: string } | undefined)?.notebookId}
+                    engine={activeDialect()}
                     onChart={(result) =>
                       showTool("chart", t("tab.chart"), { key: "chart", params: { result } })
                     }

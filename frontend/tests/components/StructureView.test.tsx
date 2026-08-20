@@ -128,6 +128,30 @@ describe("StructureView view editing", () => {
     expect(after).toMatch(/create view/i);
   });
 
+  it("beautifies the view definition with Ctrl+Shift+F in the editor", async () => {
+    installBridge();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <StructureView connId="c1" table="v" kind="view" engine="sqlite" onClose={() => {}} />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    clickText("Editar definición");
+    const ta = host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement;
+    expect(ta.value.includes("\n")).toBe(false);
+    ta.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "F", ctrlKey: true, shiftKey: true, bubbles: true }),
+    );
+    const after = (host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement).value;
+    expect(after.includes("\n")).toBe(true);
+  });
+
   it("shows no edit button for a table", async () => {
     installBridge();
     host = document.createElement("div");

@@ -200,6 +200,14 @@ export function StructureView(props: {
             class="ddl-edit"
             value={draft()}
             onInput={(e) => setDraft(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              // Same key the SQL editor uses to format (see SqlEditor.tsx); this
+              // is a plain textarea, so it needs its own binding.
+              if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "f") {
+                e.preventDefault();
+                formatDraft();
+              }
+            }}
             spellcheck={false}
           />
           <Show when={applyError()}>

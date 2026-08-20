@@ -1,4 +1,4 @@
-import { For, Show, createSignal, createMemo } from "solid-js";
+import { For, Index, Show, createSignal, createMemo } from "solid-js";
 import { createStore } from "solid-js/store";
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
@@ -6,6 +6,7 @@ import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import { changesCatalog } from "../utils/sqlEffects";
 import { renderMarkdown } from "../utils/markdown";
+import { formatSql } from "../utils/sqlFormat";
 import { saveText } from "../utils/download";
 import { loadNotebooks, saveNotebooks } from "../utils/notebookStore";
 import { notebookToMarkdown, notebookToHtml } from "../utils/notebookExport";
@@ -43,6 +44,8 @@ export function Notebook(props: {
   connId: string;
   /** Notebook to open; when unknown, the first saved (or a new) one is shown. */
   notebookId?: string;
+  /** Active engine name, used to pick the SQL dialect when formatting. */
+  engine?: string;
   /** Chart a cell's result by opening the chart tool. */
   onChart: (result: ResultSet) => void;
   /** A cell ran DDL: the object tree is stale (issue #317). */
@@ -104,6 +107,10 @@ export function Notebook(props: {
   };
   const editSource = (id: string, source: string) =>
     mutate((nb) => ({ ...nb, cells: updateCellSource(nb.cells, id, source) }));
+  // Beautify a SQL cell in place with the same formatter as the SQL editor
+  // (a no-op on empty text, a non-SQL engine or a parse error — see sqlFormat.ts).
+  const formatCell = (id: string, source: string) =>
+    editSource(id, formatSql(source, props.engine));
   const switchKind = (id: string, kind: CellKind) =>
     mutate((nb) => ({ ...nb, cells: setCellKind(nb.cells, id, kind) }));
   const move = (id: string, dir: -1 | 1) =>
@@ -234,16 +241,19 @@ export function Notebook(props: {
       </details>
 
       <div class="nb-cells">
-        <For each={current().cells}>
+        {/* Index, not For: editing a cell replaces its object in the list, and a
+            keyed For would rebuild the row's DOM on every keystroke (losing the
+            caret in the textarea). Index keeps the node and updates it in place. */}
+        <Index each={current().cells}>
           {(cell, idx) => (
-            <div class={`nb-cell nb-cell-${cell.kind}`}>
+            <div class={`nb-cell nb-cell-${cell().kind}`}>
               <div class="nb-cell-bar">
-                <span class="nb-cell-kind">{cell.kind === "sql" ? "SQL" : "Markdown"}</span>
-                <Show when={cell.kind === "sql"}>
+                <span class="nb-cell-kind">{cell().kind === "sql" ? "SQL" : "Markdown"}</span>
+                <Show when={cell().kind === "sql"}>
                   <button
                     class="status-btn run-btn"
                     title={t("nb.runCellTitle")}
-                    onClick={() => void runCell(cell)}
+                    onClick={() => void runCell(cell())}
                   >
                     {t("nb.runCell")}
                   </button>
@@ -251,61 +261,84 @@ export function Notebook(props: {
                 <span class="editor-hint-spacer" />
                 <button
                   class="status-btn"
-                  title={cell.kind === "sql" ? t("nb.toMd") : t("nb.toSql")}
-                  onClick={() => switchKind(cell.id, cell.kind === "sql" ? "markdown" : "sql")}
+                  title={cell().kind === "sql" ? t("nb.toMd") : t("nb.toSql")}
+                  onClick={() => switchKind(cell().id, cell().kind === "sql" ? "markdown" : "sql")}
                 >
-                  {cell.kind === "sql" ? "→ MD" : "→ SQL"}
+                  {cell().kind === "sql" ? "→ MD" : "→ SQL"}
                 </button>
-                <button class="status-btn" title={t("nb.moveUp")} disabled={idx() === 0} onClick={() => move(cell.id, -1)}>
+                <Show when={cell().kind === "sql"}>
+                  <button
+                    class="status-btn"
+                    title={t("editor.formatTitle")}
+                    disabled={cell().source.trim() === ""}
+                    onClick={() => formatCell(cell().id, cell().source)}
+                  >
+                    {t("editor.format")}
+                  </button>
+                </Show>
+                <button class="status-btn" title={t("nb.moveUp")} disabled={idx === 0} onClick={() => move(cell().id, -1)}>
                   ↑
                 </button>
                 <button
                   class="status-btn"
                   title={t("nb.moveDown")}
-                  disabled={idx() === current().cells.length - 1}
-                  onClick={() => move(cell.id, 1)}
+                  disabled={idx === current().cells.length - 1}
+                  onClick={() => move(cell().id, 1)}
                 >
                   ↓
                 </button>
-                <button class="status-btn" title={t("nb.addSqlBelow")} onClick={() => addCell(cell.id, "sql")}>
+                <button class="status-btn" title={t("nb.addSqlBelow")} onClick={() => addCell(cell().id, "sql")}>
                   +SQL
                 </button>
-                <button class="status-btn" title={t("nb.addMdBelow")} onClick={() => addCell(cell.id, "markdown")}>
+                <button class="status-btn" title={t("nb.addMdBelow")} onClick={() => addCell(cell().id, "markdown")}>
                   +MD
                 </button>
                 <button
                   class="status-btn"
                   title={t("nb.deleteCell")}
                   disabled={current().cells.length <= 1}
-                  onClick={() => deleteCell(cell.id)}
+                  onClick={() => deleteCell(cell().id)}
                 >
                   🗑
                 </button>
               </div>
 
               <Show
-                when={cell.kind === "sql" || editing[cell.id] || cell.source.trim() === ""}
+                when={cell().kind === "sql" || editing[cell().id] || cell().source.trim() === ""}
                 fallback={
                   <div
                     class="nb-md"
-                    onDblClick={() => setEditing(cell.id, true)}
+                    onDblClick={() => setEditing(cell().id, true)}
                     title={t("nb.dblClickEdit")}
                     // eslint-disable-next-line solid/no-innerhtml -- renderMarkdown escapes all HTML
-                    innerHTML={renderMarkdown(cell.source)}
+                    innerHTML={renderMarkdown(cell().source)}
                   />
                 }
               >
                 <textarea
-                  class={cell.kind === "sql" ? "nb-src nb-src-sql" : "nb-src"}
-                  value={cell.source}
-                  spellcheck={cell.kind === "markdown"}
-                  placeholder={cell.kind === "sql" ? "SELECT …" : t("nb.mdPlaceholder")}
-                  onInput={(e) => editSource(cell.id, e.currentTarget.value)}
-                  onBlur={() => cell.kind === "markdown" && setEditing(cell.id, false)}
+                  class={cell().kind === "sql" ? "nb-src nb-src-sql" : "nb-src"}
+                  value={cell().source}
+                  spellcheck={cell().kind === "markdown"}
+                  placeholder={cell().kind === "sql" ? "SELECT …" : t("nb.mdPlaceholder")}
+                  onInput={(e) => editSource(cell().id, e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    // Same key the SQL editor uses to format (see SqlEditor.tsx);
+                    // this is a plain textarea, so it needs its own binding.
+                    if (
+                      cell().kind === "sql" &&
+                      (e.ctrlKey || e.metaKey) &&
+                      e.shiftKey &&
+                      e.key.toLowerCase() === "f"
+                    ) {
+                      e.preventDefault();
+                      formatCell(cell().id, e.currentTarget.value);
+                    }
+                  }}
+                  onBlur={() => cell().kind === "markdown" && setEditing(cell().id, false)}
                 />
               </Show>
 
-              <Show when={cell.kind === "sql" && results[cell.id]}>
+              <Show when={cell().kind === "sql" && results[cell().id]}>
                 {(r) => (
                   <div class="nb-result">
                     <Show when={r().result && (r().result!.columns.length > 0)}>
@@ -334,7 +367,7 @@ export function Notebook(props: {
               </Show>
             </div>
           )}
-        </For>
+        </Index>
       </div>
     </Panel>
   );
