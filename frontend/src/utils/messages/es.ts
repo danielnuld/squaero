@@ -353,6 +353,9 @@ export const es: Record<string, string> = {
   "result.copyCell": "Copiar celda",
   "result.copyRow": "Copiar fila",
   "result.copyRowJson": "Copiar fila como JSON",
+  "result.copyRowsN": "Copiar {n} filas seleccionadas",
+  "result.copyRowsInserts": "Copiar {n} filas como INSERT",
+  "result.transferRowsN": "Transferir {n} filas a otra tabla…",
   "result.exportFmt": "Exportar {fmt}",
 
   // result grid (ResultGrid.tsx)
@@ -539,6 +542,8 @@ export const es: Record<string, string> = {
   "status.rowsOther": "{n} filas",
   "status.scopeTitle": "Alcance de la última ejecución",
   "status.durationTitle": "Duración de la última ejecución",
+  "status.marked": "{n} seleccionadas",
+  "status.markedTitle": "Filas marcadas en la rejilla (clic con Ctrl o Mayús; Ctrl+A todas)",
   "status.shortcuts": "Atajos de teclado",
 
   // run scope indicator (issue #130)

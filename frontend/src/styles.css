@@ -1177,6 +1177,15 @@ body {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+/* Rows marked for a bulk action (issue #382). After the zebra rule so it wins
+   over the stripe, and with a left bar so the mark still reads for anyone who
+   cannot separate the tint from the stripe. */
+.grid-row.row-marked,
+.grid-row.row-marked.row-odd {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .grid-cell {
   height: var(--grid-row-h, 28px);
   line-height: var(--grid-row-h, 28px);

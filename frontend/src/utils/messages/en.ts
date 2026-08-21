@@ -350,6 +350,9 @@ export const en: Record<string, string> = {
   "result.copyCell": "Copy cell",
   "result.copyRow": "Copy row",
   "result.copyRowJson": "Copy row as JSON",
+  "result.copyRowsN": "Copy {n} selected rows",
+  "result.copyRowsInserts": "Copy {n} rows as INSERT",
+  "result.transferRowsN": "Transfer {n} rows to another table…",
   "result.exportFmt": "Export {fmt}",
 
   // result grid (ResultGrid.tsx)
@@ -536,6 +539,8 @@ export const en: Record<string, string> = {
   "status.rowsOther": "{n} rows",
   "status.scopeTitle": "Scope of the last run",
   "status.durationTitle": "Duration of the last run",
+  "status.marked": "{n} selected",
+  "status.markedTitle": "Rows marked in the grid (ctrl or shift click; ctrl+A for all)",
   "status.shortcuts": "Keyboard shortcuts",
 
   // run scope indicator

@@ -802,3 +802,144 @@ describe("ResultGrid related-data cells", () => {
     expect(cellsOf(0)[0].textContent).toBe("1");
   });
 });
+
+// Multi-row marking (issue #382): ctrl/cmd + click toggles a row, shift + click
+// and shift + arrows extend from the anchor, ctrl + A takes the whole view.
+describe("ResultGrid row marking", () => {
+  const grid: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "name", type: "text" },
+    ],
+    rows: [
+      ["1", "ana"],
+      ["2", "beto"],
+      ["3", "carla"],
+      ["4", "dora"],
+    ],
+    truncated: false,
+    rowsAffected: 0,
+  };
+
+  let marked: number[] = [];
+
+  function mountMarkable() {
+    marked = [];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={grid}
+            loading={false}
+            error={null}
+            onMarkedRowsChange={(rows) => (marked = rows)}
+          />
+        ),
+        host!,
+      );
+    });
+  }
+
+  const cell = (r: number, c = 0) =>
+    host!.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`)!;
+  const click = (r: number, mods: MouseEventInit = {}) =>
+    cell(r).dispatchEvent(new MouseEvent("click", { bubbles: true, ...mods }));
+  const markedRowEls = () => host!.querySelectorAll(".grid-row.row-marked");
+  const key = (init: KeyboardEventInit) =>
+    host!
+      .querySelector<HTMLElement>(".grid-scroll")!
+      .dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
+
+  it("marks nothing on a plain click", () => {
+    mountMarkable();
+    click(1);
+    expect(markedRowEls()).toHaveLength(0);
+    expect(marked).toEqual([]);
+  });
+
+  it("marks a row with ctrl + click and unmarks it with a second one", () => {
+    mountMarkable();
+    click(1, { ctrlKey: true });
+    expect(marked).toEqual([1]);
+    click(1, { ctrlKey: true });
+    expect(marked).toEqual([]);
+  });
+
+  it("marks with cmd + click too (macOS)", () => {
+    mountMarkable();
+    click(2, { metaKey: true });
+    expect(marked).toEqual([2]);
+  });
+
+  it("extends the range with shift + click", () => {
+    mountMarkable();
+    click(1);
+    click(3, { shiftKey: true });
+    expect(marked).toEqual([1, 2, 3]);
+    expect(markedRowEls()).toHaveLength(3);
+  });
+
+  it("extends backwards too", () => {
+    mountMarkable();
+    click(3);
+    click(1, { shiftKey: true });
+    expect(marked).toEqual([1, 2, 3]);
+  });
+
+  it("drops the marks on a plain click", () => {
+    mountMarkable();
+    click(0);
+    click(2, { shiftKey: true });
+    click(3);
+    expect(marked).toEqual([]);
+  });
+
+  it("extends with shift + ArrowDown from the selected row", () => {
+    mountMarkable();
+    click(0);
+    key({ key: "ArrowDown", shiftKey: true });
+    key({ key: "ArrowDown", shiftKey: true });
+    expect(marked).toEqual([0, 1, 2]);
+  });
+
+  it("marks every row of the view with ctrl + A", () => {
+    mountMarkable();
+    key({ key: "a", ctrlKey: true });
+    expect(marked).toEqual([0, 1, 2, 3]);
+  });
+
+  it("marks only what the filter shows", () => {
+    mountMarkable();
+    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    filter.value = "a";
+    filter.dispatchEvent(new Event("input", { bubbles: true })); // ana, carla, dora
+    key({ key: "a", ctrlKey: true });
+    expect(marked).toEqual([0, 2, 3]);
+  });
+
+  it("clears the marks when a new result loads", () => {
+    mountMarkable();
+    key({ key: "a", ctrlKey: true });
+    expect(marked).toHaveLength(4);
+    dispose?.();
+    dispose = null;
+    mountMarkable();
+    expect(marked).toEqual([]);
+  });
+
+  it("says the grid is multi-selectable and which rows are selected", () => {
+    mountMarkable();
+    click(1, { ctrlKey: true });
+    expect(host!.querySelector(".grid-scroll")!.getAttribute("aria-multiselectable")).toBe("true");
+    const rows = host!.querySelectorAll(".grid-rows .grid-row");
+    expect([...rows].map((r) => r.getAttribute("aria-selected"))).toEqual([
+      "false",
+      "true",
+      "false",
+      "false",
+    ]);
+  });
+});

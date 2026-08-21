@@ -20,7 +20,8 @@ export type ActionId =
   | "toggle-help"
   | "command-palette"
   | "snippet-palette"
-  | "save-snippet";
+  | "save-snippet"
+  | "select-rows";
 
 export interface Shortcut {
   id: ActionId;
@@ -46,6 +47,9 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "snippet-palette", keys: "Mod+J", description: "Buscar snippets guardados", global: true },
   { id: "save-snippet", keys: "Mod+Shift+S", description: "Guardar la consulta como snippet", global: true },
   { id: "editor-find", keys: "Mod+F", description: "Buscar en el editor", global: true },
+  // The grid owns it (it only makes sense with the grid focused), so it is
+  // documented here but never matched globally.
+  { id: "select-rows", keys: "Mod+A", description: "Seleccionar las filas de la rejilla", global: false },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */

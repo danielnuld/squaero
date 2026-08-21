@@ -122,8 +122,10 @@ import {
   exportResult,
   mimeFor,
   fileNameFor,
+  toInserts,
   type ExportFormat,
 } from "./utils/exporters";
+import { pickRows } from "./utils/rowSelection";
 import { queryEditTarget } from "./utils/queryTarget";
 import { tablesInStatement } from "./utils/queryTables";
 import { changesCatalog } from "./utils/sqlEffects";
@@ -1983,12 +1985,23 @@ export function App() {
       },
     });
   };
-  const openTransfer = () => {
+  // Rows the user marked in the grid (issue #382), by index into the current
+  // result's rows. The grid publishes them; the copy / transfer actions below
+  // narrow the result to exactly those rows and reuse the existing paths.
+  const [markedRows, setMarkedRows] = createSignal<number[]>([]);
+  const markedResult = () => {
+    const res = currentResult().result;
+    return res ? pickRows(res, markedRows()) : null;
+  };
+  const openTransfer = (rows?: number[]) => {
     const res = currentResult();
     if (!res.result || !res.source) return;
     showTool("transfer", t("tab.transfer"), {
       key: "transfer",
-      params: { sourceResult: res.result, sourceTable: res.source.table },
+      params: {
+        sourceResult: rows?.length ? pickRows(res.result, rows) : res.result,
+        sourceTable: res.source.table,
+      },
     });
   };
   // Chart the current result (issue #149): snapshot it into the tool tab.
@@ -2051,6 +2064,24 @@ export function App() {
         action: () => openRelated(rowIndex, colIndex),
       });
       items.push({ separator: true });
+      const marked = markedRows();
+      if (marked.length > 1) {
+        const table = currentResult().source?.table ?? "exported";
+        items.push({
+          label: t("result.copyRowsN", { n: marked.length }),
+          action: () => copyText(marked.map((i) => rowToTsv(res.rows[i])).join("\n")),
+        });
+        items.push({
+          label: t("result.copyRowsInserts", { n: marked.length }),
+          action: () => copyText(toInserts(markedResult()!, table)),
+        });
+        items.push({
+          label: t("result.transferRowsN", { n: marked.length }),
+          action: () => openTransfer(marked),
+          disabled: !currentResult().source,
+        });
+        items.push({ separator: true });
+      }
       const cell = row[colIndex];
       items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
       items.push({ label: t("result.copyRow"), action: () => copyText(rowToTsv(row)) });
@@ -2597,6 +2628,7 @@ export function App() {
                           />
                         }
                         onCellContext={onCellContext}
+                        onMarkedRowsChange={setMarkedRows}
                         referencedColumns={referencedColumns()}
                         onRelated={openRelated}
                         onSortColumn={
@@ -3009,6 +3041,7 @@ export function App() {
       <StatusBar
         connection={active()?.name ?? null}
         rowCount={currentResult().result?.rows.length ?? null}
+        markedCount={markedRows().length}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
         ranScope={currentResult().ranScope ?? null}

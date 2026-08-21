@@ -11,6 +11,8 @@ export function StatusBar(props: {
   connection: string | null;
   rowCount: number | null;
   truncated: boolean;
+  /** Rows marked in the grid (issue #382); 0 hides the indicator. */
+  markedCount?: number;
   elapsedMs: number | null;
   /** What the last run executed, for the run-scope indicator (issue #130). */
   ranScope?: RunScope | null;
@@ -37,6 +39,11 @@ export function StatusBar(props: {
             n: props.rowCount!,
           })}
           {props.truncated ? "+" : ""}
+        </span>
+      </Show>
+      <Show when={(props.markedCount ?? 0) > 0}>
+        <span class="status-item" title={t("status.markedTitle")}>
+          {t("status.marked", { n: props.markedCount! })}
         </span>
       </Show>
       <Show when={props.elapsedMs !== null}>

@@ -10,6 +10,7 @@ import {
   type ColumnFilters,
 } from "../utils/gridView";
 import { computeColumnWidths, resizeColumn, MIN_COL_WIDTH } from "../utils/gridColumns";
+import { toggleMark, markRange, orderedMarks, type RowMarks } from "../utils/rowSelection";
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
 import type { FkLookup } from "../utils/fkLookup";
@@ -95,6 +96,13 @@ export function ResultGrid(props: {
    */
   onSortColumn?: (column: string) => void;
   sortedColumn?: { column: string; dir: "ASC" | "DESC" } | null;
+  /**
+   * The rows the user marked (issue #382), by index into `result.rows` and in
+   * view order. The workspace turns them into copy / transfer actions; the grid
+   * only owns the marking. Fires with an empty list when the marks are cleared,
+   * including when a new result loads.
+   */
+  onMarkedRowsChange?: (rows: number[]) => void;
   /** The table's primary key columns. Marked in the header so a grid of rows
       from a table you did not open says which column identifies each one —
       asked for on the related-data modal, where the rows belong to a table the
@@ -117,6 +125,19 @@ export function ResultGrid(props: {
   // cell to focus once the (async) edit session turns on.
   const [sel, setSel] = createSignal<CellPos | null>(null);
   const [pendingEditFocus, setPendingEditFocus] = createSignal<CellPos | null>(null);
+
+  // Multi-row marking (issue #382): ctrl/cmd+click toggles a row, shift+click
+  // and shift+arrows extend from the anchor, ctrl+A takes the whole view. Marks
+  // are ORIGINAL row indices so they survive sorting; the anchor is a VIEW
+  // position, so it is dropped whenever the view is reordered.
+  const [marks, setMarks] = createSignal<RowMarks>(new Set<number>());
+  const [anchor, setAnchor] = createSignal<number | null>(null);
+  const isMarked = (rowIndex: number) => marks().has(rowIndex);
+  const clearSel = () => {
+    setSel(null);
+    setAnchor(null);
+    setMarks(new Set<number>());
+  };
 
   // The scroller is rendered only once a result with columns exists, and it can
   // come and go across queries, so we measure it from a callback ref rather than
@@ -165,7 +186,7 @@ export function ResultGrid(props: {
     props.result; // reset on identity change
     setSort(null);
     setFilters({});
-    setSel(null);
+    clearSel();
     setWidths(computeColumnWidths(cols(), rows()));
     // A new result is read from its first row: the scroller survives when one
     // result replaces another, so its position would otherwise carry over into
@@ -182,11 +203,11 @@ export function ResultGrid(props: {
     if (server) {
       const name = cols()[col]?.name;
       if (name) server(name);
-      setSel(null);
+      clearSel();
       return;
     }
     setSort((s) => cycleSort(s, col));
-    setSel(null);
+    clearSel();
   };
 
   /** How this column is sorted: by the server when it owns the sort, else here. */
@@ -201,7 +222,7 @@ export function ResultGrid(props: {
   };
   const setFilter = (col: number, q: string) => {
     setFilters((f) => ({ ...f, [col]: q }));
-    setSel(null);
+    clearSel();
   };
   const colWidth = (ci: number) => widths()[ci] ?? 180;
   const gridCols = () => {
@@ -305,7 +326,20 @@ export function ResultGrid(props: {
     });
   });
 
-  const selectCell = (viewPos: number, c: number) => {
+  // Click selects one cell; the modifiers mark rows instead of moving on their
+  // own (ctrl toggles this row, shift takes everything back to the anchor).
+  const selectCell = (viewPos: number, c: number, e?: MouseEvent) => {
+    const rowIndex = view()[viewPos];
+    const additive = !!(e?.ctrlKey || e?.metaKey);
+    if (e?.shiftKey && anchor() !== null) {
+      setMarks((m) => markRange(m, view(), anchor()!, viewPos, additive));
+    } else if (additive && rowIndex !== undefined) {
+      setMarks((m) => toggleMark(m, rowIndex));
+      setAnchor(viewPos);
+    } else {
+      setMarks(new Set<number>());
+      setAnchor(viewPos);
+    }
     setSel({ r: viewPos, c });
     scrollerEl?.focus({ preventScroll: true });
   };
@@ -331,15 +365,35 @@ export function ResultGrid(props: {
       }
       return;
     }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+      // Everything the view is showing — a filtered grid selects what it shows,
+      // not the rows hidden behind the filter.
+      e.preventDefault();
+      setMarks(new Set(view()));
+      return;
+    }
     if (!isNavKey(e.key)) return;
     e.preventDefault();
-    setSel((s) => moveSelection(s, e.key, view().length, cols().length));
+    const next = moveSelection(sel(), e.key, view().length, cols().length);
+    setSel(next);
+    if (!next) return;
+    if (e.shiftKey) {
+      const from = anchor() ?? next.r;
+      setAnchor(from);
+      setMarks((m) => markRange(m, view(), from, next.r));
+    } else {
+      setAnchor(next.r);
+      setMarks(new Set<number>());
+    }
   };
 
   const isSelected = (viewPos: number, c: number) => {
     const s = sel();
     return !!s && s.r === viewPos && s.c === c;
   };
+
+  // Publish the marked rows (original indices, view order) for the workspace.
+  createEffect(() => props.onMarkedRowsChange?.(orderedMarks(marks(), view())));
 
   // Publish the selected ROW (index into result.rows, not into the sorted or
   // filtered view) for panels that act on it from their bar.
@@ -376,6 +430,7 @@ export function ResultGrid(props: {
               // virtualized grid can still say "row 1001 of 1200" (issue #326).
               role="grid"
               aria-label={t("grid.ariaLabel")}
+              aria-multiselectable={true}
               aria-rowcount={rows().length + 1}
               aria-colcount={cols().length}
               tabindex={0}
@@ -499,9 +554,10 @@ export function ResultGrid(props: {
                         const zebra = () => ((range().start + i()) % 2 === 1 ? "row-odd" : "");
                         return (
                           <div
-                            class={`grid-row ${zebra()} ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
+                            class={`grid-row ${zebra()} ${isMarked(rowIndex()) ? "row-marked" : ""} ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
                             role="row"
                             aria-rowindex={viewPos() + 2}
+                            aria-selected={isMarked(rowIndex())}
                             style={{ "grid-template-columns": gridCols() }}
                           >
                             <Show when={editing()}>
@@ -532,7 +588,7 @@ export function ResultGrid(props: {
                                           style={{ "text-align": cellAlign(cell.kind) }}
                                           title={cell.text}
                                           data-cell={`${viewPos()}-${ci()}`}
-                                          onClick={() => selectCell(viewPos(), ci())}
+                                          onClick={(e) => selectCell(viewPos(), ci(), e)}
                                           onDblClick={() => {
                                             selectCell(viewPos(), ci());
                                             requestEditAt({ r: viewPos(), c: ci() });
