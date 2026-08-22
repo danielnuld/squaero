@@ -33,16 +33,19 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     await page.getByRole("button", { name: "Elegir conexión" }).click();
     await page.getByRole("button", { name: /Nueva conexión/ }).click();
 
-    await page.getByRole("textbox", { name: "Nombre" }).fill(name);
+    const form = page.getByRole("region", { name: /conexión/ });
+    await form.getByRole("textbox", { name: "Nombre" }).fill(name);
     // By value, not by label: the options carry an emoji ("🗄️ SQLite").
-    await page.getByRole("combobox", { name: "Motor" }).selectOption(engine.driver);
+    await form.getByRole("combobox", { name: "Motor" }).selectOption(engine.driver);
 
     // Fill exactly the DSN this engine needs, by the label the form shows for it.
     for (const [key, value] of Object.entries(engine.dsn)) {
       const label = labelFor(engine.driver, key);
       expect(label, `${engine.driver} should have a field for ${key}`).not.toBeNull();
-      // Required fields render with a trailing "*", so match loosely.
-      await page.getByLabel(label!, { exact: false }).first().fill(value);
+      // Scoped to the form: required fields render with a trailing "*", so the
+      // match has to be loose, and loose across the whole page now finds the
+      // tool strip's "Usuarios y permisos" when the field is "Usuario" (#386).
+      await form.getByLabel(label!, { exact: false }).first().fill(value);
     }
 
     await page.getByRole("button", { name: "Guardar" }).click();

@@ -3,6 +3,8 @@ import {
   parseCsv,
   parseJson,
   parseFile,
+  parseClipboard,
+  emptyAsNull,
   autoMap,
   buildRowValues,
   hasMapping,
@@ -154,5 +156,56 @@ describe("runImport", () => {
     expect(summary.errors).toEqual([{ row: 1, message: "row 1 failed" }]);
     expect(calls).toContain("rollback");
     expect(calls).not.toContain("commit");
+  });
+});
+
+// Issue #383: rows pasted from a spreadsheet. The clipboard's text/plain is TSV
+// from every spreadsheet worth the name, but a paste can just as well be CSV.
+describe("parseClipboard", () => {
+  it("reads a spreadsheet's tab-separated rows", () => {
+    const table = parseClipboard("id\tnombre\tciudad\n1\tMaría\tHermosillo\n2\tJuan\tNogales");
+    expect(table.headers).toEqual(["id", "nombre", "ciudad"]);
+    expect(table.rows).toEqual([
+      ["1", "María", "Hermosillo"],
+      ["2", "Juan", "Nogales"],
+    ]);
+  });
+
+  it("falls back to commas when the header has no tab", () => {
+    const table = parseClipboard("id,nombre\n1,María");
+    expect(table.headers).toEqual(["id", "nombre"]);
+    expect(table.rows).toEqual([["1", "María"]]);
+  });
+
+  it("prefers the tab when a cell contains a comma", () => {
+    const table = parseClipboard("nombre\tnota\nMaría\tvive en Hermosillo, Sonora");
+    expect(table.headers).toEqual(["nombre", "nota"]);
+    expect(table.rows).toEqual([["María", "vive en Hermosillo, Sonora"]]);
+  });
+
+  it("survives Windows line endings and a single row", () => {
+    const table = parseClipboard("a\tb\r\n1\t2\r\n");
+    expect(table.rows).toEqual([["1", "2"]]);
+  });
+});
+
+// Delimited text cannot tell "" from NULL, so the caller decides.
+describe("emptyAsNull", () => {
+  it("turns empty cells into NULL and leaves the rest alone", () => {
+    const table: ParsedTable = {
+      headers: ["a", "b", "c"],
+      rows: [["1", "", "x"], ["", " ", null]],
+    };
+    expect(emptyAsNull(table)).toEqual({
+      headers: ["a", "b", "c"],
+      // A space is a value someone typed; only nothing at all is nothing.
+      rows: [["1", null, "x"], [null, " ", null]],
+    });
+  });
+
+  it("does not touch the original", () => {
+    const table: ParsedTable = { headers: ["a"], rows: [[""]] };
+    emptyAsNull(table);
+    expect(table.rows).toEqual([[""]]);
   });
 });

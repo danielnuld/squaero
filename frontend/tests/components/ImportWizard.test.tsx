@@ -65,7 +65,7 @@ function installBridge() {
   return calls;
 }
 
-function mount() {
+function mount(initialText?: string) {
   host = document.createElement("div");
   document.body.appendChild(host);
   const onImported = vi.fn();
@@ -77,6 +77,7 @@ function mount() {
         <ImportWizard
           connId="c1"
           target={{ table: "users" }}
+          initialText={initialText}
           onClose={onClose}
           onImported={onImported}
         />
@@ -189,5 +190,82 @@ describe("ImportWizard", () => {
     const firstInsert = calls.find((c) => c.method === "row.insert")!
       .params as { values: Record<string, string> };
     expect(firstInsert.values).toEqual({ id: "1", name: "alice" });
+  });
+});
+
+// Issue #383: the same wizard, fed from the clipboard instead of a file. What
+// is being defended here is that pasting takes the SAME road — preview, mapping
+// and one transaction — because the destination is somebody's database.
+describe("ImportWizard — pasted rows", () => {
+  const TSV = "id\tname\n1\talice\n2\t";
+
+  const runButton = () =>
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
+      (b) => b.textContent === "Importar",
+    )!;
+
+  it("opens on the clipboard tab with the pasted rows parsed and mapped", async () => {
+    installBridge();
+    mount(TSV);
+    await flush();
+
+    expect(host!.querySelector<HTMLTextAreaElement>(".import-paste")!.value).toBe(TSV);
+    expect(host!.textContent).toContain("Vista previa de lo pegado");
+    const selects = host!.querySelectorAll<HTMLSelectElement>(".map-select");
+    expect(selects.length).toBe(2);
+    // Mapped even though the text arrived before schema.describe answered.
+    expect(selects[0].value).toBe("id");
+    expect(selects[1].value).toBe("name");
+  });
+
+  it("imports the pasted rows in one transaction, empty cells as NULL", async () => {
+    const calls = installBridge();
+    const { onImported } = mount(TSV);
+    await flush();
+
+    runButton().click();
+    await flush();
+
+    const inserts = calls.filter((c) => c.method === "row.insert");
+    expect(inserts.length).toBe(2);
+    expect((inserts[0].params as { values: unknown }).values).toEqual({ id: "1", name: "alice" });
+    // The second row's name cell is empty: NULL, because the box says so.
+    expect((inserts[1].params as { values: unknown }).values).toEqual({ id: "2", name: null });
+    expect(calls.map((c) => c.method)).toContain("tx.commit");
+    expect(onImported).toHaveBeenCalled();
+  });
+
+  it("keeps empty cells as empty strings when the box is unchecked", async () => {
+    const calls = installBridge();
+    mount(TSV);
+    await flush();
+
+    const box = host!.querySelector<HTMLInputElement>('.import-check input[type="checkbox"]')!;
+    expect(box.checked).toBe(true);
+    box.checked = false;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+
+    runButton().click();
+    await flush();
+
+    const inserts = calls.filter((c) => c.method === "row.insert");
+    expect((inserts[1].params as { values: unknown }).values).toEqual({ id: "2", name: "" });
+  });
+
+  it("re-parses what the user types into the box, and forgets it when emptied", async () => {
+    installBridge();
+    mount(TSV);
+    await flush();
+
+    const area = host!.querySelector<HTMLTextAreaElement>(".import-paste")!;
+    area.value = "ciudad\nHermosillo";
+    area.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(host!.querySelectorAll(".map-select").length).toBe(2);
+    expect(host!.textContent).toContain("1 fila(s)");
+
+    area.value = "";
+    area.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(host!.textContent).not.toContain("Vista previa");
+    expect(runButton().disabled).toBe(true);
   });
 });

@@ -5,6 +5,8 @@ import { rowInsert, txBegin, txCommit, txRollback } from "../utils/edit";
 import { QueryError } from "../utils/query";
 import {
   parseFile,
+  parseClipboard,
+  emptyAsNull,
   autoMap,
   hasMapping,
   runImport,
@@ -29,6 +31,14 @@ const OMIT = ""; // select value meaning "leave this column unset"
 export function ImportWizard(props: {
   connId: string;
   target: { table: string; db?: string; schema?: string };
+  /**
+   * Delimited text to start from instead of a file (issue #383): what was on
+   * the clipboard when the user pasted over the grid. The wizard opens on its
+   * clipboard tab with this already parsed and mapped — the preview and the
+   * transactional apply are the same ones a file goes through, because pasting
+   * into someone's database is not a thing to do with less ceremony than that.
+   */
+  initialText?: string;
   onClose: () => void;
   onImported?: () => void;
 }) {
@@ -41,6 +51,13 @@ export function ImportWizard(props: {
   const [workbook, setWorkbook] = createSignal<XlsxWorkbook | null>(null);
   const [sheetName, setSheetName] = createSignal("");
   const [policy, setPolicy] = createSignal<ErrorPolicy>("skip");
+  /** Where the rows come from: a file on disk, or delimited text pasted in. */
+  const [source, setSource] = createSignal<"file" | "clipboard">(
+    props.initialText ? "clipboard" : "file",
+  );
+  const [pasted, setPasted] = createSignal(props.initialText ?? "");
+  /** Delimited text has no NULL; the user says which empty cells are one. */
+  const [blankIsNull, setBlankIsNull] = createSignal(true);
   const [running, setRunning] = createSignal(false);
   const [summary, setSummary] = createSignal<ImportSummary | null>(null);
   const [error, setError] = createSignal<string | null>(null);
@@ -61,15 +78,40 @@ export function ImportWizard(props: {
               .map((r) => r[nameIdx])
               .filter((n): n is string => n !== null);
       setTargetCols(names);
+      // Text pasted in before the describe came back was mapped against an
+      // empty column list; now that the columns are here, map it properly.
+      const already = parsed();
+      if (already) setMapping(autoMap(already.headers, names));
     } catch (err) {
       setError(err instanceof QueryError ? err.message : String(err));
     }
   });
 
-  // Load a parsed table into the mapping UI (shared by all file types).
+  // Load a parsed table into the mapping UI (shared by every source).
   const useTable = (table: ParsedTable) => {
     setParsed(table);
     setMapping(autoMap(table.headers, targetCols()));
+  };
+
+  /** Re-read the pasted text. Cheap enough to redo on every keystroke. */
+  const usePasted = (text: string) => {
+    setPasted(text);
+    setError(null);
+    setSummary(null);
+    if (text.trim() === "") {
+      setParsed(null);
+      return;
+    }
+    useTable(parseClipboard(text));
+  };
+
+  if (props.initialText) useTable(parseClipboard(props.initialText));
+
+  /** What actually gets imported: the parsed rows, with the NULL rule applied. */
+  const effective = (): ParsedTable | null => {
+    const table = parsed();
+    if (!table) return null;
+    return source() === "clipboard" && blankIsNull() ? emptyAsNull(table) : table;
   };
 
   // Switch the active sheet of the opened workbook, re-reading it.
@@ -117,7 +159,7 @@ export function ImportWizard(props: {
     setMapping((m) => ({ ...m, [target]: source === OMIT ? null : source }));
 
   const runNow = async () => {
-    const table = parsed();
+    const table = effective();
     if (!table || !hasMapping(mapping())) return;
     setRunning(true);
     setError(null);
@@ -184,16 +226,69 @@ export function ImportWizard(props: {
             </div>
           }
         >
-          <div class="import-field">
-            <label>
-              Archivo (CSV, JSON o XLSX):{" "}
-              <input
-                type="file"
-                accept=".csv,.json,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                onChange={onFile}
-              />
-            </label>
+          <div class="import-source" role="radiogroup" aria-label="Origen de los datos">
+            <button
+              class={`chip ${source() === "file" ? "active" : ""}`}
+              role="radio"
+              aria-checked={source() === "file"}
+              onClick={() => setSource("file")}
+            >
+              Archivo
+            </button>
+            <button
+              class={`chip ${source() === "clipboard" ? "active" : ""}`}
+              role="radio"
+              aria-checked={source() === "clipboard"}
+              onClick={() => {
+                setSource("clipboard");
+                usePasted(pasted());
+              }}
+            >
+              Portapapeles
+            </button>
           </div>
+
+          <Show when={source() === "file"}>
+            <div class="import-field">
+              <label>
+                Archivo (CSV, JSON o XLSX):{" "}
+                <input
+                  type="file"
+                  accept=".csv,.json,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={onFile}
+                />
+              </label>
+            </div>
+          </Show>
+
+          {/* A textarea rather than navigator.clipboard.readText(): reading the
+              clipboard needs a permission the webview may simply deny, while
+              pasting INTO a field always works and is the gesture people already
+              have in their fingers. */}
+          <Show when={source() === "clipboard"}>
+            <div class="import-field">
+              <label class="import-paste-label" for="import-paste">
+                Pega aquí las filas (TSV de una hoja de cálculo, o CSV):
+              </label>
+              <textarea
+                id="import-paste"
+                class="import-paste"
+                rows="6"
+                spellcheck={false}
+                placeholder={"id\tnombre\tciudad\n1\tMaría\tHermosillo"}
+                value={pasted()}
+                onInput={(e) => usePasted(e.currentTarget.value)}
+              />
+            </div>
+            <label class="import-field import-check">
+              <input
+                type="checkbox"
+                checked={blankIsNull()}
+                onChange={(e) => setBlankIsNull(e.currentTarget.checked)}
+              />{" "}
+              Las celdas vacías son NULL
+            </label>
+          </Show>
 
           <Show when={workbook() && workbook()!.sheets.length > 1}>
             <div class="import-field">
@@ -212,12 +307,14 @@ export function ImportWizard(props: {
             </div>
           </Show>
 
-          <Show when={parsed()}>
+          <Show when={effective()}>
             {(table) => (
               <>
                 <div class="import-preview">
                   <div class="import-subtitle">
-                    Vista previa de {fileName()} ({table().rows.length} fila(s))
+                    Vista previa de{" "}
+                    {source() === "clipboard" ? "lo pegado" : fileName()} (
+                    {table().rows.length} fila(s))
                   </div>
                   <div class="import-preview-scroll">
                     <table>
@@ -231,7 +328,13 @@ export function ImportWizard(props: {
                           {(row) => (
                             <tr>
                               <For each={table().headers}>
-                                {(_, i) => <td>{row[i()] ?? ""}</td>}
+                                {(_, i) => (
+                                  <td>
+                                    <Show when={row[i()] !== null} fallback={<em class="cell-null">NULL</em>}>
+                                      {row[i()]}
+                                    </Show>
+                                  </td>
+                                )}
                               </For>
                             </tr>
                           )}
@@ -292,7 +395,7 @@ export function ImportWizard(props: {
             <button onClick={props.onClose}>Cancelar</button>
             <button
               class="primary"
-              disabled={running() || !parsed() || !hasMapping(mapping())}
+              disabled={running() || !effective() || !hasMapping(mapping())}
               onClick={runNow}
             >
               {running() ? "Importando…" : "Importar"}

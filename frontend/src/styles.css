@@ -3030,6 +3030,40 @@ button.grid-action.danger:hover:not(:disabled) {
   margin: var(--sp-3) 0;
 }
 
+/* Where the rows come from: a file, or text pasted in (issue #383). */
+.import-source {
+  display: flex;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0;
+}
+
+.import-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.import-paste-label {
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+/* Mono and nowrap: the columns of a pasted TSV only line up in a mono face,
+   and wrapping a long row would make it look like several. */
+.import-paste {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
+  resize: vertical;
+}
+
 .import-subtitle {
   font-size: var(--fs-sm);
   text-transform: uppercase;

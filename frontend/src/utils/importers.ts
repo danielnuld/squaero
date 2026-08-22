@@ -119,6 +119,34 @@ export function parseFile(name: string, text: string): ParsedTable {
 }
 
 /**
+ * Clipboard text as a table (issue #383).
+ *
+ * A spreadsheet writes TSV to the clipboard's text/plain flavour; a paste from
+ * somewhere else may well be CSV. The delimiter comes from the header line —
+ * whichever of tab or comma is in it, tab winning when both are, because a tab
+ * inside a spreadsheet cell has to be quoted while a comma does not.
+ */
+export function parseClipboard(text: string): ParsedTable {
+  const header = text.split(/\r?\n/, 1)[0] ?? "";
+  return parseCsv(text, header.includes("\t") ? "\t" : ",");
+}
+
+/**
+ * Empty cells as SQL NULL.
+ *
+ * Delimited text cannot tell "" from NULL: a spreadsheet writes both as nothing
+ * between two separators. Which one lands in the table changes what the row
+ * means — and what a NOT NULL column does with it — so it is the user's call,
+ * not a guess this module gets to make.
+ */
+export function emptyAsNull(table: ParsedTable): ParsedTable {
+  return {
+    headers: table.headers,
+    rows: table.rows.map((row) => row.map((cell) => (cell === "" ? null : cell))),
+  };
+}
+
+/**
  * Default mapping: each target column is mapped to the source header with the
  * same name (case-insensitive), or null when there is no match.
  */

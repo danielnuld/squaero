@@ -537,9 +537,30 @@ export function App() {
     const onNativeMenu = (e: MouseEvent) => e.preventDefault();
     document.addEventListener("contextmenu", onNativeMenu);
 
+    // Paste delimited text over a table's grid to import it (issue #383). The
+    // event is what carries the data: reading the clipboard through
+    // navigator.clipboard needs a permission the webview may deny outright,
+    // while a paste always arrives. Nothing is written to the database here —
+    // it opens the import wizard with the text, which previews and maps it
+    // first, exactly as a file goes through.
+    const onPaste = (e: ClipboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return;
+      const src = currentResult().source;
+      if (!src || !active()) return;
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      // One value is a cell, not a table: leave it to whatever wanted it.
+      if (!text.includes("\t") && !text.includes("\n")) return;
+      e.preventDefault();
+      openImport(text);
+    };
+    document.addEventListener("paste", onPaste);
+
     onCleanup(() => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("contextmenu", onNativeMenu);
+      document.removeEventListener("paste", onPaste);
       mql?.removeEventListener?.("change", onSystemChange);
     });
   });
@@ -1940,13 +1961,16 @@ export function App() {
     if (t) patchEdit(t.id, { preview: null });
   };
 
-  const openImport = () => {
+  const openImport = (initialText?: string) => {
     const src = currentResult().source;
     const q = currentQuery();
     if (src && active()) {
       showTool("import", t("tab.import", { name: src.table }), {
         key: `import:${src.table}`,
-        params: { target: { table: src.table, db: src.db, schema: src.schema } },
+        params: {
+          target: { table: src.table, db: src.db, schema: src.schema },
+          initialText,
+        },
         sourceId: q?.id,
       });
     }
@@ -2622,7 +2646,7 @@ export function App() {
                       hasChanges={hasChanges(currentEdit().pending)}
                       exportFormats={EXPORT_FORMATS}
                       onEdit={beginEdit}
-                      onImport={openImport}
+                      onImport={() => openImport()}
                       onGenerate={openGen}
                       onSchemaSync={openSchemaSync}
                       onDataSync={openDataSync}
@@ -2811,6 +2835,7 @@ export function App() {
                   <ImportWizard
                     connId={toolConn()?.connId ?? ""}
                     target={(tt().params as { target: EditTarget }).target}
+                    initialText={(tt().params as { initialText?: string }).initialText}
                     onClose={() => closeTool(tt().id)}
                     onImported={() => {
                       const s = tt().sourceId;
