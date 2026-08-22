@@ -175,7 +175,11 @@ test("record the demo video", async ({ page }) => {
       timeout: 30_000,
     });
     await beat(2400);
-    await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+    // Escape, not a "Cerrar" button: the panels stopped printing one when the
+    // tab's own ✕ became the only close (#372). The screenshot spec was fixed
+    // then; this one only runs when the video is regenerated, so it kept the
+    // click until now.
+    await page.keyboard.press("Escape");
 
     await caption("Y un constructor visual, para armar la consulta sin escribirla");
     await ribbon
