@@ -987,9 +987,27 @@ export function App() {
       exportConnections(connections(), includePasswords),
       "application/json",
     );
-  const importConns = async (file: File): Promise<string> => {
-    const text = await file.text();
-    const res = importConnections(connections(), text);
+  /**
+   * Import saved connections from one file, or from the two DBeaver writes: the
+   * list and the credentials beside it (issue #391). Which is which comes from
+   * the content, not the name — the list is the one that reads as text.
+   */
+  const importConns = async (files: File[]): Promise<string> => {
+    let listText: string | null = null;
+    let credentials: ArrayBuffer | undefined;
+    for (const file of files) {
+      const bytes = await file.arrayBuffer();
+      const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      // DBeaver's credentials file is ciphertext: it decodes to replacement
+      // characters, never to the JSON or XML a connection list is.
+      if (listText === null && /[[<{]/.test(text.slice(0, 64)) && !text.includes("�")) {
+        listText = text;
+      } else {
+        credentials = bytes;
+      }
+    }
+    if (listText === null) return "No se pudo importar: ningún archivo contiene conexiones.";
+    const res = await importConnections(connections(), listText, credentials);
     if ("error" in res) return `No se pudo importar: ${res.error}`;
     persist(res.list);
     return summaryText(res.summary);

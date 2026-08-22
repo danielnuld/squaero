@@ -6,6 +6,14 @@
 // tolerant. All pure and unit-tested; the component just saves/loads the text.
 
 import {
+  applyCredentials,
+  detectForeign,
+  parseForeign,
+  type ForeignSource,
+  type SkippedConnection,
+} from "./foreignConnections";
+import { dbeaverCredentials } from "./foreignSecrets";
+import {
   driverSchema,
   stripSecrets,
   validateConnection,
@@ -54,6 +62,14 @@ export interface ImportSummary {
   updated: number;
   /** Malformed/invalid entries dropped. */
   skipped: number;
+  /** Set when the file came from another tool (DBeaver, Navicat). */
+  source?: ForeignSource;
+  /** Entries from another tool whose engine Quaero does not ship. */
+  unsupported?: SkippedConnection[];
+  /** Passwords brought across from the other tool. */
+  passwords?: number;
+  /** Passwords the other tool had but this could not read. */
+  locked?: number;
 }
 
 export interface ImportOutcome {
@@ -77,34 +93,67 @@ const norm = (s: string) => s.trim().toLowerCase();
  *  - Entries that are malformed or fail validation (unknown driver, missing
  *    required field, blank name) are skipped.
  */
-export function importConnections(
+export async function importConnections(
   existing: Connection[],
   raw: string,
-): ImportOutcome | { error: string } {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return { error: "El archivo no es JSON válido." };
-  }
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return { error: "Formato de archivo no reconocido." };
-  }
-  const version = (data as { version?: unknown }).version;
-  if (version !== CONNECTIONS_FILE_VERSION) {
-    return { error: `Versión de archivo no soportada (${String(version ?? "desconocida")}).` };
-  }
-  const incoming = (data as { connections?: unknown }).connections;
-  if (!Array.isArray(incoming)) {
-    return { error: "El archivo no contiene una lista de conexiones." };
+  /** DBeaver's `credentials-config.json`, when the user picked it too. */
+  credentials?: ArrayBuffer,
+): Promise<ImportOutcome | { error: string }> {
+  // Another tool's file is recognised by its content, not its extension:
+  // DBeaver writes `.json` like we do, and people rename things.
+  const foreign = detectForeign(raw);
+  let incoming: unknown[];
+  const summary: ImportSummary = { added: 0, updated: 0, skipped: 0 };
+
+  if (foreign) {
+    let parsed = await parseForeign(raw, foreign);
+    if ("error" in parsed) return parsed;
+    if (credentials && foreign === "dbeaver") {
+      parsed = applyCredentials(parsed, await dbeaverCredentials(credentials));
+    }
+    incoming = parsed.connections;
+    summary.source = foreign;
+    summary.unsupported = parsed.skipped;
+    summary.passwords = parsed.connections.filter((c) => !!c.params.password).length;
+    // What the other tool had locked away and we could not open: an old Navicat
+    // file, or a DBeaver export whose credentials file was not picked.
+    summary.locked =
+      parsed.locked +
+      (foreign === "dbeaver" && !credentials
+        ? parsed.connections.filter((c) => !c.params.password).length
+        : 0);
+  } else {
+    let data: unknown;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return { error: "El archivo no es JSON válido." };
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return { error: "Formato de archivo no reconocido." };
+    }
+    const version = (data as { version?: unknown }).version;
+    if (version !== CONNECTIONS_FILE_VERSION) {
+      return { error: `Versión de archivo no soportada (${String(version ?? "desconocida")}).` };
+    }
+    const native = (data as { connections?: unknown }).connections;
+    if (!Array.isArray(native)) {
+      return { error: "El archivo no contiene una lista de conexiones." };
+    }
+    incoming = native;
   }
 
   let list = existing.slice();
-  const summary: ImportSummary = { added: 0, updated: 0, skipped: 0 };
 
   for (const item of incoming) {
     const c = coerceConnection(item);
-    if (!c || validateConnection(c).length > 0) {
+    // A file of ours has to be valid to come in; another tool's file only has to
+    // be recognisable. DBeaver keeps the user name in its encrypted credentials
+    // store, so half an address is the normal case there — and dropping a server
+    // because one field is missing defeats the point of not retyping thirty of
+    // them. What arrives incomplete is flagged by the connection form, which is
+    // where the password has to be typed anyway.
+    if (!c || (foreign ? !c.name.trim() : validateConnection(c).length > 0)) {
       summary.skipped += 1;
       continue;
     }
@@ -134,5 +183,18 @@ export function importConnections(
 
 /** A short human summary line for the import result. */
 export function summaryText(s: ImportSummary): string {
-  return `Añadidas ${s.added} · actualizadas ${s.updated} · omitidas ${s.skipped}`;
+  const line = `Añadidas ${s.added} · actualizadas ${s.updated} · omitidas ${s.skipped}`;
+  if (!s.source) return line;
+  const tool = s.source === "dbeaver" ? "DBeaver" : "Navicat";
+  const parts = [`${tool}: ${line}`];
+  // Which passwords came and which did not, because finding that out at the
+  // first failed connect is the expensive way to learn it.
+  if (s.passwords) parts.push(`${s.passwords} con contraseña`);
+  if (s.locked) parts.push(`${s.locked} sin contraseña`);
+  const unsupported = s.unsupported ?? [];
+  if (unsupported.length > 0) {
+    const engines = [...new Set(unsupported.map((u) => u.reason))].join(", ");
+    parts.push(`${unsupported.length} con motor no soportado (${engines})`);
+  }
+  return parts.join(" · ");
 }

@@ -66,7 +66,10 @@ engine never touches the core. See [how to write a driver](docs/WRITING_A_DRIVER
 
 **Connectivity and platform**
 - **SSH tunnel** (all engines), **SSL/TLS** (MySQL, PostgreSQL), and
-  **import/export** of saved connections.
+  **import/export** of saved connections — including **DBeaver**'s
+  `data-sources.json` (with the `credentials-config.json` beside it) and
+  **Navicat**'s `.ncx`, **passwords and all**, so moving in does not start with
+  retyping thirty servers.
 - **Light/dark** theme with the indigo brand, **Settings** and **About** panels,
   **keyboard shortcuts**, adaptive context menus.
 - **Single executable** (embedded UI) + drivers as plugins. No Electron.

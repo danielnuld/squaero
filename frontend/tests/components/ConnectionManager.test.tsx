@@ -28,7 +28,7 @@ function mount(
     onDisconnect?: () => void;
     onReconnect?: () => void;
     onExport?: (p: boolean) => void;
-    onImport?: (f: File) => Promise<string>;
+    onImport?: (files: File[]) => Promise<string>;
   } = {},
 ) {
   host = document.createElement("div");
@@ -110,7 +110,9 @@ describe("ConnectionManager", () => {
     Object.defineProperty(input, "files", { value: [file] });
     input.dispatchEvent(new Event("change", { bubbles: true }));
     await new Promise((r) => setTimeout(r, 0));
-    expect(onImport).toHaveBeenCalledWith(file);
+    // A list: DBeaver's connections and its passwords are two files picked at
+    // once (#391).
+    expect(onImport).toHaveBeenCalledWith([file]);
     expect(host!.querySelector(".conn-import-msg")!.textContent).toContain("Añadidas 2");
   });
 });

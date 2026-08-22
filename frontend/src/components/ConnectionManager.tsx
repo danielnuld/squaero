@@ -31,7 +31,7 @@ export interface ConnectionManagerProps {
   /** Export saved connections to a JSON file (issue #188). */
   onExport: (includePasswords: boolean) => void;
   /** Import connections from a file; resolves with a message to show the user. */
-  onImport: (file: File) => Promise<string>;
+  onImport: (files: File[]) => Promise<string>;
   /** Move a connection to a group ("" = ungrouped). New groups are named in the
       connection form; the context menu only moves between existing ones. */
   onMoveToGroup: (id: string, group: string) => void;
@@ -54,10 +54,12 @@ export function ConnectionManager(props: ConnectionManagerProps) {
   };
 
   const onFile = async (e: Event & { currentTarget: HTMLInputElement }) => {
-    const file = e.currentTarget.files?.[0];
+    // Several at once: DBeaver keeps the connection list and its passwords in
+    // two files, and picking them together is the whole gesture (#391).
+    const files = [...(e.currentTarget.files ?? [])];
     e.currentTarget.value = ""; // allow re-importing the same file
-    if (!file) return;
-    setImportMsg(await props.onImport(file));
+    if (files.length === 0) return;
+    setImportMsg(await props.onImport(files));
   };
 
   // Collapsed groups persist across restarts (UI state, its own storage key).
@@ -154,7 +156,10 @@ export function ConnectionManager(props: ConnectionManagerProps) {
         <input
           ref={fileInput}
           type="file"
-          accept=".json,application/json"
+          /* Ours, DBeaver's data-sources.json, and Navicat's .ncx — the reader
+             tells them apart by content, so the extension is only a filter. */
+          multiple
+          accept=".json,.ncx,.xml,application/json,text/xml"
           style={{ display: "none" }}
           onChange={onFile}
         />
@@ -190,7 +195,16 @@ export function ConnectionManager(props: ConnectionManagerProps) {
 
       <Show
         when={props.connections.length > 0}
-        fallback={<p class="sidebar-hint">{t("conn.empty")}</p>}
+        fallback={
+          <>
+            <p class="sidebar-hint">{t("conn.empty")}</p>
+            {/* Said exactly here, and only here: someone arriving from another
+                tool has nothing saved yet, and this is the moment that decides
+                whether they retype thirty servers or import them (#391). Once
+                there are connections the line has done its job and goes away. */}
+            <p class="sidebar-hint">{t("conn.importForeign")}</p>
+          </>
+        }
       >
         <For each={groupConnections(props.connections)}>
           {(g) => (
