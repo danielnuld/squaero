@@ -95,8 +95,8 @@ describeEngine("sqlite", () => {
   test("the library searches by body, opens, and stays open for the next one", async ({ app }) => {
     const { page } = app;
     await openWithSnippets(app);
-    // The ribbon only lights up with a connection open, so this is also the one
-    // test that walks in through the front door.
+    // The tool strip only lights up with a connection open, so this is also the
+    // one test that walks in through the front door.
     await connect(app);
 
     await page

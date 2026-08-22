@@ -7,6 +7,7 @@ import {
   filterIsDirty,
   filterIsEmpty,
   sameFilter,
+  summaryParts,
   type FilterState,
 } from "../../src/utils/dataFilter";
 import type { Condition } from "../../src/utils/queryBuilder";
@@ -119,4 +120,25 @@ describe("cycleSortColumn", () => {
     ];
     expect(cycleSortColumn(many, "Fecha")).toEqual([{ column: "Fecha", dir: "ASC" }]);
   });
+});
+
+// Issue #386: the folded bar's one line. It has to count what the SQL will
+// actually carry — a half-typed row promising a filter the grid does not have
+// is worse than no summary at all.
+describe("summaryParts", () => {
+  it("counts nothing for a fresh filter", () => {
+    expect(summaryParts(emptyFilter())).toEqual({ conditions: 0, order: 0 });
+  });
+
+  it("skips a condition with no column and one switched off", () => {
+    const s = state({
+      conditions: [cond(), cond({ column: "" }), cond({ enabled: false })],
+      order: [{ column: "Fecha", dir: "DESC" }, { column: "", dir: "ASC" }],
+    });
+    expect(summaryParts(s)).toEqual({ conditions: 1, order: 1 });
+  });
+});
+
+it("opens folded, so a table tab starts on its rows", () => {
+  expect(emptyFilter().collapsed).toBe(true);
 });

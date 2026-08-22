@@ -46,7 +46,12 @@ describe("parseSettings", () => {
   });
 
   it("round-trips a full settings object", () => {
-    const s = { gridDensity: "compact" as const, slowThresholdMs: 1200, checkUpdatesOnStart: false };
+    const s = {
+      gridDensity: "compact" as const,
+      slowThresholdMs: 1200,
+      checkUpdatesOnStart: false,
+      toolStrip: false,
+    };
     expect(parseSettings(serializeSettings(s))).toEqual(s);
   });
 
@@ -55,6 +60,9 @@ describe("parseSettings", () => {
     expect(out.gridDensity).toBe("compact");
     expect(out.slowThresholdMs).toBe(DEFAULT_SETTINGS.slowThresholdMs);
     expect(out.checkUpdatesOnStart).toBe(DEFAULT_SETTINGS.checkUpdatesOnStart);
+    // A blob written before the tool strip existed gets it shown, not hidden:
+    // the strip is how someone finds out the tools are there (issue #386).
+    expect(out.toolStrip).toBe(true);
   });
 
   it("rejects ill-typed fields, clamping/falling back", () => {

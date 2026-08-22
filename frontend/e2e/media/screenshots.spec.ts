@@ -144,7 +144,7 @@ test("capture the published screenshots", async ({ page }) => {
     }
 
     // 8. The chart view, which needs a result to chart: run a query, then chart it.
-    await page.getByRole("toolbar", { name: "Acciones" }).getByRole("button", { name: "Consulta", exact: true }).click();
+    await page.getByRole("button", { name: "Nueva consulta", exact: true }).click();
     const editor = page.getByRole("textbox", { name: "Editor SQL", exact: true });
     await editor.click();
     await page.keyboard.press("ControlOrMeta+a");

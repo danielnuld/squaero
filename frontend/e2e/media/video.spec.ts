@@ -141,8 +141,7 @@ test("record the demo video", async ({ page }) => {
 
     // --- 3. Query ----------------------------------------------------------
     await caption("Escribe SQL con autocompletado por esquema");
-    const ribbon = page.getByRole("toolbar", { name: "Acciones" });
-    await ribbon.getByRole("button", { name: "Consulta", exact: true }).click();
+    await page.getByRole("button", { name: "Nueva consulta", exact: true }).click();
     const editor = page.getByRole("textbox", { name: "Editor SQL", exact: true });
     await editor.click();
     await page.keyboard.press("ControlOrMeta+a");
@@ -168,6 +167,8 @@ test("record the demo video", async ({ page }) => {
     await beat(700);
 
     // --- 4. Tools ----------------------------------------------------------
+    const ribbon = page.getByRole("toolbar", { name: "Acciones" });
+
     await caption("Diagrama ER con las llaves foráneas reales");
     await ribbon.getByRole("button", { name: "Diagrama ER", exact: true }).click();
     await expect(page.getByText(/relaci[óo]n\(es\)/i).first()).toBeVisible({

@@ -28,6 +28,7 @@
   --null: #d98a4b;
   --number: #8fd0a0;
   --error: #f08a8a;
+  --error-fg: #1e1e24;
   /* Categorical chart palette (issue #149): the validated 8-hue dataviz theme,
      dark steps. Assigned to series in fixed order, never cycled. */
   --chart-1: #3987e5;
@@ -38,12 +39,22 @@
   --chart-6: #e66767;
   --chart-7: #d55181;
   --chart-8: #d95926;
+  /* Elevación y foco (#386): dos sombras, no seis recetas sueltas. */
+  --bg-overlay: #2e2e38;
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --focus-ring: rgba(124, 124, 240, 0.4);
 }
 
 :root[data-theme="light"] {
-  --bg: #f7f7fa;
-  --bg-elev: #ffffff;
-  --bg-elev2: #ececf1;
+  /* El claro era una inversión mecánica del oscuro: el cromo en #ffffff y el
+     lienzo de datos en #f7f7fa, así que la rejilla —lo que el usuario viene a
+     ver— acababa siendo la superficie más apagada de la pantalla. Aquí el
+     lienzo es el blanco que sostiene la mirada y el cromo se apoya en un gris
+     tintado, que es la relación que el tema oscuro ya tenía bien. */
+  --bg: #ffffff;
+  --bg-elev: #f2f4f7;
+  --bg-elev2: #e6e9ef;
   --border: #d3d3dc;
   --text: #1e1e24;
   --text-dim: #63636f;
@@ -55,9 +66,12 @@
   /* Accent text on elevated surfaces (issue #220). #4a4ac4 clears 4.5:1 on the
      lightest surface (#ffffff) with margin, and on #ececf1. */
   --accent-text: #4a4ac4;
-  --null: #b5651d;
-  --number: #217a47;
+  /* #b5651d daba 4.05/4.34/3.68 sobre bg/elev/elev2 — sub-AA en las tres
+     (issue #386). Este clarea 5.32/5.69/4.83. */
+  --null: #9c5416;
+  --number: #1d6e3f;
   --error: #c62828;
+  --error-fg: #ffffff;
   /* Chart palette, light steps of the same validated theme. */
   --chart-1: #2a78d6;
   --chart-2: #1baf7a;
@@ -67,6 +81,12 @@
   --chart-6: #e34948;
   --chart-7: #e87ba4;
   --chart-8: #eb6834;
+  /* En claro la sombra es neutra-fría y mucho más suave: sobre un fondo claro
+     una sombra negra al 50 % se lee como suciedad, no como elevación. */
+  --bg-overlay: #ffffff;
+  --shadow-sm: 0 4px 16px rgba(20, 22, 30, 0.12);
+  --shadow-lg: 0 12px 40px rgba(20, 22, 30, 0.18);
+  --focus-ring: rgba(91, 91, 214, 0.32);
 }
 
 /* Alternate "blue" accent skin: a professional blue, chosen separately from
@@ -80,12 +100,14 @@
   --accent-fg: #0c1015;
   --accent-hover: #7db0ff;
   --accent-text: #7fb2ff;
+  --focus-ring: rgba(91, 155, 255, 0.4);
 }
 :root[data-theme="light"][data-skin="blue"] {
   --accent: #2f6fed;
   --accent-fg: #ffffff;
   --accent-hover: #245fd0;
   --accent-text: #2861d6;
+  --focus-ring: rgba(47, 111, 237, 0.32);
 }
 
 :root {
@@ -96,6 +118,53 @@
   --bg-alt: var(--bg-elev);
   --font-ui: system-ui, "Segoe UI", sans-serif;
   --font-mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+
+  /* Las escalas que faltaban (issue #386). Hasta aquí sólo el color estaba
+     tokenizado: el espacio, el tipo, los radios y las alturas se decidían en
+     cada regla, y de ahí salían 19 tamaños de texto, 12 radios, ~60
+     combinaciones de padding y 7 alturas de control. Un valor fuera de estas
+     escalas debe justificarse en un comentario. */
+
+  /* Espacio. Un solo paso base de 4px, más el 2px para lo que va pegado. */
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 8px;
+  --sp-4: 12px;
+  --sp-5: 16px;
+  --sp-6: 24px;
+
+  /* Radios: control, contenedor, píldora. 4px es el radio que la app ya usaba
+     en 44 reglas — la escala se ajusta a lo que hay, no al revés. */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-pill: 999px;
+
+  /* Tipo. --fs-micro es el suelo: badges de tipo y contadores, nada de prosa. */
+  --fs-micro: 10px;
+  --fs-sm: 11px;
+  --fs-base: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+
+  /* Alturas de control, con un papel cada una: dentro de una fila de rejilla /
+     compacto (barras, chips, iconos) / normal (botones y campos). */
+  --h-micro: 20px;
+  --h-sm: 24px;
+  --h-md: 28px;
+
+  /* Alturas de banda: filtro / pestañas y acciones / herramientas. */
+  --band-sm: 28px;
+  --band-md: 32px;
+  --band-lg: 40px;
+
+  /* Movimiento (issue #386). La app tenía UNA transición en 105 KB de CSS, y
+     una sola es indistinguible de un descuido. La decisión, escrita: esto es una
+     herramienta, no una presentación — **el cromo no se anima**. El hover, la
+     selección, abrir un panel y cambiar de pestaña son instantáneos, porque una
+     espera de 200 ms repetida cien veces al día es tiempo del usuario.
+     Lo único que se desvanece es lo que aparece y desaparece por sí solo, para
+     que no dé un salto: ahí va este token y ningún otro. */
+  --motion-fast: 90ms;
 
   /* Per-object-type identity colours (design proposal).
      Distinct, vivid hues — the single strongest "this is a database tool"
@@ -120,6 +189,103 @@
   box-sizing: border-box;
 }
 
+/* Foco (issue #386). Antes: `outline: none` en doce reglas `:focus` y sólo tres
+   lo sustituían por un anillo — en `.grid-scroll` y `.cmdk-input` el foco de
+   teclado desaparecía sin nada en su lugar, y en el resto lo único que quedaba
+   era un `border-color` de 1px, que no cumple el contraste no textual de WCAG
+   2.4.11. El anillo se dibuja sólo cuando el foco llega por teclado, que es lo
+   que aquellos `outline: none` querían decir. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Nobody who asked the system for less motion should have to argue with a
+   stylesheet about it. Cheap here because there is almost nothing to switch
+   off — which is the point of the rule above. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- One control vocabulary (issue #386) ---------------------------------
+   Twelve classes implemented "text field" and nine implemented "button", each
+   behind its own panel prefix, so the same control looked different depending
+   on which panel you opened it from. The look is defined once, here; those
+   classes stay as the place for what is genuinely particular to each — a
+   width, a position, a modifier — and never for the base look again. */
+
+.cell-input,
+.grid-filter-input,
+.objtree-filter-input,
+.rd-input,
+.snip-save-input,
+.td-in,
+.field input,
+.field select,
+.field textarea {
+  background-color: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+  font-family: inherit;
+  font-size: var(--fs-base);
+}
+
+/* Native controls kept the operating system's own look: of 26 <select>s only
+   one drew its own caret, and 11 checkboxes rendered in the OS blue beside an
+   indigo accent. `accent-color` is the whole fix for the checkboxes. */
+.conn-io-btn,
+.edit-btn,
+.panel-icon-btn,
+.rd-nav-btn {
+  background-color: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+}
+
+/* A square icon button is one control height wide as well as tall. Only
+   `.panel-icon-btn`: `.status-btn` is the app's plain text button despite the
+   name — "+ condición", "Plan", "SQL" — and squaring it truncates the label. */
+.panel-icon-btn {
+  width: var(--h-sm);
+  min-width: var(--h-sm);
+  padding: 0;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* The caret is a neutral grey that reads on both palettes: a data: URI cannot
+   inherit currentColor, and one grey beats encoding two SVGs. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--sp-6);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 L5 6.5 L8 3.5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--sp-3) center;
+  background-size: 10px;
+}
+
 /* Themed, always-visible scrollbars. WebView2/Chromium renders overlay
    scrollbars that stay hidden until you actively scroll, so a scrollable region
    (the object tree, the result grid) gave no visual cue it had more content —
@@ -135,7 +301,7 @@
 
 *::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   border: 3px solid transparent;
   background-clip: padding-box;
 }
@@ -164,7 +330,7 @@ body,
 
 body {
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--text);
   background: var(--bg);
 }
@@ -181,108 +347,94 @@ body {
   min-height: 0;
 }
 
-/* Top action ribbon (design proposal, phase 2). Full-width bar of icon+label
-   buttons above the sidebar+workspace split. */
-.apptoolbar {
+/* The tool strip the ⋯ button unfolds (issue #386): the same nine tools the
+   ribbon showed, at icon size, for pointing instead of naming. Folded away by
+   default — the launcher and Ctrl+K reach all of them without it. */
+.toolstrip {
   display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 6px 10px;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--band-lg);
+  padding: 0 var(--sp-3);
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
   flex-shrink: 0;
+  overflow-x: auto;
 }
-.att-group {
-  display: flex;
-  gap: 2px;
-  padding-right: 10px;
-  margin-right: 6px;
-  border-right: 1px solid var(--border);
-}
-.att-group:last-child {
-  border-right: 0;
-  margin-right: 0;
-  padding-right: 0;
-}
-.att-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 58px;
-  padding: 5px 8px 4px;
+
+.toolstrip-btn {
+  display: grid;
+  place-items: center;
+  width: var(--band-md);
+  height: var(--h-md);
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--text);
+  color: var(--text-dim);
   cursor: pointer;
-  font: inherit;
 }
-.att-btn:hover:not(:disabled) {
+
+.toolstrip-btn svg {
+  width: var(--fs-lg);
+  height: var(--fs-lg);
+  display: block;
+}
+
+.toolstrip-btn:hover:not(:disabled) {
   background: var(--bg-elev2);
+  color: var(--text);
 }
-.att-btn:disabled {
+
+.toolstrip-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
-.att-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-/* Monochrome tiles: no coloured plate, so the accent is spent on state instead of
-   on eleven buttons competing at rest. The icon inherits `color`, which is what
-   makes hover/focus able to move it at all — the emoji this replaced painted
-   themselves and ignored the colour they were given. */
-.att-ic {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+
+/* The ⋯ that folds the strip in and out. */
+.tab-tools {
   display: grid;
   place-items: center;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
   color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-md);
+  cursor: pointer;
+  flex-shrink: 0;
 }
-.att-ic svg {
-  width: 17px;
-  height: 17px;
-  display: block;
-}
-.att-btn:hover:not(:disabled) .att-ic,
-.att-btn:focus-visible .att-ic {
-  color: var(--accent);
-}
-.att-lb {
-  font-size: 11px;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-.att-btn:hover:not(:disabled) .att-lb {
+
+.tab-tools:hover,
+.tab-tools[aria-expanded="true"] {
+  background: var(--bg-elev2);
   color: var(--text);
 }
 
 /* Object-list view (design proposal, phase 3): a metadata grid of a database's
    objects with a type-filter strip. */
 .objlist-bar {
-  padding: 8px 10px 0;
+  padding: var(--sp-3) var(--sp-3) 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
 }
 .objlist-tabs {
   display: flex;
-  gap: 2px;
+  gap: var(--sp-1);
 }
 .otab {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 13px;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   border: 1px solid transparent;
   border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--r-md) var(--r-md) 0 0;
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
 }
@@ -297,10 +449,10 @@ body {
 .otab-mk {
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
 }
 .otab-ct {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -311,24 +463,24 @@ body {
 .objlist-grid {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: var(--fs-base);
 }
 .objlist-grid th {
   position: sticky;
   top: 0;
   text-align: left;
   font-weight: 600;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
   background: var(--bg-elev);
-  padding: 8px 12px;
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--border);
 }
 .objlist-grid th.num {
   text-align: right;
 }
 .objlist-grid td {
-  padding: 7px 12px;
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--border);
 }
 .objlist-grid td.num {
@@ -336,7 +488,7 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 .objlist-row {
   cursor: default;
@@ -347,120 +499,16 @@ body {
 .objlist-name {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--sp-3);
 }
 .objlist-empty {
-  padding: 16px;
+  padding: var(--sp-5);
   color: var(--text-dim);
   text-align: center;
 }
 .objlist-error {
-  padding: 10px 14px;
+  padding: var(--sp-3) var(--sp-4);
   color: var(--error);
-}
-
-/* Bottom information pane (design proposal, phase 4): collapsible summary of the
-   active result. */
-.infopane {
-  flex-shrink: 0;
-  border-top: 1px solid var(--border);
-  background: var(--bg-elev);
-}
-.infopane-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 10px;
-  min-height: 30px;
-}
-.infopane-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: 0;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-.infopane-toggle:hover {
-  color: var(--text);
-}
-.infopane-chevron {
-  font-size: 10px;
-}
-.infopane-summary {
-  font-size: 12px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-.infopane-tabs {
-  display: flex;
-  gap: 2px;
-}
-.infopane-tab {
-  background: transparent;
-  border: 0;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.infopane-tab:hover:not(.on) {
-  background: var(--bg-elev2);
-}
-.infopane-tab.on {
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-.infopane-body {
-  padding: 8px 14px 12px;
-  border-top: 1px solid var(--border);
-  max-height: 160px;
-  overflow: auto;
-}
-.infopane-kv {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 28px;
-}
-.infopane-pair {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.infopane-k {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--faint, var(--text-dim));
-}
-.infopane-v {
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.infopane-msg {
-  margin: 0;
-  font-size: 13px;
-  font-family: var(--font-mono);
-}
-.infopane-msg.kind-error {
-  color: var(--error);
-}
-.infopane-msg.kind-ok {
-  color: var(--number);
-}
-.infopane-msg.kind-idle,
-.infopane-msg.kind-loading {
-  color: var(--text-dim);
 }
 
 /* Sidebar + resizer */
@@ -478,17 +526,17 @@ body {
 }
 
 .sidebar-header {
-  padding: 0.6rem 0.8rem;
+  padding: var(--sp-3) var(--sp-4);
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.04em;
   color: var(--text-dim);
   border-bottom: 1px solid var(--border);
 }
 
 .sidebar-body {
-  padding: 0.8rem;
+  padding: var(--sp-4);
   /* Scroll the connection list on its own if it grows tall, so it never squeezes
      the object tree out of the sidebar (which is now overflow:hidden). */
   overflow: auto;
@@ -518,13 +566,13 @@ body {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.7rem;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   background: none;
   border: none;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   text-align: left;
   cursor: pointer;
 }
@@ -539,8 +587,8 @@ body {
   border-left: 1px solid var(--border);
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 14px;
-  padding: 0 0.7rem;
+  font-size: var(--fs-lg);
+  padding: 0 var(--sp-4);
 }
 .connbar-disconnect:hover:not(:disabled) {
   color: var(--error);
@@ -562,17 +610,17 @@ body {
   color: var(--text-dim);
 }
 .connbar-status {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   color: var(--number);
   background: color-mix(in srgb, var(--number) 16%, transparent);
-  padding: 1px 6px;
-  border-radius: 10px;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-md);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .connbar-caret {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .connbar-drop {
   position: absolute;
@@ -580,19 +628,20 @@ body {
   left: 0;
   right: 0;
   z-index: 30;
-  background: var(--bg-elev);
+  background: var(--bg-overlay);
   border: 1px solid var(--border);
   border-top: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-lg);
   max-height: 60vh;
   overflow: auto;
-  padding: 0.6rem;
+  padding: var(--sp-3);
 }
 
-/* The connection-color dot shown on a query tab. */
+/* The connection-color dot shown on a query tab. Since the tab lost the
+   spelled-out "(Ventas (demo))" suffix, this dot and the coloured left edge are
+   what say which server the tab is on (issue #386). */
 .tab-conn-color {
-  margin-right: 0.4rem;
-  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 /* Full-width strip at the top of the workspace in the active tab's connection
@@ -611,13 +660,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: var(--sp-6);
 }
 .update-modal {
-  background: var(--bg-elev);
+  background: var(--bg-overlay);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
   width: min(560px, 100%);
   max-height: 80vh;
   display: flex;
@@ -625,30 +674,30 @@ body {
   overflow: hidden;
 }
 .update-head {
-  padding: 1.1rem 1.3rem 0.6rem;
+  padding: var(--sp-5) var(--sp-6) var(--sp-3);
 }
 .update-badge {
   display: inline-block;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent-fg);
   background: var(--accent);
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-pill);
 }
 .update-head h2 {
-  margin: 0.5rem 0 0.2rem;
-  font-size: 1.15rem;
+  margin: var(--sp-3) 0 var(--sp-2);
+  font-size: var(--fs-lg);
 }
 .update-sub {
   margin: 0;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 .update-notes {
-  padding: 0 1.3rem;
+  padding: 0 var(--sp-6);
   overflow: auto;
   flex: 1;
 }
@@ -656,16 +705,16 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-ui);
-  font-size: 12.5px;
+  font-size: var(--fs-base);
   line-height: 1.5;
   color: var(--text);
-  margin: 0.6rem 0;
+  margin: var(--sp-3) 0;
 }
 .update-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.9rem 1.3rem;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
   border-top: 1px solid var(--border);
   /* The footer sits flush against its separator; the shared rule's top margin
      would push it away from the border. */
@@ -676,15 +725,15 @@ body {
 }
 .update-error {
   color: var(--error);
-  font-size: 12px;
-  margin: 0 1.3rem;
+  font-size: var(--fs-base);
+  margin: 0 var(--sp-6);
 }
 
 /* Marks an open (connected) connection in the list. */
 .conn-live {
   color: var(--number);
-  font-size: 8px;
-  margin-left: 0.35rem;
+  font-size: var(--fs-micro);
+  margin-left: var(--sp-2);
   vertical-align: middle;
 }
 
@@ -693,19 +742,19 @@ body {
   display: inline-block;
   width: 9px;
   height: 9px;
-  border-radius: 50%;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
 }
 .color-swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: var(--sp-3);
 }
 .color-swatch {
   width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  height: var(--h-sm);
+  border-radius: var(--r-pill);
   border: 1px solid var(--border);
   padding: 0;
   cursor: pointer;
@@ -724,19 +773,19 @@ body {
 .icon-swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: var(--sp-2);
   align-items: center;
 }
 
 .icon-swatch {
   min-width: 28px;
-  height: 28px;
-  padding: 0 0.3rem;
+  height: var(--h-md);
+  padding: 0 var(--sp-2);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: var(--bg-elev2);
   color: inherit;
-  font-size: 14px;
+  font-size: var(--fs-lg);
   line-height: 1;
   cursor: pointer;
 }
@@ -747,7 +796,7 @@ body {
 }
 
 .icon-swatch.icon-engine {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
@@ -776,23 +825,98 @@ body {
   min-height: 0;
 }
 
+/* The one navigation band (issue #386): launcher, tabs, tool strip toggle. A
+   32px band where the ribbon (68) plus the tab bar (31) used to be. */
 .tabbar {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--band-md);
+  padding: 0 var(--sp-3);
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* The Ctrl+K palette, given a door. It is the whole replacement for twelve
+   ribbon buttons, so it has to look like something you can click, not like a
+   hint printed on the chrome. */
+.tab-launch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--h-sm);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tab-launch:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.tab-launch-ic {
+  display: grid;
+  place-items: center;
+  width: var(--fs-base);
+  height: var(--fs-base);
+}
+
+.tab-launch-ic svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tab-kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+}
+
+.tab-sep {
+  width: 1px;
+  height: var(--fs-lg);
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.tablist {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
   overflow-x: auto;
+}
+
+.tabbar-spacer {
+  flex: 1;
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.7rem;
-  border-right: 1px solid var(--border);
+  gap: var(--sp-3);
+  height: var(--h-sm);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  /* The connection's colour rides this edge (set inline). Reserved on every
+     tab so a tab does not shift sideways when it gains one. */
+  border-left: 3px solid transparent;
   cursor: pointer;
   white-space: nowrap;
   color: var(--text-dim);
+  flex-shrink: 0;
 }
 
 .tab:hover:not(.active) {
@@ -801,12 +925,15 @@ body {
 }
 
 .tab.active {
-  background: var(--bg);
+  background: var(--bg-elev2);
   color: var(--text);
-  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .tab.active .tab-title {
+  font-weight: 600;
+}
+
+.tab-title {
   font-weight: 600;
 }
 
@@ -821,17 +948,8 @@ body {
    decorative: the tab's aria-label carries the same fact in words. */
 .tab-unsaved {
   color: var(--null);
-  font-size: 1.1em;
+  font-size: var(--fs-md);
   line-height: 0;
-}
-
-/* The tab's connection name, dimmed so the title still reads first. */
-.tab-conn {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-dim);
-  font-size: 11px;
 }
 
 .tab-close,
@@ -840,17 +958,17 @@ body {
   border: none;
   color: inherit;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--fs-lg);
   line-height: 1;
-  padding: 0 0.2rem;
-  border-radius: 3px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
 }
 
 /* Close affordance is dimmed until the tab is hovered or active, so a row of
    tabs reads calmly (chrome visual pass). */
 .tab .tab-close {
   opacity: 0.45;
-  transition: opacity 0.1s;
+  transition: opacity var(--motion-fast);
 }
 
 .tab:hover .tab-close,
@@ -865,7 +983,7 @@ body {
 }
 
 .tab-new {
-  padding: 0.4rem 0.7rem;
+  padding: var(--sp-3) var(--sp-4);
   color: var(--text-dim);
 }
 
@@ -886,7 +1004,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: auto;
-  padding: 1rem;
+  padding: var(--sp-5);
   background: var(--bg);
 }
 
@@ -934,7 +1052,7 @@ body {
 
 .editor .cm-scroller {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 /* Theme the CodeMirror chrome from the app palette so the editor tracks
@@ -980,16 +1098,16 @@ body {
 .cm-tooltip.cm-tooltip-autocomplete {
   background: var(--bg-elev2) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 4px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-lg);
   color: var(--text) !important;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .cm-tooltip-autocomplete > ul > li {
   color: var(--text) !important;
-  padding: 2px 6px;
+  padding: var(--sp-1) var(--sp-2);
 }
 
 .cm-tooltip-autocomplete > ul > li[aria-selected] {
@@ -1014,7 +1132,7 @@ body {
 .cm-completionDetail {
   color: var(--text-dim);
   font-style: normal;
-  margin-left: 0.5rem;
+  margin-left: var(--sp-3);
 }
 
 /* The info panel shown beside a highlighted completion. */
@@ -1031,9 +1149,9 @@ body {
      the bar, and a row that overflows puts its tail outside the window where it
      cannot be read or clicked at all. */
   flex-wrap: wrap;
-  gap: 0.25rem 0.5rem;
-  padding: 0.2rem 0.6rem;
-  font-size: 11px;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
   color: var(--text-dim);
   background: var(--bg-elev);
   border-top: 1px solid var(--border);
@@ -1070,9 +1188,9 @@ body {
 /* Inline confirm-changes panel (former modal), above the grid. */
 .edit-preview {
   border: 1px solid var(--accent);
-  border-radius: 4px;
-  margin: 0 0.4rem 0.4rem;
-  padding: 0.5rem 0.7rem;
+  border-radius: var(--r-sm);
+  margin: 0 var(--sp-3) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   background: var(--bg-elev);
   max-height: 40%;
   overflow: auto;
@@ -1080,13 +1198,13 @@ body {
 
 .edit-preview-head {
   display: flex;
-  gap: 0.6rem;
+  gap: var(--sp-3);
   align-items: baseline;
-  margin-bottom: 0.3rem;
+  margin-bottom: var(--sp-2);
 }
 
 .edit-preview-head span {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
@@ -1099,11 +1217,11 @@ body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 0.8rem;
+  padding: var(--sp-4);
 }
 
 .rd-close {
-  margin-left: 0.4rem;
+  margin-left: var(--sp-3);
 }
 
 /* Result grid */
@@ -1125,7 +1243,6 @@ body {
 /* Focusable for keyboard navigation, but the selected-cell outline is the
    visible cue — suppress the default focus ring on the scroller itself. */
 .grid-scroll:focus {
-  outline: none;
 }
 
 /* Keyboard-selected cell: an inset accent outline that reads in both themes and
@@ -1170,7 +1287,10 @@ body {
    nth-child stripe would flicker. color-mix keeps it subtle in both themes
    (the old rgba(255,255,255,…) was invisible on the light palette). */
 .grid-row.row-odd {
-  background: color-mix(in srgb, var(--text) 3%, transparent);
+  /* Al 3 % la banda eran 6 unidades de 255 en oscuro y 7 en claro: medida
+     sobre la captura, invisible. Al 6 % son 12 y 14, que ya guían el ojo a lo
+     largo de la fila sin ensuciar el lienzo (issue #386). */
+  background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
 .grid-row:hover {
@@ -1187,27 +1307,27 @@ body {
 }
 
 .grid-cell {
-  height: var(--grid-row-h, 28px);
-  line-height: var(--grid-row-h, 28px);
-  padding: 0 0.6rem;
+  height: var(--grid-row-h, var(--h-md));
+  line-height: var(--grid-row-h, var(--h-md));
+  padding: 0 var(--sp-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   border-right: 1px solid var(--border);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .grid-head {
   display: flex;
   align-items: baseline;
-  gap: 0.4rem;
+  gap: var(--sp-3);
   font-family: var(--font-ui);
   font-weight: 600;
 }
 
 .col-type {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 400;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -1243,7 +1363,7 @@ body {
 
 .col-sort {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   color: var(--accent-text);
 }
 
@@ -1257,28 +1377,28 @@ body {
 }
 
 .grid-filter-cell {
-  padding: 2px 4px;
+  padding: var(--sp-1) var(--sp-2);
   overflow: visible;
 }
 
 .grid-filter-input {
   width: 100%;
-  height: 20px;
-  line-height: 20px;
+  height: var(--h-micro);
+  line-height: var(--h-micro);
   box-sizing: border-box;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0 0.3rem;
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .grid-empty-filter {
-  padding: 0.6rem;
+  padding: var(--sp-3);
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .cell-null {
@@ -1292,8 +1412,26 @@ body {
 
 .grid-empty,
 .grid-error {
-  padding: 0.8rem;
+  padding: var(--sp-4);
   color: var(--text-dim);
+}
+
+/* An empty state that IS the pane, rather than a note inside one (issue #386).
+   "Selecciona un usuario para ver sus permisos." was a plain line of text stuck
+   to the top-left corner of a 600 px area; it takes the room the pane gives it
+   and centres in it. `:only-child` catches the panes that hand it the whole
+   area, `.pane-empty` says so where it has a toolbar above it but is still all
+   the content there is. A note WITH siblings keeps sitting where it is written:
+   "solo se cargaron los primeros N" belongs next to what it qualifies. */
+.grid-empty:only-child,
+.grid-empty.pane-empty {
+  flex: 1;
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  padding: var(--sp-6);
 }
 
 /* Running state: "Ejecutando…" with a Cancelar button beside it (cancelable
@@ -1301,22 +1439,22 @@ body {
 .grid-running {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--sp-3);
 }
 
 .grid-cancel {
-  padding: 0.2rem 0.6rem;
-  font-size: 12px;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-base);
   color: var(--text);
-  background: var(--surface-2, transparent);
+  background: var(--bg-elev2);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 
 .grid-cancel:hover {
-  border-color: var(--danger, #c0392b);
-  color: var(--danger, #c0392b);
+  border-color: var(--error);
+  color: var(--error);
 }
 
 /* Branded welcome shown in the workspace when no tab is open (issue #191). */
@@ -1326,22 +1464,22 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 2rem;
+  gap: var(--sp-3);
+  padding: var(--sp-6);
   text-align: center;
   color: var(--text);
 }
 
 .workspace-welcome .welcome-tagline {
-  margin: 0.25rem 0 0;
-  font-size: 15px;
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-lg);
   color: var(--text-dim);
 }
 
 .workspace-welcome .welcome-hint {
   margin: 0;
   max-width: 34rem;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--text-dim);
 }
 
@@ -1352,8 +1490,8 @@ body {
 }
 
 .grid-truncated {
-  padding: 0.35rem 0.6rem;
-  font-size: 11px;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
   color: var(--null);
   background: var(--bg-elev);
   border-top: 1px solid var(--border);
@@ -1364,11 +1502,11 @@ body {
   position: fixed;
   z-index: 50;
   min-width: 180px;
-  padding: 4px;
-  background: var(--bg-elev2);
+  padding: var(--sp-2);
+  background: var(--bg-overlay);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -1377,7 +1515,7 @@ body {
 .context-menu-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--sp-3);
   width: 100%;
   text-align: left;
   background: none;
@@ -1385,9 +1523,9 @@ body {
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
-  padding: 0.35rem 0.7rem;
-  border-radius: 4px;
+  font-size: var(--fs-md);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 
@@ -1426,25 +1564,48 @@ body {
 
 .context-menu-item.danger:hover:not(:disabled) {
   background: var(--error);
-  color: #fff;
+  color: var(--error-fg);
 }
 
 .context-menu-sep {
   height: 1px;
-  margin: 3px 4px;
+  margin: var(--sp-1) var(--sp-2);
   background: var(--border);
 }
 
 /* Status bar */
+/* The bar that swallowed the pager and the information pane (issue #386): one
+   28 px band at the bottom instead of three totalling 98 px. */
 .statusbar {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.25rem 0.8rem;
+  gap: var(--sp-3);
+  height: var(--band-sm);
+  padding: 0 var(--sp-4);
   background: var(--bg-elev);
   border-top: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+/* The three groups the bar reads as: where you are, where in the rows you are,
+   and what the run cost. The gap inside a group is tighter than between them. */
+.status-sep {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+.status-object,
+.status-range {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-page {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
 }
 
 /* Compact controls at the right of the status bar (theme toggle, help). */
@@ -1454,16 +1615,16 @@ body {
   color: var(--text-dim);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   /* Larger, squared hit target for the glyph buttons (theme/settings/help) —
      the old 0.3rem-wide targets were fiddly (UX audit). */
-  min-width: 26px;
-  height: 22px;
+  min-width: var(--h-sm);
+  height: var(--h-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 0.45rem;
-  border-radius: 3px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
 }
 
 .status-btn:hover {
@@ -1472,7 +1633,7 @@ body {
 }
 
 .status-btn.danger {
-  color: var(--danger, #e5484d);
+  color: var(--error);
 }
 
 .status-btn:disabled {
@@ -1499,11 +1660,11 @@ body {
   width: 100%;
   max-width: 46rem;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .shortcuts-list td {
-  padding: 0.3rem 0.4rem;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
 }
 
@@ -1516,23 +1677,23 @@ body {
 
 kbd {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   background: var(--bg-elev2);
   border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0 4px;
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2);
 }
 
 .status-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-3);
 }
 
 .conn-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--r-pill);
   background: var(--text-dim);
 }
 
@@ -1553,15 +1714,15 @@ kbd {
 .conn-manager {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--sp-3);
 }
 
 .conn-new {
   background: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.4rem 0.6rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-3);
   cursor: pointer;
   text-align: left;
 }
@@ -1576,7 +1737,7 @@ kbd {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sp-1);
 }
 
 /* Connection groups are plain <details>, so collapsing, keyboard support and
@@ -1584,13 +1745,13 @@ kbd {
 .conn-group > summary {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.35rem;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
   cursor: pointer;
   list-style: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1601,7 +1762,7 @@ kbd {
 
 .conn-group > summary::before {
   content: "▸";
-  font-size: 10px;
+  font-size: var(--fs-micro);
 }
 
 .conn-group[open] > summary::before {
@@ -1625,13 +1786,13 @@ kbd {
 }
 
 .conn-group .conn-list {
-  padding-left: 0.4rem;
+  padding-left: var(--sp-3);
 }
 
 .conn-item {
   display: flex;
   align-items: stretch;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   overflow: hidden;
 }
 
@@ -1653,7 +1814,7 @@ kbd {
   border: none;
   color: inherit;
   text-align: left;
-  padding: 0.4rem 0.5rem;
+  padding: var(--sp-3) var(--sp-3);
   cursor: pointer;
 }
 
@@ -1667,7 +1828,7 @@ kbd {
 }
 
 .conn-driver {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
@@ -1681,8 +1842,8 @@ kbd {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  padding: 0 0.35rem;
-  font-size: 13px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-md);
 }
 
 .conn-actions button:hover {
@@ -1706,27 +1867,27 @@ kbd {
 }
 
 .modal {
-  background: var(--bg-elev);
+  background: var(--bg-overlay);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.2rem;
+  border-radius: var(--r-md);
+  padding: var(--sp-5);
   width: min(440px, 92vw);
   max-height: 90vh;
   overflow: auto;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
 }
 
 .modal h2 {
-  margin: 0 0 0.8rem;
-  font-size: 16px;
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-lg);
 }
 
 /* Connection-form tabs (General / SSL / SSH): keep the form short instead of one
    long scroll. Only shown when the driver declares grouped fields. */
 .form-tabs {
   display: flex;
-  gap: 0.2rem;
-  margin: 0.2rem 0 0.9rem;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 var(--sp-5);
   border-bottom: 1px solid var(--border);
 }
 
@@ -1737,8 +1898,8 @@ kbd {
   color: var(--text-dim);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
-  padding: 0.4rem 0.7rem;
+  font-size: var(--fs-base);
+  padding: var(--sp-3) var(--sp-4);
   margin-bottom: -1px;
 }
 
@@ -1757,23 +1918,23 @@ kbd {
 
 .form-tab-dot {
   color: var(--error);
-  font-size: 8px;
-  margin-left: 0.3rem;
+  font-size: var(--fs-micro);
+  margin-left: var(--sp-2);
   vertical-align: middle;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.7rem;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
 }
 
 .field-group {
-  margin: 1rem 0 0.5rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--border, #333);
-  font-size: 12px;
+  margin: var(--sp-5) 0 var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -1781,48 +1942,47 @@ kbd {
 }
 
 .field > span {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
 .field input,
 .field select {
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.4rem 0.5rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-3);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .field input:focus,
 .field select:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
 .form-errors {
-  margin: 0.4rem 0;
-  padding-left: 1.1rem;
+  margin: var(--sp-3) 0;
+  padding-left: var(--sp-5);
   color: var(--error);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 /* Per-field validation (issue #109) */
 .field-error {
   color: var(--error);
-  font-size: 11px;
-  margin-top: 2px;
+  font-size: var(--fs-sm);
+  margin-top: var(--sp-1);
 }
 
 /* Database picker: the "Cargar lista" button + the fetched-databases dropdown,
    shown under the database input in the connection form. */
 .db-picker {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--sp-3);
   align-items: center;
-  margin-top: 0.3rem;
+  margin-top: var(--sp-2);
 }
 
 .db-picker-select {
@@ -1841,22 +2001,28 @@ kbd {
 
 .test-ok {
   color: var(--number);
-  font-size: 12px;
-  margin: 0.4rem 0;
+  font-size: var(--fs-base);
+  margin: var(--sp-3) 0;
 }
 
 .test-error {
   color: var(--error);
-  font-size: 12px;
-  margin: 0.4rem 0;
+  font-size: var(--fs-base);
+  margin: var(--sp-3) 0;
   font-family: var(--font-mono);
 }
 
+/* Buttons end together at the right, the way a dialog footer reads (issue
+   #386). Wherever a panel deliberately splits them into two groups it puts a
+   flex:1 spacer between, and a spacer eats the free room before this can — so
+   this changes nothing there and everything in a full-width tool pane, where
+   the two buttons used to sit a thousand pixels apart. */
 .modal-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
 }
 
 /* The app's ordinary button. Was reachable only under `.modal-actions`, so a
@@ -1869,8 +2035,8 @@ button.primary {
   background: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.4rem 0.8rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-4);
   cursor: pointer;
   font: inherit;
 }
@@ -1901,11 +2067,11 @@ button.primary:hover:not(:disabled) {
 }
 
 .modal-actions button.danger {
-  color: var(--danger, #e5484d);
+  color: var(--error);
 }
 
 .modal-actions button.danger:hover:not(:disabled) {
-  border-color: var(--danger, #e5484d);
+  border-color: var(--error);
 }
 
 .modal-actions button.danger:first-child {
@@ -1916,8 +2082,8 @@ button.primary:hover:not(:disabled) {
 .history-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.6rem;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-3);
 }
 
 .history-search {
@@ -1925,15 +2091,15 @@ button.primary:hover:not(:disabled) {
   background: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.4rem 0.6rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-3);
 }
 
 .history-limit {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 12px;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
   color: var(--text-dim);
   white-space: nowrap;
 }
@@ -1943,8 +2109,8 @@ button.primary:hover:not(:disabled) {
   background: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.3rem 0.4rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
 }
 
 .history-list {
@@ -1954,7 +2120,7 @@ button.primary:hover:not(:disabled) {
   max-height: 50vh;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 .history-item + .history-item {
@@ -1964,13 +2130,13 @@ button.primary:hover:not(:disabled) {
 .history-run {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--sp-2);
   width: 100%;
   text-align: left;
   background: none;
   border: none;
   color: var(--text);
-  padding: 0.5rem 0.6rem;
+  padding: var(--sp-3) var(--sp-3);
   cursor: pointer;
 }
 
@@ -1980,7 +2146,7 @@ button.primary:hover:not(:disabled) {
 
 .history-sql {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 4.5em;
@@ -1988,7 +2154,7 @@ button.primary:hover:not(:disabled) {
 }
 
 .history-meta {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
@@ -2005,8 +2171,8 @@ button.primary:hover:not(:disabled) {
 .history-only-slow {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 12px;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
   color: var(--text-dim);
   white-space: nowrap;
   cursor: pointer;
@@ -2014,7 +2180,7 @@ button.primary:hover:not(:disabled) {
 
 .history-empty {
   color: var(--text-dim);
-  padding: 1rem 0.2rem;
+  padding: var(--sp-5) var(--sp-2);
   text-align: center;
 }
 
@@ -2036,7 +2202,7 @@ button.primary:hover:not(:disabled) {
   grid-template-columns: minmax(0, 270px) minmax(0, 1fr);
   gap: 0;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   overflow: hidden;
   flex: 1;
   min-height: 240px;
@@ -2055,12 +2221,12 @@ button.primary:hover:not(:disabled) {
   background: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.4rem 0.6rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-3);
 }
 
 .snippet-search {
-  margin: 0.5rem;
+  margin: var(--sp-3);
   flex: 0 0 auto;
 }
 
@@ -2079,7 +2245,7 @@ button.primary:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.1rem;
+  gap: var(--sp-1);
   width: 100%;
   text-align: left;
   background: none;
@@ -2087,7 +2253,7 @@ button.primary:hover:not(:disabled) {
   border-top: 1px solid var(--border);
   color: var(--text);
   cursor: pointer;
-  padding: 0.45rem 0.6rem;
+  padding: var(--sp-3) var(--sp-3);
   min-width: 0;
 }
 
@@ -2109,7 +2275,7 @@ button.primary:hover:not(:disabled) {
 
 .snippet-row-hint {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2126,8 +2292,8 @@ button.primary:hover:not(:disabled) {
 .snippet-detail-head {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.6rem;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3);
   border-bottom: 1px solid var(--border);
 }
 
@@ -2146,16 +2312,16 @@ button.primary:hover:not(:disabled) {
 
 /* Shares `.btn`; only the glyph's tighter box is its own. */
 .snippet-more {
-  padding: 0.2rem 0.5rem;
+  padding: var(--sp-2) var(--sp-3);
   line-height: 1;
 }
 
 .snippet-body {
   margin: 0;
-  padding: 0.6rem;
+  padding: var(--sp-3);
   flex: 1;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
@@ -2165,12 +2331,12 @@ button.primary:hover:not(:disabled) {
 
 .snippet-count {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .snippet-empty {
   color: var(--text-dim);
-  padding: 1rem 0.6rem;
+  padding: var(--sp-5) var(--sp-3);
   text-align: center;
 }
 
@@ -2194,10 +2360,10 @@ button.primary:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.8rem;
+  padding: var(--sp-3) var(--sp-4);
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.04em;
   color: var(--text-dim);
 }
@@ -2205,7 +2371,7 @@ button.primary:hover:not(:disabled) {
 .objtree-actions {
   display: flex;
   align-items: center;
-  gap: 0.1rem;
+  gap: var(--sp-1);
 }
 
 .objtree-refresh {
@@ -2213,10 +2379,10 @@ button.primary:hover:not(:disabled) {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--fs-lg);
   line-height: 1;
-  padding: 0 0.2rem;
-  border-radius: 3px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
 }
 
 .objtree-refresh:hover {
@@ -2227,24 +2393,17 @@ button.primary:hover:not(:disabled) {
 .objtree-filter {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0 0.6rem 0.5rem;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-3);
 }
 
 .objtree-filter-input {
   flex: 1;
   min-width: 0;
-  padding: 0.25rem 0.5rem;
-  font-size: 12px;
-  color: var(--text);
-  background: var(--bg-elev2);
-  border: 1px solid var(--border);
-  border-radius: 3px;
 }
 
 .objtree-filter-input:focus {
-  outline: none;
-  border-color: var(--accent, #5b5bd6);
+  border-color: var(--accent);
 }
 
 .objtree-filter-clear {
@@ -2252,10 +2411,10 @@ button.primary:hover:not(:disabled) {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-base);
   line-height: 1;
-  padding: 0.2rem 0.35rem;
-  border-radius: 3px;
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--r-sm);
 }
 
 .objtree-filter-clear:hover {
@@ -2264,9 +2423,9 @@ button.primary:hover:not(:disabled) {
 }
 
 .objtree-error {
-  padding: 0.4rem 0.8rem;
+  padding: var(--sp-3) var(--sp-4);
   color: var(--error);
-  font-size: 12px;
+  font-size: var(--fs-base);
   white-space: pre-wrap;
 }
 
@@ -2291,9 +2450,9 @@ button.primary:hover:not(:disabled) {
 .objtree-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  height: 24px;
-  padding-right: 0.5rem;
+  gap: var(--sp-2);
+  height: var(--h-sm);
+  padding-right: var(--sp-3);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -2307,13 +2466,12 @@ button.primary:hover:not(:disabled) {
 /* The keyboard-active row. Focus stays on the tree container and the active item is
    published with aria-activedescendant, so there is no :focus to style — without an
    explicit marker a sighted keyboard user would be moving an invisible cursor. */
-.objtree-row.is-focused {
-  background: var(--bg-elev2);
-  outline: 2px solid var(--accent);
+.objtree-scroll:focus-visible {
   outline-offset: -2px;
 }
 
-.objtree-scroll:focus-visible {
+.objtree-row.is-focused {
+  background: var(--bg-elev2);
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
@@ -2339,11 +2497,11 @@ button.primary:hover:not(:disabled) {
 }
 
 .objtree-badge {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   text-transform: uppercase;
   font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-sm);
   flex-shrink: 0;
   color: var(--obj-ink);
 }
@@ -2385,26 +2543,26 @@ button.primary:hover:not(:disabled) {
   flex-shrink: 0;
   width: 1.15em;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-md);
   line-height: 1;
 }
 
 .objtree-count {
   margin-left: auto;
-  padding-left: 0.5rem;
-  font-size: 10px;
+  padding-left: var(--sp-3);
+  font-size: var(--fs-micro);
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
 
 /* Sidebar section label (e.g. CONEXIONES), matching the object-tree header. */
 .sidebar-section-title {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-dim);
-  padding: 0.5rem 0.7rem 0.3rem;
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
 }
 
 /* Structure view (modal) */
@@ -2417,20 +2575,20 @@ button.primary:hover:not(:disabled) {
 .struct-scroll {
   max-height: 40vh;
   overflow: auto;
-  margin-bottom: 1rem;
+  margin-bottom: var(--sp-5);
 }
 
 .struct-table {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .struct-table th,
 .struct-table td {
   text-align: left;
-  padding: 0.3rem 0.5rem;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -2445,8 +2603,8 @@ button.primary:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.3rem;
-  font-size: 12px;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
@@ -2454,8 +2612,8 @@ button.primary:hover:not(:disabled) {
   background: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.25rem 0.6rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
   cursor: pointer;
 }
 
@@ -2471,11 +2629,11 @@ button.primary:hover:not(:disabled) {
 .ddl-text {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.6rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 50vh;
@@ -2490,14 +2648,13 @@ button.primary:hover:not(:disabled) {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.6rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .ddl-edit:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -2505,21 +2662,21 @@ button.primary:hover:not(:disabled) {
 .td-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
-  margin: 0.6rem 0;
+  font-size: var(--fs-base);
+  margin: var(--sp-3) 0;
 }
 
 .td-table th {
   text-align: left;
   font-weight: 600;
   color: var(--text-dim);
-  padding: 0.2rem 0.4rem;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .td-table td {
-  padding: 0.15rem 0.3rem;
+  padding: var(--sp-1) var(--sp-2);
   vertical-align: middle;
 }
 
@@ -2534,14 +2691,13 @@ button.primary:hover:not(:disabled) {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.25rem 0.4rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .td-in:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -2549,22 +2705,24 @@ button.primary:hover:not(:disabled) {
 .edit-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.5rem;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
-  background: var(--bg-alt, var(--bg));
-  min-height: 32px;
+  background: var(--bg-alt);
+  min-height: var(--band-md);
+}
+
+/* Divider between the object's actions and the tab's own, inside one bar. */
+.toolbar-sep {
+  width: 1px;
+  height: var(--fs-lg);
+  background: var(--border);
+  flex-shrink: 0;
 }
 
 .edit-btn {
-  font: inherit;
-  font-size: 12px;
-  padding: 0.2rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--fg);
-  cursor: pointer;
+  /* The base look comes from the shared button rule above. */
+  font-family: inherit;
 }
 
 .edit-btn:hover:not(:disabled) {
@@ -2577,55 +2735,54 @@ button.primary:hover:not(:disabled) {
 }
 
 .edit-btn-primary {
-  border-color: var(--accent, #5b5bd6);
-  color: var(--accent-text, #4a4ac4);
+  border-color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Leading glyph + dropdown caret on toolbar buttons (phase 8). The glyph is a
    light visual cue; the caret marks a button that opens a menu. */
 .eb-ic {
-  font-size: 12px;
+  font-size: var(--fs-base);
   opacity: 0.8;
 }
 
 .eb-caret {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   color: var(--text-dim);
 }
 
 .edit-btn-menu {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--sp-2);
 }
 
 .edit-hint-ro {
-  font-size: 12px;
-  color: var(--fg-dim, #888);
+  font-size: var(--fs-base);
+  color: var(--fg-dim);
 }
 
 .edit-error {
-  font-size: 12px;
-  color: var(--error, #e5484d);
-  margin-left: 0.4rem;
+  font-size: var(--fs-base);
+  color: var(--error);
+  margin-left: var(--sp-3);
 }
 
 /* Inline cell editor: fills the grid cell without changing row height. */
 .cell-input {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-base);
   width: 100%;
   box-sizing: border-box;
   border: 1px solid transparent;
   background: var(--bg);
   color: var(--fg);
-  padding: 0 6px;
+  padding: 0 var(--sp-2);
 }
 
 .cell-input:focus {
-  outline: none;
-  border-color: var(--accent, #5b5bd6);
-  background: var(--bg-alt, var(--bg));
+  border-color: var(--accent);
+  background: var(--bg-alt);
 }
 
 .cell-input:disabled {
@@ -2655,7 +2812,7 @@ button.primary:hover:not(:disabled) {
 }
 
 .cell-fk {
-  border-left: 2px solid var(--accent, #5b5bd6);
+  border-left: 2px solid var(--accent);
   padding: 0;
 }
 
@@ -2671,14 +2828,14 @@ button.primary:hover:not(:disabled) {
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--accent-text, var(--accent, #5b5bd6));
+  color: var(--accent-text);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1;
 }
 
 .fk-toggle:hover:not(:disabled) {
-  background: var(--bg-alt, rgba(127, 127, 127, 0.12));
+  background: var(--bg-alt);
 }
 
 .fk-toggle:disabled {
@@ -2692,7 +2849,7 @@ button.primary:hover:not(:disabled) {
   max-height: 82vh;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--sp-3);
 }
 
 .fk-browser-head h2 {
@@ -2700,19 +2857,19 @@ button.primary:hover:not(:disabled) {
 }
 
 .fk-browser-sub {
-  margin: 0.15rem 0 0;
-  font-size: 12px;
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
 .fk-browser-filter {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.4rem 0.6rem;
+  padding: var(--sp-3) var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--bg);
-  color: var(--text, var(--fg));
+  color: var(--text);
   font: inherit;
 }
 
@@ -2721,18 +2878,18 @@ button.primary:hover:not(:disabled) {
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 .fk-table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .fk-table th,
 .fk-table td {
-  padding: 4px 8px;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   max-width: 320px;
@@ -2744,28 +2901,28 @@ button.primary:hover:not(:disabled) {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--bg-alt, var(--bg));
+  background: var(--bg-alt);
   text-align: left;
   font-weight: 600;
 }
 
 .fk-table .col-type {
-  margin-left: 6px;
-  font-size: 10px;
+  margin-left: var(--sp-2);
+  font-size: var(--fs-micro);
   color: var(--text-dim);
   font-weight: 400;
 }
 
 .fk-table tbody tr:hover {
-  background: var(--bg-alt, rgba(127, 127, 127, 0.1));
+  background: var(--bg-alt);
 }
 
 .fk-row-current {
-  background: color-mix(in srgb, var(--accent, #5b5bd6) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .fk-key-cell {
-  font-family: var(--mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-weight: 600;
 }
 
@@ -2775,30 +2932,30 @@ button.primary:hover:not(:disabled) {
 }
 
 .fk-pick {
-  padding: 2px 10px;
+  padding: var(--sp-1) var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background: var(--bg);
-  color: var(--accent-text, inherit);
+  color: var(--accent-text);
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .fk-pick:hover {
-  background: var(--accent, #5b5bd6);
-  border-color: var(--accent, #5b5bd6);
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
 }
 
 .fk-browser-count {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
 .fk-browser-empty {
   margin: 0;
-  padding: 0.8rem;
+  padding: var(--sp-4);
   color: var(--text-dim);
 }
 
@@ -2808,14 +2965,14 @@ button.primary:hover:not(:disabled) {
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 button.grid-action {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: var(--fg-dim, #888);
+  color: var(--fg-dim);
 }
 
 button.grid-action:hover {
@@ -2835,7 +2992,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .grid-inserts {
-  border-top: 2px solid var(--accent, #5b5bd6);
+  border-top: 2px solid var(--accent);
   /* Wide tables overflow the pane; without a scroll the far columns were
      clipped and unreachable. Kept in sync with the grid's scrollLeft. */
   overflow-x: auto;
@@ -2849,15 +3006,15 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .grid-inserts-title {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--fg-dim, #888);
-  padding: 0.2rem 0.5rem;
+  color: var(--fg-dim);
+  padding: var(--sp-2) var(--sp-3);
 }
 
 .row-insert {
-  background: color-mix(in srgb, var(--accent, #5b5bd6) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .preview-sql {
@@ -2870,34 +3027,34 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* --- Import wizard (M8) --------------------------------------------------- */
 .import-field {
-  margin: 0.6rem 0;
+  margin: var(--sp-3) 0;
 }
 
 .import-subtitle {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--fg-dim, #888);
-  margin: 0.6rem 0 0.3rem;
+  color: var(--fg-dim);
+  margin: var(--sp-3) 0 var(--sp-2);
 }
 
 .import-preview-scroll {
   max-height: 160px;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 .import-preview-scroll table {
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--fs-base);
   width: 100%;
 }
 
 .import-preview-scroll th,
 .import-preview-scroll td {
   border: 1px solid var(--border);
-  padding: 2px 6px;
+  padding: var(--sp-1) var(--sp-2);
   text-align: left;
   white-space: nowrap;
 }
@@ -2910,46 +3067,46 @@ button.grid-action.danger:hover:not(:disabled) {
 .map-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.15rem 0;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
 }
 
 .map-target {
   min-width: 140px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .map-arrow {
-  color: var(--fg-dim, #888);
+  color: var(--fg-dim);
 }
 
 .map-select {
   flex: 1;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .import-policy {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  font-size: 12px;
-  margin: 0.6rem 0;
+  gap: var(--sp-5);
+  font-size: var(--fs-base);
+  margin: var(--sp-3) 0;
 }
 
 .import-errors {
   max-height: 160px;
   overflow: auto;
-  font-size: 12px;
-  color: var(--error, #e5484d);
-  margin: 0.4rem 0;
-  padding-left: 1.2rem;
+  font-size: var(--fs-base);
+  color: var(--error);
+  margin: var(--sp-3) 0;
+  padding-left: var(--sp-5);
 }
 
 .import-applied {
-  color: var(--accent-text, #4a4ac4);
-  font-size: 12px;
+  color: var(--accent-text);
+  font-size: var(--fs-base);
 }
 
 /* Row form / detail view (issue #133) */
@@ -2957,7 +3114,7 @@ button.grid-action.danger:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--sp-5);
 }
 
 .rd-head h2 {
@@ -2967,25 +3124,21 @@ button.grid-action.danger:hover:not(:disabled) {
 .rd-nav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--sp-3);
 }
 
 .rd-pos {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
   min-width: 6.5rem;
   text-align: center;
 }
 
 .rd-nav-btn {
-  background: var(--bg-elev2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.15rem 0.6rem;
-  font-size: 15px;
+  /* A ‹ › glyph, so it keeps the larger step and its own tighter padding. */
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-lg);
   line-height: 1;
-  cursor: pointer;
 }
 
 .rd-nav-btn:hover:not(:disabled) {
@@ -2998,46 +3151,46 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .rd-deleted-banner {
-  margin: 0.6rem 0 0;
-  padding: 0.35rem 0.6rem;
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--danger, #e5484d);
-  border: 1px solid var(--danger, #e5484d);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-base);
+  color: var(--error);
+  border: 1px solid var(--error);
 }
 
 .rd-fields {
-  margin-top: 0.8rem;
+  margin-top: var(--sp-4);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--sp-3);
 }
 
 .rd-field {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--sp-2);
 }
 
 .rd-label {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: var(--sp-3);
 }
 
 .rd-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .rd-type {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
 .rd-edited-tag {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--accent-text);
@@ -3048,12 +3201,12 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .rd-value {
-  padding: 0.35rem 0.5rem;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--bg-elev);
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 12rem;
@@ -3068,24 +3221,23 @@ button.grid-action.danger:hover:not(:disabled) {
 .rd-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.35rem 0.5rem;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--text);
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
   resize: vertical;
 }
 
 .rd-input:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
 /* Foreign-key field: the referenced table/column, and a picker over its rows. */
 .rd-fk-ref {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--accent-text);
   cursor: help;
 }
@@ -3105,16 +3257,16 @@ button.grid-action.danger:hover:not(:disabled) {
 /* Test-data generator (issue #147) */
 .dg-params {
   display: inline-flex;
-  gap: 0.6rem;
+  gap: var(--sp-3);
   align-items: center;
   flex-wrap: wrap;
 }
 
 .dg-params label {
   display: inline-flex;
-  gap: 0.25rem;
+  gap: var(--sp-2);
   align-items: center;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
@@ -3129,7 +3281,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* Server monitor / process list (issue #148) */
 .sidebar-tools {
-  padding: 0.3rem 0.4rem;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -3138,18 +3290,18 @@ button.grid-action.danger:hover:not(:disabled) {
 .sidebar-tools-header {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--sp-2);
   width: 100%;
   background: none;
   border: none;
   color: var(--text-dim);
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 0.25rem 0.3rem;
-  border-radius: 3px;
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--r-sm);
 }
 
 .sidebar-tools-header:hover {
@@ -3165,23 +3317,23 @@ button.grid-action.danger:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin-top: 0.15rem;
+  margin-top: var(--sp-1);
 }
 
 .tool-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--sp-3);
   width: 100%;
   background: none;
   border: none;
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-base);
   text-align: left;
-  padding: 0.3rem 0.4rem;
-  border-radius: 4px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
 }
 
 .tool-item:hover {
@@ -3205,10 +3357,10 @@ button.grid-action.danger:hover:not(:disabled) {
 .panel-bar {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-3);
   flex: none;
-  margin-bottom: 0.7rem;
-  min-height: 26px;
+  margin-bottom: var(--sp-4);
+  min-height: var(--band-sm);
 }
 
 .panel-bar-spacer {
@@ -3218,8 +3370,8 @@ button.grid-action.danger:hover:not(:disabled) {
 .panel-status {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 12px;
+  gap: var(--sp-3);
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
@@ -3229,14 +3381,7 @@ button.grid-action.danger:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--fg);
-  cursor: pointer;
+  height: var(--h-sm);
 }
 
 .panel-icon-btn svg {
@@ -3269,18 +3414,17 @@ button.grid-action.danger:hover:not(:disabled) {
     textarea,
     input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"])
   ) {
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.4rem 0.5rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-3);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 :where(.tool-pane)
   :where(select, textarea, input):focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -3290,7 +3434,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* The ER canvas's zoom readout, between its − and + buttons. */
 .panel-zoom {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
   min-width: 3rem;
   text-align: center;
@@ -3298,29 +3442,29 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* Kept: the object-list header and the info pane still use this row. */
 .sm-count {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
 /* Index / constraint manager (issue #139) */
 .im-form {
-  margin: 0.6rem 0 1.2rem;
-  padding: 0.7rem;
+  margin: var(--sp-3) 0 var(--sp-5);
+  padding: var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-alt, transparent);
+  border-radius: var(--r-sm);
+  background: var(--bg-alt);
 }
 
 .im-form > strong {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--sp-3);
 }
 
 .im-fields {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--sp-3);
 }
 
 .im-fields .td-in,
@@ -3332,26 +3476,26 @@ button.grid-action.danger:hover:not(:disabled) {
 .im-check {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--sp-2);
   white-space: nowrap;
 }
 
 .confirm-message {
-  margin: 0 0 0.7rem;
+  margin: 0 0 var(--sp-4);
   color: var(--text);
 }
 
 .confirm-dialog .ddl-text {
   max-height: 40vh;
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--sp-3);
 }
 
 /* User / privilege management (issue #140) */
 .um-body {
   display: grid;
   grid-template-columns: 14rem 1fr;
-  gap: 1rem;
-  margin-top: 0.8rem;
+  gap: var(--sp-5);
+  margin-top: var(--sp-4);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -3360,20 +3504,20 @@ button.grid-action.danger:hover:not(:disabled) {
 .um-users {
   overflow-y: auto;
   border-right: 1px solid var(--border);
-  padding-right: 0.5rem;
+  padding-right: var(--sp-3);
 }
 
 .um-user-list {
   list-style: none;
-  margin: 0.4rem 0 0;
+  margin: var(--sp-3) 0 0;
   padding: 0;
 }
 
 .um-new-user {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin: 0.3rem 0 0.8rem;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 var(--sp-4);
 }
 
 .um-new-user input {
@@ -3383,11 +3527,11 @@ button.grid-action.danger:hover:not(:disabled) {
 .um-user {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
-  padding: 0.3rem 0.5rem;
-  border-radius: 4px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .um-user:hover {
@@ -3428,22 +3572,22 @@ button.grid-action.danger:hover:not(:disabled) {
 .panel-search,
 .um-search {
   width: 100%;
-  margin: 0.3rem 0 0.5rem;
+  margin: var(--sp-2) 0 var(--sp-3);
   flex: 0 0 auto;
 }
 
 .um-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-bottom: 0.3rem;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
 }
 
 .um-filter {
-  font-size: 11px;
-  padding: 0.1rem 0.5rem;
+  font-size: var(--fs-sm);
+  padding: var(--sp-1) var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--bg-elev2);
   color: var(--text-dim);
   cursor: pointer;
@@ -3460,16 +3604,16 @@ button.grid-action.danger:hover:not(:disabled) {
    Amber, not red — a superuser is elevated privilege, not an error. */
 .um-chips {
   display: flex;
-  gap: 0.2rem;
+  gap: var(--sp-2);
   margin-left: auto;
 }
 
 .um-chip {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: 0.04em;
-  padding: 0.05rem 0.25rem;
-  border-radius: 3px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-sm);
   background: var(--super);
   color: var(--obj-ink);
   white-space: nowrap;
@@ -3492,7 +3636,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .um-user-host {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
@@ -3508,26 +3652,26 @@ button.grid-action.danger:hover:not(:disabled) {
 .um-privs {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  gap: 0.2rem 0.6rem;
-  margin: 0.4rem 0;
+  gap: var(--sp-2) var(--sp-3);
+  margin: var(--sp-3) 0;
 }
 
 .um-priv {
-  font-size: 12px;
+  font-size: var(--fs-base);
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--sp-2);
 }
 
 .um-scope {
-  margin-top: 0.4rem;
+  margin-top: var(--sp-3);
 }
 
 .um-form-row {
   display: flex;
-  gap: 0.8rem;
+  gap: var(--sp-4);
   align-items: flex-end;
-  margin-top: 0.4rem;
+  margin-top: var(--sp-3);
 }
 
 .um-form-row .field:first-child {
@@ -3548,8 +3692,8 @@ button.grid-action.danger:hover:not(:disabled) {
 .routine-body {
   display: grid;
   grid-template-columns: 16rem 1fr;
-  gap: 1rem;
-  margin-top: 0.8rem;
+  gap: var(--sp-5);
+  margin-top: var(--sp-4);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -3558,7 +3702,7 @@ button.grid-action.danger:hover:not(:disabled) {
 .routine-list {
   overflow-y: auto;
   border-right: 1px solid var(--border);
-  padding-right: 0.5rem;
+  padding-right: var(--sp-3);
 }
 
 .routine-list ul {
@@ -3570,16 +3714,16 @@ button.grid-action.danger:hover:not(:disabled) {
 .routine-item {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-3);
   width: 100%;
   text-align: left;
-  padding: 0.3rem 0.5rem;
+  padding: var(--sp-2) var(--sp-3);
   border: none;
   background: none;
   color: inherit;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .routine-item:hover {
@@ -3599,7 +3743,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .routine-sub {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .routine-item.active .routine-sub {
@@ -3608,7 +3752,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .obj-kind-toggle {
   display: inline-flex;
-  gap: 0.2rem;
+  gap: var(--sp-2);
 }
 
 .obj-kind-toggle .edit-btn.active {
@@ -3627,28 +3771,28 @@ button.grid-action.danger:hover:not(:disabled) {
 .routine-detail-head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.5rem;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
 }
 
 .routine-type {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
   border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0.05rem 0.35rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
 }
 
 .routine-ddl {
   flex: 1;
   overflow: auto;
   margin: 0;
-  padding: 0.6rem;
+  padding: var(--sp-3);
   background: var(--bg-elev2);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  font-family: var(--mono, monospace);
-  font-size: 12px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
   white-space: pre;
 }
 
@@ -3657,15 +3801,15 @@ button.grid-action.danger:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 1rem;
-  margin: 0.6rem 0;
+  gap: var(--sp-5);
+  margin: var(--sp-3) 0;
 }
 
 .chart-controls > label {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  font-size: 11px;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
@@ -3673,31 +3817,31 @@ button.grid-action.danger:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 0.8rem;
+  gap: var(--sp-3) var(--sp-4);
 }
 
 .chart-values-label {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 
 .chart-value-opt {
-  font-size: 12px;
+  font-size: var(--fs-base);
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--sp-2);
 }
 
 .chart-hint {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
-  margin: 0.2rem 0;
+  margin: var(--sp-2) 0;
 }
 
 .chart-canvas {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--sp-3);
   min-height: 0;
 }
 
@@ -3707,7 +3851,7 @@ button.grid-action.danger:hover:not(:disabled) {
   height: auto;
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 .chart-grid {
@@ -3723,8 +3867,16 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .chart-tick {
   fill: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-family: var(--font-ui);
+}
+
+/* What the y axis counts, where the one-item legend used to be (issue #386). */
+.chart-axis-title {
+  fill: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-family: var(--font-ui);
+  font-weight: 600;
 }
 
 .chart-line {
@@ -3737,44 +3889,33 @@ button.grid-action.danger:hover:not(:disabled) {
   stroke-width: 2;
 }
 
+/* Empty with a single series, and an empty flex row still spends its gap. */
+.chart-legend:empty {
+  display: none;
+}
+
 .chart-legend {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem 1rem;
-  font-size: 12px;
+  gap: var(--sp-2) var(--sp-5);
+  font-size: var(--fs-base);
   color: var(--text);
 }
 
 .chart-legend li {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--sp-2);
 }
 
 .chart-swatch {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
   display: inline-block;
-}
-
-/* Offset pagination bar (issue #134) */
-.page-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  padding: 0.35rem 0.6rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-elev);
-  flex-shrink: 0;
-}
-
-.page-info {
-  font-size: 12px;
-  color: var(--text-dim);
 }
 
 /* Entity-relationship diagram (issue #145) */
@@ -3783,7 +3924,7 @@ button.grid-action.danger:hover:not(:disabled) {
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--bg-elev);
 }
 
@@ -3811,7 +3952,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .er-box-title {
   fill: var(--accent-fg);
-  font-size: 12px;
+  font-size: var(--fs-base);
   font-weight: 600;
   font-family: var(--font-ui);
   pointer-events: none;
@@ -3819,7 +3960,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .er-col {
   fill: var(--text);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-family: var(--font-mono);
 }
 
@@ -3844,33 +3985,37 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* Visual query builder (issue #146) */
 .qb-section {
-  margin: 0.6rem 0;
+  margin: var(--sp-3) 0;
 }
 
+/* Packed, not gridded (issue #386): fixed 10rem tracks meant a wide pane laid
+   out six columns and left the seventh column of the table — `alta` — alone on
+   a row of its own, five empty cells beside it. Checkbox labels are short and
+   uneven; letting them pack keeps the leftovers on the same line. */
 .qb-cols {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
-  gap: 0.2rem 0.6rem;
-  margin-top: 0.3rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  margin-top: var(--sp-2);
 }
 
 .qb-col {
-  font-size: 12px;
+  font-size: var(--fs-base);
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--sp-2);
 }
 
 .qb-conj {
-  margin-left: 0.6rem;
+  margin-left: var(--sp-3);
   width: auto;
 }
 
 .qb-cond {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin: 0.3rem 0;
+  gap: var(--sp-3);
+  margin: var(--sp-2) 0;
 }
 
 .qb-cond .map-select {
@@ -3885,7 +4030,7 @@ button.grid-action.danger:hover:not(:disabled) {
 .qb-order {
   display: flex;
   align-items: flex-end;
-  gap: 1rem;
+  gap: var(--sp-5);
   flex-wrap: wrap;
 }
 
@@ -3896,7 +4041,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* Working-database selector (sidebar) */
 .sidebar-db {
-  padding: 0.5rem 0.7rem 0.6rem;
+  padding: var(--sp-3) var(--sp-4) var(--sp-3);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -3904,11 +4049,11 @@ button.grid-action.danger:hover:not(:disabled) {
 .sidebar-db label {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: var(--sp-2);
 }
 
 .sidebar-db label > span {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -3921,19 +4066,13 @@ button.grid-action.danger:hover:not(:disabled) {
    caret drawn as an inline SVG (a neutral grey that reads on both palettes). */
 .sidebar-db .map-select {
   width: 100%;
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 0.4rem 1.7rem 0.4rem 0.55rem;
-  font-size: 12px;
+  padding: var(--sp-3) var(--sp-6) var(--sp-3) var(--sp-3);
+  font-size: var(--fs-base);
   color: var(--text);
   background-color: var(--bg-elev2);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 L5 6.5 L8 3.5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.6rem center;
-  background-size: 10px;
 }
 
 .sidebar-db .map-select:hover {
@@ -3941,8 +4080,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .sidebar-db .map-select:focus {
-  outline: none;
-  border-color: var(--accent, #5b5bd6);
+  border-color: var(--accent);
 }
 
 /* Settings + About panel (issue #181) */
@@ -3950,35 +4088,35 @@ button.grid-action.danger:hover:not(:disabled) {
   max-width: 560px;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--sp-5);
 }
 
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--sp-3);
 }
 
 .settings-section h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-base);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-dim);
   border-bottom: 1px solid var(--border);
-  padding-bottom: 0.35rem;
+  padding-bottom: var(--sp-2);
 }
 
 .settings-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 28px;
+  gap: var(--sp-4);
+  min-height: var(--h-md);
 }
 
 .settings-label {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .settings-row input[type="number"] {
@@ -3999,16 +4137,16 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .settings-choice {
   display: inline-flex;
-  gap: 0.3rem;
+  gap: var(--sp-2);
 }
 
 .chip {
   border: 1px solid var(--border);
   background: var(--bg-elev);
   color: var(--text);
-  border-radius: 999px;
-  padding: 0.2rem 0.7rem;
-  font-size: 12px;
+  border-radius: var(--r-pill);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-base);
   cursor: pointer;
 }
 
@@ -4024,21 +4162,21 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* Brand block atop the "Acerca de" settings section (issue #191). */
 .settings-brand {
-  margin: 0 0 0.75rem;
+  margin: 0 0 var(--sp-4);
 }
 
 .settings-brand .settings-tagline {
-  margin: 0.2rem 0 0;
-  font-size: 13px;
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-md);
   color: var(--text-dim);
 }
 
 .settings-about {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 0.3rem 1rem;
+  gap: var(--sp-2) var(--sp-5);
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .settings-about dt {
@@ -4052,47 +4190,47 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .settings-links {
   display: flex;
-  gap: 1.2rem;
-  margin-top: 0.6rem;
-  font-size: 13px;
+  gap: var(--sp-5);
+  margin-top: var(--sp-3);
+  font-size: var(--fs-md);
 }
 
 /* Editor empty state with quick actions (issue #178) */
 .empty-state {
-  padding: 1.5rem;
+  padding: var(--sp-6);
   overflow: auto;
   height: 100%;
   box-sizing: border-box;
 }
 
 .empty-state-brand {
-  margin: 0 0 0.75rem;
+  margin: 0 0 var(--sp-4);
   opacity: 0.9;
 }
 
 .empty-state-lead {
   color: var(--text-dim);
-  margin: 0 0 1rem;
+  margin: 0 0 var(--sp-5);
 }
 
 .empty-state-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1rem;
+  gap: var(--sp-5);
   align-items: start;
   max-width: 900px;
 }
 
 .empty-card {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: var(--bg-elev);
-  padding: 0.75rem 0.9rem;
+  padding: var(--sp-4) var(--sp-5);
 }
 
 .empty-card h4 {
-  margin: 0 0 0.5rem;
-  font-size: 11px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-dim);
@@ -4104,7 +4242,7 @@ button.grid-action.danger:hover:not(:disabled) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: var(--sp-1);
 }
 
 .empty-link {
@@ -4112,10 +4250,10 @@ button.grid-action.danger:hover:not(:disabled) {
   background: none;
   color: var(--accent-text);
   cursor: pointer;
-  padding: 0.15rem 0;
+  padding: var(--sp-1) 0;
   text-align: left;
   width: 100%;
-  font-size: 13px;
+  font-size: var(--fs-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4127,22 +4265,22 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .empty-sql {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 
 .empty-shortcuts li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
-  font-size: 13px;
-  padding: 0.15rem 0;
+  gap: var(--sp-3);
+  font-size: var(--fs-md);
+  padding: var(--sp-1) 0;
 }
 
 .empty-state-hint {
-  margin-top: 1rem;
+  margin-top: var(--sp-5);
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 /* Command palette overlay (issue #174) */
@@ -4162,10 +4300,10 @@ button.grid-action.danger:hover:not(:disabled) {
   max-height: 60vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-elev);
+  background: var(--bg-overlay);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
@@ -4174,38 +4312,37 @@ button.grid-action.danger:hover:not(:disabled) {
   border-bottom: 1px solid var(--border);
   background: transparent;
   color: var(--text);
-  font-size: 15px;
-  padding: 0.9rem 1rem;
-  outline: none;
+  font-size: var(--fs-lg);
+  padding: var(--sp-5) var(--sp-5);
 }
 
 .cmdk-results {
   overflow: auto;
-  padding: 0.35rem;
+  padding: var(--sp-2);
 }
 
 .cmdk-group-label {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-dim);
-  padding: 0.4rem 0.6rem 0.2rem;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
 }
 
 .cmdk-item {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--sp-4);
   width: 100%;
   border: none;
   background: none;
   color: var(--text);
   text-align: left;
-  padding: 0.4rem 0.6rem;
-  border-radius: 6px;
+  padding: var(--sp-3) var(--sp-3);
+  border-radius: var(--r-md);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 .cmdk-item.active {
@@ -4221,7 +4358,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .cmdk-item-hint {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
   font-family: var(--font-mono);
 }
@@ -4231,7 +4368,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .cmdk-empty {
-  padding: 1rem;
+  padding: var(--sp-5);
   color: var(--text-dim);
   text-align: center;
 }
@@ -4240,8 +4377,8 @@ button.grid-action.danger:hover:not(:disabled) {
 .sq-order {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 12px;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
@@ -4249,7 +4386,7 @@ button.grid-action.danger:hover:not(:disabled) {
 .ep-scroll {
   overflow: auto;
   max-height: 100%;
-  padding: 0.5rem;
+  padding: var(--sp-3);
 }
 
 .ep-svg {
@@ -4274,27 +4411,27 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .ep-op {
   fill: var(--text);
-  font-size: 12px;
+  font-size: var(--fs-base);
   font-weight: 600;
 }
 
 .ep-table {
   fill: var(--accent);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-family: var(--font-mono);
 }
 
 .ep-meta {
   fill: var(--text-dim);
-  font-size: 10px;
+  font-size: var(--fs-micro);
 }
 
 .ep-raw {
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--sp-4);
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text);
   white-space: pre-wrap;
 }
@@ -4302,19 +4439,12 @@ button.grid-action.danger:hover:not(:disabled) {
 /* Export/import saved connections (issue #188) */
 .conn-io {
   display: flex;
-  gap: 0.4rem;
-  margin: 0.4rem 0;
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0;
 }
 
 .conn-io-btn {
   flex: 1;
-  background: var(--bg-elev2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.3rem 0.4rem;
-  font-size: 12px;
-  cursor: pointer;
 }
 
 .conn-io-btn:hover {
@@ -4322,49 +4452,49 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .conn-export {
-  background: var(--bg-elev);
+  background: var(--bg-overlay);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: 12px;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-base);
 }
 
 .conn-export-opt {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-3);
   cursor: pointer;
 }
 
 .conn-warn {
   color: var(--error);
-  margin: 0.4rem 0;
+  margin: var(--sp-3) 0;
 }
 
 .conn-export-actions {
   display: flex;
-  gap: 0.4rem;
-  margin-top: 0.4rem;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
 }
 
 .conn-import-msg {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
-  margin: 0.2rem 0 0.5rem;
+  margin: var(--sp-2) 0 var(--sp-3);
 }
 
 /* --- SQL Notebook (#262) --------------------------------------------------- */
 .nb-header {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-3);
   flex-wrap: wrap;
-  margin-bottom: 0.6rem;
+  margin-bottom: var(--sp-3);
 }
 .nb-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-lg);
   min-width: 12rem;
   flex: 1;
 }
@@ -4373,29 +4503,29 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 .nb-hint {
   color: var(--text-dim);
-  font-size: 12px;
-  margin: 0 0 0.6rem;
+  font-size: var(--fs-base);
+  margin: 0 0 var(--sp-3);
 }
 .nb-params {
-  margin-bottom: 0.8rem;
+  margin-bottom: var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.4rem 0.6rem;
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-3);
 }
 .nb-params summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 .nb-params-hint {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--text-dim);
-  margin: 0.3rem 0;
+  margin: var(--sp-2) 0;
 }
 .nb-param-row {
   display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.3rem;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
 }
 .nb-param-row input {
   flex: 1;
@@ -4404,28 +4534,28 @@ button.grid-action.danger:hover:not(:disabled) {
 .nb-cells {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: var(--sp-4);
 }
 .nb-cell {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: var(--bg-elev);
 }
 .nb-cell-bar {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.25rem 0.4rem;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
   background: var(--bg-elev2);
   border-bottom: 1px solid var(--border);
 }
 .nb-cell-kind {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text-dim);
-  padding: 0 0.3rem;
+  padding: 0 var(--sp-2);
 }
 .nb-src {
   width: 100%;
@@ -4433,20 +4563,19 @@ button.grid-action.danger:hover:not(:disabled) {
   border: none;
   background: var(--bg);
   color: var(--text);
-  padding: 0.6rem;
+  padding: var(--sp-3);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--fs-md);
   min-height: 3.2rem;
   resize: vertical;
 }
 .nb-src:focus {
-  outline: none;
 }
 .nb-src-sql {
   min-height: 4rem;
 }
 .nb-md {
-  padding: 0.6rem 0.8rem;
+  padding: var(--sp-3) var(--sp-4);
   line-height: 1.5;
 }
 .nb-md > :first-child {
@@ -4458,11 +4587,11 @@ button.grid-action.danger:hover:not(:disabled) {
 .nb-md-code {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.6rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-base);
 }
 .nb-result {
   border-top: 1px solid var(--border);
@@ -4470,9 +4599,9 @@ button.grid-action.danger:hover:not(:disabled) {
 .nb-result-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 11px;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
   color: var(--text-dim);
 }
 .nb-result-info {
@@ -4494,15 +4623,15 @@ button.grid-action.danger:hover:not(:disabled) {
   z-index: 300;
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--sp-3);
   max-width: 26rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 6px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
   border: 1px solid var(--border);
   background: var(--bg-elev2);
   color: var(--text);
-  font-size: 13px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: var(--fs-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .app-toast-error {
@@ -4518,10 +4647,10 @@ button.grid-action.danger:hover:not(:disabled) {
   background: none;
   border: none;
   color: var(--text-dim);
-  font-size: 15px;
+  font-size: var(--fs-lg);
   line-height: 1;
   cursor: pointer;
-  padding: 0 0.1rem;
+  padding: 0 var(--sp-1);
 }
 
 .app-toast-close:hover {
@@ -4543,15 +4672,15 @@ button.grid-action.danger:hover:not(:disabled) {
 .related-head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.9rem;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev2);
 }
 
 .related-head h2 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--fs-lg);
 }
 
 .related-close {
@@ -4559,8 +4688,8 @@ button.grid-action.danger:hover:not(:disabled) {
   border: 1px solid transparent;
   color: var(--text-dim);
   cursor: pointer;
-  border-radius: 4px;
-  padding: 0.15rem 0.4rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-3);
 }
 
 .related-close:hover {
@@ -4581,15 +4710,15 @@ button.grid-action.danger:hover:not(:disabled) {
   border-right: 1px solid var(--border);
   background: var(--bg);
   overflow: auto;
-  padding: 0.5rem 0.4rem;
+  padding: var(--sp-3) var(--sp-3);
 }
 
 .related-side-title {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-dim);
-  padding: 0 0.35rem 0.35rem;
+  padding: 0 var(--sp-2) var(--sp-2);
 }
 
 .related-list {
@@ -4604,16 +4733,16 @@ button.grid-action.danger:hover:not(:disabled) {
 .related-item {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-3);
   width: 100%;
   text-align: left;
-  padding: 0.3rem 0.4rem;
+  padding: var(--sp-2) var(--sp-3);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: none;
   color: inherit;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   cursor: pointer;
 }
 
@@ -4646,10 +4775,10 @@ button.grid-action.danger:hover:not(:disabled) {
 .related-count {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-  padding: 0.05rem 0.35rem;
-  border-radius: 999px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--accent-text);
   font-weight: 600;
@@ -4665,16 +4794,16 @@ button.grid-action.danger:hover:not(:disabled) {
 .related-main {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--sp-3);
   min-width: 0;
-  padding: 0.6rem;
+  padding: var(--sp-3);
   overflow: hidden;
 }
 
 .related-filter {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--fs-base);
   color: var(--text-dim);
   white-space: nowrap;
   overflow-x: auto;
@@ -4684,7 +4813,7 @@ button.grid-action.danger:hover:not(:disabled) {
   flex: 1;
   min-height: 160px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -4692,12 +4821,12 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .related-sql {
   margin: 0;
-  padding: 0.45rem 0.55rem;
+  padding: var(--sp-3) var(--sp-3);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-base);
   max-height: 5.5rem;
   overflow: auto;
   white-space: pre-wrap;
@@ -4706,26 +4835,26 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .related-warn {
   margin: 0;
-  padding: 0.35rem 0.55rem;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid color-mix(in srgb, var(--null) 45%, var(--border));
   background: color-mix(in srgb, var(--null) 12%, transparent);
-  border-radius: 5px;
-  font-size: 0.8rem;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-md);
 }
 
 .related-unsupported {
-  padding: 1.5rem 1rem;
+  padding: var(--sp-6) var(--sp-5);
 }
 
 .related-actions {
-  padding: 0.6rem 0.9rem;
+  padding: var(--sp-3) var(--sp-5);
   border-top: 1px solid var(--border);
   background: var(--bg-elev2);
   margin: 0;
 }
 
 .related-rows {
-  font-size: 0.8rem;
+  font-size: var(--fs-md);
   color: var(--text-dim);
   font-family: var(--font-mono);
 }
@@ -4742,7 +4871,7 @@ button.grid-action.danger:hover:not(:disabled) {
    `.grid-cell` so nothing changes for the thousands of ordinary cells. */
 .cell-related {
   position: relative;
-  padding-right: 1.3rem;
+  padding-right: var(--sp-6);
   text-decoration: underline dotted var(--accent-text);
   text-underline-offset: 2px;
 }
@@ -4759,7 +4888,7 @@ button.grid-action.danger:hover:not(:disabled) {
   height: 16px;
   padding: 0;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--accent-text);
   cursor: pointer;
@@ -4783,25 +4912,25 @@ button.grid-action.danger:hover:not(:disabled) {
 /* Which way an entry of the related list reads: the row this cell points AT
    (tagged) versus the rows that point at it (untagged, the common case). */
 .related-dir {
-  margin-left: 0.35rem;
-  padding: 0.02rem 0.28rem;
+  margin-left: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
   border: 1px solid var(--border);
-  border-radius: 3px;
-  font-size: 10px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-micro);
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .col-ref-mark {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   color: var(--accent-text);
   opacity: 0.8;
 }
 
 /* The primary-key mark in a column header (issue #344). */
 .col-key-mark {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   opacity: 0.85;
 }
 
@@ -4839,12 +4968,12 @@ button.grid-action.danger:hover:not(:disabled) {
   flex: 1 1 50%;
   min-width: 0;
   margin: 0;
-  padding: 0.6rem 0.75rem;
+  padding: var(--sp-3) var(--sp-4);
   border-left: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--fs-base);
   line-height: 1.5;
   white-space: pre;
   overflow: auto;
@@ -4852,20 +4981,20 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .cmdk-footer {
   display: flex;
-  gap: 1rem;
+  gap: var(--sp-5);
   flex-wrap: wrap;
-  padding: 0.4rem 0.75rem;
+  padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--border);
   background: var(--bg-elev2);
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 /* Inline "save as snippet" field, in the editor's own toolbar. */
 .snip-save {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-3);
   flex: 1;
   /* No `min-width: 0` here on purpose. It let this box shrink below its own
      content, so the bar never wrapped and the field spilled out of the window
@@ -4885,10 +5014,9 @@ button.grid-action.danger:hover:not(:disabled) {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 0.15rem 0.4rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-3);
   font: inherit;
-  outline: none;
 }
 
 .snip-save-scope {
@@ -4919,10 +5047,17 @@ button.grid-action.danger:hover:not(:disabled) {
 .filterbar {
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--fs-base);
   overflow-y: auto;
-  flex: 1 1 auto;
+  /* Takes what it needs and no more. Open it grows into the pane's 60 % cap;
+     folded it is exactly its 28 px head (issue #386) — it used to claim
+     `flex: 1 1 auto` and 172 px of that whether or not it had anything to say. */
+  flex: 0 1 auto;
   min-height: 0;
+}
+
+.filterbar.folded {
+  overflow: visible;
 }
 
 /* Sticky inside the panel's own scroller: with several conditions the panel
@@ -4934,38 +5069,50 @@ button.grid-action.danger:hover:not(:disabled) {
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.3rem 0.6rem;
+  gap: var(--sp-3);
+  height: var(--band-sm);
+  padding: 0 var(--sp-3);
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+}
+
+/* No border under the head when nothing follows it: folded, the panel's own
+   bottom border is already there and two hairlines read as a dead band. */
+.filterbar.folded .filterbar-head {
+  border-bottom: 0;
 }
 
 .filterbar-toggle {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--sp-2);
   background: none;
   border: none;
   color: var(--text);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.1rem 0;
+  padding: var(--sp-1) 0;
 }
 
-.filterbar-chev { color: var(--text-dim); font-size: 10px; }
-.filterbar-summary { color: var(--accent-text); font-size: 11px; }
+.filterbar-chev { color: var(--text-dim); font-size: var(--fs-micro); }
+.filterbar-sep { color: var(--text-dim); }
+/* Dim while the draft is just a draft; the accent is spent only once the grid
+   is actually showing a filtered set. */
+.filterbar-summary { color: var(--text-dim); font-size: var(--fs-sm); }
+.filterbar-summary.on { color: var(--accent-text); }
+.filterbar-dirty { color: var(--null); font-size: var(--fs-sm); }
 .filterbar-spacer { flex: 1; }
 
-.filter-body { padding: 0.2rem 0.6rem 0.6rem; }
+.filter-body { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
 
 .filter-list { list-style: none; margin: 0; padding: 0; }
 
 .filter-cond {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.15rem 0;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
   flex-wrap: wrap;
 }
 
@@ -4981,11 +5128,11 @@ button.grid-action.danger:hover:not(:disabled) {
 .filter-op,
 .filter-conj,
 .filter-sort-pill select {
-  background: var(--bg-elev2);
+  background-color: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.15rem 0.3rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-2);
   font: inherit;
   max-width: 14rem;
 }
@@ -4994,10 +5141,10 @@ button.grid-action.danger:hover:not(:disabled) {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.15rem 0.4rem;
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-3);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   min-width: 6rem;
   flex: 1;
   max-width: 22rem;
@@ -5006,30 +5153,29 @@ button.grid-action.danger:hover:not(:disabled) {
 .filter-sep { color: var(--text-dim); }
 
 .filter-join { color: var(--text-dim); }
-.filter-drop { font-size: 13px; line-height: 1; }
+.filter-drop { font-size: var(--fs-md); line-height: 1; }
 
 .filter-actions,
 .filter-sort,
 .filter-apply {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--sp-3);
   flex-wrap: wrap;
-  padding-top: 0.4rem;
+  padding-top: var(--sp-3);
 }
 
-.filter-sort { border-top: 1px dashed var(--border); margin-top: 0.4rem; }
+.filter-sort { border-top: 1px dashed var(--border); margin-top: var(--sp-3); }
 .filter-sort-label { font-weight: 600; }
 
 .filter-sort-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--sp-2);
   border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 0.05rem 0.4rem;
+  border-radius: var(--r-pill);
+  padding: var(--sp-1) var(--sp-3);
 }
 
-.filter-empty { color: var(--text-dim); margin: 0.3rem 0; }
-.filter-state { color: var(--null); }
+.filter-empty { color: var(--text-dim); margin: var(--sp-2) 0; }
 .filter-count { color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }

@@ -22,7 +22,12 @@ describe("settingsStore", () => {
 
   it("persists and reloads a settings object", async () => {
     const { loadSettings, saveSettings } = await freshModule();
-    const s: Settings = { gridDensity: "compact", slowThresholdMs: 900, checkUpdatesOnStart: false };
+    const s: Settings = {
+      gridDensity: "compact",
+      slowThresholdMs: 900,
+      checkUpdatesOnStart: false,
+      toolStrip: false,
+    };
     saveSettings(s);
     expect(localStorage.getItem(KEY)).toBeTruthy();
     expect(loadSettings()).toEqual(s);

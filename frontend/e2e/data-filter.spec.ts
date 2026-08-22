@@ -131,12 +131,15 @@ describeEngine("sqlite", () => {
 
     await header.click();
     await expect(header).toHaveAttribute("aria-sort", "ascending");
-    // The click wrote the sort into the panel, which is where it now lives.
-    await expect(
-      page
-        .getByRole("region", { name: "Filtro y orden de la tabla" })
-        .getByRole("combobox", { name: "Columna de ordenación" }),
-    ).toHaveValue("nombre");
+    // The click wrote the sort into the panel, which is where it now lives. The
+    // panel rests folded (#386), so its bar is what has to say so; unfolding it
+    // then shows the row itself.
+    const panel = page.getByRole("region", { name: "Filtro y orden de la tabla" });
+    await expect(panel.getByText("1 orden(es)")).toBeVisible();
+    await panel.getByRole("button", { name: /Filtro/ }).click();
+    await expect(panel.getByRole("combobox", { name: "Columna de ordenación" })).toHaveValue(
+      "nombre",
+    );
     // And it went into the query, not into the loaded page.
     await page.getByRole("button", { name: "SQL", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Editor SQL", exact: true })).toContainText(

@@ -98,13 +98,31 @@ describe("SettingsPanel", () => {
     expect(onSetHistoryLimit).toHaveBeenCalledWith(10);
   });
 
+  /** The checkbox on the row that reads `label` — there is more than one now. */
+  const checkbox = (label: string) =>
+    [...host!.querySelectorAll<HTMLLabelElement>("label.settings-check")]
+      .find((l) => l.textContent?.includes(label))!
+      .querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+
   it("toggles check-updates-on-start", () => {
     const onSetSettings = vi.fn();
     mount({ settings: { ...DEFAULT_SETTINGS, checkUpdatesOnStart: true }, onSetSettings });
-    const check = host!.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    const check = checkbox("Buscar actualizaciones");
     check.checked = false;
     check.dispatchEvent(new Event("change", { bubbles: true }));
     expect(onSetSettings).toHaveBeenCalledWith({ checkUpdatesOnStart: false });
+  });
+
+  // Issue #386: the strip is what tells you the tools exist, so hiding it is a
+  // decision that has to be findable — and reversible — in words.
+  it("toggles the tool strip", () => {
+    const onSetSettings = vi.fn();
+    mount({ settings: { ...DEFAULT_SETTINGS, toolStrip: true }, onSetSettings });
+    const check = checkbox("Barra de herramientas");
+    expect(check.checked).toBe(true);
+    check.checked = false;
+    check.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(onSetSettings).toHaveBeenCalledWith({ toolStrip: false });
   });
 
   it("shows the injected app version and the core version from app.hello", async () => {

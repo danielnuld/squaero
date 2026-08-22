@@ -16,12 +16,23 @@ export interface Settings {
   slowThresholdMs: number;
   /** Check GitHub Releases for a newer version at startup (consumed by #182). */
   checkUpdatesOnStart: boolean;
+  /**
+   * Show the strip of tool icons under the tabs (issue #386).
+   *
+   * On by default. The ribbon it replaced was 68 px and duplicated the tab bar,
+   * but it did carry one thing worth keeping: you could SEE that the monitor,
+   * the notebook and the snippets existed without knowing to look. The strip is
+   * that, at 40 px and icons only, and folding it away is a decision the user
+   * makes once — which is why it lives here and not in a signal.
+   */
+  toolStrip: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   gridDensity: "normal",
   slowThresholdMs: 1000,
   checkUpdatesOnStart: true,
+  toolStrip: true,
 };
 
 /** Bounds for the slow-query threshold (ms): 0 (off) up to one hour. */
@@ -69,6 +80,8 @@ export function parseSettings(raw: string | null | undefined): Settings {
       typeof obj.checkUpdatesOnStart === "boolean"
         ? obj.checkUpdatesOnStart
         : DEFAULT_SETTINGS.checkUpdatesOnStart,
+    toolStrip:
+      typeof obj.toolStrip === "boolean" ? obj.toolStrip : DEFAULT_SETTINGS.toolStrip,
   };
 }
 

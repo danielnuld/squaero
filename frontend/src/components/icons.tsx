@@ -53,6 +53,14 @@ export const IconQuery: IconComponent = () => (
   </Svg>
 );
 
+/** lucide/search — the command palette launcher in the tab bar. */
+export const IconSearch: IconComponent = () => (
+  <Svg>
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </Svg>
+);
+
 /** lucide/rotate-cw — reload what a panel is showing. */
 export const IconRefresh: IconComponent = () => (
   <Svg>

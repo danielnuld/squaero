@@ -5,8 +5,9 @@ import {
   buildChartData,
   seriesMax,
   seriesMin,
-  niceMax,
-  axisTicks,
+  axisScale,
+  seriesAreIntegers,
+  labelLayout,
   pieSlices,
   arcPath,
 } from "../../src/utils/chart";
@@ -88,18 +89,64 @@ describe("seriesMax / seriesMin", () => {
   });
 });
 
-describe("niceMax / axisTicks", () => {
-  it("rounds up to 1/2/5 x 10^n", () => {
-    expect(niceMax(0)).toBe(0);
-    expect(niceMax(7)).toBe(10);
-    expect(niceMax(12)).toBe(20);
-    expect(niceMax(150)).toBe(200);
-    expect(niceMax(45)).toBe(50);
-    expect(niceMax(1)).toBe(1);
+// Issue #386: the axis used to round the TOP and then cut it in four, so a
+// maximum of 5 produced 0 / 1.25 / 2.5 / 3.75 / 5 over a count of customers.
+describe("axisScale", () => {
+  it("puts every tick on a number someone would say out loud", () => {
+    expect(axisScale(100).ticks).toEqual([0, 20, 40, 60, 80, 100]);
+    expect(axisScale(7).ticks).toEqual([0, 2, 4, 6, 8]);
+    expect(axisScale(150).ticks).toEqual([0, 50, 100, 150]);
   });
-  it("produces evenly spaced ticks", () => {
-    expect(axisTicks(100, 4)).toEqual([0, 25, 50, 75, 100]);
-    expect(axisTicks(0)).toEqual([0]);
+
+  it("keeps whole data on whole ticks", () => {
+    expect(axisScale(5, true).ticks).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(axisScale(3, true).ticks).toEqual([0, 1, 2, 3]);
+    // Fractional data keeps its fractions: forcing 1 there would flatten it.
+    expect(axisScale(0.5).ticks).toEqual([0, 0.1, 0.2, 0.3, 0.4, 0.5]);
+  });
+
+  it("reaches at least as far as the data", () => {
+    for (const max of [1, 3, 7, 12, 45, 150, 999]) {
+      const s = axisScale(max);
+      expect(s.max).toBeGreaterThanOrEqual(max);
+      expect(s.ticks[s.ticks.length - 1]).toBe(s.max);
+    }
+  });
+
+  it("says nothing about an empty or impossible axis", () => {
+    expect(axisScale(0)).toEqual({ max: 0, ticks: [0] });
+    expect(axisScale(-4)).toEqual({ max: 0, ticks: [0] });
+    expect(axisScale(Number.NaN)).toEqual({ max: 0, ticks: [0] });
+  });
+});
+
+describe("seriesAreIntegers", () => {
+  it("is true only when nothing has a fraction", () => {
+    expect(seriesAreIntegers([{ name: "n", values: [1, 2, 3] }])).toBe(true);
+    expect(seriesAreIntegers([{ name: "n", values: [1, 2.5] }])).toBe(false);
+    expect(seriesAreIntegers([])).toBe(true);
+  });
+});
+
+// The labels used to be cut to nine characters: "Cd. Obregón" became
+// "Cd. Obreg…" and "Agua Prieta" became "Agua Prie…".
+describe("labelLayout", () => {
+  const many = (n: number, text: string) => Array.from({ length: n }, () => text);
+
+  it("leaves short labels flat", () => {
+    expect(labelLayout(many(5, "sur"), 640)).toEqual({ rotate: false, stride: 1 });
+  });
+
+  it("tilts rather than truncates when the band is narrow", () => {
+    expect(labelLayout(many(8, "Puerto Peñasco"), 640).rotate).toBe(true);
+  });
+
+  it("thins the labels out when even tilting will not fit them", () => {
+    expect(labelLayout(many(200, "Hermosillo"), 640).stride).toBeGreaterThan(1);
+  });
+
+  it("has nothing to lay out with no labels", () => {
+    expect(labelLayout([], 640)).toEqual({ rotate: false, stride: 1 });
   });
 });
 

@@ -9,7 +9,7 @@ import {
   type Operator,
   type OrderBy,
 } from "../utils/queryBuilder";
-import type { FilterState } from "../utils/dataFilter";
+import { summaryParts, type FilterState } from "../utils/dataFilter";
 
 // The filter and sort panel of a table tab (issue #347). It takes the place of
 // the SQL editor: a tab opened from the tree is for browsing a table, and the
@@ -52,8 +52,31 @@ export function DataFilterBar(props: {
     props.onChange(i, { value: `${b[0]} ${RANGE_SEPARATOR} ${b[1]}` });
   };
 
+  /** The folded bar's one line: "todas las filas", or what the draft holds. */
+  const summary = () => {
+    const { conditions, order } = summaryParts(props.state);
+    if (conditions === 0 && order === 0) return t("filter.summaryAll");
+    const parts: string[] = [];
+    if (conditions > 0) parts.push(t("filter.summaryConds", { n: conditions }));
+    if (order > 0) parts.push(t("filter.summarySort", { n: order }));
+    return parts.join(" · ");
+  };
+
+  /** A head button acts on the panel whether or not it is open. */
+  const unfoldAnd = (act: () => void) => {
+    if (props.state.collapsed) props.onToggleCollapsed();
+    act();
+  };
+
   return (
-    <section class="filterbar" aria-label={t("filter.region")}>
+    <section
+      class={`filterbar ${props.state.collapsed ? "folded" : ""}`}
+      aria-label={t("filter.region")}
+    >
+      {/* Folded, this whole panel is a 28 px bar (issue #386): the fold toggle,
+          a line saying what the draft holds, and the two buttons that are the
+          reason anyone opens it — each unfolds the panel and adds the row it
+          promises, so "+ condición" costs one click either way. */}
       <div class="filterbar-head">
         <button
           class="filterbar-toggle"
@@ -65,10 +88,26 @@ export function DataFilterBar(props: {
           </span>
           {t("filter.title")}
         </button>
-        <Show when={props.state.collapsed && props.state.applied}>
-          <span class="filterbar-summary">{t("filter.activeSummary")}</span>
+        <span class="filterbar-sep" aria-hidden="true">
+          /
+        </span>
+        <span class={`filterbar-summary ${props.state.applied ? "on" : ""}`}>{summary()}</span>
+        <Show when={props.dirty}>
+          <span class="filterbar-dirty" role="status">
+            {t("filter.unapplied")}
+          </span>
         </Show>
         <span class="filterbar-spacer" />
+        <button class="status-btn" onClick={() => unfoldAnd(props.onAdd)}>
+          {t("filter.addCond")}
+        </button>
+        <button
+          class="status-btn"
+          onClick={() => unfoldAnd(props.onAddSort)}
+          disabled={props.columns.length === 0}
+        >
+          {t("filter.addSort")}
+        </button>
         <button class="status-btn" onClick={props.onOpenSql} title={t("filter.sqlTitle")}>
           {t("filter.sql")}
         </button>
@@ -168,10 +207,10 @@ export function DataFilterBar(props: {
             </ul>
           </Show>
 
+          {/* "+ condición" and "+ orden" live in the head now, where they work
+              folded or open; what is left here is only what the list itself
+              needs (issue #386). */}
           <div class="filter-actions">
-            <button class="status-btn" onClick={props.onAdd}>
-              {t("filter.addCond")}
-            </button>
             <Show when={props.state.conditions.length > 1}>
               <select
                 class="filter-conj"
@@ -219,9 +258,6 @@ export function DataFilterBar(props: {
                 </span>
               )}
             </For>
-            <button class="status-btn" onClick={props.onAddSort} disabled={props.columns.length === 0}>
-              {t("filter.addSort")}
-            </button>
           </div>
 
           <div class="filter-apply">
@@ -231,11 +267,6 @@ export function DataFilterBar(props: {
             <button class="status-btn" onClick={props.onClear}>
               {t("filter.clear")}
             </button>
-            {/* Live, because it is the answer to "why does the grid not match
-                what I just typed?" — the question a stale panel provokes. */}
-            <span class="filter-state" role="status">
-              <Show when={props.dirty}>{t("filter.unapplied")}</Show>
-            </span>
             <Show when={props.loaded !== undefined}>
               <span class="filter-count">{t("filter.loaded", { n: props.loaded ?? 0 })}</span>
             </Show>

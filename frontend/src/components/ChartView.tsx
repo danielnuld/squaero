@@ -6,8 +6,9 @@ import {
   buildChartData,
   defaultColumns,
   seriesMax,
-  niceMax,
-  axisTicks,
+  seriesAreIntegers,
+  axisScale,
+  labelLayout,
   pieSlices,
   arcPath,
   type ChartType,
@@ -21,11 +22,16 @@ import type { ResultSet } from "../utils/query";
 // --chart-1..8), assigned in fixed order — see the dataviz method.
 const W = 760;
 const H = 380;
-const M = { top: 16, right: 16, bottom: 52, left: 60 };
+const M = { top: 16, right: 16, left: 60 };
 const PLOT_W = W - M.left - M.right;
-const PLOT_H = H - M.top - M.bottom;
+/** Room under the plot: one line of labels, or a band deep enough to tilt in. */
+const BOTTOM = { flat: 52, tilted: 84 };
+/** A tilted label past this many characters would need a deeper band than it earns. */
+const LABEL_MAX = 16;
 const PALETTE_N = 8;
 const seriesColor = (i: number) => `var(--chart-${(i % PALETTE_N) + 1})`;
+/** Last resort for a label no rotation can fit; the full text is in the tooltip. */
+const clip = (s: string) => (s.length > LABEL_MAX ? `${s.slice(0, LABEL_MAX - 1)}…` : s);
 
 export function ChartView(props: { result: ResultSet; onClose: () => void }) {
   const cols = () => props.result.columns;
@@ -47,11 +53,27 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
   const data = createMemo(() => buildChartData(props.result, labelCol(), valueCols()));
   // Pie uses a single series (the first selected value column).
   const pieValues = createMemo(() => data().series[0]?.values ?? []);
-  const yMax = createMemo(() => niceMax(seriesMax(data().series)));
+  // Whole data gets whole ticks: a count of customers has no 3.75 in it.
+  const scale = createMemo(() =>
+    axisScale(seriesMax(data().series), seriesAreIntegers(data().series)),
+  );
+  const yMax = () => scale().max;
   const hasData = () => data().labels.length > 0 && valueCols().length > 0;
 
+  // Labels tilt rather than lose their tail, and the plot gives up the height
+  // that costs — which is why the geometry below is derived, not constant.
+  const layout = createMemo(() =>
+    labelLayout(
+      data().labels.map((l) => clip(l)),
+      PLOT_W,
+    ),
+  );
+  const plotH = () => H - M.top - (layout().rotate ? BOTTOM.tilted : BOTTOM.flat);
+
   const xStep = () => (data().labels.length > 0 ? PLOT_W / data().labels.length : PLOT_W);
-  const y = (v: number) => M.top + PLOT_H - (yMax() > 0 ? (v / yMax()) * PLOT_H : 0);
+  const y = (v: number) => M.top + plotH() - (yMax() > 0 ? (v / yMax()) * plotH() : 0);
+  /** One series names itself on the axis; several need the legend's swatches. */
+  const manySeries = () => data().series.length > 1;
 
   return (
     <Panel title={t("tab.chart")} class="chart-view" onClose={props.onClose}>
@@ -104,13 +126,13 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
 
       <Show
         when={hasData()}
-        fallback={<p class="grid-empty">{t("chart.pickHint")}</p>}
+        fallback={<p class="grid-empty pane-empty">{t("chart.pickHint")}</p>}
       >
         <div class="chart-canvas">
           <svg viewBox={`0 0 ${W} ${H}`} class="chart-svg" role="img" aria-label={t("chart.aria", { type: t(`chart.${type()}`) })}>
             <Show when={type() !== "pie"}>
               {/* Y grid + ticks */}
-              <For each={axisTicks(yMax())}>
+              <For each={scale().ticks}>
                 {(t) => (
                   <>
                     <line class="chart-grid" x1={M.left} y1={y(t)} x2={M.left + PLOT_W} y2={y(t)} />
@@ -122,6 +144,20 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
               </For>
               {/* Baseline */}
               <line class="chart-axis" x1={M.left} y1={y(0)} x2={M.left + PLOT_W} y2={y(0)} />
+              {/* What the y axis counts, said once, where a one-item legend was. */}
+              <Show when={!manySeries() && data().series[0]}>
+                {(s) => (
+                  <text
+                    class="chart-axis-title"
+                    x={14}
+                    y={M.top + plotH() / 2}
+                    text-anchor="middle"
+                    transform={`rotate(-90, 14, ${M.top + plotH() / 2})`}
+                  >
+                    {s().name}
+                  </text>
+                )}
+              </Show>
             </Show>
 
             {/* Bars */}
@@ -191,19 +227,31 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
               </For>
             </Show>
 
-            {/* X labels (bar/line) */}
+            {/* X labels (bar/line). Tilted when the band is too narrow to read
+                them flat, and thinned out when tilting is not enough either —
+                either beats cutting "Cd. Obregón" down to "Cd. Obreg…". */}
             <Show when={type() !== "pie"}>
               <For each={data().labels}>
-                {(lab, li) => (
-                  <text
-                    class="chart-tick"
-                    x={M.left + xStep() * (li() + 0.5)}
-                    y={M.top + PLOT_H + 18}
-                    text-anchor="middle"
-                  >
-                    {lab.length > 10 ? `${lab.slice(0, 9)}…` : lab}
-                  </text>
-                )}
+                {(lab, li) => {
+                  const cx = () => M.left + xStep() * (li() + 0.5);
+                  const cy = () => M.top + plotH() + 18;
+                  return (
+                    <Show when={li() % layout().stride === 0}>
+                      <text
+                        class="chart-tick"
+                        x={cx()}
+                        y={cy()}
+                        text-anchor={layout().rotate ? "end" : "middle"}
+                        transform={
+                          layout().rotate ? `rotate(-35, ${cx()}, ${cy()})` : undefined
+                        }
+                      >
+                        {clip(lab)}
+                        <title>{lab}</title>
+                      </text>
+                    </Show>
+                  );
+                }}
               </For>
             </Show>
 
@@ -213,7 +261,7 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
                 {(slice, i) => (
                   <path
                     class="chart-slice"
-                    d={arcPath(M.left + PLOT_W / 2, M.top + PLOT_H / 2, Math.min(PLOT_W, PLOT_H) / 2 - 8, slice.start, slice.end)}
+                    d={arcPath(M.left + PLOT_W / 2, M.top + plotH() / 2, Math.min(PLOT_W, plotH()) / 2 - 8, slice.start, slice.end)}
                     fill={seriesColor(i())}
                   >
                     <title>
@@ -225,19 +273,23 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
             </Show>
           </svg>
 
-          {/* Legend: series for bar/line, labels for pie (identity is never color-alone). */}
+          {/* Legend: series for bar/line, labels for pie (identity is never
+              color-alone). A single series needs none — one swatch explaining
+              one colour is decoration, and the axis title below names it. */}
           <ul class="chart-legend">
             <Show
               when={type() === "pie"}
               fallback={
-                <For each={data().series}>
-                  {(s, si) => (
-                    <li>
-                      <span class="chart-swatch" style={{ background: seriesColor(si()) }} />
-                      {s.name}
-                    </li>
-                  )}
-                </For>
+                <Show when={manySeries()}>
+                  <For each={data().series}>
+                    {(s, si) => (
+                      <li>
+                        <span class="chart-swatch" style={{ background: seriesColor(si()) }} />
+                        {s.name}
+                      </li>
+                    )}
+                  </For>
+                </Show>
               }
             >
               <For each={data().labels}>

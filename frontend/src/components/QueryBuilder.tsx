@@ -293,7 +293,6 @@ export function QueryBuilder(props: {
             <button onClick={() => copyText(sql())} disabled={!sql()}>
               {t("editor.copy")}
             </button>
-            <span class="status-spacer" />
             <button class="primary" disabled={!sql()} onClick={() => props.onRun(sql())}>
               {t("editor.run")}
             </button>

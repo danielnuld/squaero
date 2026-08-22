@@ -58,8 +58,10 @@ describe("ChartView", () => {
     expect(checked.length).toBe(1);
     // 3 labels x 1 series = 3 bars.
     expect(el.querySelectorAll(".chart-bar").length).toBe(3);
-    // Legend names the series.
-    expect(el.querySelector(".chart-legend")?.textContent).toContain("sales");
+    // One series gets no legend (issue #386) — a single swatch explaining a
+    // single colour is decoration. The axis title is what names it.
+    expect(el.querySelector(".chart-legend")?.textContent).toBe("");
+    expect(el.querySelector(".chart-axis-title")?.textContent).toBe("sales");
   });
 
   it("adds a second series and draws grouped bars", () => {
@@ -70,7 +72,9 @@ describe("ChartView", () => {
     cost.querySelector("input")!.click();
     // 3 labels x 2 series = 6 bars.
     expect(el.querySelectorAll(".chart-bar").length).toBe(6);
+    // Two series: now the legend has work to do, and the axis title steps aside.
     expect(el.querySelector(".chart-legend")?.textContent).toContain("cost");
+    expect(el.querySelector(".chart-axis-title")).toBeNull();
   });
 
   it("switches to a line chart (polyline + dots)", () => {

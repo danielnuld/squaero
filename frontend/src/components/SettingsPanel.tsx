@@ -132,6 +132,14 @@ export function SettingsPanel(props: {
               </For>
             </div>
           </div>
+          <label class="settings-row settings-check">
+            <input
+              type="checkbox"
+              checked={props.settings.toolStrip}
+              onChange={(e) => props.onSetSettings({ toolStrip: e.currentTarget.checked })}
+            />
+            <span class="settings-label">Barra de herramientas bajo las pestañas</span>
+          </label>
           <div class="settings-row">
             <span class="settings-label">Densidad del grid</span>
             <div class="settings-choice" role="radiogroup" aria-label="Densidad del grid">

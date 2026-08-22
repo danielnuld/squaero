@@ -58,7 +58,6 @@ import {
   dsnForDatabaseList,
   nextConnectionId,
   upsertConnection,
-  connIcon,
   connectionGroups,
   setConnectionGroup,
   removeConnection,
@@ -157,6 +156,8 @@ import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
 import { UpdateModal } from "./components/UpdateModal";
 import { TOOL_CATALOG } from "./utils/toolCatalog";
+import { sourceLabel } from "./utils/resultFacts";
+import { IconSearch } from "./components/icons";
 import { t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
 import {
@@ -168,10 +169,8 @@ import {
 import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
-import { AppToolbar } from "./components/AppToolbar";
 import { ObjectToolbar } from "./components/ObjectToolbar";
 import { ObjectListView } from "./components/ObjectListView";
-import { InfoPane } from "./components/InfoPane";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { RelatedData } from "./components/RelatedData";
 import {
@@ -2172,6 +2171,13 @@ export function App() {
     out.push({ id: "act:new", category: "action", label: t("toolbar.newQuery.title"), run: () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined)) });
     if (connected)
       out.push({ id: "act:reconnect", category: "action", label: t("conn.reconnect"), run: reconnect });
+    // The ribbon used to own these two; without it the palette is where they
+    // live (issue #386). New table needs a connection, the object list a
+    // working database, exactly as the ribbon's disabled states said.
+    if (connected)
+      out.push({ id: "act:newTable", category: "action", label: t("toolbar.newTable.title"), run: () => openTableDesigner() });
+    if (connected && activeDb())
+      out.push({ id: "act:objects", category: "action", label: t("toolbar.objects.title"), run: () => showTool("objectList", t("tab.objectList", { db: activeDb()! }), { key: `objlist:${activeDb()}`, params: { db: activeDb()! } }) });
     out.push({ id: "act:settings", category: "action", label: t("common.settings"), run: () => showTool("settings", t("common.settings"), { key: "settings" }) });
     out.push({ id: "act:help", category: "action", label: t("status.shortcuts"), run: () => showTool("help", t("status.shortcuts"), { key: "help" }) });
 
@@ -2224,17 +2230,6 @@ export function App() {
 
   return (
     <div class="app">
-      <AppToolbar
-        active={!!active()}
-        hasDb={!!activeDb()}
-        onNewQuery={newTab}
-        onNewTable={() => openTableDesigner()}
-        onObjectList={() => {
-          const db = activeDb();
-          if (db) showTool("objectList", t("tab.objectList", { db }), { key: `objlist:${db}`, params: { db } });
-        }}
-        onOpenTool={(tool) => showTool(tool.tool, t(tool.tabTitle), { key: tool.key })}
-      />
       <div class="main">
         <aside class="sidebar" style={{ width: `${sidebarWidth()}px` }}>
           <div class="sidebar-section-title">{t("conn.title")}</div>
@@ -2311,66 +2306,121 @@ export function App() {
               title="Conexión de la pestaña activa"
             />
           </Show>
-          {/* A real tablist (issue #338): these were bare divs, so nothing but
+          {/* One navigation band instead of two (issue #386). The ribbon of 12
+              destinations above these tabs opened exactly what the tabs then
+              showed, and gave a tool the same weight as a table. What replaced
+              it is the launcher on the left — the Ctrl+K palette, which already
+              indexes every tool, object, snippet and action — plus an icon-only
+              strip that ⋯ unfolds for the times you would rather point at a
+              tool than name it. 68 px of chrome become 32.
+
+              A real tablist (issue #338): these were bare divs, so nothing but
               sight could tell which tab was selected — and "one tab per snippet"
               is a promise about exactly that. aria-label pins the accessible name
               to the title, which the close button's × and the connection name
               would otherwise pad. */}
-          <div class="tabbar" role="tablist" aria-label={t("tab.listLabel")}>
-            <For each={tabs().tabs}>
-              {(tab) => (
-                <div
-                  class={`tab ${tab.id === tabs().activeId ? "active" : ""} ${
-                    tab.kind === "tool" ? "tab-tool" : ""
-                  }`}
-                  role="tab"
-                  aria-selected={tab.id === tabs().activeId}
-                  aria-label={
-                    isUnsaved(tab) ? t("tab.unsaved", { title: tab.title }) : tab.title
-                  }
-                  tabindex={tab.id === tabs().activeId ? 0 : -1}
-                  style={tabColor(tab) ? { "border-top": `2px solid ${tabColor(tab)}` } : undefined}
-                  onClick={() => selectTab(tab.id)}
-                  onKeyDown={(e) => onTabKeyDown(e, tab.id)}
-                  onContextMenu={(e) => tabMenu(e, tab.id)}
-                >
-                  <Show when={tabColor(tab)}>
-                    <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
-                  </Show>
-                  <span class="tab-title">{tab.title}</span>
-                  <Show when={isUnsaved(tab)}>
-                    <span class="tab-unsaved" aria-hidden="true">
-                      •
-                    </span>
-                  </Show>
-                  <Show when={tabConn(tab)}>
-                    {(conn) => (
-                      <span class="tab-conn">
-                        {connIcon(connections().find((c) => c.id === conn().defId) ?? conn())} (
-                        {conn().name})
-                      </span>
-                    )}
-                  </Show>
-                  <button
-                    class="tab-close"
-                    title="Cerrar pestaña"
-                    aria-label="Cerrar pestaña"
-                    onClick={(e) => removeTab(tab.id, e)}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-            </For>
+          <div class="tabbar">
             <button
-              class="tab-new"
-              title="Nueva consulta"
-              aria-label="Nueva consulta"
-              onClick={newTab}
+              class="tab-launch"
+              title={`${t("toolbar.launchTitle")} (${isMac() ? "⌘K" : "Ctrl+K"})`}
+              onClick={() => {
+                setPaletteMode("all");
+                setPaletteOpen(true);
+              }}
             >
-              +
+              <span class="tab-launch-ic" aria-hidden="true">
+                <IconSearch />
+              </span>
+              <span class="tab-launch-lb">{t("toolbar.launch")}</span>
+              <kbd class="tab-kbd">{isMac() ? "⌘K" : "Ctrl K"}</kbd>
+            </button>
+            <span class="tab-sep" aria-hidden="true" />
+            <div class="tablist" role="tablist" aria-label={t("tab.listLabel")}>
+              <For each={tabs().tabs}>
+                {(tab) => (
+                  <div
+                    class={`tab ${tab.id === tabs().activeId ? "active" : ""} ${
+                      tab.kind === "tool" ? "tab-tool" : ""
+                    }`}
+                    role="tab"
+                    aria-selected={tab.id === tabs().activeId}
+                    aria-label={
+                      isUnsaved(tab) ? t("tab.unsaved", { title: tab.title }) : tab.title
+                    }
+                    /* The connection used to be spelled out on every tab —
+                       "clientes 🐬 (Ventas (demo))", nested parentheses and all,
+                       repeated even when only one connection was open. The colour
+                       on the edge and the dot say it without spending the width;
+                       the name stays a hover away, and in the status bar. */
+                    title={
+                      tabConn(tab) ? `${tab.title} — ${tabConn(tab)!.name}` : tab.title
+                    }
+                    tabindex={tab.id === tabs().activeId ? 0 : -1}
+                    style={
+                      tabColor(tab) ? { "border-left-color": tabColor(tab)! } : undefined
+                    }
+                    onClick={() => selectTab(tab.id)}
+                    onKeyDown={(e) => onTabKeyDown(e, tab.id)}
+                    onContextMenu={(e) => tabMenu(e, tab.id)}
+                  >
+                    <Show when={tabColor(tab)}>
+                      <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
+                    </Show>
+                    <span class="tab-title">{tab.title}</span>
+                    <Show when={isUnsaved(tab)}>
+                      <span class="tab-unsaved" aria-hidden="true">
+                        •
+                      </span>
+                    </Show>
+                    <button
+                      class="tab-close"
+                      title="Cerrar pestaña"
+                      aria-label="Cerrar pestaña"
+                      onClick={(e) => removeTab(tab.id, e)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </For>
+              <button
+                class="tab-new"
+                title="Nueva consulta"
+                aria-label="Nueva consulta"
+                onClick={newTab}
+              >
+                +
+              </button>
+            </div>
+            <span class="tabbar-spacer" />
+            <button
+              class="tab-tools"
+              aria-expanded={settings().toolStrip}
+              title={t("toolbar.tools")}
+              aria-label={t("toolbar.tools")}
+              onClick={() => patchSettings({ toolStrip: !settings().toolStrip })}
+            >
+              ⋯
             </button>
           </div>
+
+          <Show when={settings().toolStrip}>
+            <div class="toolstrip" role="toolbar" aria-label={t("toolbar.actions")}>
+              <For each={TOOL_CATALOG}>
+                {(item) => (
+                  <button
+                    class="toolstrip-btn"
+                    title={t(item.title)}
+                    aria-label={t(item.label)}
+                    disabled={!active()}
+                    onClick={() => showTool(item.tool, t(item.tabTitle), { key: item.key })}
+                  >
+                    <item.Icon />
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
 
           <div class="workspace-main">
           <Show when={currentQuery()}>
@@ -2420,8 +2470,12 @@ export function App() {
                       }
                       onApply={() => applyDataFilter(tab().id)}
                       onClear={() => clearDataFilter(tab().id)}
+                      /* Through withFilter, not a bare path write: the fold is
+                         now the first thing a tab's filter is asked to do, and
+                         writing `filters[id].collapsed` before anything has
+                         created `filters[id]` throws. */
                       onToggleCollapsed={() =>
-                        setFilters(tab().id, "collapsed", (v) => !v)
+                        withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
                       }
                       onOpenSql={() => openSqlInNewTab(sqlOfTab(tab().id), tab().title)}
                     />
@@ -2445,11 +2499,12 @@ export function App() {
                     defaultTable={sqlDefaultTable()}
                   />
                   </Show>
+                  {/* The editor's own bar. A data tab has no editor: its
+                      Plan/Historial/Snippets buttons used to render here anyway,
+                      as a 29 px band of three items above the action bar, and
+                      they now ride inside that bar instead (issue #386). */}
+                  <Show when={!isDataTab(tab().id)}>
                   <div class="editor-hint">
-                    {/* Without an editor below, three of these lose their object:
-                        running IS applying, there is no text to format, and
-                        saving a snippet resolves the editor's own selection. */}
-                    <Show when={!isDataTab(tab().id)}>
                     <button
                       class="status-btn run-btn"
                       title={
@@ -2468,7 +2523,6 @@ export function App() {
                     >
                       {t("editor.format")}
                     </button>
-                    </Show>
                     <button
                       class="status-btn"
                       title={t("editor.planTitle")}
@@ -2483,15 +2537,13 @@ export function App() {
                     >
                       {t("editor.history")}
                     </button>
-                    <Show when={!isDataTab(tab().id)}>
-                      <button
-                        class="status-btn"
-                        title={t("editor.saveSnippetTitle")}
-                        onClick={requestSaveSnippet}
-                      >
-                        {t("editor.saveSnippet")}
-                      </button>
-                    </Show>
+                    <button
+                      class="status-btn"
+                      title={t("editor.saveSnippetTitle")}
+                      onClick={requestSaveSnippet}
+                    >
+                      {t("editor.saveSnippet")}
+                    </button>
                     <button
                       class="status-btn"
                       title={t("editor.snippetsTitle")}
@@ -2513,10 +2565,7 @@ export function App() {
                       fallback={
                         <>
                           <span class="editor-hint-spacer" />
-                          {/* No editor, nothing to run with Ctrl+Enter. */}
-                          <Show when={!isDataTab(tab().id)}>
-                            <span>{t("editor.runHint")}</span>
-                          </Show>
+                          <span>{t("editor.runHint")}</span>
                         </>
                       }
                     >
@@ -2551,6 +2600,7 @@ export function App() {
                       )}
                     </Show>
                   </div>
+                  </Show>
                 </div>
                 <div class="result-pane">
                   <Show
@@ -2582,7 +2632,31 @@ export function App() {
                       onDiscard={discardEdit}
                       onChart={openChart}
                       onExport={(fmt) => doExport(fmt as AnyExportFormat)}
-                    />
+                    >
+                      {/* A data tab has no editor bar to hold these, so they
+                          ride in the action bar rather than in a band of their
+                          own above it (issue #386). */}
+                      <Show when={isDataTab(tab().id)}>
+                        <span class="toolbar-sep" aria-hidden="true" />
+                        <button class="edit-btn" title={t("editor.planTitle")} onClick={explainActive}>
+                          {t("editor.plan")}
+                        </button>
+                        <button
+                          class="edit-btn"
+                          title={t("editor.historyTitle")}
+                          onClick={() => showTool("history", t("editor.history"), { key: "history" })}
+                        >
+                          {t("editor.history")}
+                        </button>
+                        <button
+                          class="edit-btn"
+                          title={t("editor.snippetsTitle")}
+                          onClick={() => showTool("snippets", t("editor.snippets"), { key: "snippets" })}
+                        >
+                          {t("editor.snippets")}
+                        </button>
+                      </Show>
+                    </ObjectToolbar>
                   </Show>
                   <Show when={currentEdit().preview}>
                     {(sqls) => (
@@ -2684,42 +2758,6 @@ export function App() {
                       )}
                     </Show>
                   </div>
-                  <Show
-                    when={
-                      currentResult().pageSql &&
-                      (currentResult().result?.columns.length ?? 0) > 0
-                    }
-                  >
-                    <div class="page-bar">
-                      <button
-                        class="edit-btn"
-                        disabled={(currentResult().offset ?? 0) === 0 || currentEdit().editing}
-                        onClick={() => pageBy(-1)}
-                      >
-                        {t("result.prev")}
-                      </button>
-                      <span class="page-info">
-                        {t("result.rowsRange", {
-                          from:
-                            (currentResult().offset ?? 0) +
-                            ((currentResult().result?.rows.length ?? 0) > 0 ? 1 : 0),
-                          to:
-                            (currentResult().offset ?? 0) +
-                            (currentResult().result?.rows.length ?? 0),
-                        })}
-                        <Show when={currentEdit().editing}>
-                          {t("result.pagingPaused")}
-                        </Show>
-                      </span>
-                      <button
-                        class="edit-btn"
-                        disabled={!currentResult().result?.truncated || currentEdit().editing}
-                        onClick={() => pageBy(1)}
-                      >
-                        {t("result.next")}
-                      </button>
-                    </div>
-                  </Show>
                 </div>
               </div>
             )}
@@ -2989,19 +3027,6 @@ export function App() {
             </div>
           </Show>
           </div>
-          <Show when={currentQuery()}>
-            <InfoPane
-              info={{
-                loading: currentResult().loading,
-                error: currentResult().error,
-                columns: currentResult().result?.columns.length ?? 0,
-                rows: currentResult().result?.rows.length ?? 0,
-                truncated: currentResult().result?.truncated ?? false,
-                elapsedMs: currentResult().elapsedMs,
-                source: currentResult().source ?? null,
-              }}
-            />
-          </Show>
         </section>
       </div>
 
@@ -3045,6 +3070,25 @@ export function App() {
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
         ranScope={currentResult().ranScope ?? null}
+        object={sourceLabel(currentResult().source)}
+        columnCount={currentResult().result?.columns.length ?? null}
+        /* The pager only exists for a result that was fetched page by page, and
+           it holds still while there are unsaved cell edits: paging away would
+           drop them (issue #134). */
+        page={
+          currentResult().pageSql && (currentResult().result?.columns.length ?? 0) > 0
+            ? {
+                from:
+                  (currentResult().offset ?? 0) +
+                  ((currentResult().result?.rows.length ?? 0) > 0 ? 1 : 0),
+                to: (currentResult().offset ?? 0) + (currentResult().result?.rows.length ?? 0),
+                canPrev: (currentResult().offset ?? 0) > 0 && !currentEdit().editing,
+                canNext: !!currentResult().result?.truncated && !currentEdit().editing,
+                paused: currentEdit().editing,
+              }
+            : null
+        }
+        onPage={pageBy}
         theme={theme()}
         onToggleTheme={toggleTheme}
         onShowHelp={() => showTool("help", t("status.shortcuts"), { key: "help" })}

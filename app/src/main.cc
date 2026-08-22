@@ -650,6 +650,14 @@ int main()
     apply_startup_background(w);
 #endif
     webview_set_size(w, 1100, 720, WEBVIEW_HINT_NONE);
+#if defined(_WIN32)
+    // Start maximised. The chrome above and below the grid is a fixed ~495 px,
+    // so at 1100x720 the data — the reason the window is open — is under a
+    // third of it. The size above still decides what "restore" gives back.
+    if (HWND hwnd = static_cast<HWND>(webview_get_window(w))) {
+        ShowWindow(hwnd, SW_MAXIMIZE);
+    }
+#endif
     webview_bind(w, "quaeroRpc", rpc_handler, w);
 #if defined(_WIN32)
     webview_bind(w, "quaeroOpenExternal", open_external_handler, w);

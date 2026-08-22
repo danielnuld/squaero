@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { Show, type JSX } from "solid-js";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
 
@@ -54,6 +54,13 @@ export interface ObjectToolbarProps {
   onDiscard: () => void;
   onChart: () => void;
   onExport: (fmt: string) => void;
+  /**
+   * Actions that belong to the tab rather than to the object, dropped in the
+   * middle of the bar. A data tab has no editor, so its Plan / Historial /
+   * Snippets buttons had a 29 px band of their own directly above this one;
+   * they ride here instead (issue #386).
+   */
+  children?: JSX.Element;
 }
 
 export function ObjectToolbar(props: ObjectToolbarProps) {
@@ -146,6 +153,8 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
           <span class="edit-error">{props.error}</span>
         </Show>
       </Show>
+
+      {props.children}
 
       <Show when={props.hasColumns}>
         <span class="toolbar-spacer" />
