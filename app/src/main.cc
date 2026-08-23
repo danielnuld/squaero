@@ -442,9 +442,40 @@ static void set_webview_visible(webview_t w, BOOL visible)
     }
 }
 
+/* Put the window in front of whatever the user was looking at.
+   
+   Windows refuses SetForegroundWindow to a process that does not already own
+   the foreground — which, at launch, this one does not: the window is created
+   and shown before the message loop runs, so the activation that ShowWindow
+   would normally do never lands and the window ends up maximised BEHIND
+   everything, on the taskbar, looking to the user as if it had opened
+   minimised. Attaching to the current foreground thread's input queue for the
+   length of the call is the documented way around the rule; it is what every
+   desktop app that must show itself at startup does. */
+static void bring_to_front(HWND hwnd)
+{
+    if (IsIconic(hwnd)) {
+        ShowWindow(hwnd, SW_RESTORE);
+    }
+    HWND fg = GetForegroundWindow();
+    DWORD fg_thread = GetWindowThreadProcessId(fg, nullptr);
+    DWORD self = GetCurrentThreadId();
+    bool attached = fg_thread != 0 && fg_thread != self &&
+                    AttachThreadInput(fg_thread, self, TRUE);
+    SetForegroundWindow(hwnd);
+    BringWindowToTop(hwnd);
+    if (attached) {
+        AttachThreadInput(fg_thread, self, FALSE);
+    }
+}
+
 /* Reveal the interface: called when the frontend makes its first RPC call (it
    has booted and painted) and, as a backstop, from a timer — a frontend that
-   never calls must not leave a permanently blank window. */
+   never calls must not leave a permanently blank window.
+
+   This is also where the window claims the foreground, rather than at creation:
+   here the message loop is running and the app has something to show, so being
+   raised is what the user asked for by launching it. */
 void reveal_ui(webview_t w)
 {
     if (g_ui_visible) {
@@ -452,6 +483,10 @@ void reveal_ui(webview_t w)
     }
     g_ui_visible = true;
     set_webview_visible(w, TRUE);
+    HWND hwnd = static_cast<HWND>(webview_get_window(w));
+    if (hwnd != nullptr) {
+        bring_to_front(hwnd);
+    }
 }
 
 static webview_t g_reveal_target = nullptr;
