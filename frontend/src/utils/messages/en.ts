@@ -356,6 +356,10 @@ export const en: Record<string, string> = {
   "result.copyCell": "Copy cell",
   "result.copyRow": "Copy row",
   "result.copyRowJson": "Copy row as JSON",
+  // set NULL from the grid (#398): clearing the box leaves "", a different value
+  "result.setNull": "Set NULL",
+  "result.setNullNeedsEdit": "Set NULL: enter edit mode first",
+  "result.setNullReadOnly": "Set NULL: the table has no primary key",
   "result.copyRowsN": "Copy {n} selected rows",
   "result.copyRowsInserts": "Copy {n} rows as INSERT",
   "result.transferRowsN": "Transfer {n} rows to another table…",

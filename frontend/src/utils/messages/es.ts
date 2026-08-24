@@ -359,6 +359,10 @@ export const es: Record<string, string> = {
   "result.copyCell": "Copiar celda",
   "result.copyRow": "Copiar fila",
   "result.copyRowJson": "Copiar fila como JSON",
+  // poner NULL desde la rejilla (#398): vaciar la celda deja "", que es otro valor
+  "result.setNull": "Poner NULL",
+  "result.setNullNeedsEdit": "Poner NULL: primero entra en modo edición",
+  "result.setNullReadOnly": "Poner NULL: la tabla no tiene clave primaria",
   "result.copyRowsN": "Copiar {n} filas seleccionadas",
   "result.copyRowsInserts": "Copiar {n} filas como INSERT",
   "result.transferRowsN": "Transferir {n} filas a otra tabla…",

@@ -1492,8 +1492,11 @@ export function App() {
       return { ...s, pending: fn(s.pending) };
     });
 
-  // Grid change hooks (record into the pending set of the active tab).
-  const onEditCell = (rowIndex: number, column: string, value: string) => {
+  // Grid change hooks (record into the pending set of the active tab). `value`
+  // is `string | null` because a SQL NULL is not an empty string (issue #398):
+  // the whole chain below — PendingChanges, row.update/row.insert, the drivers'
+  // sb_literal — already tells them apart, so the UI must too.
+  const onEditCell = (rowIndex: number, column: string, value: string | null) => {
     const t = current();
     if (t) mutatePending(t.id, (p) => setCell(p, rowIndex, column, value));
   };
@@ -1501,7 +1504,7 @@ export function App() {
     const t = current();
     if (t) mutatePending(t.id, (p) => toggleDelete(p, rowIndex));
   };
-  const onInsertCell = (insertIndex: number, column: string, value: string) => {
+  const onInsertCell = (insertIndex: number, column: string, value: string | null) => {
     const t = current();
     if (t) mutatePending(t.id, (p) => setInsertCell(p, insertIndex, column, value));
   };
@@ -2129,6 +2132,28 @@ export function App() {
       items.push({
         label: t("result.copyRowJson"),
         action: () => copyText(rowToJson(res.columns, row)),
+      });
+      items.push({ separator: true });
+      // Writing a NULL (issue #398). Clearing the box gives "", which is a
+      // different value, so this is the only way to say NULL from the grid. The
+      // entry is always here and carries its own reason when it cannot run —
+      // the same rule as the related-data entry above (#344). Whether the
+      // COLUMN accepts a NULL is not knowable from a ResultColumn (name + type,
+      // nothing else), so a NOT NULL is rejected by the engine, with its error.
+      const nullBlocked = () =>
+        !currentEditable()
+          ? t("result.setNullReadOnly")
+          : !currentEdit().editing
+            ? t("result.setNullNeedsEdit")
+            : null;
+      items.push({
+        get label() {
+          return nullBlocked() ?? t("result.setNull");
+        },
+        get disabled() {
+          return nullBlocked() !== null;
+        },
+        action: () => onEditCell(rowIndex, column, null),
       });
       items.push({ separator: true });
     }

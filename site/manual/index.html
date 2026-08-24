@@ -332,6 +332,12 @@
           Al pulsarlo se ve <b>el SQL exacto</b> que se va a ejecutar.</li>
         <li><b>Aplicar y confirmar</b> hace el commit. <b>Descartar</b> tira todo.</li>
       </ol>
+      <p><b>Poner NULL</b> está en el clic derecho sobre la celda. Hace falta porque
+        vaciar la casilla no es lo mismo: eso escribe una cadena vacía, que es otro
+        valor. Una celda con NULL —el que ya estaba o el que acabas de poner— se
+        muestra vacía pero con <code>NULL</code> escrito en gris dentro. Si la
+        columna es NOT NULL, lo rechaza el motor con su propio error: la rejilla no
+        puede saberlo de antemano.</p>
       <div class="note warn">
         <p><b>Solo lectura sin clave primaria.</b> Si la tabla no tiene PK, la rejilla
           no deja editar: no habría forma de identificar la fila sin riesgo de

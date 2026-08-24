@@ -1,6 +1,6 @@
 import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
-import { formatCell, cellAlign, boolTo01, classifyType } from "../utils/format";
+import { formatCell, cellAlign, boolTo01, classifyType, NULL_LABEL } from "../utils/format";
 import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../utils/gridNav";
 import {
   buildViewIndices,
@@ -29,9 +29,10 @@ const ACTION_WIDTH = 36;
 export interface GridEdit {
   active: boolean;
   pending: PendingChanges;
-  onEditCell: (rowIndex: number, column: string, value: string) => void;
+  /** `null` is a SQL NULL, distinct from "" (issue #398). */
+  onEditCell: (rowIndex: number, column: string, value: string | null) => void;
   onToggleDelete: (rowIndex: number) => void;
-  onInsertCell: (insertIndex: number, column: string, value: string) => void;
+  onInsertCell: (insertIndex: number, column: string, value: string | null) => void;
   onRemoveInsert: (insertIndex: number) => void;
 }
 
@@ -639,6 +640,17 @@ export function ResultGrid(props: {
                                           // it being announced as editable.
                                           aria-label={col.name}
                                           disabled={isDeleted(rowIndex())}
+                                          // An empty box says two different things —
+                                          // a SQL NULL and an empty string — and the
+                                          // difference is the whole point of being
+                                          // able to write one (issue #398). The NULL
+                                          // names itself in the placeholder; typing
+                                          // and clearing leaves "" and no placeholder.
+                                          placeholder={
+                                            cellValue(rowIndex(), col.name, original()) === null
+                                              ? NULL_LABEL
+                                              : ""
+                                          }
                                           value={(() => {
                                             const v = cellValue(rowIndex(), col.name, original());
                                             // A SQL NULL edits as empty, never "0" (a bool

@@ -65,6 +65,23 @@ int main(void)
               "UPDATE \"shop\".\"t\" SET \"v\" = 'x' WHERE \"a\" = '1' AND \"b\" IS NULL");
     }
 
+    /* A cell cleared to SQL NULL, next to one cleared to the empty string
+       (issue #398): the grid can now write either and they are different values.
+       The NULL is the bare keyword even in a numeric column, where the empty
+       string is not a bare numeric and stays quoted. */
+    {
+        const char *scols[] = { "note", "qty", "name" };
+        const char *svals[] = { NULL, NULL, "" };
+        const char *wcols[] = { "id" };
+        const char *wvals[] = { "7" };
+        dbc_type types[] = { DBC_TYPE_TEXT, DBC_TYPE_INT, DBC_TYPE_TEXT };
+        dbc_dml_row row = { NULL, "users", 3, scols, svals, 1, wcols, wvals, types };
+        check("update setting NULL, empty string kept distinct",
+              pg_build_dml_sql(DBC_DML_UPDATE, &row),
+              "UPDATE \"users\" SET \"note\" = NULL, \"qty\" = NULL, \"name\" = '' "
+              "WHERE \"id\" = '7'");
+    }
+
     /* DELETE keyed on the primary key. */
     {
         const char *wcols[] = { "id" };

@@ -105,3 +105,52 @@ describe("buildPlan", () => {
     expect(buildPlan(noKey, cols, rows, s)).toEqual([]);
   });
 });
+
+// A SQL NULL is not an empty string, and the grid can now say so (issue #398).
+// The distinction has to survive the whole chain: the pending set keeps the two
+// apart, they both count as a change, and the plan carries the null through to
+// row.update / row.insert — where the drivers emit the bare NULL keyword for it
+// and a quoted '' for the empty string.
+describe("NULL as a value", () => {
+  it("keeps a null cell edit apart from an empty string", () => {
+    const s = setCell(setCell(emptyPending(), 0, "name", null), 1, "name", "");
+    expect(s.edits[0].name).toBeNull();
+    expect(s.edits[1].name).toBe("");
+  });
+
+  it("counts a cell set to null as a pending change", () => {
+    const s = setCell(emptyPending(), 0, "name", null);
+    expect(hasChanges(s)).toBe(true);
+    expect(changeCount(s)).toBe(1);
+  });
+
+  it("overwrites a null back to a value, and a value back to null", () => {
+    let s = setCell(emptyPending(), 0, "name", null);
+    s = setCell(s, 0, "name", "alice");
+    expect(s.edits[0].name).toBe("alice");
+    s = setCell(s, 0, "name", null);
+    expect(s.edits[0].name).toBeNull();
+  });
+
+  it("carries the null into the update's set, not an empty string", () => {
+    const s = setCell(emptyPending(), 1, "name", null);
+    expect(buildPlan(source, cols, rows, s)).toEqual([
+      { kind: "update", set: { name: null }, where: { id: "2" }, setTypes: { name: "text" } },
+    ]);
+  });
+
+  it("carries the null into an inserted row's values", () => {
+    let s = setInsertCell(addInsert(emptyPending()), 0, "id", "4");
+    s = setInsertCell(s, 0, "name", null);
+    expect(buildPlan(source, cols, rows, s)).toEqual([
+      { kind: "insert", values: { id: "4", name: null }, setTypes: { id: "int", name: "text" } },
+    ]);
+  });
+
+  it("an insert whose only value is null is still an insert, not an empty row", () => {
+    const s = setInsertCell(addInsert(emptyPending()), 0, "name", null);
+    expect(buildPlan(source, cols, rows, s)).toEqual([
+      { kind: "insert", values: { name: null }, setTypes: { name: "text" } },
+    ]);
+  });
+});

@@ -99,6 +99,10 @@ export function RowDetail(props: {
                     <textarea
                       class="rd-input"
                       rows={f.value && f.value.length > 60 ? 4 : 1}
+                      // Same reason as the grid's cell input (issue #398): an
+                      // empty box would otherwise read the same for a NULL and
+                      // for an empty string.
+                      placeholder={f.value === null ? NULL_LABEL : ""}
                       value={f.value ?? ""}
                       onInput={(e) => props.onEditCell(f.name, e.currentTarget.value)}
                     />
