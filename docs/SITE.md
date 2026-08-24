@@ -10,6 +10,7 @@ depender de GitHub Actions.
 site/
   index.html      # español (por defecto): hero, características, comparativa, descargas
   en/index.html   # inglés (misma página, /quaero/en/)
+  manual/index.html  # manual de usuario (ES) — /quaero/manual/
   styles.css      # CSS compartido por ambos idiomas (sin drift)
   assets/         # logo + wordmark (SVG, copiados de assets/brand/)
   img/            # social preview + capturas (de assets/media/)
@@ -29,6 +30,21 @@ o cambiar contenido, edita **las dos** páginas; los assets se referencian con
   marca (índigo `#5b5bd6` / `#7c7cf0`).
 - Responsive (móvil y escritorio).
 - Metadatos **OpenGraph/Twitter** apuntando a `img/social-preview.png`.
+
+## Manual de usuario (`site/manual/`)
+
+Guía por tareas («cómo hago X»), **una sola página** con índice pegajoso a la
+izquierda y un ancla por sección — así se busca con Ctrl+F, se enlaza en
+profundidad y no hay que duplicar el `<nav>` en N archivos sin un paso de build.
+Usa el mismo `styles.css` que la landing (bloque `/* Manual */` al final), así
+que hereda paleta, tema claro/oscuro y tipografía sin drift.
+
+Está **solo en español**: el espejo EN se traduce cuando el contenido se
+estabilice, igual que se hizo con la landing (`site/manual/en/index.html`, con
+su selector de idioma y sus `hreflang` recíprocos en ambas páginas).
+
+Las capturas se referencian desde `../img/` — son las mismas que la landing, no
+un juego aparte.
 
 ## Editar
 
