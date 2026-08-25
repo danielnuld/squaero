@@ -8,6 +8,9 @@ import {
   closeOtherTabs,
   updateTabSql,
   activeTab,
+  serializeWorkspace,
+  parseWorkspace,
+  MAX_RESTORED_TABS,
   type TabState,
 } from "../../src/utils/tabs";
 
@@ -207,5 +210,103 @@ describe("activeTab", () => {
     expect(activeTab(empty)).toBeUndefined();
     const s = addTab(empty);
     expect(activeTab(s)?.id).toBe(s.activeId);
+  });
+});
+
+// The workspace survives a restart (issue #401): what a crash takes is the query
+// you had not run yet, and the history only keeps what was executed.
+describe("workspace persistence", () => {
+  const roundTrip = (state: TabState) => parseWorkspace(serializeWorkspace(state));
+
+  it("brings back the tabs, their sql and which one was active", () => {
+    let s = addTab(empty, "uno", undefined, false);
+    s = updateTabSql(s, 1, "SELECT 1");
+    s = addTab(s, "dos", undefined, false);
+    s = updateTabSql(s, 2, "SELECT * FROM sin_ejecutar");
+    s = { ...s, activeId: 1 };
+
+    const back = roundTrip(s)!;
+    expect(back.tabs.map((t) => t.title)).toEqual(["uno", "dos"]);
+    expect(back.tabs.map((t) => (t.kind === "query" ? t.sql : null))).toEqual([
+      "SELECT 1",
+      "SELECT * FROM sin_ejecutar",
+    ]);
+    expect(back.activeId).toBe(1);
+  });
+
+  it("keeps the connection and snippet a tab was bound to", () => {
+    let s = addTab(empty, "prod", "conn-7");
+    s = openSnippetTab(s, { id: "snip-3", name: "Ventas", body: "SELECT 1" });
+    const back = roundTrip(s)!;
+    expect(back.tabs[0]).toMatchObject({ connDefId: "conn-7" });
+    expect(back.tabs[1]).toMatchObject({ snippetId: "snip-3" });
+  });
+
+  it("drops tool tabs: the panel would come back with nothing behind it", () => {
+    let s = addTab(empty, "consulta");
+    s = openTool(s, "monitor", "Monitor", { key: "m" });
+    const back = roundTrip(s)!;
+    expect(back.tabs).toHaveLength(1);
+    expect(back.tabs[0].kind).toBe("query");
+  });
+
+  it("falls back to a real tab when the active one was a tool tab", () => {
+    let s = addTab(empty, "consulta");
+    s = openTool(s, "monitor", "Monitor", { key: "m" });
+    expect(s.activeId).toBe(2); // the tool tab took focus
+    const back = roundTrip(s)!;
+    expect(back.activeId).toBe(1);
+  });
+
+  it("never hands ids back out: seq survives the restart", () => {
+    // Ids are not recycled because per-tab state is keyed by them (issue #355).
+    let s = addTab(empty, "uno"); // 1
+    s = addTab(s, "dos"); // 2
+    s = closeTab(s, 2); // seq stays at 2
+    const back = roundTrip(s)!;
+    expect(back.seq).toBe(2);
+    expect(addTab(back, "tres").tabs.at(-1)!.id).toBe(3);
+  });
+
+  it("raises seq to the highest id restored even if the stored counter lied", () => {
+    const forged = JSON.stringify({
+      tabs: [{ id: 9, kind: "query", title: "t", sql: "" }],
+      activeId: 9,
+      seq: 1,
+    });
+    expect(parseWorkspace(forged)!.seq).toBe(9);
+  });
+
+  it("returns null for nothing usable, so the app opens its normal first tab", () => {
+    expect(parseWorkspace(null)).toBeNull();
+    expect(parseWorkspace("")).toBeNull();
+    expect(parseWorkspace("not json")).toBeNull();
+    expect(parseWorkspace("[]")).toBeNull();
+    expect(parseWorkspace(JSON.stringify({ tabs: "nope" }))).toBeNull();
+    // A workspace of tool tabs only leaves nothing to restore.
+    expect(parseWorkspace(serializeWorkspace(openTool(empty, "monitor", "M")))).toBeNull();
+  });
+
+  it("skips malformed tabs and duplicate ids instead of failing the whole load", () => {
+    const mixed = JSON.stringify({
+      tabs: [
+        { id: 1, kind: "query", title: "ok", sql: "SELECT 1" },
+        { id: 2, kind: "query", title: "sin sql" },
+        { id: "x", kind: "query", title: "id malo", sql: "" },
+        { id: 1, kind: "query", title: "id repetido", sql: "" },
+      ],
+      activeId: 1,
+      seq: 4,
+    });
+    const back = parseWorkspace(mixed)!;
+    expect(back.tabs.map((t) => t.title)).toEqual(["ok"]);
+  });
+
+  it("caps how many tabs come back, keeping the most recent", () => {
+    let s: TabState = empty;
+    for (let i = 0; i < MAX_RESTORED_TABS + 5; i++) s = addTab(s, `t${i}`, undefined, false);
+    const back = roundTrip(s)!;
+    expect(back.tabs).toHaveLength(MAX_RESTORED_TABS);
+    expect(back.tabs.at(-1)!.title).toBe(`t${MAX_RESTORED_TABS + 4}`);
   });
 });

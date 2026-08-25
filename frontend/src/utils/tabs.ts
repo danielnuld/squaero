@@ -222,3 +222,92 @@ export function cycleTab(state: TabState, dir: 1 | -1): TabState {
   const next = state.tabs[(index + dir + n) % n];
   return { ...state, activeId: next.id };
 }
+
+// --- Workspace persistence (issue #401) -------------------------------------
+//
+// What is lost when the process dies is not the query you ran — that is in the
+// history — but the one you had not run yet, and which tabs were open. So the
+// workspace is serialized to storage and rehydrated on start.
+//
+// Only QUERY tabs are kept. A tool tab is a live panel over state that is not
+// stored (a server monitor, a half-filled wizard, a result being charted);
+// restoring the shell without what was behind it is worse than not restoring
+// it. Results are not stored either: a grid can hold thousands of rows, and one
+// rebuilt from disk would look fresh while being arbitrarily old. The SQL comes
+// back, the data is re-read on demand.
+
+/** Ceiling on restored tabs. A workspace this size is already unmanageable, and
+    the cap keeps one runaway session from filling the store. Oldest go first. */
+export const MAX_RESTORED_TABS = 50;
+
+/** The workspace as stored: the query tabs, which one was active, and the id
+    counter — `seq` travels with them because ids must never move backwards
+    across a restart either (see TabState.seq and issue #355). */
+interface StoredWorkspace {
+  tabs: QueryTab[];
+  activeId: number;
+  seq: number;
+}
+
+/** Serializes the query tabs of `state` for storage. */
+export function serializeWorkspace(state: TabState): string {
+  const tabs = state.tabs
+    .filter((t): t is QueryTab => t.kind === "query")
+    .slice(-MAX_RESTORED_TABS);
+  // The active tab may be a tool one, which is not stored: fall back to the last
+  // query tab so what reopens is focused on something that exists.
+  const active = tabs.some((t) => t.id === state.activeId)
+    ? state.activeId
+    : (tabs[tabs.length - 1]?.id ?? 0);
+  const stored: StoredWorkspace = {
+    tabs,
+    activeId: active,
+    seq: tabs.reduce((max, t) => Math.max(max, t.id), state.seq ?? 0),
+  };
+  return JSON.stringify(stored);
+}
+
+/**
+ * Rebuilds a TabState from storage, or null when there is nothing usable —
+ * empty, corrupt, or a workspace whose tabs were all tool tabs. The caller then
+ * opens its normal first tab, so a bad payload can never leave the app tabless.
+ */
+export function parseWorkspace(raw: string | null): TabState | null {
+  if (!raw) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const w = data as Partial<StoredWorkspace>;
+  if (!Array.isArray(w?.tabs)) return null;
+
+  const tabs: QueryTab[] = [];
+  for (const item of w.tabs.slice(-MAX_RESTORED_TABS)) {
+    const t = item as Partial<QueryTab>;
+    if (
+      typeof t?.id === "number" &&
+      Number.isFinite(t.id) &&
+      t.kind === "query" &&
+      typeof t.title === "string" &&
+      typeof t.sql === "string" &&
+      !tabs.some((k) => k.id === t.id)
+    ) {
+      const tab: QueryTab = { id: t.id, kind: "query", title: t.title, sql: t.sql };
+      if (typeof t.connDefId === "string") tab.connDefId = t.connDefId;
+      if (typeof t.snippetId === "string") tab.snippetId = t.snippetId;
+      tabs.push(tab);
+    }
+  }
+  if (tabs.length === 0) return null;
+
+  const activeId = tabs.some((t) => t.id === w.activeId) ? w.activeId! : tabs[0].id;
+  // Never below the highest id restored, whatever the stored counter says: a
+  // recycled id would hand a new tab the previous one's results and filters.
+  const seq = tabs.reduce(
+    (max, t) => Math.max(max, t.id),
+    typeof w.seq === "number" && Number.isFinite(w.seq) ? w.seq : 0,
+  );
+  return { tabs, activeId, seq };
+}

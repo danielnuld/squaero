@@ -28,6 +28,7 @@ import {
   type ToolTab,
   type Tab,
 } from "./utils/tabs";
+import { loadWorkspace, saveWorkspace } from "./utils/tabsStore";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
 import { engineFamily } from "./utils/engineFamily";
 import { DataFilterBar } from "./components/DataFilterBar";
@@ -292,8 +293,11 @@ const EXPORT_FORMATS: { fmt: AnyExportFormat; label: string }[] = [
 // opens a real connection in the core; running SQL goes through query.run and
 // renders into the virtualized grid — the demonstrable end-to-end path (#17).
 export function App() {
+  // The workspace comes back from the last session when there is one (issue
+  // #401): the query you had not run yet is what a crash or a power cut takes,
+  // and the history only keeps what was executed.
   const [tabs, setTabs] = createSignal<TabState>(
-    addTab({ tabs: [], activeId: 0 }, t("toolbar.newQuery.label")),
+    loadWorkspace() ?? addTab({ tabs: [], activeId: 0 }, t("toolbar.newQuery.label")),
   );
   const [results, setResults] = createStore<Record<number, TabResult>>({});
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
@@ -581,6 +585,35 @@ export function App() {
   createEffect(() => {
     const conn = active();
     document.title = conn?.name ? `Quaero — ${conn.name}` : "Quaero";
+  });
+
+  // Keep the workspace on disk (issue #401). Debounced because the editor emits
+  // per keystroke and this serializes every tab; and written as you type rather
+  // than on the way out, because the case this exists for — the machine losing
+  // power — never reaches an exit handler. One second is short enough that at
+  // most a sentence is lost and long enough that typing does not hit storage.
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  createEffect(() => {
+    const state = tabs();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveWorkspace(state), 1000);
+  });
+  // A clean close within that second would still lose the last keystrokes, so
+  // the window going away flushes what is pending. Both events, because which
+  // of them a webview fires on close is not something to bet the buffer on.
+  const flushWorkspace = () => {
+    clearTimeout(saveTimer);
+    saveWorkspace(tabs());
+  };
+  const onHidden = () => {
+    if (document.visibilityState === "hidden") flushWorkspace();
+  };
+  window.addEventListener("pagehide", flushWorkspace);
+  document.addEventListener("visibilitychange", onHidden);
+  onCleanup(() => {
+    clearTimeout(saveTimer);
+    window.removeEventListener("pagehide", flushWorkspace);
+    document.removeEventListener("visibilitychange", onHidden);
   });
 
   // SQL autocomplete schema (issue #110). Table/view NAMES come from the loaded
