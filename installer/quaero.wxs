@@ -16,7 +16,19 @@
            Language="1033"
            Scope="perMachine">
 
-    <MajorUpgrade DowngradeErrorMessage="Ya hay una version mas reciente de Quaero instalada." />
+    <!-- Schedule is NOT the default here, and the default is what cost the user
+         their taskbar pin on every update (issue #404). WiX defaults to
+         `afterInstallValidate`, which puts RemoveExistingProducts at sequence
+         1401 — the old version is uninstalled ENTIRELY before InstallFiles (4000)
+         lays the new one down. In that gap quaero.exe does not exist, and
+         Explorer drops pinned items whose target has gone: the pin was never
+         broken by a changing path, it was collected as dead.
+         `afterInstallExecute` runs the removal after the new files are in place,
+         so the executable is never absent; component reference counting keeps it
+         from taking away what the new version also owns. Faster too, since
+         unchanged files are not deleted and re-copied. -->
+    <MajorUpgrade Schedule="afterInstallExecute"
+                  DowngradeErrorMessage="Ya hay una version mas reciente de Quaero instalada." />
     <MediaTemplate EmbedCab="yes" />
 
     <Icon Id="QuaeroIcon" SourceFile="assets/icons/quaero.ico" />
