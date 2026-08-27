@@ -2565,6 +2565,33 @@ button.primary:hover:not(:disabled) {
   margin-bottom: var(--sp-5);
 }
 
+/* Structure and definition are sections of the panel, not a stack (issue #408),
+   so whichever is on screen gets the pane instead of a capped box with the other
+   one underneath. Scoped to .struct-view: .ddl-text is shared with every SQL
+   preview in the app, which must keep its cap. */
+.struct-view .struct-scroll {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.struct-view .ddl-text {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.struct-view .ddl-edit {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+}
+
+.struct-view .modal-actions {
+  flex: none;
+}
+
 .struct-table {
   width: 100%;
   border-collapse: collapse;

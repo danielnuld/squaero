@@ -166,6 +166,9 @@ describe("StructureView view editing", () => {
       );
     });
     await flush();
+    // A table opens on its columns, so reach the DDL section before looking:
+    // otherwise the assertion would pass just because the section is hidden.
+    clickText("DDL");
     const hasEdit = [...host!.querySelectorAll("button")].some((b) =>
       b.textContent?.includes("Editar definición"),
     );
@@ -208,10 +211,80 @@ describe("StructureView view editing", () => {
       );
     });
     await flush();
-    // Columns render...
+    // Columns render, which is the regression this pins...
     expect(host!.querySelector("table.struct-table")).not.toBeNull();
     expect(host!.textContent).toContain("id");
-    // ...and the DDL area degrades to a note instead of taking down the view.
+    // ...and the DDL section, one click away, degrades to a note rather than
+    // taking down the panel (the sections of issue #408 moved it, not removed it).
+    clickText("DDL");
     expect(host!.textContent).toContain("DDL no disponible");
+  });
+});
+
+// Structure and definition are sections of one panel (issue #408). They used to
+// share the pane, so a view was edited in the bottom half under a column list
+// that editing does not need.
+describe("StructureView sections", () => {
+  const mount = (kind: "view" | "table", table = "v") => {
+    installBridge();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <StructureView connId="c1" table={table} kind={kind} engine="sqlite" onClose={() => {}} />
+        ),
+        host!,
+      );
+    });
+  };
+
+  it("opens a view on its definition, not on its columns", async () => {
+    mount("view");
+    await flush();
+    expect(host!.textContent).toContain('CREATE VIEW "v"');
+    expect(host!.querySelector("table.struct-table")).toBeNull();
+  });
+
+  it("opens a table on its columns", async () => {
+    mount("table", "t");
+    await flush();
+    expect(host!.querySelector("table.struct-table")).not.toBeNull();
+    expect(host!.querySelector("pre.ddl-text")).toBeNull();
+  });
+
+  it("switches between the two", async () => {
+    mount("view");
+    await flush();
+    clickText("Estructura");
+    expect(host!.querySelector("table.struct-table")).not.toBeNull();
+    expect(host!.querySelector("pre.ddl-text")).toBeNull();
+    clickText("Definición");
+    expect(host!.querySelector("pre.ddl-text")).not.toBeNull();
+    expect(host!.querySelector("table.struct-table")).toBeNull();
+  });
+
+  it("locks the sections while editing, so a draft cannot be walked away from", async () => {
+    mount("view");
+    await flush();
+    clickText("Editar definición");
+    const tab = [...host!.querySelectorAll("button")].find(
+      (b) => b.textContent === "Estructura",
+    ) as HTMLButtonElement;
+    expect(tab.disabled).toBe(true);
+    tab.click();
+    expect(host!.querySelector("textarea.ddl-edit")).not.toBeNull();
+  });
+
+  it("a view's definition is only shown for the section on screen", async () => {
+    // Copiar DDL and Editar definición belong to the definition; on the columns
+    // section they would act on something the user cannot see.
+    mount("view");
+    await flush();
+    clickText("Estructura");
+    const labels = [...host!.querySelectorAll("button")].map((b) => b.textContent);
+    expect(labels).not.toContain("Copiar DDL");
+    expect(labels.some((l) => l?.includes("Editar definición"))).toBe(false);
   });
 });

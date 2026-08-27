@@ -8,10 +8,16 @@ import { errorText } from "../utils/errors";
 import { Panel } from "./Panel";
 import type { TreeNodeKind } from "../utils/tree";
 
-// Modal showing a table/view structure: the column list (schema.describe) and
+// Panel showing a table/view structure: the column list (schema.describe) and
 // the engine's CREATE statement (schema.ddl) with a copy button (#20/#21). For
 // a view it also allows editing the definition and applying it (issue #108):
 // CREATE OR REPLACE where supported, else DROP + CREATE, inside a transaction.
+//
+// The two are SECTIONS, not a stack (issue #408). They used to share the pane —
+// columns above under a height cap, definition below — so a view was edited in
+// the bottom half while the top half held columns that editing does not need. A
+// view opens on its definition, since that is what a view is; a table has no
+// choice to make and opens on its columns.
 export function StructureView(props: {
   connId: string;
   table: string;
@@ -40,6 +46,13 @@ export function StructureView(props: {
   const [applied, setApplied] = createSignal(false);
 
   const isView = () => props.kind === "view";
+
+  // Which section is on screen. A view lands on its definition: the columns of
+  // a view are derived from it, and reaching the query was the whole complaint.
+  const [section, setSection] = createSignal<"structure" | "definition">(
+    props.kind === "view" ? "definition" : "structure",
+  );
+  const defLabel = () => (isView() ? "Definición" : "DDL");
 
   const loadDdl = async () => {
     const sql = await schemaDdl(props.connId, props.table, props.db, props.schema);
@@ -84,6 +97,7 @@ export function StructureView(props: {
     setApplyError(null);
     setApplied(false);
     setEditing(true);
+    setSection("definition");
   };
 
   // Beautify the view definition in place, reusing the same formatter as the SQL
@@ -130,88 +144,119 @@ export function StructureView(props: {
   };
 
   return (
-    <Panel title={`Estructura · ${props.table}`} wide onClose={props.onClose}>
-      <h2>Estructura · {props.table}</h2>
-
-        <Show when={error()}>
-          <p class="test-error">{error()}</p>
-        </Show>
-
-        <Show when={columns()}>
-          {(cols) => (
-            // Scroll the column list within a capped height so a wide table does
-            // not push the DDL off-screen (it keeps its own room below).
-            <div class="struct-scroll">
-              <table class="struct-table">
-                <thead>
-                  <tr>
-                    <For each={cols().columns}>{(c) => <th>{c.name}</th>}</For>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={cols().rows}>
-                    {(row) => (
-                      <tr>
-                        <For each={row}>
-                          {(cell) => <td>{cell ?? <span class="cell-null">NULL</span>}</td>}
-                        </For>
-                      </tr>
-                    )}
-                  </For>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Show>
-
-        <div class="ddl-header">
-          <span>{isView() ? "Definición" : "DDL"}</span>
-          <span class="status-spacer" />
-          <Show when={applied()}>
-            <span class="test-ok">Vista actualizada.</span>
-          </Show>
-          <Show when={isView() && !editing()}>
-            <button onClick={startEdit} disabled={!ddl()}>
-              Editar definición
-            </button>
-          </Show>
-          <Show when={editing()}>
-            <button onClick={formatDraft} disabled={!draft()}>
-              Formatear
-            </button>
-          </Show>
-          <button onClick={copyDdl} disabled={!ddl() || editing()}>
-            {copied() ? "¡Copiado!" : "Copiar DDL"}
-          </button>
-        </div>
-
-        <Show
-          when={editing()}
-          fallback={
-            <Show
-              when={ddlError()}
-              fallback={<pre class="ddl-text">{ddl() || "—"}</pre>}
+    <Panel
+      title={`Estructura · ${props.table}`}
+      class="struct-view"
+      wide
+      onClose={props.onClose}
+      actions={
+        <>
+          {/* Same section switch the routine and trigger explorers use, so a
+              panel with two faces looks the same wherever it appears (#372). */}
+          <div class="obj-kind-toggle" role="tablist">
+            <button
+              class={`edit-btn ${section() === "structure" ? "active" : ""}`}
+              role="tab"
+              aria-selected={section() === "structure"}
+              /* Leaving mid-edit would drop the draft silently. */
+              disabled={editing()}
+              onClick={() => setSection("structure")}
             >
-              <p class="test-error">DDL no disponible: {ddlError()}</p>
+              Estructura
+            </button>
+            <button
+              class={`edit-btn ${section() === "definition" ? "active" : ""}`}
+              role="tab"
+              aria-selected={section() === "definition"}
+              onClick={() => setSection("definition")}
+            >
+              {defLabel()}
+            </button>
+          </div>
+          <Show when={section() === "definition"}>
+            <Show when={isView() && !editing()}>
+              <button class="edit-btn" onClick={startEdit} disabled={!ddl()}>
+                Editar definición
+              </button>
             </Show>
-          }
-        >
-          <textarea
-            class="ddl-edit"
-            value={draft()}
-            onInput={(e) => setDraft(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              // Same key the SQL editor uses to format (see SqlEditor.tsx); this
-              // is a plain textarea, so it needs its own binding.
-              if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "f") {
-                e.preventDefault();
-                formatDraft();
-              }
-            }}
-            spellcheck={false}
-          />
-          <Show when={applyError()}>
-            <p class="test-error">{applyError()}</p>
+            <Show when={editing()}>
+              <button class="edit-btn" onClick={formatDraft} disabled={!draft()}>
+                Formatear
+              </button>
+            </Show>
+            <button class="edit-btn" onClick={copyDdl} disabled={!ddl() || editing()}>
+              {copied() ? "¡Copiado!" : "Copiar DDL"}
+            </button>
+          </Show>
+        </>
+      }
+      status={
+        <Show when={applied()}>
+          <span class="test-ok">Vista actualizada.</span>
+        </Show>
+      }
+    >
+        <Show when={section() === "structure"}>
+          <Show when={error()}>
+            <p class="test-error">{error()}</p>
+          </Show>
+          <Show when={columns()}>
+            {(cols) => (
+              // The section owns the pane now, so the list scrolls to the bottom
+              // of it instead of inside a capped box with the DDL underneath.
+              <div class="struct-scroll">
+                <table class="struct-table">
+                  <thead>
+                    <tr>
+                      <For each={cols().columns}>{(c) => <th>{c.name}</th>}</For>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={cols().rows}>
+                      {(row) => (
+                        <tr>
+                          <For each={row}>
+                            {(cell) => <td>{cell ?? <span class="cell-null">NULL</span>}</td>}
+                          </For>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Show>
+        </Show>
+
+        <Show when={section() === "definition"}>
+          <Show
+            when={editing()}
+            fallback={
+              <Show
+                when={ddlError()}
+                fallback={<pre class="ddl-text">{ddl() || "—"}</pre>}
+              >
+                <p class="test-error">DDL no disponible: {ddlError()}</p>
+              </Show>
+            }
+          >
+            <textarea
+              class="ddl-edit"
+              value={draft()}
+              onInput={(e) => setDraft(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                // Same key the SQL editor uses to format (see SqlEditor.tsx); this
+                // is a plain textarea, so it needs its own binding.
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "f") {
+                  e.preventDefault();
+                  formatDraft();
+                }
+              }}
+              spellcheck={false}
+            />
+            <Show when={applyError()}>
+              <p class="test-error">{applyError()}</p>
+            </Show>
           </Show>
         </Show>
 
