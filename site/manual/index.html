@@ -300,7 +300,10 @@
 
       <h3>Abrir una tabla</h3>
       <p>Doble clic en el árbol, o <b>Abrir datos</b> en su menú. La pestaña abre con
-        el panel <b>Filtro</b> plegado sobre la rejilla.</p>
+        el panel <b>Filtro</b> plegado sobre la rejilla. Si esa tabla ya está
+        abierta, volver a pulsarla te lleva a su pestaña en vez de crear otra —y no
+        vuelve a ejecutar la consulta, para no tirar los cambios que tuvieras sin
+        confirmar. Para releer los datos, <kbd>F5</kbd>.</p>
 
       <h3>Filtrar y ordenar (en el servidor)</h3>
       <p>Esto es lo importante: el filtro del panel se traduce a <code>WHERE</code> y
@@ -527,6 +530,15 @@
     <!-- 11 ────────────────────────────────────────────────────────────── -->
     <section id="problemas">
       <h2>11. Si algo va mal</h2>
+
+      <h3>Se cayó la conexión</h3>
+      <p>Si el servidor cierra la sesión —por inactividad, porque alguien la mató,
+        o porque se fue el túnel— la app te lo dice: la barra deja de poner
+        «conectado» y pasa a <b>desconectada</b> en rojo, y sale un aviso con el
+        botón <b>Reconectar</b>. Tus pestañas y lo que tuvieras escrito en ellas
+        no se pierden: la conexión se marca, no se cierra.</p>
+      <p>Se detecta cuando algo va al servidor, no antes; puede que te enteres al
+        ejecutar la siguiente consulta.</p>
 
       <h3>No conecta</h3>
       <p>El error trae el motivo que devolvió el motor; empieza por ahí. Lo que más
