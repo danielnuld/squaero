@@ -10,13 +10,17 @@ import {
 import { editorDialect, completionQuote } from "../../src/utils/sqlDialect";
 
 describe("editorDialect", () => {
+  // MySQL, MariaDB and SQLite are rebuilt from their upstream spec with
+  // caseInsensitiveIdentifiers set (issue #409), so they are no longer the same
+  // OBJECT as the import — what has to hold is that they are still that dialect.
   it("maps known engines to their dialect", () => {
-    expect(editorDialect("mysql")).toBe(MySQL);
+    expect(editorDialect("mysql").spec.keywords).toBe(MySQL.spec.keywords);
+    expect(editorDialect("mysql").spec.identifierQuotes).toBe(MySQL.spec.identifierQuotes);
     expect(editorDialect("postgres")).toBe(PostgreSQL);
     expect(editorDialect("postgresql")).toBe(PostgreSQL);
   });
   it("is case-insensitive", () => {
-    expect(editorDialect("MySQL")).toBe(MySQL);
+    expect(editorDialect("MySQL").spec.keywords).toBe(MySQL.spec.keywords);
   });
   it("falls back to StandardSQL for unknown or absent engines", () => {
     expect(editorDialect("whatever")).toBe(StandardSQL);
@@ -62,8 +66,16 @@ const inserted = (c: Completion | undefined) =>
   typeof c?.apply === "string" ? c.apply : (c?.label ?? "");
 
 describe("table completion (the reported bug)", () => {
-  it("inserts an upper-case MySQL table in backticks, never in double quotes", () => {
-    expect(inserted(completionFor("Clientes", "mysql"))).toBe("`Clientes`");
+  // The original regression: whatever DOES need quoting must get MySQL's
+  // backtick, never the ANSI double quote, which MySQL reads as a string.
+  it("inserts a MySQL name that needs quoting in backticks, never in double quotes", () => {
+    expect(inserted(completionFor("Mis Clientes", "mysql"))).toBe("`Mis Clientes`");
+  });
+  // Issue #409: a CamelCase name needs nothing. It used to arrive wrapped
+  // because lang-sql matched its plain-identifier test case-sensitively.
+  it("no longer wraps a CamelCase MySQL name", () => {
+    expect(inserted(completionFor("Clientes", "mysql"))).toBe("Clientes");
+    expect(inserted(completionFor("LG_Documento", "mysql"))).toBe("LG_Documento");
   });
   it("still uses the ANSI double quote on PostgreSQL", () => {
     expect(inserted(completionFor("Clientes", "postgres"))).toBe('"Clientes"');
@@ -82,5 +94,29 @@ describe("informix identifiers", () => {
   // from quoting an upper-case table name.
   it("is case-insensitive so upper-case names are completed bare", () => {
     expect(editorDialect("informix").spec.caseInsensitiveIdentifiers).toBe(true);
+  });
+});
+
+// The completer quotes anything that is not `^[a-z_][a-z_\d]*$`, matched
+// case-sensitively unless the dialect says identifiers are case-insensitive
+// (issue #409). Real schemas are full of CamelCase, so without the flag every
+// insertion arrived wrapped in backticks.
+describe("case-insensitive identifiers (issue #409)", () => {
+  it("is set where unquoting cannot change which object is named", () => {
+    for (const e of ["mysql", "mariadb", "sqlite", "informix"]) {
+      expect(editorDialect(e).spec.caseInsensitiveIdentifiers).toBe(true);
+    }
+  });
+
+  it("is NOT set for PostgreSQL, which folds a bare name to lower case", () => {
+    expect(editorDialect("postgres").spec.caseInsensitiveIdentifiers).toBeFalsy();
+    expect(editorDialect("postgresql").spec.caseInsensitiveIdentifiers).toBeFalsy();
+  });
+
+  it("keeps the rest of the dialect it was derived from", () => {
+    // Rebuilding from the spec must not lose the engine's quote or keywords.
+    expect(editorDialect("mysql").spec.identifierQuotes).toContain("`");
+    expect(editorDialect("mysql").spec.keywords).toBeTruthy();
+    expect(editorDialect("sqlite").spec.identifierQuotes).toContain('"');
   });
 });

@@ -4,6 +4,7 @@
 // non-SQL engine's query (MongoDB uses mongosh syntax, not SQL).
 
 import { format, type SqlLanguage } from "sql-formatter";
+import { tidySql } from "./sqlTidy";
 
 // Engine name (the driver `name`, see connections.ts) → sql-formatter language.
 const LANGUAGE: Record<string, SqlLanguage> = {
@@ -34,13 +35,18 @@ export function dialectFor(engine?: string | null): SqlLanguage | null {
  * Format `sql` for the given engine. Idempotent-friendly and total: an empty or
  * whitespace-only input, a non-SQL engine, or a formatter error all return the
  * input unchanged, so the action can never destroy what the user typed.
+ *
+ * Tidying runs first (issue #409): sql-formatter lays text out, it does not
+ * decide that a delimiter or a parenthesis was never needed, and the SQL an
+ * engine hands back — a stored view above all — is full of both. Tidying before
+ * formatting means the layout is computed on the text that will be shown.
  */
 export function formatSql(sql: string, engine?: string | null): string {
   const language = dialectFor(engine);
   if (language === null) return sql;
   if (sql.trim() === "") return sql;
   try {
-    return format(sql, { language, keywordCase: "upper" });
+    return format(tidySql(sql, engine), { language, keywordCase: "upper" });
   } catch {
     return sql;
   }

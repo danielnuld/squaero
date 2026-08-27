@@ -31,11 +31,27 @@ const Informix = SQLDialect.define({
   caseInsensitiveIdentifiers: true,
 });
 
+/**
+ * The upstream dialect, told that its identifiers are case-insensitive (issue
+ * #409). lang-sql quotes any completion that is not `^[a-z_][a-z_\d]*$`, matched
+ * case-sensitively unless this flag is set — so on a schema named the way real
+ * ones are, `LG_Documento` completed as `` `LG_Documento` `` and every insert
+ * came with backticks nobody asked for.
+ *
+ * It is set only where unquoting cannot change which object is named. MySQL,
+ * MariaDB and SQLite compare identifiers case-insensitively and completing
+ * without delimiters changes no letters. PostgreSQL is left alone on purpose: it
+ * folds an undelimited name to lower case, so there `"Clientes"` and `Clientes`
+ * are two different things and the quotes are load-bearing.
+ */
+const caseInsensitive = (d: SQLDialect) =>
+  SQLDialect.define({ ...d.spec, caseInsensitiveIdentifiers: true });
+
 /** Engine name (the driver `name`, see connections.ts) → CodeMirror dialect. */
 const DIALECT: Record<string, SQLDialect> = {
-  sqlite: SQLite,
-  mysql: MySQL,
-  mariadb: MariaSQL,
+  sqlite: caseInsensitive(SQLite),
+  mysql: caseInsensitive(MySQL),
+  mariadb: caseInsensitive(MariaSQL),
   postgres: PostgreSQL,
   postgresql: PostgreSQL,
   informix: Informix,
