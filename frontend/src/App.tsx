@@ -23,6 +23,9 @@ import {
   cycleTab,
   updateTabSql,
   activeTab,
+  objectTabKey,
+  findObjectTab,
+  setObjectKey,
   type TabState,
   type QueryTab,
   type ToolTab,
@@ -868,14 +871,33 @@ export function App() {
   // Open SQL in a fresh tab WITHOUT running it (e.g. a routine's CREATE DDL,
   // which would error if executed against an object that already exists).
   // `name` (when the caller knows the object) titles the tab instead of "Consulta N".
-  const openSqlInNewTab = (sql: string, name?: string) => {
+  const openSqlInNewTab = (
+    sql: string,
+    name?: string,
+    object?: { db?: string; schema?: string; name: string; kind: string },
+  ) => {
+    // When the SQL is an object's definition, the tab belongs to that object and
+    // reopening it goes back there rather than stacking a copy (issue #414).
+    // Without `object` this is what its name says: a fresh tab, which is what
+    // "send this to the editor" means everywhere else it is called from.
+    const key = object
+      ? objectTabKey({ ...object, connDefId: focusedDefId() ?? undefined })
+      : null;
+    if (key !== null) {
+      const already = findObjectTab(tabs(), key);
+      if (already) {
+        setTabs((s) => ({ ...s, activeId: already.id }));
+        return;
+      }
+    }
     let newId = 0;
     setTabs((s) => {
       const added = name
         ? addTab(s, name, focusedDefId() ?? undefined, false)
         : addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
       newId = added.activeId;
-      return updateTabSql(added, newId, sql);
+      const withSql = updateTabSql(added, newId, sql);
+      return key !== null ? setObjectKey(withSql, newId, key) : withSql;
     });
   };
 
@@ -1496,6 +1518,23 @@ export function App() {
   const openData = (node: TreeNode) => {
     recordRecent(node);
     syncWorkingDb(node.db);
+    // Already open? Go there (issue #414). Clicking a table twice used to stack
+    // a second tab with the same name. Deliberately just FOCUS: the tab may hold
+    // an edit transaction with uncommitted changes, or SQL the user has since
+    // changed, and re-running it or rewriting the text would be a worse bug than
+    // the duplicate it fixes. F5 is how you refresh.
+    const key = objectTabKey({
+      connDefId: focusedDefId() ?? undefined,
+      db: node.db,
+      schema: node.schema,
+      name: node.label,
+      kind: "data",
+    });
+    const already = findObjectTab(tabs(), key);
+    if (already) {
+      setTabs((s) => ({ ...s, activeId: already.id }));
+      return;
+    }
     // A paged "open table" preview (issue #134): a qualified SELECT for relational
     // engines (Informix uses db:owner.table + SKIP/FIRST), or db.<collection>.find()
     // for MongoDB. Paging regenerates this with a server-side offset — see
@@ -1510,7 +1549,10 @@ export function App() {
       // The tab is named after the object it opens, not "Consulta N".
       const added = addTab(s, node.label, focusedDefId() ?? undefined, false);
       newId = added.activeId;
-      return updateTabSql(added, newId, sql);
+      // The key goes on AFTER the SQL: updateTabSql is also what paging and the
+      // filter panel call, so the identity must not be something writing the SQL
+      // could clear.
+      return setObjectKey(updateTabSql(added, newId, sql), newId, key);
     });
     void (async () => {
       await runPreviewPage(newId, preview, 0);

@@ -10,6 +10,9 @@ import {
   activeTab,
   serializeWorkspace,
   parseWorkspace,
+  objectTabKey,
+  findObjectTab,
+  setObjectKey,
   MAX_RESTORED_TABS,
   type TabState,
 } from "../../src/utils/tabs";
@@ -308,5 +311,61 @@ describe("workspace persistence", () => {
     const back = roundTrip(s)!;
     expect(back.tabs).toHaveLength(MAX_RESTORED_TABS);
     expect(back.tabs.at(-1)!.title).toBe(`t${MAX_RESTORED_TABS + 4}`);
+  });
+});
+
+// Clicking a table in the tree twice used to stack a second tab with the same
+// name (issue #414). One tab per object, the way there is one per snippet.
+describe("object tabs", () => {
+  const key = (over: Partial<Parameters<typeof objectTabKey>[0]> = {}) =>
+    objectTabKey({ connDefId: "c1", db: "midb", name: "clientes", kind: "data", ...over });
+
+  it("separates what genuinely is a different object", () => {
+    const base = key();
+    expect(key({ connDefId: "c2" })).not.toBe(base); // same table, other connection
+    expect(key({ db: "otra" })).not.toBe(base);
+    expect(key({ schema: "ventas" })).not.toBe(base);
+    expect(key({ name: "pedidos" })).not.toBe(base);
+    expect(key({ kind: "def:view" })).not.toBe(base); // rows vs definition
+  });
+
+  it("is the same key for the same object", () => {
+    expect(key()).toBe(key());
+  });
+
+  it("does not collide when a name contains the separator's neighbours", () => {
+    // The parts are joined, so two different splits must not meet in the middle.
+    expect(objectTabKey({ db: "a", name: "b", kind: "data" })).not.toBe(
+      objectTabKey({ db: "", name: "a.b", kind: "data" }),
+    );
+  });
+
+  it("finds the tab already open for an object, and only a query tab", () => {
+    let s = addTab(empty, "clientes", "c1", false);
+    s = setObjectKey(s, 1, key());
+    expect(findObjectTab(s, key())?.id).toBe(1);
+    expect(findObjectTab(s, key({ name: "pedidos" }))).toBeUndefined();
+    // A tool tab never carries one.
+    const withTool = openTool(s, "monitor", "Monitor", { key: "m" });
+    expect(findObjectTab(withTool, key())?.id).toBe(1);
+  });
+
+  it("leaves the rest of the tab untouched when tagging it", () => {
+    let s = addTab(empty, "clientes", "c1", false);
+    s = updateTabSql(s, 1, "SELECT * FROM clientes");
+    s = setObjectKey(s, 1, key());
+    const tab = s.tabs[0];
+    expect(tab.kind === "query" && tab.sql).toBe("SELECT * FROM clientes");
+    expect(tab.title).toBe("clientes");
+  });
+
+  it("survives the restart, or the duplicate comes back", () => {
+    // The workspace is what a restart restores (#401); an identity that did not
+    // travel with it would make the first click on an already-open table
+    // duplicate again.
+    let s = addTab(empty, "clientes", "c1", false);
+    s = setObjectKey(s, 1, key());
+    const back = parseWorkspace(serializeWorkspace(s))!;
+    expect(findObjectTab(back, key())?.id).toBe(1);
   });
 });

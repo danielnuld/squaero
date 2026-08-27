@@ -68,8 +68,15 @@ export function ObjectTree(props: {
   onOpenStructure: (node: TreeNode) => void;
   /** Single-click a table/view -> open its data (a SELECT). */
   onOpenData: (node: TreeNode) => void;
-  /** Open SQL (a routine/trigger DDL) in a new query tab. */
-  onOpenSql?: (sql: string, name?: string) => void;
+  /** Open SQL (a routine/trigger DDL) in a query tab. `object` identifies the
+      database object it belongs to, so the workspace reuses the tab already open
+      for it instead of stacking another (#414); absent when the SQL is not an
+      object's definition. */
+  onOpenSql?: (
+    sql: string,
+    name?: string,
+    object?: { db?: string; schema?: string; name: string; kind: string },
+  ) => void;
   /** Bumping this re-fetches the tree from the current connection (issue #107).
       An explicit refresh: it reloads from the root and collapses the tree. */
   reloadKey?: number;
@@ -328,12 +335,21 @@ export function ObjectTree(props: {
 
   // Fetch a routine/trigger/event leaf's definition (DDL) and open it in a new
   // query tab. Reuses the per-engine definition SQL from routines.ts/triggers.ts.
+  /** What identifies a definition tab: the object, plus that it is its
+      DEFINITION and not its rows (#414). */
+  const defIdentity = (node: TreeNode) => ({
+    db: node.db,
+    schema: node.schema,
+    name: node.label,
+    kind: `def:${node.kind}`,
+  });
+
   const openObjectDef = async (node: TreeNode) => {
     const connId = props.connId;
     if (!connId || !props.onOpenSql) return;
     // SQLite triggers carry their DDL in the listing row — open it directly.
     if (node.objDef) {
-      props.onOpenSql(node.objDef, node.label);
+      props.onOpenSql(node.objDef, node.label, defIdentity(node));
       return;
     }
     const engine = props.engine ?? "";
@@ -357,7 +373,7 @@ export function ObjectTree(props: {
       if (myGen !== generation) return;
       const cols = res.columns.map((c) => c.name);
       const text = readDefinitionText(cols, res.rows, query.column, query.concatRows);
-      if (text) props.onOpenSql(text, node.label);
+      if (text) props.onOpenSql(text, node.label, defIdentity(node));
     } catch (err) {
       if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
     } finally {
