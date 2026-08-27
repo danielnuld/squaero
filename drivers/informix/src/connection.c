@@ -1,4 +1,5 @@
 #include "internal.h"
+#include "utils/connlost.h"
 #include "utils/connstr.h"
 #include "utils/text.h"
 
@@ -134,6 +135,9 @@ void ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h, const char *ctx
         return;
     }
 
+    /* Every stash is about one failure, so the verdict starts clean. */
+    c->conn_lost = 0;
+
     /* Concatenate the diagnostic records: "<ctx>: [SQLSTATE] message; ...". */
     int pos = snprintf(c->err, sizeof c->err, "%s", ctx != NULL ? ctx : "error");
     if (pos < 0) {
@@ -149,6 +153,10 @@ void ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h, const char *ctx
     while ((size_t)pos < sizeof c->err &&
            SQLGetDiagRec(htype, h, rec, state, &native, msg, sizeof msg,
                          &msg_len) == SQL_SUCCESS) {
+        /* One record saying the link is gone is enough (issue #407). */
+        if (ifx_sqlstate_is_conn_lost((const char *)state)) {
+            c->conn_lost = 1;
+        }
         int n = snprintf(c->err + pos, sizeof c->err - (size_t)pos,
                          "%s[%s] %s", rec == 1 ? ": " : "; ",
                          (const char *)state, (const char *)msg);
@@ -294,4 +302,9 @@ const char *ifx_last_error(dbc_conn *c)
         return "";
     }
     return c->err;
+}
+
+dbc_status ifx_failure_status(const dbc_conn *c)
+{
+    return (c != NULL && c->conn_lost) ? DBC_ERR_CONN : DBC_ERR_QUERY;
 }

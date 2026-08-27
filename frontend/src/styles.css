@@ -1411,6 +1411,13 @@ body {
 }
 
 .grid-empty,
+/* A connection the core says is gone (issue #407): the bar must stop reading
+   like everything is fine, so the status word takes the error colour. */
+.connbar-status.lost {
+  color: var(--error);
+  font-weight: 600;
+}
+
 .grid-error {
   padding: var(--sp-4);
   color: var(--text-dim);

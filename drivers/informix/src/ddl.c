@@ -204,7 +204,7 @@ static dbc_status build_table_ddl(dbc_conn *c, const char *qualifier,
         /* No columns found: the object does not exist (or is not a base table). */
         free(sb.p);
         ifx_set_err(c, "unknown table");
-        return DBC_ERR_QUERY;
+        return ifx_failure_status(c);
     }
     if (rc == 0) {
         rc = append_primary_key(c, qualifier, table_lit, &sb);
@@ -261,7 +261,7 @@ static dbc_status build_view_ddl(dbc_conn *c, const char *qualifier,
     if (rc == 0 && rows == 0) {
         free(sb.p);
         ifx_set_err(c, "view definition not available");
-        return DBC_ERR_QUERY;
+        return ifx_failure_status(c);
     }
     if (rc != 0) {
         free(sb.p);
@@ -305,7 +305,7 @@ dbc_status ifx_get_ddl(dbc_conn *c, const char *schema, const char *object,
     dbc_status st;
     if (tabtype == NULL) {
         ifx_set_err(c, "unknown table or view");
-        st = DBC_ERR_QUERY;
+        st = ifx_failure_status(c);
     } else if (tabtype[0] == 'V') {
         st = build_view_ddl(c, qualifier, table_lit, out);
     } else {

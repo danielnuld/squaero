@@ -18,6 +18,10 @@ export interface ConnectionManagerProps {
   activeConnId: string | null;
   /** Ids of every open connection (several can be open at once). */
   openIds?: string[];
+  /** Of the open ones, those the core has told us are gone (issue #407). The
+      entry stays open — its tabs and their unsaved SQL depend on it — but the
+      bar must stop claiming it is connected. */
+  lostIds?: string[];
   /** Id of the connection currently being opened (shows a busy state). */
   connectingId: string | null;
   onConnect: (c: Connection) => void;

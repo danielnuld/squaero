@@ -11,7 +11,7 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { runQuery, type ResultSet } from "./utils/query";
-import { cancelQuery } from "./utils/transport";
+import { cancelQuery, onConnectionLost } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection, listDatabases } from "./utils/conn";
 import {
@@ -259,6 +259,10 @@ interface ActiveConnection {
   driver: string;
   /** Accent color carried from the saved connection, for the bar/tabs. */
   color?: string;
+  /** The core said this session is gone (issue #407). The entry is KEPT rather
+      than dropped: the tabs bound to it, and what the user was writing in them,
+      have to survive a server that went away. Cleared by reconnecting. */
+  lost?: boolean;
 }
 
 // Page size, owned by the UI (sent explicitly, not the core default). Table
@@ -1137,6 +1141,10 @@ export function App() {
         { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color },
       ]);
       setFocusedDefId(c.id);
+      // Closing the dead session above fails with the very error that raises the
+      // "connection lost" banner, so a successful reconnect must take it down
+      // again or it outlives the problem it reported (issue #407).
+      setConnError(null);
     } catch (err) {
       const f = describeError(err);
       setConnError(t("conn.failed", { name: c.name, detail: f.detail ?? f.title }));
@@ -1144,6 +1152,26 @@ export function App() {
       setConnectingId(null);
     }
   };
+
+  // The core reported that a connection died (issue #407). It used to surface as
+  // whatever error the failing call happened to produce, with the bar still
+  // showing the green dot, so the user had to know that Reconectar was the
+  // answer. Now the connection is marked and says so, and the banner offers it.
+  //
+  // Registered on the transport, so it fires for a query, a commit, a row write
+  // or a catalog read alike — every method goes through the same call().
+  onMount(() => {
+    onConnectionLost((connId) => {
+      const conn = openConns().find((o) => o.connId === connId);
+      // Already known, or not ours (a session closed and replaced meanwhile).
+      if (!conn || conn.lost) return;
+      setOpenConns((list) =>
+        list.map((o) => (o.connId === connId ? { ...o, lost: true } : o)),
+      );
+      setConnError(t("conn.lost", { name: conn.name }));
+    });
+  });
+  onCleanup(() => onConnectionLost(null));
 
   // Reconnect the active connection (fresh session) — recovers after the server
   // dropped or the process was killed.
@@ -2338,6 +2366,7 @@ export function App() {
             openTick={connbarOpenTick()}
             activeConnId={activeDefId()}
             openIds={openConns().map((o) => o.defId)}
+            lostIds={openConns().filter((o) => o.lost).map((o) => o.defId)}
             connectingId={connectingId()}
             onConnect={onConnect}
             onEdit={onEditConnection}
@@ -3153,6 +3182,15 @@ export function App() {
       <Show when={connError()}>
         <div class="app-toast app-toast-error" role="alert">
           <span class="app-toast-text">{connError()}</span>
+          {/* Saying the connection is gone without offering the one action that
+              fixes it is half a message (issue #407). Only when there is one to
+              reconnect: the same banner also reports a failed OPEN, where the
+              user is already in the connection dialog. */}
+          <Show when={active()?.lost}>
+            <button class="app-toast-action" onClick={reconnect}>
+              {t("conn.reconnect")}
+            </button>
+          </Show>
           <button
             class="app-toast-close"
             title={t("panel.close")}

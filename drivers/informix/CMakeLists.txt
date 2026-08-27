@@ -57,6 +57,13 @@ if(BUILD_TESTING)
     src/utils ${CMAKE_SOURCE_DIR}/core/include)
   quaero_set_warnings(informix_dml_test)
   add_test(NAME informix_dml_test COMMAND informix_dml_test)
+
+  add_executable(informix_connlost_test
+    tests/connlost_test.c
+    src/utils/connlost.c)
+  target_include_directories(informix_connlost_test PRIVATE src/utils)
+  quaero_set_warnings(informix_connlost_test)
+  add_test(NAME informix_connlost_test COMMAND informix_connlost_test)
 endif()
 
 # --- driver plugin (only when ODBC dev files are present) -----------------
@@ -87,7 +94,8 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
     src/utils/connstr.c
     src/utils/dml.c
     src/utils/utf16.c
-    src/utils/text.c)
+    src/utils/text.c
+    src/utils/connlost.c)
   target_include_directories(informix_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)
   if(NOT WIN32 AND ODBC_INCLUDE_DIR)
@@ -118,7 +126,8 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
       src/utils/connstr.c
       src/utils/dml.c
       src/utils/utf16.c
-      src/utils/text.c)
+      src/utils/text.c
+      src/utils/connlost.c)
     target_include_directories(informix_cancel_test PRIVATE
       src ${CMAKE_SOURCE_DIR}/core/include)
     if(NOT WIN32 AND ODBC_INCLUDE_DIR)

@@ -37,6 +37,9 @@ export const es: Record<string, string> = {
   "conn.title": "Conexiones",
   "conn.choose": "Elegir conexión",
   "conn.statusConnected": "conectado",
+  // conexión caída (#407): el núcleo dijo que la sesión ya no existe
+  "conn.lost": "Se perdió la conexión con «{name}». Reconecta para seguir trabajando.",
+  "conn.statusLost": "desconectada",
   "conn.connectedDot": "Conectada",
   "conn.connect": "Conectar",
   "conn.focus": "Enfocar",

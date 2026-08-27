@@ -141,7 +141,7 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
     if (SQLAllocHandle(SQL_HANDLE_STMT, c->dbc, &r->stmt) != SQL_SUCCESS) {
         ifx_stash_diag(c, SQL_HANDLE_DBC, c->dbc, "SQLAllocHandle(STMT)");
         free(r);
-        return DBC_ERR_QUERY;
+        return ifx_failure_status(c);
     }
 
     /* Publish the statement so a concurrent ifx_cancel can SQLCancel it while the
@@ -172,7 +172,7 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
         ifx_untrack_stmt(c, r->stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, r->stmt);
         free(r);
-        return DBC_ERR_QUERY;
+        return ifx_failure_status(c);
     }
 
     SQLSMALLINT ncols = 0;
@@ -398,7 +398,7 @@ dbc_status ifx_begin(dbc_conn *c)
                                      SQL_IS_INTEGER);
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         ifx_stash_diag(c, SQL_HANDLE_DBC, c->dbc, "begin");
-        return DBC_ERR_QUERY;
+        return ifx_failure_status(c);
     }
     return DBC_OK;
 }
@@ -414,7 +414,7 @@ static dbc_status ifx_end_tran(dbc_conn *c, SQLSMALLINT how, const char *ctx)
     dbc_status st = DBC_OK;
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         ifx_stash_diag(c, SQL_HANDLE_DBC, c->dbc, ctx);
-        st = DBC_ERR_QUERY;
+        st = ifx_failure_status(c);
     }
     SQLSetConnectAttr(c->dbc, SQL_ATTR_AUTOCOMMIT,
                       (SQLPOINTER)(uintptr_t)SQL_AUTOCOMMIT_ON, SQL_IS_INTEGER);

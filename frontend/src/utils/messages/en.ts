@@ -34,6 +34,9 @@ export const en: Record<string, string> = {
   "conn.title": "Connections",
   "conn.choose": "Choose connection",
   "conn.statusConnected": "connected",
+  // connection lost (#407): the core said the session is gone
+  "conn.lost": "Lost the connection to “{name}”. Reconnect to carry on.",
+  "conn.statusLost": "disconnected",
   "conn.connectedDot": "Connected",
   "conn.connect": "Connect",
   "conn.focus": "Focus",

@@ -37,6 +37,13 @@ if(BUILD_TESTING)
     src/utils ${CMAKE_SOURCE_DIR}/core/include)
   quaero_set_warnings(mysql_dml_test)
   add_test(NAME mysql_dml_test COMMAND mysql_dml_test)
+
+  add_executable(mysql_connlost_test
+    tests/connlost_test.c
+    src/utils/connlost.c)
+  target_include_directories(mysql_connlost_test PRIVATE src/utils)
+  quaero_set_warnings(mysql_connlost_test)
+  add_test(NAME mysql_connlost_test COMMAND mysql_connlost_test)
 endif()
 
 # --- driver plugin (only when the client library is available) ------------
@@ -63,7 +70,8 @@ if(QUAERO_MARIADB OR (MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY))
     src/utils/types.c
     src/utils/identifier.c
     src/utils/ssl.c
-    src/utils/dml.c)
+    src/utils/dml.c
+    src/utils/connlost.c)
   target_include_directories(mysql_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)
   # cjson supplies cJSON.h (used for DSN parsing); linking it propagates its

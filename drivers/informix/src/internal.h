@@ -47,6 +47,12 @@ struct dbc_conn {
     SQLHSTMT  active_stmt;
     ifx_mutex stmt_lock;
     int       lock_ready;    /* 1 once stmt_lock is initialized (see ifx_connect) */
+    /* Set by ifx_stash_diag when the last diagnostic said the connection is gone
+       (SQLSTATE class 08). Read by ifx_failure_status so a query that failed
+       because the session died is reported as DBC_ERR_CONN and not as a query
+       error — the app cannot offer to reconnect over something it cannot tell
+       apart from a typo (issue #407). */
+    int       conn_lost;
 };
 
 /*
@@ -90,6 +96,10 @@ void        ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h,
                            const char *ctx);
 /* Set a plain driver-side error reason on the connection. */
 void        ifx_set_err(dbc_conn *c, const char *msg);
+/* The status a just-failed statement should report: DBC_ERR_CONN when the
+   diagnostic ifx_stash_diag last read said the connection is gone, else
+   DBC_ERR_QUERY. Call AFTER ifx_stash_diag (issue #407). */
+dbc_status  ifx_failure_status(const dbc_conn *c);
 /* Cancel the running query (DBC_FEAT_CANCEL). Thread-safe: SQLCancel the tracked
    active statement under stmt_lock, so it may run while the worker fetches. */
 dbc_status  ifx_cancel(dbc_conn *c);

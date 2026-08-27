@@ -5,6 +5,8 @@
 
 import {
   buildRequest,
+  connIdOfParams,
+  IPC_ERR_CONN,
   isError,
   nextId,
   parseResponse,
@@ -28,7 +30,40 @@ export function hasBridge(): boolean {
   return typeof (globalThis as BridgeHost).quaeroRpc === "function";
 }
 
-/** Sends a JSON-RPC call to the core and resolves with the parsed response. */
+/**
+ * Notified when a call fails because the connection it ran on is gone (issue
+ * #407). Registered once by the app; there is no reason for two listeners, and a
+ * list would only make it unclear who owns the reaction.
+ */
+export type ConnectionLostListener = (connId: string) => void;
+
+let lostListener: ConnectionLostListener | null = null;
+
+/** Register (or clear, with null) the connection-lost listener. */
+export function onConnectionLost(fn: ConnectionLostListener | null): void {
+  lostListener = fn;
+}
+
+/**
+ * Did this response say the connection died?
+ *
+ * -32000 is "could not open OR use the connection", and which one it is depends
+ * on the method: `conn.open` is the only one that opens, so from every other
+ * method the connection was already open and has stopped working. That is why
+ * this needs no new protocol code — the caller already knows what it asked for.
+ */
+function saysConnectionLost(method: string, res: JsonRpcResponse): boolean {
+  return method !== "conn.open" && isError(res) && res.error.code === IPC_ERR_CONN;
+}
+
+/**
+ * Sends a JSON-RPC call to the core and resolves with the parsed response.
+ *
+ * The connection-lost check lives HERE rather than in each caller's catch: every
+ * method goes through this function, so a query, a commit, a row update and a
+ * catalog read all report a dead connection the same way, and none of them can
+ * forget to (issue #407).
+ */
 export async function call(
   method: string,
   params?: unknown,
@@ -43,9 +78,14 @@ export async function call(
   const result = await rpc(JSON.stringify(request));
   // The webview bridge resolves with an already-parsed object; only parse if a
   // transport hands back a raw JSON string.
-  return typeof result === "string"
-    ? parseResponse(result)
-    : (result as JsonRpcResponse);
+  const res =
+    typeof result === "string" ? parseResponse(result) : (result as JsonRpcResponse);
+
+  if (saysConnectionLost(method, res)) {
+    const connId = connIdOfParams(params);
+    if (connId !== null) lostListener?.(connId);
+  }
+  return res;
 }
 
 /**

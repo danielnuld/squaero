@@ -30,6 +30,11 @@ export function ConnectionBar(props: ConnectionManagerProps & { openTick?: numbe
     const a = active();
     return !!a && (props.openIds?.includes(a.id) ?? false);
   };
+  /** Open, but the core says the session is gone (issue #407). */
+  const activeIsLost = () => {
+    const a = active();
+    return !!a && (props.lostIds?.includes(a.id) ?? false);
+  };
 
   // Close the popover after an action that navigates away from it (connecting,
   // or opening the new/edit form), while forwarding the real handler.
@@ -85,7 +90,9 @@ export function ConnectionBar(props: ConnectionManagerProps & { openTick?: numbe
             </Show>
             <span class="engine-icon">{connIcon(active()!)}</span>
             <span class="connbar-name">{active()!.name}</span>
-            <span class="connbar-status">{t("conn.statusConnected")}</span>
+            <span class={`connbar-status ${activeIsLost() ? "lost" : ""}`}>
+              {activeIsLost() ? t("conn.statusLost") : t("conn.statusConnected")}
+            </span>
           </Show>
           <span class="connbar-caret" aria-hidden="true">
             {open() ? "▴" : "▾"}

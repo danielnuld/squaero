@@ -30,6 +30,13 @@ if(BUILD_TESTING)
     src/utils ${CMAKE_SOURCE_DIR}/core/include)
   quaero_set_warnings(postgres_dml_test)
   add_test(NAME postgres_dml_test COMMAND postgres_dml_test)
+
+  add_executable(postgres_connlost_test
+    tests/connlost_test.c
+    src/utils/connlost.c)
+  target_include_directories(postgres_connlost_test PRIVATE src/utils)
+  quaero_set_warnings(postgres_connlost_test)
+  add_test(NAME postgres_connlost_test COMMAND postgres_connlost_test)
 endif()
 
 # --- driver plugin --------------------------------------------------------
@@ -43,7 +50,8 @@ set(POSTGRES_DRIVER_SRC
   src/edit.c
   src/utils/types.c
   src/utils/identifier.c
-  src/utils/dml.c)
+  src/utils/dml.c
+  src/utils/connlost.c)
 
 # Common target setup shared by both the system-libpq and from-source paths.
 # cjson supplies cJSON.h (used for DSN parsing); linking it propagates its

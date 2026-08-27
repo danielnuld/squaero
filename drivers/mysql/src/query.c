@@ -1,4 +1,5 @@
 #include "internal.h"
+#include "utils/connlost.h"
 #include "utils/types.h"
 
 #include <stdlib.h>
@@ -17,7 +18,12 @@ static dbc_status run(dbc_conn *c, const char *sql, dbc_result **out)
     *out = NULL;
 
     if (mysql_real_query(c->db, sql, (unsigned long)strlen(sql)) != 0) {
-        return DBC_ERR_QUERY;  /* reason is on c->db via mysql_error */
+        /* A dead connection and a bad statement both fail here; the client's
+           error number is what tells them apart (issue #407). DBC_ERR_CONN
+           reaches the app as its own code, so it can say the connection is gone
+           instead of showing a query error and still claiming "connected". */
+        return mysql_errno_is_conn_lost(mysql_errno(c->db)) ? DBC_ERR_CONN
+                                                           : DBC_ERR_QUERY;
     }
 
     dbc_result *r = calloc(1, sizeof *r);
@@ -28,9 +34,11 @@ static dbc_status run(dbc_conn *c, const char *sql, dbc_result **out)
     MYSQL_RES *res = mysql_store_result(c->db);
     if (res == NULL) {
         if (mysql_field_count(c->db) != 0) {
-            /* Columns were expected but the result could not be stored. */
+            /* Columns were expected but the result could not be stored — losing
+               the link mid-transfer lands here (issue #407). */
             free(r);
-            return DBC_ERR_QUERY;
+            return mysql_errno_is_conn_lost(mysql_errno(c->db)) ? DBC_ERR_CONN
+                                                               : DBC_ERR_QUERY;
         }
         /* No result set: an INSERT/UPDATE/DDL statement. */
         r->affected = (long long)mysql_affected_rows(c->db);
@@ -171,7 +179,13 @@ static dbc_status mysql_drv_exec_control(dbc_conn *c, const char *sql)
     if (c == NULL || c->db == NULL) {
         return DBC_ERR_PARAM;
     }
-    return mysql_query(c->db, sql) == 0 ? DBC_OK : DBC_ERR_QUERY;
+    if (mysql_query(c->db, sql) == 0) {
+        return DBC_OK;
+    }
+    /* A COMMIT that fails because the server went away is not a query error
+       (issue #407): the app has to know the transaction is gone with it. */
+    return mysql_errno_is_conn_lost(mysql_errno(c->db)) ? DBC_ERR_CONN
+                                                       : DBC_ERR_QUERY;
 }
 
 dbc_status mysql_drv_begin(dbc_conn *c)

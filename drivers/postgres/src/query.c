@@ -1,4 +1,5 @@
 #include "internal.h"
+#include "utils/connlost.h"
 #include "utils/types.h"
 
 #include <stdlib.h>
@@ -55,9 +56,15 @@ static dbc_status run(dbc_conn *c, const char *sql, dbc_result **out)
         return DBC_OK;
     }
 
-    /* PGRES_FATAL_ERROR / PGRES_BAD_RESPONSE / ... : the message is on c->conn. */
+    /* PGRES_FATAL_ERROR / PGRES_BAD_RESPONSE / ... : the message is on c->conn.
+       A dead connection fails the same way as a bad statement, and only the
+       SQLSTATE tells them apart (issue #407). PQstatus is the second opinion:
+       libpq marks the connection bad even when no diagnostic came back. */
+    const char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+    int lost = pg_sqlstate_is_conn_lost(sqlstate) ||
+               PQstatus(c->conn) == CONNECTION_BAD;
     PQclear(res);
-    return DBC_ERR_QUERY;
+    return lost ? DBC_ERR_CONN : DBC_ERR_QUERY;
 }
 
 dbc_status pg_drv_query(dbc_conn *c, const char *sql, dbc_result **out)

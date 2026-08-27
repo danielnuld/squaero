@@ -53,3 +53,20 @@ export function isError(response: JsonRpcResponse): response is JsonRpcError {
 export function parseResponse(raw: string): JsonRpcResponse {
   return JSON.parse(raw) as JsonRpcResponse;
 }
+
+/** Domain code the core returns when a connection could not be opened or used
+    (see docs/IPC.md "Códigos de error"). */
+export const IPC_ERR_CONN = -32000;
+
+/**
+ * The connection a request was about, or null when it was not about one.
+ *
+ * Every method that works on an OPEN connection carries its id in
+ * `params.connId`; `conn.open` is the exception, and it is the one method for
+ * which -32000 means "could not open" rather than "the one you had is gone".
+ */
+export function connIdOfParams(params: unknown): string | null {
+  if (typeof params !== "object" || params === null) return null;
+  const id = (params as { connId?: unknown }).connId;
+  return typeof id === "string" && id !== "" ? id : null;
+}
