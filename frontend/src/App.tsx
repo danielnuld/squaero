@@ -3118,13 +3118,13 @@ export function App() {
             )}
           </Show>
 
+          {/* Nothing open: the wordmark and nothing else. The tagline was the
+              landing page's slogan and the hint explained the sidebar to someone
+              already using it — copy nobody reads twice, in a place reached by
+              closing every tab. */}
           <Show when={!current()}>
             <div class="workspace-welcome">
               <BrandWordmark height={56} />
-              <p class="welcome-tagline">Ligero, local y libre.</p>
-              <p class="welcome-hint">
-                Abre una conexión desde la barra lateral o crea una pestaña de consulta para empezar.
-              </p>
             </div>
           </Show>
           </div>

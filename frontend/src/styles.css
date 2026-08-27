@@ -1470,19 +1470,6 @@ body {
   color: var(--text);
 }
 
-.workspace-welcome .welcome-tagline {
-  margin: var(--sp-2) 0 0;
-  font-size: var(--fs-lg);
-  color: var(--text-dim);
-}
-
-.workspace-welcome .welcome-hint {
-  margin: 0;
-  max-width: 34rem;
-  font-size: var(--fs-md);
-  color: var(--text-dim);
-}
-
 .grid-error {
   color: var(--error);
   font-family: var(--font-mono);
