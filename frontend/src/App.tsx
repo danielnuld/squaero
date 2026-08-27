@@ -20,6 +20,7 @@ import {
   openSnippetTab,
   closeTab,
   closeOtherTabs,
+  closeTabsForConn,
   cycleTab,
   updateTabSql,
   activeTab,
@@ -1125,6 +1126,8 @@ export function App() {
     }
     const rest = openConns().filter((x) => x.defId !== target);
     setOpenConns(rest);
+    // Its tabs go with it: a tab bound to a closed session can only fail.
+    setTabs((s) => closeTabsForConn(s, target));
     if (focusedDefId() === target) {
       setFocusedDefId(rest[0]?.defId ?? null);
     }

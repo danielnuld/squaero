@@ -6,6 +6,7 @@ import {
   openSnippetTab,
   closeTab,
   closeOtherTabs,
+  closeTabsForConn,
   updateTabSql,
   activeTab,
   serializeWorkspace,
@@ -367,5 +368,25 @@ describe("object tabs", () => {
     s = setObjectKey(s, 1, key());
     const back = parseWorkspace(serializeWorkspace(s))!;
     expect(findObjectTab(back, key())?.id).toBe(1);
+  });
+});
+
+describe("closeTabsForConn", () => {
+  it("closes only the tabs bound to that connection", () => {
+    let s = addTab(empty, "a", "c1", false); // id 1
+    s = addTab(s, "b", "c2", false); // id 2
+    s = addTab(s, "c", "c1", false); // id 3
+    s = addTab(s, "loose", undefined, false); // id 4 — follows the focused conn
+    s = openTool(s, "monitor", "Monitor", { key: "m", connDefId: "c1" }); // id 5
+    const out = closeTabsForConn(s, "c1");
+    expect(out.tabs.map((t) => t.id)).toEqual([2, 4]);
+  });
+
+  it("moves the active tab off a closed one, and is a no-op otherwise", () => {
+    let s = addTab(empty, "a", "c1", false);
+    s = addTab(s, "b", "c2", false);
+    s = { ...s, activeId: 1 };
+    expect(closeTabsForConn(s, "c1").activeId).toBe(2);
+    expect(closeTabsForConn(s, "c9")).toEqual(s);
   });
 });
