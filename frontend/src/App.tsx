@@ -325,6 +325,11 @@ export function App() {
   const [focusedDefId, setFocusedDefId] = createSignal<string | null>(null);
   const active = () => openConns().find((o) => o.defId === focusedDefId()) ?? null;
   const activeDefId = focusedDefId;
+  // Title base for a generic new query tab: the connection it will run against
+  // ("Ventas 3"), because "Consulta 3" spelled out the only thing the tab could
+  // not fail to be, while hiding the one thing worth knowing when several
+  // connections are open. Falls back to the generic word with nothing connected.
+  const newQueryTitle = () => active()?.name ?? t("toolbar.newQuery.label");
   // The connection a tab runs against: its bound one (if still open), else — for
   // an unbound tab — the focused connection.
   const tabConn = (tab: Tab | undefined): ActiveConnection | null => {
@@ -441,11 +446,13 @@ export function App() {
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
     switch (action) {
       case "new-tab":
-        setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
+        setTabs((s) => addTab(s, newQueryTitle(), focusedDefId() ?? undefined));
         break;
       case "close-tab": {
-        const t = current();
-        if (t) setTabs((s) => closeTab(s, t.id));
+        // NOT `t`: a `const t` here shadows the i18n `t` across the whole switch
+        // block, and the earlier cases that call it threw before ever running.
+        const tab = current();
+        if (tab) setTabs((s) => closeTab(s, tab.id));
         break;
       }
       case "next-tab":
@@ -820,7 +827,7 @@ export function App() {
     return { idx, res };
   });
 
-  const newTab = () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined));
+  const newTab = () => setTabs((s) => addTab(s, newQueryTitle(), focusedDefId() ?? undefined));
   /** The SQL held by the query tab with `id`; "" for a tool tab or none. Read
       through here rather than off `Tab` directly: only a query tab has `sql`,
       and reaching for it on the union quietly relied on `?? ""` to cover a tool
@@ -862,7 +869,7 @@ export function App() {
   const runFromHistory = (sql: string) => {
     let newId = 0;
     setTabs((s) => {
-      const added = addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
+      const added = addTab(s, newQueryTitle(), focusedDefId() ?? undefined);
       newId = added.activeId;
       return updateTabSql(added, newId, sql);
     });
@@ -895,7 +902,7 @@ export function App() {
     setTabs((s) => {
       const added = name
         ? addTab(s, name, focusedDefId() ?? undefined, false)
-        : addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined);
+        : addTab(s, newQueryTitle(), focusedDefId() ?? undefined);
       newId = added.activeId;
       const withSql = updateTabSql(added, newId, sql);
       return key !== null ? setObjectKey(withSql, newId, key) : withSql;
@@ -2341,7 +2348,7 @@ export function App() {
     const connected = !!active();
 
     // Actions (always available).
-    out.push({ id: "act:new", category: "action", label: t("toolbar.newQuery.title"), run: () => setTabs((s) => addTab(s, t("toolbar.newQuery.label"), focusedDefId() ?? undefined)) });
+    out.push({ id: "act:new", category: "action", label: t("toolbar.newQuery.title"), run: () => setTabs((s) => addTab(s, newQueryTitle(), focusedDefId() ?? undefined)) });
     if (connected)
       out.push({ id: "act:reconnect", category: "action", label: t("conn.reconnect"), run: reconnect });
     // The ribbon used to own these two; without it the palette is where they
