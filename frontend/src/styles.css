@@ -1026,6 +1026,8 @@ body {
 .editor-pane {
   display: flex;
   flex-direction: column;
+  /* Starting share only: the inline style from the dragged divider (#423)
+     overrides it. */
   height: 40%;
   min-height: 120px;
   border-bottom: 1px solid var(--border);
@@ -1161,9 +1163,24 @@ body {
   flex: 1;
 }
 
+/* The editor/result divider (issue #423): the sidebar resizer on its side. */
+.h-resizer {
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.h-resizer:hover {
+  background: var(--accent);
+}
+
 .result-pane {
   flex: 1;
   min-height: 0;
+  /* Dragged to the bottom the pane is 0px tall, and its toolbar and grid must
+     be clipped by it instead of painting past the window. */
+  overflow: hidden;
   display: flex;
   /* Column: the edit/export toolbar sits ABOVE the result grid, which then
      fills the remaining width/height. Without this the flex row placed the

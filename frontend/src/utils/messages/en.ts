@@ -299,6 +299,7 @@ export const en: Record<string, string> = {
   "tab.editConn": "Edit · {name}",
   "tab.viewHint": "view",
   "tab.tableHint": "table",
+  "panes.dividerTitle": "Drag to split editor and results; double-click to reset",
   "tab.listLabel": "Open tabs",
   "tab.unsaved": "{title} · unsaved changes",
 

@@ -57,7 +57,12 @@ import {
 import { loadSkin, saveSkin, applySkin, type SkinPref } from "./utils/skin";
 import { matchShortcut } from "./utils/shortcuts";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
-import { clampSidebarWidth, SIDEBAR_DEFAULT } from "./utils/layout";
+import {
+  clampEditorPct,
+  clampSidebarWidth,
+  EDITOR_PCT_DEFAULT,
+  SIDEBAR_DEFAULT,
+} from "./utils/layout";
 import {
   buildDsn,
   dsnForDatabaseList,
@@ -313,6 +318,10 @@ export function App() {
   // Filled when an edit session starts (loadFkLookups) and cleared with the result.
   const [fkLookups, setFkLookups] = createStore<Record<number, Record<string, FkLookup>>>({});
   const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
+  // How much of a query tab the editor takes (issue #423). Dragged, not fixed:
+  // a procedure's definition needs the height that an empty grid was holding.
+  const [editorPct, setEditorPct] = createSignal(EDITOR_PCT_DEFAULT);
+  let panesEl: HTMLDivElement | undefined;
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
   // Bumped to reopen the connections popover (e.g. after saving a connection).
@@ -2340,6 +2349,25 @@ export function App() {
     document.addEventListener("mouseup", onUp);
   };
 
+  // The editor/result divider (issue #423), the sidebar resizer turned on its
+  // side. The percentage is measured against the panes box rather than the
+  // window because the tab bar and toolbars above it are not part of the split.
+  const startEditorResize = (e: MouseEvent) => {
+    e.preventDefault();
+    const rect = panesEl?.getBoundingClientRect();
+    if (!rect || rect.height === 0) return;
+    const onMove = (ev: MouseEvent) =>
+      setEditorPct(clampEditorPct(((ev.clientY - rect.top) / rect.height) * 100));
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+    };
+    document.body.style.cursor = "row-resize";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
   // --- Command palette command list (issue #174) -------------------------
   // Built from the same handlers each origin uses, so a palette hit behaves
   // exactly like clicking the tool/object/snippet/history/action directly.
@@ -2606,8 +2634,15 @@ export function App() {
           <div class="workspace-main">
           <Show when={currentQuery()}>
             {(tab) => (
-              <div class="panes">
-                <div class={`editor-pane ${isDataTab(tab().id) ? "data-pane" : ""}`}>
+              <div class="panes" ref={panesEl}>
+                <div
+                  class={`editor-pane ${isDataTab(tab().id) ? "data-pane" : ""}`}
+                  /* A data tab sizes itself around its filter panel (#347); only
+                     the editor tabs take the dragged share. */
+                  style={
+                    isDataTab(tab().id) ? undefined : { height: `${editorPct()}%` }
+                  }
+                >
                   <Show when={isDataTab(tab().id)}>
                     {/* A table opened from the tree is browsed, not written: the
                         editor gives way to the filter and sort that narrow the
@@ -2783,6 +2818,16 @@ export function App() {
                   </div>
                   </Show>
                 </div>
+                <Show when={!isDataTab(tab().id)}>
+                  <div
+                    class="h-resizer"
+                    role="separator"
+                    aria-orientation="horizontal"
+                    title={t("panes.dividerTitle")}
+                    onMouseDown={startEditorResize}
+                    onDblClick={() => setEditorPct(EDITOR_PCT_DEFAULT)}
+                  />
+                </Show>
                 <div class="result-pane">
                   <Show
                     when={

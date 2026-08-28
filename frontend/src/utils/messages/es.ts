@@ -302,6 +302,7 @@ export const es: Record<string, string> = {
   "tab.editConn": "Editar · {name}",
   "tab.viewHint": "vista",
   "tab.tableHint": "tabla",
+  "panes.dividerTitle": "Arrastra para repartir editor y resultados; doble clic para restablecer",
   "tab.listLabel": "Pestañas abiertas",
   "tab.unsaved": "{title} · con cambios sin guardar",
 
