@@ -28,6 +28,16 @@ extern "C" {
 
 typedef struct ssh_tunnel ssh_tunnel;
 
+/*
+ * Append one already-formatted known_hosts line to `path`, creating the file
+ * (not its parent) if needed and inserting a newline first when the existing
+ * last line lacks one. Returns 0 on success, -1 on any I/O failure.
+ *
+ * Internal to the tunnel, exposed only so it can be unit-tested: it writes into
+ * the user's own ~/.ssh/known_hosts, so it appends and never rewrites.
+ */
+int ssh_known_hosts_append(const char *path, const char *line);
+
 /* 1 when SSH-tunnel support is compiled in (libssh2 available), else 0. */
 int ssh_tunnel_available(void);
 

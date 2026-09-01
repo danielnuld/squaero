@@ -68,6 +68,14 @@ target_include_directories(ssh_config_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/
 quaero_set_warnings(ssh_config_test)
 add_test(NAME ssh_config_test COMMAND ssh_config_test)
 
+# known_hosts append helper: it writes into the user's own store, so it must add
+# a line without rewriting what is already there.
+add_executable(known_hosts_append_test conn/known_hosts_append_test.c)
+target_link_libraries(known_hosts_append_test PRIVATE dbcore)
+target_include_directories(known_hosts_append_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/conn)
+quaero_set_warnings(known_hosts_append_test)
+add_test(NAME known_hosts_append_test COMMAND known_hosts_append_test)
+
 # Loopback DSN rewrite for tunnelled connections. Inspects JSON via cJSON.
 add_executable(dsn_rewrite_test conn/dsn_rewrite_test.c)
 target_link_libraries(dsn_rewrite_test PRIVATE dbcore cjson)

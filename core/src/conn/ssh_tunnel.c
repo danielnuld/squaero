@@ -26,7 +26,42 @@
  *     libssh2 session is only ever touched from that one thread.
  */
 
+#include <stdio.h>
 #include <string.h>
+
+/* Append one known_hosts line to `path`, creating the file if needed. Appending
+   (rather than libssh2_knownhost_writefile) matters because the store is the
+   user's own ~/.ssh/known_hosts: writefile regenerates the whole file from the
+   entries libssh2 managed to parse, silently dropping every line it does not
+   understand — unsupported key types, cert-authority and @revoked markers,
+   comments. ssh(1) appends too. Returns 0 on success. */
+int ssh_known_hosts_append(const char *path, const char *line)
+{
+    FILE *f = fopen(path, "a+b");
+    if (f == NULL) {
+        return -1;
+    }
+    /* Do not glue onto a last line that has no newline of its own. */
+    int need_nl = 0;
+    if (fseek(f, 0, SEEK_END) == 0) {
+        long end = ftell(f);
+        if (end > 0 && fseek(f, end - 1, SEEK_SET) == 0) {
+            int last = fgetc(f);
+            need_nl = (last != EOF && last != '\n');
+        }
+    }
+    int ok = 1;
+    if (need_nl && fputc('\n', f) == EOF) {
+        ok = 0;
+    }
+    if (ok && fputs(line, f) == EOF) {
+        ok = 0;
+    }
+    if (fclose(f) != 0) {
+        ok = 0;
+    }
+    return ok ? 0 : -1;
+}
 
 #ifndef QUAERO_SSH
 
@@ -607,6 +642,7 @@ static void ensure_parent_dir(const char *filepath)
 #endif
 }
 
+
 /*
  * Verify the SSH server's host key against a known_hosts store per cfg policy.
  * Returns 0 to proceed, -1 to abort (with an explicit reason in err). Runs while
@@ -683,19 +719,36 @@ static int verify_host_key(LIBSSH2_SESSION *session, const ssh_config *cfg,
         {
             int addbits = hostkey_type_bit(keytype);
             if (addbits != 0) {
-                static const char comment[] = "added by quaero";
-                libssh2_knownhost_addc(
-                    nh, cfg->host, NULL, key, keylen, comment,
-                    sizeof comment - 1,
-                    LIBSSH2_KNOWNHOST_TYPE_PLAIN | LIBSSH2_KNOWNHOST_KEYENC_RAW |
-                        addbits,
-                    NULL);
-                if (is_default) {
-                    ensure_parent_dir(path);
+                /* Non-default ports are recorded as "[host]:port", the way
+                   OpenSSH does: a plain entry would also vouch for port 22. */
+                char name[300];
+                if (cfg->port == 22) {
+                    snprintf(name, sizeof name, "%s", cfg->host);
+                } else {
+                    snprintf(name, sizeof name, "[%s]:%d", cfg->host, cfg->port);
                 }
-                if (libssh2_knownhost_writefile(
-                        nh, path, LIBSSH2_KNOWNHOST_FILE_OPENSSH) != 0) {
-                    DBG("warning: could not persist host key to %s", path);
+                static const char comment[] = "added by quaero";
+                struct libssh2_knownhost *stored = NULL;
+                char line[4096];
+                size_t linelen = 0;
+                if (libssh2_knownhost_addc(
+                        nh, name, NULL, key, keylen, comment, sizeof comment - 1,
+                        LIBSSH2_KNOWNHOST_TYPE_PLAIN |
+                            LIBSSH2_KNOWNHOST_KEYENC_RAW | addbits,
+                        &stored) == 0 &&
+                    stored != NULL &&
+                    libssh2_knownhost_writeline(nh, stored, line, sizeof line,
+                                                &linelen,
+                                                LIBSSH2_KNOWNHOST_FILE_OPENSSH) ==
+                        0) {
+                    if (is_default) {
+                        ensure_parent_dir(path);
+                    }
+                    if (ssh_known_hosts_append(path, line) != 0) {
+                        DBG("warning: could not persist host key to %s", path);
+                    }
+                } else {
+                    DBG("warning: could not format the host key for %s", path);
                 }
             }
             DBG("host key not previously known; accepted and recorded (TOFU)");
