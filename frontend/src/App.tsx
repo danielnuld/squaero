@@ -498,6 +498,13 @@ export function App() {
       case "save-snippet":
         requestSaveSnippet();
         break;
+      case "save-edits": {
+        // Same gate as the toolbar's "Confirmar" button: only while editing,
+        // idle, and with something to write. Otherwise the key is swallowed.
+        const ed = currentEdit();
+        if (ed.editing && !ed.busy && hasChanges(ed.pending)) void confirmEdit();
+        break;
+      }
       case "editor-find":
         setFindTick((t) => t + 1);
         break;

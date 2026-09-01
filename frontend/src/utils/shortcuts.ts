@@ -21,6 +21,7 @@ export type ActionId =
   | "command-palette"
   | "snippet-palette"
   | "save-snippet"
+  | "save-edits"
   | "select-rows";
 
 export interface Shortcut {
@@ -46,6 +47,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "object-palette", keys: "Mod+P", description: "Buscar objetos (tablas, vistas…)", global: true },
   { id: "snippet-palette", keys: "Mod+J", description: "Buscar snippets guardados", global: true },
   { id: "save-snippet", keys: "Mod+Shift+S", description: "Guardar la consulta como snippet", global: true },
+  { id: "save-edits", keys: "Mod+S", description: "Guardar los cambios de la rejilla", global: true },
   { id: "editor-find", keys: "Mod+F", description: "Buscar en el editor", global: true },
   // The grid owns it (it only makes sense with the grid focused), so it is
   // documented here but never matched globally.
@@ -92,6 +94,10 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
   // Ctrl/Cmd+Shift+S saves what the editor would run as a snippet. Shift is what
   // separates it from anything the host might claim on a bare Mod+S.
   if (mod(e) && !e.altKey && e.shiftKey && k === "s") return "save-snippet";
+  // Bare Ctrl/Cmd+S commits the grid's pending edits — the reflex everyone
+  // already has for "save". App no-ops it when nothing is being edited, and the
+  // listener still preventDefaults so the host never runs its own "save page".
+  if (mod(e) && !e.altKey && !e.shiftKey && k === "s") return "save-edits";
   if (mod(e) && !e.altKey && !e.shiftKey && k === "f") return "editor-find";
 
   // Ctrl+PageUp/PageDown cycle tabs (matches common editor/browser convention).

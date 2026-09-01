@@ -95,7 +95,7 @@ describe("matchShortcut — snippets (issue #320)", () => {
 
   it("does not fire either without its modifiers", () => {
     expect(matchShortcut(ev({ key: "j" }))).toBeNull();
-    expect(matchShortcut(ev({ key: "s", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "s" }))).toBeNull();
     expect(matchShortcut(ev({ key: "j", ctrlKey: true, shiftKey: true }))).toBeNull();
   });
 
@@ -103,5 +103,22 @@ describe("matchShortcut — snippets (issue #320)", () => {
     const ids = SHORTCUTS.map((s) => s.id);
     expect(ids).toContain("snippet-palette");
     expect(ids).toContain("save-snippet");
+  });
+});
+
+describe("save the grid's edits (issue #436)", () => {
+  it("maps a bare Mod+S to saving the edits", () => {
+    expect(matchShortcut(ev({ key: "s", ctrlKey: true }))).toBe("save-edits");
+    expect(matchShortcut(ev({ key: "S", metaKey: true }))).toBe("save-edits");
+  });
+
+  it("leaves Mod+Shift+S to the snippet, and a bare S to typing", () => {
+    expect(matchShortcut(ev({ key: "s", ctrlKey: true, shiftKey: true }))).toBe("save-snippet");
+    expect(matchShortcut(ev({ key: "s" }))).toBeNull();
+    expect(matchShortcut(ev({ key: "s", ctrlKey: true, altKey: true }))).toBeNull();
+  });
+
+  it("is listed in the help overlay", () => {
+    expect(SHORTCUTS.find((s) => s.id === "save-edits")?.keys).toBe("Mod+S");
   });
 });
