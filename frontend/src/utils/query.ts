@@ -73,3 +73,35 @@ export async function runQuery(
   const res = await call("query.run", params);
   return parseQueryResult(res);
 }
+
+/**
+ * Runs a script — several statements — in order over one connection, one
+ * `query.run` per statement: engines take a single statement per call, so a
+ * whole script sent as one string fails (MySQL rejects `PREPARE …; EXECUTE …;`
+ * with a syntax error) or runs only its first statement. Resolves with the last
+ * result set that returned columns (else the last statement's), carrying the
+ * affected rows summed over the whole script. Rejects on the first statement
+ * that fails, leaving the ones before it already applied.
+ */
+export async function runScript(
+  connId: string,
+  stmts: string[],
+  limit?: number,
+): Promise<ResultSet> {
+  let last: ResultSet | undefined;
+  let withRows: ResultSet | undefined;
+  let rowsAffected = 0;
+  for (const sql of stmts) {
+    // eslint-disable-next-line no-await-in-loop -- statements run in order
+    last = await runQuery(connId, sql, limit);
+    rowsAffected += last.rowsAffected;
+    if (last.columns.length > 0) withRows = last;
+  }
+  const shown = withRows ?? last;
+  return {
+    columns: shown?.columns ?? [],
+    rows: shown?.rows ?? [],
+    truncated: shown?.truncated ?? false,
+    rowsAffected,
+  };
+}

@@ -10,7 +10,7 @@ import {
   onCleanup,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { runQuery, type ResultSet } from "./utils/query";
+import { runQuery, runScript, type ResultSet } from "./utils/query";
 import { cancelQuery, onConnectionLost } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection, listDatabases } from "./utils/conn";
@@ -45,7 +45,7 @@ import {
 } from "./utils/dataFilter";
 import { emptyCondition, type ColumnTypes } from "./utils/queryBuilder";
 import { autoFocus } from "./utils/autoFocus";
-import { type RunScope } from "./utils/runScope";
+import { splitStatements, type RunScope } from "./utils/runScope";
 import { rowToTsv, rowToJson, copyText } from "./utils/rowCopy";
 import {
   loadTheme,
@@ -1361,8 +1361,18 @@ export function App() {
     setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
     if (!keepSource) setFkLookups(id, {}); // the pickers belong to the old table
     const started = performance.now();
+    // Several statements in one run go to the engine one by one: no engine takes
+    // a whole script in a single call (MySQL answers `PREPARE …; EXECUTE …;`
+    // with a syntax error). A script is not pageable — turning the page would
+    // re-run its DDL — so it gets no pageSql.
+    const stmts = splitStatements(trimmed)
+      .map((s) => s.text.trim())
+      .filter((s) => s !== "");
+    const script = stmts.length > 1;
     try {
-      const result = await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
+      const result = script
+        ? await runScript(conn.connId, stmts, PAGE_LIMIT)
+        : await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
       const elapsedMs = performance.now() - started;
       setResults(id, {
         loading: false,
@@ -1370,7 +1380,7 @@ export function App() {
         result,
         elapsedMs,
         ranScope: scope,
-        pageSql: trimmed,
+        pageSql: script ? undefined : trimmed,
         offset,
         pageSize: PAGE_LIMIT,
         source: keepSource,

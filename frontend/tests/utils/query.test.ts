@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { parseQueryResult, QueryError, runQuery } from "../../src/utils/query";
+import { parseQueryResult, QueryError, runQuery, runScript } from "../../src/utils/query";
 import type { JsonRpcResponse } from "../../src/utils/ipc";
 
 interface BridgeHost {
@@ -150,5 +150,64 @@ describe("runQuery", () => {
       };
     };
     await expect(runQuery("c1", "SELECT 1")).rejects.toThrow(QueryError);
+  });
+});
+
+describe("runScript", () => {
+  // One call per statement: MySQL rejects `PREPARE …; EXECUTE …;` sent as one.
+  const bridge = (results: Record<string, unknown>[]) => {
+    const sent: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string; params: { sql: string } };
+      sent.push(req.params.sql);
+      return { jsonrpc: "2.0", id: req.id, result: results[sent.length - 1] };
+    };
+    return sent;
+  };
+
+  it("runs every statement in order and shows the last one with columns", async () => {
+    const sent = bridge([
+      { rowsAffected: 0 },
+      { columns: [{ name: "n", type: "int" }], rows: [["1"]], rowsAffected: 2 },
+      { rowsAffected: 3 },
+    ]);
+
+    const r = await runScript("c1", ["PREPARE s FROM @q", "EXECUTE s", "DEALLOCATE PREPARE s"]);
+
+    expect(sent).toEqual(["PREPARE s FROM @q", "EXECUTE s", "DEALLOCATE PREPARE s"]);
+    expect(r.columns).toEqual([{ name: "n", type: "int" }]);
+    expect(r.rows).toEqual([["1"]]);
+    expect(r.rowsAffected).toBe(5); // summed over the script
+  });
+
+  it("falls back to the last result when no statement returned columns", async () => {
+    bridge([{ rowsAffected: 1 }, { rowsAffected: 4 }]);
+    const r = await runScript("c1", ["INSERT INTO t VALUES (1)", "UPDATE t SET a = 1"]);
+    expect(r.columns).toEqual([]);
+    expect(r.rows).toEqual([]);
+    expect(r.rowsAffected).toBe(5);
+  });
+
+  it("stops at the first failing statement", async () => {
+    const sent: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string; params: { sql: string } };
+      sent.push(req.params.sql);
+      return sent.length === 1
+        ? { jsonrpc: "2.0", id: req.id, result: { rowsAffected: 0 } }
+        : { jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "boom" } };
+    };
+
+    await expect(runScript("c1", ["SELECT 1", "SELEC 2", "SELECT 3"])).rejects.toThrow(QueryError);
+    expect(sent).toEqual(["SELECT 1", "SELEC 2"]);
+  });
+
+  it("resolves with empties for an empty script", async () => {
+    await expect(runScript("c1", [])).resolves.toEqual({
+      columns: [],
+      rows: [],
+      truncated: false,
+      rowsAffected: 0,
+    });
   });
 });

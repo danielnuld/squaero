@@ -2,7 +2,8 @@ import { For, Index, Show, createSignal, createMemo } from "solid-js";
 import { createStore } from "solid-js/store";
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
-import { runQuery, type ResultSet } from "../utils/query";
+import { runScript, type ResultSet } from "../utils/query";
+import { splitStatements } from "../utils/runScope";
 import { errorText } from "../utils/errors";
 import { changesCatalog } from "../utils/sqlEffects";
 import { renderMarkdown } from "../utils/markdown";
@@ -138,7 +139,12 @@ export function Notebook(props: {
     }
     setResults(cell.id, { loading: true, error: null, result: null });
     try {
-      const result = await runQuery(props.connId, sql);
+      // A cell holding several statements runs them one by one, like the editor:
+      // engines take a single statement per call.
+      const result = await runScript(
+        props.connId,
+        splitStatements(sql).map((s) => s.text.trim()).filter((s) => s !== ""),
+      );
       setResults(cell.id, { loading: false, error: null, result });
       // A cell can create or drop objects too — the tree must hear about it
       // (issue #317), the same as a run from the editor.
