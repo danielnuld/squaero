@@ -72,6 +72,17 @@ export function DataFilterBar(props: {
     <section
       class={`filterbar ${props.state.collapsed ? "folded" : ""}`}
       aria-label={t("filter.region")}
+      onKeyDown={(e) => {
+        // Enter anywhere in the panel applies the draft, so a filter can be
+        // typed and run without reaching for the button. Ctrl/Cmd+Enter does it
+        // too, matching the editor. A plain Enter on a button is left to that
+        // button — it is already its own click.
+        if (e.key !== "Enter") return;
+        const chord = e.ctrlKey || e.metaKey;
+        if (!chord && e.target instanceof HTMLButtonElement) return;
+        e.preventDefault();
+        props.onApply();
+      }}
     >
       {/* Folded, this whole panel is a 28 px bar (issue #386): the fold toggle,
           a line saying what the draft holds, and the two buttons that are the
