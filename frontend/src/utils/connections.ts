@@ -113,7 +113,7 @@ export const SSH_TUNNEL_FIELDS: DriverField[] = [
     ],
     group: SSH_GROUP,
   },
-  { key: "ssh_known_hosts", label: "Archivo known_hosts (avanzado)", type: "text", required: false, placeholder: "~/.ssh/known_hosts", group: SSH_GROUP },
+  { key: "ssh_known_hosts", label: "Archivo known_hosts (avanzado)", type: "file", required: false, placeholder: "~/.ssh/known_hosts", group: SSH_GROUP },
 ];
 
 /** Appends the engine-agnostic SSH-tunnel fields to a driver's base fields. */

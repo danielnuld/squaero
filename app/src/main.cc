@@ -22,6 +22,7 @@ extern "C" {
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <commdlg.h>
 #include <shlobj.h>
 #include <shellapi.h>
 #include <urlmon.h>
@@ -585,6 +586,56 @@ static void open_external_handler(const char *id, const char *req, void *arg)
     webview_return(w, id, 0, "null");
 }
 
+// Bridge: window.quaeroPickFile(title) opens the native "open file" dialog and
+// resolves to the chosen absolute path, or to null when the user cancels. The
+// connection form uses it for the fields that hold a path (SSH key, TLS
+// certificates, the SQLite file): a webview <input type="file"> only ever hands
+// JS the file name, never the path the core needs.
+static void pick_file_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *first = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    std::wstring wtitle;
+    if (cJSON_IsString(first) && first->valuestring != nullptr) {
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, first->valuestring, -1, nullptr, 0);
+        if (wlen > 0) {
+            wtitle.resize(static_cast<size_t>(wlen) - 1);
+            MultiByteToWideChar(CP_UTF8, 0, first->valuestring, -1, &wtitle[0], wlen);
+        }
+    }
+    cJSON_Delete(args);
+
+    wchar_t path[MAX_PATH * 4] = {0};
+    OPENFILENAMEW ofn = {0};
+    ofn.lStructSize = sizeof ofn;
+    ofn.hwndOwner = static_cast<HWND>(webview_get_window(w));
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = static_cast<DWORD>(sizeof path / sizeof path[0]);
+    ofn.lpstrFilter = L"Todos los archivos\0*.*\0\0";
+    ofn.lpstrTitle = wtitle.empty() ? nullptr : wtitle.c_str();
+    // NOCHANGEDIR: the dialog must not move the process working directory —
+    // driver plugins are resolved relative to it.
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_NOCHANGEDIR;
+
+    std::string result = "null";
+    if (GetOpenFileNameW(&ofn)) {
+        int len = WideCharToMultiByte(CP_UTF8, 0, path, -1, nullptr, 0, nullptr, nullptr);
+        if (len > 0) {
+            std::string utf8(static_cast<size_t>(len) - 1, '\0');
+            WideCharToMultiByte(CP_UTF8, 0, path, -1, &utf8[0], len, nullptr, nullptr);
+            cJSON *str = cJSON_CreateString(utf8.c_str());
+            char *json = cJSON_PrintUnformatted(str);
+            if (json != nullptr) {
+                result = json;
+                cJSON_free(json);
+            }
+            cJSON_Delete(str);
+        }
+    }
+    webview_return(w, id, 0, result.c_str());
+}
+
 // Payload handed from the download worker back to the UI thread.
 struct UpdateResult {
     webview_t w;
@@ -696,6 +747,7 @@ int main()
     webview_bind(w, "quaeroRpc", rpc_handler, w);
 #if defined(_WIN32)
     webview_bind(w, "quaeroOpenExternal", open_external_handler, w);
+    webview_bind(w, "quaeroPickFile", pick_file_handler, w);
     webview_bind(w, "quaeroDownloadAndInstall", download_install_handler, w);
 #endif
 

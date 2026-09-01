@@ -13,6 +13,7 @@ import {
   type Connection,
 } from "../utils/connections";
 import { errorText } from "../utils/errors";
+import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
 
 type TestState =
@@ -308,6 +309,19 @@ export function ConnectionForm(props: {
                       {(opt) => <option value={opt.value}>{opt.label}</option>}
                     </For>
                   </select>
+                </Show>
+                <Show when={field.type === "file" && canPickFile()}>
+                  <button
+                    type="button"
+                    class="status-btn"
+                    title="Elegir el archivo en el disco"
+                    onClick={async () => {
+                      const path = await pickFile(field.label);
+                      if (path) setDraft("params", field.key, path);
+                    }}
+                  >
+                    Examinar…
+                  </button>
                 </Show>
                 <Show when={field.fetch === "databases" && props.onListDatabases}>
                   <div class="db-picker">
