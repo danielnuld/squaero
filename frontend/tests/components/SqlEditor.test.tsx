@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { EditorView } from "@codemirror/view";
+import { completionStatus, startCompletion } from "@codemirror/autocomplete";
 import { SqlEditor } from "../../src/components/SqlEditor";
 import type { RunScope } from "../../src/utils/runScope";
 
@@ -248,5 +249,67 @@ describe("SqlEditor save-as-snippet (issue #320)", () => {
     expect(e.asked()).toBeNull();
     e.save();
     expect(e.asked()).not.toBeNull();
+  });
+});
+
+describe("SqlEditor Tab (issue #432)", () => {
+  const mount = (doc: string) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => doc}
+            onChange={() => {}}
+            onRun={() => {}}
+            dialect="sqlite"
+            schema={{ clientes: ["nombre"] }}
+          />
+        ),
+        host!,
+      );
+    });
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    return view;
+  };
+
+  const tab = (view: EditorView) => {
+    view.contentDOM.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+    );
+  };
+
+  // The completion source resolves off the current task; poll rather than guess.
+  // Then wait out CodeMirror's interactionDelay (75 ms), which refuses an accept
+  // fired the instant the list pops open so a keystroke in flight cannot take it.
+  const untilSuggesting = async (view: EditorView) => {
+    for (let i = 0; i < 200; i++) {
+      if (completionStatus(view.state) === "active") {
+        await new Promise((r) => setTimeout(r, 120));
+        return true;
+      }
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    return false;
+  };
+
+  it("accepts the open suggestion", async () => {
+    const view = mount("select * from clie");
+    startCompletion(view);
+    expect(await untilSuggesting(view)).toBe(true);
+    tab(view);
+    expect(view.state.doc.toString()).toBe("select * from clientes");
+  });
+
+  it("still indents when no suggestion is open", () => {
+    const view = mount("select 1");
+    expect(completionStatus(view.state)).toBe(null);
+    tab(view);
+    expect(view.state.doc.toString()).not.toBe("select 1");
+    expect(view.state.doc.toString()).toContain("select 1");
   });
 });

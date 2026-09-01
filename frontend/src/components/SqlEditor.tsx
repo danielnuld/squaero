@@ -22,6 +22,7 @@ import {
 } from "@codemirror/language";
 import { sql } from "@codemirror/lang-sql";
 import {
+  acceptCompletion,
   closeBrackets,
   autocompletion,
   completionKeymap,
@@ -176,6 +177,10 @@ export function SqlEditor(props: {
                 return true;
               },
             },
+            // Tab accepts the open suggestion, as every code editor does.
+            // acceptCompletion returns false when no list is open, so Tab still
+            // falls through to indentWithTab the rest of the time.
+            { key: "Tab", run: acceptCompletion },
             indentWithTab,
             ...searchKeymap,
             ...completionKeymap,
