@@ -197,6 +197,13 @@ La forma directa requiere `host` + `port`/`service` + `server`; la forma DSN
 requiere `odbc_dsn`. El driver es de 32 bits (el CSDK lo es), por lo que Quaero
 se compila en x86 — ver `cmake/toolchain-i686-mingw.cmake`.
 
+El equipo necesita el **IBM Informix Client SDK de 32 bits**: sin el controlador
+registrado en el registro ODBC de 32 bits, conectar falla con `IM002`. El MSI de
+Quaero lo trae dentro (`<installdir>/csdk`) cuando se construye en una máquina
+que lo tenga instalado — ver `installer/build-msi.sh`. En las máquinas donde ya
+hay un CSDK instalado por IBM, el instalador respeta el existente y no toca su
+registro.
+
 *Túnel SSH (agnóstico al motor).* El núcleo reconoce, dentro del `dsn`, un grupo
 de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
 **antes** de invocar al driver, entregándole un DSN reescrito que apunta a

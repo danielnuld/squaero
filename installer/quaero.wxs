@@ -38,6 +38,9 @@
     <StandardDirectory Id="ProgramFilesFolder">
       <Directory Id="INSTALLFOLDER" Name="Quaero">
         <Directory Id="DriversDir" Name="drivers" />
+<?ifdef CsdkStage ?>
+        <Directory Id="CsdkDir" Name="csdk" />
+<?endif?>
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
@@ -76,11 +79,86 @@
                      Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
+<?ifdef CsdkStage ?>
+    <!-- The 32-bit IBM Informix Client SDK, cloned from the build machine by
+         installer/build-msi.sh (which defines CsdkStage only when a CSDK is
+         installed there; without it this whole block is preprocessed away and
+         the MSI is the plain app, which is what CI builds).
+
+         Quaero's Informix driver connects through the ODBC Driver Manager with
+         DRIVER={IBM INFORMIX ODBC DRIVER}; if no such driver is registered in
+         the 32-bit ODBC hive, connecting fails with IM002. Shipping the client
+         here spares every machine in the group a separate IBM install.
+
+         The CSDK is relocatable: it finds its locale (gls/) and message (msg/)
+         files through INFORMIXDIR, a registry value, so the tree under
+         <installdir>/csdk plus the values below is a complete install. -->
+    <ComponentGroup Id="CsdkFiles" Directory="CsdkDir">
+      <Files Include="$(CsdkStage)\**" />
+    </ComponentGroup>
+
+    <!-- Registered by writing ODBCINST directly rather than with WiX's
+         <ODBCDriver>: that one calls into the driver's own setup entry points
+         at install time, and these seven values are all the Driver Manager
+         reads. CsdkOwned marks the registration as ours (see the feature
+         condition below). -->
+    <Component Id="CsdkRegistry" Directory="CsdkDir"
+               Guid="D8F2BAC5-4E63-4F28-A019-3C7B6D5E9F42">
+      <RegistryValue Root="HKLM" Key="SOFTWARE\Quaero" Name="CsdkOwned"
+                     Type="integer" Value="1" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\Informix\Environment"
+                     Name="INFORMIXDIR" Type="string" Value="[CsdkDir]" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\ODBC Drivers"
+                     Name="IBM INFORMIX ODBC DRIVER" Type="string" Value="Installed" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                     Name="Driver" Type="string" Value="[CsdkDir]bin\iclit09b.dll" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                     Name="Setup" Type="string" Value="[CsdkDir]bin\iclit09b.dll" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                     Name="APILevel" Type="string" Value="1" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                     Name="ConnectFunctions" Type="string" Value="YYY" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                     Name="DriverODBCVer" Type="string" Value="03.51" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                     Name="FileUsage" Type="string" Value="0" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                     Name="SQLLEVEL" Type="string" Value="1" />
+      <!-- setnet32.exe, dbaccess.exe and finderr.exe expect bin/ on PATH. -->
+      <Environment Id="CsdkPath" Name="PATH" Value="[CsdkDir]bin"
+                   Part="last" Action="set" System="yes" Permanent="no" />
+    </Component>
+
+    <!-- Machines where IBM's own installer already put a CSDK keep it: taking
+         over ODBCINST there would point every other Informix client at this
+         copy, and uninstalling Quaero would then leave them with IM002.
+         CsdkOwned distinguishes a registration this package made from a
+         foreign one, so upgrading Quaero does not read its own registration as
+         "someone else's" and drop the feature (which RemoveExistingProducts
+         would then delete). -->
+    <Property Id="INFORMIXODBC">
+      <RegistrySearch Id="IfxOdbcDriver" Root="HKLM" Bitness="always32"
+                      Key="SOFTWARE\ODBC\ODBCINST.INI\IBM INFORMIX ODBC DRIVER"
+                      Name="Driver" Type="raw" />
+    </Property>
+    <Property Id="QUAEROCSDK">
+      <RegistrySearch Id="QuaeroOwnsCsdk" Root="HKLM" Bitness="always32"
+                      Key="SOFTWARE\Quaero" Name="CsdkOwned" Type="raw" />
+    </Property>
+<?endif?>
+
     <Feature Id="Main" Title="Quaero" Level="1">
       <ComponentGroupRef Id="AppFiles" />
       <ComponentGroupRef Id="DriverFiles" />
       <ComponentRef Id="AppShortcut" />
     </Feature>
+<?ifdef CsdkStage ?>
+    <Feature Id="InformixCsdk" Title="IBM Informix Client SDK" Level="1" AllowAbsent="yes">
+      <Level Value="0" Condition="INFORMIXODBC AND NOT QUAEROCSDK" />
+      <ComponentGroupRef Id="CsdkFiles" />
+      <ComponentRef Id="CsdkRegistry" />
+    </Feature>
+<?endif?>
 
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     <WixVariable Id="WixUILicenseRtf" Value="installer/license.rtf" />
