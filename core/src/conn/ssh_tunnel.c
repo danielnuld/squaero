@@ -645,8 +645,13 @@ static int verify_host_key(LIBSSH2_SESSION *session, const ssh_config *cfg,
     /* A missing file is fine — it just means zero known hosts (all NOTFOUND). */
     libssh2_knownhost_readfile(nh, path, LIBSSH2_KNOWNHOST_FILE_OPENSSH);
 
-    const int checkmask =
-        LIBSSH2_KNOWNHOST_TYPE_PLAIN | LIBSSH2_KNOWNHOST_KEYENC_RAW;
+    /* Compare only against entries of the SAME key type, as OpenSSH does: a
+       host legitimately has one entry per key type, so checking a negotiated
+       RSA key against a stored ed25519 entry is a false MISMATCH. A type we
+       cannot map (bit 0) falls back to the old match-any behaviour. */
+    const int checkmask = LIBSSH2_KNOWNHOST_TYPE_PLAIN |
+                          LIBSSH2_KNOWNHOST_KEYENC_RAW |
+                          hostkey_type_bit(keytype);
     struct libssh2_knownhost *found = NULL;
     int rc = libssh2_knownhost_checkp(nh, cfg->host, cfg->port, key, keylen,
                                       checkmask, &found);
