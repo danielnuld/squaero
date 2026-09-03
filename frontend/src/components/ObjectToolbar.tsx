@@ -43,6 +43,14 @@ export interface ObjectToolbarProps {
   hasChanges: boolean;
   /** Export formats to offer. */
   exportFormats: ExportFormatItem[];
+  /** Re-run what the tab is showing (issue #448). */
+  onRefresh: () => void;
+  /**
+   * Why the refresh is unavailable, already translated; null when it can run.
+   * The button is disabled and CARRIES the reason rather than disappearing —
+   * the same rule as the related-data entry (#344).
+   */
+  refreshBlocked?: string | null;
   onEdit: () => void;
   onImport: () => void;
   onGenerate: () => void;
@@ -87,6 +95,18 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
 
   return (
     <div class="edit-toolbar" role="toolbar" aria-label={t("objbar.aria")}>
+      {/* First in the bar, and there for every result — a query tab's page is as
+          stale as a table's when something else writes to the database. The tree
+          has its own refresh; this one re-runs what is on screen (issue #448). */}
+      <button
+        class="edit-btn"
+        title={props.refreshBlocked ?? t("objbar.refreshTitle")}
+        disabled={!!props.refreshBlocked}
+        onClick={props.onRefresh}
+      >
+        <span class="eb-ic" aria-hidden="true">⟳</span> {t("objbar.refresh")}
+      </button>
+      <span class="toolbar-sep" aria-hidden="true" />
       <Show when={props.isTable}>
         <Show
           when={props.editing}

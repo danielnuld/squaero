@@ -30,6 +30,8 @@ function mount(over: Partial<Parameters<typeof ObjectToolbar>[0]> = {}) {
       { fmt: "csv", label: "CSV" },
       { fmt: "json", label: "JSON" },
     ],
+    onRefresh: vi.fn(),
+    refreshBlocked: null as string | null,
     onEdit: vi.fn(),
     onImport: vi.fn(),
     onGenerate: vi.fn(),
@@ -149,5 +151,31 @@ describe("ObjectToolbar", () => {
   it("surfaces the edit-session error", () => {
     mount({ error: "rollback failed" });
     expect(host!.querySelector(".edit-error")?.textContent).toBe("rollback failed");
+  });
+
+  it("refreshes what the tab is showing (issue #448)", () => {
+    const p = mount();
+    const refresh = btn("Refrescar")!;
+    expect(refresh).toBeTruthy();
+    expect(refresh.disabled).toBe(false);
+    refresh.click();
+    expect(p.onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the refresh visible but disabled, carrying its reason", () => {
+    // A button that disappears leaves "it stopped being there" as the only
+    // explanation; the reason rides in the tooltip instead (#344 / #448).
+    const p = mount({ refreshBlocked: "Hay cambios sin confirmar" });
+    const refresh = btn("Refrescar")!;
+    expect(refresh.disabled).toBe(true);
+    expect(refresh.title).toBe("Hay cambios sin confirmar");
+    refresh.click();
+    expect(p.onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("offers the refresh even for a result that is not a table", () => {
+    // A query tab's page goes stale exactly like a table's.
+    mount({ isTable: false, hasColumns: true });
+    expect(btn("Refrescar")).toBeTruthy();
   });
 });

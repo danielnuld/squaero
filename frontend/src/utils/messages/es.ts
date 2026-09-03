@@ -338,6 +338,11 @@ export const es: Record<string, string> = {
 
   // object-action toolbar (ObjectToolbar.tsx)
   "objbar.aria": "Acciones del objeto",
+  "objbar.refresh": "Refrescar",
+  "objbar.refreshTitle": "Volver a ejecutar lo que muestra esta pestaña (F5)",
+  "objbar.refreshBlocked.editing": "Hay cambios sin confirmar: confírmalos o descártalos antes de refrescar",
+  "objbar.refreshBlocked.running": "La consulta se está ejecutando",
+  "objbar.refreshBlocked.nothing": "Todavía no hay nada que refrescar",
   "objbar.readOnlyNoPk": "Solo lectura: la tabla no tiene clave primaria.",
   "objbar.import": "Importar",
   "objbar.generate": "Generar datos",

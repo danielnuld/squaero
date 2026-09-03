@@ -110,7 +110,7 @@ import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
 import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
 import { objectPreviewQuery } from "./utils/pagination";
-import { nextOffset, pageHasMore, refreshAction } from "./utils/gridPaging";
+import { nextOffset, pageHasMore, refreshAction, refreshBlock } from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
@@ -2086,6 +2086,18 @@ export function App() {
     void run(action.sql, r?.ranScope ?? "document", action.offset, id);
   };
 
+  /**
+   * Why the toolbar's refresh cannot run right now, translated, or null (#448).
+   * The policy itself is pure and tested (refreshBlock); this only names it.
+   */
+  const refreshBlockedReason = (id: number): string | null => {
+    const block = refreshBlock(results[id], {
+      editing: edits[id]?.editing ?? false,
+      loading: results[id]?.loading ?? false,
+    });
+    return block === null ? null : t(`objbar.refreshBlocked.${block}`);
+  };
+
   const discardEdit = async () => {
     const t = current();
     const conn = tabConn(t);
@@ -2951,6 +2963,8 @@ export function App() {
                       changeCount={changeCount(currentEdit().pending)}
                       hasChanges={hasChanges(currentEdit().pending)}
                       exportFormats={EXPORT_FORMATS}
+                      onRefresh={() => reloadCurrent(tab().id)}
+                      refreshBlocked={refreshBlockedReason(tab().id)}
                       onEdit={beginEdit}
                       onImport={() => openImport()}
                       onGenerate={openGen}

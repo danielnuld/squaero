@@ -45,3 +45,25 @@ export function refreshAction(r: RefreshableResult | undefined): RefreshAction {
   if (r.pageSql) return { kind: "query", sql: r.pageSql, offset: r.offset ?? 0 };
   return null;
 }
+
+/** Why a refresh cannot run right now; null when it can. */
+export type RefreshBlock = "editing" | "running" | "nothing" | null;
+
+/**
+ * Whether the result on screen can be re-run, and why not when it cannot
+ * (issue #448). A blocked refresh is shown disabled WITH its reason rather than
+ * hidden, the same rule the related-data entry follows (#344) — a button that
+ * vanishes leaves "it stopped being there" as the whole explanation.
+ *
+ * An open edit session blocks it on purpose: re-running the query would throw
+ * away uncommitted changes without saying so. Pure.
+ */
+export function refreshBlock(
+  r: RefreshableResult | undefined,
+  state: { editing: boolean; loading: boolean },
+): RefreshBlock {
+  if (state.editing) return "editing";
+  if (state.loading) return "running";
+  if (!refreshAction(r)) return "nothing";
+  return null;
+}

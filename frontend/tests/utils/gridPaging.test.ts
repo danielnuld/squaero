@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { nextOffset, pageHasMore, refreshAction } from "../../src/utils/gridPaging";
+import {
+  nextOffset,
+  pageHasMore,
+  refreshAction,
+  refreshBlock,
+} from "../../src/utils/gridPaging";
 
 describe("nextOffset", () => {
   it("steps forward and back by the page size", () => {
@@ -55,5 +60,31 @@ describe("refreshAction", () => {
     expect(refreshAction({})).toBeNull();
     // An error left the tab with no page: there is nothing on screen to refresh.
     expect(refreshAction({ offset: 0 })).toBeNull();
+  });
+});
+
+describe("refreshBlock", () => {
+  const page = { pageSql: "SELECT * FROM users", offset: 0 };
+  const idle = { editing: false, loading: false };
+
+  it("lets a displayed page be re-run", () => {
+    expect(refreshBlock(page, idle)).toBeNull();
+  });
+
+  it("refuses while an edit session is open — refreshing would drop the changes", () => {
+    expect(refreshBlock(page, { editing: true, loading: false })).toBe("editing");
+  });
+
+  it("refuses while the query is still running, so a second click cannot stack a run", () => {
+    expect(refreshBlock(page, { editing: false, loading: true })).toBe("running");
+  });
+
+  it("refuses when the tab has nothing on screen to re-run", () => {
+    expect(refreshBlock(undefined, idle)).toBe("nothing");
+    expect(refreshBlock({}, idle)).toBe("nothing");
+  });
+
+  it("reports the edit session first: it is the reason the user can act on", () => {
+    expect(refreshBlock(undefined, { editing: true, loading: true })).toBe("editing");
   });
 });

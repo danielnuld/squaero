@@ -335,6 +335,11 @@ export const en: Record<string, string> = {
 
   // object-action toolbar (ObjectToolbar.tsx)
   "objbar.aria": "Object actions",
+  "objbar.refresh": "Refresh",
+  "objbar.refreshTitle": "Run what this tab is showing again (F5)",
+  "objbar.refreshBlocked.editing": "There are uncommitted changes: confirm or discard them before refreshing",
+  "objbar.refreshBlocked.running": "The query is still running",
+  "objbar.refreshBlocked.nothing": "Nothing to refresh yet",
   "objbar.readOnlyNoPk": "Read-only: the table has no primary key.",
   "objbar.import": "Import",
   "objbar.generate": "Generate data",
