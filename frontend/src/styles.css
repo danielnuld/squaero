@@ -2423,6 +2423,16 @@ button.primary:hover:not(:disabled) {
   color: var(--error);
 }
 
+/* Dragging a column header to move it (issue #446). The column being dragged
+   fades; the header it would land on shows the accent edge it will take. */
+.grid-head-sort.is-dragging {
+  opacity: 0.5;
+}
+
+.grid-head-sort.is-drop-target {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .objtree-title-text {
   overflow: hidden;
   text-overflow: ellipsis;

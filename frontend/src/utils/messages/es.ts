@@ -376,7 +376,7 @@ export const es: Record<string, string> = {
 
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} fila(s) afectada(s).",
-  "grid.sort": "Ordenar (asc / desc / ninguno)",
+  "grid.sortOrMove": "Ordenar (asc / desc / ninguno) · arrastra para mover la columna (Alt+←/→)",
   "grid.pkColumn": "Llave primaria",
   // truncado con orden en servidor (#347): el ORDER BY sí va sobre toda la tabla
   "grid.truncatedServerSort": "Mostrando las primeras {n} filas de la consulta. El orden se aplica en el servidor sobre toda la tabla; los filtros de columna de la rejilla, solo sobre las filas cargadas.",

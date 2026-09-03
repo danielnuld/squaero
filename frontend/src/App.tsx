@@ -63,6 +63,7 @@ import {
   EDITOR_PCT_DEFAULT,
   SIDEBAR_DEFAULT,
 } from "./utils/layout";
+import { applyOrder } from "./utils/gridColumnOrder";
 import {
   toggleSection,
   connObjects,
@@ -2205,6 +2206,11 @@ export function App() {
   // result's rows. The grid publishes them; the copy / transfer actions below
   // narrow the result to exactly those rows and reuse the existing paths.
   const [markedRows, setMarkedRows] = createSignal<number[]>([]);
+  // How the grid is currently drawing its columns (issue #446), as original
+  // indices in display order. Copying from the grid follows what the user sees;
+  // generating SQL (inserts, transfer) keeps the table's own order, which is
+  // semantic rather than visual.
+  const [columnOrder, setColumnOrder] = createSignal<number[]>([]);
   const markedResult = () => {
     const res = currentResult().result;
     return res ? pickRows(res, markedRows()) : null;
@@ -2285,7 +2291,10 @@ export function App() {
         const table = currentResult().source?.table ?? "exported";
         items.push({
           label: t("result.copyRowsN", { n: marked.length }),
-          action: () => copyText(marked.map((i) => rowToTsv(res.rows[i])).join("\n")),
+          action: () =>
+            copyText(
+              marked.map((i) => rowToTsv(applyOrder(columnOrder(), res.rows[i]))).join("\n"),
+            ),
         });
         items.push({
           label: t("result.copyRowsInserts", { n: marked.length }),
@@ -2300,10 +2309,19 @@ export function App() {
       }
       const cell = row[colIndex];
       items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
-      items.push({ label: t("result.copyRow"), action: () => copyText(rowToTsv(row)) });
+      // What is copied is what is on screen: the grid's column order, not the
+      // engine's (issue #446). The INSERT and transfer entries above keep the
+      // table's own order on purpose — there the order is part of the statement.
+      items.push({
+        label: t("result.copyRow"),
+        action: () => copyText(rowToTsv(applyOrder(columnOrder(), row))),
+      });
       items.push({
         label: t("result.copyRowJson"),
-        action: () => copyText(rowToJson(res.columns, row)),
+        action: () =>
+          copyText(
+            rowToJson(applyOrder(columnOrder(), res.columns), applyOrder(columnOrder(), row)),
+          ),
       });
       items.push({ separator: true });
       // Writing a NULL (issue #398). Clearing the box gives "", which is a
@@ -3015,6 +3033,7 @@ export function App() {
                         }
                         onCellContext={onCellContext}
                         onMarkedRowsChange={setMarkedRows}
+                        onColumnOrderChange={setColumnOrder}
                         referencedColumns={referencedColumns()}
                         onRelated={openRelated}
                         onSortColumn={

@@ -373,7 +373,7 @@ export const en: Record<string, string> = {
 
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} row(s) affected.",
-  "grid.sort": "Sort (asc / desc / none)",
+  "grid.sortOrMove": "Sort (asc / desc / none) · drag to move the column (Alt+←/→)",
   "grid.pkColumn": "Primary key",
   // truncated with a server-side sort (#347): the ORDER BY does cover the table
   "grid.truncatedServerSort": "Showing the first {n} rows of the query. The sort is applied on the server over the whole table; the grid's column filters, only over the loaded rows.",

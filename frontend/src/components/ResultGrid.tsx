@@ -10,6 +10,11 @@ import {
   type ColumnFilters,
 } from "../utils/gridView";
 import { computeColumnWidths, resizeColumn, MIN_COL_WIDTH } from "../utils/gridColumns";
+import {
+  defaultOrder,
+  moveColumn,
+  displayIndex,
+} from "../utils/gridColumnOrder";
 import { toggleMark, markRange, orderedMarks, type RowMarks } from "../utils/rowSelection";
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
@@ -109,6 +114,13 @@ export function ResultGrid(props: {
       asked for on the related-data modal, where the rows belong to a table the
       user never chose and whose key they have no reason to know. */
   keyColumns?: string[];
+  /**
+   * The columns' display order (issue #446), as ORIGINAL column indices in the
+   * order they are drawn. Emitted whenever the user drags a header, and reset to
+   * the engine's own order by every new result. The workspace uses it so that
+   * copying a row copies what the user sees; the grid needs nothing back.
+   */
+  onColumnOrderChange?: (order: number[]) => void;
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
   const isReferenced = (name: string) =>
@@ -183,12 +195,18 @@ export function ResultGrid(props: {
   // Per-column widths (issue: grid visual pass). Seeded content-aware from the
   // new result and then adjustable by dragging the header resize handles.
   const [widths, setWidths] = createSignal<number[]>([]);
+  // Column display order (issue #446): ORIGINAL indices in the order drawn. Only
+  // the rendering reads it — widths, sort, filters, the edit session and the
+  // context menu all stay keyed by the original index, exactly as the row view
+  // keeps its original row indices under a sort.
+  const [colOrder, setColOrder] = createSignal<number[]>([]);
   createEffect(() => {
     props.result; // reset on identity change
     setSort(null);
     setFilters({});
     clearSel();
     setWidths(computeColumnWidths(cols(), rows()));
+    setColOrder(defaultOrder(cols().length));
     // A new result is read from its first row: the scroller survives when one
     // result replaces another, so its position would otherwise carry over into
     // rows that have nothing to do with the old ones (issue #313).
@@ -226,9 +244,34 @@ export function ResultGrid(props: {
     clearSel();
   };
   const colWidth = (ci: number) => widths()[ci] ?? 180;
+
+  // The order actually drawn. Falls back to the engine's own whenever the stored
+  // order does not match the current columns — a new result reaches the render
+  // before the reset effect runs, and a mismatched order would draw holes.
+  const order = () =>
+    colOrder().length === cols().length ? colOrder() : defaultOrder(cols().length);
+  /** The columns in display order, each carrying its ORIGINAL index. */
+  const displayCols = createMemo(() => order().map((ci) => ({ ci, col: cols()[ci] })));
+  createEffect(() => props.onColumnOrderChange?.(order()));
+
+  // Dragging a header moves its column (issue #446). HTML5 drag rather than
+  // document-level mouse listeners: the platform draws the ghost and delivers
+  // the drop, and the resize handle opts out with draggable={false}, so the two
+  // gestures on the same header cannot be confused.
+  const [dragFrom, setDragFrom] = createSignal<number | null>(null);
+  const [dropAt, setDropAt] = createSignal<number | null>(null);
+  /** Moves the dragged (or keyboard-moved) column to display position `to`. */
+  const moveTo = (from: number, to: number) => {
+    setDragFrom(null);
+    setDropAt(null);
+    // The selection is NOT cleared: it is keyed by the original column index, so
+    // reordering moves where the selected cell is drawn, not which cell it is.
+    setColOrder((o) => moveColumn(o.length === cols().length ? o : defaultOrder(cols().length), from, to));
+  };
+
   const gridCols = () => {
-    const body = cols()
-      .map((_c, ci) => `${colWidth(ci)}px`)
+    const body = order()
+      .map((ci) => `${colWidth(ci)}px`)
       .join(" ");
     return editing() ? `${ACTION_WIDTH}px ${body}` : body;
   };
@@ -375,7 +418,13 @@ export function ResultGrid(props: {
     }
     if (!isNavKey(e.key)) return;
     e.preventDefault();
-    const next = moveSelection(sel(), e.key, view().length, cols().length);
+    // The selection carries the ORIGINAL column index, but ←/→ must walk the
+    // columns as they are DRAWN — so the move happens in display space and the
+    // result is translated back (issue #446).
+    const s = sel();
+    const from = s === null ? null : { r: s.r, c: displayIndex(order(), s.c) };
+    const moved = moveSelection(from, e.key, view().length, cols().length);
+    const next = moved === null ? null : { r: moved.r, c: order()[moved.c] ?? moved.c };
     setSel(next);
     if (!next) return;
     if (e.shiftKey) {
@@ -452,20 +501,65 @@ export function ResultGrid(props: {
                   <Show when={editing()}>
                     <div class="grid-cell grid-head grid-action" />
                   </Show>
-                  <For each={cols()}>
-                    {(col, ci) => (
+                  <For each={displayCols()}>
+                    {(dc, di) => {
+                      const col = dc.col;
+                      const ci = () => dc.ci;
+                      return (
                       <div
-                        class="grid-cell grid-head grid-head-sort"
+                        class={`grid-cell grid-head grid-head-sort ${dragFrom() === di() ? "is-dragging" : ""} ${dropAt() === di() && dragFrom() !== di() ? "is-drop-target" : ""}`}
                         role="columnheader"
-                        aria-colindex={ci() + 1}
+                        aria-colindex={di() + 1}
                         aria-sort={sortDirOf(ci())}
                         tabindex={0}
-                        title={t("grid.sort")}
+                        title={t("grid.sortOrMove")}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          setDragFrom(di());
+                          // Some engines refuse to start a drag without payload.
+                          e.dataTransfer?.setData("text/plain", col.name);
+                          if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(e) => {
+                          if (dragFrom() === null) return;
+                          e.preventDefault(); // this is what marks a drop target
+                          if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+                          setDropAt(di());
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const from = dragFrom();
+                          if (from !== null) moveTo(from, di());
+                        }}
+                        onDragEnd={() => {
+                          setDragFrom(null);
+                          setDropAt(null);
+                        }}
                         onClick={() => toggleSort(ci())}
-                        onKeyDown={(e) =>
-                          (e.key === "Enter" || e.key === " ") &&
-                          (e.preventDefault(), toggleSort(ci()))
-                        }
+                        onKeyDown={(e) => {
+                          // Alt+←/→ is the keyboard route to the same move: a
+                          // drag-only feature would be out of reach for anyone
+                          // navigating the grid with the keyboard.
+                          if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+                            e.preventDefault();
+                            const to = di() + (e.key === "ArrowLeft" ? -1 : 1);
+                            if (to < 0 || to >= cols().length) return;
+                            const row = e.currentTarget.parentElement;
+                            moveTo(di(), to);
+                            // The header cells are rebuilt in the new order, so
+                            // follow the column the user is moving.
+                            queueMicrotask(() =>
+                              (row?.querySelectorAll(".grid-head-sort")[to] as
+                                | HTMLElement
+                                | undefined)?.focus(),
+                            );
+                            return;
+                          }
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleSort(ci());
+                          }
+                        }}
                       >
                         <span class={`col-name ${isReferenced(col.name) ? "col-referenced" : ""}`}>
                           {col.name}
@@ -494,6 +588,10 @@ export function ResultGrid(props: {
                           class="col-resize"
                           title={t("grid.resize")}
                           aria-hidden="true"
+                          /* Opts out of the header's drag: without this, pulling
+                             the handle would move the column instead of resizing
+                             it (the drag source is the nearest draggable). */
+                          draggable={false}
                           onMouseDown={(e) => startResize(ci(), e)}
                           onClick={(e) => e.stopPropagation()}
                           onDblClick={(e) => {
@@ -506,7 +604,8 @@ export function ResultGrid(props: {
                           }}
                         />
                       </div>
-                    )}
+                      );
+                    }}
                   </For>
                 </div>
 
@@ -518,16 +617,16 @@ export function ResultGrid(props: {
                   <Show when={editing()}>
                     <div class="grid-cell grid-action" />
                   </Show>
-                  <For each={cols()}>
-                    {(_col, ci) => (
+                  <For each={displayCols()}>
+                    {(dc) => (
                       <div class="grid-cell grid-filter-cell" role="gridcell">
                         <input
                           class="grid-filter-input"
                           type="search"
                           placeholder={t("grid.filterPlaceholder")}
-                          aria-label={t("grid.filterBy", { name: cols()[ci()].name })}
-                          value={filters()[ci()] ?? ""}
-                          onInput={(e) => setFilter(ci(), e.currentTarget.value)}
+                          aria-label={t("grid.filterBy", { name: dc.col.name })}
+                          value={filters()[dc.ci] ?? ""}
+                          onInput={(e) => setFilter(dc.ci, e.currentTarget.value)}
                         />
                       </div>
                     )}
@@ -570,8 +669,10 @@ export function ResultGrid(props: {
                                 {isDeleted(rowIndex()) ? "↩" : "🗑"}
                               </button>
                             </Show>
-                            <For each={cols()}>
-                              {(col, ci) => {
+                            <For each={displayCols()}>
+                              {(dc, di) => {
+                                const col = dc.col;
+                                const ci = () => dc.ci;
                                 const original = () => row()[ci()] ?? null;
                                 return (
                                   <Show
@@ -584,7 +685,7 @@ export function ResultGrid(props: {
                                         <div
                                           class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${related() ? "cell-related" : ""}`}
                                           role="gridcell"
-                                          aria-colindex={ci() + 1}
+                                          aria-colindex={di() + 1}
                                           aria-selected={isSelected(viewPos(), ci())}
                                           style={{ "text-align": cellAlign(cell.kind) }}
                                           title={cell.text}
@@ -627,7 +728,7 @@ export function ResultGrid(props: {
                                         <div
                                           class="grid-cell cell-edit"
                                           role="gridcell"
-                                          aria-colindex={ci() + 1}
+                                          aria-colindex={di() + 1}
                                           data-cell={`${viewPos()}-${ci()}`}
                                         >
                                         <input
@@ -728,8 +829,8 @@ export function ResultGrid(props: {
                       >
                         ✕
                       </button>
-                      <For each={cols()}>
-                        {(col) => (
+                      <For each={displayCols()}>
+                        {({ col }) => (
                           <Show
                             when={fkFor(col.name)}
                             fallback={
