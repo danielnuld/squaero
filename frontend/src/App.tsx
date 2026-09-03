@@ -64,6 +64,12 @@ import {
   SIDEBAR_DEFAULT,
 } from "./utils/layout";
 import {
+  toggleSection,
+  connObjects,
+  setConnObjects,
+  dropConnObjects,
+} from "./utils/sidebarSections";
+import {
   buildDsn,
   dsnForDatabaseList,
   nextConnectionId,
@@ -334,6 +340,19 @@ export function App() {
   const [focusedDefId, setFocusedDefId] = createSignal<string | null>(null);
   const active = () => openConns().find((o) => o.defId === focusedDefId()) ?? null;
   const activeDefId = focusedDefId;
+  // Explorer sections the user folded away, by connection id (issue #444).
+  const [collapsedSections, setCollapsedSections] = createSignal<Set<string>>(new Set());
+  // Anything done in a connection's tree acts on THAT connection: focus it
+  // first, then run the handler. `setFocusedDefId` is synchronous, so openData
+  // and friends read the new `focusedDefId()` in the same tick — which is why
+  // stacking one tree per connection needed no connection argument threaded
+  // through every handler (issue #444).
+  const inConn =
+    <A extends unknown[]>(defId: string, fn: (...args: A) => void) =>
+    (...args: A) => {
+      setFocusedDefId(defId);
+      fn(...args);
+    };
   // Title base for a generic new query tab: the connection it will run against
   // ("Ventas 3"), because "Consulta 3" spelled out the only thing the tab could
   // not fail to be, while hiding the one thing worth knowing when several
@@ -388,7 +407,12 @@ export function App() {
   // "all" is the full palette (Mod+K); "objects" scopes it to the connection's
   // tables/views (Mod+P), for a quick go-to-object jump.
   const [paletteMode, setPaletteMode] = createSignal<"all" | "objects" | "snippets">("all");
-  const [loadedObjects, setLoadedObjects] = createSignal<TreeNode[]>([]);
+  // The objects each open connection's tree has loaded, keyed by connection id.
+  // With one tree per connection in the sidebar (issue #444) a single shared
+  // list meant the last tree to finish loading overwrote the autocomplete and
+  // the command palette; `focusedObjects` is what the rest of the app reads.
+  const [loadedObjects, setLoadedObjects] = createSignal<Record<string, TreeNode[]>>({});
+  const focusedObjects = () => connObjects(loadedObjects(), focusedDefId());
 
   // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
   const [findTick, setFindTick] = createSignal(0);
@@ -689,7 +713,7 @@ export function App() {
     // Where the tree HAS loaded an object, reuse its db/schema qualifiers so the
     // describe lands on the right one; otherwise ask by bare name.
     const known = new Map(
-      loadedObjects()
+      focusedObjects()
         .filter((n) => n.kind === "table" || n.kind === "view")
         .map((n) => [n.label.toLowerCase(), n]),
     );
@@ -726,7 +750,7 @@ export function App() {
   const sqlSchema = createMemo<Record<string, string[]>>(() => {
     const cache = columnCache();
     const out: Record<string, string[]> = {};
-    for (const n of loadedObjects()) {
+    for (const n of focusedObjects()) {
       if (n.kind === "table" || n.kind === "view") out[n.label] = cache[n.label] ?? [];
     }
     // Tables the query mentioned and we described, even though the tree never
@@ -1149,6 +1173,15 @@ export function App() {
     }
     const rest = openConns().filter((x) => x.defId !== target);
     setOpenConns(rest);
+    // Its explorer section goes with it: leaving the entries behind would keep
+    // stale objects in the autocomplete and reopen the connection folded away.
+    setLoadedObjects((m) => dropConnObjects(m, target));
+    setCollapsedSections((s) => {
+      if (!s.has(target)) return s;
+      const next = new Set(s);
+      next.delete(target);
+      return next;
+    });
     // Its tabs go with it: a tab bound to a closed session can only fail.
     setTabs((s) => closeTabsForConn(s, target));
     if (focusedDefId() === target) {
@@ -2412,7 +2445,7 @@ export function App() {
         out.push({ id: `tool:${tool.tool}`, category: "tool", label: t(tool.label), run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }) });
 
     // Objects loaded in the tree.
-    for (const node of loadedObjects()) {
+    for (const node of focusedObjects()) {
       const scope = [node.db, node.schema].filter((p): p is string => !!p).join(".");
       out.push({
         id: `obj:${node.key}`,
@@ -2475,49 +2508,85 @@ export function App() {
             onImport={importConns}
             onMoveToGroup={moveConnToGroup}
           />
-          <Show when={active()}>
-            <Show when={databases().length > 0}>
-              <div class="sidebar-db">
-                <label>
-                  <span>Base de datos activa</span>
-                  <select
-                    class="map-select"
-                    value={activeDb() ?? ""}
-                    onChange={(e) => selectDb(e.currentTarget.value)}
-                  >
-                    <For each={databases()}>{(d) => <option value={d}>{d}</option>}</For>
-                  </select>
-                </label>
-              </div>
-            </Show>
+          {/* One collapsible section per open connection (issue #444): the
+              same table can be looked up in prod and dev without swapping the
+              explorer. The sections split the height with flex; each tree keeps
+              its own virtualized scroller. */}
+          <Show
+            when={openConns().length > 0}
+            fallback={<p class="sidebar-empty">{t("tree.connectHint")}</p>}
+          >
             <div class="sidebar-tree">
-              <ObjectTree
-                connId={active()!.connId}
-                engine={activeDialect()}
-                onOpenData={openData}
-                onOpenStructure={openStructure}
-                onOpenSql={openSqlInNewTab}
-                reloadKey={treeReload()}
-                softReloadKey={treeSoftReload()}
-                onRefresh={refreshAll}
-                onOpenTools={openToolsMenu}
-                onObjectsLoaded={setLoadedObjects}
-                onSelectDatabase={syncWorkingDb}
-                activeDb={activeDb() ?? undefined}
-                onImport={(node) =>
-                  showTool("import", t("tab.import", { name: node.label }), {
-                    key: `import:${node.label}`,
-                    params: {
-                      target: { table: node.label, db: node.db, schema: node.schema },
-                    },
-                  })
-                }
-                onCreateTable={(node) =>
-                  openTableDesigner(node.schema ?? node.db)
-                }
-                onAlterTable={openAlterTable}
-                onManageIndexes={openIndexes}
-              />
+              <For each={openConns()}>
+                {(conn) => {
+                  const focused = () => conn.defId === focusedDefId();
+                  const collapsed = () => collapsedSections().has(conn.defId);
+                  return (
+                    <div
+                      class="conn-section"
+                      classList={{ "is-collapsed": collapsed(), "is-focused": focused() }}
+                      style={{ "--conn-accent": conn.color ?? "var(--accent)" }}
+                    >
+                      <ObjectTree
+                        connId={conn.connId}
+                        engine={conn.driver}
+                        title={conn.name}
+                        accent={conn.color}
+                        collapsed={collapsed()}
+                        onToggleCollapse={() =>
+                          setCollapsedSections((s) => toggleSection(s, conn.defId))
+                        }
+                        onDisconnect={() => void disconnect(conn.defId)}
+                        onOpenData={inConn(conn.defId, openData)}
+                        onOpenStructure={inConn(conn.defId, openStructure)}
+                        onOpenSql={inConn(conn.defId, openSqlInNewTab)}
+                        reloadKey={treeReload()}
+                        softReloadKey={treeSoftReload()}
+                        onRefresh={inConn(conn.defId, refreshAll)}
+                        onOpenTools={inConn(conn.defId, openToolsMenu)}
+                        onObjectsLoaded={(nodes) =>
+                          setLoadedObjects((m) => setConnObjects(m, conn.defId, nodes))
+                        }
+                        onSelectDatabase={inConn(conn.defId, syncWorkingDb)}
+                        activeDb={focused() ? (activeDb() ?? undefined) : undefined}
+                        onImport={inConn(conn.defId, (node: TreeNode) =>
+                          showTool("import", t("tab.import", { name: node.label }), {
+                            key: `import:${node.label}`,
+                            params: {
+                              target: { table: node.label, db: node.db, schema: node.schema },
+                            },
+                          }),
+                        )}
+                        onCreateTable={inConn(conn.defId, (node: TreeNode) =>
+                          openTableDesigner(node.schema ?? node.db),
+                        )}
+                        onAlterTable={inConn(conn.defId, openAlterTable)}
+                        onManageIndexes={inConn(conn.defId, openIndexes)}
+                      >
+                        {/* The working database belongs to the focused
+                            connection, so its selector lives in that section
+                            instead of floating above the whole sidebar. */}
+                        <Show when={focused() && databases().length > 0}>
+                          <div class="sidebar-db">
+                            <label>
+                              <span>Base de datos activa</span>
+                              <select
+                                class="map-select"
+                                value={activeDb() ?? ""}
+                                onChange={(e) => selectDb(e.currentTarget.value)}
+                              >
+                                <For each={databases()}>
+                                  {(d) => <option value={d}>{d}</option>}
+                                </For>
+                              </select>
+                            </label>
+                          </div>
+                        </Show>
+                      </ObjectTree>
+                    </div>
+                  );
+                }}
+              </For>
             </div>
           </Show>
         </aside>

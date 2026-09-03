@@ -2356,8 +2356,85 @@ button.primary:hover:not(:disabled) {
   flex: 1;
   min-height: 0;
   display: flex;
-  /* No border-top: the working-db section above already carries a border-bottom;
-     two adjacent hairlines read as a heavy 2px rule. */
+  /* A column of connection sections (issue #444). No border-top: the section
+     headers already carry their own hairlines. */
+  flex-direction: column;
+}
+
+/* One collapsible section per open connection (issue #444), so the same table
+   can be looked up in prod and dev without swapping the explorer. Every
+   expanded section takes an equal share of the height and a collapsed one
+   shrinks to its header — the whole reparto is flex, nothing measures pixels,
+   and each tree keeps its own bounded virtualized scroller. */
+.conn-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.conn-section.is-collapsed {
+  flex: 0 0 auto;
+}
+
+.conn-section:last-child {
+  border-bottom: none;
+}
+
+/* Which connection the workspace is on, said in the explorer as well as in the
+   tab strip: the focused section's header carries that connection's colour. */
+.conn-section.is-focused .objtree-header {
+  background: var(--bg-elev2);
+  box-shadow: inset 3px 0 0 var(--conn-accent);
+}
+
+/* Everything below a section header. Hidden (not unmounted) when the section is
+   collapsed, so its expansion, filter and scroll survive being folded away. */
+.objtree-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The header doubling as the collapse toggle: a button that keeps the header's
+   own typography rather than a control planted inside it. */
+.objtree-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Closing a connection is destructive in a way refreshing is not, so it warns on
+   hover like the bar's own eject button. */
+.objtree-disconnect:hover {
+  color: var(--error);
+}
+
+.objtree-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nothing connected: the sidebar says so where the sections would be. */
+.sidebar-empty {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--text-dim);
+  line-height: 1.5;
 }
 
 .objtree {

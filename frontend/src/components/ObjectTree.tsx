@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
 import { visibleRange } from "../utils/virtualize";
 import {
   flattenTree,
@@ -104,6 +104,23 @@ export function ObjectTree(props: {
   onSelectDatabase?: (name: string) => void;
   /** Name of the current working database; its tree node is highlighted. */
   activeDb?: string;
+  /** Section title. With several connections open the sidebar stacks one tree
+      per connection (issue #444) and the header becomes the connection's name;
+      alone, it stays the generic "Objetos". */
+  title?: string;
+  /** The connection's accent colour, shown as a dot beside the title. */
+  accent?: string;
+  /** Collapsed: only the header shows. The tree stays MOUNTED (hidden with CSS)
+      so its expansion, filter and scroll survive being folded away. */
+  collapsed?: boolean;
+  /** Makes the header a collapse toggle. Absent = not collapsible. */
+  onToggleCollapse?: () => void;
+  /** Closes this connection from its own section header — with several open,
+      the bar's single "Desconectar" could only ever close the focused one. */
+  onDisconnect?: () => void;
+  /** Rendered right under the header — the working-database selector of the
+      focused connection. */
+  children?: JSX.Element;
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -569,7 +586,26 @@ export function ObjectTree(props: {
   return (
     <div class="objtree">
       <div class="objtree-header">
-        <span>{t("toolbar.objects.label")}</span>
+        <Show
+          when={props.onToggleCollapse}
+          fallback={<span>{props.title ?? t("toolbar.objects.label")}</span>}
+        >
+          <button
+            class="objtree-title"
+            aria-expanded={!props.collapsed}
+            onClick={() => props.onToggleCollapse!()}
+          >
+            <span class="objtree-caret" aria-hidden="true">
+              {props.collapsed ? "▸" : "▾"}
+            </span>
+            <Show when={props.accent}>
+              <span class="conn-color" style={{ background: props.accent }} />
+            </Show>
+            <span class="objtree-title-text">
+              {props.title ?? t("toolbar.objects.label")}
+            </span>
+          </button>
+        </Show>
         <div class="objtree-actions">
           <Show when={props.connId && props.onOpenTools}>
             <button
@@ -591,8 +627,32 @@ export function ObjectTree(props: {
               ⟳
             </button>
           </Show>
+          <Show when={props.connId && props.onDisconnect}>
+            {/* Named after its connection: several sections carry this button,
+                and "Desconectar" three times over says nothing about which one
+                closes what — to a screen reader or to a test. */}
+            <button
+              class="objtree-refresh objtree-disconnect"
+              title={t("conn.disconnectOf", { name: props.title ?? "" })}
+              aria-label={t("conn.disconnectOf", { name: props.title ?? "" })}
+              onClick={() => props.onDisconnect!()}
+            >
+              ⏏
+            </button>
+          </Show>
         </div>
       </div>
+      {/* Outside the collapsible body on purpose: this is the working-database
+          selector of the focused connection, and folding its section away used
+          to take the control off the screen while it still governed the ER
+          diagram, the query builder and the object list. */}
+      {props.children}
+      {/* Folded away with CSS rather than unmounted: a collapsed section keeps
+          its expansion, filter and scroll for when it is opened again (#444). */}
+      <div
+        class="objtree-body"
+        style={props.collapsed ? { display: "none" } : undefined}
+      >
       <Show when={roots().length > 0}>
         <div class="objtree-filter">
           <input
@@ -629,7 +689,11 @@ export function ObjectTree(props: {
           class="objtree-scroll"
           ref={attachScroller}
           role="tree"
-          aria-label={t("tree.ariaLabel")}
+          aria-label={
+            props.title
+              ? t("tree.ariaLabelOf", { name: props.title })
+              : t("tree.ariaLabel")
+          }
           tabindex={0}
           aria-activedescendant={
             activeIndex() >= 0 ? rowId(activeIndex()) : undefined
@@ -705,6 +769,7 @@ export function ObjectTree(props: {
           </div>
         </div>
       </Show>
+      </div>
     </div>
   );
 }

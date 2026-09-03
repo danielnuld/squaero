@@ -109,7 +109,10 @@ describe("styles.css colour", () => {
     // was the fallback beside them. That is how a second red got into the
     // palette and how the cancel button for a running query ended up with no
     // fill at all, in the one place a button has to stay visible.
-    const RUNTIME_SET = ["--grid-row-h"]; // ResultGrid sets this inline per row height
+    const RUNTIME_SET = [
+      "--grid-row-h", // ResultGrid sets this inline per row height
+      "--conn-accent", // App sets this per connection section (#444)
+    ];
     const defined = new Set(
       Array.from(CSS.matchAll(/^\s*(--[a-z0-9-]+):/gm), (m) => m[1]),
     );
