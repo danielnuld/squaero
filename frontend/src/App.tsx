@@ -3164,6 +3164,14 @@ export function App() {
 
           <Show when={currentTool()}>
             {(tt) => (
+              // Keyed on the tab id so switching between two tabs of the SAME
+              // tool rebuilds the panel instead of feeding new props to the old
+              // instance (issue #457). Every tool here loads what it shows in
+              // onMount, which then never ran again: opening a second view's
+              // definition showed the FIRST view's, under the second one's tab
+              // name. Nothing is lost by remounting — a tool panel is already
+              // rebuilt whenever the user visits a query tab and comes back.
+              <Show when={tt().id} keyed>
               <Switch>
                 <Match when={tt().tool === "objectList"}>
                   <ObjectListView
@@ -3414,6 +3422,7 @@ export function App() {
                   <ShortcutsHelp isMac={isMac()} onClose={() => closeTool(tt().id)} />
                 </Match>
               </Switch>
+              </Show>
             )}
           </Show>
 
