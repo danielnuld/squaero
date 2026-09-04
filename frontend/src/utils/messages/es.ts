@@ -369,6 +369,10 @@ export const es: Record<string, string> = {
   "result.rowDetail": "Ver detalle de fila",
   "result.copyCell": "Copiar celda",
   "result.copyRow": "Copiar fila",
+  "result.tabsAria": "Resultados del script",
+  "result.setRows": "{n} filas",
+  "result.setAffected": "{n} afectadas",
+  "result.setFailed": "error",
   "result.copyRowJson": "Copiar fila como JSON",
   // poner NULL desde la rejilla (#398): vaciar la celda deja "", que es otro valor
   "result.setNull": "Poner NULL",

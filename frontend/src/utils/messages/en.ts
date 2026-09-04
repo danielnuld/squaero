@@ -366,6 +366,10 @@ export const en: Record<string, string> = {
   "result.rowDetail": "View row detail",
   "result.copyCell": "Copy cell",
   "result.copyRow": "Copy row",
+  "result.tabsAria": "Script results",
+  "result.setRows": "{n} rows",
+  "result.setAffected": "{n} affected",
+  "result.setFailed": "error",
   "result.copyRowJson": "Copy row as JSON",
   // set NULL from the grid (#398): clearing the box leaves "", a different value
   "result.setNull": "Set NULL",

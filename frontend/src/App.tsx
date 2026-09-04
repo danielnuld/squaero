@@ -10,7 +10,8 @@ import {
   onCleanup,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { runQuery, runScript, type ResultSet } from "./utils/query";
+import { runQuery, runStatements, type ResultSet } from "./utils/query";
+import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
 import { cancelQuery, onConnectionLost } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection, listDatabases } from "./utils/conn";
@@ -187,6 +188,7 @@ import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { ObjectToolbar } from "./components/ObjectToolbar";
+import { ResultTabs } from "./components/ResultTabs";
 import { ObjectListView } from "./components/ObjectListView";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { RelatedData } from "./components/RelatedData";
@@ -244,6 +246,12 @@ interface TabResult {
       preview SQL with a server-side LIMIT/OFFSET (the baked cap otherwise makes
       the core's row-skip pagination return an empty page 2). */
   preview?: { parts: { db?: string; schema?: string; name: string }; engine: string };
+  /** A script's statements, one entry each (issue #450), and which one is on
+      screen. Absent for a single statement: one result needs no tabs. The fields
+      above always mirror the ACTIVE entry, so everything downstream — the grid,
+      the toolbar, export, chart — keeps reading one result and is unchanged. */
+  sets?: ScriptSet[];
+  activeSet?: number;
 }
 
 // Per-tab edit-session state (M7). Present only while editing a tab.
@@ -292,6 +300,10 @@ const emptyResult = (): TabResult => ({
   error: null,
   result: null,
   elapsedMs: null,
+  // Explicitly cleared, not merely absent: setResults MERGES, so a tab that ran
+  // a script and then a single statement would otherwise keep the old strip.
+  sets: undefined,
+  activeSet: 0,
 });
 
 // A table target (import / generator / diff / transfer / structure).
@@ -1404,13 +1416,21 @@ export function App() {
       .filter((s) => s !== "");
     const script = stmts.length > 1;
     try {
-      const result = script
-        ? await runScript(conn.connId, stmts, PAGE_LIMIT)
+      // A script keeps one entry per statement (issue #450) and opens one of
+      // them; the mirrored fields below are that entry, so nothing downstream
+      // has to know a script ran.
+      const sets = script
+        ? scriptSets(await runStatements(conn.connId, stmts, PAGE_LIMIT), activeDialect())
+        : undefined;
+      const activeSet = sets ? pickActiveSet(sets) : 0;
+      const shown = sets ? sets[activeSet] : undefined;
+      const result = sets
+        ? (shown?.result ?? null)
         : await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
       const elapsedMs = performance.now() - started;
       setResults(id, {
         loading: false,
-        error: null,
+        error: shown?.error ?? null,
         result,
         elapsedMs,
         ranScope: scope,
@@ -1418,12 +1438,15 @@ export function App() {
         offset,
         pageSize: PAGE_LIMIT,
         source: keepSource,
+        sets,
+        activeSet,
       });
       // Record after the run so the entry carries its duration (issue #179);
       // page turns (offset > 0) are not logged.
       if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
       // A page turn keeps the source it already had; a fresh query derives it.
-      if (!keepSource) void attachQuerySource(id, trimmed, conn, result);
+      // A statement that failed has no result to derive one from.
+      if (!keepSource && result) void attachQuerySource(id, trimmed, conn, result);
       // DDL from the editor is the only way to create a stored routine, and it
       // left the tree showing yesterday's catalog until a manual refresh (#317).
       if (changesCatalog(trimmed)) refreshTreeInPlace();
@@ -1435,9 +1458,30 @@ export function App() {
         result: null,
         elapsedMs,
         ranScope: scope,
+        sets: undefined,
+        activeSet: 0,
       });
       if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
     }
+  };
+
+  /**
+   * Show another statement of the script that ran in this tab (issue #450).
+   * The entry is copied into the mirrored fields, which is what the grid and the
+   * toolbar read. No pageSql: a script's statement is not pageable, the same
+   * rule the run itself follows — turning the page would re-run its DDL.
+   */
+  const selectSet = (tabId: number, index: number) => {
+    const set = results[tabId]?.sets?.[index];
+    if (!set) return;
+    setResults(tabId, {
+      activeSet: index,
+      result: set.result,
+      error: set.error,
+      elapsedMs: set.elapsedMs,
+      pageSql: undefined,
+      source: undefined,
+    });
   };
 
   // Run one page of an "open table" preview into tab `tabId`. The offset is
@@ -2945,6 +2989,16 @@ export function App() {
                   />
                 </Show>
                 <div class="result-pane">
+                  {/* One tab per statement when a script ran (issue #450).
+                      Above the toolbar: the tab chooses which result Refrescar,
+                      Graficar and Exportar act on. */}
+                  <Show when={(currentResult().sets?.length ?? 0) > 1}>
+                    <ResultTabs
+                      sets={currentResult().sets!}
+                      active={currentResult().activeSet ?? 0}
+                      onSelect={(i) => selectSet(tab().id, i)}
+                    />
+                  </Show>
                   <Show
                     when={
                       currentResult().source ||

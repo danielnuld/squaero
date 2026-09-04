@@ -88,20 +88,61 @@ export async function runScript(
   stmts: string[],
   limit?: number,
 ): Promise<ResultSet> {
-  let last: ResultSet | undefined;
+  const runs = await runStatements(connId, stmts, limit);
+  const failed = runs.find((r) => r.error !== undefined);
+  if (failed) throw failed.error;
   let withRows: ResultSet | undefined;
   let rowsAffected = 0;
-  for (const sql of stmts) {
-    // eslint-disable-next-line no-await-in-loop -- statements run in order
-    last = await runQuery(connId, sql, limit);
-    rowsAffected += last.rowsAffected;
-    if (last.columns.length > 0) withRows = last;
+  for (const r of runs) {
+    if (!r.result) continue;
+    rowsAffected += r.result.rowsAffected;
+    if (r.result.columns.length > 0) withRows = r.result;
   }
-  const shown = withRows ?? last;
+  const shown = withRows ?? runs[runs.length - 1]?.result;
   return {
     columns: shown?.columns ?? [],
     rows: shown?.rows ?? [],
     truncated: shown?.truncated ?? false,
     rowsAffected,
   };
+}
+
+/** What one statement of a script returned. */
+export interface StatementRun {
+  sql: string;
+  /** What came back, or null when the statement failed. */
+  result: ResultSet | null;
+  /** The error it failed with. The run stops at the first one. */
+  error?: unknown;
+  elapsedMs: number;
+}
+
+/**
+ * Runs a script statement by statement over the same connection, keeping what
+ * EACH one returned (issue #450) instead of collapsing them into one result.
+ * The same connection matters: session variables and prepared statements have to
+ * survive from one statement to the next (issue #441).
+ *
+ * A failure stops the run and is reported on its own statement rather than
+ * thrown, so the results already obtained are not lost with it — the workspace
+ * shows them beside the statement that failed.
+ */
+export async function runStatements(
+  connId: string,
+  stmts: string[],
+  limit?: number,
+): Promise<StatementRun[]> {
+  const runs: StatementRun[] = [];
+  for (const sql of stmts) {
+    const started = performance.now();
+    try {
+      // eslint-disable-next-line no-await-in-loop -- statements run in order
+      const result = await runQuery(connId, sql, limit);
+      runs.push({ sql, result, elapsedMs: performance.now() - started });
+    } catch (error) {
+      runs.push({ sql, result: null, error, elapsedMs: performance.now() - started });
+      break;
+    }
+  }
+  return runs;
 }

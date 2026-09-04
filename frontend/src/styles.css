@@ -2423,6 +2423,87 @@ button.primary:hover:not(:disabled) {
   color: var(--error);
 }
 
+/* One tab per statement of a script (issue #450). Same shape as the object
+   list's type strip (.otab): tabs nested INSIDE a panel, not the workspace's own
+   tab bar — they are not tabs of the same rank and must not read as if they
+   were. */
+.result-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-3) 0;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.rtab {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rtab:hover:not(.on) {
+  background: var(--bg-elev2);
+}
+
+.rtab.on {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* How the statement ended, in the colour the app already uses for that kind of
+   thing: a result set, a write, a failure. */
+.rtab-mk {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+}
+
+.rtab-mk.is-rows {
+  background: var(--obj-table);
+}
+
+.rtab-mk.is-affected {
+  background: var(--obj-procedure);
+}
+
+.rtab-mk.is-error {
+  background: var(--error);
+}
+
+.rtab-n {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.rtab-label {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rtab-ct {
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Dragging a column header to move it (issue #446). The column being dragged
    fades; the header it would land on shows the accent edge it will take. */
 .grid-head-sort.is-dragging {
