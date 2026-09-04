@@ -1,15 +1,21 @@
 // Decide what SQL to run when the user presses Ctrl/Cmd+Enter (issue #130).
-// Pure logic, no CodeMirror dependency: the editor passes in the document text,
-// the current selection range and the cursor offset, and gets back the text to
-// execute plus a scope tag used to tell the user what actually ran.
+// Pure logic, no CodeMirror dependency: the editor passes in the document text
+// and the current selection range, and gets back the text to execute plus a
+// scope tag used to tell the user what actually ran.
 //
-// Rules:
+// Two rules, and only two:
 //   - A non-empty selection runs verbatim ("selección").
-//   - Otherwise, when the document holds more than one statement, the statement
-//     under the cursor runs ("sentencia").
-//   - Otherwise the whole document runs ("documento").
+//   - Otherwise the whole document runs ("documento"), however many statements
+//     it holds — they go to the engine one by one and each gets its own result
+//     tab (issue #450).
+//
+// It used to run the STATEMENT UNDER THE CURSOR whenever the document held more
+// than one, which is what a scratch buffer of queries wants but not what the
+// button says: writing three queries and pressing Ejecutar ran one of them,
+// with nothing to say the other two had been skipped. Running a single
+// statement on purpose is what selecting it is for.
 
-export type RunScope = "selection" | "statement" | "document";
+export type RunScope = "selection" | "document";
 
 export interface RunTarget {
   /** The raw SQL slice to execute; the caller trims/validates it. */
@@ -112,53 +118,18 @@ export function splitStatements(sql: string): Statement[] {
 }
 
 /**
- * Choose the SQL to execute given the document, the selection range and the
- * cursor. See the module comment for the rules. Ranges are character offsets;
- * `selFrom === selTo` means no selection.
+ * Choose the SQL to execute given the document and the selection range. Ranges
+ * are character offsets; `selFrom === selTo` means no selection.
+ *
+ * `scopeLabel` used to live below this: a hardcoded Spanish label with no
+ * caller, since the status bar and the snippet banner both translate the scope
+ * through i18n. It went with the statement rule.
  */
-export function pickRunTarget(
-  doc: string,
-  selFrom: number,
-  selTo: number,
-  cursor: number,
-): RunTarget {
+export function pickRunTarget(doc: string, selFrom: number, selTo: number): RunTarget {
   if (selFrom !== selTo) {
     const from = Math.min(selFrom, selTo);
     const to = Math.max(selFrom, selTo);
     return { text: doc.slice(from, to), scope: "selection" };
   }
-
-  const segments = splitStatements(doc);
-  const nonEmpty = segments.filter((s) => s.text.trim() !== "");
-  if (nonEmpty.length <= 1) {
-    return { text: doc, scope: "document" };
-  }
-
-  // Find the segment the cursor sits in; a cursor between statements (in
-  // whitespace or on a separator) resolves to the nearest non-empty statement,
-  // preferring the one before it.
-  let idx = segments.findIndex((s) => cursor >= s.from && cursor <= s.to);
-  if (idx === -1) idx = segments.length - 1;
-  if (segments[idx].text.trim() === "") {
-    let j = idx;
-    while (j >= 0 && segments[j].text.trim() === "") j--;
-    if (j < 0) {
-      j = idx;
-      while (j < segments.length && segments[j].text.trim() === "") j++;
-    }
-    idx = Math.min(Math.max(j, 0), segments.length - 1);
-  }
-  return { text: segments[idx].text, scope: "statement" };
-}
-
-/** Human-readable Spanish label for a run scope, for the status indicator. */
-export function scopeLabel(scope: RunScope): string {
-  switch (scope) {
-    case "selection":
-      return "selección";
-    case "statement":
-      return "sentencia";
-    default:
-      return "documento";
-  }
+  return { text: doc, scope: "document" };
 }

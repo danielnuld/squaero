@@ -120,13 +120,13 @@ export function SqlEditor(props: {
     props.onChange(loaded, out);
   };
 
-  // Run what the user means: the selection, else the statement under the cursor,
-  // else the whole document (issue #130). Pure choice lives in runScope.ts.
+  // Run what the user means: the selection, else everything in the editor
+  // (issue #130). Pure choice lives in runScope.ts.
   const runFromView = () => {
     if (!view) return;
     const { doc, selection } = view.state;
-    const { from, to, head } = selection.main;
-    const target = pickRunTarget(doc.toString(), from, to, head);
+    const { from, to } = selection.main;
+    const target = pickRunTarget(doc.toString(), from, to);
     props.onRun(target.text, target.scope);
   };
 
@@ -276,8 +276,8 @@ export function SqlEditor(props: {
     lastSaveTick = tick;
     if (!view) return;
     const { doc, selection } = view.state;
-    const { from, to, head } = selection.main;
-    const target = pickRunTarget(doc.toString(), from, to, head);
+    const { from, to } = selection.main;
+    const target = pickRunTarget(doc.toString(), from, to);
     props.onSaveRequest?.(target.text, target.scope);
   });
 

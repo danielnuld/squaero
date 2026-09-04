@@ -94,12 +94,15 @@ describe("SqlEditor run scope (issue #130)", () => {
     expect(ran).toEqual({ sql: "SELECT * FROM t", scope: "document" });
   });
 
-  it("runs the statement under the cursor with scope 'statement'", () => {
+  it("runs the WHOLE document with several statements and no selection", () => {
+    // The cursor sitting in the first statement no longer runs only that one:
+    // Ejecutar means everything in the editor unless something is selected.
     let ran: { sql: string; scope?: RunScope } | null = null;
-    const view = mount("SELECT 1;\nSELECT 2;", (sql, scope) => (ran = { sql, scope }));
+    const doc = "SELECT 1;\nSELECT 2;";
+    const view = mount(doc, (sql, scope) => (ran = { sql, scope }));
     view.dispatch({ selection: { anchor: 2, head: 2 } }); // inside "SELECT 1"
     modEnter(view);
-    expect(ran).toEqual({ sql: "SELECT 1", scope: "statement" });
+    expect(ran).toEqual({ sql: doc, scope: "document" });
   });
 });
 
@@ -231,11 +234,12 @@ describe("SqlEditor save-as-snippet (issue #320)", () => {
     expect(e.asked()).toEqual({ sql: "SELECT 1", scope: "selection" });
   });
 
-  it("captures the statement under the cursor", () => {
-    const e = mount("SELECT 1;\nSELECT 2;");
+  it("captures the whole document when nothing is selected", () => {
+    const doc = "SELECT 1;\nSELECT 2;";
+    const e = mount(doc);
     e.view.dispatch({ selection: { anchor: 2, head: 2 } });
     e.save();
-    expect(e.asked()).toEqual({ sql: "SELECT 1", scope: "statement" });
+    expect(e.asked()).toEqual({ sql: doc, scope: "document" });
   });
 
   it("captures the whole document when there is one statement", () => {

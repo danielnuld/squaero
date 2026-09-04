@@ -119,7 +119,6 @@ export const en: Record<string, string> = {
   "snip.nameHint": "Enter to save · Esc to cancel",
   "snip.fallbackName": "query",
   "snip.scope.selection": "selection",
-  "snip.scope.statement": "statement",
   "snip.scope.document": "document",
   "snip.saved": "Saved “{name}” ({scope})",
   "snip.updated": "Updated “{name}” ({scope})",
@@ -547,7 +546,6 @@ export const en: Record<string, string> = {
 
   // run scope indicator
   "scope.selection": "selection",
-  "scope.statement": "statement",
   "scope.document": "document",
 
   // theme toggle / settings
