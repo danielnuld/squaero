@@ -2729,6 +2729,12 @@ export function App() {
                       tabColor(tab) ? { "border-left-color": tabColor(tab)! } : undefined
                     }
                     onClick={() => selectTab(tab.id)}
+                    /* Middle click closes it, the way a browser tab does
+                       (issue #459). The mousedown is cancelled as well, or
+                       Chromium answers the middle button with its autoscroll
+                       cursor before the click ever arrives. */
+                    onMouseDown={(e) => e.button === 1 && e.preventDefault()}
+                    onAuxClick={(e) => e.button === 1 && removeTab(tab.id, e)}
                     onKeyDown={(e) => onTabKeyDown(e, tab.id)}
                     onContextMenu={(e) => tabMenu(e, tab.id)}
                   >
