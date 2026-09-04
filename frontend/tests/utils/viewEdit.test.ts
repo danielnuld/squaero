@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildViewApply } from "../../src/utils/viewEdit";
+import { buildViewApply, runnableViewDdl } from "../../src/utils/viewEdit";
 
 describe("buildViewApply — CREATE OR REPLACE engines", () => {
   it("rewrites CREATE VIEW to CREATE OR REPLACE VIEW for mysql", () => {
@@ -62,5 +62,39 @@ describe("buildViewApply — rejects non-views", () => {
   });
   it("rejects empty text", () => {
     expect(buildViewApply("mysql", "   ", "v").ok).toBe(false);
+  });
+});
+
+describe("runnableViewDdl", () => {
+  it("shows a MySQL view in the form that can be run again", () => {
+    // What the engine returns cannot be re-executed: 1050 already exists.
+    const raw = "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `v` AS select 1";
+    expect(runnableViewDdl("mysql", raw, "`v`")).toBe(
+      "CREATE OR REPLACE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `v` AS select 1;",
+    );
+  });
+
+  it("shows both statements where the engine has no OR REPLACE", () => {
+    expect(runnableViewDdl("sqlite", "CREATE VIEW v AS SELECT 1", "v")).toBe(
+      "DROP VIEW IF EXISTS v;\n\nCREATE VIEW v AS SELECT 1;",
+    );
+  });
+
+  it("round-trips: what is shown applies cleanly", () => {
+    // The draft comes back carrying the drop; applying it must not stack a
+    // second one, nor read as "not a view definition".
+    const shown = runnableViewDdl("informix", "CREATE VIEW v AS SELECT 1", "v");
+    const plan = buildViewApply("informix", shown, "v");
+    expect(plan.ok).toBe(true);
+    if (plan.ok) expect(plan.statements).toEqual(["DROP VIEW IF EXISTS v", "CREATE VIEW v AS SELECT 1"]);
+  });
+
+  it("is idempotent on the engines that rewrite in place", () => {
+    const once = runnableViewDdl("postgres", "CREATE VIEW v AS SELECT 1", "v");
+    expect(runnableViewDdl("postgres", once, "v")).toBe(once);
+  });
+
+  it("leaves text that is not a view definition alone", () => {
+    expect(runnableViewDdl("mysql", "SELECT 1", "v")).toBe("SELECT 1");
   });
 });

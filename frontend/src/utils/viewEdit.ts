@@ -31,7 +31,15 @@ export function buildViewApply(
   ddl: string,
   fallbackName: string,
 ): ViewApplyResult {
-  const stmt = ddl.trim().replace(/;\s*$/, "");
+  // The definition is now SHOWN in its runnable form (issue #454), so on the
+  // engines without OR REPLACE an edited draft comes back carrying the leading
+  // DROP. Work from the CREATE — the drop is regenerated below for the engines
+  // that need it, and would otherwise be duplicated or read as "not a view".
+  const stmt = ddl
+    .trim()
+    .replace(/^drop\s+view\s+(?:if\s+exists\s+)?[^;]*;\s*/i, "")
+    .trim()
+    .replace(/;\s*$/, "");
   if (!/^\s*create\b[\s\S]*?\bview\b/i.test(stmt)) {
     return {
       ok: false,
@@ -60,4 +68,23 @@ export function buildViewApply(
   const m = /create\s+view\s+(?:if\s+not\s+exists\s+)?([\s\S]+?)\s+as[\s(]/i.exec(stmt);
   const name = m ? m[1].trim() : fallbackName;
   return { ok: true, statements: [`DROP VIEW IF EXISTS ${name}`, stmt] };
+}
+
+/**
+ * The definition as the user should SEE it: runnable as it stands (issue #454).
+ *
+ * What the engine hands back — `SHOW CREATE VIEW` and friends — is a plain
+ * `CREATE … VIEW`, which cannot run against a view that already exists: MySQL
+ * answers `1050 Table 'v' already exists`. The rewrite existed but only inside
+ * the Aplicar button, so the moment the text was copied into a query tab the
+ * error came back. Same rule, applied to the text on screen.
+ *
+ * Statements are separated by `;` and the last one carries it too, so the text
+ * can be copied straight into the editor and run (a script runs statement by
+ * statement — issues #441 and #452). Text that is not a view definition is
+ * returned untouched: showing it is still better than showing nothing.
+ */
+export function runnableViewDdl(engine: string, ddl: string, fallbackName: string): string {
+  const plan = buildViewApply(engine, ddl, fallbackName);
+  return plan.ok ? `${plan.statements.join(";\n\n")};` : ddl;
 }

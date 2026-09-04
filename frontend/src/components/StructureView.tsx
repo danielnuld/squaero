@@ -2,7 +2,7 @@ import { For, Show, createSignal, onMount } from "solid-js";
 import { schemaDescribe, schemaDdl, qualifiedName } from "../utils/schema";
 import { runQuery, type ResultSet } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
-import { buildViewApply } from "../utils/viewEdit";
+import { buildViewApply, runnableViewDdl } from "../utils/viewEdit";
 import { formatSql } from "../utils/sqlFormat";
 import { errorText } from "../utils/errors";
 import { Panel } from "./Panel";
@@ -55,7 +55,12 @@ export function StructureView(props: {
   const defLabel = () => (isView() ? "Definición" : "DDL");
 
   const loadDdl = async () => {
-    const sql = await schemaDdl(props.connId, props.table, props.db, props.schema);
+    const raw = await schemaDdl(props.connId, props.table, props.db, props.schema);
+    // A view is shown in the form that can actually be run (issue #454): what
+    // the engine returns is a plain CREATE, and running it against the view that
+    // already exists answers "1050 already exists". A table's DDL is left as it
+    // came — it is there to be read, not re-executed.
+    const sql = isView() ? runnableViewDdl(props.engine ?? "", raw, fallbackName()) : raw;
     setDdl(sql);
     return sql;
   };

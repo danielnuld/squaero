@@ -120,11 +120,13 @@ describe("StructureView view editing", () => {
     await flush();
     clickText("Editar definición");
     const ta = host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement;
-    // The mocked DDL is a single line; formatting spreads it across lines.
-    expect(ta.value.includes("\n")).toBe(false);
+    // SQLite has no OR REPLACE, so the definition is shown as the two statements
+    // that actually re-create the view (issue #454); formatting spreads them.
+    const before = ta.value;
+    expect(before).toMatch(/^drop view if exists/i);
     clickText("Formatear");
     const after = (host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement).value;
-    expect(after.includes("\n")).toBe(true);
+    expect(after.split("\n").length).toBeGreaterThan(before.split("\n").length);
     expect(after).toMatch(/create view/i);
   });
 
@@ -144,12 +146,12 @@ describe("StructureView view editing", () => {
     await flush();
     clickText("Editar definición");
     const ta = host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement;
-    expect(ta.value.includes("\n")).toBe(false);
+    const before = ta.value;
     ta.dispatchEvent(
       new KeyboardEvent("keydown", { key: "F", ctrlKey: true, shiftKey: true, bubbles: true }),
     );
     const after = (host!.querySelector("textarea.ddl-edit") as HTMLTextAreaElement).value;
-    expect(after.includes("\n")).toBe(true);
+    expect(after.split("\n").length).toBeGreaterThan(before.split("\n").length);
   });
 
   it("shows no edit button for a table", async () => {
