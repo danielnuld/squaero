@@ -9,6 +9,7 @@ import {
   type ObjectRef,
 } from "../utils/triggers";
 import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
+import { runnableRoutineDdl } from "../utils/routineDdl";
 import { objectBadge } from "../utils/objectIcons";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -99,6 +100,12 @@ export function TriggersExplorer(props: {
     return { name, table, id };
   };
 
+  // Shown in the form that can be run (issue #456), like a routine's or a view's:
+  // the catalogs hand back a plain CREATE, which the engine refuses for an object
+  // that already exists.
+  const runnable = (ddl: string | null, name: string) =>
+    ddl === null ? null : runnableRoutineDdl(props.engine, ddl, name);
+
   // Monotonic token so a slower earlier fetch can't overwrite a newer selection.
   let defToken = 0;
 
@@ -109,7 +116,7 @@ export function TriggersExplorer(props: {
     const inlineCol = support().inlineDefCol;
     if (inlineCol) {
       const ci = colIndex(inlineCol);
-      setDefinition(ci >= 0 ? (row[ci] ?? "") : "");
+      setDefinition(ci >= 0 ? runnable(row[ci] ?? "", ref.name) : "");
       return;
     }
     const query = definitionFor(props.engine, kind(), ref);
@@ -121,9 +128,10 @@ export function TriggersExplorer(props: {
     try {
       const res = await runQuery(connId, query.sql);
       if (token !== defToken || props.connId !== connId) return; // superseded
-      setDefinition(
+      setDefinition(runnable(
         readDefinitionText(res.columns.map((c) => c.name), res.rows, query.column, query.concatRows),
-      );
+        ref.name,
+      ));
     } catch (err) {
       if (token !== defToken || props.connId !== connId) return;
       setError(errorText(err));

@@ -17,6 +17,7 @@ import { runQuery } from "../utils/query";
 import { folderSpec, objectLeaves, readDefinitionText } from "../utils/treeObjects";
 import { definitionFor as routineDefinitionFor, type RoutineType } from "../utils/routines";
 import { definitionFor as objectDefinitionFor } from "../utils/triggers";
+import { runnableRoutineDdl } from "../utils/routineDdl";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { objectBadge, routineKind } from "../utils/objectIcons";
@@ -364,12 +365,16 @@ export function ObjectTree(props: {
   const openObjectDef = async (node: TreeNode) => {
     const connId = props.connId;
     if (!connId || !props.onOpenSql) return;
+    const engine = props.engine ?? "";
+    // Opened to be READ and re-run, so it opens in the form that runs (issue
+    // #456): a plain CREATE is what every catalog returns, and the engine
+    // refuses it for an object that already exists.
+    const runnable = (ddl: string) => runnableRoutineDdl(engine, ddl, node.label);
     // SQLite triggers carry their DDL in the listing row — open it directly.
     if (node.objDef) {
-      props.onOpenSql(node.objDef, node.label, defIdentity(node));
+      props.onOpenSql(runnable(node.objDef), node.label, defIdentity(node));
       return;
     }
-    const engine = props.engine ?? "";
     const query =
       node.kind === "routine"
         ? routineDefinitionFor(engine, {
@@ -390,7 +395,7 @@ export function ObjectTree(props: {
       if (myGen !== generation) return;
       const cols = res.columns.map((c) => c.name);
       const text = readDefinitionText(cols, res.rows, query.column, query.concatRows);
-      if (text) props.onOpenSql(text, node.label, defIdentity(node));
+      if (text) props.onOpenSql(runnable(text), node.label, defIdentity(node));
     } catch (err) {
       if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
     } finally {

@@ -105,3 +105,91 @@ describe("pickRunTarget", () => {
     });
   });
 });
+
+// Issue #456: a routine is ONE statement whose body is full of semicolons.
+// Splitting on them is what made a procedure's own DDL impossible to run back.
+describe("splitStatements keeps a routine body whole", () => {
+  const proc = [
+    "CREATE DEFINER=`root`@`%` PROCEDURE `alta`(IN n INT)",
+    "BEGIN",
+    "  DECLARE x INT;",
+    "  SET x = n;",
+    "  IF x > 0 THEN",
+    "    INSERT INTO t (a) VALUES (x);",
+    "  END IF;",
+    "END",
+  ].join("\n");
+
+  it("does not split a MySQL procedure at its inner semicolons", () => {
+    const stmts = splitStatements(`DROP PROCEDURE IF EXISTS alta;\n${proc};`, "mysql");
+    const texts = stmts.map((s) => s.text.trim()).filter((s) => s !== "");
+    expect(texts).toHaveLength(2);
+    expect(texts[0]).toBe("DROP PROCEDURE IF EXISTS alta");
+    expect(texts[1]).toBe(proc);
+  });
+
+  it("keeps splitting whatever follows the routine", () => {
+    const texts = splitStatements(`${proc};\nSELECT 1;\nSELECT 2`, "mysql")
+      .map((s) => s.text.trim())
+      .filter((s) => s !== "");
+    expect(texts).toEqual([proc, "SELECT 1", "SELECT 2"]);
+  });
+
+  it("counts nested BEGIN…END, so the body ends at the LAST end", () => {
+    const nested = "CREATE PROCEDURE p() BEGIN BEGIN SELECT 1; END; SELECT 2; END";
+    expect(splitStatements(`${nested};SELECT 3`, "mysql").map((s) => s.text.trim())).toEqual([
+      nested,
+      "SELECT 3",
+    ]);
+  });
+
+  it("ends a bodyless trigger at its own semicolon", () => {
+    // No BEGIN and no END: the first `;` is the terminator, or the rest of the
+    // script would be swallowed into it.
+    const sql = "CREATE TRIGGER t BEFORE INSERT ON x FOR EACH ROW SET @a = 1;\nSELECT 1";
+    expect(splitStatements(sql, "mysql").map((s) => s.text.trim())).toEqual([
+      "CREATE TRIGGER t BEFORE INSERT ON x FOR EACH ROW SET @a = 1",
+      "SELECT 1",
+    ]);
+  });
+
+  it("keeps an Informix body whole, which has no BEGIN at all", () => {
+    const spl = [
+      "CREATE PROCEDURE alta(n INT)",
+      "  DEFINE x INT;",
+      "  LET x = n;",
+      "  INSERT INTO t VALUES (x);",
+      "END PROCEDURE",
+    ].join("\n");
+    expect(splitStatements(`${spl};\nSELECT 1`, "informix").map((s) => s.text.trim())).toEqual([
+      spl,
+      "SELECT 1",
+    ]);
+  });
+
+  it("leaves an Informix trigger, which has no END, ending at its semicolon", () => {
+    const sql = "CREATE TRIGGER t UPDATE ON tab REFERENCING NEW AS n FOR EACH ROW (UPDATE o SET a = 1);\nSELECT 1";
+    expect(splitStatements(sql, "informix").map((s) => s.text.trim())).toHaveLength(2);
+  });
+
+  it("ignores semicolons inside a dollar-quoted body (Postgres)", () => {
+    const fn = [
+      "CREATE OR REPLACE FUNCTION f() RETURNS int AS $$",
+      "BEGIN",
+      "  PERFORM 1; PERFORM 2;",
+      "  RETURN 1;",
+      "END;",
+      "$$ LANGUAGE plpgsql",
+    ].join("\n");
+    expect(splitStatements(`${fn};\nSELECT 1`, "postgres").map((s) => s.text.trim())).toEqual([
+      fn,
+      "SELECT 1",
+    ]);
+  });
+
+  it("does not take a plain BEGIN block for a routine", () => {
+    expect(splitStatements("BEGIN; UPDATE t SET a = 1; COMMIT;").map((s) => s.text.trim())).toEqual(
+      ["BEGIN", "UPDATE t SET a = 1", "COMMIT", ""],
+    );
+  });
+});

@@ -1411,7 +1411,7 @@ export function App() {
     // a whole script in a single call (MySQL answers `PREPARE …; EXECUTE …;`
     // with a syntax error). A script is not pageable — turning the page would
     // re-run its DDL — so it gets no pageSql.
-    const stmts = splitStatements(trimmed)
+    const stmts = splitStatements(trimmed, conn.driver)
       .map((s) => s.text.trim())
       .filter((s) => s !== "");
     const script = stmts.length > 1;

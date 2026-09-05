@@ -255,9 +255,10 @@ describe("RoutineExplorer", () => {
     await flush();
     const defCall = calls.find((c) => c.sql.includes("sysprocbody"))!;
     expect(defCall.sql).toContain("b.procid = 101"); // pinned to the exact overload
-    // The two fragments are concatenated in seqno order into valid DDL.
+    // The two fragments are concatenated in seqno order into valid DDL, shown
+    // in the form that can be run back (issue #456).
     expect(host!.querySelector(".routine-ddl")!.textContent).toBe(
-      "CREATE PROCEDURE p_overload()\n  RETURN;\nEND PROCEDURE;",
+      "DROP PROCEDURE IF EXISTS p_overload;\n\nCREATE PROCEDURE p_overload()\n  RETURN;\nEND PROCEDURE;",
     );
   });
 

@@ -9,6 +9,7 @@ import {
   type RoutineType,
 } from "../utils/routines";
 import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
+import { runnableRoutineDdl } from "../utils/routineDdl";
 import { objectBadge, routineKind } from "../utils/objectIcons";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -97,6 +98,9 @@ export function RoutineExplorer(props: {
     return { name, type, schema, id };
   };
 
+  const runnable = (ddl: string | null, name: string) =>
+    ddl === null ? null : runnableRoutineDdl(props.engine, ddl, name);
+
   // Monotonic token so a slower earlier definition fetch can't overwrite the
   // result of a later selection (select A, then B, before A resolves).
   let defToken = 0;
@@ -113,9 +117,12 @@ export function RoutineExplorer(props: {
     try {
       const res = await runQuery(connId, q.sql);
       if (token !== defToken || props.connId !== connId) return; // superseded
-      setDefinition(
+      // Shown in the form that can be run (issue #456): what the catalog returns
+      // is a plain CREATE, and the panel's one offer is to open it in the editor.
+      setDefinition(runnable(
         readDefinitionText(res.columns.map((c) => c.name), res.rows, q.column, q.concatRows),
-      );
+        ref.name,
+      ));
     } catch (err) {
       if (token !== defToken || props.connId !== connId) return;
       setError(errorText(err));
