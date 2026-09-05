@@ -17,12 +17,29 @@ export async function connect(app: App): Promise<void> {
   // Wait for the popover itself, not for time: the list renders inside it.
   await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
   await page.getByRole("button", { name: new RegExp(engine.label) }).click();
-  // "Desconectar" only exists once a connection is open, so it is the signal.
-  await page.getByRole("button", { name: "Desconectar" }).waitFor();
+  // "Desconectar" only exists once a connection is open, so it is the signal —
+  // exact, because since #444 each explorer section carries its own "Desconectar
+  // <nombre>", and a substring match now resolves to two buttons.
+  await page.getByRole("button", { name: "Desconectar", exact: true }).waitFor();
+}
+
+/**
+ * Answers the "previous session" prompt (#465) with a clean start.
+ *
+ * A test or a capture that reloads mid-run has, by then, a workspace worth
+ * restoring — the app saves one as you work — so the prompt is up and its
+ * backdrop swallows every click. No-op when it is not showing.
+ */
+export async function startBlank(page: Page): Promise<void> {
+  const blank = page.getByRole("button", { name: "Empezar en blanco" });
+  await blank.waitFor({ state: "visible", timeout: 1500 }).catch(() => {});
+  if (await blank.isVisible().catch(() => false)) {
+    await blank.click();
+  }
 }
 
 export async function disconnect(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Desconectar" }).click();
+  await page.getByRole("button", { name: "Desconectar", exact: true }).click();
 }
 
 /**

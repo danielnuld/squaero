@@ -57,7 +57,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
 
     // And it actually works: open it and see the engine answer.
     await page.getByRole("button", { name: new RegExp(name) }).click();
-    await expect(page.getByRole("button", { name: "Desconectar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Desconectar", exact: true })).toBeVisible();
     expect(connect).toBeInstanceOf(Function); // the seeded path stays available
   });
 });

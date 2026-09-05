@@ -18,6 +18,7 @@ import { expect, test } from "@playwright/test";
 import { installBridge } from "../support/bridge";
 import { DEMO_CONNECTION, seedDemo } from "../support/demo";
 import { seedBrowserState } from "../support/state";
+import { startBlank } from "../support/app-actions";
 
 const OUT = join(import.meta.dirname, "..", "..", "..", "assets", "media");
 
@@ -66,10 +67,11 @@ test("capture the published screenshots", async ({ page }) => {
     /** Loads the app, connects, and opens the table the captions describe. */
     const openDemoTable = async () => {
       await page.goto("/");
+    await startBlank(page);
       await page.getByRole("button", { name: "Elegir conexión" }).click();
       await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
       await page.getByRole("button", { name: /Ventas \(demo\)/ }).click();
-      await page.getByRole("button", { name: "Desconectar" }).waitFor();
+      await page.getByRole("button", { name: "Desconectar", exact: true }).waitFor();
 
       const row = (name: string) =>
         page.getByRole("treeitem", { name, exact: true }).first();
@@ -91,8 +93,10 @@ test("capture the published screenshots", async ({ page }) => {
 
     // 1. The empty state, which is what someone sees first — the README's hero.
     await page.goto("/");
+    await startBlank(page);
     await setTheme("dark");
     await page.goto("/");
+    await startBlank(page);
     await expect(page.getByText("Sin conexión")).toBeVisible();
     await expectTheme("dark");
     await page.setViewportSize({ width: 1280, height: 800 });

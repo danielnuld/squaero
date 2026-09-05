@@ -24,6 +24,7 @@ import { expect, test } from "@playwright/test";
 import { installBridge } from "../support/bridge";
 import { DEMO_CONNECTION, seedDemo } from "../support/demo";
 import { seedBrowserState } from "../support/state";
+import { startBlank } from "../support/app-actions";
 
 const SIZE = { width: 1360, height: 860 };
 const SITE_VIDEO = join(import.meta.dirname, "..", "..", "..", "site", "video");
@@ -99,6 +100,7 @@ test("record the demo video", async ({ page }) => {
 
     // --- 1. Connect ---------------------------------------------------------
     await page.goto("/");
+    await startBlank(page);
     await expect(page.getByText("Sin conexión")).toBeVisible();
     await caption("Conecta a SQLite, MySQL, PostgreSQL, Informix o MongoDB");
     await beat(1600);
@@ -107,7 +109,7 @@ test("record the demo video", async ({ page }) => {
     await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
     await beat(700);
     await page.getByRole("button", { name: /Ventas \(demo\)/ }).click();
-    await page.getByRole("button", { name: "Desconectar" }).waitFor();
+    await page.getByRole("button", { name: "Desconectar", exact: true }).waitFor();
     await beat(900);
 
     // --- 2. Explore --------------------------------------------------------
@@ -136,8 +138,13 @@ test("record the demo video", async ({ page }) => {
     await beat(1100);
     await caption("Columnas, tipos y el DDL de la tabla");
     await menu.getByRole("menuitem", { name: "Ver estructura" }).click();
+    // Columns first, then the DDL: #408 moved it behind its own tab inside the
+    // panel, so the shot that used to show both now needs the click.
+    await expect(page.getByRole("tab", { name: "DDL" })).toBeVisible({ timeout: 20_000 });
+    await beat(1400);
+    await page.getByRole("tab", { name: "DDL" }).click();
     await expect(page.getByText(/CREATE TABLE/i).first()).toBeVisible({ timeout: 20_000 });
-    await beat(2200);
+    await beat(1800);
 
     // --- 3. Query ----------------------------------------------------------
     await caption("Escribe SQL con autocompletado por esquema");

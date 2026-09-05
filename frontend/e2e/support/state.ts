@@ -19,6 +19,7 @@ const KEYS = [
   "quaero.snippets",
   "quaero.notebooks",
   "quaero.settings",
+  "quaero.workspace",
   "quaero.theme",
   "quaero.skin",
   "quaero.groups.collapsed",
