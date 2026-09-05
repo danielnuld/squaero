@@ -10,6 +10,8 @@ import {
   updateTabSql,
   activeTab,
   serializeWorkspace,
+  worthRestoring,
+  restoreConnIds,
   parseWorkspace,
   objectTabKey,
   findObjectTab,
@@ -388,5 +390,53 @@ describe("closeTabsForConn", () => {
     s = { ...s, activeId: 1 };
     expect(closeTabsForConn(s, "c1").activeId).toBe(2);
     expect(closeTabsForConn(s, "c9")).toEqual(s);
+  });
+});
+
+// Issue #465: the saved session is offered, not applied — and resuming reopens
+// the connections its tabs are bound to.
+describe("worthRestoring", () => {
+  const q = (id: number, sql: string, connDefId?: string) => ({
+    id,
+    kind: "query" as const,
+    title: `Consulta ${id}`,
+    sql,
+    connDefId,
+  });
+
+  it("says no to the one empty tab the app would open anyway", () => {
+    expect(worthRestoring({ tabs: [q(1, "")], activeId: 1 })).toBe(false);
+    expect(worthRestoring({ tabs: [q(1, "   \n")], activeId: 1 })).toBe(false);
+  });
+
+  it("says yes to unrun SQL, and to more than one tab", () => {
+    expect(worthRestoring({ tabs: [q(1, "SELECT 1")], activeId: 1 })).toBe(true);
+    expect(worthRestoring({ tabs: [q(1, ""), q(2, "")], activeId: 1 })).toBe(true);
+  });
+});
+
+describe("restoreConnIds", () => {
+  const q = (id: number, connDefId?: string) => ({
+    id,
+    kind: "query" as const,
+    title: `Consulta ${id}`,
+    sql: "",
+    connDefId,
+  });
+
+  it("lists each connection once, the active tab's last", () => {
+    // Opening a connection focuses it, so the active tab's goes last and the
+    // focus lands where the user left it, with no second pass.
+    const state = { tabs: [q(1, "prod"), q(2, "dev"), q(3, "prod")], activeId: 2 };
+    expect(restoreConnIds(state)).toEqual(["prod", "dev"]);
+  });
+
+  it("keeps the plain order when the active tab has no connection", () => {
+    const state = { tabs: [q(1, "prod"), q(2, undefined), q(3, "dev")], activeId: 2 };
+    expect(restoreConnIds(state)).toEqual(["prod", "dev"]);
+  });
+
+  it("is empty when nothing was bound", () => {
+    expect(restoreConnIds({ tabs: [q(1), q(2)], activeId: 1 })).toEqual([]);
   });
 });

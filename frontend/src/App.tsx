@@ -28,6 +28,8 @@ import {
   objectTabKey,
   findObjectTab,
   setObjectKey,
+  worthRestoring,
+  restoreConnIds,
   type TabState,
   type QueryTab,
   type ToolTab,
@@ -192,6 +194,7 @@ import { ResultTabs } from "./components/ResultTabs";
 import { ObjectListView } from "./components/ObjectListView";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { RelatedData } from "./components/RelatedData";
+import { RestorePrompt } from "./components/RestorePrompt";
 import {
   relatedCount,
   relatedQueries,
@@ -328,8 +331,22 @@ export function App() {
   // The workspace comes back from the last session when there is one (issue
   // #401): the query you had not run yet is what a crash or a power cut takes,
   // and the history only keeps what was executed.
+  //
+  // It is now OFFERED rather than applied (issue #465): coming back is right
+  // when you were interrupted and wrong when you have moved on. A saved session
+  // worth asking about waits in `pendingRestore` while the app opens a blank
+  // tab behind the prompt — numbered from the stored `seq`, so nothing gets a
+  // recycled id whichever way the user answers (issue #355).
+  const stored = loadWorkspace();
+  const [pendingRestore, setPendingRestore] = createSignal<TabState | null>(
+    stored && worthRestoring(stored) ? stored : null,
+  );
   const [tabs, setTabs] = createSignal<TabState>(
-    loadWorkspace() ?? addTab({ tabs: [], activeId: 0 }, t("toolbar.newQuery.label")),
+    (pendingRestore() ? null : stored) ??
+      addTab(
+        { tabs: [], activeId: 0, seq: stored?.seq ?? 0 },
+        t("toolbar.newQuery.label"),
+      ),
   );
   const [results, setResults] = createStore<Record<number, TabResult>>({});
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
@@ -663,6 +680,10 @@ export function App() {
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   createEffect(() => {
     const state = tabs();
+    // Nothing is written while the restore prompt is up (issue #465): the blank
+    // tab behind it would overwrite the very session being offered, and a
+    // machine that dies with the dialog open would take it with no answer given.
+    if (pendingRestore()) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveWorkspace(state), 1000);
   });
@@ -671,6 +692,7 @@ export function App() {
   // of them a webview fires on close is not something to bet the buffer on.
   const flushWorkspace = () => {
     clearTimeout(saveTimer);
+    if (pendingRestore()) return; // the offer outlives the window, unanswered
     saveWorkspace(tabs());
   };
   const onHidden = () => {
@@ -1244,6 +1266,26 @@ export function App() {
       setConnError(t("conn.failed", { name: c.name, detail: f.detail ?? f.title }));
     } finally {
       setConnectingId(null);
+    }
+  };
+
+  // The answer to the restore prompt (issue #465). Resuming puts the saved tabs
+  // back AND reopens the connections they are bound to — a restored tab used to
+  // come back announcing that its connection was closed, which is not a session
+  // resumed, it is a list of things to reconnect by hand.
+  //
+  // Sequentially, because onConnect refuses a second open while one is in
+  // flight; the active tab's connection is opened last (restoreConnIds), so the
+  // focus ends where the user left it.
+  const resumeSession = async () => {
+    const saved = pendingRestore();
+    setPendingRestore(null);
+    if (!saved) return;
+    setTabs({ ...saved, seq: Math.max(saved.seq ?? 0, tabs().seq ?? 0) });
+    for (const defId of restoreConnIds(saved)) {
+      const c = connections().find((x) => x.id === defId);
+      // eslint-disable-next-line no-await-in-loop -- one open at a time by design
+      if (c) await onConnect(c);
     }
   };
 
@@ -3577,6 +3619,19 @@ export function App() {
           onOpenTab={relatedToTab}
           onClose={closeRelated}
         />
+      </Show>
+
+      <Show when={pendingRestore()}>
+        {(saved) => (
+          <RestorePrompt
+            tabCount={saved().tabs.length}
+            connections={restoreConnIds(saved())
+              .map((id) => connections().find((c) => c.id === id)?.name)
+              .filter((n): n is string => !!n)}
+            onResume={() => void resumeSession()}
+            onBlank={() => setPendingRestore(null)}
+          />
+        )}
       </Show>
 
       <ContextMenu />

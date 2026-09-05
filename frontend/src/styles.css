@@ -1893,6 +1893,9 @@ kbd {
   font-size: var(--fs-lg);
 }
 
+/* The connections the restore prompt would reopen: secondary to the choice. */
+.restore-conns { color: var(--text-dim); }
+
 /* Connection-form tabs (General / SSL / SSH): keep the form short instead of one
    long scroll. Only shown when the driver declares grouped fields. */
 .form-tabs {
