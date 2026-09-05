@@ -1,7 +1,7 @@
 # MongoDB document result model
 
 MongoDB is a document store: a collection holds heterogeneous BSON documents
-with no fixed schema. Quaero's result model (`docs/DRIVER_API.md`,
+with no fixed schema. Squaero's result model (`docs/DRIVER_API.md`,
 `core/include/dbcore/result.h`) is tabular — columns with a neutral type, cells
 as text. This note records how documents are mapped onto that model (issue #71)
 and why **no core/vtable/IPC change is required**.
@@ -35,7 +35,7 @@ mixed-type field is still exchanged losslessly.
 ### Why flatten rather than a single JSON column
 
 A one-column "document" result (each row a whole document as JSON) was the
-simpler alternative. Flattening was chosen because Quaero's UI is a tabular
+simpler alternative. Flattening was chosen because Squaero's UI is a tabular
 grid: users expect `name`, `age`, `city` as sortable columns, and the object
 tree / `describe_table` view can present a collection's inferred fields as
 "columns". Nested structure that has no scalar shape still degrades gracefully
@@ -43,7 +43,7 @@ to a JSON cell, so ragged documents are handled without exploding the grid.
 
 ## Query language
 
-Quaero's query channel hands a driver one command string. For MongoDB the user
+Squaero's query channel hands a driver one command string. For MongoDB the user
 writes a **mongosh-style** expression:
 
 ```

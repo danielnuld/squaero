@@ -6,7 +6,7 @@ body:
     id: problem
     attributes:
       label: Problem / motivation
-      description: What are you trying to do that Quaero doesn't support well today?
+      description: What are you trying to do that Squaero doesn't support well today?
     validations:
       required: true
   - type: textarea

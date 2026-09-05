@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Directives for any agent (human or AI) working on **Quaero**. Read this before touching code.
+Directives for any agent (human or AI) working on **Squaero**. Read this before touching code.
 
 ## Directives
 
@@ -16,7 +16,7 @@ Adhere to the rules in the [rules directory](./.rules/):
 
 ## The development line (follow on every change)
 
-This is the single, consistent workflow for all work on Quaero. The
+This is the single, consistent workflow for all work on Squaero. The
 [`quaero-feature`](./.claude/skills/quaero-feature/SKILL.md) skill expands it.
 
 1. **Understand first.** Use CodeGraph (`codegraph_*`) to locate symbols and

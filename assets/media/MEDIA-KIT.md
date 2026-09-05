@@ -1,4 +1,4 @@
-# Kit de medios de Quaero
+# Kit de medios de Squaero
 
 Material visual para la publicación (README, landing de M10.10, redes). Los
 assets de marca base (logo, wordmark, paleta) están en

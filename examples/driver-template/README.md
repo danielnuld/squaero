@@ -1,6 +1,6 @@
-# Quaero driver template
+# Squaero driver template
 
-The smallest driver that satisfies the [Quaero driver ABI](../../docs/DRIVER_API.md).
+The smallest driver that satisfies the [Squaero driver ABI](../../docs/DRIVER_API.md).
 Copy this folder as the starting point for a real driver.
 
 It talks to no database engine: it serves one fixed in-memory table so it
@@ -27,10 +27,10 @@ driver-template/
 
 ## Build it standalone
 
-First install the driver SDK from the Quaero source tree:
+First install the driver SDK from the Squaero source tree:
 
 ```sh
-cmake -S . -B build            # in the Quaero repo root
+cmake -S . -B build            # in the Squaero repo root
 cmake --install build --prefix ~/quaero-sdk --component ...   # or a full install
 ```
 
@@ -46,7 +46,7 @@ The output is `example.so` / `example.dll` / `example.dylib`. Drop it in the
 app's `drivers/` directory next to `quaero` and it loads as the driver named
 `example`.
 
-Built in-tree (as part of the main Quaero build), the same target is compiled
+Built in-tree (as part of the main Squaero build), the same target is compiled
 under the project's strict warnings — no separate install needed.
 
 ## Turn it into a real driver

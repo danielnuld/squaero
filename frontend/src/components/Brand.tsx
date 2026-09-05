@@ -15,7 +15,7 @@ export function BrandMark(props: { size?: number; title?: string }): JSX.Element
       height={s()}
       viewBox="0 0 128 128"
       role="img"
-      aria-label={props.title ?? "Quaero"}
+      aria-label={props.title ?? "Squaero"}
       fill="none"
     >
       <g stroke="var(--accent)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
@@ -30,17 +30,17 @@ export function BrandMark(props: { size?: number; title?: string }): JSX.Element
   );
 }
 
-// Isotipo + "Quaero" wordmark. `height` is the height in px; width scales.
+// Isotipo + "Squaero" wordmark. `height` is the height in px; width scales.
 export function BrandWordmark(props: { height?: number; title?: string }): JSX.Element {
   const h = () => props.height ?? 40;
-  const w = () => Math.round((h() * 372) / 128);
+  const w = () => Math.round((h() * 410) / 128);
   return (
     <svg
       width={w()}
       height={h()}
-      viewBox="0 0 372 128"
+      viewBox="0 0 410 128"
       role="img"
-      aria-label={props.title ?? "Quaero"}
+      aria-label={props.title ?? "Squaero"}
       fill="none"
     >
       <g transform="translate(4,8) scale(0.86)">
@@ -62,7 +62,7 @@ export function BrandWordmark(props: { height?: number; title?: string }): JSX.E
         letter-spacing="-1.5"
         fill="currentColor"
       >
-        Quaero
+        Squaero
       </text>
     </svg>
   );

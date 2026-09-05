@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Reproducible packer for the Quaero application icons (issue #190).
+// Reproducible packer for the Squaero application icons (issue #190).
 //
 // Input: a directory of square PNG rasterizations of the brand mark named
 //   s<size>.png (s16.png, s32.png, ...). These come from the brand source
@@ -8,7 +8,7 @@
 //
 // Output (into the target dir, default assets/icons/):
 //   quaero.ico   — Windows multi-resolution icon (PNG-compressed entries,
-//                  read by Windows Vista+; embedded in quaero.exe via the .rc)
+//                  read by Windows Vista+; embedded in squaero.exe via the .rc)
 //   quaero.icns  — macOS icon (PNG entries)
 //   hicolor/<n>x<n>/apps/quaero.png — Linux hicolor theme PNGs
 //

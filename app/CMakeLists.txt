@@ -23,6 +23,9 @@ FetchContent_MakeAvailable(webview)
 
 # --- App executable --------------------------------------------------------
 add_executable(quaero src/main.cc)
+# The CMake target keeps the old name — it is plumbing, like quaero_set_warnings
+# and the QUAERO_* options — while the FILE people launch is squaero.exe (#466).
+set_target_properties(quaero PROPERTIES OUTPUT_NAME squaero)
 target_link_libraries(quaero PRIVATE dbcore frontend_assets cjson webview::core)
 
 # Windows: embed a VERSIONINFO resource so Explorer/taskbar show the product
@@ -167,7 +170,7 @@ if(TARGET postgres_driver)
     else()
       message(WARNING "PostgreSQL driver: a shared libpq was linked (${PG_LIBRARY}) "
         "but pg_config --bindir is unavailable, so libpq.dll and its dependencies "
-        "cannot be staged next to quaero.exe — the plugin may fail to load at "
+        "cannot be staged next to squaero.exe — the plugin may fail to load at "
         "runtime. Install a static libpq or ensure pg_config is on PATH.")
     endif()
   endif()

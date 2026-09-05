@@ -55,7 +55,7 @@ export function UpdateModal(props: {
         >
           <div class="update-head">
             <span class="update-badge">Actualización</span>
-            <h2>Quaero {props.update!.version} disponible</h2>
+            <h2>Squaero {props.update!.version} disponible</h2>
             <p class="update-sub">Tienes la versión {props.currentVersion}.</p>
           </div>
 

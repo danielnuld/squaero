@@ -13,7 +13,7 @@ import { probeEngines } from "./support/seed";
 import { startHint } from "./support/engines";
 
 export default async function globalSetup(): Promise<void> {
-  // One binary for every engine: x86 is the architecture Quaero ships, so it is
+  // One binary for every engine: x86 is the architecture Squaero ships, so it is
   // the only one worth testing. Anything the x86 build cannot do is a real defect,
   // not something for the suite to route around.
   console.log(`[e2e] core bridge: ${binaryPath()}`);

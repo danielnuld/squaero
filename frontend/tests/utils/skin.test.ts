@@ -39,6 +39,6 @@ describe("skin (accent selection)", () => {
 
   it("labels both skins", () => {
     expect(skinLabel("blue")).toMatch(/Azul/);
-    expect(skinLabel("indigo")).toMatch(/índigo|Quaero/);
+    expect(skinLabel("indigo")).toMatch(/índigo|Squaero/);
   });
 });

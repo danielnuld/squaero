@@ -194,12 +194,12 @@ Informix ODBC Driver*. El `dsn` admite dos formas:
 | `odbc_dsn` | Forma alternativa: usa una fuente de datos ODBC ya configurada (`DSN=...`); ignora `host`/`server`/`driver`. |
 
 La forma directa requiere `host` + `port`/`service` + `server`; la forma DSN
-requiere `odbc_dsn`. El driver es de 32 bits (el CSDK lo es), por lo que Quaero
+requiere `odbc_dsn`. El driver es de 32 bits (el CSDK lo es), por lo que Squaero
 se compila en x86 — ver `cmake/toolchain-i686-mingw.cmake`.
 
 El equipo necesita el **IBM Informix Client SDK de 32 bits**: sin el controlador
 registrado en el registro ODBC de 32 bits, conectar falla con `IM002`. El MSI de
-Quaero lo trae dentro (`<installdir>/csdk`) cuando se construye en una máquina
+Squaero lo trae dentro (`<installdir>/csdk`) cuando se construye en una máquina
 que lo tenga instalado — ver `installer/build-msi.sh`. En las máquinas donde ya
 hay un CSDK instalado por IBM, el instalador respeta el existente y no toca su
 registro.

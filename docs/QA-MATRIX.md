@@ -1,6 +1,6 @@
 # Matriz de verificación: funcionalidad × motor
 
-Documento vivo (issue #194). Estado de **cada funcionalidad** de Quaero frente a
+Documento vivo (issue #194). Estado de **cada funcionalidad** de Squaero frente a
 **cada motor** soportado. Los issues de verificación por motor (#195 MySQL, #196
 SQLite, #197 Informix, #198 MongoDB) usan esta matriz como checklist y van
 cambiando ⏳ → ✅/⚠️/❌ a medida que se prueba en vivo. El smoke automatizado
@@ -69,7 +69,7 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 4. **MongoDB — describe:** los tipos/columnas se infieren muestreando ~200 documentos.
 5. **MongoDB — consulta:** sintaxis mongosh (`db.coll.find({...}).sort().limit()`),
    solo `find`/`aggregate` (lectura).
-6. **MongoDB — escritura:** «MongoDB es de solo lectura en Quaero (find/aggregate)»
+6. **MongoDB — escritura:** «MongoDB es de solo lectura en Squaero (find/aggregate)»
    → edición, import, generación, diseñador, sync no aplican.
 7. **MongoDB — detalle de fila:** disponible en modo lectura (sin editar).
 8. **Engine-agnóstico:** funciona sobre el conjunto de resultados/cliente, igual en

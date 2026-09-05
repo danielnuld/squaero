@@ -1,6 +1,6 @@
 # PostgreSQL driver
 
-A Quaero driver for PostgreSQL, built against **libpq** (the official C client).
+A Squaero driver for PostgreSQL, built against **libpq** (the official C client).
 It builds as a runtime-loaded plugin (`postgres.dll` / `postgres.so` /
 `postgres.dylib`) implementing the vtable in
 [`docs/DRIVER_API.md`](../../docs/DRIVER_API.md).

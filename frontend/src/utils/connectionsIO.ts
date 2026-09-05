@@ -64,7 +64,7 @@ export interface ImportSummary {
   skipped: number;
   /** Set when the file came from another tool (DBeaver, Navicat). */
   source?: ForeignSource;
-  /** Entries from another tool whose engine Quaero does not ship. */
+  /** Entries from another tool whose engine Squaero does not ship. */
   unsupported?: SkippedConnection[];
   /** Passwords brought across from the other tool. */
   passwords?: number;

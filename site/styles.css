@@ -1,4 +1,4 @@
-/* Shared styles for the Quaero landing (ES: index.html, EN: en/index.html).
+/* Shared styles for the Squaero landing (ES: index.html, EN: en/index.html).
    Extracted so both language pages stay in visual sync. No url() to assets, so
    it resolves the same whether linked from site/ or site/en/. */
 :root {

@@ -1,6 +1,6 @@
 # Iconos de aplicación
 
-Iconos de **Quaero** para las tres plataformas, derivados del isotipo de marca
+Iconos de **Squaero** para las tres plataformas, derivados del isotipo de marca
 ([`assets/brand/quaero-mark-solid.svg`](../brand/quaero-mark-solid.svg)). Se usa
 la variante **sólida** (disco índigo con el prompt calado) en todos los tamaños
 para que el icono sea consistente y legible incluso a 16px.
@@ -9,7 +9,7 @@ para que el icono sea consistente y legible incluso a 16px.
 
 | Archivo | Plataforma | Uso |
 |---|---|---|
-| `quaero.ico` | Windows | Icono multi-resolución (16–256). Se **embebe en `quaero.exe`** vía `app/quaero.rc.in` (recurso `1 ICON`), por lo que aparece en el Explorador, la barra de tareas y la ventana del webview. Lo consume también el MSI (M11 #40). |
+| `quaero.ico` | Windows | Icono multi-resolución (16–256). Se **embebe en `squaero.exe`** vía `app/quaero.rc.in` (recurso `1 ICON`), por lo que aparece en el Explorador, la barra de tareas y la ventana del webview. Lo consume también el MSI (M11 #40). |
 | `quaero.icns` | macOS | Icono del `.app` (M11 #40). Entradas PNG 16–512. |
 | `hicolor/<n>x<n>/apps/quaero.png` | Linux | Tema de iconos hicolor para AppImage/deb (M11 #40). |
 | `quaero.desktop` | Linux | Entrada de menú/lanzador (`Icon=quaero`, `StartupWMClass=quaero`). |

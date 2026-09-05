@@ -61,7 +61,7 @@ QUAERO_E2E_REQUIRE=sqlite,postgres,mysql pnpm e2e
 
 ### One architecture: x86
 
-Quaero ships as an x86 build — Informix forces it, because IBM's ODBC driver is
+Squaero ships as an x86 build — Informix forces it, because IBM's ODBC driver is
 32-bit only — so the suite drives the x86 build and nothing else. That is
 deliberate: if the shipped architecture cannot do something, the suite must go red
 rather than route around it through a build no user has. (It did, once: the x86

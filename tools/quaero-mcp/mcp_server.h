@@ -7,7 +7,7 @@
  * Model Context Protocol server core (issue #184).
  *
  * Speaks MCP (JSON-RPC 2.0) and translates its `tools/call` requests into the
- * Quaero core's own JSON-RPC (dbcore_ipc_handle), enforcing the security model:
+ * Squaero core's own JSON-RPC (dbcore_ipc_handle), enforcing the security model:
  * connections must be opted in, and writes are refused unless the connection is
  * explicitly writable (statements are vetted by the pure classifier).
  *

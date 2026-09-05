@@ -2,11 +2,11 @@
 #
 # This builds two ways:
 #
-#   * In-tree — Quaero's top-level build adds this directory (see the root
+#   * In-tree — Squaero's top-level build adds this directory (see the root
 #     CMakeLists) and the SDK target `quaero::driver_sdk` already exists, so CI
 #     compiles the template under the same strict warnings as the real drivers.
 #
-#   * Out-of-tree — a third party copies this folder, installs the Quaero driver
+#   * Out-of-tree — a third party copies this folder, installs the Squaero driver
 #     SDK (`cmake --install` of the main project, or a package), and builds it
 #     standalone. Then the target does not exist yet, so we find the installed
 #     package. This is the path a real driver author takes.
@@ -14,7 +14,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(quaero-driver-template
   VERSION 0.1.0
-  DESCRIPTION "Minimal Quaero database driver, ready to copy"
+  DESCRIPTION "Minimal Squaero database driver, ready to copy"
   LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)

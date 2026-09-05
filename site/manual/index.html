@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Manual de Quaero — guía de uso</title>
-<meta name="description" content="Manual de usuario de Quaero: conectar a SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB, explorar el esquema, consultar, editar datos en una transacción, importar y exportar, y las herramientas de servidor.">
+<title>Manual de Squaero — guía de uso</title>
+<meta name="description" content="Manual de usuario de Squaero: conectar a SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB, explorar el esquema, consultar, editar datos en una transacción, importar y exportar, y las herramientas de servidor.">
 
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="Quaero">
-<meta property="og:title" content="Manual de Quaero — guía de uso">
-<meta property="og:description" content="Cómo hacer cada tarea en Quaero: conexiones, consultas, edición transaccional, importar y exportar, y herramientas de servidor.">
-<meta property="og:url" content="https://danielnuld.github.io/quaero/manual/">
-<meta property="og:image" content="https://danielnuld.github.io/quaero/img/social-preview.png">
+<meta property="og:site_name" content="Squaero">
+<meta property="og:title" content="Manual de Squaero — guía de uso">
+<meta property="og:description" content="Cómo hacer cada tarea en Squaero: conexiones, consultas, edición transaccional, importar y exportar, y herramientas de servidor.">
+<meta property="og:url" content="https://danielnuld.github.io/squaero/manual/">
+<meta property="og:image" content="https://danielnuld.github.io/squaero/img/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" href="../assets/quaero-mark.svg" type="image/svg+xml">
@@ -21,12 +21,12 @@
 
 <header class="site">
   <div class="wrap nav">
-    <a class="brand" href="../" style="color:inherit"><img src="../assets/quaero-mark.svg" alt=""> Quaero</a>
+    <a class="brand" href="../" style="color:inherit"><img src="../assets/quaero-mark.svg" alt=""> Squaero</a>
     <nav class="links">
       <a href="../#features">Características</a>
       <a href="./">Manual</a>
       <a href="../#download">Descargas</a>
-      <a href="https://github.com/danielnuld/quaero" rel="noopener">GitHub</a>
+      <a href="https://github.com/danielnuld/squaero" rel="noopener">GitHub</a>
       <a class="btn" href="../#download">Descargar</a>
     </nav>
   </div>
@@ -54,7 +54,7 @@
   <article class="doc">
 
     <p class="eyebrow">Manual de usuario</p>
-    <h1>Cómo se usa Quaero</h1>
+    <h1>Cómo se usa Squaero</h1>
     <p class="lede">Una página, una tarea por apartado. Busca con <kbd>Ctrl</kbd>+<kbd>F</kbd>
       lo que quieras hacer; cada sección tiene su propio enlace para compartirla.</p>
 
@@ -65,7 +65,7 @@
       <h3>Instalar</h3>
       <ol class="steps">
         <li>Descarga <code>quaero-X.Y.Z-x86.msi</code> de la
-          <a href="https://github.com/danielnuld/quaero/releases" rel="noopener">página de versiones</a>.</li>
+          <a href="https://github.com/danielnuld/squaero/releases" rel="noopener">página de versiones</a>.</li>
         <li>Ábrelo y sigue el instalador. No hace falta instalar aparte ningún
           runtime: la interfaz va dentro del ejecutable y usa el WebView del sistema.</li>
         <li>Si quieres verificar la descarga, en la misma versión está
@@ -81,7 +81,7 @@
       <h3>La ventana, por partes</h3>
       <p>La primera vez la app abre maximizada y sin ninguna conexión:</p>
       <figure>
-        <img src="../img/screenshot-initial-dark.png" alt="Pantalla inicial de Quaero, sin conexiones" loading="lazy">
+        <img src="../img/screenshot-initial-dark.png" alt="Pantalla inicial de Squaero, sin conexiones" loading="lazy">
         <figcaption>La pantalla inicial. Todo empieza por crear una conexión.</figcaption>
       </figure>
       <ul>
@@ -165,7 +165,7 @@
         en el panel de conexiones, lee tres formatos y los reconoce por su contenido,
         no por la extensión:</p>
       <ul>
-        <li>El <b>export de Quaero</b> (JSON).</li>
+        <li>El <b>export de Squaero</b> (JSON).</li>
         <li><b>DBeaver</b>: <code>data-sources.json</code>. Selecciona a la vez el
           <code>credentials-config.json</code> que está a su lado y también vienen las
           contraseñas. Sus carpetas se convierten en grupos.</li>
@@ -174,7 +174,7 @@
       <p>De cada conexión llegan motor, host, puerto, base, usuario, el túnel SSH y la
         contraseña.</p>
       <div class="note">
-        <p><b>Lo que no puede traer, lo dice.</b> Un motor que Quaero no lleva
+        <p><b>Lo que no puede traer, lo dice.</b> Un motor que Squaero no lleva
           (Oracle, SQL Server) se reporta por su nombre en vez de mapearse a un driver
           que se le parezca, y una contraseña que no se puede leer —un archivo de
           Navicat 11, un <code>credentials-config.json</code> que no seleccionaste— se
@@ -555,14 +555,14 @@
       </ul>
 
       <h3>Una operación que el motor no soporta</h3>
-      <p>Quaero no finge. Si un motor no puede hacer algo, la app devuelve un error
+      <p>Squaero no finge. Si un motor no puede hacer algo, la app devuelve un error
         explícito en vez de aparentar que funcionó — y en varios sitios (datos
         relacionados, lista de objetos, diagrama ER) el propio panel explica por qué
         la acción no está disponible.</p>
 
       <h3>Reportar un fallo</h3>
-      <p>En <a href="https://github.com/danielnuld/quaero/issues" rel="noopener">GitHub
-        Issues</a>. Ayuda mucho decir el motor y su versión, la versión de Quaero
+      <p>En <a href="https://github.com/danielnuld/squaero/issues" rel="noopener">GitHub
+        Issues</a>. Ayuda mucho decir el motor y su versión, la versión de Squaero
         (está en <b>Acerca de</b>) y qué esperabas que pasara.</p>
     </section>
 
@@ -571,8 +571,8 @@
 
 <footer class="site">
   <div class="wrap row">
-    <span>Quaero — gestor de bases de datos ligero, local y libre.</span>
-    <span class="sp"><a href="../">Inicio</a> · <a href="https://github.com/danielnuld/quaero" rel="noopener">GitHub</a></span>
+    <span>Squaero — gestor de bases de datos ligero, local y libre.</span>
+    <span class="sp"><a href="../">Inicio</a> · <a href="https://github.com/danielnuld/squaero" rel="noopener">GitHub</a></span>
   </div>
 </footer>
 

@@ -26,7 +26,7 @@ describe("parseLatestRelease", () => {
   const rel = {
     tag_name: "v0.2.0",
     body: "### Novedades\n- multi-conexión",
-    html_url: "https://github.com/danielnuld/quaero/releases/tag/v0.2.0",
+    html_url: "https://github.com/danielnuld/squaero/releases/tag/v0.2.0",
     assets: [
       { name: "quaero-0.2.0-x86.msi", browser_download_url: "https://x/quaero-0.2.0-x86.msi" },
       { name: "sha256.txt", browser_download_url: "https://x/sha256.txt" },
@@ -37,7 +37,7 @@ describe("parseLatestRelease", () => {
     expect(parseLatestRelease(rel)).toEqual({
       version: "0.2.0",
       notes: "### Novedades\n- multi-conexión",
-      releaseUrl: "https://github.com/danielnuld/quaero/releases/tag/v0.2.0",
+      releaseUrl: "https://github.com/danielnuld/squaero/releases/tag/v0.2.0",
       downloadUrl: "https://x/quaero-0.2.0-x86.msi",
     });
   });

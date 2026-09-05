@@ -1,6 +1,6 @@
-# Cómo contribuir a Quaero
+# Cómo contribuir a Squaero
 
-¡Gracias por tu interés! Quaero está pensado para recibir aportes de dos comunidades:
+¡Gracias por tu interés! Squaero está pensado para recibir aportes de dos comunidades:
 
 - **Desarrolladores de sistemas / C** → núcleo y **drivers** de motores nuevos.
 - **Desarrolladores web** → la interfaz (frontend sobre webview).

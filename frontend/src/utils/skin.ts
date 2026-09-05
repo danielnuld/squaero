@@ -1,6 +1,6 @@
 // Accent "skin" selection. Orthogonal to the light/dark theme (theme.ts): the
 // skin only swaps the accent hue, so it layers over either theme. "indigo" is
-// the Quaero brand default (M10.8); "blue" is an alternate professional blue for
+// the Squaero brand default (M10.8); "blue" is an alternate professional blue for
 // users who prefer it. The CSS lives in styles.css keyed on the `data-skin`
 // attribute; App applies it on the root and persists the preference.
 
@@ -32,7 +32,7 @@ export function saveSkin(skin: SkinPref, storage?: Pick<Storage, "setItem">): vo
 
 /** Short label for the skin control. */
 export function skinLabel(skin: SkinPref): string {
-  return skin === "blue" ? "Estilo: Azul" : "Estilo: Quaero (índigo)";
+  return skin === "blue" ? "Estilo: Azul" : "Estilo: Squaero (índigo)";
 }
 
 /**

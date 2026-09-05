@@ -6,7 +6,7 @@
 /*
  * mongosh-style query parser.
  *
- * Quaero's query channel hands the driver a single command string (the vtable's
+ * Squaero's query channel hands the driver a single command string (the vtable's
  * `sql` argument). For MongoDB the user writes a mongosh-style expression:
  *
  *     db.<collection>.find(<filter?>, <projection?>)[.sort(<doc>)][.skip(<n>)][.limit(<n>)]

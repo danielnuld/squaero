@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Reproducible smoke test for a Quaero engine (issue #199). Drives the REAL core
+// Reproducible smoke test for a Squaero engine (issue #199). Drives the REAL core
 // + driver through the quaero-rpc stdio bridge — no webview — and reports ✅/❌
 // per step of the critical path:
 //   conectar → árbol → describe → SELECT paginado → insert/update/delete
@@ -160,7 +160,7 @@ async function sqlSmoke() {
 }
 
 async function mongoSmoke() {
-  // Read-only path: MongoDB is find/aggregate only in Quaero.
+  // Read-only path: MongoDB is find/aggregate only in Squaero.
   await step("conectar", async () => {
     const r = await rpc("conn.open", { driver, dsn });
     connId = r.connId;

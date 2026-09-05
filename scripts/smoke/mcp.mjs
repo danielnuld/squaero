@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Reproducible smoke test for the Quaero MCP server (issue #184). Spawns the
+// Reproducible smoke test for the Squaero MCP server (issue #184). Spawns the
 // real `quaero-mcp` binary and drives it over stdio (newline-delimited JSON),
 // asserting the security model against a throwaway SQLite database:
 //   initialize → tools/list → list_connections (no secrets, opt-in filter)

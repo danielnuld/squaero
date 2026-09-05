@@ -1,4 +1,4 @@
-/* Quaero base UI. Themed via CSS variables keyed on the root `data-theme`
+/* Squaero base UI. Themed via CSS variables keyed on the root `data-theme`
    attribute (issue #42): the default is dark; `data-theme="light"` swaps the
    palette. App resolves the user's preference (system/light/dark) and stamps
    the attribute. Layout is a full-height flex column: the work area on top, the
@@ -3644,7 +3644,7 @@ button.grid-action.danger:hover:not(:disabled) {
 /* One field vocabulary for the tool panels (#372, phase 2). Element selectors on
    purpose: fifteen fields across the panels carried no class at all and so
    rendered with the operating system's own look — the loudest single reason the
-   query builder read as a foreign dialog rather than as part of Quaero.
+   query builder read as a foreign dialog rather than as part of Squaero.
    The values are `.field input/select`'s, deliberately: that is the app's field
    look already, and answering the "everything looks different" report with a
    SECOND vocabulary would be the same mistake in a new place.

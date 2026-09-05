@@ -1,7 +1,7 @@
 # Dependencias de terceros y licencias
 
-Quaero se publica bajo [**GPLv3**](LICENSE). Este documento inventaría todo el
-software de terceros que entra en una compilación de Quaero, su licencia, cómo se
+Squaero se publica bajo [**GPLv3**](LICENSE). Este documento inventaría todo el
+software de terceros que entra en una compilación de Squaero, su licencia, cómo se
 enlaza y en qué artefacto se distribuye, y confirma la compatibilidad con la
 GPLv3 y la separación de los clientes de base de datos **propietarios**.
 
@@ -12,7 +12,7 @@ GPLv3 y la separación de los clientes de base de datos **propietarios**.
 
 ## Cómo llega cada dependencia a un build
 
-Quaero incorpora terceros por cuatro vías distintas, y eso determina la
+Squaero incorpora terceros por cuatro vías distintas, y eso determina la
 obligación de licencia:
 
 1. **Vendorizadas** (`third_party/`): código incluido en el repositorio y
@@ -96,9 +96,9 @@ Todas las licencias del inventario son compatibles con la GPLv3:
   LGPL.
 - **WebView2 / WKWebView** — componentes del **sistema operativo**. Enlazar contra
   la librería de sistema del SO está cubierto por la *system library exception*
-  de la GPL; no se redistribuye el runtime propietario dentro de Quaero.
+  de la GPL; no se redistribuye el runtime propietario dentro de Squaero.
 
-**Sin conflictos** para distribuir Quaero (núcleo + app + drivers de motores de
+**Sin conflictos** para distribuir Squaero (núcleo + app + drivers de motores de
 licencia abierta) bajo GPLv3.
 
 ## Separación de los drivers propietarios
@@ -151,7 +151,7 @@ máquina del usuario, a través de una frontera de proceso/carga dinámica.
 Incluye junto al binario el texto de licencia de cada componente **realmente
 enlazado en ese artefacto**:
 
-- Siempre: GPLv3 (Quaero), MIT (cJSON, webview, solid-js, CodeMirror), ISC (Lucide).
+- Siempre: GPLv3 (Squaero), MIT (cJSON, webview, solid-js, CodeMirror), ISC (Lucide).
 - Si trae el driver `sqlite`: aviso de dominio público de SQLite.
 - Si trae el driver `mysql`: LGPL-2.1 de MariaDB Connector/C.
 - Si trae el driver `mongodb`: Apache-2.0 + `NOTICE` de mongo-c-driver.

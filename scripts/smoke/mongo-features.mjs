@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Feature-level verification for MongoDB (issue #198), beyond the core-path
-// smoke (#199). MongoDB is read-only in Quaero (find/aggregate), so this checks
+// smoke (#199). MongoDB is read-only in Squaero (find/aggregate), so this checks
 // the read surface + honest rendering: collection tree, describe (field
 // inference by sampling), find + pagination, aggregate, and legible rendering
 // of special BSON types (ObjectId, ISODate, nested docs, arrays, Decimal128,

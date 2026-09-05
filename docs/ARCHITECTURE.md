@@ -1,6 +1,6 @@
 # Arquitectura
 
-Quaero separa estrictamente **núcleo** (lógica, en C) de **interfaz** (presentación, web sobre webview nativo). Esta separación permite testear el núcleo sin abrir ventanas, sustituir el frontend sin reescribir la lógica, y que dos comunidades distintas (sistemas / web) contribuyan en paralelo.
+Squaero separa estrictamente **núcleo** (lógica, en C) de **interfaz** (presentación, web sobre webview nativo). Esta separación permite testear el núcleo sin abrir ventanas, sustituir el frontend sin reescribir la lógica, y que dos comunidades distintas (sistemas / web) contribuyan en paralelo.
 
 ```
 ┌──────────────────────────────────────────────────────────┐

@@ -1,7 +1,7 @@
 # Cómo escribir un driver
 
-Guía paso a paso para dar soporte a un motor de base de datos nuevo en Quaero.
-Un driver es el camino más valioso para contribuir: cada uno abre Quaero a un
+Guía paso a paso para dar soporte a un motor de base de datos nuevo en Squaero.
+Un driver es el camino más valioso para contribuir: cada uno abre Squaero a un
 motor entero sin tocar el núcleo ni la interfaz.
 
 **Antes de empezar**, lee el [contrato de la vtable](DRIVER_API.md) — es la
@@ -30,7 +30,7 @@ tabla — nunca conoce detalles de tu motor. Reglas que no se negocian:
 
 ## Paso 0 — Prepara el SDK
 
-En el árbol de fuentes de Quaero el SDK ya está disponible como target
+En el árbol de fuentes de Squaero el SDK ya está disponible como target
 (`quaero::driver_sdk`). Para construir tu driver **fuera** del árbol, instálalo:
 
 ```sh

@@ -1,5 +1,5 @@
 name: "🐛 Bug report"
-description: Report a problem in Quaero
+description: Report a problem in Squaero
 labels: ["bug"]
 body:
   - type: textarea

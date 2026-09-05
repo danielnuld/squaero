@@ -15,7 +15,7 @@ const appVersion = readFileSync(
 
 // The single-file plugin inlines all JS/CSS/assets into one self-contained
 // dist/index.html, which is then embedded into the native binary
-// (see cmake/EmbedAssets.cmake). This is what keeps Quaero a single executable.
+// (see cmake/EmbedAssets.cmake). This is what keeps Squaero a single executable.
 export default defineConfig({
   plugins: [solid(), viteSingleFile()],
   define: {

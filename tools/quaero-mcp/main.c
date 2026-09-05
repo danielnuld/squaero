@@ -1,5 +1,5 @@
 /*
- * quaero-mcp — a Model Context Protocol server over Quaero's core (issue #184).
+ * quaero-mcp — a Model Context Protocol server over Squaero's core (issue #184).
  *
  * Exposes saved databases to MCP clients (Claude Code and others) as a small set
  * of read-only-by-default tools, reusing libdbcore and the real driver plugins.

@@ -1,7 +1,7 @@
 # Toolchain: 32-bit Windows (x86 / i686) via standalone MinGW-w64.
 #
 # Why x86: the IBM Informix Client SDK on this machine is 32-bit only, and
-# Windows cannot load a 32-bit driver DLL into a 64-bit host process. Quaero
+# Windows cannot load a 32-bit driver DLL into a 64-bit host process. Squaero
 # loads driver plugins in-process (LoadLibraryA), so the whole app — shell,
 # core, every driver and vendored lib — must be built x86 to use that CSDK.
 #

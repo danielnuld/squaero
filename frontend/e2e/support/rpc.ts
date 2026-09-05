@@ -40,7 +40,7 @@ const IS_WIN = process.platform === "win32";
 
 /**
  * The x86 build is the default because it is the only one that loads all five
- * drivers: the IBM Informix ODBC driver is 32-bit only, so an x64 Quaero cannot
+ * drivers: the IBM Informix ODBC driver is 32-bit only, so an x64 Squaero cannot
  * talk to Informix at all.
  */
 function defaultBinary(): string {

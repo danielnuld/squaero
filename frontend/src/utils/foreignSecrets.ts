@@ -5,7 +5,7 @@
 // derived from anything the user knows — so "encrypted" here means obfuscated
 // against a casual look at the file, not protected against its owner. These are
 // the user's own credentials, in files they exported themselves, being moved
-// into their own tool; Quaero already stores connection passwords in the clear
+// into their own tool; Squaero already stores connection passwords in the clear
 // (see connectionStore.ts, a deliberate maintainer decision), so nothing is
 // exposed here that was not exposed already.
 //

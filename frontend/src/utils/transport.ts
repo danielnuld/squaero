@@ -71,7 +71,7 @@ export async function call(
   const rpc = (globalThis as BridgeHost).quaeroRpc;
   if (typeof rpc !== "function") {
     throw new Error(
-      "Quaero bridge unavailable (not running inside the webview shell)",
+      "Squaero bridge unavailable (not running inside the webview shell)",
     );
   }
   const request = buildRequest(nextId(), method, params);

@@ -3,7 +3,7 @@ name: Release
 # Tag-triggered release (issue #41). Pushing a version tag (e.g. v0.5.5) builds
 # the x86 Windows app, packages the MSI, generates checksums, and publishes a
 # GitHub release with those artifacts attached. The build is x86 because the IBM
-# Informix ODBC driver is 32-bit only and Quaero loads drivers in-process, so the
+# Informix ODBC driver is 32-bit only and Squaero loads drivers in-process, so the
 # whole app must be x86 (see cmake/toolchain-i686-mingw.cmake, installer/quaero.wxs).
 #
 # Signing is not wired yet (no certificate available). The MSI ships unsigned
@@ -108,7 +108,7 @@ jobs:
           -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_LIBPQ=ON
 
       # Build everything so every driver plugin is produced and staged next to
-      # quaero.exe (build-x86/app/ + build-x86/app/drivers/), which the MSI ships.
+      # squaero.exe (build-x86/app/ + build-x86/app/drivers/), which the MSI ships.
       - name: Build
         shell: bash
         run: cmake --build build-x86
@@ -135,7 +135,7 @@ jobs:
       #       Sort-Object FullName | Select-Object -Last 1
       #     & $signtool.FullName sign /f cert.pfx /p $env:WINDOWS_PFX_PASSWORD `
       #       /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
-      #       "dist/quaero-${{ steps.tag.outputs.version }}-x86.msi"
+      #       "dist/squaero-${{ steps.tag.outputs.version }}-x86.msi"
       #     Remove-Item cert.pfx
       # ---------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ jobs:
       - name: Generate checksums
         shell: bash
         working-directory: dist
-        run: sha256sum "quaero-${{ steps.tag.outputs.version }}-x86.msi" > SHA256SUMS.txt
+        run: sha256sum "squaero-${{ steps.tag.outputs.version }}-x86.msi" > SHA256SUMS.txt
 
       - name: Publish the release
         shell: bash
@@ -155,9 +155,9 @@ jobs:
           # Attach to an existing release (created from the notes) or make one.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
-              "dist/quaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" --clobber
+              "dist/squaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" --clobber
           else
             gh release create "$TAG" \
-              "dist/quaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" \
-              --title "Quaero $TAG" --generate-notes
+              "dist/squaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" \
+              --title "Squaero $TAG" --generate-notes
           fi

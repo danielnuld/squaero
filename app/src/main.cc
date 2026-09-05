@@ -85,9 +85,9 @@ static void on_plugin_loaded(dbc_plugin *plugin, void *ctx)
     const dbc_driver_t *drv = dbc_plugin_driver(plugin);
     if (dbcore_runtime_register_driver(rt, drv) == DBC_OK) {
         g_plugins.push_back(plugin);
-        std::printf("Quaero: loaded driver '%s'\n", drv->name);
+        std::printf("Squaero: loaded driver '%s'\n", drv->name);
     } else {
-        std::fprintf(stderr, "Quaero: failed to register driver '%s'\n",
+        std::fprintf(stderr, "Squaero: failed to register driver '%s'\n",
                      drv != nullptr ? drv->name : "(unknown)");
         dbc_plugin_unload(plugin);
     }
@@ -99,7 +99,7 @@ static void on_plugin_error(const char *path, dbc_status status,
 {
     (void)status;
     (void)ctx;
-    std::fprintf(stderr, "Quaero: skipped plugin '%s': %s\n", path,
+    std::fprintf(stderr, "Squaero: skipped plugin '%s': %s\n", path,
                  message != nullptr ? message : "unknown error");
 }
 
@@ -110,22 +110,22 @@ static void load_drivers()
 {
     dbcore_runtime *rt = dbcore_runtime_get();
     if (rt == nullptr) {
-        std::fprintf(stderr, "Quaero: runtime unavailable; no drivers loaded\n");
+        std::fprintf(stderr, "Squaero: runtime unavailable; no drivers loaded\n");
         return;
     }
     std::string dir = executable_dir();
     if (dir.empty()) {
-        std::fprintf(stderr, "Quaero: could not resolve executable directory\n");
+        std::fprintf(stderr, "Squaero: could not resolve executable directory\n");
         return;
     }
     std::string drivers = dir + "/drivers";
     int loaded = dbc_plugin_scan_dir(drivers.c_str(), on_plugin_loaded,
                                      on_plugin_error, rt);
     if (loaded < 0) {
-        std::fprintf(stderr, "Quaero: no drivers directory at %s\n",
+        std::fprintf(stderr, "Squaero: no drivers directory at %s\n",
                      drivers.c_str());
     } else {
-        std::printf("Quaero: %d driver(s) registered\n", loaded);
+        std::printf("Squaero: %d driver(s) registered\n", loaded);
     }
 }
 
@@ -273,7 +273,7 @@ static void rpc_handler(const char *id, const char *req, void *arg)
     static bool first_call = true;
     if (first_call) {
         first_call = false;
-        std::printf("Quaero: frontend connected to the bridge\n");
+        std::printf("Squaero: frontend connected to the bridge\n");
 #if defined(_WIN32)
         // The interface has booted: swap the window's own background for it.
         reveal_ui(w);
@@ -337,7 +337,11 @@ static void load_frontend(webview_t w)
                 SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
             break;
         }
-        std::wstring dir = std::wstring(appdata) + L"\\Quaero\\ui";
+        // Only the index.html served as https://quaero.local, rewritten on every
+        // launch — so this folder CAN move with the rename (issue #466). What
+        // must not change is the host name below: the origin is what
+        // localStorage is keyed by, and it is a name, not a path.
+        std::wstring dir = std::wstring(appdata) + L"\\Squaero\\ui";
         SHCreateDirectoryExW(nullptr, dir.c_str(), nullptr);
         std::wstring file = dir + L"\\index.html";
 
@@ -379,11 +383,11 @@ static void load_frontend(webview_t w)
             break;
         }
         webview_navigate(w, "https://quaero.local/index.html");
-        std::printf("Quaero: UI served from https://quaero.local (persistent)\n");
+        std::printf("Squaero: UI served from https://quaero.local (persistent)\n");
         return;
     } while (0);
     std::fprintf(stderr,
-                 "Quaero: virtual-host setup failed; falling back to set_html "
+                 "Squaero: virtual-host setup failed; falling back to set_html "
                  "(settings will not persist across restarts)\n");
 #endif
     webview_set_html(w, html);
@@ -550,7 +554,7 @@ static void apply_startup_background(webview_t w)
     HRESULT hr = controller->QueryInterface(IID_ICoreWebView2Controller2,
                                             reinterpret_cast<void **>(&controller2));
     if (!SUCCEEDED(hr) || controller2 == nullptr) {
-        std::printf("Quaero: webview background not settable (older runtime)\n");
+        std::printf("Squaero: webview background not settable (older runtime)\n");
         return;  /* older WebView2 runtime: the class brush alone still helps */
     }
     COREWEBVIEW2_COLOR bg = {255, GetRValue(color), GetGValue(color), GetBValue(color)};
@@ -651,7 +655,7 @@ struct UpdateResult {
 };
 
 // UI thread: resolve/reject the JS promise; on success launch the MSI and quit
-// (a running quaero.exe would block the installer from replacing it).
+// (a running squaero.exe would block the installer from replacing it).
 static void finish_update(webview_t w, void *arg)
 {
     auto *r = static_cast<UpdateResult *>(arg);
@@ -718,13 +722,83 @@ static void download_install_handler(const char *id, const char *req, void *arg)
 }
 #endif
 
+#if defined(_WIN32)
+// The WebView2 profile, pinned by us instead of by the executable's file name
+// (issue #466).
+//
+// With no user-data folder given, WebView2 derives one from the EXE FILE NAME:
+// %APPDATA%\quaero.exe\EBWebView. Renaming the executable therefore opens a
+// BRAND NEW, EMPTY profile — and localStorage lives in that profile, so every
+// connection, snippet, notebook and setting would be gone. Not lost as in
+// deleted: still on disk, under a name nothing reads any more, which is worse
+// because it looks like the app wiped itself.
+//
+// So the folder is now ours and stays put whatever the executable is called,
+// and the one-time move brings the old profile's localStorage across. Only
+// `Local Storage` is copied: it is the ~50 KB that IS the user's data, while
+// the rest of the profile is 80 MB of Chromium cache that regenerates itself.
+// The old folder is left untouched — it costs nothing to keep as a fallback,
+// and deleting a user's data is not something an upgrade should decide.
+static void prepare_user_data_folder()
+{
+    wchar_t appdata[MAX_PATH];
+    if (!SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
+        return;  // no roaming profile: let WebView2 pick, rather than fail to start
+    }
+    const std::wstring base = std::wstring(appdata);
+    // WebView2 does not treat the folder it is given as the profile: it creates
+    // EBWebView INSIDE it (measured — which is also why the default one is
+    // %APPDATA%\quaero.exe\EBWebView). The copy has to land where the runtime
+    // will actually look, not one level above it, or the app starts empty with
+    // the data sitting right next to it.
+    const std::wstring udf = base + L"\\Squaero\\webview";
+    const std::wstring here = udf + L"\\EBWebView\\Default\\Local Storage";
+    const std::wstring there = base + L"\\quaero.exe\\EBWebView\\Default\\Local Storage";
+
+    const bool have_new = GetFileAttributesW(here.c_str()) != INVALID_FILE_ATTRIBUTES;
+    const bool have_old = GetFileAttributesW(there.c_str()) != INVALID_FILE_ATTRIBUTES;
+    if (!have_new && have_old) {
+        const std::wstring dest = udf + L"\\EBWebView\\Default";
+        SHCreateDirectoryExW(nullptr, dest.c_str(), nullptr);
+        // SHFileOperationW wants double-NUL-terminated path lists.
+        std::wstring from = there;
+        from.push_back(L'\0');
+        std::wstring to = dest;
+        to.push_back(L'\0');
+        SHFILEOPSTRUCTW op = {};
+        op.wFunc = FO_COPY;
+        op.pFrom = from.c_str();
+        op.pTo = to.c_str();
+        op.fFlags = FOF_NO_UI;
+        if (SHFileOperationW(&op) == 0 && !op.fAnyOperationsAborted) {
+            std::printf("Squaero: carried the previous profile's data over from "
+                        "%%APPDATA%%\\quaero.exe (the old folder is left as it is)\n");
+        } else {
+            std::fprintf(stderr,
+                         "Squaero: could not carry over the previous profile; the "
+                         "app starts with empty settings and the old data is still "
+                         "in %%APPDATA%%\\quaero.exe\n");
+        }
+    }
+
+    SHCreateDirectoryExW(nullptr, udf.c_str(), nullptr);
+    SetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", udf.c_str());
+}
+#endif
+
 int main()
 {
     // Unbuffered stdout so startup diagnostics are visible even when the
     // shell's output is redirected to a file or journal.
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-    std::printf("Quaero %s — starting webview shell\n", dbcore_version());
+    std::printf("Squaero %s — starting webview shell\n", dbcore_version());
+
+#if defined(_WIN32)
+    // MUST run before webview_create: it decides which profile the WebView2
+    // environment opens, and the user's data lives in that profile.
+    prepare_user_data_folder();
+#endif
 
     // Register driver plugins before the UI opens so conn.open can resolve them.
     load_drivers();
@@ -732,11 +806,11 @@ int main()
     webview_t w = webview_create(0, nullptr);
     if (w == nullptr) {
         std::fprintf(stderr,
-                     "Quaero: failed to create the webview window "
+                     "Squaero: failed to create the webview window "
                      "(is the WebView2/WebKit runtime available?)\n");
         return 1;
     }
-    webview_set_title(w, "Quaero");
+    webview_set_title(w, "Squaero");
 #if defined(_WIN32)
     apply_window_icon(w);
     apply_startup_background(w);

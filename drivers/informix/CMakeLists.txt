@@ -5,7 +5,7 @@
 # selects the registered "IBM INFORMIX ODBC DRIVER" at runtime via the
 # connection string. No proprietary IBM CSDK library is linked, so the plugin
 # builds wherever ODBC dev files are present. The CSDK itself is 32-bit on the
-# target machine — see cmake/toolchain-i686-mingw.cmake — so Quaero is built x86.
+# target machine — see cmake/toolchain-i686-mingw.cmake — so Squaero is built x86.
 #
 # The pure helpers (native + ODBC type mapping, connection-string builder) never
 # depend on ODBC and are always built and unit-tested, so a checkout without ODBC

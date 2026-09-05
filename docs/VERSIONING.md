@@ -1,6 +1,6 @@
 # Versionado
 
-Quaero tiene **una sola fuente de verdad** para la versión del producto: el
+Squaero tiene **una sola fuente de verdad** para la versión del producto: el
 archivo [`VERSION`](../VERSION) en la raíz del repositorio (formato SemVer,
 `MAJOR.MINOR.PATCH`, sin prefijo `v`).
 
@@ -11,7 +11,7 @@ De ese único archivo salen todas las demás:
 | Consumidor | Cómo la lee |
 |---|---|
 | **CMake** (`project(quaero VERSION …)`) | `file(STRINGS VERSION QUAERO_VERSION)` antes de `project()`. Expone `PROJECT_VERSION[_MAJOR/_MINOR/_PATCH]`. |
-| **Recurso VERSIONINFO de Windows** (`quaero.exe`) | `app/quaero.rc.in` → `configure_file(@ONLY)` con la versión de `project()`. Propiedades del .exe: ProductName, FileDescription, CompanyName, ProductVersion, FileVersion, Copyright. |
+| **Recurso VERSIONINFO de Windows** (`squaero.exe`) | `app/quaero.rc.in` → `configure_file(@ONLY)` con la versión de `project()`. Propiedades del .exe: ProductName, FileDescription, CompanyName, ProductVersion, FileVersion, Copyright. |
 | **Panel «Acerca de» (UI)** | `frontend/vite.config.ts` lee `../VERSION` y lo inyecta como `__APP_VERSION__`; `utils/version.ts` lo expone como `APP_VERSION` (issue #181). |
 | **Tag de release** | El tag debe coincidir: `vX.Y.Z` donde `X.Y.Z` == contenido de `VERSION`. |
 
@@ -64,9 +64,9 @@ integridad. Cuando exista un certificado Authenticode, se descomenta el paso
 
 ## Nombre del producto y ejecutable
 
-- **Nombre de producto:** `Quaero`.
-- **Ejecutable:** `quaero` (`quaero.exe` en Windows) — coincide con el target de
+- **Nombre de producto:** `Squaero`.
+- **Ejecutable:** `quaero` (`squaero.exe` en Windows) — coincide con el target de
   CMake `add_executable(quaero …)`.
-- **Título de la ventana:** `Quaero` (fijado por el shell nativo en `main.cc`).
-  La UI ajusta además el título del documento a `Quaero — <conexión activa>`
-  cuando hay una conexión abierta, y a `Quaero` cuando no.
+- **Título de la ventana:** `Squaero` (fijado por el shell nativo en `main.cc`).
+  La UI ajusta además el título del documento a `Squaero — <conexión activa>`
+  cuando hay una conexión abierta, y a `Squaero` cuando no.

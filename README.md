@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/media/social-preview.png" alt="Quaero — a lightweight, local, free database manager" width="820">
+  <img src="assets/media/social-preview.png" alt="Squaero — a lightweight, local, free database manager" width="820">
 </p>
 
 <p align="center">
@@ -11,12 +11,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/danielnuld/quaero/releases"><img alt="Release" src="https://img.shields.io/github/v/release/danielnuld/quaero?include_prereleases&sort=semver"></a>
+  <a href="https://github.com/danielnuld/squaero/releases"><img alt="Release" src="https://img.shields.io/github/v/release/danielnuld/squaero?include_prereleases&sort=semver"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-blue"></a>
   <img alt="Engines" src="https://img.shields.io/badge/engines-SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB-5b5bd6">
 </p>
 
-**Quaero** (Latin *quaero*, "I seek / I inquire") is a multi-engine database
+**Squaero** (Latin *quaero*, "I seek / I inquire") is a multi-engine database
 client with a **C core** (`libdbcore`) and a **web UI running on the OS-native
 webview** (WebView2 on Windows, WebKitGTK on Linux, WKWebView on macOS). A modern
 UI without the weight of Electron, and a native engine that talks directly to
@@ -75,13 +75,13 @@ engine never touches the core. See [how to write a driver](docs/WRITING_A_DRIVER
 - **Single executable** (embedded UI) + drivers as plugins. No Electron.
 
 <p align="center">
-  <img src="assets/media/screenshot-initial-dark.png" alt="Quaero — initial screen" width="820">
+  <img src="assets/media/screenshot-initial-dark.png" alt="Squaero — initial screen" width="820">
 </p>
 
 ## Install
 
 **Windows:** download the latest `.msi` installer from
-[**Releases**](https://github.com/danielnuld/quaero/releases) and run it. Requires
+[**Releases**](https://github.com/danielnuld/squaero/releases) and run it. Requires
 the **WebView2** runtime (already bundled in Windows 11). Every release attaches a
 `SHA256SUMS.txt` to verify the download:
 `sha256sum -c SHA256SUMS.txt` (or `CertUtil -hashfile quaero-*.msi SHA256`).

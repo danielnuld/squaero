@@ -94,7 +94,7 @@ configure_package_config_file(
   cmake/QuaeroDriverSDKConfig.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/QuaeroDriverSDKConfig.cmake"
   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QuaeroDriverSDK)
-# The package version tracks the Quaero release; runtime compatibility is the
+# The package version tracks the Squaero release; runtime compatibility is the
 # separate DBC_ABI_VERSION check the loader applies (see driver.h).
 write_basic_package_version_file(
   "${CMAKE_CURRENT_BINARY_DIR}/QuaeroDriverSDKConfigVersion.cmake"

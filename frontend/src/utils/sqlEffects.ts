@@ -6,7 +6,7 @@
 // tree to reload; SQL typed in the editor never did — and the editor is the only
 // way to create a stored routine, which is how this surfaced. Engine-neutral: it
 // looks at the leading verb of each statement, which is the same on every engine
-// Quaero speaks.
+// Squaero speaks.
 
 import { scrub } from "./queryTarget";
 

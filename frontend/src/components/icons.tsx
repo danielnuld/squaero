@@ -1,6 +1,6 @@
 // Toolbar icon set.
 //
-// Twelve inline SVGs instead of a dependency, because Quaero ships as a single
+// Twelve inline SVGs instead of a dependency, because Squaero ships as a single
 // self-contained index.html embedded in the binary: there is no CDN to fetch from,
 // and an icon font would be all-or-nothing — thousands of glyphs paid for to use
 // twelve. Inline SVG only carries what is used, and inherits its colour through

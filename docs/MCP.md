@@ -1,6 +1,6 @@
-# Quaero MCP server (`quaero-mcp`)
+# Squaero MCP server (`quaero-mcp`)
 
-`quaero-mcp` exposes your Quaero databases to [Model Context
+`quaero-mcp` exposes your Squaero databases to [Model Context
 Protocol](https://modelcontextprotocol.io) clients — Claude Code and any other
 MCP host — as a small set of **read-only-by-default** tools. It reuses the same
 C core (`libdbcore`) and driver plugins the desktop app uses, speaking MCP
@@ -46,7 +46,7 @@ refuse writes unless you deliberately allow them:
    ```
 
    On Windows, point at `quaero-mcp.exe` and the installed `drivers` directory,
-   e.g. `C:\Program Files\Quaero\quaero-mcp.exe` and `C:\Program Files\Quaero\drivers`.
+   e.g. `C:\Program Files\Squaero\quaero-mcp.exe` and `C:\Program Files\Squaero\drivers`.
 
    `--drivers` may be omitted; the server then looks for a `drivers` directory
    next to the executable. `--connections` may also be supplied via the

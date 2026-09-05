@@ -2,7 +2,7 @@
 #define DBCORE_DRIVER_H
 
 /*
- * Quaero driver ABI — the vtable contract between libdbcore and a database
+ * Squaero driver ABI — the vtable contract between libdbcore and a database
  * driver plugin.
  *
  * A driver is a shared library (.dll/.so/.dylib) that exports a single entry

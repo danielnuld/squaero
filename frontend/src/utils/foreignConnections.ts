@@ -1,4 +1,4 @@
-// Reading connection lists exported by OTHER database tools, so moving to Quaero
+// Reading connection lists exported by OTHER database tools, so moving to Squaero
 // does not start with retyping thirty servers by hand. Two formats:
 //
 //   - DBeaver's `data-sources.json` (the workspace file, or the one its
@@ -46,7 +46,7 @@ export interface ForeignImport {
  * Which tool wrote this file, or null when it is neither.
  *
  * Sniffed from the content, not the extension: DBeaver's file is `.json` like
- * Quaero's own, and people rename things.
+ * Squaero's own, and people rename things.
  */
 export function detectForeign(raw: string): ForeignSource | null {
   const head = raw.slice(0, 4096);
@@ -76,7 +76,7 @@ function put(params: Record<string, string>, key: string, value: string): void {
 }
 
 /**
- * The engines Quaero ships, keyed by every name the two tools use for them.
+ * The engines Squaero ships, keyed by every name the two tools use for them.
  *
  * An engine that is missing here is not a bug to paper over: the import reports
  * it as skipped and says which engine it was, because a connection silently
@@ -101,7 +101,7 @@ const ENGINES: Record<string, string> = {
   mongodbconn: "mongodb",
 };
 
-/** The Quaero driver for a foreign engine name, or "" when we do not ship it. */
+/** The Squaero driver for a foreign engine name, or "" when we do not ship it. */
 export function driverFor(engine: string): string {
   return ENGINES[engine.trim().toLowerCase().replace(/[\s_-]/g, "")] ?? "";
 }

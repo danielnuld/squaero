@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/media/social-preview.png" alt="Quaero — gestor de bases de datos ligero, local y libre" width="820">
+  <img src="assets/media/social-preview.png" alt="Squaero — gestor de bases de datos ligero, local y libre" width="820">
 </p>
 
 <p align="center">
@@ -11,12 +11,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/danielnuld/quaero/releases"><img alt="Release" src="https://img.shields.io/github/v/release/danielnuld/quaero?include_prereleases&sort=semver"></a>
+  <a href="https://github.com/danielnuld/squaero/releases"><img alt="Release" src="https://img.shields.io/github/v/release/danielnuld/squaero?include_prereleases&sort=semver"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-blue"></a>
   <img alt="Motores" src="https://img.shields.io/badge/motores-SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB-5b5bd6">
 </p>
 
-**Quaero** (del latín *quaero*, «yo busco/indago») es un cliente de bases de datos
+**Squaero** (del latín *quaero*, «yo busco/indago») es un cliente de bases de datos
 multi-motor con un **núcleo en C** (`libdbcore`) y una **interfaz web sobre el
 webview nativo del sistema operativo** (WebView2 en Windows, WebKitGTK en Linux,
 WKWebView en macOS). Una UI moderna sin el peso de Electron, y un motor nativo que
@@ -76,13 +76,13 @@ en C: agregar un motor no requiere tocar el núcleo. Ver
 - **Un solo ejecutable** (UI incrustada) + drivers como plugins. Sin Electron.
 
 <p align="center">
-  <img src="assets/media/screenshot-initial-dark.png" alt="Quaero — pantalla inicial" width="820">
+  <img src="assets/media/screenshot-initial-dark.png" alt="Squaero — pantalla inicial" width="820">
 </p>
 
 ## Instalación
 
 **Windows:** descarga el instalador `.msi` más reciente desde
-[**Releases**](https://github.com/danielnuld/quaero/releases) y ejecútalo. Requiere
+[**Releases**](https://github.com/danielnuld/squaero/releases) y ejecútalo. Requiere
 el runtime de **WebView2** (ya incluido en Windows 11). Cada release adjunta un
 `SHA256SUMS.txt` para verificar la descarga:
 `sha256sum -c SHA256SUMS.txt` (o `CertUtil -hashfile quaero-*.msi SHA256`).

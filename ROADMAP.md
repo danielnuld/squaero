@@ -1,4 +1,4 @@
-# Plan de desarrollo — Quaero
+# Plan de desarrollo — Squaero
 
 Este documento describe las fases del proyecto. Cada fase es un **milestone** en GitHub y agrupa los issues que la componen. La estrategia es construir un **camino vertical delgado de punta a punta** (conectar → consultar → ver resultados) y luego ensanchar funcionalidad y motores.
 

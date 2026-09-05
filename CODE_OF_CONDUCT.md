@@ -3,7 +3,7 @@
 ## Nuestro compromiso
 
 Nosotros, como miembros, colaboradores y administradores de la comunidad, nos
-comprometemos a hacer de la participación en Quaero una experiencia libre de
+comprometemos a hacer de la participación en Squaero una experiencia libre de
 acoso para todo el mundo, con independencia de la edad, dimensión corporal,
 discapacidad visible o invisible, etnia, características sexuales, identidad y
 expresión de género, nivel de experiencia, educación, nivel socioeconómico,

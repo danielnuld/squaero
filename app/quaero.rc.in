@@ -1,4 +1,4 @@
-// Windows version resource for quaero.exe (issue #192).
+// Windows version resource for squaero.exe (issue #192).
 // Generated from this template by CMake configure_file(@ONLY); the version comes
 // from the top-level VERSION file via project() — do not hardcode a version here.
 // ASCII only on purpose: keeps the resource portable across the MSVC rc compiler
@@ -25,12 +25,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "Daniel Nunez Lopez"
-            VALUE "FileDescription", "Quaero - Modern, lightweight, multi-engine database client"
+            VALUE "FileDescription", "Squaero - Modern, lightweight, multi-engine database client"
             VALUE "FileVersion", "@QUAERO_VERSION@"
             VALUE "InternalName", "quaero"
             VALUE "LegalCopyright", "Copyright (C) 2026 Daniel Nunez Lopez. GPL-3.0-or-later."
-            VALUE "OriginalFilename", "quaero.exe"
-            VALUE "ProductName", "Quaero"
+            VALUE "OriginalFilename", "squaero.exe"
+            VALUE "ProductName", "Squaero"
             VALUE "ProductVersion", "@QUAERO_VERSION@"
         END
     END

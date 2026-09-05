@@ -3,7 +3,7 @@
   "version": "0.22.0",
   "private": true,
   "type": "module",
-  "description": "Quaero web UI (rendered in the OS webview)",
+  "description": "Squaero web UI (rendered in the OS webview)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

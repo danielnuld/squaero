@@ -59,7 +59,7 @@ export const test = base.extend<Options & Fixtures, WorkerFixtures>({
 
   // One core process per worker: starting it costs loading five plugins, and the
   // isolation tests need is of connections and data, not of processes. One binary
-  // reaches every engine, because x86 is the architecture Quaero ships.
+  // reaches every engine, because x86 is the architecture Squaero ships.
   rpc: [
     async ({}, use) => {
       const client = await startRpc();

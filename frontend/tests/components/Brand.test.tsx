@@ -28,7 +28,7 @@ describe("Brand", () => {
     const svg = host!.querySelector("svg")!;
     expect(svg).not.toBeNull();
     expect(svg.getAttribute("role")).toBe("img");
-    expect(svg.getAttribute("aria-label")).toBe("Quaero");
+    expect(svg.getAttribute("aria-label")).toBe("Squaero");
     expect(svg.getAttribute("width")).toBe("64");
     expect(svg.getAttribute("height")).toBe("64");
     // Strokes track the theme via the accent variable, never a hardcoded color.
@@ -42,13 +42,13 @@ describe("Brand", () => {
     expect(svg.getAttribute("width")).toBe("32");
   });
 
-  it("BrandWordmark renders the Quaero text and scales width to height", () => {
+  it("BrandWordmark renders the Squaero text and scales width to height", () => {
     mount(() => <BrandWordmark height={128} />);
     const svg = host!.querySelector("svg")!;
-    expect(svg.textContent).toContain("Quaero");
-    // 372:128 aspect ratio → at height 128 the width is 372.
+    expect(svg.textContent).toContain("Squaero");
+    // 410:128 aspect ratio (one letter wider since the rename, issue #466) → at height 128 the width is 410.
     expect(svg.getAttribute("height")).toBe("128");
-    expect(svg.getAttribute("width")).toBe("372");
+    expect(svg.getAttribute("width")).toBe("410");
     // Wordmark text uses currentColor so it follows the theme foreground.
     expect(host!.innerHTML).toContain("currentColor");
   });

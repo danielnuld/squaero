@@ -7,7 +7,7 @@ The frontend is the web UI rendered in the OS webview.
    database types — it consumes the JSON model the core sends.
 2. **Virtualization is mandatory.** Never render rows or tree nodes outside the
    viewport. Grids and object trees page/lazy-load against the core. This is the
-   core reason Quaero stays fast — treat it as a hard requirement, not an
+   core reason Squaero stays fast — treat it as a hard requirement, not an
    optimization.
 3. **Format from metadata, not inference.** Each column carries its neutral
    `type`; the UI formats based on it and never guesses from values.

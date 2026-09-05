@@ -7,7 +7,7 @@
 # Static link => the plugin (mysql.dll) carries the client and its auth plugins
 # inside it: no libmariadb.dll to ship and no external plugin directory to locate.
 # TLS is OFF — the connector's Secure Channel backend needs wincrypt constants
-# absent from the i686 MinGW headers, and Quaero's saved connections do not
+# absent from the i686 MinGW headers, and Squaero's saved connections do not
 # request TLS.
 #
 # Both auth plugins MySQL/MariaDB servers actually default to must be among those

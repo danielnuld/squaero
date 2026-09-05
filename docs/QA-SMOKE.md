@@ -1,6 +1,6 @@
 # Smoke suite por motor
 
-Verificación reproducible del camino crítico de Quaero contra un motor real
+Verificación reproducible del camino crítico de Squaero contra un motor real
 (issue #199). No usa el webview: el binario `quaero-rpc` (tool en C) canaliza
 JSON-RPC por stdin al **núcleo real + driver real**, y `scripts/smoke/smoke.mjs`
 ejecuta la secuencia paso a paso reportando ✅/❌.

@@ -14,4 +14,4 @@ export const APP_VERSION: string =
   typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
 
 /** Public source repository, linked from About. */
-export const REPO_URL = "https://github.com/danielnuld/quaero";
+export const REPO_URL = "https://github.com/danielnuld/squaero";

@@ -1,5 +1,5 @@
 /*
- * Example / template driver — the smallest thing that satisfies the Quaero
+ * Example / template driver — the smallest thing that satisfies the Squaero
  * driver ABI (see core/include/dbcore/driver.h and docs/DRIVER_API.md).
  *
  * It implements ONLY the required members of the vtable and advertises no

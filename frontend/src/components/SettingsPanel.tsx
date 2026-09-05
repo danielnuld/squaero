@@ -29,7 +29,7 @@ const THEME_OPTS: { value: ThemePref; label: string }[] = [
 ];
 
 const SKIN_OPTS: { value: SkinPref; label: string }[] = [
-  { value: "indigo", label: "Quaero (índigo)" },
+  { value: "indigo", label: "Squaero (índigo)" },
   { value: "blue", label: "Azul" },
 ];
 

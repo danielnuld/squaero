@@ -1,5 +1,5 @@
 /*
- * quaero-rpc — a thin stdio bridge to the Quaero core's JSON-RPC dispatcher.
+ * quaero-rpc — a thin stdio bridge to the Squaero core's JSON-RPC dispatcher.
  *
  * It loads every driver plugin found in a directory, then reads one JSON-RPC
  * request per line from stdin, hands it to dbcore_ipc_handle, and prints the

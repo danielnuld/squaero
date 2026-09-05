@@ -1,6 +1,6 @@
 # Sitio (landing page) — GitHub Pages
 
-Landing page de Quaero. Sitio **estático puro** (HTML/CSS, sin frameworks, sin
+Landing page de Squaero. Sitio **estático puro** (HTML/CSS, sin frameworks, sin
 paso de build) para poder publicarse en **GitHub Pages clásico por rama**, sin
 depender de GitHub Actions.
 
@@ -79,7 +79,7 @@ bash site/publish.sh
 El script hace un commit de árbol de `site/` en `gh-pages` y lo empuja. Luego,
 una sola vez, en **Settings → Pages** del repo: *Source = Deploy from a branch*,
 *Branch = `gh-pages` / (root)*. La URL queda en
-`https://danielnuld.github.io/quaero/`.
+`https://danielnuld.github.io/squaero/`.
 
 > Alternativa equivalente: *Source = main, carpeta `/docs`* — no se usa aquí
 > porque `/docs` ya contiene la documentación de desarrollo.

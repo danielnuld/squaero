@@ -36,7 +36,7 @@ target_compile_definitions(dbcore PRIVATE QUAERO_VERSION=\"${PROJECT_VERSION}\")
 quaero_set_warnings(dbcore)
 
 # cJSON is an internal implementation detail (PRIVATE): it is never exposed
-# through a public Quaero header, so it does not propagate to consumers.
+# through a public Squaero header, so it does not propagate to consumers.
 target_link_libraries(dbcore PRIVATE cjson)
 
 # The dynamic driver loader needs the platform dl library (libdl on Linux;

@@ -8,7 +8,7 @@
 import { REPO_URL } from "./version";
 import { resolveStore } from "./kvStore";
 
-const LATEST_URL = "https://api.github.com/repos/danielnuld/quaero/releases/latest";
+const LATEST_URL = "https://api.github.com/repos/danielnuld/squaero/releases/latest";
 const SKIP_KEY = "quaero.update.skip";
 
 export interface UpdateInfo {

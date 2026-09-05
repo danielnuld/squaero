@@ -1,6 +1,6 @@
 # SQLite driver
 
-The reference Quaero driver and the template for all others: pure C, serverless,
+The reference Squaero driver and the template for all others: pure C, serverless,
 built against the vendored SQLite amalgamation (`third_party/sqlite`). It builds
 as a runtime-loaded plugin (`sqlite.dll` / `sqlite.so` / `sqlite.dylib`)
 implementing the vtable in [`docs/DRIVER_API.md`](../../docs/DRIVER_API.md).

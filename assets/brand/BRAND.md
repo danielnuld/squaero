@@ -1,14 +1,14 @@
-# Quaero — Guía de marca
+# Squaero — Guía de marca
 
-Identidad visual de **Quaero**, el cliente de bases de datos multi‑motor.
+Identidad visual de **Squaero**, el cliente de bases de datos multi‑motor.
 Estos assets son la fuente única de verdad para el logo, los colores y la
 tipografía. No re‑dibujes ni recolores el logo fuera de lo aquí documentado.
 
 ## Nombre
 
-**Quaero** (del latín *quaero*: «yo busco, indago, pregunto»). El nombre alude
+**Squaero** (del latín *quaero*: «yo busco, indago, pregunto»). El nombre alude
 directamente a la acción de consultar. Escríbelo siempre capitalizado como
-`Quaero` — nunca en mayúsculas (`QUAERO`) ni en minúsculas (`quaero`) salvo en
+`Squaero` — nunca en mayúsculas (`QUAERO`) ni en minúsculas (`quaero`) salvo en
 identificadores técnicos (paquetes, rutas, ejecutable `quaero`).
 
 Tagline (ES): «Tu gestor de bases de datos: ligero, local y libre». Corta: «Ligero, local y libre».
@@ -24,7 +24,7 @@ cursor), evocando a la vez la inicial del nombre y una lupa de búsqueda.
 | `quaero-mark.svg` | Isotipo principal (trazo), fondos claros y oscuros. Tamaños medianos y grandes. |
 | `quaero-mark-solid.svg` | Variante sólida con el prompt calado en blanco. **Úsala a ≤ 32px** (favicon, icono de ventana): permanece legible a 16px. |
 | `quaero-mark-mono.svg` | Monocroma (`currentColor`). Para estampado a una tinta, sellos, watermark. Hereda el `color` del contenedor **solo si el SVG se incrusta inline** (o vía `<use>`); a través de `<img>` `currentColor` no se hereda y cae a negro. |
-| `quaero-wordmark.svg` | Isotipo + palabra «Quaero» para **fondos claros**. |
+| `quaero-wordmark.svg` | Isotipo + palabra «Squaero» para **fondos claros**. |
 | `quaero-wordmark-dark.svg` | Wordmark para **fondos oscuros** (índigo claro + texto claro). |
 | `png/` | Rasterizaciones PNG del isotipo (16–512px) y del wordmark, fondo transparente. |
 
