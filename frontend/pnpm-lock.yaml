@@ -29,6 +29,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.3
         version: 6.43.3
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
       fflate:
         specifier: ^0.8.3
         version: 0.8.3

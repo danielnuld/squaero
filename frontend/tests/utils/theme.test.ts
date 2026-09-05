@@ -86,3 +86,29 @@ describe("applyTheme", () => {
     expect(attr).toBe("light");
   });
 });
+
+// Issue #473: a theme that owns its surfaces has the last word over the
+// light/dark preference — without touching the preference itself, which is what
+// comes back when the user returns to an accent skin.
+describe("theme fixed by a dark-only skin", () => {
+  it("resolves to dark whatever the preference says", () => {
+    expect(resolveTheme("light", false, true)).toBe("dark");
+    expect(resolveTheme("system", false, true)).toBe("dark");
+    expect(resolveTheme("dark", true, true)).toBe("dark");
+  });
+
+  it("leaves the preference alone when nothing forces it", () => {
+    expect(resolveTheme("light", true, false)).toBe("light");
+    expect(resolveTheme("system", false, false)).toBe("light");
+    expect(resolveTheme("system", true)).toBe("dark");
+  });
+
+  it("stamps the forced theme on the root", () => {
+    let attr: [string, string] | null = null;
+    const root = { setAttribute: (k: string, v: string) => (attr = [k, v]) };
+    expect(applyTheme("light", root, false, true)).toBe("dark");
+    expect(attr).toEqual(["data-theme", "dark"]);
+    expect(applyTheme("light", root, false, false)).toBe("light");
+    expect(attr).toEqual(["data-theme", "light"]);
+  });
+});

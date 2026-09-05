@@ -1,5 +1,5 @@
 // Single source of truth for the connection tools (issue #176). Both the object
-// tree's 🧰 tools menu and the command palette render from this list, so their
+// tree's tools menu and the command palette render from this list, so their
 // icons/labels stay consistent. Each item knows its tab title (what showTool
 // passes) separately from its display label, so the deduped tab header matches
 // regardless of entry point.

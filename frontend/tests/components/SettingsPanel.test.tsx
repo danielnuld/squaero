@@ -4,6 +4,7 @@ import { render } from "solid-js/web";
 import { SettingsPanel } from "../../src/components/SettingsPanel";
 import { DEFAULT_SETTINGS, type Settings } from "../../src/utils/settings";
 import { APP_VERSION } from "../../src/utils/version";
+import { type SkinPref } from "../../src/utils/skin";
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -20,10 +21,10 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 function mount(over: {
   theme?: "system" | "light" | "dark";
-  skin?: "indigo" | "blue";
+  skin?: SkinPref;
   settings?: Settings;
   onSetTheme?: (p: "system" | "light" | "dark") => void;
-  onSetSkin?: (s: "indigo" | "blue") => void;
+  onSetSkin?: (s: SkinPref) => void;
   onSetHistoryLimit?: (n: number) => void;
   onSetSettings?: (p: Partial<Settings>) => void;
 } = {}) {
@@ -157,5 +158,32 @@ describe("SettingsPanel", () => {
     const about = host!.querySelector(".settings-about")!;
     expect(about.textContent).toContain("—");
     expect(about.textContent).not.toContain("123");
+  });
+});
+
+// Issue #473: Ciruela, Pizarra y Terminal no tienen versión clara, así que el
+// conmutador se apaga en vez de dejar pulsar "Claro" y no cambiar nada.
+describe("SettingsPanel — themes with no light variant", () => {
+  it("offers every skin", () => {
+    mount();
+    const chips = [...host!.querySelectorAll(".chip")].map((c) => c.textContent);
+    for (const label of ["Squaero (índigo)", "Azul", "Ciruela", "Pizarra", "Terminal"]) {
+      expect(chips).toContain(label);
+    }
+  });
+
+  it("disables the light/dark chips under a dark-only skin, and says why", () => {
+    mount({ skin: "terminal" });
+    const themeGroup = host!.querySelector('[aria-label="Tema"]')!;
+    const chips = [...themeGroup.querySelectorAll("button")];
+    expect(chips.every((c) => (c as HTMLButtonElement).disabled)).toBe(true);
+    expect(chips[0].getAttribute("title")).toMatch(/Terminal/);
+  });
+
+  it("leaves them alive for an accent skin", () => {
+    mount({ skin: "blue" });
+    const themeGroup = host!.querySelector('[aria-label="Tema"]')!;
+    const chips = [...themeGroup.querySelectorAll("button")];
+    expect(chips.some((c) => (c as HTMLButtonElement).disabled)).toBe(false);
   });
 });

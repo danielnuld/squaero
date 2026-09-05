@@ -110,6 +110,87 @@
   --focus-ring: rgba(47, 111, 237, 0.32);
 }
 
+/* Temas de color propios (issue #473). A diferencia de "blue", que sólo cambia
+   el acento, estos tres traen SUS PROPIAS SUPERFICIES — y por eso no tienen
+   variante clara: mientras uno está activo, skin.ts fija el tema en oscuro. Un
+   Terminal claro a medio hacer sería peor que no ofrecerlo.
+
+   Van después de los bloques de tema porque comparten especificidad (0,2,0):
+   aquí manda el orden, igual que ya pasaba con el azul.
+
+   Los trece tokens de cada paleta pasan AA (4.5) contra las tres superficies;
+   está medido, no estimado. Lo que NO cambia son los chips de tipo (--obj-*):
+   llevan tinta oscura sobre color propio, así que un juego sirve para todas.
+
+   Ciruela: rosa oscuro. El tinte vive sobre todo en el cromo — árbol, cabeceras
+   y barras van en ciruela y el lienzo de datos se queda por debajo, que es lo
+   que un rosa claro no consigue. Subido de tono respecto a la primera versión:
+   sobre la app real el acento cubre poca superficie, así que el color tiene que
+   estar en las superficies o el tema no se lee como rosa. */
+:root[data-skin="ciruela"] {
+  --bg: #20141b;
+  --bg-elev: #2b1a25;
+  --bg-elev2: #3a2231;
+  --border: #573349;
+  --text: #f7e6ef;
+  --text-dim: #c39cae;
+  --accent: #ff8ec2;
+  --accent-fg: #20141b;
+  --accent-hover: #ffb3d5;
+  --accent-text: #ff9ecb;
+  --null: #e2a05e;
+  --number: #83d9b1;
+  --error: #ff9494;
+  --error-fg: #20141b;
+  --bg-overlay: #3a2231;
+  --focus-ring: rgba(255, 142, 194, 0.4);
+}
+
+/* Pizarra: grafito frío, sin tinte de marca, con un azul de acero apagado.
+   El más cercano al oscuro de hoy — cambia el índigo por algo que no compite
+   con los datos. */
+:root[data-skin="pizarra"] {
+  --bg: #181b1f;
+  --bg-elev: #1f2329;
+  --bg-elev2: #282d34;
+  --border: #3a4149;
+  --text: #e3e7ec;
+  --text-dim: #99a3ad;
+  --accent: #79b0d8;
+  --accent-fg: #111418;
+  --accent-hover: #9bc6e4;
+  --accent-text: #8dbbe0;
+  --null: #d69a56;
+  --number: #8ed0ad;
+  --error: #f08a8a;
+  --error-fg: #111418;
+  --bg-overlay: #282d34;
+  --focus-ring: rgba(121, 176, 216, 0.4);
+}
+
+/* Terminal: casi negro con verde fósforo. El número en cian y el NULL en ámbar
+   salen del vocabulario de una terminal, no del de la app; y la interfaz entera
+   va en monoespaciada, que es la mitad del efecto. */
+:root[data-skin="terminal"] {
+  --bg: #0a0e0d;
+  --bg-elev: #101715;
+  --bg-elev2: #16211d;
+  --border: #243b32;
+  --text: #d3e6d8;
+  --text-dim: #7fa38c;
+  --accent: #35e07f;
+  --accent-fg: #08120c;
+  --accent-hover: #5cf09a;
+  --accent-text: #4fd98d;
+  --null: #e0a13c;
+  --number: #58d3e8;
+  --error: #ff7b7b;
+  --error-fg: #08120c;
+  --bg-overlay: #16211d;
+  --focus-ring: rgba(53, 224, 127, 0.4);
+  --font-ui: var(--font-mono);
+}
+
 :root {
   /* Semantic aliases used across newer components; kept in sync with the
      palette above so both themes drive them. */
@@ -2570,6 +2651,18 @@ button.primary:hover:not(:disabled) {
 .objtree-refresh:hover {
   color: var(--text);
   background: var(--bg-elev2);
+}
+
+/* The tools trigger is an inline SVG now (issue #473): sized like the glyphs it
+   sits beside, and centred, since an SVG has no text baseline to align to. */
+.objtree-refresh {
+  display: inline-flex;
+  align-items: center;
+}
+.objtree-refresh svg {
+  width: var(--fs-lg);
+  height: var(--fs-lg);
+  display: block;
 }
 
 .objtree-filter {

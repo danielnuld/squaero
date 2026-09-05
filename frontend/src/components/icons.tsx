@@ -183,3 +183,13 @@ export const IconSnippets: IconComponent = () => (
     <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
   </Svg>
 );
+
+/** lucide/wrench — the connection's tools menu, in the explorer header.
+    It was the last emoji left in the chrome (🧰): #332 replaced the ribbon and
+    the tools menu, not this trigger. An emoji paints itself, so on the themes
+    that own their surfaces (#473) it read as a pink box on a dark header. */
+export const IconTools: IconComponent = () => (
+  <Svg>
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  </Svg>
+);

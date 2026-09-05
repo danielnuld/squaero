@@ -12,7 +12,7 @@ import {
 } from "../utils/settings";
 import { clampLimit, MIN_HISTORY_LIMIT, MAX_HISTORY_LIMIT } from "../utils/history";
 import { themeLabel, type ThemePref } from "../utils/theme";
-import { skinLabel, type SkinPref } from "../utils/skin";
+import { SKINS, skinLabel, isDarkOnly, type SkinPref } from "../utils/skin";
 import { locale, setLocale, LOCALES, t } from "../utils/i18n";
 
 // Settings + About panel (issue #181), opened as a tool tab. Fully controlled:
@@ -28,10 +28,6 @@ const THEME_OPTS: { value: ThemePref; label: string }[] = [
   { value: "dark", label: "Oscuro" },
 ];
 
-const SKIN_OPTS: { value: SkinPref; label: string }[] = [
-  { value: "indigo", label: "Squaero (índigo)" },
-  { value: "blue", label: "Azul" },
-];
 
 const DENSITY_OPTS: { value: GridDensity; label: string }[] = [
   { value: "normal", label: "Normal" },
@@ -98,6 +94,10 @@ export function SettingsPanel(props: {
           </div>
           <div class="settings-row">
             <span class="settings-label">Tema</span>
+            {/* Ciruela, Pizarra y Terminal traen sus propias superficies y no
+                tienen variante clara (issue #473): mientras uno esté puesto, el
+                conmutador se apaga y dice por qué, en vez de dejar pulsar
+                "Claro" y no cambiar nada. La preferencia se conserva. */}
             <div class="settings-choice" role="radiogroup" aria-label="Tema">
               <For each={THEME_OPTS}>
                 {(o) => (
@@ -105,7 +105,12 @@ export function SettingsPanel(props: {
                     class={`chip ${props.theme === o.value ? "active" : ""}`}
                     role="radio"
                     aria-checked={props.theme === o.value}
-                    title={themeLabel(o.value)}
+                    disabled={isDarkOnly(props.skin)}
+                    title={
+                      isDarkOnly(props.skin)
+                        ? `${skinLabel(props.skin)} — sólo tiene versión oscura`
+                        : themeLabel(o.value)
+                    }
                     onClick={() => props.onSetTheme(o.value)}
                   >
                     {o.label}
@@ -115,9 +120,9 @@ export function SettingsPanel(props: {
             </div>
           </div>
           <div class="settings-row">
-            <span class="settings-label">Estilo (acento)</span>
-            <div class="settings-choice" role="radiogroup" aria-label="Estilo de acento">
-              <For each={SKIN_OPTS}>
+            <span class="settings-label">Estilo</span>
+            <div class="settings-choice" role="radiogroup" aria-label="Estilo de color">
+              <For each={SKINS}>
                 {(o) => (
                   <button
                     class={`chip ${props.skin === o.value ? "active" : ""}`}

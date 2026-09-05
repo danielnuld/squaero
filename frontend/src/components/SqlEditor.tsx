@@ -16,10 +16,11 @@ import {
 } from "@codemirror/commands";
 import {
   syntaxHighlighting,
-  defaultHighlightStyle,
+  HighlightStyle,
   bracketMatching,
   indentOnInput,
 } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 import { sql } from "@codemirror/lang-sql";
 import {
   acceptCompletion,
@@ -36,6 +37,34 @@ import { pickRunTarget, type RunScope } from "../utils/runScope";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { t } from "../utils/i18n";
+
+/**
+ * SQL colouring in the app's own palette (issue #473).
+ *
+ * It used to be CodeMirror's `defaultHighlightStyle`, a fixed set of colours
+ * designed for a light page — dark blue keywords on a near-black editor. It was
+ * already wrong on the dark theme and it stayed exactly as wrong under every new
+ * one, because it knew nothing about them.
+ *
+ * The values are the app's OWN tokens, so this follows any theme, present or
+ * future, with nothing to keep in sync: keywords take the theme's identity
+ * colour, literals its value colour, NULL the colour the grid already gives
+ * NULL, and comments recede to the dim text colour. CodeMirror emits these as
+ * plain CSS rules, so `var()` resolves against the root like everywhere else.
+ * They inherit the contrast the palette was validated for.
+ */
+const sqlHighlight = HighlightStyle.define([
+  { tag: tags.keyword, color: "var(--accent-text)", fontWeight: "600" },
+  { tag: [tags.string, tags.special(tags.string)], color: "var(--number)" },
+  { tag: [tags.number, tags.bool], color: "var(--number)" },
+  { tag: tags.null, color: "var(--null)", fontStyle: "italic" },
+  { tag: [tags.lineComment, tags.blockComment], color: "var(--text-dim)", fontStyle: "italic" },
+  { tag: [tags.operator, tags.punctuation, tags.separator], color: "var(--text-dim)" },
+  { tag: [tags.typeName, tags.standard(tags.name)], color: "var(--accent-text)" },
+  { tag: tags.function(tags.variableName), color: "var(--accent-text)" },
+  { tag: [tags.variableName, tags.propertyName], color: "var(--text)" },
+  { tag: tags.invalid, color: "var(--error)" },
+]);
 
 // CodeMirror 6 SQL editor. A single EditorView is reused across query tabs; the
 // active tab's text is swapped in on tab change. Ctrl/Cmd+Enter runs the query
@@ -150,7 +179,7 @@ export function SqlEditor(props: {
           // matches are highlighted; searchKeymap adds find-next/prev + replace.
           search({ top: true }),
           highlightSelectionMatches(),
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          syntaxHighlighting(sqlHighlight, { fallback: true }),
           sqlConf.of(sqlExt()),
           keymap.of([
             {

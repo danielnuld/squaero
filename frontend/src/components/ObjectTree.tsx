@@ -23,6 +23,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { objectBadge, routineKind } from "../utils/objectIcons";
+import { IconTools } from "./icons";
 import { t } from "../utils/i18n";
 
 // A group folder's label is an i18n key ("tree.tables"); real object nodes carry
@@ -90,7 +91,7 @@ export function ObjectTree(props: {
   softReloadKey?: number;
   /** Refresh button in the header (re-runs the active query + reloads the tree). */
   onRefresh?: () => void;
-  /** Opens the connection tools menu (🧰 in the header). */
+  /** Opens the connection tools menu (the wrench in the header). */
   onOpenTools?: (e: MouseEvent) => void;
   /** Right-click "Importar datos…" on a table/view. */
   onImport?: (node: TreeNode) => void;
@@ -678,7 +679,7 @@ export function ObjectTree(props: {
               aria-label={t("tree.tools")}
               onClick={(e) => props.onOpenTools!(e)}
             >
-              🧰
+              <IconTools />
             </button>
           </Show>
           <Show when={props.connId && props.onRefresh}>

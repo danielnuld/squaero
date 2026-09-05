@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { loadSkin, saveSkin, applySkin, skinLabel, SKIN_KEY } from "../../src/utils/skin";
+import {
+  loadSkin,
+  saveSkin,
+  applySkin,
+  skinLabel,
+  isDarkOnly,
+  SKINS,
+  SKIN_KEY,
+} from "../../src/utils/skin";
 
 function memStore(seed: Record<string, string> = {}) {
   const m = new Map(Object.entries(seed));
@@ -40,5 +48,45 @@ describe("skin (accent selection)", () => {
   it("labels both skins", () => {
     expect(skinLabel("blue")).toMatch(/Azul/);
     expect(skinLabel("indigo")).toMatch(/índigo|Squaero/);
+  });
+});
+
+// Issue #473: three themes that bring their own surfaces, and therefore have no
+// light variant.
+describe("skin (colour themes)", () => {
+  it("loads and round-trips each of the new themes", () => {
+    for (const v of ["ciruela", "pizarra", "terminal"] as const) {
+      expect(loadSkin(memStore({ [SKIN_KEY]: v }))).toBe(v);
+      const s = memStore();
+      saveSkin(v, s);
+      expect(loadSkin(s)).toBe(v);
+    }
+  });
+
+  it("knows which ones own their surfaces", () => {
+    expect(isDarkOnly("indigo")).toBe(false);
+    expect(isDarkOnly("blue")).toBe(false);
+    expect(isDarkOnly("ciruela")).toBe(true);
+    expect(isDarkOnly("pizarra")).toBe(true);
+    expect(isDarkOnly("terminal")).toBe(true);
+  });
+
+  it("lists every skin with a label, the brand first", () => {
+    expect(SKINS.map((s) => s.value)).toEqual([
+      "indigo",
+      "blue",
+      "ciruela",
+      "pizarra",
+      "terminal",
+    ]);
+    for (const s of SKINS) {
+      expect(s.label.trim()).not.toBe("");
+      expect(skinLabel(s.value)).toContain(s.label);
+    }
+  });
+
+  it("falls back to the brand for a value that is no longer a skin", () => {
+    expect(loadSkin(memStore({ [SKIN_KEY]: "verde" }))).toBe("indigo");
+    expect(skinLabel("verde" as never)).toMatch(/índigo|Squaero/);
   });
 });

@@ -21,8 +21,20 @@ export function nextTheme(pref: ThemePref): ThemePref {
   return ORDER[(i + 1) % ORDER.length];
 }
 
-/** Resolve a preference to the concrete theme to apply. */
-export function resolveTheme(pref: ThemePref, systemPrefersDark: boolean): ResolvedTheme {
+/**
+ * Resolve a preference to the concrete theme to apply.
+ *
+ * `forceDark` is the colour theme having the last word (issue #473): Ciruela,
+ * Pizarra and Terminal bring their own dark surfaces, so while one is active
+ * there is no light version to switch to. The PREFERENCE is untouched — it is
+ * what comes back when the user returns to an accent skin.
+ */
+export function resolveTheme(
+  pref: ThemePref,
+  systemPrefersDark: boolean,
+  forceDark = false,
+): ResolvedTheme {
+  if (forceDark) return "dark";
   if (pref === "system") return systemPrefersDark ? "dark" : "light";
   return pref;
 }
@@ -82,8 +94,9 @@ export function applyTheme(
   pref: ThemePref,
   root: Pick<HTMLElement, "setAttribute">,
   systemPrefersDark: boolean,
+  forceDark = false,
 ): ResolvedTheme {
-  const resolved = resolveTheme(pref, systemPrefersDark);
+  const resolved = resolveTheme(pref, systemPrefersDark, forceDark);
   root.setAttribute("data-theme", resolved);
   return resolved;
 }
