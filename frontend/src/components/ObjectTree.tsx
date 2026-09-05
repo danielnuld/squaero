@@ -18,6 +18,8 @@ import { folderSpec, objectLeaves, readDefinitionText } from "../utils/treeObjec
 import { definitionFor as routineDefinitionFor, type RoutineType } from "../utils/routines";
 import { definitionFor as objectDefinitionFor } from "../utils/triggers";
 import { runnableRoutineDdl } from "../utils/routineDdl";
+import { dropObjectSql, type DropKind } from "../utils/dropObject";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { objectBadge, routineKind } from "../utils/objectIcons";
@@ -431,6 +433,30 @@ export function ObjectTree(props: {
   // Build the right-click menu for a node, adapted to its kind: tables/views get
   // data/structure/import actions; containers (database/schema) just refresh and
   // copy. All actions reuse the same handlers as clicks.
+  // "Eliminar…" (issue #463): the pending drop, the exact SQL it will run, and
+  // whether it is in flight. The dialog stays open on failure so the engine's
+  // own complaint — a foreign key still pointing at the table, most often — is
+  // read where the action was taken.
+  const [pendingDrop, setPendingDrop] = createSignal<{ name: string; sql: string } | null>(null);
+  const [dropping, setDropping] = createSignal(false);
+  const [dropError, setDropError] = createSignal<string | null>(null);
+
+  const runDrop = async (sql: string) => {
+    const connId = props.connId;
+    if (!connId) return;
+    setDropping(true);
+    setDropError(null);
+    try {
+      await runQuery(connId, sql);
+      setPendingDrop(null);
+      props.onRefresh?.();
+    } catch (err) {
+      setDropError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDropping(false);
+    }
+  };
+
   const nodeMenu = (node: TreeNode): MenuItem[] => {
     const items: MenuItem[] = [];
     // A group folder (Tablas/Vistas/Procedimientos/…) only offers refresh.
@@ -445,6 +471,7 @@ export function ObjectTree(props: {
         items.push({ separator: true });
       }
       items.push({ label: t("tree.copyName"), action: () => copyText(node.label) });
+      pushDrop(items, node);
       return items;
     }
     if (node.kind === "table" || node.kind === "view") {
@@ -472,7 +499,39 @@ export function ObjectTree(props: {
     if (props.onRefresh) {
       items.push({ label: t("tree.refresh"), action: () => props.onRefresh!() });
     }
+    pushDrop(items, node);
     return items;
+  };
+
+  /** Which DROP a node is, if any: a routine leaf refines to procedure/function. */
+  const dropKind = (node: TreeNode): DropKind | null => {
+    if (node.kind === "table" || node.kind === "view") return node.kind;
+    if (node.kind === "trigger" || node.kind === "event") return node.kind;
+    if (node.kind === "routine") return routineKind(node.objType) as DropKind;
+    return null;
+  };
+
+  /** "Eliminar…", last and apart — offered only where the engine can do it. */
+  const pushDrop = (items: MenuItem[], node: TreeNode) => {
+    const kind = dropKind(node);
+    if (!kind || !props.connId) return;
+    const sql = dropObjectSql(props.engine ?? "", {
+      kind,
+      name: node.label,
+      db: node.db,
+      schema: node.schema,
+      table: node.objTable,
+    });
+    if (!sql) return;
+    items.push({ separator: true });
+    items.push({
+      label: t("tree.dropObject"),
+      danger: true,
+      action: () => {
+        setDropError(null);
+        setPendingDrop({ name: node.label, sql });
+      },
+    });
   };
 
   // Text filter (issue #175): when non-blank, show matches + their ancestors
@@ -775,6 +834,23 @@ export function ObjectTree(props: {
         </div>
       </Show>
       </div>
+
+      {/* The exact DROP is shown before it runs, as every destructive action in
+          the app does (issue #177). */}
+      <Show when={pendingDrop()}>
+        {(p) => (
+          <ConfirmDialog
+            title={t("tree.dropTitle", { name: p().name })}
+            message={t("tree.dropMessage", { name: p().name })}
+            sql={p().sql}
+            confirmLabel={t("tree.dropConfirm")}
+            busy={dropping()}
+            error={dropError()}
+            onConfirm={() => void runDrop(p().sql)}
+            onCancel={() => setPendingDrop(null)}
+          />
+        )}
+      </Show>
     </div>
   );
 }
