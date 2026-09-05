@@ -38,6 +38,23 @@ char *dbcore_ipc_handle(const char *request_json);
 /* Frees a string returned by dbcore_ipc_handle(). NULL is a no-op. */
 void dbcore_ipc_free(char *response_json);
 
+/*
+ * Returns a newly allocated copy of `request_json` with every secret-looking
+ * value masked as "***" — for anything that PRINTS a request (issue #302).
+ *
+ * Secrets are found by key NAME, recursively and case-insensitively by
+ * substring (`password`, `sshPassword`, `tunnel_passphrase`, `token`…), so a
+ * driver that puts a new one in its DSN is covered without a change here.
+ *
+ * The raw input is never returned: a request that cannot be parsed — or one
+ * whose secrets could not all be masked — comes back as a fixed marker, since a
+ * truncated conn.open still carries a password. `request_json` may be NULL.
+ *
+ * The caller owns the result and frees it with dbcore_ipc_free(). Returns NULL
+ * only on memory allocation failure.
+ */
+char *dbcore_ipc_redact(const char *request_json);
+
 #ifdef __cplusplus
 }
 #endif

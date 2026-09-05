@@ -28,6 +28,7 @@ add_library(dbcore STATIC
   src/ipc/edit_methods.c
   src/ipc/result_json.c
   src/ipc/dispatch.c
+  src/ipc/redact.c
 )
 
 target_include_directories(dbcore PUBLIC include)

@@ -104,6 +104,12 @@ quaero_set_warnings(conn_methods_test)
 add_test(NAME conn_methods_test COMMAND conn_methods_test)
 
 # UTF-8 boundary guard: nothing invalid may reach cJSON (issue #323).
+# Secret-stripping for printed requests (issue #302). Public API only.
+add_executable(redact_test ipc/redact_test.c)
+target_link_libraries(redact_test PRIVATE dbcore)
+quaero_set_warnings(redact_test)
+add_test(NAME redact_test COMMAND redact_test)
+
 add_executable(utf8_test ipc/utf8_test.c)
 target_link_libraries(utf8_test PRIVATE dbcore cjson)
 target_include_directories(utf8_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/ipc)

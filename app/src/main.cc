@@ -205,7 +205,13 @@ static char *dispatch_traced(const std::string &request)
 #if defined(_WIN32)
         t0 = GetTickCount();
 #endif
-        std::fprintf(stderr, "RPC> %.200s\n", request.c_str());
+        // Never the raw request (issue #302): conn.open carries the DSN, and
+        // this is the variable someone turns on when things are going wrong —
+        // when the log ends up in a file, an issue, or a colleague's inbox. The
+        // 200-character cut this replaces protected nothing: a DSN fits easily.
+        char *safe = dbcore_ipc_redact(request.c_str());
+        std::fprintf(stderr, "RPC> %s\n", safe != nullptr ? safe : "<request withheld>");
+        dbcore_ipc_free(safe);
         std::fflush(stderr);
     }
     char *response = dbcore_ipc_handle(request.c_str());
