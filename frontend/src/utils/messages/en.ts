@@ -324,6 +324,10 @@ export const en: Record<string, string> = {
   "tree.indexes": "Indexes and constraints…",
   "tree.importData": "Import data…",
   "tree.newTable": "New table…",
+  "tree.dropObject": "Delete…",
+  "tree.dropTitle": "Delete “{name}”",
+  "tree.dropMessage": "{name} will be deleted from the server. This cannot be undone.",
+  "tree.dropConfirm": "Delete",
   // folder labels (data keys, translated at the tree consumer)
   "tree.tables": "Tables",
   "tree.views": "Views",

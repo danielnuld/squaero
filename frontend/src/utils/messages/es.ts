@@ -327,6 +327,10 @@ export const es: Record<string, string> = {
   "tree.indexes": "Índices y constraints…",
   "tree.importData": "Importar datos…",
   "tree.newTable": "Nueva tabla…",
+  "tree.dropObject": "Eliminar…",
+  "tree.dropTitle": "Eliminar «{name}»",
+  "tree.dropMessage": "Se eliminará {name} del servidor. Esta acción no se puede deshacer.",
+  "tree.dropConfirm": "Eliminar",
   // folder labels (data keys, translated at the tree consumer)
   "tree.tables": "Tablas",
   "tree.views": "Vistas",

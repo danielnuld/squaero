@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { ObjectTree } from "../../src/components/ObjectTree";
+import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 
 // Drives the real object tree against a mocked bridge to check the refresh
 // wiring (issue #107): bumping reloadKey re-fetches the tree from the root.
@@ -19,6 +20,7 @@ afterEach(() => {
   host?.remove();
   host = null;
   delete (globalThis as BridgeHost).quaeroRpc;
+  closeContextMenu();
 });
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -688,5 +690,115 @@ describe("ObjectTree soft reload (issue #317)", () => {
     expect(rowByText("invoices")).toBeTruthy();
     expect(rowByText("customers")).toBeTruthy();
     expect(rowByText("Tablas")?.textContent).toContain("2");
+  });
+});
+
+// Issue #463: deleting an object was the one thing the tree could not do.
+describe("ObjectTree delete", () => {
+  const bridge = () => {
+    const calls: { method: string; params: any }[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      calls.push({ method: req.method, params: req.params });
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      const empty = { columns: [], rows: [], truncated: false, rowsAffected: 1 };
+      if (req.method !== "schema.tree") return ok(empty);
+      if (!req.params.db) {
+        return ok({ columns: [{ name: "name", type: "text" }], rows: [["main"]], truncated: false, rowsAffected: 0 });
+      }
+      return ok({
+        columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+        rows: [["customers", "table"]],
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    return calls;
+  };
+
+  const openTable = async (refreshed: () => void) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            engine="sqlite"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            onRefresh={refreshed}
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement;
+    rowByText("main").click();
+    await flush();
+    rowByText("Tablas").click();
+    await flush();
+    return rowByText("customers");
+  };
+
+  const menuItem = (label: string) =>
+    contextMenu()?.items.find((i) => i.label === label);
+
+  it("drops the object the menu was opened on, after showing the exact SQL", async () => {
+    const calls = bridge();
+    let refreshed = 0;
+    const row = await openTable(() => refreshed++);
+
+    row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    const del = menuItem("Eliminar…")!;
+    expect(del).toBeTruthy();
+    expect(del.danger).toBe(true);
+
+    del.action!();
+    await flush();
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    expect(dialog.querySelector("pre.ddl-text")!.textContent).toBe('DROP TABLE "main"."customers"');
+
+    const confirm = dialog.querySelector("button.danger") as HTMLButtonElement;
+    confirm.click();
+    await flush();
+    const ran = calls.find((c) => c.method === "query.run");
+    expect(ran!.params.sql).toBe('DROP TABLE "main"."customers"');
+    expect(refreshed).toBe(1); // the tree reloads without it
+    expect(host!.querySelector(".confirm-dialog")).toBeFalsy();
+  });
+
+  it("keeps the dialog open with the engine's complaint when the drop fails", async () => {
+    bridge();
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (req.method === "query.run") {
+        return { jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "FOREIGN KEY constraint failed" } };
+      }
+      if (!req.params.db) {
+        return ok({ columns: [{ name: "name", type: "text" }], rows: [["main"]], truncated: false, rowsAffected: 0 });
+      }
+      return ok({
+        columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+        rows: [["customers", "table"]],
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    let refreshed = 0;
+    const row = await openTable(() => refreshed++);
+    row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    menuItem("Eliminar…")!.action!();
+    await flush();
+    (host!.querySelector(".confirm-dialog button.danger") as HTMLButtonElement).click();
+    await flush();
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    expect(dialog).toBeTruthy();
+    expect(dialog.textContent).toContain("FOREIGN KEY constraint failed");
+    expect(refreshed).toBe(0);
   });
 });
