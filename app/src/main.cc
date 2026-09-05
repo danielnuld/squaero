@@ -723,66 +723,83 @@ static void download_install_handler(const char *id, const char *req, void *arg)
 #endif
 
 #if defined(_WIN32)
-// The WebView2 profile, pinned by us instead of by the executable's file name
-// (issue #466).
+// Carrying the user's data across the rename (issues #466, #476).
 //
 // With no user-data folder given, WebView2 derives one from the EXE FILE NAME:
 // %APPDATA%\quaero.exe\EBWebView. Renaming the executable therefore opens a
 // BRAND NEW, EMPTY profile — and localStorage lives in that profile, so every
-// connection, snippet, notebook and setting would be gone. Not lost as in
-// deleted: still on disk, under a name nothing reads any more, which is worse
-// because it looks like the app wiped itself.
+// connection, snippet, notebook and setting is still on disk under a name
+// nothing reads any more, which looks exactly like the app wiping itself.
 //
-// So the folder is now ours and stays put whatever the executable is called,
-// and the one-time move brings the old profile's localStorage across. Only
-// `Local Storage` is copied: it is the ~50 KB that IS the user's data, while
-// the rest of the profile is 80 MB of Chromium cache that regenerates itself.
-// The old folder is left untouched — it costs nothing to keep as a fallback,
-// and deleting a user's data is not something an upgrade should decide.
-static void prepare_user_data_folder()
+// v0.23.0 tried to take the folder over with WEBVIEW2_USER_DATA_FOLDER and
+// migrate into it. That variable is read by the WebView2 LOADER DLL, and this
+// app links the runtime directly — so it was honoured on a dev machine where a
+// stray loader was on the search path, and ignored by the installed build,
+// which is the one that mattered. The data was copied into a folder the app
+// never opened. Do not fight the runtime: copy into the path it actually picks.
+//
+// Only `Local Storage` moves: it is the ~90 KB that IS the user's data, against
+// 80 MB of Chromium cache that regenerates itself. The old folder is left
+// untouched — it costs nothing as a fallback, and deleting someone's data is not
+// a decision an upgrade should make.
+static void migrate_user_data()
 {
     wchar_t appdata[MAX_PATH];
     if (!SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
-        return;  // no roaming profile: let WebView2 pick, rather than fail to start
+        return;  // no roaming profile: nothing to migrate from or to
     }
     const std::wstring base = std::wstring(appdata);
-    // WebView2 does not treat the folder it is given as the profile: it creates
-    // EBWebView INSIDE it (measured — which is also why the default one is
-    // %APPDATA%\quaero.exe\EBWebView). The copy has to land where the runtime
-    // will actually look, not one level above it, or the app starts empty with
-    // the data sitting right next to it.
-    const std::wstring udf = base + L"\\Squaero\\webview";
-    const std::wstring here = udf + L"\\EBWebView\\Default\\Local Storage";
-    const std::wstring there = base + L"\\quaero.exe\\EBWebView\\Default\\Local Storage";
+    const std::wstring mine = base + L"\\squaero.exe\\EBWebView\\Default";
+    const std::wstring marker = base + L"\\squaero.exe\\migrated-from-quaero";
+    const std::wstring theirs = base + L"\\quaero.exe\\EBWebView\\Default\\Local Storage";
 
-    const bool have_new = GetFileAttributesW(here.c_str()) != INVALID_FILE_ATTRIBUTES;
-    const bool have_old = GetFileAttributesW(there.c_str()) != INVALID_FILE_ATTRIBUTES;
-    if (!have_new && have_old) {
-        const std::wstring dest = udf + L"\\EBWebView\\Default";
-        SHCreateDirectoryExW(nullptr, dest.c_str(), nullptr);
-        // SHFileOperationW wants double-NUL-terminated path lists.
-        std::wstring from = there;
-        from.push_back(L'\0');
-        std::wstring to = dest;
-        to.push_back(L'\0');
-        SHFILEOPSTRUCTW op = {};
-        op.wFunc = FO_COPY;
-        op.pFrom = from.c_str();
-        op.pTo = to.c_str();
-        op.fFlags = FOF_NO_UI;
-        if (SHFileOperationW(&op) == 0 && !op.fAnyOperationsAborted) {
-            std::printf("Squaero: carried the previous profile's data over from "
-                        "%%APPDATA%%\\quaero.exe (the old folder is left as it is)\n");
-        } else {
-            std::fprintf(stderr,
-                         "Squaero: could not carry over the previous profile; the "
-                         "app starts with empty settings and the old data is still "
-                         "in %%APPDATA%%\\quaero.exe\n");
-        }
+    // Done once, ever. The marker is what says so — not the presence of the
+    // destination, which the app itself creates on its first launch.
+    if (GetFileAttributesW(marker.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        return;
+    }
+    if (GetFileAttributesW(theirs.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        return;  // nothing from the old name: a fresh install
     }
 
-    SHCreateDirectoryExW(nullptr, udf.c_str(), nullptr);
-    SetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", udf.c_str());
+    // Never overwrite a profile that has real data of its own. A leveldb only
+    // writes .ldb files once it has compacted, so their presence means this
+    // install has been used for a while — at which point the old profile is the
+    // stale one and taking it back would be the destructive move.
+    WIN32_FIND_DATAW found;
+    const std::wstring compacted = mine + L"\\Local Storage\\leveldb\\*.ldb";
+    HANDLE h = FindFirstFileW(compacted.c_str(), &found);
+    if (h != INVALID_HANDLE_VALUE) {
+        FindClose(h);
+        return;
+    }
+
+    SHCreateDirectoryExW(nullptr, mine.c_str(), nullptr);
+    // SHFileOperationW wants double-NUL-terminated path lists.
+    std::wstring from = theirs;
+    from.push_back(L'\0');
+    std::wstring to = mine;
+    to.push_back(L'\0');
+    SHFILEOPSTRUCTW op = {};
+    op.wFunc = FO_COPY;
+    op.pFrom = from.c_str();
+    op.pTo = to.c_str();
+    op.fFlags = FOF_NO_UI;
+    if (SHFileOperationW(&op) == 0 && !op.fAnyOperationsAborted) {
+        // The marker also stops a second attempt from undoing work done since.
+        HANDLE mk = CreateFileW(marker.c_str(), GENERIC_WRITE, 0, nullptr,
+                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (mk != INVALID_HANDLE_VALUE) {
+            CloseHandle(mk);
+        }
+        std::printf("Squaero: carried the previous profile's data over from "
+                    "%%APPDATA%%\\quaero.exe (the old folder is left as it is)\n");
+    } else {
+        std::fprintf(stderr,
+                     "Squaero: could not carry over the previous profile; the "
+                     "app starts with empty settings and the old data is still "
+                     "in %%APPDATA%%\\quaero.exe\n");
+    }
 }
 #endif
 
@@ -795,9 +812,9 @@ int main()
     std::printf("Squaero %s — starting webview shell\n", dbcore_version());
 
 #if defined(_WIN32)
-    // MUST run before webview_create: it decides which profile the WebView2
-    // environment opens, and the user's data lives in that profile.
-    prepare_user_data_folder();
+    // MUST run before webview_create: it fills the profile the WebView2
+    // environment is about to open, and the user's data lives in that profile.
+    migrate_user_data();
 #endif
 
     // Register driver plugins before the UI opens so conn.open can resolve them.
