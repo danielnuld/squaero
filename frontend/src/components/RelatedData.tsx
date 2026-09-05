@@ -41,7 +41,6 @@ export function RelatedData(props: {
   /** Why this engine has no foreign keys, when it has none. */
   unsupported: string | null;
   onOpenTab: () => void;
-  onToEditor: () => void;
   onClose: () => void;
 }) {
   const onKeyDown = (e: KeyboardEvent) => {
@@ -179,11 +178,11 @@ export function RelatedData(props: {
               </Show>
             </span>
             <span class="status-spacer" />
+            {/* One way out (issue #464): the tab that opens already has the
+                SQL in its editor, so "send to the editor" was the same button
+                without the answer. The modal stays open behind it. */}
             <button class="primary" disabled={!canCarry()} onClick={props.onOpenTab}>
               {t("related.openTab")}
-            </button>
-            <button disabled={!canCarry()} onClick={props.onToEditor}>
-              {t("related.toEditor")}
             </button>
             <button onClick={props.onClose}>{t("common.close")}</button>
           </div>

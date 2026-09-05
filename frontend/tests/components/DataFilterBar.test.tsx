@@ -21,6 +21,7 @@ const mount = () => {
   host = document.createElement("div");
   document.body.appendChild(host);
   let applied = 0;
+  let added = 0;
   const state = {
     ...emptyFilter(),
     collapsed: false,
@@ -35,7 +36,7 @@ const mount = () => {
           columns={["nombre", "edad"]}
           dirty={true}
           onChange={() => {}}
-          onAdd={() => {}}
+          onAdd={() => added++}
           onRemove={() => {}}
           onConjunction={() => {}}
           onSort={() => {}}
@@ -50,7 +51,7 @@ const mount = () => {
       host!,
     );
   });
-  return { applied: () => applied };
+  return { applied: () => applied, added: () => added };
 };
 
 const press = (el: Element, init: KeyboardEventInit = {}) =>
@@ -80,5 +81,33 @@ describe("DataFilterBar Enter applies", () => {
     const { applied } = mount();
     press(host!.querySelector("select")!, { key: "a" });
     expect(applied()).toBe(0);
+  });
+});
+
+// Issue #462: the list is where the eye is once it is long, so it gets its own
+// "+ condición", and Shift+Enter is the same reflex without the mouse.
+describe("DataFilterBar adds a condition", () => {
+  it("adds on Shift+Enter instead of applying", () => {
+    const { applied, added } = mount();
+    press(host!.querySelector("input[type=text]")!, { shiftKey: true });
+    expect(added()).toBe(1);
+    expect(applied()).toBe(0);
+  });
+
+  it("still applies on Ctrl+Shift+Enter", () => {
+    const { applied, added } = mount();
+    press(host!.querySelector("select")!, { ctrlKey: true, shiftKey: true });
+    expect(applied()).toBe(1);
+    expect(added()).toBe(0);
+  });
+
+  it("has a + at the end of the list, not only in the head", () => {
+    const { added } = mount();
+    const adders = Array.from(host!.querySelectorAll("button")).filter(
+      (b) => b.textContent === "+ condición",
+    );
+    expect(adders).toHaveLength(2);
+    (host!.querySelector(".filter-actions button") as HTMLButtonElement).click();
+    expect(added()).toBe(1);
   });
 });

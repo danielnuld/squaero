@@ -22,7 +22,8 @@ export type ActionId =
   | "snippet-palette"
   | "save-snippet"
   | "save-edits"
-  | "select-rows";
+  | "select-rows"
+  | "add-condition";
 
 export interface Shortcut {
   id: ActionId;
@@ -52,6 +53,9 @@ export const SHORTCUTS: Shortcut[] = [
   // The grid owns it (it only makes sense with the grid focused), so it is
   // documented here but never matched globally.
   { id: "select-rows", keys: "Mod+A", description: "Seleccionar las filas de la rejilla", global: false },
+  // The filter panel owns it (issue #462): Enter there applies the draft, so
+  // Shift+Enter is the "one more line" of the same reflex. Not matched globally.
+  { id: "add-condition", keys: "Shift+Enter", description: "Añadir otra condición al filtro", global: false },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */

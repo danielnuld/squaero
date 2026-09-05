@@ -1962,6 +1962,13 @@ export function App() {
     truncated: false,
     unsupported: null as string | null,
     keyColumns: [] as string[],
+    // The connection and scope the modal was opened from, pinned at open time:
+    // it now outlives the tab it came from (issue #464), so it cannot go on
+    // reading them off whatever tab happens to be active.
+    connId: "",
+    driver: "",
+    db: undefined as string | undefined,
+    schema: undefined as string | undefined,
   });
   const [related, setRelated] = createStore(emptyRelated());
 
@@ -2002,6 +2009,10 @@ export function App() {
       queries,
       truncated: state?.truncated ?? false,
       unsupported: queries.length === 0 ? (state?.reason ?? null) : null,
+      connId: conn.connId,
+      driver: conn.driver,
+      db: src.db,
+      schema: src.schema,
     });
     if (queries.length > 0) {
       void runRelated(0);
@@ -2011,12 +2022,10 @@ export function App() {
 
   /** Run the selected relationship's SELECT into the modal's grid. */
   const runRelated = async (index: number) => {
-    const tab = current();
-    const conn = tabConn(tab);
-    const src = tab ? results[tab.id]?.source : null;
     const query = related.queries[index];
-    if (!conn || !src || !query) return;
-    const sql = relatedSelect(query, conn.driver, { db: src.db, schema: src.schema });
+    if (!related.connId || !query) return;
+    const scope = { db: related.db, schema: related.schema };
+    const sql = relatedSelect(query, related.driver, scope);
     setRelated({
       selected: index,
       sql,
@@ -2027,7 +2036,7 @@ export function App() {
     });
     if (!sql) return;
     try {
-      setRelated("result", await runQuery(conn.connId, sql, RELATED_LIMIT));
+      setRelated("result", await runQuery(related.connId, sql, RELATED_LIMIT));
       setRelated("loading", false);
     } catch (err) {
       setRelated({ loading: false, error: errMsg(err) });
@@ -2038,7 +2047,7 @@ export function App() {
     // be described simply goes unmarked rather than holding up the result.
     const dependent = query.relation.fromTable;
     try {
-      const desc = await schemaDescribe(conn.connId, dependent, src.db, src.schema);
+      const desc = await schemaDescribe(related.connId, dependent, scope.db, scope.schema);
       if (related.queries[related.selected]?.relation.fromTable === dependent) {
         setRelated("keyColumns", describePkColumns(desc));
       }
@@ -2075,19 +2084,17 @@ export function App() {
   };
 
   /**
-   * Carry the modal's query out: `execute` opens it in a tab and runs it, else it
-   * just lands in a new tab's editor. Both open a NEW tab because the SQL editor
-   * only reloads its document when the active tab changes.
+   * Carry the modal's query out into a NEW tab and run it there — new because
+   * the SQL editor only reloads its document when the active tab changes.
+   *
+   * The modal stays open (issue #464): the whole point of the list on the left
+   * is to walk several relationships, and closing on the first one made that a
+   * round trip through the cell menu each time.
    */
-  const relatedToTab = (execute: boolean) => {
+  const relatedToTab = () => {
     const sql = related.sql;
     const table = related.queries[related.selected]?.relation.fromTable;
     if (!sql || !table) return;
-    closeRelated();
-    if (!execute) {
-      openSqlInNewTab(sql, table);
-      return;
-    }
     let newId = 0;
     setTabs((s) => {
       const added = addTab(s, table, focusedDefId() ?? undefined, false);
@@ -3567,8 +3574,7 @@ export function App() {
           error={related.error}
           truncated={related.truncated}
           unsupported={related.unsupported}
-          onOpenTab={() => relatedToTab(true)}
-          onToEditor={() => relatedToTab(false)}
+          onOpenTab={relatedToTab}
           onClose={closeRelated}
         />
       </Show>

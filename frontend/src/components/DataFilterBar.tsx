@@ -68,8 +68,22 @@ export function DataFilterBar(props: {
     act();
   };
 
+  let root!: HTMLElement;
+
+  /** Add a condition and put the caret in it, so the next one is typed and not
+      hunted for (issue #462). The list renders synchronously on the store
+      update; the microtask is only to read the DOM after it. */
+  const addCond = () => {
+    unfoldAnd(props.onAdd);
+    queueMicrotask(() => {
+      const cols = root.querySelectorAll<HTMLSelectElement>(".filter-col");
+      cols[cols.length - 1]?.focus();
+    });
+  };
+
   return (
     <section
+      ref={root}
       class={`filterbar ${props.state.collapsed ? "folded" : ""}`}
       aria-label={t("filter.region")}
       onKeyDown={(e) => {
@@ -79,6 +93,12 @@ export function DataFilterBar(props: {
         // button — it is already its own click.
         if (e.key !== "Enter") return;
         const chord = e.ctrlKey || e.metaKey;
+        // Shift+Enter is one more condition instead: same reflex, one line down.
+        if (e.shiftKey && !chord) {
+          e.preventDefault();
+          addCond();
+          return;
+        }
         if (!chord && e.target instanceof HTMLButtonElement) return;
         e.preventDefault();
         props.onApply();
@@ -109,7 +129,7 @@ export function DataFilterBar(props: {
           </span>
         </Show>
         <span class="filterbar-spacer" />
-        <button class="status-btn" onClick={() => unfoldAnd(props.onAdd)}>
+        <button class="status-btn" onClick={addCond}>
           {t("filter.addCond")}
         </button>
         <button
@@ -218,10 +238,14 @@ export function DataFilterBar(props: {
             </ul>
           </Show>
 
-          {/* "+ condición" and "+ orden" live in the head now, where they work
-              folded or open; what is left here is only what the list itself
-              needs (issue #386). */}
+          {/* "+ orden" lives in the head, where it works folded or open (issue
+              #386). "+ condición" is in both places: the head one is what you
+              reach for folded, this one is where the eye already is once the
+              list is long (issue #462). */}
           <div class="filter-actions">
+            <button class="status-btn" onClick={addCond} title={t("filter.addCondHint")}>
+              {t("filter.addCond")}
+            </button>
             <Show when={props.state.conditions.length > 1}>
               <select
                 class="filter-conj"
