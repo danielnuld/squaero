@@ -138,8 +138,11 @@ int informix_build_conn_str(const struct informix_conn_params *p,
     const char *driver = present(p->driver) ? p->driver : "IBM INFORMIX ODBC DRIVER";
     const char *protocol = present(p->protocol) ? p->protocol : "onsoctcp";
 
-    if (append_pair(buf, buflen, &pos, "DRIVER", driver) != 0 ||
-        append_pair(buf, buflen, &pos, "Host", p->host) != 0 ||
+    if (!p->no_driver_keyword &&
+        append_pair(buf, buflen, &pos, "DRIVER", driver) != 0) {
+        return -1;
+    }
+    if (append_pair(buf, buflen, &pos, "Host", p->host) != 0 ||
         append_pair(buf, buflen, &pos, "Service", p->service) != 0 ||
         append_pair(buf, buflen, &pos, "Server", p->server) != 0 ||
         append_pair(buf, buflen, &pos, "Protocol", protocol) != 0) {

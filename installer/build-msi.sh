@@ -21,12 +21,15 @@
 # squaero.exe automatically (the MariaDB client is linked statically into
 # mysql.dll, so there is no separate client DLL to ship).
 #
-# Informix client: if a 32-bit IBM Informix Client SDK is installed on THIS
-# machine, its tree is bundled into the MSI (see the CsdkStage block in
-# quaero.wxs) so the group does not need IBM's installer. Without one — CI, for
-# instance — the MSI is just the app. Pass --no-csdk to skip it deliberately.
+# Informix client: the 32-bit IBM Informix Client SDK is bundled into the MSI
+# (see the CsdkStage block in quaero.wxs) so the group does not need IBM's
+# installer. It is taken from INFORMIX_CSDK, or from the CSDK installed on this
+# machine. Without either the build FAILS: an MSI with no CSDK registers no ODBC
+# driver and Informix connections die with IM002. Pass --no-csdk for an
+# app-only MSI on purpose.
 #
 # Usage: installer/build-msi.sh [version] [--no-csdk]   (default: ./VERSION)
+#        INFORMIX_CSDK=/path/to/csdk installer/build-msi.sh [version]
 set -eu
 cd "$(dirname "$0")/.."
 VERSION="${1:-$(cat VERSION)}"
@@ -36,21 +39,32 @@ CSDK_ARGS=()
 STAGE="$PWD/build-x86/csdk-stage"
 rm -rf "$STAGE"
 if [ "${2:-}" != "--no-csdk" ]; then
-  # MSYS_NO_PATHCONV keeps Git Bash from rewriting the registry key and /flags.
-  RAW=$(MSYS_NO_PATHCONV=1 reg query 'HKLM\SOFTWARE\WOW6432Node\Informix\Environment' /v INFORMIXDIR 2>/dev/null |
-        sed -n 's/.*REG_SZ[[:space:]]*//p' | tr -d '[:cntrl:]') || RAW=""
-  SRC=""
-  [ -n "$RAW" ] && SRC=$(cygpath "$RAW") && SRC=${SRC%/}
-  if [ -n "$SRC" ] && [ -f "$SRC/bin/iclit09b.dll" ]; then
-    # OAT, the bundled JRE, demos and the uninstaller are ~400 MB the ODBC
-    # driver never touches. robocopy exits 1 on "files copied": only >=8 fails.
-    echo "Bundling the Informix Client SDK from $SRC"
-    MSYS_NO_PATHCONV=1 robocopy "$(cygpath -w "$SRC")" "$(cygpath -w "$STAGE")" \
-      /E /NFL /NDL /NJH /NJS /NP /XD OAT jvm demo uninstall tmp /XF '*.log' >/dev/null || [ $? -lt 8 ]
-    CSDK_ARGS=(-d "CsdkStage=$(cygpath -w "$STAGE")")
-  else
-    echo "No 32-bit Informix Client SDK here: building the app-only MSI"
+  # INFORMIX_CSDK points at an unpacked CSDK tree: the release runner has no IBM
+  # install and fetches one (see .github/workflows/release.yml). Otherwise use
+  # the CSDK installed on this machine; MSYS_NO_PATHCONV keeps Git Bash from
+  # rewriting the registry key and /flags.
+  SRC="${INFORMIX_CSDK:-}"
+  if [ -z "$SRC" ]; then
+    RAW=$(MSYS_NO_PATHCONV=1 reg query 'HKLM\SOFTWARE\WOW6432Node\Informix\Environment' /v INFORMIXDIR 2>/dev/null |
+          sed -n 's/.*REG_SZ[[:space:]]*//p' | tr -d '[:cntrl:]') || RAW=""
+    [ -n "$RAW" ] && SRC=$(cygpath "$RAW")
   fi
+  SRC=${SRC%/}
+  # Failing beats the silent fallback this used to have: an MSI with no CSDK
+  # registers no ODBC driver, so every machine without an IBM install fails to
+  # connect with IM002 — which is exactly how the released MSIs shipped up to
+  # v0.24.0. --no-csdk builds the app-only MSI deliberately.
+  if [ -z "$SRC" ] || [ ! -f "$SRC/bin/iclit09b.dll" ]; then
+    echo "error: no 32-bit Informix Client SDK at ${SRC:-<none>}." >&2
+    echo "       Set INFORMIX_CSDK to an unpacked CSDK, or pass --no-csdk." >&2
+    exit 1
+  fi
+  # OAT, the bundled JRE, demos and the uninstaller are ~400 MB the ODBC
+  # driver never touches. robocopy exits 1 on "files copied": only >=8 fails.
+  echo "Bundling the Informix Client SDK from $SRC"
+  MSYS_NO_PATHCONV=1 robocopy "$(cygpath -w "$SRC")" "$(cygpath -w "$STAGE")" \
+    /E /NFL /NDL /NJH /NJS /NP /XD OAT jvm demo uninstall tmp /XF '*.log' >/dev/null || [ $? -lt 8 ]
+  CSDK_ARGS=(-d "CsdkStage=$(cygpath -w "$STAGE")")
 fi
 
 OUT="dist/squaero-${VERSION}-x86.msi"

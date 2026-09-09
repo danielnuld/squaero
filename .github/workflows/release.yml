@@ -119,6 +119,21 @@ jobs:
           dotnet tool install --global wix --version 5.0.2
           "$HOME/.dotnet/tools/wix" extension add -g WixToolset.UI.wixext/5.0.2
 
+      # The runner has no IBM install, and an MSI without the CSDK registers no
+      # ODBC driver: connecting to Informix then fails with IM002 on every
+      # machine that has no client of its own (which is how the releases up to
+      # v0.24.0 shipped). The trimmed 32-bit CSDK is an asset on the fixed
+      # `csdk-32bit` tag; build-msi.sh fails rather than quietly dropping it.
+      - name: Fetch the Informix Client SDK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download csdk-32bit -p csdk-32bit.zip -O csdk-32bit.zip --clobber
+          mkdir -p csdk && tar -xf csdk-32bit.zip -C csdk
+          test -f csdk/bin/iclit09b.dll
+          echo "INFORMIX_CSDK=$PWD/csdk" >> "$GITHUB_ENV"
+
       - name: Build the MSI
         shell: bash
         run: installer/build-msi.sh "${{ steps.tag.outputs.version }}"

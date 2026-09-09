@@ -23,6 +23,10 @@
 #include <sql.h>
 #include <sqlext.h>
 
+/* Redirects the SQL* calls below through the entry-point table, which may be a
+   CSDK loaded directly rather than the ODBC Driver Manager. */
+#include "odbc.h"
+
 #if !defined(_WIN32)
 #  include <pthread.h>
 #endif

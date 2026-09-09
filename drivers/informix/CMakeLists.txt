@@ -1,10 +1,10 @@
 # Informix driver.
 #
-# The driver reaches Informix through the ODBC Driver Manager: it links the
-# system ODBC library (odbc32 on Windows, unixODBC's libodbc elsewhere) and
-# selects the registered "IBM INFORMIX ODBC DRIVER" at runtime via the
-# connection string. No proprietary IBM CSDK library is linked, so the plugin
-# builds wherever ODBC dev files are present. The CSDK itself is 32-bit on the
+# The driver links the system ODBC library (odbc32 on Windows, unixODBC's
+# libodbc elsewhere), but on Windows it prefers to load the IBM client's own
+# driver DLL directly and skip the Driver Manager entirely — see src/odbc.h.
+# No proprietary IBM CSDK library is linked either way, so the plugin builds
+# wherever ODBC dev files are present. The CSDK itself is 32-bit on the
 # target machine — see cmake/toolchain-i686-mingw.cmake — so Squaero is built x86.
 #
 # The pure helpers (native + ODBC type mapping, connection-string builder) never
@@ -84,6 +84,7 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
   message(STATUS "Informix driver: using ODBC (${ODBC_LIBRARY})")
   add_library(informix_driver MODULE
     src/entry.c
+    src/odbc.c
     src/connection.c
     src/query.c
     src/metadata.c
@@ -116,6 +117,7 @@ if(ODBC_LIBRARY AND ODBC_HEADER_OK)
     add_executable(informix_cancel_test
       tests/cancel_test.c
       src/entry.c
+      src/odbc.c
       src/connection.c
       src/query.c
       src/metadata.c

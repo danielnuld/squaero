@@ -866,6 +866,19 @@ int main()
 
     webview_t w = webview_create(0, nullptr);
     if (w == nullptr) {
+        // This is a GUI-subsystem process: stderr goes nowhere, so a bare exit
+        // looks to the user like nothing happened at all (reported from a fresh
+        // Windows Sandbox). On a clean machine the reason is practically always
+        // a missing Edge WebView2 runtime, so say so where it can be read.
+#if defined(_WIN32)
+        MessageBoxW(nullptr,
+                    L"Squaero no pudo abrir su ventana.\n\n"
+                    L"Suele faltar el entorno de ejecucion WebView2 de "
+                    L"Microsoft Edge. Instalalo desde\n\n"
+                    L"https://go.microsoft.com/fwlink/p/?LinkId=2124703\n\n"
+                    L"y vuelve a abrir Squaero.",
+                    L"Squaero", MB_OK | MB_ICONERROR);
+#endif
         std::fprintf(stderr,
                      "Squaero: failed to create the webview window "
                      "(is the WebView2/WebKit runtime available?)\n");
