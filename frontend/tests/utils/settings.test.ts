@@ -51,6 +51,7 @@ describe("parseSettings", () => {
       slowThresholdMs: 1200,
       checkUpdatesOnStart: false,
       toolStrip: false,
+      colorTypes: false,
     };
     expect(parseSettings(serializeSettings(s))).toEqual(s);
   });

@@ -26,6 +26,15 @@ export interface Settings {
    * makes once — which is why it lives here and not in a signal.
    */
   toolStrip: boolean;
+  /**
+   * Colour the grid's cells by their column's type (issue #483).
+   *
+   * On by default: telling a date from a number from a string is the reason the
+   * types are known at all, and doing it by colour is faster than reading. It is
+   * a switch because a grid of five colours is not what everyone wants to stare
+   * at all day, and turning it off has to be one click, not six resets.
+   */
+  colorTypes: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   slowThresholdMs: 1000,
   checkUpdatesOnStart: true,
   toolStrip: true,
+  colorTypes: true,
 };
 
 /** Bounds for the slow-query threshold (ms): 0 (off) up to one hour. */
@@ -82,6 +92,8 @@ export function parseSettings(raw: string | null | undefined): Settings {
         : DEFAULT_SETTINGS.checkUpdatesOnStart,
     toolStrip:
       typeof obj.toolStrip === "boolean" ? obj.toolStrip : DEFAULT_SETTINGS.toolStrip,
+    colorTypes:
+      typeof obj.colorTypes === "boolean" ? obj.colorTypes : DEFAULT_SETTINGS.colorTypes,
   };
 }
 
