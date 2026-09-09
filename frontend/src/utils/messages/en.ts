@@ -96,6 +96,12 @@ export const en: Record<string, string> = {
   "tool.notebook.title": "Notebook: SQL and Markdown cells with inline results",
 
   // SQL editor + its toolbar
+  "vars.title": "Query values",
+  "vars.hint": "This query has variables. What you type is remembered in this tab.",
+  "vars.valueHint": "value",
+  "vars.rawHint": "text, as typed",
+  "vars.button": "Variables",
+  "vars.buttonTitle": "Give the query variables their values",
   "editor.run": "Run",
   "editor.runSelection": "Run selection",
   "editor.ariaLabel": "SQL editor",
