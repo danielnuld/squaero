@@ -102,6 +102,10 @@ export function UpdateModal(props: {
               <button class="primary" disabled={installing()} onClick={() => void doInstall()}>
                 {installing() ? "Descargando e instalando…" : "Instalar actualización"}
               </button>
+              {/* Dicho antes de pulsar, no después: la app se cierra sola para
+                  que el instalador pueda reemplazarla, y eso sin avisar parece
+                  que se ha caído (issue #485). */}
+              <p class="update-note">La app se cerrará para instalar y volverá a abrirse al terminar.</p>
             </Show>
           </div>
         </div>

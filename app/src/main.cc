@@ -654,14 +654,58 @@ struct UpdateResult {
     std::wstring path;
 };
 
-// UI thread: resolve/reject the JS promise; on success launch the MSI and quit
-// (a running squaero.exe would block the installer from replacing it).
+/*
+ * Hand the MSI to Windows Installer through something that OUTLIVES us, and
+ * start the app again when it is done (issue #485).
+ *
+ * The app has to quit for the install — a running squaero.exe cannot be
+ * replaced — so whatever reopens it cannot be the app itself. It is a detached
+ * cmd, which lives outside the install directory and therefore does not block
+ * the very upgrade it is waiting for: it runs msiexec, waits for it, and then
+ * starts the exe again from the path this process was running from, which is
+ * the path the upgrade replaces in place.
+ *
+ * `&`, not `&&`: an install the user cancels, or one that fails, still has to
+ * give the app back. From here it closed for an update, and coming back is the
+ * end of that sentence either way.
+ *
+ * The quoting is cmd's `/s` rule — the first quote after /c and the last one are
+ * stripped, everything between is taken verbatim — which is what keeps a path
+ * with spaces in one piece. Falls back to the old behaviour (open the MSI, do
+ * not come back) if the process cannot be created: installing and not
+ * reopening beats not installing.
+ */
+static void install_and_reopen(const std::wstring &msi)
+{
+    wchar_t exe[MAX_PATH];
+    DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) {
+        ShellExecuteW(nullptr, L"open", msi.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        return;
+    }
+    std::wstring cmd = L"cmd.exe /s /c \"msiexec.exe /i \"" + msi + L"\" & start \"\" \"" +
+                       std::wstring(exe) + L"\"\"";
+    STARTUPINFOW si{};
+    si.cb = sizeof si;
+    PROCESS_INFORMATION pi{};
+    if (CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+                       nullptr, nullptr, &si, &pi)) {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        return;
+    }
+    ShellExecuteW(nullptr, L"open", msi.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+
+// UI thread: resolve/reject the JS promise; on success install and quit (a
+// running squaero.exe would block the installer from replacing it), leaving
+// behind the process that opens the app again afterwards.
 static void finish_update(webview_t w, void *arg)
 {
     auto *r = static_cast<UpdateResult *>(arg);
     if (r->ok) {
         webview_return(w, r->id.c_str(), 0, "{\"ok\":true}");
-        ShellExecuteW(nullptr, L"open", r->path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        install_and_reopen(r->path);
         webview_terminate(w);
     } else {
         webview_return(w, r->id.c_str(), 1, "{\"ok\":false}");
