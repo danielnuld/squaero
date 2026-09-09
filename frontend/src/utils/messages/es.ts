@@ -394,6 +394,7 @@ export const es: Record<string, string> = {
   "export.done": "Exportadas {n} filas a {file}",
   "export.hint": "El archivo queda vacío hasta que termina.",
   "export.progress": "Exportando… {n} filas leídas",
+  "export.tooManyForXlsx": "Excel no admite {n} filas (el máximo es {max}). Exporta a CSV.",
   "export.failed": "No se pudo exportar: {reason}",
 
   // result grid (ResultGrid.tsx)

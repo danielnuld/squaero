@@ -151,7 +151,7 @@ import {
   type PendingChanges,
 } from "./utils/editSession";
 import {
-  exportResult,
+  exportChunks,
   mimeFor,
   fileNameFor,
   toInserts,
@@ -175,7 +175,7 @@ import {
   FK_LOOKUP_LIMIT,
   type FkLookup,
 } from "./utils/fkLookup";
-import { buildXlsx, XLSX_MIME } from "./utils/xlsx";
+import { buildXlsx, XLSX_MAX_ROWS, XLSX_MIME } from "./utils/xlsx";
 import { saveText, pickSaveTarget } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
@@ -326,6 +326,10 @@ const PAGE_LIMIT = 1000;
 // response bounded, and a million rows at the screen's page size is a thousand
 // bridge round trips whose latency is the export.
 const EXPORT_PAGE = 10_000;
+
+// Rows per piece handed to the file writer. The file is never one string: a
+// million rows is past the engine's maximum string length (issue #479).
+const EXPORT_CHUNK_ROWS = 2000;
 
 const emptyResult = (): TabResult => ({
   loading: false,
@@ -2575,21 +2579,47 @@ export function App() {
         return;
       }
     }
-    // Building the file is one long synchronous stretch — a million rows into a
-    // single string — that freezes the interface while it runs, and has no
-    // progress of its own to report. So: drop the percentage and let the bar
-    // just move (the honest shape for "working, and I cannot say how far"), and
-    // hand the browser a frame BEFORE starting, or the message never gets
-    // painted and the user reads a stale count through the whole freeze.
-    total = undefined;
-    working(t("export.writing", { n: String(full.rows.length), file }), full.rows.length);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Excel's own ceiling, said out loud rather than written into a file it
+    // cannot open (issue #479).
+    if (binary && full.rows.length > XLSX_MAX_ROWS) {
+      setExportStatus({
+        text: t("export.tooManyForXlsx", {
+          n: String(full.rows.length),
+          max: String(XLSX_MAX_ROWS),
+        }),
+        error: true,
+      });
+      return;
+    }
+
+    // Writing is where the size actually bites: the whole file as ONE string is
+    // past the engine's maximum string length, and the export used to die there
+    // with "Invalid string length". So it goes out a chunk of rows at a time,
+    // which also gives the bar something true to show — rows written, out of
+    // rows there are — and hands the browser a frame often enough to paint it.
+    total = full.rows.length;
+    working(t("export.writing", { n: String(full.rows.length), file }), 0);
     try {
-      await target.write(
-        binary
-          ? new Blob([new Uint8Array(buildXlsx(full, table))], { type: XLSX_MIME })
-          : exportResult(full, format, table),
-      );
+      const writer = await target.open();
+      if (binary) {
+        await writer.write(
+          new Blob([new Uint8Array(buildXlsx(full, table))], { type: XLSX_MIME }),
+        );
+      } else {
+        let written = 0;
+        let sinceFrame = 0;
+        for (const chunk of exportChunks(full, format, table, EXPORT_CHUNK_ROWS)) {
+          await writer.write(chunk);
+          written = Math.min(full.rows.length, written + EXPORT_CHUNK_ROWS);
+          working(t("export.writing", { n: String(full.rows.length), file }), written);
+          // Not every chunk: a frame per chunk would cost more than the writing.
+          if (++sinceFrame >= 20) {
+            sinceFrame = 0;
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+      }
+      await writer.close();
     } catch (err) {
       setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
       return;

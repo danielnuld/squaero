@@ -41,22 +41,23 @@ function extensionOf(filename: string): string {
   return dot >= 0 ? filename.slice(dot + 1).toLowerCase() : "";
 }
 
-/** Fallback: trigger a browser download via a transient <a download>. */
-function anchorDownload(filename: string, content: string, mime: string): void {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
 /** Somewhere to write one file, chosen before its content exists. */
 export interface SaveTarget {
+  /** Begin writing. The caller writes any number of pieces, then closes. */
+  open: () => Promise<SaveWriter>;
+  /** Write the whole thing at once, for content that is already one value. */
   write: (data: string | Blob) => Promise<void>;
+}
+
+/**
+ * An open file, written in pieces (issue #479). A million rows do not fit in one
+ * JavaScript string — the export failed with "Invalid string length" — so the
+ * caller hands over a chunk at a time and the file never exists whole in memory.
+ */
+export interface SaveWriter {
+  write: (chunk: string | Blob) => Promise<void>;
+  /** Finish. Nothing is guaranteed on disk until this resolves. */
+  close: () => Promise<void>;
 }
 
 /**
@@ -84,6 +85,13 @@ export async function pickSaveTarget(
         types: ext ? [{ accept: { [mime]: [`.${ext}`] } }] : undefined,
       });
       return {
+        open: async () => {
+          const writable = await handle.createWritable();
+          return {
+            write: (chunk) => writable.write(chunk),
+            close: () => writable.close(),
+          };
+        },
         write: async (data) => {
           const writable = await handle.createWritable();
           await writable.write(data);
@@ -95,14 +103,22 @@ export async function pickSaveTarget(
       // Any other failure (API present but blocked): fall back to a download.
     }
   }
+  // The download fallback has nowhere to stream to, so it keeps the pieces and
+  // makes a Blob of them at the end. A Blob of many parts is not a string, so it
+  // has no string-length ceiling — only memory.
+  const download = (parts: (string | Blob)[]) =>
+    anchorDownloadBlob(filename, new Blob(parts, { type: `${mime};charset=utf-8` }));
   return {
-    write: async (data) => {
-      if (typeof data === "string") {
-        anchorDownload(filename, data, mime);
-        return;
-      }
-      anchorDownloadBlob(filename, data);
+    open: async () => {
+      const parts: (string | Blob)[] = [];
+      return {
+        write: async (chunk) => {
+          parts.push(chunk);
+        },
+        close: async () => download(parts),
+      };
     },
+    write: async (data) => download([data]),
   };
 }
 
