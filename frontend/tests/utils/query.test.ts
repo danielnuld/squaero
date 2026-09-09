@@ -1,5 +1,12 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { parseQueryResult, QueryError, runQuery, runScript } from "../../src/utils/query";
+import {
+  parseQueryResult,
+  QueryError,
+  runQuery,
+  queryNext,
+  drainQuery,
+  runScript,
+} from "../../src/utils/query";
 import type { JsonRpcResponse } from "../../src/utils/ipc";
 
 interface BridgeHost {
@@ -32,6 +39,7 @@ describe("parseQueryResult", () => {
       ],
       rows: [["1", "alice"], ["2", null]],
       truncated: false,
+      cursor: false,
       rowsAffected: 0,
     });
   });
@@ -46,8 +54,18 @@ describe("parseQueryResult", () => {
       columns: [],
       rows: [],
       truncated: false,
+      cursor: false,
       rowsAffected: 3,
     });
+  });
+
+  it("carries the open cursor through (issue #478)", () => {
+    const res: JsonRpcResponse = {
+      jsonrpc: "2.0",
+      id: 4,
+      result: { columns: [], rows: [], truncated: true, cursor: true, rowsAffected: 0 },
+    };
+    expect(parseQueryResult(res).cursor).toBe(true);
   });
 
   it("carries truncated through", () => {
@@ -105,6 +123,23 @@ describe("runQuery", () => {
     expect(sent.params).toEqual({ connId: "c1", sql: "SELECT 1 AS n", limit: 500 });
     expect(result.columns).toEqual([{ name: "n", type: "int" }]);
     expect(result.rows).toEqual([["1"]]);
+  });
+
+  it("asks the core to keep a cursor open, but never together with an offset", async () => {
+    const rpc = vi.fn(async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string };
+      return { jsonrpc: "2.0", id: req.id, result: { rowsAffected: 0 } };
+    });
+    (globalThis as BridgeHost).quaeroRpc = rpc;
+
+    await runQuery("c1", "SELECT 1", 100, 0, true);
+    await runQuery("c1", "SELECT 1", 100, 100, true);
+
+    const first = JSON.parse(rpc.mock.calls[0][0]) as { params: Record<string, unknown> };
+    const second = JSON.parse(rpc.mock.calls[1][0]) as { params: Record<string, unknown> };
+    expect(first.params.cursor).toBe(true);
+    expect("cursor" in second.params).toBe(false);
+    expect(second.params.offset).toBe(100);
   });
 
   it("omits limit when not provided", async () => {
@@ -209,5 +244,101 @@ describe("runScript", () => {
       truncated: false,
       rowsAffected: 0,
     });
+  });
+});
+
+describe("drainQuery (issue #479)", () => {
+  /** A canned engine: `pages` are served in order, cursor-style. */
+  const bridge = (pages: { rows: string[][]; truncated: boolean; cursor?: boolean }[]) => {
+    const methods: string[] = [];
+    let n = 0;
+    const rpc = vi.fn(async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string; method: string };
+      methods.push(req.method);
+      const page = pages[n++];
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: {
+          columns: [{ name: "id", type: "int" }],
+          rows: page.rows,
+          truncated: page.truncated,
+          cursor: page.cursor ?? false,
+          rowsAffected: 0,
+        },
+      };
+    });
+    (globalThis as BridgeHost).quaeroRpc = rpc;
+    return { rpc, methods };
+  };
+
+  it("reads every page over the cursor, not just the first", async () => {
+    const { methods } = bridge([
+      { rows: [["1"], ["2"]], truncated: true, cursor: true },
+      { rows: [["3"], ["4"]], truncated: true, cursor: true },
+      { rows: [["5"]], truncated: false },
+    ]);
+
+    const all = await drainQuery("c1", "SELECT id FROM t", 2);
+
+    expect(all.rows).toEqual([["1"], ["2"], ["3"], ["4"], ["5"]]);
+    expect(all.truncated).toBe(false);
+    // One execution, then continuations: query.run exactly once.
+    expect(methods).toEqual(["query.run", "query.next", "query.next"]);
+  });
+
+  it("falls back to offsets when the cursor was lost", async () => {
+    const { rpc, methods } = bridge([
+      { rows: [["1"]], truncated: true },  // no cursor came back
+      { rows: [["2"]], truncated: false },
+    ]);
+
+    const all = await drainQuery("c1", "SELECT id FROM t", 1);
+
+    expect(all.rows).toEqual([["1"], ["2"]]);
+    expect(methods).toEqual(["query.run", "query.run"]);
+    const second = JSON.parse(rpc.mock.calls[1][0]) as { params: { offset: number } };
+    expect(second.params.offset).toBe(1);
+  });
+
+  it("stops on an empty page (the last page of an exact multiple)", async () => {
+    const { methods } = bridge([
+      { rows: [["1"], ["2"]], truncated: true, cursor: true },
+      { rows: [], truncated: true, cursor: false },
+    ]);
+
+    const all = await drainQuery("c1", "SELECT id FROM t", 2);
+
+    expect(all.rows).toEqual([["1"], ["2"]]);
+    expect(methods).toEqual(["query.run", "query.next"]);
+  });
+
+  it("reports the rows gathered so far", async () => {
+    bridge([
+      { rows: [["1"], ["2"]], truncated: true, cursor: true },
+      { rows: [["3"]], truncated: false },
+    ]);
+    const seen: number[] = [];
+    await drainQuery("c1", "SELECT id FROM t", 2, (rows) => seen.push(rows));
+    expect(seen).toEqual([2, 3]);
+  });
+});
+
+describe("queryNext", () => {
+  it("asks for the next page of the connection's cursor", async () => {
+    const rpc = vi.fn(async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string };
+      return { jsonrpc: "2.0", id: req.id, result: { rowsAffected: 0 } };
+    });
+    (globalThis as BridgeHost).quaeroRpc = rpc;
+
+    await queryNext("c1", 500);
+
+    const sent = JSON.parse(rpc.mock.calls[0][0]) as {
+      method: string;
+      params: Record<string, unknown>;
+    };
+    expect(sent.method).toBe("query.next");
+    expect(sent.params).toEqual({ connId: "c1", limit: 500 });
   });
 });

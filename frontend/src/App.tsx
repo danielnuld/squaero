@@ -10,7 +10,13 @@ import {
   onCleanup,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { runQuery, runStatements, type ResultSet } from "./utils/query";
+import {
+  runQuery,
+  queryNext,
+  drainQuery,
+  runStatements,
+  type ResultSet,
+} from "./utils/query";
 import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
 import { cancelQuery, onConnectionLost } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
@@ -113,7 +119,7 @@ import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
 import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
 import { objectPreviewQuery } from "./utils/pagination";
-import { nextOffset, pageHasMore, refreshAction, refreshBlock } from "./utils/gridPaging";
+import { pageStep, pageHasMore, refreshAction, refreshBlock } from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
@@ -245,6 +251,16 @@ interface TabResult {
   pageSql?: string;
   offset?: number;
   pageSize?: number;
+  /** The core still holds an open cursor for this result, so the NEXT page
+      continues that execution instead of running the query again (issue #478).
+      One cursor per connection: another tab's query drops it, and paging then
+      falls back to re-running at an offset. */
+  cursor?: boolean;
+  /** Pages already fetched for `pageSql`, indexed by page number. Turning back
+      is instant, and a cursor only ever moves forward, so going back would
+      otherwise mean re-running the query — the very cost this avoids.
+      ponytail: grows with the pages visited; drop the oldest if it ever bites. */
+  pages?: ResultSet[];
   /** Set when this result is an "open table" preview: paging regenerates the
       preview SQL with a server-side LIMIT/OFFSET (the baked cap otherwise makes
       the core's row-skip pagination return an empty page 2). */
@@ -1048,6 +1064,11 @@ export function App() {
   // and deleting the user's snippet because the two shared a shape would be the
   // worst possible reading of "Deshacer".
   const [snipToast, setSnipToast] = createSignal<{ text: string; undo: () => void } | null>(null);
+  // Reading every row of a big table takes a while and can fail halfway; an
+  // export that says nothing looks like an export that did nothing (issue #479).
+  const [exportStatus, setExportStatus] = createSignal<{ text: string; error?: boolean } | null>(
+    null,
+  );
 
   /** The snippet the active query tab was opened from, if it still exists. */
   const boundSnippet = (): Snippet | undefined => {
@@ -1469,10 +1490,21 @@ export function App() {
         : undefined;
       const activeSet = sets ? pickActiveSet(sets) : 0;
       const shown = sets ? sets[activeSet] : undefined;
+      // A fresh run asks the core to keep the result open (issue #478): the
+      // pages after this one then continue it instead of paying for the query
+      // again. A page turn that got here is the fallback path (the cursor was
+      // lost), and re-runs with an offset as it always did.
       const result = sets
         ? (shown?.result ?? null)
-        : await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
+        : await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0);
       const elapsedMs = performance.now() - started;
+      // The page cache starts here and grows only through the cursor: pages of
+      // ONE execution are a consistent snapshot, while pages stitched from
+      // separate re-runs are not (a refresh would leave the earlier pages
+      // showing yesterday's rows). It is indexed by page number, so a re-run at
+      // an offset lands in its own slot.
+      const pages: ResultSet[] | undefined = script || !result ? undefined : [];
+      if (pages && result) pages[Math.round(offset / PAGE_LIMIT)] = result;
       setResults(id, {
         loading: false,
         error: shown?.error ?? null,
@@ -1482,6 +1514,8 @@ export function App() {
         pageSql: script ? undefined : trimmed,
         offset,
         pageSize: PAGE_LIMIT,
+        cursor: result?.cursor ?? false,
+        pages,
         source: keepSource,
         sets,
         activeSet,
@@ -1593,6 +1627,41 @@ export function App() {
     }
   };
 
+  // The next page off the cursor the core kept open for this tab's query
+  // (issue #478). The query is NOT executed again — which is the whole point:
+  // paging a heavy query used to cost the heavy query, once per page. The rows
+  // on screen stay put while the page is fetched, and a cursor that is gone
+  // (another tab queried the same connection) falls back to the offset re-run.
+  const nextPage = async (tabId: number, index: number) => {
+    const conn = tabConn(tabs().tabs.find((x) => x.id === tabId));
+    const r = results[tabId];
+    if (!conn || !r) return;
+    const size = r.pageSize ?? PAGE_LIMIT;
+    setResults(tabId, { loading: true });
+    const started = performance.now();
+    try {
+      const page = await queryNext(conn.connId, size);
+      const pages = [...(r.pages ?? [])];
+      pages[index] = page;
+      setResults(tabId, {
+        loading: false,
+        error: null,
+        result: page,
+        elapsedMs: performance.now() - started,
+        offset: index * size,
+        cursor: page.cursor ?? false,
+        pages,
+      });
+    } catch (err) {
+      setResults(tabId, { loading: false, cursor: false });
+      if (r.pageSql) {
+        void run(r.pageSql, r.ranScope ?? "document", index * size, tabId);
+      } else {
+        setResults(tabId, { error: errorText(err) });
+      }
+    }
+  };
+
   // Cancel the query running in the current tab (op.cancel). Best-effort: the
   // core interrupts the driver where it can (e.g. SQLite); the awaited runQuery
   // then rejects with a query error, which the run() catch turns into the tab's
@@ -1603,22 +1672,30 @@ export function App() {
     if (conn) void cancelQuery(conn.connId).catch(() => {});
   };
 
-  // Offset pagination (issue #134): re-run the current result at the previous /
-  // next page. Guarded while editing so a page turn never discards pending
-  // changes. Table previews regenerate their paged SQL (server-side offset); a
-  // plain query re-runs at a new core-side offset.
+  // Turn the page (issues #134, #478). Guarded while editing so a page turn
+  // never discards pending changes. Where the page comes from is decided by
+  // pageStep: memory first, then the open cursor, and only then a re-run —
+  // table previews regenerate their paged SQL (server-side offset), a plain
+  // query re-runs at a new core-side offset.
   const pageBy = (delta: 1 | -1) => {
     const t = current();
     if (!t) return;
     const r = results[t.id];
     if (!r || r.loading || currentEdit().editing) return;
+    const step = pageStep(r, delta);
+    if (!step) return;
     const size = r.pageSize ?? PAGE_LIMIT;
-    const target = nextOffset(r.offset ?? 0, delta, size);
-    if (target === (r.offset ?? 0)) return;
-    if (r.preview) {
-      void runPreviewPage(t.id, r.preview, target);
-    } else if (r.pageSql) {
-      void run(r.pageSql, r.ranScope ?? "document", target);
+    if (step.kind === "cached") {
+      const page = r.pages?.[step.index];
+      if (page) setResults(t.id, { result: page, offset: step.index * size, error: null });
+      return;
+    }
+    if (step.kind === "cursor") {
+      void nextPage(t.id, step.index);
+    } else if (step.kind === "preview" && r.preview) {
+      void runPreviewPage(t.id, r.preview, step.offset);
+    } else if (step.kind === "query" && r.pageSql) {
+      void run(r.pageSql, r.ranScope ?? "document", step.offset);
     }
   };
 
@@ -2345,17 +2422,59 @@ export function App() {
   // Save the result as text. saveText prefers a native "Guardar como" dialog
   // (File System Access API in the webview) and falls back to a browser
   // download where unavailable. Client-side by design; see the M8 decision.
-  const doExport = (format: AnyExportFormat) => {
-    const res = currentResult().result;
-    if (!res || res.columns.length === 0) return;
-    const src = currentResult().source;
-    const base = src?.table ?? current()?.title ?? "export";
+  // The SQL that reads the WHOLE result behind the page on screen (issue #479),
+  // or null when there is none to re-read: a script's statement is not pageable,
+  // and neither is a result nobody can re-run. A table preview drops its row cap
+  // (limit 0) but keeps the filter the panel applied — exporting a filtered
+  // table must export the filtered rows.
+  const exportSql = (tabId: number, r: TabResult): string | null => {
+    if (r.sets) return null;
+    if (r.preview) {
+      return objectPreviewQuery(
+        r.preview.parts,
+        r.preview.engine,
+        0,
+        0,
+        filters[tabId]?.applied ?? undefined,
+      );
+    }
+    return r.pageSql ?? null;
+  };
+
+  // Save the result as a file. Every row of it, not the page the grid happens to
+  // have loaded (issue #479): the rows are re-read page by page over the core's
+  // cursor and joined here. Falls back to the loaded page only when there is no
+  // SQL to re-read (a script's statement), and says so is impossible — that case
+  // has no more rows to offer.
+  const doExport = async (format: AnyExportFormat) => {
+    const tab = current();
+    const r = currentResult();
+    const res = r.result;
+    if (!tab || !res || res.columns.length === 0) return;
+    const src = r.source;
+    const base = src?.table ?? tab.title ?? "export";
     const table = src?.table ?? "exported";
+    const conn = tabConn(tab);
+    const sql = exportSql(tab.id, r);
+
+    let full = res;
+    if (conn && sql && res.truncated) {
+      setExportStatus({ text: t("export.progress", { n: String(res.rows.length) }) });
+      try {
+        full = await drainQuery(conn.connId, sql, PAGE_LIMIT, (rows) =>
+          setExportStatus({ text: t("export.progress", { n: String(rows) }) }),
+        );
+      } catch (err) {
+        setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
+        return;
+      }
+    }
+    setExportStatus(null);
     if (format === "xlsx") {
-      void saveBytes(fileNameFor(base, "xlsx"), buildXlsx(res, table), XLSX_MIME);
+      void saveBytes(fileNameFor(base, "xlsx"), buildXlsx(full, table), XLSX_MIME);
       return;
     }
-    const text = exportResult(res, format, table);
+    const text = exportResult(full, format, table);
     void saveText(fileNameFor(base, format), text, mimeFor(format));
   };
 
@@ -2456,7 +2575,10 @@ export function App() {
       items.push({ separator: true });
     }
     for (const f of EXPORT_FORMATS) {
-      items.push({ label: t("result.exportFmt", { fmt: f.label }), action: () => doExport(f.fmt) });
+      items.push({
+        label: t("result.exportFmt", { fmt: f.label }),
+        action: () => void doExport(f.fmt),
+      });
     }
     openContextMenu(e, items);
   };
@@ -3087,7 +3209,7 @@ export function App() {
                       onConfirm={confirmEdit}
                       onDiscard={discardEdit}
                       onChart={openChart}
-                      onExport={(fmt) => doExport(fmt as AnyExportFormat)}
+                      onExport={(fmt) => void doExport(fmt as AnyExportFormat)}
                     >
                       {/* A data tab has no editor bar to hold these, so they
                           ride in the action bar rather than in a band of their
@@ -3509,6 +3631,25 @@ export function App() {
               title={t("panel.close")}
               aria-label={t("panel.close")}
               onClick={() => setSnipToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </Show>
+
+      <Show when={exportStatus()}>
+        {(status) => (
+          <div
+            class={`app-toast${status().error ? " app-toast-error" : ""}`}
+            role={status().error ? "alert" : "status"}
+          >
+            <span class="app-toast-text">{status().text}</span>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setExportStatus(null)}
             >
               ×
             </button>

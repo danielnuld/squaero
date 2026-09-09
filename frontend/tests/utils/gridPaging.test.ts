@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   nextOffset,
+  pageStep,
   pageHasMore,
   refreshAction,
   refreshBlock,
@@ -86,5 +87,51 @@ describe("refreshBlock", () => {
 
   it("reports the edit session first: it is the reason the user can act on", () => {
     expect(refreshBlock(undefined, { editing: true, loading: true })).toBe("editing");
+  });
+});
+
+describe("pageStep (issue #478)", () => {
+  const page = { rows: [] };
+
+  it("serves a page already fetched from memory", () => {
+    const r = { pageSize: 100, offset: 100, pages: [page, page], cursor: true, pageSql: "SELECT" };
+    expect(pageStep(r, -1)).toEqual({ kind: "cached", index: 0 });
+  });
+
+  it("continues the open cursor for the page after the last one fetched", () => {
+    const r = { pageSize: 100, offset: 0, pages: [page], cursor: true, pageSql: "SELECT" };
+    expect(pageStep(r, 1)).toEqual({ kind: "cursor", index: 1, offset: 100 });
+  });
+
+  it("re-runs the query when there is no cursor left", () => {
+    const r = { pageSize: 100, offset: 0, pages: [page], cursor: false, pageSql: "SELECT" };
+    expect(pageStep(r, 1)).toEqual({ kind: "query", index: 1, offset: 100 });
+  });
+
+  it("never uses a forward-only cursor to go back", () => {
+    const r = { pageSize: 100, offset: 100, pages: [], cursor: true, pageSql: "SELECT" };
+    expect(pageStep(r, -1)).toEqual({ kind: "query", index: 0, offset: 0 });
+  });
+
+  it("does not jump the cursor past the pages fetched", () => {
+    // Sitting on page 0 with pages 0..1 cached: the cursor sits after page 1,
+    // so the step forward is the cached page, not a cursor fetch.
+    const r = { pageSize: 100, offset: 0, pages: [page, page], cursor: true, pageSql: "SELECT" };
+    expect(pageStep(r, 1)).toEqual({ kind: "cached", index: 1 });
+  });
+
+  it("regenerates a table preview's paged SQL", () => {
+    const r = { pageSize: 100, offset: 0, preview: {}, pageSql: "SELECT" };
+    expect(pageStep(r, 1)).toEqual({ kind: "preview", index: 1, offset: 100 });
+  });
+
+  it("has nowhere to go before the first page or without a page size", () => {
+    expect(pageStep({ pageSize: 100, offset: 0, pageSql: "SELECT" }, -1)).toBeNull();
+    expect(pageStep({ offset: 0, pageSql: "SELECT" }, 1)).toBeNull();
+    expect(pageStep(undefined, 1)).toBeNull();
+  });
+
+  it("cannot page a script (no pageSql, no preview)", () => {
+    expect(pageStep({ pageSize: 100, offset: 0 }, 1)).toBeNull();
   });
 });

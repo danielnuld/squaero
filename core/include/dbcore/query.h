@@ -41,6 +41,36 @@ dbc_status dbcore_query_run(const dbcore_conn_ref *conn, const char *sql,
                             int max_rows, int offset, dbcore_result **out,
                             char *errbuf, size_t errcap);
 
+/*
+ * Execute `sql` and return its FIRST page, keeping the driver's result open so
+ * the next page can continue the same execution (issue #478) instead of running
+ * the query again and skipping rows.
+ *
+ * On DBC_OK *out owns the page (free with dbcore_result_free) and *out_cursor is
+ * the still-open driver result WHEN the page came back truncated (a further page
+ * exists); otherwise *out_cursor is NULL and nothing has to be released. A
+ * non-NULL *out_cursor must eventually be handed to dbcore_query_next until it
+ * closes, or freed with driver->free_result.
+ *
+ * Errors are those of dbcore_query_run; *out and *out_cursor are NULL.
+ */
+dbc_status dbcore_query_open(const dbcore_conn_ref *conn, const char *sql,
+                             int max_rows, dbcore_result **out,
+                             dbc_result **out_cursor, char *errbuf, size_t errcap);
+
+/*
+ * The next page off a cursor opened by dbcore_query_open. `cursor` is borrowed:
+ * *out_open is 1 when it is still alive (yet another page may follow) and 0 when
+ * it has been closed and freed — on exhaustion AND on failure, so the caller
+ * must drop its pointer whenever *out_open is 0.
+ *
+ * DBC_ERR_PARAM for a NULL argument, DBC_ERR_QUERY if the driver failed to
+ * iterate, DBC_ERR_NOMEM if the page could not be allocated.
+ */
+dbc_status dbcore_query_next(const dbcore_conn_ref *conn, dbc_result *cursor,
+                             int max_rows, dbcore_result **out, int *out_open,
+                             char *errbuf, size_t errcap);
+
 #ifdef __cplusplus
 }
 #endif

@@ -16,6 +16,63 @@ export function pageHasMore(rowCount: number, size: number): boolean {
   return rowCount >= Math.max(1, Math.floor(size));
 }
 
+/** The displayed-result state a page turn decides from (issue #478). */
+export interface PageableResult {
+  /** The SQL that produced the displayed page; absent for a script. */
+  pageSql?: string;
+  offset?: number;
+  pageSize?: number;
+  /** Set when the result is an "open table" preview (it regenerates its SQL). */
+  preview?: unknown;
+  /** The core still holds an open cursor for this result. */
+  cursor?: boolean;
+  /** Pages already fetched, indexed by page number. */
+  pages?: unknown[];
+}
+
+/** How the page `delta` steps away is obtained. */
+export type PageStep =
+  /** Already fetched: show it again, no round-trip. */
+  | { kind: "cached"; index: number }
+  /** Continue the open cursor: the query is not executed again. */
+  | { kind: "cursor"; index: number; offset: number }
+  /** Re-run the table preview with a server-side offset. */
+  | { kind: "preview"; index: number; offset: number }
+  /** Re-run the SQL at a new core-side offset. */
+  | { kind: "query"; index: number; offset: number }
+  | null;
+
+/**
+ * How to get the page `delta` steps from the one on screen (issue #478).
+ *
+ * Order matters, and it is the whole point of the helper: a page already
+ * fetched is shown from memory, the next page continues the cursor the core
+ * kept open, and only a result with neither falls back to re-running the query
+ * — which is what made paging a heavy query cost the query again, every time.
+ * Backwards always finds a cached page, because a cursor only moves forward.
+ *
+ * Null when there is nothing to turn to: before the first page, or for a result
+ * that is not pageable at all (a script). Pure.
+ */
+export function pageStep(r: PageableResult | undefined, delta: 1 | -1): PageStep {
+  if (!r) return null;
+  const size = Math.floor(r.pageSize ?? 0);
+  if (size < 1) return null;   /* not a paged result (a script) */
+  const index = Math.max(0, Math.round((r.offset ?? 0) / size));
+  const target = index + delta;
+  if (target < 0) return null;
+  const offset = target * size;
+  if (r.pages?.[target] !== undefined) return { kind: "cached", index: target };
+  /* The cursor sits right after the last page fetched, so it can only serve
+     that one. Anything else re-runs. */
+  if (delta === 1 && r.cursor && target === (r.pages?.length ?? -1)) {
+    return { kind: "cursor", index: target, offset };
+  }
+  if (r.preview) return { kind: "preview", index: target, offset };
+  if (r.pageSql) return { kind: "query", index: target, offset };
+  return null;
+}
+
 /** The displayed-result state a refresh decides from. */
 export interface RefreshableResult {
   /** The SQL that produced the displayed page. */

@@ -387,6 +387,8 @@ export const en: Record<string, string> = {
   "result.copyRowsInserts": "Copy {n} rows as INSERT",
   "result.transferRowsN": "Transfer {n} rows to another table…",
   "result.exportFmt": "Export {fmt}",
+  "export.progress": "Exporting… {n} rows read",
+  "export.failed": "Export failed: {reason}",
 
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} row(s) affected.",

@@ -20,8 +20,10 @@ extern "C" {
    v4 adds transaction control: tx.begin / tx.commit / tx.rollback.
    v5 adds row editing: row.insert / row.update / row.delete.
    v6 adds offset pagination to query.run (params.offset).
-   v7 adds op.cancel: interrupt a running query from the frontend. */
-#define DBCORE_IPC_PROTOCOL_VERSION 7
+   v7 adds op.cancel: interrupt a running query from the frontend.
+   v8 adds cursor paging: query.run accepts params.cursor and query.next /
+      query.cursorClose page a result without re-running the query. */
+#define DBCORE_IPC_PROTOCOL_VERSION 8
 
 /*
  * Handles a single JSON-RPC request and returns the response as a newly

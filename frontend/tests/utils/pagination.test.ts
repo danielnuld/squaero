@@ -18,9 +18,16 @@ describe("previewSelect", () => {
     expect(previewSelect("`t`", "mariadb", 100)).toBe("SELECT * FROM `t` LIMIT 100;");
   });
 
-  it("floors and clamps the limit to at least 1", () => {
+  it("floors the limit", () => {
     expect(previewSelect("t", "mysql", 10.9)).toBe("SELECT * FROM t LIMIT 10;");
-    expect(previewSelect("t", "informix", 0)).toBe("SELECT FIRST 1 * FROM t;");
+  });
+
+  it("drops the cap entirely for limit <= 0 (an export reads it whole, #479)", () => {
+    expect(previewSelect("t", "mysql", 0)).toBe("SELECT * FROM t;");
+    expect(previewSelect("t", "informix", 0)).toBe("SELECT * FROM t;");
+    expect(previewSelect("t", "mysql", 0, 0, "id > 1", "id DESC")).toBe(
+      "SELECT * FROM t WHERE id > 1 ORDER BY id DESC;",
+    );
   });
 
   it("pushes the offset into the query for a later page", () => {
@@ -63,6 +70,10 @@ describe("objectPreviewQuery", () => {
 
   it("floors and clamps the MongoDB limit", () => {
     expect(objectPreviewQuery({ name: "c" }, "mongodb", 5.7)).toBe("db.c.find({}).limit(5)");
+  });
+
+  it("drops the MongoDB cap for limit <= 0 (#479)", () => {
+    expect(objectPreviewQuery({ name: "c" }, "mongodb", 0)).toBe("db.c.find({})");
   });
 
   it("pages relational and MongoDB with an offset", () => {

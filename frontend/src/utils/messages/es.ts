@@ -390,6 +390,8 @@ export const es: Record<string, string> = {
   "result.copyRowsInserts": "Copiar {n} filas como INSERT",
   "result.transferRowsN": "Transferir {n} filas a otra tabla…",
   "result.exportFmt": "Exportar {fmt}",
+  "export.progress": "Exportando… {n} filas leídas",
+  "export.failed": "No se pudo exportar: {reason}",
 
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} fila(s) afectada(s).",

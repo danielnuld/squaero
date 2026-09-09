@@ -18,6 +18,9 @@ export interface ResultSet {
   rows: (string | null)[][];
   /** True when more rows existed than were returned. */
   truncated: boolean;
+  /** The core kept a cursor open for this result, so the next page continues it
+      instead of re-running the query (issue #478). */
+  cursor?: boolean;
   /** Affected-row count for non-SELECT statements. */
   rowsAffected: number;
 }
@@ -48,6 +51,7 @@ export function parseQueryResult(res: JsonRpcResponse): ResultSet {
     columns: Array.isArray(r.columns) ? r.columns : [],
     rows: Array.isArray(r.rows) ? r.rows : [],
     truncated: Boolean(r.truncated),
+    cursor: Boolean(r.cursor),
     rowsAffected: typeof r.rowsAffected === "number" ? r.rowsAffected : 0,
   };
 }
@@ -62,6 +66,7 @@ export async function runQuery(
   sql: string,
   limit?: number,
   offset?: number,
+  cursor?: boolean,
 ): Promise<ResultSet> {
   const params: Record<string, unknown> = { connId, sql };
   if (limit !== undefined) {
@@ -70,8 +75,68 @@ export async function runQuery(
   if (offset !== undefined && offset > 0) {
     params.offset = offset;
   }
+  // A cursor pages forward from the first row, so the core rejects it together
+  // with an offset — never send both.
+  if (cursor && !(offset !== undefined && offset > 0)) {
+    params.cursor = true;
+  }
   const res = await call("query.run", params);
   return parseQueryResult(res);
+}
+
+/**
+ * The next page of the cursor `runQuery(..., true)` left open on the connection
+ * (issue #478): the query is NOT executed again, the core continues the driver
+ * result where the last page stopped. Rejects with QueryError (-32002) when no
+ * cursor is open — another tab's query on the same connection replaces it, and
+ * the caller falls back to re-running with an offset.
+ */
+export async function queryNext(connId: string, limit?: number): Promise<ResultSet> {
+  const params: Record<string, unknown> = { connId };
+  if (limit !== undefined) {
+    params.limit = limit;
+  }
+  return parseQueryResult(await call("query.next", params));
+}
+
+/** Release the connection's open cursor. Closing a closed one is not an error. */
+export async function closeCursor(connId: string): Promise<void> {
+  await call("query.cursorClose", { connId });
+}
+
+/**
+ * Every row of `sql`, read page by page (issue #479). Export needs the whole
+ * result set, not the page on screen — but a single unbounded response is
+ * exactly what the IPC contract forbids, so this walks the cursor and joins the
+ * pages here. If the cursor is lost mid-walk (another tab ran a query on the
+ * same connection) it falls back to re-running at an offset, which is slower but
+ * still complete.
+ *
+ * `onProgress` is called with the rows gathered so far, for a UI that has to say
+ * something during a long export.
+ *
+ * ponytail: the rows are accumulated in memory, so exporting a huge table costs
+ * a huge array. Stream page by page into the file writer if that ever bites.
+ */
+export async function drainQuery(
+  connId: string,
+  sql: string,
+  pageSize: number,
+  onProgress?: (rows: number) => void,
+): Promise<ResultSet> {
+  const first = await runQuery(connId, sql, pageSize, 0, true);
+  const rows = [...first.rows];
+  let page = first;
+  onProgress?.(rows.length);
+  while (page.truncated) {
+    page = page.cursor
+      ? await queryNext(connId, pageSize)
+      : await runQuery(connId, sql, pageSize, rows.length);
+    if (page.rows.length === 0) break;
+    for (const row of page.rows) rows.push(row);
+    onProgress?.(rows.length);
+  }
+  return { ...first, rows, truncated: false, cursor: false };
 }
 
 /**
