@@ -23,6 +23,14 @@ import { cancelQuery, onConnectionLost } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection, listDatabases } from "./utils/conn";
 import {
+  findVariables,
+  applyVariables,
+  missingVariables,
+  type SqlVariable,
+  type VarValues,
+} from "./utils/sqlVariables";
+import { VariablesDialog } from "./components/VariablesDialog";
+import {
   addTab,
   openTool,
   openSnippetTab,
@@ -31,6 +39,7 @@ import {
   closeTabsForConn,
   cycleTab,
   updateTabSql,
+  updateTabVars,
   activeTab,
   objectTabKey,
   findObjectTab,
@@ -1080,6 +1089,17 @@ export function App() {
   // that was just created, while undoing an update puts the previous body back —
   // and deleting the user's snippet because the two shared a shape would be the
   // worst possible reading of "Deshacer".
+  // The run that is waiting for its variables (issue #481). Held rather than
+  // executed: the dialog is the only thing between asking to run and running,
+  // so it carries everything the run will need when it comes back.
+  const [varPrompt, setVarPrompt] = createSignal<{
+    tabId: number;
+    sql: string;
+    scope: RunScope;
+    variables: SqlVariable[];
+    values: VarValues;
+  } | null>(null);
+
   const [snipToast, setSnipToast] = createSignal<{ text: string; undo: () => void } | null>(null);
   // Reading every row of a big table takes a while and can fail halfway; an
   // export that says nothing looks like an export that did nothing (issue #479).
@@ -1728,6 +1748,71 @@ export function App() {
     }
   };
 
+  /** The variable values this tab last ran with. */
+  const varsOfTab = (tabId: number): VarValues => {
+    const tab = tabs().tabs.find((x) => x.id === tabId);
+    return tab?.kind === "query" ? (tab.vars ?? {}) : {};
+  };
+
+  /** The SQL dialect of a tab: its OWN connection's, not whatever is focused. */
+  const dialectOfTab = (tabId: number): string => {
+    const tab = tabs().tabs.find((x) => x.id === tabId);
+    return (tab ? tabConn(tab)?.driver : undefined) ?? activeDialect();
+  };
+
+  /**
+   * Run `sql` after filling in its variables (issue #481).
+   *
+   * What goes to the engine is the substituted text; the editor keeps what the
+   * user wrote, which is the whole point of a variable. A statement with a
+   * variable nobody has answered opens the dialog instead of running — and the
+   * dialog comes back through here, so there is one path, not two.
+   */
+  const runWithVariables = (tabId: number, sql: string, scope: RunScope) => {
+    const engine = dialectOfTab(tabId);
+    const variables = findVariables(sql, engine);
+    if (variables.length === 0) {
+      void run(sql, scope, 0, tabId);
+      return;
+    }
+    const values = varsOfTab(tabId);
+    if (missingVariables(variables, values).length > 0) {
+      setVarPrompt({ tabId, sql, scope, variables, values });
+      return;
+    }
+    void run(applyVariables(sql, values, engine), scope, 0, tabId);
+  };
+
+  /** The dialog said Run: keep the values with the tab, then run. */
+  const runWithValues = (values: VarValues) => {
+    const prompt = varPrompt();
+    if (!prompt) return;
+    setVarPrompt(null);
+    setTabs((state) => updateTabVars(state, prompt.tabId, values));
+    void run(
+      applyVariables(prompt.sql, values, dialectOfTab(prompt.tabId)),
+      prompt.scope,
+      0,
+      prompt.tabId,
+    );
+  };
+
+  /** Open the values dialog for the SQL on screen, without waiting for a run. */
+  const editVariables = () => {
+    const tab = current();
+    if (!tab) return;
+    const sql = sqlOfTab(tab.id);
+    const variables = findVariables(sql, dialectOfTab(tab.id));
+    if (variables.length === 0) return;
+    setVarPrompt({ tabId: tab.id, sql, scope: "document", variables, values: varsOfTab(tab.id) });
+  };
+
+  /** Whether the editor's text carries variables, for the toolbar button. */
+  const hasVariables = () => {
+    const tab = current();
+    return !!tab && findVariables(sqlOfTab(tab.id), dialectOfTab(tab.id)).length > 0;
+  };
+
   // The editor's run (Ctrl+Enter / "Ejecutar"). When the tab still shows a table
   // preview and its SQL is unchanged, re-run through the preview path so paging
   // (offset / has-more) is preserved; anything else is a plain query.
@@ -1738,7 +1823,8 @@ export function App() {
       void runPreviewPage(t.id, r.preview, r.offset ?? 0);
       return;
     }
-    void run(sql, scope);
+    if (!t) return;
+    runWithVariables(t.id, sql, scope);
   };
 
   // Show the execution plan of the active query (issue #131): build the EXPLAIN
@@ -3233,6 +3319,17 @@ export function App() {
                     >
                       {t("editor.format")}
                     </button>
+                    {/* Only where there is something to fill in: a button that
+                        opens an empty dialog teaches nothing (issue #481). */}
+                    <Show when={hasVariables()}>
+                      <button
+                        class="status-btn"
+                        title={t("vars.buttonTitle")}
+                        onClick={editVariables}
+                      >
+                        {t("vars.button")}
+                      </button>
+                    </Show>
                     <button
                       class="status-btn"
                       title={t("editor.planTitle")}
@@ -3789,6 +3886,17 @@ export function App() {
               ×
             </button>
           </div>
+        )}
+      </Show>
+
+      <Show when={varPrompt()}>
+        {(prompt) => (
+          <VariablesDialog
+            variables={prompt().variables}
+            values={prompt().values}
+            onRun={runWithValues}
+            onCancel={() => setVarPrompt(null)}
+          />
         )}
       </Show>
 
