@@ -150,19 +150,28 @@ static int registry_informixdir(char *out, DWORD outlen)
                         &outlen) == ERROR_SUCCESS ? 0 : -1;
 }
 
+/* GetEnvironmentVariableA rather than getenv: MSVC deprecates the latter, and
+   this driver also writes the environment, which the CRT copy would not see. */
+static int env_var(const char *name, char *out, DWORD outlen)
+{
+    DWORD n = GetEnvironmentVariableA(name, out, outlen);
+    return (n > 0 && n < outlen) ? 0 : -1;
+}
+
 static int load_direct(void)
 {
     char buf[MAX_PATH];
+    char env[MAX_PATH];
 
-    if (try_csdk(getenv("INFORMIXDIR")) == 0) {
+    if (env_var("INFORMIXDIR", env, (DWORD)sizeof env) == 0 &&
+        try_csdk(env) == 0) {
         return 0;
     }
     if (app_relative("csdk", buf, sizeof buf) == 0 && try_csdk(buf) == 0) {
         return 0;
     }
-    const char *local = getenv("LOCALAPPDATA");
-    if (local != NULL &&
-        snprintf(buf, sizeof buf, "%s\\Squaero\\csdk", local) < (int)sizeof buf &&
+    if (env_var("LOCALAPPDATA", env, (DWORD)sizeof env) == 0 &&
+        snprintf(buf, sizeof buf, "%s\\Squaero\\csdk", env) < (int)sizeof buf &&
         try_csdk(buf) == 0) {
         return 0;
     }
