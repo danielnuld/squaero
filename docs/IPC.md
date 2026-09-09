@@ -70,6 +70,7 @@ están más abajo.
 | `ping` | v2 | Liveness; eco de `params.message` |
 | `conn.open` / `conn.close` | v2 | Abrir/cerrar conexión activa |
 | `query.run` | v2 | Ejecutar SQL, devolver result set paginado |
+| `query.next` / `query.cursorClose` | v8 | Paginar un result set sin re-ejecutar la consulta |
 | `op.cancel` | v7 | Cancelar la consulta en curso de una conexión (requiere `DBC_FEAT_CANCEL`) |
 | `schema.tree` | v3 | Árbol de objetos (bases/esquemas/tablas), perezoso |
 | `schema.describe` | v3 | Estructura de una tabla |
@@ -87,8 +88,10 @@ Exportar, importar, transferir datos entre conexiones y comparar esquemas/datos
 («diff») se implementan **enteramente del lado del frontend** reutilizando los
 métodos existentes; el núcleo no ganó ningún método para ellos:
 
-- **Export** (CSV/JSON/SQL): el frontend serializa el result set ya cargado de
-  `query.run` y lo descarga vía el navegador (`Blob` + `<a download>`).
+- **Export** (CSV/JSON/SQL): el frontend recorre el result set completo página a
+  página (`query.run` con `cursor` + `query.next`, #479), lo serializa y lo guarda
+  con el dialogo nativo del webview (o una descarga del navegador). Exportar la
+  pagina que se ve en la rejilla no servia para un export de verdad.
 - **Import** (CSV/JSON): el frontend parsea el archivo (`<input file>`) y ejecuta
   un `row.insert` por fila dentro de una transacción (`tx.begin`/`tx.commit`).
 - **Transferencia** entre conexiones: se abre una segunda conexión con
@@ -257,6 +260,42 @@ cualquier motor sin cambios de vtable.
   "rowsAffected": 0 }
 ```
 
+`params.cursor` (opcional, booleano, **v8**) cambia *cómo* se pagina: en vez de
+volver a ejecutar la consulta para cada página, el núcleo **deja abierto** el
+result set del driver y lo continúa (issue #478). La respuesta trae `cursor: true`
+mientras ese cursor siga vivo, y las páginas siguientes se piden con `query.next`.
+No se combina con `params.offset` (un cursor avanza desde la primera fila): pedir
+ambos es `-32602`.
+
+**`query.next`** — la siguiente página del cursor que `query.run` dejó abierto en
+esa conexión. `params: { connId, limit? }`; el resultado tiene la misma forma que
+`query.run` (y su `cursor` mientras quede algo por leer). La consulta **no** se
+vuelve a ejecutar. Sin cursor abierto responde `-32002`.
+
+Hay **un cursor por conexión**, y solo otra `query.run` **con `cursor`** lo
+reemplaza. Una `query.run` normal lo deja intacto a propósito: el frontend lanza
+consultas de catálogo suyas (llaves foráneas, completado) por la misma conexión
+justo después de cada consulta, y descartar el cursor ahí mandaba cada cambio de
+página de vuelta a re-ejecutar. Cuando el cursor sí se pierde, la paginación
+vuelve al camino por `offset` sin avisar de nada raro, porque no lo hay.
+
+Como el cursor no puede espiar la fila siguiente sin consumirla, `truncated` se
+infiere de una página llena: el único costo es una última página vacía cuando el
+total es múltiplo exacto del `limit`.
+
+**`query.cursorClose`** — libera ese cursor. `params: { connId }`; resultado
+`{ closed: bool }`, donde `false` significa que ya no había ninguno (cerrar dos
+veces no es un error).
+
+```jsonc
+{ "jsonrpc": "2.0", "id": 4, "method": "query.run",
+  "params": { "connId": "c1", "sql": "SELECT ...", "limit": 1000, "cursor": true } }
+// -> result: { "columns": [...], "rows": [...], "truncated": true, "rowsAffected": 0,
+//              "cursor": true }
+{ "jsonrpc": "2.0", "id": 5, "method": "query.next",
+  "params": { "connId": "c1", "limit": 1000 } }
+```
+
 Cada celda viaja como **cadena** (su forma textual) o `null` para un `NULL` SQL;
 el `type` neutral de cada columna le dice al frontend cómo formatearla (el núcleo
 no infiere ni convierte). Una sentencia sin result set (`INSERT`/`UPDATE`/DDL)
@@ -379,7 +418,9 @@ El `id` de la petición se refleja en la respuesta (o `null` si no venía).
 
 1. **Paginación siempre.** `query.run` devuelve como máximo `limit` filas y marca `truncated`. La UI pide más bajo demanda. Nunca se vuelca un dataset completo de golpe.
 2. **El núcleo es la fuente de verdad de los tipos.** Cada columna lleva su `type` neutral; el frontend formatea, no infiere.
-3. **Operaciones largas.** `query.run` es una operación larga del núcleo y es cancelable con `op.cancel` (implementado). El shell la despacha en un hilo worker para no congelar la UI, y `op.cancel` viaja por un canal que no se encola detrás de la consulta que interrumpe. `progress` sigue reservado (no implementado): hoy `query.run` no reporta avance incremental, y import/export/transfer corren en el frontend acotados a la página.
+3. **Operaciones largas.** `query.run` es una operación larga del núcleo y es cancelable con `op.cancel` (implementado). El shell la despacha en un hilo worker para no congelar la UI, y `op.cancel` viaja por un canal que no se encola detrás de la consulta que interrumpe. `progress` sigue reservado (no implementado): hoy `query.run` no reporta avance incremental, y import/transfer corren en el frontend acotados a la página, y **export**
+recorre el result set completo página por página sobre el cursor (#479) — sigue sin
+mandarse el dataset entero en una sola respuesta.
 4. **Versionado:** el handshake inicial (`app.hello`) negocia la versión del protocolo. Ver [«Notas de versionado»](#notas-de-versionado).
 
 ## Notas de versionado
@@ -416,8 +457,10 @@ incompatible que debe discutirse en un issue antes, porque rompe a todo cliente)
 | v5 | M7 | `row.insert`/`row.update`/`row.delete` |
 | v6 | M10.6 | `query.run` acepta `params.offset` (paginación por offset, #134) |
 | v7 | M10.6 | `op.cancel`: cancelar la consulta en curso de una conexión |
+| v8 | M10.6 | Paginación por cursor: `query.run` acepta `params.cursor`, más `query.next` / `query.cursorClose` (#478) |
 
 M8 (Import/Export) y M9 (Transferencia/sincronización) **no** subieron la versión:
 se implementaron en el frontend sobre los métodos existentes. La v6 sí sube porque
 añade un parámetro nuevo a un método (aunque sea opcional y compatible). La v7 sube
-porque agrega un método nuevo (`op.cancel`).
+porque agrega un método nuevo (`op.cancel`). La v8 sube por lo mismo
+(`query.next`, `query.cursorClose`) y por el parámetro `cursor` de `query.run`.

@@ -73,6 +73,30 @@ dbc_status dbcore_conn_manager_close(dbcore_conn_manager *mgr, int id);
 int dbcore_conn_manager_get(const dbcore_conn_manager *mgr, int id,
                             dbcore_conn_ref *out);
 
+/*
+ * Paging cursor (issue #478): the driver result left OPEN after one page was
+ * materialized, so the next page continues that same execution instead of
+ * re-running the query. At most one per connection — the manager owns it and
+ * frees it (driver->free_result) when it is replaced, when the connection is
+ * closed, and when the manager is freed.
+ *
+ * ponytail: one cursor per connection, so a second CURSOR run on the same
+ * connection replaces the first one's and its pages fall back to re-running with
+ * an offset (plain queries leave it alone). Key them by a cursor id if two tabs
+ * have to page the same connection at once.
+ */
+
+/* Store `cursor` as the connection's paging cursor, freeing any previous one.
+   NULL just frees the previous. Returns 1, or 0 if the id is unknown (in which
+   case `cursor` is NOT freed — the caller still owns it). */
+int dbcore_conn_manager_set_cursor(dbcore_conn_manager *mgr, int id,
+                                   dbc_result *cursor);
+
+/* Detach the connection's paging cursor and hand ownership to the caller (which
+   must free it via the driver or hand it back with set_cursor). NULL when the id
+   is unknown or no cursor is open. */
+dbc_result *dbcore_conn_manager_take_cursor(dbcore_conn_manager *mgr, int id);
+
 /* Number of currently open connections. */
 int dbcore_conn_manager_count(const dbcore_conn_manager *mgr);
 

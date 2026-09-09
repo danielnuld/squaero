@@ -32,4 +32,10 @@ dbc_type ipc_type_from_name(const char *name);
    owns it), or NULL on allocation failure. */
 cJSON *ipc_result_to_json(const dbcore_result *r);
 
+/* The same object plus `"cursor": true` when the core kept a paging cursor open
+   for this result (issue #478). The flag is OMITTED when it is false, so a
+   response without cursor paging keeps the exact shape above. Caller owns the
+   result; NULL on allocation failure. */
+cJSON *ipc_page_to_json(const dbcore_result *r, int cursor_open);
+
 #endif /* DBCORE_IPC_RESULT_JSON_H */

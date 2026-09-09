@@ -390,6 +390,12 @@ export const es: Record<string, string> = {
   "result.copyRowsInserts": "Copiar {n} filas como INSERT",
   "result.transferRowsN": "Transferir {n} filas a otra tabla…",
   "result.exportFmt": "Exportar {fmt}",
+  "export.writing": "Escribiendo {n} filas en {file}…",
+  "export.done": "Exportadas {n} filas a {file}",
+  "export.hint": "El archivo queda vacío hasta que termina.",
+  "export.progress": "Exportando… {n} filas leídas",
+  "export.tooManyForXlsx": "Excel no admite {n} filas (el máximo es {max}). Exporta a CSV.",
+  "export.failed": "No se pudo exportar: {reason}",
 
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} fila(s) afectada(s).",

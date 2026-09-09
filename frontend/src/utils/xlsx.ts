@@ -85,6 +85,56 @@ export function sheetXml(result: ResultSet): string {
   );
 }
 
+/**
+ * The worksheet part as BYTES, built a chunk of rows at a time (issue #479).
+ *
+ * Same content as sheetXml, but no single string ever holds the whole sheet: a
+ * million rows of XML is past the engine's maximum string length, which is how
+ * an honest export of a big table died. Bytes have no such ceiling — only memory,
+ * which a zip needs anyway because it has to checksum the whole part.
+ */
+export function sheetU8(result: ResultSet, rowsPerChunk = 2000): Uint8Array {
+  const cols = result.columns;
+  const size = Math.max(1, Math.floor(rowsPerChunk));
+  const parts: Uint8Array[] = [
+    strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+        `<sheetData>` +
+        `<row r="1">` +
+        cols.map((c, i) => cellXml(c.name, "text", i, 1)).join("") +
+        `</row>`,
+    ),
+  ];
+  for (let start = 0; start < result.rows.length; start += size) {
+    const end = Math.min(result.rows.length, start + size);
+    let piece = "";
+    for (let r = start; r < end; r++) {
+      const r1 = r + 2; // header occupies row 1
+      const cells = cols.map((c, i) => cellXml(result.rows[r][i] ?? null, c.type, i, r1)).join("");
+      piece += `<row r="${r1}">${cells}</row>`;
+    }
+    parts.push(strToU8(piece));
+  }
+  parts.push(strToU8(`</sheetData></worksheet>`));
+
+  const total = parts.reduce((n, part) => n + part.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.length;
+  }
+  return out;
+}
+
+/**
+ * Rows Excel itself can hold (1 048 576 including the header). Past that the
+ * file would open truncated or not at all, so the export says so instead of
+ * writing something Excel will not read.
+ */
+export const XLSX_MAX_ROWS = 1_048_575;
+
 /** The workbook part naming the single worksheet. */
 export function workbookXml(sheetName: string): string {
   return (
@@ -128,6 +178,6 @@ export function buildXlsx(result: ResultSet, sheetName = "Sheet1"): Uint8Array {
     "_rels/.rels": strToU8(ROOT_RELS_XML),
     "xl/workbook.xml": strToU8(workbookXml(sheetName)),
     "xl/_rels/workbook.xml.rels": strToU8(WORKBOOK_RELS_XML),
-    "xl/worksheets/sheet1.xml": strToU8(sheetXml(result)),
+    "xl/worksheets/sheet1.xml": sheetU8(result),
   });
 }

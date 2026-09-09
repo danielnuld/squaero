@@ -6,6 +6,7 @@ import {
   toXml,
   toHtml,
   exportResult,
+  exportChunks,
   mimeFor,
   fileNameFor,
 } from "../../src/utils/exporters";
@@ -128,5 +129,44 @@ describe("format helpers", () => {
     expect(fileNameFor("my table", "csv")).toBe("my_table.csv");
     expect(fileNameFor("", "json")).toBe("export.json");
     expect(fileNameFor("t", "xlsx")).toBe("t.xlsx");
+  });
+});
+
+describe("exportChunks (issue #479)", () => {
+  // A million rows in one string is past the engine's maximum string length, and
+  // that is exactly how the export failed: "Invalid string length". Pieces are
+  // the fix, so what matters is that the pieces still spell the same file.
+  const formats = ["csv", "json", "sql", "xml", "html"] as const;
+
+  for (const format of formats) {
+    it(`joins back into exactly the ${format} file`, () => {
+      const joined = [...exportChunks(result, format, "items", 1)].join("");
+      expect(joined).toBe(exportResult(result, format, "items"));
+    });
+
+    it(`splits the ${format} file the same way at any chunk size`, () => {
+      const whole = exportResult(result, format, "items");
+      for (const size of [1, 2, 7, 1000]) {
+        expect([...exportChunks(result, format, "items", size)].join("")).toBe(whole);
+      }
+    });
+
+    it(`still writes an empty ${format} result the same way`, () => {
+      const empty: ResultSet = { ...result, rows: [] };
+      expect([...exportChunks(empty, format, "items")].join("")).toBe(
+        exportResult(empty, format, "items"),
+      );
+    });
+  }
+
+  it("holds only a chunk at a time, not the whole file", () => {
+    const many: ResultSet = {
+      ...result,
+      rows: Array.from({ length: 50 }, (_, i) => [String(i), "x", null]),
+    };
+    const chunks = [...exportChunks(many, "csv", "items", 10)];
+    // Head, five chunks of ten rows, tail — not one piece holding everything.
+    expect(chunks.length).toBe(7);
+    expect(chunks.every((c) => c.split("\r\n").length <= 11)).toBe(true);
   });
 });

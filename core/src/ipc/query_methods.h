@@ -19,4 +19,11 @@
  */
 cJSON *ipc_method_query_run(const cJSON *params, int *code, const char **message);
 
+/* The next page off the cursor query.run left open on the connection (#478). */
+cJSON *ipc_method_query_next(const cJSON *params, int *code, const char **message);
+
+/* Release that cursor. */
+cJSON *ipc_method_query_cursor_close(const cJSON *params, int *code,
+                                     const char **message);
+
 #endif /* DBCORE_IPC_QUERY_METHODS_H */

@@ -21,9 +21,13 @@ void dbcore_copy_error(char *errbuf, size_t errcap, const char *msg)
     errbuf[n] = '\0';
 }
 
-dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
+/* The shared body. `keep_open` leaves `dr` alive on success so a further page
+   can continue the same execution (issue #478); it is still freed on every
+   failure path, so a caller holding a cursor must drop it when this fails. */
+static dbc_status materialize(const dbc_driver_t *drv, dbc_conn *handle,
                               dbc_result *dr, int max_rows, int offset,
-                              dbcore_result **out, char *errbuf, size_t errcap)
+                              int keep_open, dbcore_result **out, char *errbuf,
+                              size_t errcap)
 {
     *out = NULL;
 
@@ -67,7 +71,20 @@ dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
            intentionally discarded — that one extra fetch is the cost of an
            honest flag. */
         int skipped = 0;
-        while ((rc = drv->next_row(dr)) == 1) {
+        while (1) {
+            /* A cursor that is kept open must not consume the peeked row: the
+               next page starts where this one stopped. So the cap is checked
+               BEFORE fetching, and "a further page exists" is inferred from a
+               full page (the same full-page heuristic the preview grid uses —
+               its only cost is one empty last page on an exact multiple). */
+            if (keep_open && max_rows > 0 &&
+                dbcore_result_row_count(res) >= max_rows) {
+                dbcore_result_set_truncated(res, 1);
+                break;
+            }
+            if ((rc = drv->next_row(dr)) != 1) {
+                break;
+            }
             if (offset > 0 && skipped < offset) {
                 skipped++;
                 continue;
@@ -97,7 +114,24 @@ dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
         return DBC_ERR_QUERY;
     }
 
-    drv->free_result(dr);
+    if (!keep_open || !dbcore_result_truncated(res)) {
+        drv->free_result(dr);
+    }
     *out = res;
     return DBC_OK;
+}
+
+dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
+                              dbc_result *dr, int max_rows, int offset,
+                              dbcore_result **out, char *errbuf, size_t errcap)
+{
+    return materialize(drv, handle, dr, max_rows, offset, 0, out, errbuf, errcap);
+}
+
+dbc_status dbcore_materialize_page(const dbc_driver_t *drv, dbc_conn *handle,
+                                   dbc_result *dr, int max_rows,
+                                   dbcore_result **out, char *errbuf,
+                                   size_t errcap)
+{
+    return materialize(drv, handle, dr, max_rows, 0, 1, out, errbuf, errcap);
 }

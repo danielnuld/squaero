@@ -24,6 +24,7 @@ typedef struct {
     const dbc_driver_t *driver;
     dbc_conn           *handle;
     ssh_tunnel         *tunnel;   /* NULL for a direct (non-tunnelled) connection */
+    dbc_result         *cursor;   /* open paging cursor (issue #478), or NULL */
 } conn_slot;
 
 struct dbcore_conn_manager {
@@ -47,6 +48,11 @@ dbcore_conn_manager *dbcore_conn_manager_new(void)
    tunnel must outlive the disconnect. */
 static void release_slot(conn_slot *s)
 {
+    /* The cursor is a live statement on this connection: it has to go first. */
+    if (s->cursor != NULL) {
+        s->driver->free_result(s->cursor);
+        s->cursor = NULL;
+    }
     s->driver->disconnect(s->handle);
     ssh_tunnel_close(s->tunnel);
     s->id = 0;
@@ -89,6 +95,7 @@ static conn_slot *acquire_slot(dbcore_conn_manager *mgr)
         grown[i].driver = NULL;
         grown[i].handle = NULL;
         grown[i].tunnel = NULL;
+        grown[i].cursor = NULL;
     }
     mgr->slots = grown;
     conn_slot *slot = &grown[mgr->cap];
@@ -176,6 +183,7 @@ dbc_status dbcore_conn_manager_open(dbcore_conn_manager *mgr,
     slot->driver = driver;
     slot->handle = handle;
     slot->tunnel = tunnel;
+    slot->cursor = NULL;
     *out_id = slot->id;
     return DBC_OK;
 }
@@ -213,6 +221,31 @@ int dbcore_conn_manager_get(const dbcore_conn_manager *mgr, int id,
     out->driver = slot->driver;
     out->handle = slot->handle;
     return 1;
+}
+
+int dbcore_conn_manager_set_cursor(dbcore_conn_manager *mgr, int id,
+                                   dbc_result *cursor)
+{
+    conn_slot *slot = find_slot(mgr, id);
+    if (slot == NULL) {
+        return 0;
+    }
+    if (slot->cursor != NULL && slot->cursor != cursor) {
+        slot->driver->free_result(slot->cursor);
+    }
+    slot->cursor = cursor;
+    return 1;
+}
+
+dbc_result *dbcore_conn_manager_take_cursor(dbcore_conn_manager *mgr, int id)
+{
+    conn_slot *slot = find_slot(mgr, id);
+    if (slot == NULL) {
+        return NULL;
+    }
+    dbc_result *cur = slot->cursor;
+    slot->cursor = NULL;
+    return cur;
 }
 
 int dbcore_conn_manager_count(const dbcore_conn_manager *mgr)

@@ -44,7 +44,8 @@ static dbc_status d_query(dbc_conn *c, const char *sql, dbc_result **out)
     return DBC_OK;
 }
 static const char *d_last_error(dbc_conn *c) { return c->err; }
-static void        d_free_result(dbc_result *r) { (void)r; }
+static int         g_frees = 0;
+static void        d_free_result(dbc_result *r) { (void)r; g_frees++; }
 static int         d_col_count(dbc_result *r) { return r->col_count; }
 static const char *d_col_name(dbc_result *r, int c) { return r->names[c]; }
 static dbc_type    d_col_type(dbc_result *r, int c) { return r->types[c]; }
@@ -170,6 +171,103 @@ int main(void)
         EXPECT(dbcore_result_row_count(res) == 0, "no rows past the end");
         EXPECT(dbcore_result_truncated(res) == 0, "not truncated past the end");
         dbcore_result_free(res);
+    }
+
+    /* --- cursor paging (issue #478): the query runs ONCE --- */
+    {
+        /* page 1 of 2 over the 3-row fixture: the cursor stays open. */
+        g_status = DBC_OK;
+        g_result = &rs;
+        g_frees = 0;
+        dbcore_result *res = NULL;
+        dbc_result *cur = NULL;
+        dbc_status st = dbcore_query_open(&ref, "SELECT ...", 2, &res, &cur, err, sizeof err);
+        EXPECT(st == DBC_OK, "cursor open runs");
+        EXPECT(dbcore_result_row_count(res) == 2, "first page holds max_rows");
+        EXPECT(strcmp(dbcore_result_cell(res, 0, 0), "1") == 0, "page 1 starts at row 1");
+        EXPECT(dbcore_result_truncated(res) == 1, "a further page exists");
+        EXPECT(cur == &rs, "the driver result stays open");
+        EXPECT(g_frees == 0, "an open cursor is not freed");
+        dbcore_result_free(res);
+
+        /* page 2 continues where page 1 stopped — no re-execution, and the
+           peeked row is NOT lost: row "3" is still there. */
+        res = NULL;
+        int open = 1;
+        st = dbcore_query_next(&ref, cur, 2, &res, &open, err, sizeof err);
+        EXPECT(st == DBC_OK, "cursor next runs");
+        EXPECT(dbcore_result_row_count(res) == 1, "second page holds the rest");
+        EXPECT(strcmp(dbcore_result_cell(res, 0, 0), "3") == 0, "page 2 continues at row 3");
+        EXPECT(dbcore_result_truncated(res) == 0, "no page after the last");
+        EXPECT(open == 0, "the exhausted cursor is reported closed");
+        EXPECT(g_frees == 1, "the exhausted cursor is freed exactly once");
+        dbcore_result_free(res);
+    }
+    {
+        /* rows that fit under the cap leave no cursor to clean up. */
+        g_result = &rs;
+        g_frees = 0;
+        dbcore_result *res = NULL;
+        dbc_result *cur = NULL;
+        dbc_status st = dbcore_query_open(&ref, "SELECT ...", 10, &res, &cur, err, sizeof err);
+        EXPECT(st == DBC_OK, "short cursor open runs");
+        EXPECT(dbcore_result_row_count(res) == 3, "every row came back");
+        EXPECT(dbcore_result_truncated(res) == 0, "nothing further");
+        EXPECT(cur == NULL, "no cursor kept for a complete result");
+        EXPECT(g_frees == 1, "the completed result is freed");
+        dbcore_result_free(res);
+    }
+    {
+        /* An exact multiple pages one empty last page: the full-page heuristic
+           is what a kept-open cursor can honestly report (peeking would eat the
+           row). */
+        dbc_result two = { 2, names2, types2, 2, cells2, 0, -1, -1 };
+        g_result = &two;
+        g_frees = 0;
+        dbcore_result *res = NULL;
+        dbc_result *cur = NULL;
+        dbc_status st = dbcore_query_open(&ref, "SELECT ...", 2, &res, &cur, err, sizeof err);
+        EXPECT(st == DBC_OK, "exact-multiple open runs");
+        EXPECT(dbcore_result_truncated(res) == 1, "a full page claims a further page");
+        EXPECT(cur != NULL, "cursor kept for the claimed page");
+        dbcore_result_free(res);
+
+        res = NULL;
+        int open = 1;
+        st = dbcore_query_next(&ref, cur, 2, &res, &open, err, sizeof err);
+        EXPECT(st == DBC_OK, "the claimed page runs");
+        EXPECT(dbcore_result_row_count(res) == 0, "and comes back empty");
+        EXPECT(open == 0, "the cursor closes on the empty page");
+        EXPECT(g_frees == 1, "and is freed");
+        dbcore_result_free(res);
+    }
+    {
+        /* An iteration error closes the cursor: the caller must drop it. */
+        conn.err = "connection reset mid-page";
+        dbc_result flaky2 = { 2, names2, types2, 3, cells2, 0, -1, 1 }; /* fail at row 1 */
+        g_result = &flaky2;
+        g_frees = 0;
+        dbcore_result *res = NULL;
+        dbc_result *cur = NULL;
+        dbc_status st = dbcore_query_open(&ref, "SELECT ...", 2, &res, &cur, err, sizeof err);
+        EXPECT(st == DBC_ERR_QUERY, "a failing page reports the driver error");
+        EXPECT(res == NULL, "no page on failure");
+        EXPECT(cur == NULL, "no cursor handed out on failure");
+        EXPECT(g_frees == 1, "the failed cursor is freed");
+        conn.err = "";
+    }
+    {
+        /* argument validation on the cursor pair */
+        g_result = &rs;
+        dbcore_result *res = NULL;
+        dbc_result *cur = NULL;
+        int open = 0;
+        EXPECT(dbcore_query_open(NULL, "x", 2, &res, &cur, err, sizeof err) == DBC_ERR_PARAM,
+               "NULL conn on open");
+        EXPECT(dbcore_query_open(&ref, "x", 2, &res, NULL, err, sizeof err) == DBC_ERR_PARAM,
+               "NULL out_cursor");
+        EXPECT(dbcore_query_next(&ref, NULL, 2, &res, &open, err, sizeof err) == DBC_ERR_PARAM,
+               "NULL cursor on next");
     }
 
     /* --- an empty result set (columns, zero rows) --- */
