@@ -53,6 +53,22 @@ int main(void)
         EXPECT(strstr(buf, "Protocol=olsoctcp;") != NULL, "override: protocol");
     }
 
+    /* Client loaded directly: no DRIVER= for the manager to act on, but the
+       rest of the string is unchanged (issue #490). */
+    {
+        struct informix_conn_params p = {
+            .no_driver_keyword = 1,
+            .host = "10.0.0.5", .service = "1526", .server = "ol_inf",
+            .database = "stores", .user = "informix", .password = "secret",
+        };
+        EXPECT(build(&p, buf, sizeof buf) > 0, "no-driver: builds");
+        EXPECT(strcmp(buf,
+                      "Host=10.0.0.5;Service=1526;Server=ol_inf;"
+                      "Protocol=onsoctcp;Database=stores;Uid=informix;"
+                      "Pwd=secret;CLIENT_LOCALE=en_us.utf8;") == 0,
+               "no-driver: exact connection string");
+    }
+
     /* ODBC DSN form ignores host/driver and emits DSN/Uid/Pwd. */
     {
         struct informix_conn_params p = {

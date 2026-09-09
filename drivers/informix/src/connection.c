@@ -204,23 +204,37 @@ dbc_status ifx_connect(const char *dsn_json, dbc_conn **out)
        hand back (including error-state ones) has a valid, destroyable lock. */
     lock_init(c);
 
+    cJSON *root = dsn_json != NULL ? cJSON_Parse(dsn_json) : NULL;
+    if (root == NULL) {
+        ifx_set_err(c, "dsn must be a JSON object");
+        *out = c;
+        return DBC_ERR_PARAM;
+    }
+
+    /* Bind the ODBC entry points before the first call through them: a client
+       shipped with the app is used directly, so no ODBC registration and no
+       administrator is needed (issue #490). Only a DSN still needs the manager. */
+    char load_err[256] = {0};
+    if (ifx_odbc_load(str_field(root, "odbc_dsn") != NULL, load_err,
+                      sizeof load_err) != 0) {
+        ifx_set_err(c, load_err);
+        cJSON_Delete(root);
+        *out = c;
+        return DBC_ERR_PARAM;
+    }
+
     if (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &c->env) != SQL_SUCCESS) {
         ifx_set_err(c, "SQLAllocHandle(ENV) failed");
+        cJSON_Delete(root);
         *out = c;
         return DBC_ERR_CONN;
     }
     SQLSetEnvAttr(c->env, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (SQLAllocHandle(SQL_HANDLE_DBC, c->env, &c->dbc) != SQL_SUCCESS) {
         ifx_stash_diag(c, SQL_HANDLE_ENV, c->env, "SQLAllocHandle(DBC)");
+        cJSON_Delete(root);
         *out = c;
         return DBC_ERR_CONN;
-    }
-
-    cJSON *root = dsn_json != NULL ? cJSON_Parse(dsn_json) : NULL;
-    if (root == NULL) {
-        ifx_set_err(c, "dsn must be a JSON object");
-        *out = c;
-        return DBC_ERR_PARAM;
     }
 
     /* "port" is accepted as an alternative to a "service" string. The frontend
@@ -253,6 +267,9 @@ dbc_status ifx_connect(const char *dsn_json, dbc_conn **out)
         /* Optional; absent leaves the CSDK's own defaults in place (issue #323). */
         .client_locale = str_field(root, "client_locale"),
         .db_locale     = str_field(root, "db_locale"),
+        /* DRIVER= tells the manager which client to load; when the client is
+           already loaded there is nothing to select. */
+        .no_driver_keyword = ifx_odbc_is_direct(),
     };
 
     char conn_str[2048];
