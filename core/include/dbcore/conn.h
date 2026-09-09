@@ -80,9 +80,10 @@ int dbcore_conn_manager_get(const dbcore_conn_manager *mgr, int id,
  * frees it (driver->free_result) when it is replaced, when the connection is
  * closed, and when the manager is freed.
  *
- * ponytail: one cursor per connection, so a second query on the same connection
- * drops the first one's cursor and its pages fall back to re-running with an
- * offset. Key them by a cursor id if per-tab paging has to survive that.
+ * ponytail: one cursor per connection, so a second CURSOR run on the same
+ * connection replaces the first one's and its pages fall back to re-running with
+ * an offset (plain queries leave it alone). Key them by a cursor id if two tabs
+ * have to page the same connection at once.
  */
 
 /* Store `cursor` as the connection's paging cursor, freeing any previous one.

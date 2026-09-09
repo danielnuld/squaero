@@ -54,6 +54,58 @@ function anchorDownload(filename: string, content: string, mime: string): void {
   URL.revokeObjectURL(url);
 }
 
+/** Somewhere to write one file, chosen before its content exists. */
+export interface SaveTarget {
+  write: (data: string | Blob) => Promise<void>;
+}
+
+/**
+ * Ask WHERE to save, before there is anything to save (issue #479).
+ *
+ * showSaveFilePicker needs transient user activation, and an export that reads a
+ * million rows first has long since lost it: the dialog then throws and the
+ * button looks broken. So the caller opens the dialog inside the click, gets a
+ * target back, and writes to it whenever the rows are ready.
+ *
+ * Null means the user dismissed the dialog — a no-op, not an error, and
+ * deliberately NOT a download of a file they just cancelled. Where the API is
+ * missing (older webviews, jsdom) the target falls back to a browser download.
+ */
+export async function pickSaveTarget(
+  filename: string,
+  mime: string,
+): Promise<SaveTarget | null> {
+  const picker = (globalThis as SaveFilePicker).showSaveFilePicker;
+  if (typeof picker === "function") {
+    const ext = extensionOf(filename);
+    try {
+      const handle = await picker({
+        suggestedName: filename,
+        types: ext ? [{ accept: { [mime]: [`.${ext}`] } }] : undefined,
+      });
+      return {
+        write: async (data) => {
+          const writable = await handle.createWritable();
+          await writable.write(data);
+          await writable.close();
+        },
+      };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return null;
+      // Any other failure (API present but blocked): fall back to a download.
+    }
+  }
+  return {
+    write: async (data) => {
+      if (typeof data === "string") {
+        anchorDownload(filename, data, mime);
+        return;
+      }
+      anchorDownloadBlob(filename, data);
+    },
+  };
+}
+
 /**
  * Save `content` to disk as `filename`. Prefers the native save dialog; falls
  * back to a browser download. Resolves once saved (or the download is
@@ -64,29 +116,8 @@ export async function saveText(
   content: string,
   mime: string,
 ): Promise<void> {
-  const picker = (globalThis as SaveFilePicker).showSaveFilePicker;
-  if (typeof picker === "function") {
-    const ext = extensionOf(filename);
-    try {
-      const handle = await picker({
-        suggestedName: filename,
-        types: ext
-          ? [{ accept: { [mime]: [`.${ext}`] } }]
-          : undefined,
-      });
-      const writable = await handle.createWritable();
-      await writable.write(content);
-      await writable.close();
-      return;
-    } catch (err) {
-      // The user dismissing the dialog throws AbortError: treat as a no-op, not
-      // an error, and do NOT fall through to a download (that would surprise
-      // them with a file they just cancelled).
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      // Any other failure (API present but blocked): fall back to a download.
-    }
-  }
-  anchorDownload(filename, content, mime);
+  const target = await pickSaveTarget(filename, mime);
+  await target?.write(content);
 }
 
 /**
@@ -104,22 +135,6 @@ export async function saveBytes(
   // ArrayBuffer -- which a SharedArrayBuffer-backed one is not. The copy is what
   // makes that true rather than asserted, and an export is bytes we just built.
   const blob = new Blob([new Uint8Array(bytes)], { type: mime });
-  const picker = (globalThis as SaveFilePicker).showSaveFilePicker;
-  if (typeof picker === "function") {
-    const ext = extensionOf(filename);
-    try {
-      const handle = await picker({
-        suggestedName: filename,
-        types: ext ? [{ accept: { [mime]: [`.${ext}`] } }] : undefined,
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return;
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      // Any other failure: fall back to a download.
-    }
-  }
-  anchorDownloadBlob(filename, blob);
+  const target = await pickSaveTarget(filename, mime);
+  await target?.write(blob);
 }

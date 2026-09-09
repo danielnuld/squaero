@@ -121,10 +121,14 @@ cJSON *ipc_method_query_run(const cJSON *params, int *code, const char **message
         return NULL;
     }
 
-    /* A new query invalidates whatever this connection was paging: drop that
-       cursor before running, so its driver result is not held open behind the
-       one about to execute. */
-    dbcore_conn_manager_set_cursor(conns, id, NULL);
+    /* Only a cursor run replaces the connection's cursor. A plain query.run
+       must NOT drop it: the frontend fires catalog queries of its own (foreign
+       keys, completions) on the same connection right after a query, and
+       dropping the cursor there sent every page turn straight back to
+       re-running the query — the bug this was supposed to fix. */
+    if (keep_cursor) {
+        dbcore_conn_manager_set_cursor(conns, id, NULL);
+    }
 
     /* Publish the running query so op.cancel (arriving on another thread) can
        reach the driver's cancel hook while this call blocks. Cleared on return. */

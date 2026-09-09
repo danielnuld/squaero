@@ -272,11 +272,16 @@ esa conexión. `params: { connId, limit? }`; el resultado tiene la misma forma q
 `query.run` (y su `cursor` mientras quede algo por leer). La consulta **no** se
 vuelve a ejecutar. Sin cursor abierto responde `-32002`.
 
-Hay **un cursor por conexión**: una nueva `query.run` en esa conexión descarta el
-anterior, y entonces la paginación vuelve al camino por `offset`. Como el cursor
-no puede espiar la fila siguiente sin consumirla, `truncated` se infiere de una
-página llena: el único costo es una última página vacía cuando el total es
-múltiplo exacto del `limit`.
+Hay **un cursor por conexión**, y solo otra `query.run` **con `cursor`** lo
+reemplaza. Una `query.run` normal lo deja intacto a propósito: el frontend lanza
+consultas de catálogo suyas (llaves foráneas, completado) por la misma conexión
+justo después de cada consulta, y descartar el cursor ahí mandaba cada cambio de
+página de vuelta a re-ejecutar. Cuando el cursor sí se pierde, la paginación
+vuelve al camino por `offset` sin avisar de nada raro, porque no lo hay.
+
+Como el cursor no puede espiar la fila siguiente sin consumirla, `truncated` se
+infiere de una página llena: el único costo es una última página vacía cuando el
+total es múltiplo exacto del `limit`.
 
 **`query.cursorClose`** — libera ese cursor. `params: { connId }`; resultado
 `{ closed: bool }`, donde `false` significa que ya no había ninguno (cerrar dos

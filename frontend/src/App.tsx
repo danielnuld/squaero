@@ -169,7 +169,7 @@ import {
   type FkLookup,
 } from "./utils/fkLookup";
 import { buildXlsx, XLSX_MIME } from "./utils/xlsx";
-import { saveText, saveBytes } from "./utils/download";
+import { saveText, pickSaveTarget } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
@@ -2419,8 +2419,8 @@ export function App() {
   };
 
   // --- Export (issue #30) ------------------------------------------------
-  // Save the result as text. saveText prefers a native "Guardar como" dialog
-  // (File System Access API in the webview) and falls back to a browser
+  // Save the result to disk. pickSaveTarget prefers a native "Guardar como"
+  // dialog (File System Access API in the webview) and falls back to a browser
   // download where unavailable. Client-side by design; see the M8 decision.
   // The SQL that reads the WHOLE result behind the page on screen (issue #479),
   // or null when there is none to re-read: a script's statement is not pageable,
@@ -2443,9 +2443,12 @@ export function App() {
 
   // Save the result as a file. Every row of it, not the page the grid happens to
   // have loaded (issue #479): the rows are re-read page by page over the core's
-  // cursor and joined here. Falls back to the loaded page only when there is no
-  // SQL to re-read (a script's statement), and says so is impossible — that case
-  // has no more rows to offer.
+  // cursor and joined here. Only a result nobody can re-read (a script's
+  // statement) exports what is on screen, and that one has no more rows to give.
+  //
+  // "Guardar como" is asked FIRST and the file written afterwards. The dialog
+  // needs the user's click still to be recent, and reading a million rows takes
+  // far longer than that — asking afterwards threw, and the button looked dead.
   const doExport = async (format: AnyExportFormat) => {
     const tab = current();
     const r = currentResult();
@@ -2456,6 +2459,12 @@ export function App() {
     const table = src?.table ?? "exported";
     const conn = tabConn(tab);
     const sql = exportSql(tab.id, r);
+    const binary = format === "xlsx";
+    const target = await pickSaveTarget(
+      fileNameFor(base, binary ? "xlsx" : format),
+      binary ? XLSX_MIME : mimeFor(format),
+    );
+    if (!target) return;  // dialog dismissed
 
     let full = res;
     if (conn && sql && res.truncated) {
@@ -2467,15 +2476,19 @@ export function App() {
       } catch (err) {
         setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
         return;
+      } finally {
+        // The drain paged a cursor of its own down this connection, so whatever
+        // the tab was paging is stale: say so instead of letting the next page
+        // turn ask for rows that belong to the export.
+        setResults(tab.id, { cursor: false });
       }
     }
     setExportStatus(null);
-    if (format === "xlsx") {
-      void saveBytes(fileNameFor(base, "xlsx"), buildXlsx(full, table), XLSX_MIME);
-      return;
-    }
-    const text = exportResult(full, format, table);
-    void saveText(fileNameFor(base, format), text, mimeFor(format));
+    await target.write(
+      binary
+        ? new Blob([new Uint8Array(buildXlsx(full, table))], { type: XLSX_MIME })
+        : exportResult(full, format, table),
+    );
   };
 
   // Right-click on a result cell: copy the cell / row / row-as-JSON, and export
