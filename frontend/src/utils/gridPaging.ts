@@ -73,6 +73,25 @@ export function pageStep(r: PageableResult | undefined, delta: 1 | -1): PageStep
   return null;
 }
 
+/**
+ * The pages fetched so far, but only when they form an unbroken run from the
+ * first one (issue #479).
+ *
+ * An export reuses them instead of reading the result again, and that is only
+ * sound if they are page 0, 1, 2 … with no hole: a fallback re-run at an offset
+ * fills a single slot and leaves gaps, and stitching those together would write
+ * a file that silently skips rows. Null says "read it properly instead". Pure.
+ */
+export function contiguousPages<T>(pages: readonly T[] | undefined): T[] | null {
+  if (pages === undefined || pages.length === 0) return null;
+  const run: T[] = [];
+  for (const page of pages) {
+    if (page === undefined) return null;
+    run.push(page);
+  }
+  return run.length === pages.length ? run : null;
+}
+
 /** The displayed-result state a refresh decides from. */
 export interface RefreshableResult {
   /** The SQL that produced the displayed page. */

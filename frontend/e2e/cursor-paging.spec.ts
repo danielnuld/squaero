@@ -116,6 +116,7 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     });
     await app.open();
     await connect(app);
+    await recordRpc(page);
 
     await runSql(page, QUERY);
     await expect(page.getByText(/Filas 1–1000/)).toBeVisible({ timeout: 20_000 });
@@ -137,5 +138,10 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     const total = await countRows(app);
     expect(total).toBeGreaterThan(1000);
     expect(lines).toHaveLength(total + 1);
+
+    // And it cost no second execution: the page the grid held plus the cursor
+    // behind it are the rest of the same run. Running the query again to export
+    // it is the wait this avoids.
+    expect((await sent(page)).filter((c) => c.sql === QUERY)).toHaveLength(1);
   });
 });

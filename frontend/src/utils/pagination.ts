@@ -88,3 +88,24 @@ export function objectPreviewQuery(
     filter?.orderBy,
   );
 }
+
+/**
+ * How many rows the object holds, narrowed by the same filter its preview uses
+ * (issue #479) — the total an export needs to show a real percentage.
+ *
+ * Null when there is no cheap answer: MongoDB has no SQL surface here, and an
+ * arbitrary query has no count that does not mean running it a second time. A
+ * bar that has to re-run a heavy query to know how far along it is costs more
+ * than the impatience it soothes, so those exports get a moving bar and a row
+ * count instead of a fake percentage. Pure.
+ */
+export function objectCountQuery(
+  parts: { db?: string; schema?: string; name: string },
+  engine: string,
+  filter?: PreviewFilter,
+): string | null {
+  if (engineFamily(engine) === "mongodb") return null;
+  const where = filter?.where ? ` WHERE ${filter.where}` : "";
+  // No ORDER BY: sorting an aggregate is work nobody reads.
+  return `SELECT COUNT(*) AS n FROM ${qualifiedName(parts, engine)}${where};`;
+}

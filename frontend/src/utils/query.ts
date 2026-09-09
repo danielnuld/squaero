@@ -105,6 +105,40 @@ export async function closeCursor(connId: string): Promise<void> {
 }
 
 /**
+ * Every row still AHEAD of the cursor this connection already has open (issue
+ * #479) — the rest of a result the grid has been paging.
+ *
+ * This is what lets an export skip the second execution entirely: the pages the
+ * user already has plus the pages after them are the whole result set, and they
+ * all come from the one execution, so the file matches what was on screen rather
+ * than whatever the table looks like now.
+ *
+ * `seen` is how many rows the caller already holds, for the progress report.
+ * Rejects (QueryError -32002) if the cursor is gone — the caller must then read
+ * the result from the start rather than write a file that stops halfway.
+ */
+export async function drainCursor(
+  connId: string,
+  pageSize: number,
+  seen = 0,
+  onProgress?: (rows: number) => void,
+): Promise<(string | null)[][]> {
+  const rows: (string | null)[][] = [];
+  for (;;) {
+    const page = await queryNext(connId, pageSize);
+    for (const row of page.rows) rows.push(row);
+    onProgress?.(seen + rows.length);
+    if (!page.truncated || page.rows.length === 0) break;
+    if (!page.cursor) {
+      // Truncated but nothing left to continue with: the rest is unreachable,
+      // and a short file that claims to be the whole table is worse than none.
+      throw new QueryError("the paging cursor was lost mid-export", -32002);
+    }
+  }
+  return rows;
+}
+
+/**
  * Every row of `sql`, read page by page (issue #479). Export needs the whole
  * result set, not the page on screen — but a single unbounded response is
  * exactly what the IPC contract forbids, so this walks the cursor and joins the

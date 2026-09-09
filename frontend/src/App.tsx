@@ -14,6 +14,7 @@ import {
   runQuery,
   queryNext,
   drainQuery,
+  drainCursor,
   runStatements,
   type ResultSet,
 } from "./utils/query";
@@ -118,8 +119,14 @@ import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
 import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
-import { objectPreviewQuery } from "./utils/pagination";
-import { pageStep, pageHasMore, refreshAction, refreshBlock } from "./utils/gridPaging";
+import { objectPreviewQuery, objectCountQuery } from "./utils/pagination";
+import {
+  pageStep,
+  pageHasMore,
+  contiguousPages,
+  refreshAction,
+  refreshBlock,
+} from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
@@ -1080,6 +1087,12 @@ export function App() {
     text: string;
     hint?: string;
     error?: boolean;
+    /** Rows read so far; a bar is shown while this is set. */
+    rows?: number;
+    /** Rows in total, when it is known WITHOUT running the query twice — a
+        table can be counted, an arbitrary query cannot. Absent means the bar
+        moves without claiming a percentage. */
+    total?: number;
   } | null>(null);
 
   /** The snippet the active query tab was opened from, if it still exists. */
@@ -2434,6 +2447,10 @@ export function App() {
   // Save the result to disk. pickSaveTarget prefers a native "Guardar como"
   // dialog (File System Access API in the webview) and falls back to a browser
   // download where unavailable. Client-side by design; see the M8 decision.
+  /** How far the export has got, 0..100, for a status that knows its total. */
+  const exportPercent = (s: { rows?: number; total?: number }): number =>
+    Math.max(0, Math.min(100, Math.round(((s.rows ?? 0) / (s.total || 1)) * 100)));
+
   // The SQL that reads the WHOLE result behind the page on screen (issue #479),
   // or null when there is none to re-read: a script's statement is not pageable,
   // and neither is a result nobody can re-run. A table preview drops its row cap
@@ -2451,6 +2468,42 @@ export function App() {
       );
     }
     return r.pageSql ?? null;
+  };
+
+  /**
+   * Ask, in the background, how many rows the export will end up with, so the
+   * progress bar can show a real percentage (issue #479).
+   *
+   * Only a table can answer cheaply: one aggregate over the same object and
+   * filter. An arbitrary query has no total short of running it a second time,
+   * and a percentage that costs more than the wait it explains is a bad trade —
+   * those exports get a bar that moves without claiming to know how far along
+   * it is. Failures are silent for the same reason: the bar simply stays honest.
+   */
+  const countForBar = (
+    conn: ActiveConnection,
+    r: TabResult,
+    tabId: number,
+    got: (n: number) => void,
+  ) => {
+    if (!r.preview) return;
+    const sql = objectCountQuery(
+      r.preview.parts,
+      r.preview.engine,
+      filters[tabId]?.applied ?? undefined,
+    );
+    if (!sql) return;
+    void runQuery(conn.connId, sql, 1)
+      .then((count) => {
+        const n = Number(count.rows[0]?.[0]);
+        if (Number.isFinite(n) && n > 0) {
+          got(n);
+          setExportStatus((cur) => (cur ? { ...cur, total: n } : cur));
+        }
+      })
+      .catch(() => {
+        /* no total: the bar moves without a percentage, which is honest */
+      });
   };
 
   // Save the result as a file. Every row of it, not the page the grid happens to
@@ -2475,30 +2528,61 @@ export function App() {
     const file = fileNameFor(base, binary ? "xlsx" : format);
     const target = await pickSaveTarget(file, binary ? XLSX_MIME : mimeFor(format));
     if (!target) return;  // dialog dismissed
-    const working = (text: string) => setExportStatus({ text, hint: t("export.hint", { file }) });
+    let total: number | undefined;
+    const working = (text: string, rows?: number) =>
+      setExportStatus({ text, hint: t("export.hint", { file }), rows, total });
 
+    // What the grid already holds: the pages fetched so far, in order. Those rows
+    // are read; nobody has to read them again. When the last of them was not
+    // truncated they are the ENTIRE result and the export touches the database
+    // not at all; otherwise the cursor sitting behind them carries the rest of
+    // the same execution, which is how the export skips re-running the query —
+    // on a heavy one, that second execution was the whole wait.
+    const fetched = contiguousPages(r.pages);
+    const held = fetched?.flatMap((page) => page.rows);
+    const holdsAll = fetched !== null && !fetched[fetched.length - 1].truncated;
     let full = res;
-    if (conn && sql && res.truncated) {
-      working(t("export.progress", { n: String(res.rows.length) }));
+    if (conn && sql && (res.truncated || (fetched?.length ?? 0) > 1)) {
+      const progress = (rows: number) =>
+        working(t("export.progress", { n: String(rows) }), rows);
+      progress(held?.length ?? res.rows.length);
       try {
-        full = await drainQuery(conn.connId, sql, EXPORT_PAGE, (rows) =>
-          working(t("export.progress", { n: String(rows) })),
-        );
+        if (held !== undefined && holdsAll) {
+          full = { ...res, rows: held, truncated: false, cursor: false };
+        } else if (held !== undefined && r.cursor) {
+          // A table can also say how many rows it has for the price of one
+          // aggregate, which is what turns the bar into a real percentage. Not
+          // awaited: the count queues behind the pages on this connection, so the
+          // bar starts moving at once and gains its scale a moment later.
+          countForBar(conn, r, tab.id, (n) => (total = n));
+          try {
+            const rest = await drainCursor(conn.connId, EXPORT_PAGE, held.length, progress);
+            full = { ...res, rows: [...held, ...rest], truncated: false, cursor: false };
+          } catch {
+            // The cursor went away mid-read (another tab paged this connection).
+            // Read it again from the start rather than write half a file.
+            full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress);
+          }
+          setResults(tab.id, { cursor: false });
+        } else {
+          countForBar(conn, r, tab.id, (n) => (total = n));
+          full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress);
+          setResults(tab.id, { cursor: false });
+        }
       } catch (err) {
         setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
-        return;
-      } finally {
-        // The drain paged a cursor of its own down this connection, so whatever
-        // the tab was paging is stale: say so instead of letting the next page
-        // turn ask for rows that belong to the export.
         setResults(tab.id, { cursor: false });
+        return;
       }
     }
     // Building the file is one long synchronous stretch — a million rows into a
-    // single string — and it freezes the interface while it runs. The message
-    // has to be on screen BEFORE that starts, so hand the browser a frame first;
-    // otherwise the user watches a stale count through the whole freeze.
-    working(t("export.writing", { n: String(full.rows.length), file }));
+    // single string — that freezes the interface while it runs, and has no
+    // progress of its own to report. So: drop the percentage and let the bar
+    // just move (the honest shape for "working, and I cannot say how far"), and
+    // hand the browser a frame BEFORE starting, or the message never gets
+    // painted and the user reads a stale count through the whole freeze.
+    total = undefined;
+    working(t("export.writing", { n: String(full.rows.length), file }), full.rows.length);
     await new Promise((resolve) => setTimeout(resolve, 0));
     try {
       await target.write(
@@ -3686,6 +3770,26 @@ export function App() {
           >
             <span class="app-toast-text">
               {status().text}
+              {/* Determinate only when the total is honestly known; otherwise
+                  the bar just moves, which during the write is the only thing
+                  on screen that still can — that stretch blocks the main thread
+                  and the animation runs on the compositor. */}
+              <Show when={status().rows !== undefined}>
+                <span
+                  class={`app-toast-bar${status().total ? "" : " indeterminate"}`}
+                  role="progressbar"
+                  aria-valuenow={status().total ? exportPercent(status()) : undefined}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <span
+                    class="app-toast-bar-fill"
+                    style={
+                      status().total ? { width: `${exportPercent(status())}%` } : undefined
+                    }
+                  />
+                </span>
+              </Show>
               <Show when={status().hint}>
                 <span class="app-toast-hint">{status().hint}</span>
               </Show>

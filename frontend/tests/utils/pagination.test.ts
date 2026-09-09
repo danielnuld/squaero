@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { previewSelect, objectPreviewQuery } from "../../src/utils/pagination";
+import {
+  previewSelect,
+  objectPreviewQuery,
+  objectCountQuery,
+} from "../../src/utils/pagination";
 
 describe("previewSelect", () => {
   it("uses LIMIT for LIMIT-dialect engines", () => {
@@ -134,5 +138,23 @@ describe("objectPreviewQuery with a filter", () => {
     expect(
       objectPreviewQuery({ name: "items" }, "mongodb", 50, 0, { where: `"a" = 1` }),
     ).toBe("db.items.find({}).limit(50)");
+  });
+});
+
+describe("objectCountQuery (issue #479)", () => {
+  it("counts the object an export is about to read", () => {
+    expect(objectCountQuery({ db: "app", name: "users" }, "mysql")).toBe(
+      "SELECT COUNT(*) AS n FROM `app`.`users`;",
+    );
+  });
+
+  it("counts what the filter leaves, so the bar matches the export", () => {
+    expect(
+      objectCountQuery({ name: "items" }, "sqlite", { where: "id > 10", orderBy: "id DESC" }),
+    ).toBe('SELECT COUNT(*) AS n FROM "items" WHERE id > 10;');
+  });
+
+  it("has no cheap answer for MongoDB, and says so instead of guessing", () => {
+    expect(objectCountQuery({ name: "c" }, "mongodb")).toBeNull();
   });
 });
