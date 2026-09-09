@@ -387,6 +387,9 @@ export const en: Record<string, string> = {
   "result.copyRowsInserts": "Copy {n} rows as INSERT",
   "result.transferRowsN": "Transfer {n} rows to another table…",
   "result.exportFmt": "Export {fmt}",
+  "export.writing": "Writing {n} rows to {file}…",
+  "export.done": "Exported {n} rows to {file}",
+  "export.hint": "The file stays empty until this finishes.",
   "export.progress": "Exporting… {n} rows read",
   "export.failed": "Export failed: {reason}",
 

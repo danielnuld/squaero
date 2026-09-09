@@ -314,6 +314,12 @@ interface ActiveConnection {
 // further page; the grid virtualizes the returned page.
 const PAGE_LIMIT = 1000;
 
+// Rows per round trip when EXPORTING (issue #479). Bigger than a screen's page
+// on purpose: the grid pages for the eye, an export pages only to keep any one
+// response bounded, and a million rows at the screen's page size is a thousand
+// bridge round trips whose latency is the export.
+const EXPORT_PAGE = 10_000;
+
 const emptyResult = (): TabResult => ({
   loading: false,
   error: null,
@@ -1066,9 +1072,15 @@ export function App() {
   const [snipToast, setSnipToast] = createSignal<{ text: string; undo: () => void } | null>(null);
   // Reading every row of a big table takes a while and can fail halfway; an
   // export that says nothing looks like an export that did nothing (issue #479).
-  const [exportStatus, setExportStatus] = createSignal<{ text: string; error?: boolean } | null>(
-    null,
-  );
+  // `hint` carries the part that is not obvious: the chosen file stays EMPTY
+  // until the very end, because the save dialog creates it when the name is
+  // picked and the content lands when the writer closes. Somebody who opens it
+  // meanwhile finds 0 bytes and concludes the export failed.
+  const [exportStatus, setExportStatus] = createSignal<{
+    text: string;
+    hint?: string;
+    error?: boolean;
+  } | null>(null);
 
   /** The snippet the active query tab was opened from, if it still exists. */
   const boundSnippet = (): Snippet | undefined => {
@@ -2460,18 +2472,17 @@ export function App() {
     const conn = tabConn(tab);
     const sql = exportSql(tab.id, r);
     const binary = format === "xlsx";
-    const target = await pickSaveTarget(
-      fileNameFor(base, binary ? "xlsx" : format),
-      binary ? XLSX_MIME : mimeFor(format),
-    );
+    const file = fileNameFor(base, binary ? "xlsx" : format);
+    const target = await pickSaveTarget(file, binary ? XLSX_MIME : mimeFor(format));
     if (!target) return;  // dialog dismissed
+    const working = (text: string) => setExportStatus({ text, hint: t("export.hint", { file }) });
 
     let full = res;
     if (conn && sql && res.truncated) {
-      setExportStatus({ text: t("export.progress", { n: String(res.rows.length) }) });
+      working(t("export.progress", { n: String(res.rows.length) }));
       try {
-        full = await drainQuery(conn.connId, sql, PAGE_LIMIT, (rows) =>
-          setExportStatus({ text: t("export.progress", { n: String(rows) }) }),
+        full = await drainQuery(conn.connId, sql, EXPORT_PAGE, (rows) =>
+          working(t("export.progress", { n: String(rows) })),
         );
       } catch (err) {
         setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
@@ -2483,12 +2494,28 @@ export function App() {
         setResults(tab.id, { cursor: false });
       }
     }
-    setExportStatus(null);
-    await target.write(
-      binary
-        ? new Blob([new Uint8Array(buildXlsx(full, table))], { type: XLSX_MIME })
-        : exportResult(full, format, table),
-    );
+    // Building the file is one long synchronous stretch — a million rows into a
+    // single string — and it freezes the interface while it runs. The message
+    // has to be on screen BEFORE that starts, so hand the browser a frame first;
+    // otherwise the user watches a stale count through the whole freeze.
+    working(t("export.writing", { n: String(full.rows.length), file }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    try {
+      await target.write(
+        binary
+          ? new Blob([new Uint8Array(buildXlsx(full, table))], { type: XLSX_MIME })
+          : exportResult(full, format, table),
+      );
+    } catch (err) {
+      setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
+      return;
+    }
+    // Said, not merely stopped: the toast disappearing is not the difference
+    // between "finished" and "gave up", and the file only becomes readable now.
+    // It clears itself after a while, but only if nothing newer took its place.
+    const done = { text: t("export.done", { n: String(full.rows.length), file }) };
+    setExportStatus(done);
+    setTimeout(() => setExportStatus((cur) => (cur === done ? null : cur)), 8000);
   };
 
   // Right-click on a result cell: copy the cell / row / row-as-JSON, and export
@@ -3657,7 +3684,12 @@ export function App() {
             class={`app-toast${status().error ? " app-toast-error" : ""}`}
             role={status().error ? "alert" : "status"}
           >
-            <span class="app-toast-text">{status().text}</span>
+            <span class="app-toast-text">
+              {status().text}
+              <Show when={status().hint}>
+                <span class="app-toast-hint">{status().hint}</span>
+              </Show>
+            </span>
             <button
               class="app-toast-close"
               title={t("panel.close")}

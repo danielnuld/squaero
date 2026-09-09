@@ -4979,6 +4979,14 @@ button.grid-action.danger:hover:not(:disabled) {
   overflow-wrap: anywhere;
 }
 
+/* The part of a toast that is context rather than news (issue #479). */
+.app-toast-hint {
+  display: block;
+  margin-top: var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
 .app-toast-close {
   background: none;
   border: none;

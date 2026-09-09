@@ -127,6 +127,11 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     const file = await (await download).path();
     const lines = readFileSync(file, "utf8").trim().split("\n");
 
+    // And it SAYS it finished. The file the dialog created stays at 0 bytes until
+    // the writer closes, so an export that only stops talking reads as one that
+    // quietly failed.
+    await expect(page.getByText(/Exportadas \d+ filas/)).toBeVisible();
+
     // Exactly the table, plus the header row: what the grid had loaded was the
     // page cap, and the whole point is that the file went past it.
     const total = await countRows(app);
