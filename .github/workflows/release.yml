@@ -130,7 +130,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download csdk-32bit -p csdk-32bit.zip -O csdk-32bit.zip --clobber
-          mkdir -p csdk && tar -xf csdk-32bit.zip -C csdk
+          # Windows' own bsdtar by full path: `tar` in this shell is Git's GNU
+          # tar, which cannot read a zip ("does not look like a tar archive").
+          mkdir -p csdk && /c/Windows/System32/tar.exe -xf csdk-32bit.zip -C csdk
           test -f csdk/bin/iclit09b.dll
           echo "INFORMIX_CSDK=$PWD/csdk" >> "$GITHUB_ENV"
 
