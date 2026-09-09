@@ -73,6 +73,12 @@ ipc_method_fn ipc_method_lookup(const char *method)
     if (strcmp(method, "query.run") == 0) {
         return ipc_method_query_run;
     }
+    if (strcmp(method, "query.next") == 0) {
+        return ipc_method_query_next;
+    }
+    if (strcmp(method, "query.cursorClose") == 0) {
+        return ipc_method_query_cursor_close;
+    }
     if (strcmp(method, "op.cancel") == 0) {
         return ipc_method_op_cancel;
     }

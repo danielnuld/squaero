@@ -10,7 +10,14 @@ import {
   onCleanup,
 } from "solid-js";
 import { createStore } from "solid-js/store";
-import { runQuery, runStatements, type ResultSet } from "./utils/query";
+import {
+  runQuery,
+  queryNext,
+  drainQuery,
+  drainCursor,
+  runStatements,
+  type ResultSet,
+} from "./utils/query";
 import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
 import { cancelQuery, onConnectionLost } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
@@ -112,8 +119,14 @@ import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
 import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
-import { objectPreviewQuery } from "./utils/pagination";
-import { nextOffset, pageHasMore, refreshAction, refreshBlock } from "./utils/gridPaging";
+import { objectPreviewQuery, objectCountQuery } from "./utils/pagination";
+import {
+  pageStep,
+  pageHasMore,
+  contiguousPages,
+  refreshAction,
+  refreshBlock,
+} from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
   describePkColumns,
@@ -138,7 +151,7 @@ import {
   type PendingChanges,
 } from "./utils/editSession";
 import {
-  exportResult,
+  exportChunks,
   mimeFor,
   fileNameFor,
   toInserts,
@@ -162,8 +175,8 @@ import {
   FK_LOOKUP_LIMIT,
   type FkLookup,
 } from "./utils/fkLookup";
-import { buildXlsx, XLSX_MIME } from "./utils/xlsx";
-import { saveText, saveBytes } from "./utils/download";
+import { buildXlsx, XLSX_MAX_ROWS, XLSX_MIME } from "./utils/xlsx";
+import { saveText, pickSaveTarget } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
@@ -245,6 +258,16 @@ interface TabResult {
   pageSql?: string;
   offset?: number;
   pageSize?: number;
+  /** The core still holds an open cursor for this result, so the NEXT page
+      continues that execution instead of running the query again (issue #478).
+      One cursor per connection: another tab's query drops it, and paging then
+      falls back to re-running at an offset. */
+  cursor?: boolean;
+  /** Pages already fetched for `pageSql`, indexed by page number. Turning back
+      is instant, and a cursor only ever moves forward, so going back would
+      otherwise mean re-running the query — the very cost this avoids.
+      ponytail: grows with the pages visited; drop the oldest if it ever bites. */
+  pages?: ResultSet[];
   /** Set when this result is an "open table" preview: paging regenerates the
       preview SQL with a server-side LIMIT/OFFSET (the baked cap otherwise makes
       the core's row-skip pagination return an empty page 2). */
@@ -297,6 +320,16 @@ interface ActiveConnection {
 // a plain query pages via the core's row-skip offset. `truncated` marks a
 // further page; the grid virtualizes the returned page.
 const PAGE_LIMIT = 1000;
+
+// Rows per round trip when EXPORTING (issue #479). Bigger than a screen's page
+// on purpose: the grid pages for the eye, an export pages only to keep any one
+// response bounded, and a million rows at the screen's page size is a thousand
+// bridge round trips whose latency is the export.
+const EXPORT_PAGE = 10_000;
+
+// Rows per piece handed to the file writer. The file is never one string: a
+// million rows is past the engine's maximum string length (issue #479).
+const EXPORT_CHUNK_ROWS = 2000;
 
 const emptyResult = (): TabResult => ({
   loading: false,
@@ -1048,6 +1081,23 @@ export function App() {
   // and deleting the user's snippet because the two shared a shape would be the
   // worst possible reading of "Deshacer".
   const [snipToast, setSnipToast] = createSignal<{ text: string; undo: () => void } | null>(null);
+  // Reading every row of a big table takes a while and can fail halfway; an
+  // export that says nothing looks like an export that did nothing (issue #479).
+  // `hint` carries the part that is not obvious: the chosen file stays EMPTY
+  // until the very end, because the save dialog creates it when the name is
+  // picked and the content lands when the writer closes. Somebody who opens it
+  // meanwhile finds 0 bytes and concludes the export failed.
+  const [exportStatus, setExportStatus] = createSignal<{
+    text: string;
+    hint?: string;
+    error?: boolean;
+    /** Rows read so far; a bar is shown while this is set. */
+    rows?: number;
+    /** Rows in total, when it is known WITHOUT running the query twice — a
+        table can be counted, an arbitrary query cannot. Absent means the bar
+        moves without claiming a percentage. */
+    total?: number;
+  } | null>(null);
 
   /** The snippet the active query tab was opened from, if it still exists. */
   const boundSnippet = (): Snippet | undefined => {
@@ -1469,10 +1519,21 @@ export function App() {
         : undefined;
       const activeSet = sets ? pickActiveSet(sets) : 0;
       const shown = sets ? sets[activeSet] : undefined;
+      // A fresh run asks the core to keep the result open (issue #478): the
+      // pages after this one then continue it instead of paying for the query
+      // again. A page turn that got here is the fallback path (the cursor was
+      // lost), and re-runs with an offset as it always did.
       const result = sets
         ? (shown?.result ?? null)
-        : await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset);
+        : await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0);
       const elapsedMs = performance.now() - started;
+      // The page cache starts here and grows only through the cursor: pages of
+      // ONE execution are a consistent snapshot, while pages stitched from
+      // separate re-runs are not (a refresh would leave the earlier pages
+      // showing yesterday's rows). It is indexed by page number, so a re-run at
+      // an offset lands in its own slot.
+      const pages: ResultSet[] | undefined = script || !result ? undefined : [];
+      if (pages && result) pages[Math.round(offset / PAGE_LIMIT)] = result;
       setResults(id, {
         loading: false,
         error: shown?.error ?? null,
@@ -1482,6 +1543,8 @@ export function App() {
         pageSql: script ? undefined : trimmed,
         offset,
         pageSize: PAGE_LIMIT,
+        cursor: result?.cursor ?? false,
+        pages,
         source: keepSource,
         sets,
         activeSet,
@@ -1593,6 +1656,41 @@ export function App() {
     }
   };
 
+  // The next page off the cursor the core kept open for this tab's query
+  // (issue #478). The query is NOT executed again — which is the whole point:
+  // paging a heavy query used to cost the heavy query, once per page. The rows
+  // on screen stay put while the page is fetched, and a cursor that is gone
+  // (another tab queried the same connection) falls back to the offset re-run.
+  const nextPage = async (tabId: number, index: number) => {
+    const conn = tabConn(tabs().tabs.find((x) => x.id === tabId));
+    const r = results[tabId];
+    if (!conn || !r) return;
+    const size = r.pageSize ?? PAGE_LIMIT;
+    setResults(tabId, { loading: true });
+    const started = performance.now();
+    try {
+      const page = await queryNext(conn.connId, size);
+      const pages = [...(r.pages ?? [])];
+      pages[index] = page;
+      setResults(tabId, {
+        loading: false,
+        error: null,
+        result: page,
+        elapsedMs: performance.now() - started,
+        offset: index * size,
+        cursor: page.cursor ?? false,
+        pages,
+      });
+    } catch (err) {
+      setResults(tabId, { loading: false, cursor: false });
+      if (r.pageSql) {
+        void run(r.pageSql, r.ranScope ?? "document", index * size, tabId);
+      } else {
+        setResults(tabId, { error: errorText(err) });
+      }
+    }
+  };
+
   // Cancel the query running in the current tab (op.cancel). Best-effort: the
   // core interrupts the driver where it can (e.g. SQLite); the awaited runQuery
   // then rejects with a query error, which the run() catch turns into the tab's
@@ -1603,22 +1701,30 @@ export function App() {
     if (conn) void cancelQuery(conn.connId).catch(() => {});
   };
 
-  // Offset pagination (issue #134): re-run the current result at the previous /
-  // next page. Guarded while editing so a page turn never discards pending
-  // changes. Table previews regenerate their paged SQL (server-side offset); a
-  // plain query re-runs at a new core-side offset.
+  // Turn the page (issues #134, #478). Guarded while editing so a page turn
+  // never discards pending changes. Where the page comes from is decided by
+  // pageStep: memory first, then the open cursor, and only then a re-run —
+  // table previews regenerate their paged SQL (server-side offset), a plain
+  // query re-runs at a new core-side offset.
   const pageBy = (delta: 1 | -1) => {
     const t = current();
     if (!t) return;
     const r = results[t.id];
     if (!r || r.loading || currentEdit().editing) return;
+    const step = pageStep(r, delta);
+    if (!step) return;
     const size = r.pageSize ?? PAGE_LIMIT;
-    const target = nextOffset(r.offset ?? 0, delta, size);
-    if (target === (r.offset ?? 0)) return;
-    if (r.preview) {
-      void runPreviewPage(t.id, r.preview, target);
-    } else if (r.pageSql) {
-      void run(r.pageSql, r.ranScope ?? "document", target);
+    if (step.kind === "cached") {
+      const page = r.pages?.[step.index];
+      if (page) setResults(t.id, { result: page, offset: step.index * size, error: null });
+      return;
+    }
+    if (step.kind === "cursor") {
+      void nextPage(t.id, step.index);
+    } else if (step.kind === "preview" && r.preview) {
+      void runPreviewPage(t.id, r.preview, step.offset);
+    } else if (step.kind === "query" && r.pageSql) {
+      void run(r.pageSql, r.ranScope ?? "document", step.offset);
     }
   };
 
@@ -2342,21 +2448,188 @@ export function App() {
   };
 
   // --- Export (issue #30) ------------------------------------------------
-  // Save the result as text. saveText prefers a native "Guardar como" dialog
-  // (File System Access API in the webview) and falls back to a browser
+  // Save the result to disk. pickSaveTarget prefers a native "Guardar como"
+  // dialog (File System Access API in the webview) and falls back to a browser
   // download where unavailable. Client-side by design; see the M8 decision.
-  const doExport = (format: AnyExportFormat) => {
-    const res = currentResult().result;
-    if (!res || res.columns.length === 0) return;
-    const src = currentResult().source;
-    const base = src?.table ?? current()?.title ?? "export";
+  /** How far the export has got, 0..100, for a status that knows its total. */
+  const exportPercent = (s: { rows?: number; total?: number }): number =>
+    Math.max(0, Math.min(100, Math.round(((s.rows ?? 0) / (s.total || 1)) * 100)));
+
+  // The SQL that reads the WHOLE result behind the page on screen (issue #479),
+  // or null when there is none to re-read: a script's statement is not pageable,
+  // and neither is a result nobody can re-run. A table preview drops its row cap
+  // (limit 0) but keeps the filter the panel applied — exporting a filtered
+  // table must export the filtered rows.
+  const exportSql = (tabId: number, r: TabResult): string | null => {
+    if (r.sets) return null;
+    if (r.preview) {
+      return objectPreviewQuery(
+        r.preview.parts,
+        r.preview.engine,
+        0,
+        0,
+        filters[tabId]?.applied ?? undefined,
+      );
+    }
+    return r.pageSql ?? null;
+  };
+
+  /**
+   * Ask, in the background, how many rows the export will end up with, so the
+   * progress bar can show a real percentage (issue #479).
+   *
+   * Only a table can answer cheaply: one aggregate over the same object and
+   * filter. An arbitrary query has no total short of running it a second time,
+   * and a percentage that costs more than the wait it explains is a bad trade —
+   * those exports get a bar that moves without claiming to know how far along
+   * it is. Failures are silent for the same reason: the bar simply stays honest.
+   */
+  const countForBar = (
+    conn: ActiveConnection,
+    r: TabResult,
+    tabId: number,
+    got: (n: number) => void,
+  ) => {
+    if (!r.preview) return;
+    const sql = objectCountQuery(
+      r.preview.parts,
+      r.preview.engine,
+      filters[tabId]?.applied ?? undefined,
+    );
+    if (!sql) return;
+    void runQuery(conn.connId, sql, 1)
+      .then((count) => {
+        const n = Number(count.rows[0]?.[0]);
+        if (Number.isFinite(n) && n > 0) {
+          got(n);
+          setExportStatus((cur) => (cur ? { ...cur, total: n } : cur));
+        }
+      })
+      .catch(() => {
+        /* no total: the bar moves without a percentage, which is honest */
+      });
+  };
+
+  // Save the result as a file. Every row of it, not the page the grid happens to
+  // have loaded (issue #479): the rows are re-read page by page over the core's
+  // cursor and joined here. Only a result nobody can re-read (a script's
+  // statement) exports what is on screen, and that one has no more rows to give.
+  //
+  // "Guardar como" is asked FIRST and the file written afterwards. The dialog
+  // needs the user's click still to be recent, and reading a million rows takes
+  // far longer than that — asking afterwards threw, and the button looked dead.
+  const doExport = async (format: AnyExportFormat) => {
+    const tab = current();
+    const r = currentResult();
+    const res = r.result;
+    if (!tab || !res || res.columns.length === 0) return;
+    const src = r.source;
+    const base = src?.table ?? tab.title ?? "export";
     const table = src?.table ?? "exported";
-    if (format === "xlsx") {
-      void saveBytes(fileNameFor(base, "xlsx"), buildXlsx(res, table), XLSX_MIME);
+    const conn = tabConn(tab);
+    const sql = exportSql(tab.id, r);
+    const binary = format === "xlsx";
+    const file = fileNameFor(base, binary ? "xlsx" : format);
+    const target = await pickSaveTarget(file, binary ? XLSX_MIME : mimeFor(format));
+    if (!target) return;  // dialog dismissed
+    let total: number | undefined;
+    const working = (text: string, rows?: number) =>
+      setExportStatus({ text, hint: t("export.hint", { file }), rows, total });
+
+    // What the grid already holds: the pages fetched so far, in order. Those rows
+    // are read; nobody has to read them again. When the last of them was not
+    // truncated they are the ENTIRE result and the export touches the database
+    // not at all; otherwise the cursor sitting behind them carries the rest of
+    // the same execution, which is how the export skips re-running the query —
+    // on a heavy one, that second execution was the whole wait.
+    const fetched = contiguousPages(r.pages);
+    const held = fetched?.flatMap((page) => page.rows);
+    const holdsAll = fetched !== null && !fetched[fetched.length - 1].truncated;
+    let full = res;
+    if (conn && sql && (res.truncated || (fetched?.length ?? 0) > 1)) {
+      const progress = (rows: number) =>
+        working(t("export.progress", { n: String(rows) }), rows);
+      progress(held?.length ?? res.rows.length);
+      try {
+        if (held !== undefined && holdsAll) {
+          full = { ...res, rows: held, truncated: false, cursor: false };
+        } else if (held !== undefined && r.cursor) {
+          // A table can also say how many rows it has for the price of one
+          // aggregate, which is what turns the bar into a real percentage. Not
+          // awaited: the count queues behind the pages on this connection, so the
+          // bar starts moving at once and gains its scale a moment later.
+          countForBar(conn, r, tab.id, (n) => (total = n));
+          try {
+            const rest = await drainCursor(conn.connId, EXPORT_PAGE, held.length, progress);
+            full = { ...res, rows: [...held, ...rest], truncated: false, cursor: false };
+          } catch {
+            // The cursor went away mid-read (another tab paged this connection).
+            // Read it again from the start rather than write half a file.
+            full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress);
+          }
+          setResults(tab.id, { cursor: false });
+        } else {
+          countForBar(conn, r, tab.id, (n) => (total = n));
+          full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress);
+          setResults(tab.id, { cursor: false });
+        }
+      } catch (err) {
+        setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
+        setResults(tab.id, { cursor: false });
+        return;
+      }
+    }
+    // Excel's own ceiling, said out loud rather than written into a file it
+    // cannot open (issue #479).
+    if (binary && full.rows.length > XLSX_MAX_ROWS) {
+      setExportStatus({
+        text: t("export.tooManyForXlsx", {
+          n: String(full.rows.length),
+          max: String(XLSX_MAX_ROWS),
+        }),
+        error: true,
+      });
       return;
     }
-    const text = exportResult(res, format, table);
-    void saveText(fileNameFor(base, format), text, mimeFor(format));
+
+    // Writing is where the size actually bites: the whole file as ONE string is
+    // past the engine's maximum string length, and the export used to die there
+    // with "Invalid string length". So it goes out a chunk of rows at a time,
+    // which also gives the bar something true to show — rows written, out of
+    // rows there are — and hands the browser a frame often enough to paint it.
+    total = full.rows.length;
+    working(t("export.writing", { n: String(full.rows.length), file }), 0);
+    try {
+      const writer = await target.open();
+      if (binary) {
+        await writer.write(
+          new Blob([new Uint8Array(buildXlsx(full, table))], { type: XLSX_MIME }),
+        );
+      } else {
+        let written = 0;
+        let sinceFrame = 0;
+        for (const chunk of exportChunks(full, format, table, EXPORT_CHUNK_ROWS)) {
+          await writer.write(chunk);
+          written = Math.min(full.rows.length, written + EXPORT_CHUNK_ROWS);
+          working(t("export.writing", { n: String(full.rows.length), file }), written);
+          // Not every chunk: a frame per chunk would cost more than the writing.
+          if (++sinceFrame >= 20) {
+            sinceFrame = 0;
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+      }
+      await writer.close();
+    } catch (err) {
+      setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
+      return;
+    }
+    // Said, not merely stopped: the toast disappearing is not the difference
+    // between "finished" and "gave up", and the file only becomes readable now.
+    // It clears itself after a while, but only if nothing newer took its place.
+    const done = { text: t("export.done", { n: String(full.rows.length), file }) };
+    setExportStatus(done);
+    setTimeout(() => setExportStatus((cur) => (cur === done ? null : cur)), 8000);
   };
 
   // Right-click on a result cell: copy the cell / row / row-as-JSON, and export
@@ -2456,7 +2729,10 @@ export function App() {
       items.push({ separator: true });
     }
     for (const f of EXPORT_FORMATS) {
-      items.push({ label: t("result.exportFmt", { fmt: f.label }), action: () => doExport(f.fmt) });
+      items.push({
+        label: t("result.exportFmt", { fmt: f.label }),
+        action: () => void doExport(f.fmt),
+      });
     }
     openContextMenu(e, items);
   };
@@ -3087,7 +3363,7 @@ export function App() {
                       onConfirm={confirmEdit}
                       onDiscard={discardEdit}
                       onChart={openChart}
-                      onExport={(fmt) => doExport(fmt as AnyExportFormat)}
+                      onExport={(fmt) => void doExport(fmt as AnyExportFormat)}
                     >
                       {/* A data tab has no editor bar to hold these, so they
                           ride in the action bar rather than in a band of their
@@ -3509,6 +3785,50 @@ export function App() {
               title={t("panel.close")}
               aria-label={t("panel.close")}
               onClick={() => setSnipToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </Show>
+
+      <Show when={exportStatus()}>
+        {(status) => (
+          <div
+            class={`app-toast${status().error ? " app-toast-error" : ""}`}
+            role={status().error ? "alert" : "status"}
+          >
+            <span class="app-toast-text">
+              {status().text}
+              {/* Determinate only when the total is honestly known; otherwise
+                  the bar just moves, which during the write is the only thing
+                  on screen that still can — that stretch blocks the main thread
+                  and the animation runs on the compositor. */}
+              <Show when={status().rows !== undefined}>
+                <span
+                  class={`app-toast-bar${status().total ? "" : " indeterminate"}`}
+                  role="progressbar"
+                  aria-valuenow={status().total ? exportPercent(status()) : undefined}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <span
+                    class="app-toast-bar-fill"
+                    style={
+                      status().total ? { width: `${exportPercent(status())}%` } : undefined
+                    }
+                  />
+                </span>
+              </Show>
+              <Show when={status().hint}>
+                <span class="app-toast-hint">{status().hint}</span>
+              </Show>
+            </span>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setExportStatus(null)}
             >
               ×
             </button>

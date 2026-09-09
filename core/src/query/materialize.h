@@ -41,4 +41,23 @@ dbc_status dbcore_materialize(const dbc_driver_t *drv, dbc_conn *handle,
                               dbc_result *dr, int max_rows, int offset,
                               dbcore_result **out, char *errbuf, size_t errcap);
 
+/*
+ * One page off a result that STAYS OPEN (issue #478): collects up to `max_rows`
+ * rows and, when the page came back full, leaves `dr` alive so the next call can
+ * continue the same execution instead of re-running the query.
+ *
+ * "A further page exists" is inferred from a full page (dbcore_result_truncated),
+ * because peeking the next row would consume it. The cost is one empty last page
+ * when the row count is an exact multiple of `max_rows`.
+ *
+ * Ownership: `dr` survives ONLY when the returned result is truncated. It is
+ * freed here when the rows ran out and on every failure path, so a caller
+ * holding the cursor must drop its pointer whenever truncated is 0 or the call
+ * fails.
+ */
+dbc_status dbcore_materialize_page(const dbc_driver_t *drv, dbc_conn *handle,
+                                   dbc_result *dr, int max_rows,
+                                   dbcore_result **out, char *errbuf,
+                                   size_t errcap);
+
 #endif /* DBCORE_QUERY_MATERIALIZE_H */

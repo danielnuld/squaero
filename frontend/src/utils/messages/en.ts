@@ -387,6 +387,12 @@ export const en: Record<string, string> = {
   "result.copyRowsInserts": "Copy {n} rows as INSERT",
   "result.transferRowsN": "Transfer {n} rows to another table…",
   "result.exportFmt": "Export {fmt}",
+  "export.writing": "Writing {n} rows to {file}…",
+  "export.done": "Exported {n} rows to {file}",
+  "export.hint": "The file stays empty until this finishes.",
+  "export.progress": "Exporting… {n} rows read",
+  "export.tooManyForXlsx": "Excel cannot hold {n} rows (the limit is {max}). Export to CSV instead.",
+  "export.failed": "Export failed: {reason}",
 
   // result grid (ResultGrid.tsx)
   "grid.rowsAffected": "{n} row(s) affected.",

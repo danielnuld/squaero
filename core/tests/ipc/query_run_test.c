@@ -29,8 +29,6 @@ static const char *k_cells[] = {
 static dbc_status  g_status = DBC_OK;
 static const char *g_conn_err = "";
 
-static struct dbc_result g_rs;
-
 static dbc_status d_connect(const char *dsn, dbc_conn **out)
 {
     (void)dsn;
@@ -41,15 +39,21 @@ static dbc_status d_connect(const char *dsn, dbc_conn **out)
 }
 static void        d_disconnect(dbc_conn *c) { free(c); }
 static const char *d_last_error(dbc_conn *c) { (void)c; return g_conn_err; }
+static int         g_queries = 0;
 static dbc_status  d_query(dbc_conn *c, const char *sql, dbc_result **out)
 {
     (void)c; (void)sql;
+    g_queries++;
     if (g_status != DBC_OK) { *out = NULL; return g_status; }
-    g_rs.cursor = -1;
-    *out = &g_rs;
+    /* One result object per query, like a real driver: a shared one would let a
+       later query rewind a cursor an earlier one is still paging. */
+    struct dbc_result *r = malloc(sizeof *r);
+    if (r == NULL) { *out = NULL; return DBC_ERR_NOMEM; }
+    r->cursor = -1;
+    *out = r;
     return DBC_OK;
 }
-static void        d_free_result(dbc_result *r) { (void)r; }
+static void        d_free_result(dbc_result *r) { free(r); }
 static int         d_col_count(dbc_result *r) { (void)r; return 2; }
 static const char *d_col_name(dbc_result *r, int c) { (void)r; return k_names[c]; }
 static dbc_type    d_col_type(dbc_result *r, int c) { (void)r; return k_types[c]; }
@@ -204,6 +208,114 @@ int main(void)
         cJSON_Delete(root);
     }
 
+    /* Cursor paging (issue #478): the pages after the first do NOT re-run the
+       query — they continue the driver result the core kept open. */
+    {
+        g_queries = 0;
+        cJSON *root = call("{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"query.run\","
+                           "\"params\":{\"connId\":\"c1\",\"sql\":\"SELECT\",\"limit\":2,"
+                           "\"cursor\":true}}");
+        cJSON *res = cJSON_GetObjectItem(root, "result");
+        EXPECT(cJSON_GetArraySize(cJSON_GetObjectItem(res, "rows")) == 2, "cursor page 1 has 2 rows");
+        EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(res, "truncated")), "page 1 truncated");
+        EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(res, "cursor")), "a cursor stayed open");
+        cJSON_Delete(root);
+
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"query.next\","
+                    "\"params\":{\"connId\":\"c1\",\"limit\":2}}");
+        res = cJSON_GetObjectItem(root, "result");
+        cJSON *rows = cJSON_GetObjectItem(res, "rows");
+        EXPECT(cJSON_GetArraySize(rows) == 1, "cursor page 2 has the last row");
+        cJSON *cell = cJSON_GetArrayItem(cJSON_GetArrayItem(rows, 0), 0);
+        EXPECT(cell && strcmp(cell->valuestring, "3") == 0, "page 2 continues at row 3");
+        EXPECT(cJSON_IsFalse(cJSON_GetObjectItem(res, "truncated")), "page 2 is the last");
+        EXPECT(cJSON_GetObjectItem(res, "cursor") == NULL, "the exhausted cursor is gone");
+        EXPECT(g_queries == 1, "the query ran exactly once for both pages");
+        cJSON_Delete(root);
+
+        /* The cursor closed itself, so the next page has nothing to continue. */
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"query.next\","
+                    "\"params\":{\"connId\":\"c1\"}}");
+        EXPECT(error_code(root) == -32002, "query.next without a cursor -> -32002");
+        cJSON_Delete(root);
+    }
+
+    /* An open cursor is released explicitly, and closing twice is not an error. */
+    {
+        cJSON *root = call("{\"jsonrpc\":\"2.0\",\"id\":23,\"method\":\"query.run\","
+                           "\"params\":{\"connId\":\"c1\",\"sql\":\"SELECT\",\"limit\":1,"
+                           "\"cursor\":true}}");
+        EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "cursor")),
+               "cursor open for the close test");
+        cJSON_Delete(root);
+
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":24,\"method\":\"query.cursorClose\","
+                    "\"params\":{\"connId\":\"c1\"}}");
+        EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "closed")),
+               "the open cursor was closed");
+        cJSON_Delete(root);
+
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":25,\"method\":\"query.cursorClose\","
+                    "\"params\":{\"connId\":\"c1\"}}");
+        EXPECT(cJSON_IsFalse(cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "closed")),
+               "closing again is honest, not an error");
+        cJSON_Delete(root);
+    }
+
+    /* A cursor pages forward from the first row, so an offset makes no sense. */
+    {
+        cJSON *root = call("{\"jsonrpc\":\"2.0\",\"id\":26,\"method\":\"query.run\","
+                           "\"params\":{\"connId\":\"c1\",\"sql\":\"SELECT\",\"limit\":1,"
+                           "\"offset\":1,\"cursor\":true}}");
+        EXPECT(error_code(root) == -32602, "cursor + offset -> -32602");
+        cJSON_Delete(root);
+
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":27,\"method\":\"query.run\","
+                    "\"params\":{\"connId\":\"c1\",\"sql\":\"SELECT\",\"cursor\":\"yes\"}}");
+        EXPECT(error_code(root) == -32602, "non-boolean cursor -> -32602");
+        cJSON_Delete(root);
+    }
+
+    /* A plain query on the same connection LEAVES THE CURSOR ALONE. The
+       frontend runs catalog queries (foreign keys, completions) right after a
+       query, and dropping the cursor for those undid the whole feature. */
+    {
+        cJSON *root = call("{\"jsonrpc\":\"2.0\",\"id\":28,\"method\":\"query.run\","
+                           "\"params\":{\"connId\":\"c1\",\"sql\":\"SELECT\",\"limit\":1,"
+                           "\"cursor\":true}}");
+        cJSON_Delete(root);
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":29,\"method\":\"query.run\","
+                    "\"params\":{\"connId\":\"c1\",\"sql\":\"SELECT\",\"limit\":10}}");
+        cJSON_Delete(root);
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":30,\"method\":\"query.next\","
+                    "\"params\":{\"connId\":\"c1\",\"limit\":1}}");
+        cJSON *res = cJSON_GetObjectItem(root, "result");
+        cJSON *cell = cJSON_GetArrayItem(
+            cJSON_GetArrayItem(cJSON_GetObjectItem(res, "rows"), 0), 0);
+        EXPECT(res != NULL, "the cursor survives a plain query");
+        EXPECT(cell && strcmp(cell->valuestring, "2") == 0,
+               "and continues where it was, not where the other query went");
+        cJSON_Delete(root);
+
+        /* Another CURSOR run does replace it: that one is somebody paging. */
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":31,\"method\":\"query.run\","
+                    "\"params\":{\"connId\":\"c1\",\"sql\":\"SELECT\",\"limit\":1,"
+                    "\"cursor\":true}}");
+        cJSON_Delete(root);
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":32,\"method\":\"query.next\","
+                    "\"params\":{\"connId\":\"c1\",\"limit\":1}}");
+        res = cJSON_GetObjectItem(root, "result");
+        cell = cJSON_GetArrayItem(
+            cJSON_GetArrayItem(cJSON_GetObjectItem(res, "rows"), 0), 0);
+        EXPECT(cell && strcmp(cell->valuestring, "2") == 0,
+               "the new cursor pages its own execution from the start");
+        cJSON_Delete(root);
+
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":33,\"method\":\"query.cursorClose\","
+                    "\"params\":{\"connId\":\"c1\"}}");
+        cJSON_Delete(root);
+    }
+
     /* Close the connection. */
     {
         cJSON *root = call("{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"conn.close\","
@@ -216,7 +328,7 @@ int main(void)
     dbcore_runtime_reset();
 
     if (failures == 0) {
-        printf("OK: query.run IPC method (all cases)\n");
+        printf("OK: query.run / query.next IPC methods (all cases)\n");
         return 0;
     }
     fprintf(stderr, "%d assertion(s) failed\n", failures);

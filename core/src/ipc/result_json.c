@@ -135,3 +135,16 @@ cJSON *ipc_result_to_json(const dbcore_result *r)
     }
     return obj;
 }
+
+cJSON *ipc_page_to_json(const dbcore_result *r, int cursor_open)
+{
+    cJSON *obj = ipc_result_to_json(r);
+    if (obj == NULL || !cursor_open) {
+        return obj;
+    }
+    if (cJSON_AddBoolToObject(obj, "cursor", 1) == NULL) {
+        cJSON_Delete(obj);
+        return NULL;
+    }
+    return obj;
+}

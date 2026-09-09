@@ -21,7 +21,9 @@ export interface PreviewFilter {
 
 /**
  * A paged `SELECT *` over `qualified` for a data preview, in the dialect of
- * `engine`. `limit` is floored to at least 1; `offset` is floored to at least 0.
+ * `engine`. `limit` <= 0 means NO cap at all — the whole object, which is what an
+ * export reads (issue #479); anything else is floored to at least 1. `offset` is
+ * floored to at least 0.
  * Informix emits `SELECT SKIP m FIRST n * FROM t` (`SKIP m` omitted when m == 0);
  * every other engine emits `SELECT * FROM t LIMIT n OFFSET m` (`OFFSET m` omitted
  * when m == 0).
@@ -34,7 +36,7 @@ export function previewSelect(
   where?: string,
   orderBy?: string,
 ): string {
-  const n = Math.max(1, Math.floor(limit));
+  const n = Math.floor(limit);
   const m = Math.max(0, Math.floor(offset));
   const filter = where ? ` WHERE ${where}` : "";
   // ORDER BY has to be part of the paged query, not applied to the page: sorting
@@ -43,9 +45,14 @@ export function previewSelect(
   const order = orderBy ? ` ORDER BY ${orderBy}` : "";
   if (engineFamily(engine) === "informix") {
     const skip = m > 0 ? `SKIP ${m} ` : "";
-    return `SELECT ${skip}FIRST ${n} * FROM ${qualified}${filter}${order};`;
+    const first = n >= 1 ? `FIRST ${n} ` : "";
+    return `SELECT ${skip}${first}* FROM ${qualified}${filter}${order};`;
   }
   const off = m > 0 ? ` OFFSET ${m}` : "";
+  if (n < 1) {
+    // No LIMIT to hang the OFFSET on; an export reads the object whole anyway.
+    return `SELECT * FROM ${qualified}${filter}${order};`;
+  }
   return `SELECT * FROM ${qualified}${filter}${order} LIMIT ${n}${off};`;
 }
 
@@ -63,13 +70,14 @@ export function objectPreviewQuery(
   offset = 0,
   filter?: PreviewFilter,
 ): string {
-  const n = Math.max(1, Math.floor(limit));
+  const n = Math.floor(limit);
   const m = Math.max(0, Math.floor(offset));
   if (engineFamily(engine) === "mongodb") {
     // No filter is threaded here on purpose: a Mongo preview is find({}), not a
     // SELECT, and the panel does not appear for it rather than appear and lie.
     const skip = m > 0 ? `.skip(${m})` : "";
-    return `db.${parts.name}.find({})${skip}.limit(${n})`;
+    const cap = n >= 1 ? `.limit(${n})` : "";
+    return `db.${parts.name}.find({})${skip}${cap}`;
   }
   return previewSelect(
     qualifiedName(parts, engine),
@@ -79,4 +87,25 @@ export function objectPreviewQuery(
     filter?.where,
     filter?.orderBy,
   );
+}
+
+/**
+ * How many rows the object holds, narrowed by the same filter its preview uses
+ * (issue #479) — the total an export needs to show a real percentage.
+ *
+ * Null when there is no cheap answer: MongoDB has no SQL surface here, and an
+ * arbitrary query has no count that does not mean running it a second time. A
+ * bar that has to re-run a heavy query to know how far along it is costs more
+ * than the impatience it soothes, so those exports get a moving bar and a row
+ * count instead of a fake percentage. Pure.
+ */
+export function objectCountQuery(
+  parts: { db?: string; schema?: string; name: string },
+  engine: string,
+  filter?: PreviewFilter,
+): string | null {
+  if (engineFamily(engine) === "mongodb") return null;
+  const where = filter?.where ? ` WHERE ${filter.where}` : "";
+  // No ORDER BY: sorting an aggregate is work nobody reads.
+  return `SELECT COUNT(*) AS n FROM ${qualifiedName(parts, engine)}${where};`;
 }
