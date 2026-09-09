@@ -8,6 +8,7 @@ import {
   closeOtherTabs,
   closeTabsForConn,
   updateTabSql,
+  updateTabVars,
   activeTab,
   serializeWorkspace,
   worthRestoring,
@@ -438,5 +439,52 @@ describe("restoreConnIds", () => {
 
   it("is empty when nothing was bound", () => {
     expect(restoreConnIds({ tabs: [q(1), q(2)], activeId: 1 })).toEqual([]);
+  });
+});
+
+describe("SQL variables travel with the tab (issue #481)", () => {
+  const withVars = () => {
+    const base = addTab({ tabs: [], activeId: 0, seq: 0 }, "Consulta 1");
+    const id = base.activeId;
+    const typed = updateTabSql(base, id, "SELECT * FROM ${t} WHERE a = :a");
+    return updateTabVars(typed, id, { "${t}": { text: "facturas" }, ":a": { text: "", isNull: true } });
+  };
+
+  it("keeps the values of the tab it was given, and only that one", () => {
+    const state = withVars();
+    const other = addTab(state, "Consulta 2");
+    const tabs = other.tabs.filter((t) => t.kind === "query");
+    expect(tabs[0].kind === "query" && tabs[0].vars).toEqual({
+      "${t}": { text: "facturas" },
+      ":a": { text: "", isNull: true },
+    });
+    expect(tabs[1].kind === "query" && tabs[1].vars).toBeUndefined();
+  });
+
+  it("comes back with the workspace: a restored query can just be run", () => {
+    const restored = parseWorkspace(serializeWorkspace(withVars()));
+    const tab = restored?.tabs[0];
+    expect(tab?.kind === "query" && tab.vars).toEqual({
+      "${t}": { text: "facturas" },
+      ":a": { text: "", isNull: true },
+    });
+  });
+
+  it("drops stored values that are not shaped like values", () => {
+    const raw = JSON.stringify({
+      tabs: [
+        {
+          id: 1,
+          kind: "query",
+          title: "T",
+          sql: "SELECT :a, :b",
+          vars: { ":a": { text: "ok" }, ":b": { text: 7 }, ":c": "suelto" },
+        },
+      ],
+      activeId: 1,
+      seq: 1,
+    });
+    const tab = parseWorkspace(raw)?.tabs[0];
+    expect(tab?.kind === "query" && tab.vars).toEqual({ ":a": { text: "ok" } });
   });
 });

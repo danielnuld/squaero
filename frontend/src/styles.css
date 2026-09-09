@@ -4979,6 +4979,57 @@ button.grid-action.danger:hover:not(:disabled) {
   overflow-wrap: anywhere;
 }
 
+/* Values for the SQL variables of a statement (issue #481). One row per
+   variable: its token, a box, and the NULL switch that only a value form gets.
+   The grid of three columns keeps the boxes aligned however long the names are,
+   which is what makes a dozen variables readable as a form rather than a list of
+   sentences. */
+.vars-dialog {
+  width: min(560px, 92vw);
+}
+
+.vars-hint {
+  margin: 0 0 var(--sp-3);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.vars-rows {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--sp-2) var(--sp-3);
+  align-items: center;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.vars-row {
+  display: contents;
+}
+
+.vars-name code {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.vars-input {
+  width: 100%;
+}
+
+.vars-null {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* Keeps a raw variable's row aligned with the ones that carry the switch. */
+.vars-null-gap {
+  display: block;
+}
+
 /* Progress inside a toast (issue #479). The indeterminate variant animates a
    transform, not a width: transforms are composited, so the bar keeps moving
    through the long synchronous stretch that builds the file and blocks
