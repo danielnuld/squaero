@@ -128,13 +128,19 @@ export async function drainQuery(
   const rows = [...first.rows];
   let page = first;
   onProgress?.(rows.length);
-  while (page.truncated) {
-    page = page.cursor
-      ? await queryNext(connId, pageSize)
-      : await runQuery(connId, sql, pageSize, rows.length);
-    if (page.rows.length === 0) break;
-    for (const row of page.rows) rows.push(row);
-    onProgress?.(rows.length);
+  try {
+    while (page.truncated) {
+      page = page.cursor
+        ? await queryNext(connId, pageSize)
+        : await runQuery(connId, sql, pageSize, rows.length);
+      if (page.rows.length === 0) break;
+      for (const row of page.rows) rows.push(row);
+      onProgress?.(rows.length);
+    }
+  } finally {
+    // A walk that stopped early (an empty last page, or a failure) leaves the
+    // cursor open, and the connection keeps only one.
+    if (page.cursor) await closeCursor(connId).catch(() => {});
   }
   return { ...first, rows, truncated: false, cursor: false };
 }

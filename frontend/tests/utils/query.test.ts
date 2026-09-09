@@ -255,6 +255,9 @@ describe("drainQuery (issue #479)", () => {
     const rpc = vi.fn(async (raw: string) => {
       const req = JSON.parse(raw) as { id: number | string; method: string };
       methods.push(req.method);
+      if (req.method === "query.cursorClose") {
+        return { jsonrpc: "2.0", id: req.id, result: { closed: true } };
+      }
       const page = pages[n++];
       return {
         jsonrpc: "2.0",
@@ -311,6 +314,17 @@ describe("drainQuery (issue #479)", () => {
 
     expect(all.rows).toEqual([["1"], ["2"]]);
     expect(methods).toEqual(["query.run", "query.next"]);
+  });
+
+  it("closes a cursor the walk stopped on", async () => {
+    const { methods } = bridge([
+      { rows: [["1"], ["2"]], truncated: true, cursor: true },
+      { rows: [], truncated: true, cursor: true },   // still open, nothing left
+    ]);
+
+    await drainQuery("c1", "SELECT id FROM t", 2);
+
+    expect(methods).toEqual(["query.run", "query.next", "query.cursorClose"]);
   });
 
   it("reports the rows gathered so far", async () => {
