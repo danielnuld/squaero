@@ -20,6 +20,10 @@
  */
 struct informix_conn_params {
     const char *driver;    /* NULL/"" => "IBM INFORMIX ODBC DRIVER" */
+    /* Set when the CSDK driver is loaded directly instead of through the ODBC
+       Driver Manager: DRIVER= names a client for the manager to find, so it has
+       no meaning (and nothing to select) once the client is already loaded. */
+    int no_driver_keyword;
     const char *odbc_dsn;  /* when set, use DSN= form */
     const char *host;
     const char *service;   /* TCP port number or /etc/services name */
