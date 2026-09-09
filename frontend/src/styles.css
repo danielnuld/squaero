@@ -5047,6 +5047,17 @@ button.grid-action.danger:hover:not(:disabled) {
   overflow-wrap: anywhere;
 }
 
+/* Lo que va a pasar al pulsar Instalar (issue #485): la ventana se cierra sola
+   y vuelve. Va bajo los botones, en tono secundario, porque es una consecuencia
+   y no una acción. */
+.update-note {
+  margin: var(--sp-2) 0 0;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  flex-basis: 100%;
+  text-align: right;
+}
+
 /* Colours per data type, in the settings panel (issue #483). A row is the
    swatch, the name, and a sample drawn in that very colour: a palette read as
    six hex codes tells nobody what the grid will look like. */
