@@ -5,6 +5,8 @@ import { SettingsPanel } from "../../src/components/SettingsPanel";
 import { DEFAULT_SETTINGS, type Settings } from "../../src/utils/settings";
 import { APP_VERSION } from "../../src/utils/version";
 import { type SkinPref } from "../../src/utils/skin";
+import { type CellColors } from "../../src/utils/cellColors";
+import { type CellKind } from "../../src/utils/format";
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -27,6 +29,9 @@ function mount(over: {
   onSetSkin?: (s: SkinPref) => void;
   onSetHistoryLimit?: (n: number) => void;
   onSetSettings?: (p: Partial<Settings>) => void;
+  cellColors?: CellColors;
+  onSetCellColor?: (kind: CellKind, hex: string | null) => void;
+  onResetCellColors?: () => void;
 } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -43,6 +48,9 @@ function mount(over: {
           onSetHistoryLimit={over.onSetHistoryLimit ?? (() => {})}
           settings={over.settings ?? DEFAULT_SETTINGS}
           onSetSettings={over.onSetSettings ?? (() => {})}
+          cellColors={over.cellColors ?? {}}
+          onSetCellColor={over.onSetCellColor ?? (() => {})}
+          onResetCellColors={over.onResetCellColors ?? (() => {})}
           onClose={() => {}}
         />
       ),

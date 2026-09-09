@@ -27,6 +27,16 @@
   --accent-text: #9090f5;
   --null: #d98a4b;
   --number: #8fd0a0;
+  /* Tipos de dato en la rejilla (issue #483). --null y --number ya existían
+     y siguen siendo los mismos; los cuatro nuevos completan el juego para
+     que cada tipo se lea de un vistazo. Medidos contra las tres superficies
+     de esta paleta, no estimados. */
+  --cell-null: #d98a4b;
+  --cell-number: #8fd0a0;
+  --cell-text: #6ba1c7;
+  --cell-temporal: #b987d1;
+  --cell-bool: #c49331;
+  --cell-blob: #55a6ad;
   --error: #f08a8a;
   --error-fg: #1e1e24;
   /* Categorical chart palette (issue #149): the validated 8-hue dataviz theme,
@@ -70,6 +80,12 @@
      (issue #386). Este clarea 5.32/5.69/4.83. */
   --null: #9c5416;
   --number: #1d6e3f;
+  --cell-null: #9c5416;
+  --cell-number: #1d6e3f;
+  --cell-text: #266999;
+  --cell-temporal: #9438c2;
+  --cell-bool: #8d5a14;
+  --cell-blob: #2e6d7a;
   --error: #c62828;
   --error-fg: #ffffff;
   /* Chart palette, light steps of the same validated theme. */
@@ -140,6 +156,12 @@
   --accent-text: #ff9ecb;
   --null: #e2a05e;
   --number: #83d9b1;
+  --cell-null: #e2a05e;
+  --cell-number: #83d9b1;
+  --cell-text: #c381a2;
+  --cell-temporal: #ba7ece;
+  --cell-bool: #c68831;
+  --cell-blob: #6f9bb1;
   --error: #ff9494;
   --error-fg: #20141b;
   --bg-overlay: #3a2231;
@@ -162,6 +184,12 @@
   --accent-text: #8dbbe0;
   --null: #d69a56;
   --number: #8ed0ad;
+  --cell-null: #d69a56;
+  --cell-number: #8ed0ad;
+  --cell-text: #729dbb;
+  --cell-temporal: #ad8ac7;
+  --cell-bool: #bb923e;
+  --cell-blob: #67a1ad;
   --error: #f08a8a;
   --error-fg: #111418;
   --bg-overlay: #282d34;
@@ -184,6 +212,12 @@
   --accent-text: #4fd98d;
   --null: #e0a13c;
   --number: #58d3e8;
+  --cell-null: #e0a13c;
+  --cell-number: #58d3e8;
+  --cell-text: #529875;
+  --cell-temporal: #3a998a;
+  --cell-bool: #968d2c;
+  --cell-blob: #43969d;
   --error: #ff7b7b;
   --error-fg: #08120c;
   --bg-overlay: #16211d;
@@ -1499,13 +1533,47 @@ body {
   font-size: var(--fs-base);
 }
 
+/* A cell wears its column's type (issue #483): a number, a date and a string
+   are told apart by colour instead of by reading them. The classes are the ones
+   the grid already put on every cell; only NULL and number used to carry a
+   colour, which made those two the exceptions rather than the rule.
+
+   --cell-null and --cell-number repeat what --null and --number already said,
+   and that duplication is the point: those two are ALSO the app's amber warning
+   and its "connected" green — the status dot, the live badge, the passing test.
+   Sharing one token meant recolouring the number column recoloured the
+   connection dot, which is not a colour choice anybody was making. */
 .cell-null {
-  color: var(--null);
+  color: var(--cell-null);
   font-style: italic;
 }
 
 .cell-number {
-  color: var(--number);
+  color: var(--cell-number);
+}
+
+.cell-text {
+  color: var(--cell-text);
+}
+
+.cell-temporal {
+  color: var(--cell-temporal);
+}
+
+.cell-bool {
+  color: var(--cell-bool);
+}
+
+.cell-blob {
+  color: var(--cell-blob);
+}
+
+/* Switched off, every cell is plain ink again (issue #483). One rule with the
+   attribute in it, so it outweighs the per-kind classes without !important, and
+   NULL keeps its italic: that is not a colour, and it is the only mark telling
+   an empty string from no value at all. */
+:root[data-cell-colors="off"] .grid-cell {
+  color: var(--text);
 }
 
 .grid-empty,
@@ -4977,6 +5045,76 @@ button.grid-action.danger:hover:not(:disabled) {
 .app-toast-text {
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+/* Colours per data type, in the settings panel (issue #483). A row is the
+   swatch, the name, and a sample drawn in that very colour: a palette read as
+   six hex codes tells nobody what the grid will look like. */
+.type-colors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.type-color {
+  display: grid;
+  grid-template-columns: auto 8rem 1fr auto auto;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.type-color-swatch {
+  width: 2.2rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: none;
+  cursor: pointer;
+}
+
+.type-color-name {
+  color: var(--text-dim);
+}
+
+.type-color-sample {
+  font-family: var(--font-mono);
+}
+
+.type-color-warn {
+  color: var(--null);
+  cursor: help;
+}
+
+.type-color-reset,
+.settings-reset-colors {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 var(--sp-2);
+}
+
+.type-color-reset:hover:not(:disabled),
+.settings-reset-colors:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.settings-reset-colors {
+  margin-top: var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
+}
+
+.settings-reset-colors:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.settings-colors {
+  display: block;
 }
 
 /* Values for the SQL variables of a statement (issue #481). One row per
