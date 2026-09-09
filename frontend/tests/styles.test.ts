@@ -176,7 +176,22 @@ describe("themes that bring their own surfaces", () => {
   const DARK_SKINS = ["ciruela", "pizarra", "terminal"];
   const SURFACES = ["--bg", "--bg-elev", "--bg-elev2"];
   /** Tokens that are drawn AS TEXT on those surfaces, so AA applies to them. */
-  const AS_TEXT = ["--text", "--text-dim", "--accent-text", "--null", "--number", "--error"];
+  const AS_TEXT = [
+    "--text",
+    "--text-dim",
+    "--accent-text",
+    "--null",
+    "--number",
+    "--error",
+    // A cell's colour is text on the data canvas like any other (issue #483),
+    // and these are the ones a whole column is drawn in.
+    "--cell-null",
+    "--cell-number",
+    "--cell-text",
+    "--cell-temporal",
+    "--cell-bool",
+    "--cell-blob",
+  ];
 
   const block = (skin: string): Record<string, string> => {
     const start = CSS.indexOf(`:root[data-skin="${skin}"] {`);

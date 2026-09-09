@@ -27,6 +27,7 @@ describe("settingsStore", () => {
       slowThresholdMs: 900,
       checkUpdatesOnStart: false,
       toolStrip: false,
+      colorTypes: false,
     };
     saveSettings(s);
     expect(localStorage.getItem(KEY)).toBeTruthy();

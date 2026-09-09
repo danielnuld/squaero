@@ -31,6 +31,17 @@ import {
 } from "./utils/sqlVariables";
 import { VariablesDialog } from "./components/VariablesDialog";
 import {
+  applyCellColors,
+  colorsFor,
+  normalizeHex,
+  paletteKey,
+  withColors,
+  type CellColors,
+  type CellColorStore,
+} from "./utils/cellColors";
+import { loadCellColors, saveCellColors } from "./utils/cellColorStore";
+import type { CellKind } from "./utils/format";
+import {
   addTab,
   openTool,
   openSnippetTab,
@@ -71,6 +82,7 @@ import {
   saveTheme,
   nextTheme,
   applyTheme,
+  resolveTheme,
   type ThemePref,
 } from "./utils/theme";
 import { loadSkin, saveSkin, applySkin, isDarkOnly, type SkinPref } from "./utils/skin";
@@ -549,6 +561,50 @@ export function App() {
       applySkin(s, document.documentElement);
       applyTheme(theme(), document.documentElement, prefersDark(), isDarkOnly(s));
     }
+  };
+
+  // Colours per data type (issue #483). The store holds one set of overrides
+  // PER LOOK: a blue that reads on the light theme is invisible on Terminal, so
+  // "adapt them between themes" cannot mean carrying one value everywhere.
+  const [cellColorStore, setCellColorStore] = createSignal<CellColorStore>(loadCellColors());
+  /** The palette the overrides on screen belong to. */
+  const palette = () => paletteKey(resolveTheme(theme(), prefersDark(), isDarkOnly(skin())), skin());
+  const cellColors = (): CellColors => colorsFor(cellColorStore(), palette());
+
+  // Applied as inline custom properties on the root, so the CSS keeps its own
+  // colours as the default and an override is a single value on top — nothing
+  // has to know which theme is in force, including the settings panel's swatch.
+  createEffect(() => {
+    if (typeof document === "undefined") return;
+    applyCellColors(document.documentElement.style, cellColors());
+  });
+
+  // The switch is an attribute rather than a class swap: one CSS rule then
+  // outranks the per-type ones without !important (see styles.css).
+  createEffect(() => {
+    if (typeof document === "undefined") return;
+    if (settings().colorTypes) document.documentElement.removeAttribute("data-cell-colors");
+    else document.documentElement.setAttribute("data-cell-colors", "off");
+  });
+
+  /** Set (or, with null, take back) one type's colour for the look in use. */
+  const setCellColor = (kind: CellKind, hex: string | null) => {
+    const key = palette();
+    const current = cellColors();
+    const next: CellColors = { ...current };
+    const normalized = hex === null ? null : normalizeHex(hex);
+    if (normalized === null) delete next[kind];
+    else next[kind] = normalized;
+    const store = withColors(cellColorStore(), key, next);
+    setCellColorStore(store);
+    saveCellColors(store);
+  };
+
+  /** Give this look its theme colours back. */
+  const resetCellColors = () => {
+    const store = withColors(cellColorStore(), palette(), {});
+    setCellColorStore(store);
+    saveCellColors(store);
   };
 
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
@@ -3846,6 +3902,9 @@ export function App() {
                     onSetHistoryLimit={changeHistoryLimit}
                     settings={settings()}
                     onSetSettings={patchSettings}
+                    cellColors={cellColors()}
+                    onSetCellColor={setCellColor}
+                    onResetCellColors={resetCellColors}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>

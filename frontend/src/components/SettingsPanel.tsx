@@ -13,6 +13,13 @@ import {
 import { clampLimit, MIN_HISTORY_LIMIT, MAX_HISTORY_LIMIT } from "../utils/history";
 import { themeLabel, type ThemePref } from "../utils/theme";
 import { SKINS, skinLabel, isDarkOnly, type SkinPref } from "../utils/skin";
+import {
+  CELL_KINDS,
+  CELL_VAR,
+  isReadable,
+  type CellColors,
+} from "../utils/cellColors";
+import type { CellKind } from "../utils/format";
 import { locale, setLocale, LOCALES, t } from "../utils/i18n";
 
 // Settings + About panel (issue #181), opened as a tool tab. Fully controlled:
@@ -39,17 +46,57 @@ interface CoreInfo {
   protocolVersion: number;
 }
 
+/** What each type is called where the user picks its colour. */
+const KIND_LABEL: Record<CellKind, string> = {
+  text: "Texto",
+  number: "Números",
+  temporal: "Fecha y hora",
+  bool: "Booleanos",
+  blob: "Binarios",
+  null: "NULL",
+};
+
 export function SettingsPanel(props: {
   theme: ThemePref;
   onSetTheme: (p: ThemePref) => void;
   skin: SkinPref;
   onSetSkin: (s: SkinPref) => void;
+  /** Colour overrides for the look in use (issue #483), and how to change them. */
+  cellColors: CellColors;
+  onSetCellColor: (kind: CellKind, hex: string | null) => void;
+  onResetCellColors: () => void;
   historyLimit: number;
   onSetHistoryLimit: (n: number) => void;
   settings: Settings;
   onSetSettings: (patch: Partial<Settings>) => void;
   onClose?: () => void;
 }) {
+  /** What a colour is doing, shown beside its swatch. */
+  const SAMPLE: Record<CellKind, string> = {
+    text: "texto",
+    number: "1234.5",
+    temporal: "2026-09-09",
+    bool: "1",
+    blob: "0x8f…",
+    null: "NULL",
+  };
+
+  /** The colour in force for a kind: the override, else what the theme gives. */
+  const inForce = (kind: CellKind, overrides: CellColors): string => {
+    const own = overrides[kind];
+    if (own !== undefined) return own;
+    return readVar(CELL_VAR[kind]) || "#000000";
+  };
+
+  /** The background a cell colour is judged against. */
+  const surfaceColor = () => readVar("--bg") || "#000000";
+
+  /** A custom property as it currently resolves on the document. */
+  const readVar = (name: string): string => {
+    if (typeof document === "undefined") return "";
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  };
+
   const [core, setCore] = createSignal<CoreInfo | null>(null);
   const [coreErr, setCoreErr] = createSignal(false);
 
@@ -137,6 +184,70 @@ export function SettingsPanel(props: {
               </For>
             </div>
           </div>
+          {/* Colours per data type (issue #483). The swatch shows what is in
+              force — the theme's own colour until this look is overridden —
+              which is why the value is read back off the document rather than
+              held in a signal here: the palette changes under it when the theme
+              does, and a stale copy would show the previous theme's colour. */}
+          <label class="settings-row settings-check">
+            <input
+              type="checkbox"
+              checked={props.settings.colorTypes}
+              onChange={(e) => props.onSetSettings({ colorTypes: e.currentTarget.checked })}
+            />
+            <span class="settings-label">Colorear los datos por tipo</span>
+          </label>
+          <Show when={props.settings.colorTypes}>
+            <div class="settings-row settings-colors">
+              <span class="settings-label">Colores por tipo</span>
+              <div class="type-colors">
+                <For each={CELL_KINDS}>
+                  {(kind) => {
+                    const value = () => inForce(kind, props.cellColors);
+                    const readable = () => isReadable(value(), surfaceColor());
+                    return (
+                      <div class="type-color">
+                        <input
+                          type="color"
+                          class="type-color-swatch"
+                          aria-label={KIND_LABEL[kind]}
+                          value={value()}
+                          onInput={(e) => props.onSetCellColor(kind, e.currentTarget.value)}
+                        />
+                        <span class="type-color-name">{KIND_LABEL[kind]}</span>
+                        <span class="type-color-sample" style={{ color: value() }}>
+                          {SAMPLE[kind]}
+                        </span>
+                        {/* Not blocked, flagged: it is the user's grid, but a
+                            column that has gone invisible looks like a bug. */}
+                        <Show when={!readable()}>
+                          <span class="type-color-warn" title="Contraste bajo sobre el fondo">
+                            ⚠
+                          </span>
+                        </Show>
+                        <Show when={props.cellColors[kind] !== undefined}>
+                          <button
+                            class="type-color-reset"
+                            title={`Volver al color del tema para ${KIND_LABEL[kind]}`}
+                            onClick={() => props.onSetCellColor(kind, null)}
+                          >
+                            ⟲
+                          </button>
+                        </Show>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+              <button
+                class="settings-reset-colors"
+                disabled={Object.keys(props.cellColors).length === 0}
+                onClick={props.onResetCellColors}
+              >
+                Restablecer los colores de este tema
+              </button>
+            </div>
+          </Show>
           <label class="settings-row settings-check">
             <input
               type="checkbox"
