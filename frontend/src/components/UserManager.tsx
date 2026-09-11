@@ -19,6 +19,8 @@ import {
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
+import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
+import { paneSize, savePaneSize } from "../utils/paneSizes";
 
 // User / privilege management (issue #140): list the server's users, view a
 // selected user's grants, and grant/revoke privileges from a form with a live SQL
@@ -38,6 +40,27 @@ export function UserManager(props: {
   const [loading, setLoading] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  // Width of the user list, dragged and remembered (issue #491): a fixed column
+  // cut every long name, and `nombre@host` is long by construction.
+  const [listWidth, setListWidth] = createSignal(
+    clampSidebarWidth(paneSize("usersList", USERS_W_DEFAULT), USERS_W_MIN, USERS_W_MAX),
+  );
+  let bodyEl: HTMLDivElement | undefined;
+  const startListResize = (e: MouseEvent) => {
+    e.preventDefault();
+    const left = bodyEl?.getBoundingClientRect().left ?? 0;
+    const onMove = (ev: MouseEvent) =>
+      setListWidth(clampSidebarWidth(ev.clientX - left, USERS_W_MIN, USERS_W_MAX));
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      savePaneSize("usersList", listWidth());
+    };
+    document.body.style.cursor = "col-resize";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
   const [pendingDrop, setPendingDrop] = createSignal<{ user: UserRow; sql: string } | null>(null);
 
   // Search + quick filters (issue #360). Everything filters the loaded list in
@@ -213,7 +236,11 @@ export function UserManager(props: {
         when={support.supported}
         fallback={<p class="grid-empty">{unsupportedReason(props.engine)}</p>}
       >
-        <div class="um-body">
+        <div
+          class="um-body"
+          ref={bodyEl}
+          style={{ "grid-template-columns": `${listWidth()}px 5px 1fr` }}
+        >
           <div class="um-users">
             <div class="import-subtitle">{t("users.newUser")}</div>
             <div class="um-new-user">
@@ -319,6 +346,13 @@ export function UserManager(props: {
               </For>
             </ul>
           </div>
+
+          <div
+            class="resizer"
+            role="separator"
+            aria-orientation="vertical"
+            onMouseDown={startListResize}
+          />
 
           <div class="um-detail">
             <Show

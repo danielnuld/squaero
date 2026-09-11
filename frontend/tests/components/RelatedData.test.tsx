@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { RelatedData } from "../../src/components/RelatedData";
 import type { RelatedQuery } from "../../src/utils/relatedData";
+import { savePaneSize } from "../../src/utils/paneSizes";
 
 // Issue #464: carrying a relationship out to a tab used to close the modal, so
 // walking two of them meant reopening it from the cell each time; and the two
@@ -76,5 +77,33 @@ describe("RelatedData carry-out", () => {
     actions()[0].click();
     expect(opened()).toBe(1);
     expect(closed()).toBe(0);
+  });
+});
+
+// Issue #494: the dialog was 980x88vh and nothing else. It is dragged by its
+// corner now (CSS `resize`), and comes back the size it was left at.
+describe("RelatedData size", () => {
+  it("stays open when a drag that started inside ends on the backdrop", () => {
+    const { closed } = mount();
+    const backdrop = document.querySelector<HTMLElement>(".modal-backdrop")!;
+    const dialog = document.querySelector<HTMLElement>(".related-modal")!;
+    // Dragging the resize corner ends past the dialog's edge, and the click that
+    // follows is reported on the backdrop.
+    dialog.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(closed()).toBe(0);
+    // A real click outside still closes it.
+    backdrop.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(closed()).toBe(1);
+  });
+
+  it("opens at the size it was last left at", () => {
+    savePaneSize("relatedW", 1240);
+    savePaneSize("relatedH", 700);
+    mount();
+    const dialog = document.querySelector<HTMLElement>(".related-modal")!;
+    expect(dialog.style.width).toBe("1240px");
+    expect(dialog.style.height).toBe("700px");
   });
 });
