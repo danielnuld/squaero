@@ -195,6 +195,8 @@ Informix ODBC Driver*. El `dsn` admite dos formas:
 | `user` / `password` | Credenciales. |
 | `driver` | Sobrescribe el nombre del controlador ODBC registrado. |
 | `odbc_dsn` | Forma alternativa: usa una fuente de datos ODBC ya configurada (`DSN=...`); ignora `host`/`server`/`driver`. |
+| `client_locale` | Locale del cliente. Por defecto `en_us.utf8`. |
+| `db_locale` | Locale de la base. Solo se envía si se da. |
 
 La forma directa requiere `host` + `port`/`service` + `server`; la forma DSN
 requiere `odbc_dsn`. El driver es de 32 bits (el CSDK lo es), por lo que Squaero
@@ -206,6 +208,22 @@ Squaero lo trae dentro (`<installdir>/csdk`) cuando se construye en una máquina
 que lo tenga instalado — ver `installer/build-msi.sh`. En las máquinas donde ya
 hay un CSDK instalado por IBM, el instalador respeta el existente y no toca su
 registro.
+
+**Locales de Informix (issue #323).** Las dos formas del DSN aceptan
+`client_locale` y `db_locale`, y viajan como las palabras clave `CLIENT_LOCALE`
+y `DB_LOCALE` de la cadena de conexión.
+
+- `client_locale` vale **`en_us.utf8` por defecto**, y esa es la pieza que hace
+  legible una base de un solo byte: con ella el CSDK convierte el code set de la
+  base, medido como la única vía fiable. Sin ella, una fila con bytes del rango
+  0x80-0x9F tumba la consulta entera.
+- **La variable de entorno del mismo nombre no sirve**: el controlador ODBC la
+  ignora. Tiene que ir en la cadena de conexión, que es lo que hace el driver.
+  Medido contra Informix 15.0.1; **contra 11.70 está sin verificar**.
+- `db_locale` se envía **solo si se da**. El cliente deduce por sí mismo el code
+  set de la base, y declararlo mal es peor que callar.
+- Mirar los bytes después no sustituye a esto: un «Ã±» en Latin-1 y un «ñ» en
+  UTF-8 son los mismos dos bytes.
 
 *Túnel SSH (agnóstico al motor).* El núcleo reconoce, dentro del `dsn`, un grupo
 de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
