@@ -842,6 +842,22 @@ export const en: Record<string, string> = {
   "valid.unknownDriver": "Unknown engine: {driver}.",
   "valid.fieldRequired": "The \"{field}\" field is required.",
 
+  // the last of the sweep: tab menu, tab chrome, cell-type names
+  "tabmenu.closeOthers": "Close the others",
+  "tab.closeTitle": "Close tab",
+  "tab.connTitle": "The active tab's connection",
+  "error.emptyQuery": "The query is empty.",
+  "error.tabConnClosed": "This tab's connection is closed. Reconnect it from the connections panel.",
+  "error.importNoConns": "Could not import: no file holds any connections.",
+  "settings.lowContrast": "Low contrast against the background",
+  "settings.resetColor": "Back to the theme colour for {kind}",
+  "kind.text": "Text",
+  "kind.number": "Numbers",
+  "kind.temporal": "Date and time",
+  "kind.bool": "Booleans",
+  "kind.blob": "Binary",
+  "kind.null": "NULL",
+
   // errors
   "error.noActiveConn": "No active connection. Open a connection to run queries.",
 

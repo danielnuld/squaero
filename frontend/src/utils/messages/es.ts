@@ -845,6 +845,22 @@ export const es: Record<string, string> = {
   "valid.unknownDriver": "Motor desconocido: {driver}.",
   "valid.fieldRequired": "El campo \"{field}\" es obligatorio.",
 
+  // the last of the sweep: tab menu, tab chrome, cell-type names
+  "tabmenu.closeOthers": "Cerrar las demás",
+  "tab.closeTitle": "Cerrar pestaña",
+  "tab.connTitle": "Conexión de la pestaña activa",
+  "error.emptyQuery": "La consulta está vacía.",
+  "error.tabConnClosed": "La conexión de esta pestaña está cerrada. Vuelve a conectarla desde el panel de conexiones.",
+  "error.importNoConns": "No se pudo importar: ningún archivo contiene conexiones.",
+  "settings.lowContrast": "Contraste bajo sobre el fondo",
+  "settings.resetColor": "Volver al color del tema para {kind}",
+  "kind.text": "Texto",
+  "kind.number": "Números",
+  "kind.temporal": "Fecha y hora",
+  "kind.bool": "Booleanos",
+  "kind.blob": "Binarios",
+  "kind.null": "NULL",
+
   // errors
   "error.noActiveConn": "No hay conexión activa. Abre una conexión para ejecutar consultas.",
 

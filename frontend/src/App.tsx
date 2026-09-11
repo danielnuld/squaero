@@ -1290,7 +1290,7 @@ export function App() {
         credentials = bytes;
       }
     }
-    if (listText === null) return "No se pudo importar: ningún archivo contiene conexiones.";
+    if (listText === null) return t("error.importNoConns");
     const res = await importConnections(connections(), listText, credentials);
     if ("error" in res) return `No se pudo importar: ${res.error}`;
     persist(res.list);
@@ -1566,7 +1566,7 @@ export function App() {
     const id = tab.id;
     const trimmed = sql.trim();
     if (!trimmed) {
-      setResults(id, { ...emptyResult(), error: "La consulta está vacía." });
+      setResults(id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
     // Run against the tab's OWN connection (bound at creation), so a prod tab and
@@ -1578,7 +1578,7 @@ export function App() {
         ...emptyResult(),
         error:
           tab.kind === "query" && tab.connDefId
-            ? "La conexión de esta pestaña está cerrada. Vuelve a conectarla desde el panel de conexiones."
+            ? t("error.tabConnClosed")
             : t("error.noActiveConn"),
       });
       return;
@@ -1922,7 +1922,7 @@ export function App() {
     if (!tab) return;
     const sql = sqlOfTab(tab.id).trim();
     if (!sql) {
-      setResults(tab.id, { ...emptyResult(), error: "La consulta está vacía." });
+      setResults(tab.id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
     showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
@@ -2895,14 +2895,14 @@ export function App() {
   // Right-click on a tab.
   const tabMenu = (e: MouseEvent, id: number) => {
     openContextMenu(e, [
-      { label: "Cerrar", action: () => setTabs((s) => closeTab(s, id)) },
+      { label: t("common.close"), action: () => setTabs((s) => closeTab(s, id)) },
       {
-        label: "Cerrar las demás",
+        label: t("tabmenu.closeOthers"),
         action: () => setTabs((s) => closeOtherTabs(s, id)),
         disabled: tabs().tabs.length < 2,
       },
       { separator: true },
-      { label: "Nueva consulta", action: newTab },
+      { label: t("toolbar.newQuery.title"), action: newTab },
     ]);
   };
 
@@ -3155,7 +3155,7 @@ export function App() {
             <div
               class="workspace-accent"
               style={{ background: tabConn(current())!.color }}
-              title="Conexión de la pestaña activa"
+              title={t("tab.connTitle")}
             />
           </Show>
           {/* One navigation band instead of two (issue #386). The ribbon of 12
@@ -3232,8 +3232,8 @@ export function App() {
                     </Show>
                     <button
                       class="tab-close"
-                      title="Cerrar pestaña"
-                      aria-label="Cerrar pestaña"
+                      title={t("tab.closeTitle")}
+                      aria-label={t("tab.closeTitle")}
                       onClick={(e) => removeTab(tab.id, e)}
                     >
                       ×
