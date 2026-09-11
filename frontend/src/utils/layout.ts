@@ -39,3 +39,11 @@ export function clampEditorPct(
   }
   return Math.max(min, Math.min(pct, max));
 }
+
+// The users panel's list column (issue #491). It was fixed at 14rem, which cut
+// every name longer than that and had no way out; it is dragged now, with the
+// sidebar's rule — neither side may vanish — applied to a pane inside a tab.
+// Clamp it with clampSidebarWidth, passing these bounds.
+export const USERS_W_MIN = 140;
+export const USERS_W_MAX = 520;
+export const USERS_W_DEFAULT = 224; // 14rem, what it used to be pinned at

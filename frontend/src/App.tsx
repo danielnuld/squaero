@@ -44,6 +44,7 @@ import type { CellKind } from "./utils/format";
 import {
   addTab,
   openTool,
+  GLOBAL_TOOLS,
   openSnippetTab,
   closeTab,
   closeOtherTabs,
@@ -450,9 +451,11 @@ export function App() {
     }
     return active();
   };
-  // The accent color of a query tab's bound connection, for the tab strip.
+  // The accent color of a tab's bound connection, for the tab strip. Tool tabs
+  // carry one too (issue #492): they are per-connection now, so the dot that
+  // tells two query tabs apart has to tell two monitors apart as well.
   const tabColor = (tab: Tab): string | undefined =>
-    tab.kind === "query" && tab.connDefId
+    tab.connDefId
       ? connections().find((c) => c.id === tab.connDefId)?.color
       : undefined;
   // Working database context: the databases available on the active connection
@@ -919,10 +922,20 @@ export function App() {
     tool: Parameters<typeof openTool>[1],
     title: string,
     opts?: Parameters<typeof openTool>[3],
-  ) =>
-    setTabs((s) =>
-      openTool(s, tool, title, { connDefId: focusedDefId() ?? undefined, ...opts }),
-    );
+  ) => {
+    const defId = GLOBAL_TOOLS.has(tool)
+      ? undefined
+      : opts?.connDefId ?? focusedDefId() ?? undefined;
+    // With several connections open the tab has to say which one it belongs to
+    // (issue #492): every users panel is called "Usuarios" otherwise, and now
+    // that each connection gets its own there would be no telling them apart.
+    // With a single connection the name is the only thing the tab could be, so
+    // it is left out — the same reasoning as the new query tab's title (#421).
+    const conn = openConns().find((o) => o.defId === defId);
+    const label =
+      conn && openConns().length > 1 ? `${title} · ${conn.name}` : title;
+    setTabs((s) => openTool(s, tool, label, { ...opts, connDefId: defId }));
+  };
   // The sidebar tools live behind a single wrench button in the object-tree header
   // now (the always-open list was removed in the Explorer-first layout): open a
   // context menu of the tool catalog, each launching its tool tab.

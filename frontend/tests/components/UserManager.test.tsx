@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { UserManager } from "../../src/components/UserManager";
+import { paneSize } from "../../src/utils/paneSizes";
 
 // Drives the real UserManager in jsdom against a mocked bridge: it lists users,
 // shows a selected user's grants, builds a GRANT from the form and applies it,
@@ -299,6 +300,26 @@ describe("UserManager", () => {
     await flush();
     expect(host!.querySelector(".confirm-dialog")).toBeNull();
     expect(calls.some((c) => (c.params.sql ?? "").startsWith("DROP USER"))).toBe(false);
+  });
+
+  // Issue #491: the list column was pinned at 14rem, which cut every long name.
+  it("drags the list column wider and remembers the width", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const body = host!.querySelector<HTMLElement>(".um-body")!;
+    expect(body.style.gridTemplateColumns).toBe("224px 5px 1fr");
+    body.getBoundingClientRect = () => ({ left: 100 }) as DOMRect;
+    host!.querySelector<HTMLElement>(".um-body > .resizer")!.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true }),
+    );
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: 460 }));
+    expect(body.style.gridTemplateColumns).toBe("360px 5px 1fr");
+    // Neither side may vanish: the drag is clamped like the sidebar's.
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: 110 }));
+    expect(body.style.gridTemplateColumns).toBe("140px 5px 1fr");
+    document.dispatchEvent(new MouseEvent("mouseup"));
+    expect(paneSize("usersList", 224)).toBe(140);
   });
 
   it("shows an honest message for an unsupported engine", async () => {
