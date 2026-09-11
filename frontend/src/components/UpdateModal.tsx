@@ -1,4 +1,5 @@
 import { Show, createSignal, onCleanup, onMount } from "solid-js";
+import { t } from "../utils/i18n";
 import type { UpdateInfo } from "../utils/update";
 
 // Startup update modal: shown when GitHub has a newer release. Presentational —
@@ -39,7 +40,7 @@ export function UpdateModal(props: {
     const ok = await props.onInstall(url);
     if (!ok) {
       setInstalling(false);
-      setError("No se pudo descargar la actualización. Puedes descargarla en el navegador.");
+      setError(t("upd.downloadFailed"));
     }
     // On success the app closes and the installer runs; nothing more to do here.
   };
@@ -50,19 +51,19 @@ export function UpdateModal(props: {
         <div
           class="update-modal"
           role="dialog"
-          aria-label="Actualización disponible"
+          aria-label={t("upd.available")}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div class="update-head">
-            <span class="update-badge">Actualización</span>
-            <h2>Squaero {props.update!.version} disponible</h2>
-            <p class="update-sub">Tienes la versión {props.currentVersion}.</p>
+            <span class="update-badge">{t("upd.badge")}</span>
+            <h2>{t("upd.heading", { version: props.update!.version })}</h2>
+            <p class="update-sub">{t("upd.current", { version: props.currentVersion })}</p>
           </div>
 
           <div class="update-notes">
             <Show
               when={props.update!.notes.trim()}
-              fallback={<p class="sidebar-hint">Sin notas para esta versión.</p>}
+              fallback={<p class="sidebar-hint">{t("upd.noNotes")}</p>}
             >
               <pre>{props.update!.notes}</pre>
             </Show>
@@ -77,11 +78,11 @@ export function UpdateModal(props: {
               one styled button with three system ones. */}
           <div class="modal-actions update-actions">
             <button class="update-skip" disabled={installing()} onClick={() => props.onSkip(props.update!.version)}>
-              Omitir esta versión
+              {t("upd.skip")}
             </button>
             <span class="status-spacer" />
             <button disabled={installing()} onClick={() => props.onClose()}>
-              Ahora no
+              {t("upd.later")}
             </button>
             <Show
               when={canInAppInstall()}
@@ -92,20 +93,20 @@ export function UpdateModal(props: {
                     props.onDownload(props.update!.downloadUrl ?? props.update!.releaseUrl)
                   }
                 >
-                  {props.update!.downloadUrl ? "Descargar" : "Ver release"}
+                  {props.update!.downloadUrl ? t("upd.download") : t("upd.viewRelease")}
                 </button>
               }
             >
               <button class="update-browser" disabled={installing()} onClick={() => props.onDownload(props.update!.downloadUrl!)}>
-                En el navegador
+                {t("upd.inBrowser")}
               </button>
               <button class="primary" disabled={installing()} onClick={() => void doInstall()}>
-                {installing() ? "Descargando e instalando…" : "Instalar actualización"}
+                {installing() ? t("upd.installing") : t("upd.install")}
               </button>
               {/* Dicho antes de pulsar, no después: la app se cierra sola para
                   que el instalador pueda reemplazarla, y eso sin avisar parece
                   que se ha caído (issue #485). */}
-              <p class="update-note">La app se cerrará para instalar y volverá a abrirse al terminar.</p>
+              <p class="update-note">{t("upd.restartNote")}</p>
             </Show>
           </div>
         </div>

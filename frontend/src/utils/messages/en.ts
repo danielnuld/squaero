@@ -704,6 +704,63 @@ export const en: Record<string, string> = {
   "tw.transfer": "Transfer",
   "tw.transferring": "Transferring…",
 
+  // confirm dialog / shortcuts overlay / command palette / history / updates
+  "confirm.title": "Confirm",
+  "confirm.applying": "Applying…",
+  "shortcuts.title": "Keyboard shortcuts",
+  "sc.run-query": "Run the query",
+  "sc.format-sql": "Format the query",
+  "sc.new-tab": "New tab",
+  "sc.close-tab": "Close the active tab",
+  "sc.next-tab": "Next tab",
+  "sc.prev-tab": "Previous tab",
+  "sc.refresh": "Refresh data and tree",
+  "sc.toggle-theme": "Switch light/dark theme",
+  "sc.toggle-help": "Show/hide shortcuts",
+  "sc.command-palette": "Command palette",
+  "sc.object-palette": "Find objects (tables, views…)",
+  "sc.snippet-palette": "Find saved snippets",
+  "sc.save-snippet": "Save the query as a snippet",
+  "sc.save-edits": "Save the grid's changes",
+  "sc.editor-find": "Find in the editor",
+  "sc.select-rows": "Select the grid's rows",
+  "sc.add-condition": "Add another condition to the filter",
+
+  // command palette (CommandPalette.tsx)
+  "cmdk.title": "Command palette",
+  "cmdk.placeholder": "Search tools, objects, snippets, history…",
+  "cmdk.inputLabel": "Search commands",
+  "cmdk.noResults": "No results",
+
+  // query history panel (HistoryPanel.tsx)
+  "hist.title": "Query history",
+  "hist.searchPlaceholder": "Search the history…",
+  "hist.searchLabel": "Search the history",
+  "hist.onlySlowTitle": "Show slow queries only",
+  "hist.onlySlow": "Slow only",
+  "hist.none": "You have not run any queries yet.",
+  "hist.noMatches": "No query matches the search.",
+  "hist.rerun": "Run again in a new tab",
+  "hist.noConnection": "no connection",
+  "hist.slowTag": " · slow",
+  "hist.clear": "Clear history",
+
+  // update dialog (UpdateModal.tsx)
+  "upd.available": "Update available",
+  "upd.badge": "Update",
+  "upd.heading": "Squaero {version} is available",
+  "upd.current": "You have version {version}.",
+  "upd.noNotes": "No notes for this version.",
+  "upd.downloadFailed": "The update could not be downloaded. You can get it in the browser.",
+  "upd.skip": "Skip this version",
+  "upd.later": "Not now",
+  "upd.download": "Download",
+  "upd.viewRelease": "View release",
+  "upd.inBrowser": "In the browser",
+  "upd.install": "Install update",
+  "upd.installing": "Downloading and installing…",
+  "upd.restartNote": "The app will close to install and open again when it finishes.",
+
   // errors
   "error.noActiveConn": "No active connection. Open a connection to run queries.",
 

@@ -707,6 +707,63 @@ export const es: Record<string, string> = {
   "tw.transfer": "Transferir",
   "tw.transferring": "Transfiriendo…",
 
+  // confirm dialog / shortcuts overlay / command palette / history / updates
+  "confirm.title": "Confirmar",
+  "confirm.applying": "Aplicando…",
+  "shortcuts.title": "Atajos de teclado",
+  "sc.run-query": "Ejecutar la consulta",
+  "sc.format-sql": "Formatear la consulta",
+  "sc.new-tab": "Nueva pestaña",
+  "sc.close-tab": "Cerrar la pestaña activa",
+  "sc.next-tab": "Siguiente pestaña",
+  "sc.prev-tab": "Pestaña anterior",
+  "sc.refresh": "Refrescar datos y árbol",
+  "sc.toggle-theme": "Cambiar tema claro/oscuro",
+  "sc.toggle-help": "Mostrar/ocultar atajos",
+  "sc.command-palette": "Paleta de comandos",
+  "sc.object-palette": "Buscar objetos (tablas, vistas…)",
+  "sc.snippet-palette": "Buscar snippets guardados",
+  "sc.save-snippet": "Guardar la consulta como snippet",
+  "sc.save-edits": "Guardar los cambios de la rejilla",
+  "sc.editor-find": "Buscar en el editor",
+  "sc.select-rows": "Seleccionar las filas de la rejilla",
+  "sc.add-condition": "Añadir otra condición al filtro",
+
+  // command palette (CommandPalette.tsx)
+  "cmdk.title": "Paleta de comandos",
+  "cmdk.placeholder": "Buscar herramientas, objetos, snippets, historial…",
+  "cmdk.inputLabel": "Buscar comandos",
+  "cmdk.noResults": "Sin resultados",
+
+  // query history panel (HistoryPanel.tsx)
+  "hist.title": "Historial de consultas",
+  "hist.searchPlaceholder": "Buscar en el historial…",
+  "hist.searchLabel": "Buscar en el historial",
+  "hist.onlySlowTitle": "Mostrar solo consultas lentas",
+  "hist.onlySlow": "Solo lentas",
+  "hist.none": "Aún no has ejecutado consultas.",
+  "hist.noMatches": "Ninguna consulta coincide con la búsqueda.",
+  "hist.rerun": "Reejecutar en una pestaña nueva",
+  "hist.noConnection": "sin conexión",
+  "hist.slowTag": " · lenta",
+  "hist.clear": "Limpiar historial",
+
+  // update dialog (UpdateModal.tsx)
+  "upd.available": "Actualización disponible",
+  "upd.badge": "Actualización",
+  "upd.heading": "Squaero {version} disponible",
+  "upd.current": "Tienes la versión {version}.",
+  "upd.noNotes": "Sin notas para esta versión.",
+  "upd.downloadFailed": "No se pudo descargar la actualización. Puedes descargarla en el navegador.",
+  "upd.skip": "Omitir esta versión",
+  "upd.later": "Ahora no",
+  "upd.download": "Descargar",
+  "upd.viewRelease": "Ver release",
+  "upd.inBrowser": "En el navegador",
+  "upd.install": "Instalar actualización",
+  "upd.installing": "Descargando e instalando…",
+  "upd.restartNote": "La app se cerrará para instalar y volverá a abrirse al terminar.",
+
   // errors
   "error.noActiveConn": "No hay conexión activa. Abre una conexión para ejecutar consultas.",
 
