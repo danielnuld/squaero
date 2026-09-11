@@ -3,6 +3,7 @@ import {
   nextTabId,
   addTab,
   openTool,
+  GLOBAL_TOOLS,
   openSnippetTab,
   closeTab,
   closeOtherTabs,
@@ -60,6 +61,40 @@ describe("openTool", () => {
     let s = openTool(empty, "generator", "Generar · a", { key: "gen:a" });
     s = openTool(s, "generator", "Generar · b", { key: "gen:b" });
     expect(s.tabs).toHaveLength(2);
+  });
+
+  // Issue #493: the keys the app builds ("struct:midb..clientes") say nothing
+  // about the server they were read from, so the same table on two connections
+  // used to land on the first one's tab.
+  it("gives each connection its own tab for the same tool and key", () => {
+    let s = openTool(empty, "structure", "Estructura: clientes", {
+      key: "struct:midb..clientes",
+      connDefId: "c1",
+    });
+    s = openTool(s, "structure", "Estructura: clientes", {
+      key: "struct:midb..clientes",
+      connDefId: "c2",
+    });
+    expect(s.tabs).toHaveLength(2);
+    expect(s.activeId).toBe(s.tabs[1].id);
+    // And reopening one of them still focuses it instead of stacking a third.
+    const again = openTool(s, "structure", "Estructura: clientes", {
+      key: "struct:midb..clientes",
+      connDefId: "c1",
+    });
+    expect(again.tabs).toHaveLength(2);
+    expect(again.activeId).toBe(s.tabs[0].id);
+  });
+
+  it("keeps one tab for a tool that belongs to no connection", () => {
+    let s = openTool(empty, "help", "Atajos", { key: "help" });
+    s = openTool(s, "help", "Atajos", { key: "help" });
+    expect(s.tabs).toHaveLength(1);
+    // The tools that are the same whatever is focused are named, not guessed.
+    expect(GLOBAL_TOOLS.has("help")).toBe(true);
+    expect(GLOBAL_TOOLS.has("snippets")).toBe(true);
+    expect(GLOBAL_TOOLS.has("users")).toBe(false);
+    expect(GLOBAL_TOOLS.has("monitor")).toBe(false);
   });
 });
 

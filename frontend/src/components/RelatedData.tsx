@@ -1,6 +1,7 @@
 import { For, Show, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { t } from "../utils/i18n";
+import { paneSize, savePaneSize } from "../utils/paneSizes";
 import type { RelatedQuery } from "../utils/relatedData";
 import type { ResultSet } from "../utils/query";
 import { ResultGrid } from "./ResultGrid";
@@ -52,6 +53,27 @@ export function RelatedData(props: {
   onMount(() => document.addEventListener("keydown", onKeyDown, true));
   onCleanup(() => document.removeEventListener("keydown", onKeyDown, true));
 
+  // The dialog is dragged by its corner (CSS `resize`, issue #494) and comes
+  // back the size it was left at. The browser owns the drag; all this does is
+  // restore the remembered size on open and write back whatever size the box
+  // ends up at — which also covers the window being resized under it.
+  let dialogEl: HTMLDivElement | undefined;
+  let pressedBackdrop = false;
+  onMount(() => {
+    if (!dialogEl) return;
+    const width = paneSize("relatedW", 0);
+    const height = paneSize("relatedH", 0);
+    if (width) dialogEl.style.width = `${width}px`;
+    if (height) dialogEl.style.height = `${height}px`;
+    const observer = new ResizeObserver(() => {
+      if (!dialogEl) return;
+      savePaneSize("relatedW", dialogEl.offsetWidth);
+      savePaneSize("relatedH", dialogEl.offsetHeight);
+    });
+    observer.observe(dialogEl);
+    onCleanup(() => observer.disconnect());
+  });
+
   const current = () => props.queries[props.selected];
   const withData = () =>
     props.queries.filter((_, i) => (props.counts[i] ?? 0) > 0).length;
@@ -62,10 +84,20 @@ export function RelatedData(props: {
     <Portal>
       <div
         class="modal-backdrop"
-        onClick={(e) => e.target === e.currentTarget && props.onClose()}
+        /* Closing on a click outside has to mean a click that STARTED outside.
+           Dragging the dialog's resize corner (issue #494) ends with the pointer
+           past its edge, and the click that follows is reported on the backdrop
+           — which closed the dialog the moment it was made bigger. */
+        onMouseDown={(e) => {
+          pressedBackdrop = e.target === e.currentTarget;
+        }}
+        onClick={(e) => {
+          if (pressedBackdrop && e.target === e.currentTarget) props.onClose();
+        }}
       >
         <div
           class="modal related-modal"
+          ref={dialogEl}
           role="dialog"
           aria-modal="true"
           aria-label={t("related.title", {

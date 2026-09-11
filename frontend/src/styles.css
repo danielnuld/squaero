@@ -3895,10 +3895,13 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 /* User / privilege management (issue #140) */
+/* Three tracks: the list, the divider that drags it (issue #491), the detail.
+   The columns are set inline from the dragged width; this is the fallback for
+   the first paint and for anything that renders without the style. */
 .um-body {
   display: grid;
-  grid-template-columns: 14rem 1fr;
-  gap: var(--sp-5);
+  grid-template-columns: 14rem 5px 1fr;
+  gap: var(--sp-4);
   margin-top: var(--sp-4);
   flex: 1;
   min-height: 0;
@@ -5252,11 +5255,18 @@ button.grid-action.danger:hover:not(:disabled) {
    angosta y el resultado —lo que se vino a ver— se lleva el resto. */
 .related-modal {
   width: min(980px, 94vw);
-  max-height: 88vh;
+  max-height: 94vh;
   padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Drag the corner to resize (issue #494). The browser writes width/height
+     inline, which is why the size above is a starting point and not a cap, and
+     why `overflow: hidden` has to stay: `resize` does nothing on a box whose
+     overflow is visible. */
+  resize: both;
+  min-width: 480px;
+  max-width: 96vw;
 }
 
 .related-head {
