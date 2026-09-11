@@ -144,7 +144,12 @@
       Abierto como **#324** y arreglado en el grupo 6, en esta misma rama.
 - [x] 5.4 Sin regresión: `ctest` 52/52 con `-Werror`, smoke de SQLite 12/12 y de
       MySQL 12/12 (esta última contra la BD Latin-1).
-- [ ] 5.5 Build x86 verde y sin dependencias nuevas — que no se haya colado iconv
-      ni ICU.
-- [ ] 5.6 Documentar los parámetros `client_locale`/`db_locale` donde se documentan
+- [x] 5.5 Build x86 verde y sin dependencias nuevas — que no se haya colado iconv
+      ni ICU. La pata `windows-x86` de CI compila el conjunto con `-Werror` en
+      cada PR y sigue verde; el driver no enlaza nada nuevo (la conversión es la
+      tabla propia más `CLIENT_LOCALE`).
+- [x] 5.6 Documentar los parámetros `client_locale`/`db_locale` donde se documentan
       los del DSN, y dejar anotado que la variable de entorno no sirve.
+      Hecho en `docs/IPC.md`, en la tabla del DSN de Informix y en un bloque
+      propio debajo: el valor por defecto, por qué existe, que la variable de
+      entorno la ignora el controlador y que la medición es contra 15.0.1.

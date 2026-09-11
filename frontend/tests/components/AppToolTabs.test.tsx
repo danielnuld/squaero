@@ -104,6 +104,24 @@ describe("App — a tool tab per connection", () => {
     expect(toolTabs()).toHaveLength(2);
   });
 
+  // Issue #498: the tab was reused but its snapshot was not, so editing a second
+  // connection opened the first one's draft under the second one's name.
+  it("shows the second connection when the form is already open for the first", async () => {
+    mountApp();
+    (host!.querySelector(".connbar-active") as HTMLElement).click();
+    const edit = () => host!.querySelectorAll<HTMLElement>(".conn-list button[title='Editar']");
+    edit()[0].click();
+    await settle();
+    const nameInput = () => host!.querySelector<HTMLInputElement>(".field input[type='text']")!;
+    expect(nameInput().value).toBe("local");
+
+    (host!.querySelector(".connbar-active") as HTMLElement).click();
+    edit()[1].click();
+    await settle();
+    expect(host!.querySelectorAll(".tab-tool").length).toBe(1);
+    expect(nameInput().value).toBe("prod");
+  });
+
   it("keeps one tab for a tool that belongs to no connection", async () => {
     mountApp();
     await connect(0);
