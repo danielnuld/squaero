@@ -12,19 +12,23 @@ export type FieldType = "text" | "number" | "password" | "file" | "select";
 
 export interface FieldOption {
   value: string;
+  /** i18n KEY, resolved where the option is rendered. */
   label: string;
 }
 
 export interface DriverField {
   key: string;
+  /** i18n KEY for the field's label ("field.host"), resolved by the form: this
+      module is pure data and must not know the locale. */
   label: string;
   type: FieldType;
   required: boolean;
   placeholder?: string;
   /** Choices for a `select` field. */
   options?: FieldOption[];
-  /** Optional grouping label; consecutive fields sharing a group render under
-      one subheading in the form (used for the optional SSH-tunnel section). */
+  /** Optional group, as an i18n KEY. It doubles as the group's identity (the
+      form tabs compare it), so it stays a stable string and is translated only
+      when rendered. */
   group?: string;
   /** When set, the form offers to fill this field from a live lookup that reuses
       the connection details already entered. "databases" lists the server's
@@ -76,44 +80,44 @@ export const CONNECTION_COLORS: string[] = [
 // blank means a direct connection. Append them to any network driver's schema
 // with withSshTunnel(); the secret fields (type "password") are stripped from
 // storage automatically, like any other secret.
-export const SSH_GROUP = "Túnel SSH (opcional)";
+export const SSH_GROUP = "group.ssh";
 
 export const SSH_TUNNEL_FIELDS: DriverField[] = [
-  { key: "ssh_host", label: "Host SSH", type: "text", required: false, placeholder: "bastion.example.com", group: SSH_GROUP },
-  { key: "ssh_port", label: "Puerto SSH", type: "number", required: false, placeholder: "22", group: SSH_GROUP },
-  { key: "ssh_user", label: "Usuario SSH", type: "text", required: false, group: SSH_GROUP },
+  { key: "ssh_host", label: "field.sshHost", type: "text", required: false, placeholder: "bastion.example.com", group: SSH_GROUP },
+  { key: "ssh_port", label: "field.sshPort", type: "number", required: false, placeholder: "22", group: SSH_GROUP },
+  { key: "ssh_user", label: "field.sshUser", type: "text", required: false, group: SSH_GROUP },
   {
     key: "ssh_auth",
-    label: "Autenticación SSH",
+    label: "field.sshAuth",
     type: "select",
     required: false,
     options: [
-      { value: "", label: "— (predeterminado: agente)" },
-      { value: "agent", label: "Agente SSH" },
-      { value: "password", label: "Contraseña" },
-      { value: "key", label: "Clave privada" },
+      { value: "", label: "field.sshAuthDefault" },
+      { value: "agent", label: "field.sshAgent" },
+      { value: "password", label: "field.password" },
+      { value: "key", label: "field.privateKey" },
     ],
     group: SSH_GROUP,
   },
-  { key: "ssh_password", label: "Contraseña SSH", type: "password", required: false, group: SSH_GROUP },
-  { key: "ssh_key", label: "Clave privada SSH", type: "file", required: false, placeholder: "~/.ssh/id_ed25519", group: SSH_GROUP },
-  { key: "ssh_key_passphrase", label: "Passphrase de la clave", type: "password", required: false, group: SSH_GROUP },
-  { key: "ssh_target_host", label: "Host destino (avanzado)", type: "text", required: false, group: SSH_GROUP },
-  { key: "ssh_target_port", label: "Puerto destino (avanzado)", type: "number", required: false, group: SSH_GROUP },
+  { key: "ssh_password", label: "field.sshPassword", type: "password", required: false, group: SSH_GROUP },
+  { key: "ssh_key", label: "field.sshKey", type: "file", required: false, placeholder: "~/.ssh/id_ed25519", group: SSH_GROUP },
+  { key: "ssh_key_passphrase", label: "field.keyPassphrase", type: "password", required: false, group: SSH_GROUP },
+  { key: "ssh_target_host", label: "field.targetHost", type: "text", required: false, group: SSH_GROUP },
+  { key: "ssh_target_port", label: "field.targetPort", type: "number", required: false, group: SSH_GROUP },
   {
     key: "ssh_host_key_policy",
-    label: "Clave de host SSH",
+    label: "field.hostKey",
     type: "select",
     required: false,
     options: [
-      { value: "", label: "— (predeterminado: aceptar y recordar)" },
-      { value: "accept-new", label: "Aceptar y recordar (TOFU) — rechaza cambios" },
-      { value: "strict", label: "Estricta — solo hosts ya conocidos" },
-      { value: "off", label: "Sin verificar (no recomendado)" },
+      { value: "", label: "field.hostKeyDefault" },
+      { value: "accept-new", label: "field.hostKeyTofu" },
+      { value: "strict", label: "field.hostKeyStrict" },
+      { value: "off", label: "field.hostKeyOff" },
     ],
     group: SSH_GROUP,
   },
-  { key: "ssh_known_hosts", label: "Archivo known_hosts (avanzado)", type: "file", required: false, placeholder: "~/.ssh/known_hosts", group: SSH_GROUP },
+  { key: "ssh_known_hosts", label: "field.knownHosts", type: "file", required: false, placeholder: "~/.ssh/known_hosts", group: SSH_GROUP },
 ];
 
 /** Appends the engine-agnostic SSH-tunnel fields to a driver's base fields. */
@@ -126,26 +130,26 @@ export function withSshTunnel(base: DriverField[]): DriverField[] {
 // ssl_mode values are engine-specific (these are MySQL's), so unlike the SSH
 // group this is not shared across engines verbatim. All optional: a blank
 // ssl_mode leaves the client default.
-export const SSL_GROUP = "TLS / SSL (opcional)";
+export const SSL_GROUP = "group.ssl";
 
 export const MYSQL_SSL_FIELDS: DriverField[] = [
   {
     key: "ssl_mode",
-    label: "Modo SSL",
+    label: "field.sslMode",
     type: "select",
     required: false,
     options: [
-      { value: "", label: "— (predeterminado del cliente)" },
-      { value: "disabled", label: "Desactivado" },
-      { value: "required", label: "Requerido (cifrado)" },
-      { value: "verify_ca", label: "Verificar CA" },
-      { value: "verify_identity", label: "Verificar identidad" },
+      { value: "", label: "field.clientDefault" },
+      { value: "disabled", label: "field.disabled" },
+      { value: "required", label: "field.sslRequired" },
+      { value: "verify_ca", label: "field.sslVerifyCa" },
+      { value: "verify_identity", label: "field.sslVerifyIdentity" },
     ],
     group: SSL_GROUP,
   },
-  { key: "ssl_ca", label: "Certificado CA", type: "file", required: false, group: SSL_GROUP },
-  { key: "ssl_cert", label: "Certificado cliente", type: "file", required: false, group: SSL_GROUP },
-  { key: "ssl_key", label: "Clave cliente", type: "file", required: false, group: SSL_GROUP },
+  { key: "ssl_ca", label: "field.caCert", type: "file", required: false, group: SSL_GROUP },
+  { key: "ssl_cert", label: "field.clientCert", type: "file", required: false, group: SSL_GROUP },
+  { key: "ssl_key", label: "field.clientKey", type: "file", required: false, group: SSL_GROUP },
 ];
 
 // Optional TLS fields for the PostgreSQL driver. libpq takes an sslmode plus the
@@ -154,23 +158,23 @@ export const MYSQL_SSL_FIELDS: DriverField[] = [
 export const POSTGRES_SSL_FIELDS: DriverField[] = [
   {
     key: "sslmode",
-    label: "Modo SSL",
+    label: "field.sslMode",
     type: "select",
     required: false,
     options: [
-      { value: "", label: "— (predeterminado del cliente: prefer)" },
-      { value: "disable", label: "Desactivado" },
-      { value: "allow", label: "Permitir" },
-      { value: "prefer", label: "Preferir (cifrado si es posible)" },
-      { value: "require", label: "Requerido (cifrado)" },
-      { value: "verify-ca", label: "Verificar CA" },
-      { value: "verify-full", label: "Verificar identidad" },
+      { value: "", label: "field.clientDefaultPrefer" },
+      { value: "disable", label: "field.disabled" },
+      { value: "allow", label: "field.sslAllow" },
+      { value: "prefer", label: "field.sslPrefer" },
+      { value: "require", label: "field.sslRequired" },
+      { value: "verify-ca", label: "field.sslVerifyCa" },
+      { value: "verify-full", label: "field.sslVerifyIdentity" },
     ],
     group: SSL_GROUP,
   },
-  { key: "sslrootcert", label: "Certificado CA", type: "file", required: false, group: SSL_GROUP },
-  { key: "sslcert", label: "Certificado cliente", type: "file", required: false, group: SSL_GROUP },
-  { key: "sslkey", label: "Clave cliente", type: "file", required: false, group: SSL_GROUP },
+  { key: "sslrootcert", label: "field.caCert", type: "file", required: false, group: SSL_GROUP },
+  { key: "sslcert", label: "field.clientCert", type: "file", required: false, group: SSL_GROUP },
+  { key: "sslkey", label: "field.clientKey", type: "file", required: false, group: SSL_GROUP },
 ];
 
 // Driver form schemas. SQLite is the reference engine shipped in M2; the
@@ -184,7 +188,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     fields: [
       {
         key: "path",
-        label: "Archivo de base de datos",
+        label: "field.dbFile",
         type: "file",
         required: true,
         placeholder: "/ruta/a/base.db  (o :memory:)",
@@ -195,11 +199,11 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "postgres",
     label: "PostgreSQL",
     fields: withSshTunnel([
-      { key: "host", label: "Host", type: "text", required: true, placeholder: "localhost" },
-      { key: "port", label: "Puerto", type: "number", required: false, placeholder: "5432" },
-      { key: "database", label: "Base de datos", type: "text", required: true, fetch: "databases" },
-      { key: "user", label: "Usuario", type: "text", required: true },
-      { key: "password", label: "Contraseña", type: "password", required: false },
+      { key: "host", label: "field.host", type: "text", required: true, placeholder: "localhost" },
+      { key: "port", label: "field.port", type: "number", required: false, placeholder: "5432" },
+      { key: "database", label: "field.database", type: "text", required: true, fetch: "databases" },
+      { key: "user", label: "field.user", type: "text", required: true },
+      { key: "password", label: "field.password", type: "password", required: false },
       ...POSTGRES_SSL_FIELDS,
     ]),
   },
@@ -207,11 +211,11 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "mysql",
     label: "MySQL / MariaDB",
     fields: withSshTunnel([
-      { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "Puerto", type: "number", required: false, placeholder: "3306" },
-      { key: "database", label: "Base de datos", type: "text", required: false, fetch: "databases" },
-      { key: "user", label: "Usuario", type: "text", required: true, placeholder: "root" },
-      { key: "password", label: "Contraseña", type: "password", required: false },
+      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
+      { key: "port", label: "field.port", type: "number", required: false, placeholder: "3306" },
+      { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
+      { key: "user", label: "field.user", type: "text", required: true, placeholder: "root" },
+      { key: "password", label: "field.password", type: "password", required: false },
       ...MYSQL_SSL_FIELDS,
     ]),
   },
@@ -224,12 +228,12 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "informix",
     label: "IBM Informix",
     fields: withSshTunnel([
-      { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "Puerto / servicio", type: "text", required: true, placeholder: "1526" },
-      { key: "server", label: "Servidor (INFORMIXSERVER)", type: "text", required: true, placeholder: "ol_informix1210" },
-      { key: "database", label: "Base de datos", type: "text", required: false, fetch: "databases" },
-      { key: "user", label: "Usuario", type: "text", required: true, placeholder: "informix" },
-      { key: "password", label: "Contraseña", type: "password", required: false },
+      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
+      { key: "port", label: "field.portService", type: "text", required: true, placeholder: "1526" },
+      { key: "server", label: "field.informixServer", type: "text", required: true, placeholder: "ol_informix1210" },
+      { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
+      { key: "user", label: "field.user", type: "text", required: true, placeholder: "informix" },
+      { key: "password", label: "field.password", type: "password", required: false },
     ]),
   },
   // MongoDB connects via the mongo-c-driver. Queries use a mongosh-style surface
@@ -241,20 +245,20 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "mongodb",
     label: "MongoDB",
     fields: withSshTunnel([
-      { key: "host", label: "Host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "Puerto", type: "number", required: false, placeholder: "27017" },
-      { key: "database", label: "Base de datos", type: "text", required: true, fetch: "databases" },
-      { key: "user", label: "Usuario", type: "text", required: false },
-      { key: "password", label: "Contraseña", type: "password", required: false },
-      { key: "auth_source", label: "Base de autenticación", type: "text", required: false, placeholder: "admin" },
+      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
+      { key: "port", label: "field.port", type: "number", required: false, placeholder: "27017" },
+      { key: "database", label: "field.database", type: "text", required: true, fetch: "databases" },
+      { key: "user", label: "field.user", type: "text", required: false },
+      { key: "password", label: "field.password", type: "password", required: false },
+      { key: "auth_source", label: "field.authSource", type: "text", required: false, placeholder: "admin" },
       {
         key: "tls",
-        label: "TLS",
+        label: "field.tls",
         type: "select",
         required: false,
         options: [
-          { value: "", label: "— (desactivado)" },
-          { value: "true", label: "Activado" },
+          { value: "", label: "field.optDisabled" },
+          { value: "true", label: "field.enabled" },
         ],
       },
     ]),
@@ -293,20 +297,28 @@ export function stripSecrets(conn: Connection, schema: DriverSchema): Connection
 /**
  * Validation errors for a connection (empty array = valid): a name is required,
  * the driver must be known, and every required field must be non-empty.
+ *
+ * The messages are composed sentences, so this takes a TRANSLATOR rather than
+ * returning keys: the caller passes the reactive `t` (the tests pass one pinned
+ * to Spanish). Without one it returns the keys, which is still a usable
+ * "is this valid" answer.
  */
-export function validateConnection(conn: Connection): string[] {
+export function validateConnection(
+  conn: Connection,
+  t: (key: string, params?: Record<string, string | number>) => string = (k) => k,
+): string[] {
   const errors: string[] = [];
   if (!conn.name.trim()) {
-    errors.push("El nombre es obligatorio.");
+    errors.push(t("valid.nameRequired"));
   }
   const schema = driverSchema(conn.driver);
   if (!schema) {
-    errors.push(`Motor desconocido: ${conn.driver}.`);
+    errors.push(t("valid.unknownDriver", { driver: conn.driver }));
     return errors;
   }
   for (const field of schema.fields) {
     if (field.required && !(conn.params[field.key] ?? "").trim()) {
-      errors.push(`El campo "${field.label}" es obligatorio.`);
+      errors.push(t("valid.fieldRequired", { field: t(field.label) }));
     }
   }
   return errors;
@@ -401,20 +413,22 @@ export interface FieldErrors {
  * Validate a connection field by field, so the form can show each error next to
  * its input. A required field must be non-empty; a `number` field must hold a
  * numeric value. Pure and unit-tested.
+ *
+ * The messages are i18n KEYS ("valid.required"), resolved by the form.
  */
 export function fieldErrors(conn: Connection): FieldErrors {
   const result: FieldErrors = { name: null, params: {} };
   if (!conn.name.trim()) {
-    result.name = "El nombre es obligatorio.";
+    result.name = "valid.nameRequired";
   }
   const schema = driverSchema(conn.driver);
   if (!schema) return result;
   for (const field of schema.fields) {
     const value = (conn.params[field.key] ?? "").trim();
     if (field.required && value === "") {
-      result.params[field.key] = "Obligatorio.";
+      result.params[field.key] = "valid.required";
     } else if (field.type === "number" && value !== "" && !/^\d+$/.test(value)) {
-      result.params[field.key] = "Debe ser un número.";
+      result.params[field.key] = "valid.number";
     }
   }
   return result;
