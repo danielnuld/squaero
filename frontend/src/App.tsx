@@ -3671,7 +3671,12 @@ export function App() {
               // definition showed the FIRST view's, under the second one's tab
               // name. Nothing is lost by remounting — a tool panel is already
               // rebuilt whenever the user visits a query tab and comes back.
-              <Show when={tt().id} keyed>
+              //
+              // The tab's `rev` is part of the key for the same reason (issue
+              // #498): reopening the SAME tab with a new snapshot — another
+              // result to chart, another connection to edit — has to rebuild the
+              // panel, or onMount never sees the new params.
+              <Show when={`${tt().id}:${tt().rev ?? 0}`} keyed>
               <Switch>
                 <Match when={tt().tool === "objectList"}>
                   <ObjectListView

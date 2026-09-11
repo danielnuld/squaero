@@ -4,6 +4,7 @@ import {
   addTab,
   openTool,
   GLOBAL_TOOLS,
+  type ToolTab,
   openSnippetTab,
   closeTab,
   closeOtherTabs,
@@ -84,6 +85,28 @@ describe("openTool", () => {
     });
     expect(again.tabs).toHaveLength(2);
     expect(again.activeId).toBe(s.tabs[0].id);
+  });
+
+  // Issue #498: six callers snapshot what they act on into `params` under a
+  // constant key (the chart of a result, the draft being edited, the rows being
+  // transferred). Reusing the tab has to mean reusing it for the NEW request.
+  it("gives the reused tab the new title and params", () => {
+    let s = openTool(empty, "chart", "Gráfico", { key: "chart", params: { rows: 1 } });
+    s = openTool(s, "chart", "Gráfico de pedidos", { key: "chart", params: { rows: 2 } });
+    expect(s.tabs).toHaveLength(1);
+    const tab = s.tabs[0] as ToolTab;
+    expect(tab.params).toEqual({ rows: 2 });
+    expect(tab.title).toBe("Gráfico de pedidos");
+    // The panel is keyed on `rev`, because every tool loads what it shows in
+    // onMount: without the bump the tab would carry the new snapshot and keep
+    // drawing the old one.
+    expect(tab.rev).toBe(1);
+  });
+
+  it("leaves the params alone when the caller passes none", () => {
+    let s = openTool(empty, "notebook", "Cuaderno", { key: "notebook", params: { id: "n1" } });
+    s = openTool(s, "notebook", "Cuaderno", { key: "notebook" });
+    expect((s.tabs[0] as ToolTab).params).toEqual({ id: "n1" });
   });
 
   it("keeps one tab for a tool that belongs to no connection", () => {
