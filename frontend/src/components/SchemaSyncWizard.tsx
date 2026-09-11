@@ -6,6 +6,7 @@ import { openConnection, closeConnection } from "../utils/conn";
 import { runQuery, QueryError } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
 import { buildDsn, type Connection } from "../utils/connections";
+import { t } from "../utils/i18n";
 
 /**
  * Schema-diff / structure-sync wizard (#34). Compares the SOURCE database (the
@@ -54,7 +55,7 @@ export function SchemaSyncWizard(props: {
   const compare = async () => {
     const def = props.connections.find((c) => c.id === targetDefId());
     if (!def) {
-      setError("Elige una conexión destino.");
+      setError(t("ssync.pickTarget"));
       return;
     }
     setBusy(true);
@@ -80,7 +81,7 @@ export function SchemaSyncWizard(props: {
     if (!sql || !targetConnId) return;
     const executable = sql.filter(isExecutable);
     if (executable.length === 0) {
-      setError("No hay sentencias ejecutables (solo notas).");
+      setError(t("ssync.nothingExecutable"));
       return;
     }
     setBusy(true);
@@ -92,13 +93,13 @@ export function SchemaSyncWizard(props: {
           await runQuery(targetConnId, stmt);
         }
         await txCommit(targetConnId);
-        setApplied(`${executable.length} sentencia(s) aplicada(s) en el destino.`);
+        setApplied(t("ssync.applied", { n: executable.length }));
       } catch (err) {
         await txRollback(targetConnId).catch(() => {});
         throw err;
       }
     } catch (err) {
-      setError(`Error al aplicar: ${errMsg(err)}`);
+      setError(t("ssync.applyError", { reason: errMsg(err) }));
     } finally {
       setBusy(false);
     }
@@ -106,14 +107,14 @@ export function SchemaSyncWizard(props: {
 
   return (
     <Panel wide onClose={props.onClose}>
-        <h2>Sincronizar estructura</h2>
+        <h2>{t("ssync.title")}</h2>
         <p class="import-subtitle">
-          Origen: conexión activa{props.sourceDb ? ` · ${props.sourceDb}` : ""}
+          {props.sourceDb ? t("ssync.sourceDb", { db: props.sourceDb }) : t("ssync.source")}
         </p>
 
         <div class="import-field">
           <label>
-            Destino:{" "}
+            {t("ssync.target")}{" "}
             <select
               value={targetDefId()}
               onChange={(e) => setTargetDefId(e.currentTarget.value)}
@@ -124,16 +125,16 @@ export function SchemaSyncWizard(props: {
             </select>
           </label>{" "}
           <label>
-            Base:{" "}
+            {t("ssync.db")}{" "}
             <input
               type="text"
               value={targetDb()}
-              placeholder="(por defecto)"
+              placeholder={t("ssync.dbDefault")}
               onInput={(e) => setTargetDb(e.currentTarget.value)}
             />
           </label>{" "}
           <button class="edit-btn" disabled={busy()} onClick={compare}>
-            Comparar
+            {t("ssync.compare")}
           </button>
         </div>
 
@@ -147,11 +148,11 @@ export function SchemaSyncWizard(props: {
           {(sql) => (
             <>
               <div class="import-subtitle">
-                SQL de migración ({sql().filter(isExecutable).length} ejecutable(s))
+                {t("ssync.migrationSql", { n: sql().filter(isExecutable).length })}
               </div>
               <Show
                 when={sql().length > 0}
-                fallback={<p>Las estructuras ya coinciden.</p>}
+                fallback={<p>{t("ssync.alreadyMatch")}</p>}
               >
                 <pre class="ddl-text preview-sql">{sql().join("\n")}</pre>
               </Show>
@@ -164,10 +165,10 @@ export function SchemaSyncWizard(props: {
         </Show>
 
         <div class="modal-actions">
-          <button onClick={props.onClose}>Cerrar</button>
+          <button onClick={props.onClose}>{t("common.close")}</button>
           <Show when={statements() && statements()!.some(isExecutable) && !applied()}>
             <button class="primary" disabled={busy()} onClick={apply}>
-              {busy() ? "Aplicando…" : "Aplicar en destino"}
+              {busy() ? t("ssync.applying") : t("ssync.apply")}
             </button>
           </Show>
         </div>

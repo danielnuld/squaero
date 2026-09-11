@@ -107,7 +107,7 @@ export function EmptyState(props: {
             <For each={shortcuts()}>
               {(s) => (
                 <li>
-                  <span>{s.description}</span>
+                  <span>{t(s.description)}</span>
                   <kbd>{displayKeys(s.keys, props.isMac)}</kbd>
                 </li>
               )}

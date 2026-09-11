@@ -1,5 +1,6 @@
 import { For, Show, createSignal, onMount } from "solid-js";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 import { schemaDescribe } from "../utils/schema";
 import { rowInsert, txBegin, txCommit, txRollback } from "../utils/edit";
 import { QueryError } from "../utils/query";
@@ -133,7 +134,7 @@ export function ImportWizard(props: {
         const bytes = new Uint8Array(await file.arrayBuffer());
         const wb = openWorkbook(bytes);
         if (wb.sheets.length === 0) {
-          throw new Error("El archivo XLSX no contiene hojas.");
+          throw new Error(t("imp.noSheets"));
         }
         setWorkbook(wb);
         setFileName(file.name);
@@ -187,7 +188,7 @@ export function ImportWizard(props: {
 
   return (
     <Panel wide onClose={props.onClose}>
-        <h2>Importar a {props.target.table}</h2>
+        <h2>{t("imp.title", { name: props.target.table })}</h2>
 
         <Show when={error()}>
           <div class="grid-error" role="alert">
@@ -200,40 +201,38 @@ export function ImportWizard(props: {
           fallback={
             <div class="import-summary">
               <p>
-                <strong>{summary()!.inserted}</strong> fila(s) insertada(s)
+                <strong>{summary()!.inserted}</strong> {t("imp.inserted")}
                 {summary()!.aborted
-                  ? " — abortado, no se aplicó ningún cambio."
+                  ? t("imp.aborted")
                   : summary()!.errors.length > 0
-                    ? `, ${summary()!.errors.length} con error (omitidas).`
-                    : "."}
+                    ? t("imp.withErrors", { n: summary()!.errors.length })
+                    : t("imp.done")}
               </p>
               <Show when={summary()!.errors.length > 0}>
                 <ul class="import-errors">
                   <For each={summary()!.errors.slice(0, 20)}>
                     {(e) => (
-                      <li>
-                        Fila {e.row + 1}: {e.message}
-                      </li>
+                      <li>{t("imp.rowError", { row: e.row + 1, message: e.message })}</li>
                     )}
                   </For>
                 </ul>
               </Show>
               <div class="modal-actions">
                 <button class="primary" onClick={props.onClose}>
-                  Cerrar
+                  {t("common.close")}
                 </button>
               </div>
             </div>
           }
         >
-          <div class="import-source" role="radiogroup" aria-label="Origen de los datos">
+          <div class="import-source" role="radiogroup" aria-label={t("imp.sourceLabel")}>
             <button
               class={`chip ${source() === "file" ? "active" : ""}`}
               role="radio"
               aria-checked={source() === "file"}
               onClick={() => setSource("file")}
             >
-              Archivo
+              {t("imp.file")}
             </button>
             <button
               class={`chip ${source() === "clipboard" ? "active" : ""}`}
@@ -244,14 +243,14 @@ export function ImportWizard(props: {
                 usePasted(pasted());
               }}
             >
-              Portapapeles
+              {t("imp.clipboard")}
             </button>
           </div>
 
           <Show when={source() === "file"}>
             <div class="import-field">
               <label>
-                Archivo (CSV, JSON o XLSX):{" "}
+                {t("imp.filePick")}{" "}
                 <input
                   type="file"
                   accept=".csv,.json,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -268,14 +267,14 @@ export function ImportWizard(props: {
           <Show when={source() === "clipboard"}>
             <div class="import-field">
               <label class="import-paste-label" for="import-paste">
-                Pega aquí las filas (TSV de una hoja de cálculo, o CSV):
+                {t("imp.pasteLabel")}
               </label>
               <textarea
                 id="import-paste"
                 class="import-paste"
                 rows="6"
                 spellcheck={false}
-                placeholder={"id\tnombre\tciudad\n1\tMaría\tHermosillo"}
+                placeholder={t("imp.pastePlaceholder")}
                 value={pasted()}
                 onInput={(e) => usePasted(e.currentTarget.value)}
               />
@@ -286,14 +285,14 @@ export function ImportWizard(props: {
                 checked={blankIsNull()}
                 onChange={(e) => setBlankIsNull(e.currentTarget.checked)}
               />{" "}
-              Las celdas vacías son NULL
+              {t("imp.blankIsNull")}
             </label>
           </Show>
 
           <Show when={workbook() && workbook()!.sheets.length > 1}>
             <div class="import-field">
               <label>
-                Hoja:{" "}
+                {t("imp.sheet")}{" "}
                 <select
                   class="map-select"
                   value={sheetName()}
@@ -312,9 +311,10 @@ export function ImportWizard(props: {
               <>
                 <div class="import-preview">
                   <div class="import-subtitle">
-                    Vista previa de{" "}
-                    {source() === "clipboard" ? "lo pegado" : fileName()} (
-                    {table().rows.length} fila(s))
+                    {t("imp.previewOf", {
+                      source: source() === "clipboard" ? t("imp.pastedSource") : fileName(),
+                      n: table().rows.length,
+                    })}
                   </div>
                   <div class="import-preview-scroll">
                     <table>
@@ -345,7 +345,7 @@ export function ImportWizard(props: {
                 </div>
 
                 <div class="import-mapping">
-                  <div class="import-subtitle">Mapeo de columnas</div>
+                  <div class="import-subtitle">{t("imp.mapping")}</div>
                   <For each={targetCols()}>
                     {(col) => (
                       <div class="map-row">
@@ -356,7 +356,7 @@ export function ImportWizard(props: {
                           value={mapping()[col] ?? OMIT}
                           onChange={(e) => setColumn(col, e.currentTarget.value)}
                         >
-                          <option value={OMIT}>— (omitir)</option>
+                          <option value={OMIT}>{t("imp.omit")}</option>
                           <For each={table().headers}>
                             {(h) => <option value={h}>{h}</option>}
                           </For>
@@ -367,7 +367,7 @@ export function ImportWizard(props: {
                 </div>
 
                 <div class="import-policy">
-                  <span class="import-subtitle">Si una fila falla:</span>
+                  <span class="import-subtitle">{t("imp.onRowError")}</span>
                   <label>
                     <input
                       type="radio"
@@ -375,7 +375,7 @@ export function ImportWizard(props: {
                       checked={policy() === "skip"}
                       onChange={() => setPolicy("skip")}
                     />{" "}
-                    Omitir e insertar el resto
+                    {t("imp.skipRest")}
                   </label>
                   <label>
                     <input
@@ -384,7 +384,7 @@ export function ImportWizard(props: {
                       checked={policy() === "abort"}
                       onChange={() => setPolicy("abort")}
                     />{" "}
-                    Abortar todo
+                    {t("imp.abortAll")}
                   </label>
                 </div>
               </>
@@ -392,13 +392,13 @@ export function ImportWizard(props: {
           </Show>
 
           <div class="modal-actions">
-            <button onClick={props.onClose}>Cancelar</button>
+            <button onClick={props.onClose}>{t("common.cancel")}</button>
             <button
               class="primary"
               disabled={running() || !effective() || !hasMapping(mapping())}
               onClick={runNow}
             >
-              {running() ? "Importando…" : "Importar"}
+              {running() ? t("imp.importing") : t("imp.import")}
             </button>
           </div>
         </Show>
