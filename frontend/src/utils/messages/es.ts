@@ -777,6 +777,8 @@ export const es: Record<string, string> = {
   "cform.engineIcon": "Usar el icono del motor",
   "cform.otherEmoji": "Otro emoji",
   "cform.otherEmojiTitle": "Pega cualquier emoji (Win + .)",
+  "cform.engineIconShort": "del motor",
+  "field.dbFilePlaceholder": "/ruta/a/base.db  (o :memory:)",
   "cform.engine": "Motor",
   "cform.general": "General",
   "cform.browse": "Examinar…",
@@ -860,6 +862,11 @@ export const es: Record<string, string> = {
   "kind.bool": "Booleanos",
   "kind.blob": "Binarios",
   "kind.null": "NULL",
+
+  "edit.noChanges": "No hay cambios para aplicar.",
+  "cmdk.objectsPlaceholder": "Buscar tablas, vistas… (Enter para abrir)",
+
+  "tree.activeDb": "Base de datos activa",
 
   // errors
   "error.noActiveConn": "No hay conexión activa. Abre una conexión para ejecutar consultas.",

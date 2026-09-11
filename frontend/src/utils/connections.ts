@@ -191,7 +191,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
         label: "field.dbFile",
         type: "file",
         required: true,
-        placeholder: "/ruta/a/base.db  (o :memory:)",
+        placeholder: "field.dbFilePlaceholder",
       },
     ],
   },

@@ -2472,56 +2472,56 @@ export function App() {
   // Confirmar: gather the generated SQL for every pending change (preview only)
   // and show it for confirmation before anything is executed (issue #29).
   const confirmEdit = async () => {
-    const t = current();
-    const conn = tabConn(t);
+    const tab = current();
+    const conn = tabConn(tab);
     const res = currentResult();
-    if (!t || !conn || !res.result || !res.source) return;
+    if (!tab || !conn || !res.result || !res.source) return;
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
                            currentEdit().pending);
     if (plan.length === 0) {
-      patchEdit(t.id, { error: "No hay cambios para aplicar." });
+      patchEdit(tab.id, { error: t("edit.noChanges") });
       return;
     }
     const target = { table: res.source.table, db: res.source.db, schema: res.source.schema };
-    patchEdit(t.id, { busy: true, error: null });
+    patchEdit(tab.id, { busy: true, error: null });
     try {
       const sqls: string[] = [];
       for (const item of plan) {
         const r = await runPlanItem(conn.connId, target, item, true);
         sqls.push(r.sql);
       }
-      patchEdit(t.id, { busy: false, preview: sqls });
+      patchEdit(tab.id, { busy: false, preview: sqls });
     } catch (err) {
-      patchEdit(t.id, { busy: false, error: errMsg(err) });
+      patchEdit(tab.id, { busy: false, error: errMsg(err) });
     }
   };
 
   // Aplicar: execute the plan for real, then commit and reload.
   const applyEdit = async () => {
-    const t = current();
-    const conn = tabConn(t);
+    const tab = current();
+    const conn = tabConn(tab);
     const res = currentResult();
-    if (!t || !conn || !res.result || !res.source) return;
+    if (!tab || !conn || !res.result || !res.source) return;
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
                            currentEdit().pending);
     const target = { table: res.source.table, db: res.source.db, schema: res.source.schema };
-    patchEdit(t.id, { busy: true, error: null });
+    patchEdit(tab.id, { busy: true, error: null });
     try {
       for (const item of plan) {
         await runPlanItem(conn.connId, target, item, false);
       }
       await txCommit(conn.connId);
-      setEdits(t.id, emptyEdit());
-      reloadCurrent(t.id);
+      setEdits(tab.id, emptyEdit());
+      reloadCurrent(tab.id);
     } catch (err) {
       // Leave the transaction open so the user can fix and retry or discard.
-      patchEdit(t.id, { busy: false, preview: null, error: `Error al aplicar: ${errMsg(err)}` });
+      patchEdit(tab.id, { busy: false, preview: null, error: t("ssync.applyError", { reason: errMsg(err) }) });
     }
   };
 
   const cancelPreview = () => {
-    const t = current();
-    if (t) patchEdit(t.id, { preview: null });
+    const tab = current();
+    if (tab) patchEdit(tab.id, { preview: null });
   };
 
   const openImport = (initialText?: string) => {
@@ -3126,7 +3126,7 @@ export function App() {
                         <Show when={focused() && databases().length > 0}>
                           <div class="sidebar-db">
                             <label>
-                              <span>Base de datos activa</span>
+                              <span>{t("tree.activeDb")}</span>
                               <select
                                 class="map-select"
                                 value={activeDb() ?? ""}
@@ -3243,8 +3243,8 @@ export function App() {
               </For>
               <button
                 class="tab-new"
-                title="Nueva consulta"
-                aria-label="Nueva consulta"
+                title={t("toolbar.newQuery.title")}
+                aria-label={t("toolbar.newQuery.title")}
                 onClick={newTab}
               >
                 +
@@ -4076,7 +4076,7 @@ export function App() {
         commands={visiblePaletteCommands()}
         placeholder={
           paletteMode() === "objects"
-            ? "Buscar tablas, vistas… (Enter para abrir)"
+            ? t("cmdk.objectsPlaceholder")
             : paletteMode() === "snippets"
               ? t("snip.palettePlaceholder")
               : undefined

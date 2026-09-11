@@ -212,7 +212,7 @@ export function ConnectionForm(props: {
               aria-pressed={!draft.icon}
               onClick={() => setDraft("icon", undefined)}
             >
-              {engineIcon(draft.driver)} del motor
+              {engineIcon(draft.driver)} {t("cform.engineIconShort")}
             </button>
             <For each={CONNECTION_ICONS}>
               {(emoji) => (
@@ -297,7 +297,10 @@ export function ConnectionForm(props: {
                         showErrors() && errors().params[field.key] ? "input-invalid" : ""
                       }
                       value={draft.params[field.key] ?? ""}
-                      placeholder={field.placeholder ?? ""}
+                      /* Placeholders go through t() as well: most are hostnames, ports and
+                         paths that read the same in any language, and an unknown key
+                         resolves to itself, so only the ones that ARE keys get translated. */
+                      placeholder={field.placeholder ? t(field.placeholder) : ""}
                       onInput={(e) => setDraft("params", field.key, e.currentTarget.value)}
                     />
                   }
