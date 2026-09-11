@@ -17,6 +17,7 @@ import {
   type TableDef,
 } from "../utils/tableDesign";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 // Table designer (issue #136). Two modes selected by the `table` prop:
 //  • create — a blank form → CREATE TABLE (phase 1);
@@ -128,10 +129,10 @@ export function TableDesigner(props: {
   // placeholder. Empty statements mean the edited form matches the original.
   const preview = createMemo(() => {
     const b = built();
-    if (!b) return "Cargando…";
+    if (!b) return t("panel.loading");
     if (!b.ok) return "—";
     if ("sql" in b) return b.sql;
-    if (b.statements.length === 0) return "Sin cambios.";
+    if (b.statements.length === 0) return t("td.noChanges");
     return b.statements.map((s) => s + ";").join("\n");
   });
 
@@ -187,12 +188,13 @@ export function TableDesigner(props: {
     }
   };
 
-  const title = () => (alter() ? `Modificar tabla · ${props.table}` : "Nueva tabla");
+  const title = () =>
+    alter() ? t("td.titleAlter", { name: props.table ?? "" }) : t("td.titleNew");
 
   return (
     <Panel title={title()} wide onClose={props.onClose}>
       <h2>
-        {alter() ? "Modificar tabla" : "Nueva tabla"}
+        {alter() ? t("td.headingAlter") : t("td.titleNew")}
         {props.container ? ` · ${props.container}` : ""}
       </h2>
 
@@ -201,28 +203,28 @@ export function TableDesigner(props: {
       </Show>
 
       <label class="field">
-        <span>Nombre de la tabla</span>
+        <span>{t("td.tableName")}</span>
         <input
           type="text"
           value={name()}
           onInput={(e) => setName(e.currentTarget.value)}
-          placeholder="mi_tabla"
+          placeholder={t("td.tableNamePlaceholder")}
         />
       </label>
 
       <datalist id="td-types">
-        <For each={suggestions}>{(t) => <option value={t} />}</For>
+        <For each={suggestions}>{(type) => <option value={type} />}</For>
       </datalist>
 
       <table class="td-table">
         <thead>
           <tr>
-            <th>Columna</th>
-            <th>Tipo</th>
-            <th title="Permite NULL">Nulo</th>
-            <th title="Clave primaria">PK</th>
-            <th title="Autoincremental">AI</th>
-            <th>Default</th>
+            <th>{t("td.colColumn")}</th>
+            <th>{t("td.colType")}</th>
+            <th title={t("td.colNullTitle")}>{t("td.colNull")}</th>
+            <th title={t("td.colPkTitle")}>{t("td.colPk")}</th>
+            <th title={t("td.colAiTitle")}>{t("td.colAi")}</th>
+            <th>{t("td.colDefault")}</th>
             <th />
           </tr>
         </thead>
@@ -235,7 +237,7 @@ export function TableDesigner(props: {
                     class="td-in"
                     value={c.name}
                     onInput={(e) => patch(i(), "name", e.currentTarget.value)}
-                    placeholder="nombre"
+                    placeholder={t("td.namePlaceholder")}
                   />
                 </td>
                 <td>
@@ -259,7 +261,7 @@ export function TableDesigner(props: {
                     type="checkbox"
                     checked={c.primaryKey}
                     disabled={alter()}
-                    title={alter() ? "La clave primaria no se modifica al alterar" : undefined}
+                    title={alter() ? t("td.pkLocked") : undefined}
                     onChange={(e) => patch(i(), "primaryKey", e.currentTarget.checked)}
                   />
                 </td>
@@ -268,7 +270,7 @@ export function TableDesigner(props: {
                     type="checkbox"
                     checked={c.autoIncrement}
                     disabled={alter()}
-                    title={alter() ? "El autoincremental no se modifica al alterar" : undefined}
+                    title={alter() ? t("td.aiLocked") : undefined}
                     onChange={(e) => patch(i(), "autoIncrement", e.currentTarget.checked)}
                   />
                 </td>
@@ -283,7 +285,7 @@ export function TableDesigner(props: {
                 <td class="td-c">
                   <button
                     class="grid-action danger"
-                    title="Quitar columna"
+                    title={t("td.removeColumn")}
                     disabled={columns.length <= 1}
                     onClick={() => removeColumn(i())}
                   >
@@ -297,11 +299,11 @@ export function TableDesigner(props: {
       </table>
 
       <button class="edit-btn" onClick={addColumn}>
-        ＋ Columna
+        {t("td.addColumn")}
       </button>
 
       <div class="ddl-header" style={{ "margin-top": "1rem" }}>
-        <span>Vista previa</span>
+        <span>{t("td.preview")}</span>
       </div>
       <pre class="ddl-text">{preview()}</pre>
 
@@ -313,7 +315,7 @@ export function TableDesigner(props: {
       <div class="modal-actions">
         <span class="status-spacer" />
         <button disabled={busy()} onClick={props.onClose}>
-          Cancelar
+          {t("common.cancel")}
         </button>
         <button
           class="primary"
@@ -322,11 +324,11 @@ export function TableDesigner(props: {
         >
           {busy()
             ? alter()
-              ? "Aplicando…"
-              : "Creando…"
+              ? t("td.applying")
+              : t("td.creating")
             : alter()
-              ? "Aplicar cambios"
-              : "Crear tabla"}
+              ? t("td.applyChanges")
+              : t("td.create")}
         </button>
       </div>
     </Panel>

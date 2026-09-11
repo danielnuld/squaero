@@ -14,6 +14,7 @@ import {
   type CatalogList,
 } from "../utils/indexes";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 // Index / constraint manager (issue #139): view a table's indexes and constraints
@@ -209,7 +210,7 @@ export function IndexManager(props: {
       return;
     }
     setError(null); // clear any prior error so it doesn't show stale in the dialog
-    setPending({ sql: b.sql, label: `Eliminar índice ${name}` });
+    setPending({ sql: b.sql, label: t("im.dropIndex", { name }) });
   };
 
   const dropConstraintRow = (name: string, type: string | null) => {
@@ -224,7 +225,7 @@ export function IndexManager(props: {
       return;
     }
     setError(null);
-    setPending({ sql: b.sql, label: `Eliminar constraint ${name}` });
+    setPending({ sql: b.sql, label: t("im.dropConstraint", { name }) });
   };
 
   const idxNameIdx = createMemo(() => colIdx(indexRows(), idxSupport().nameCol));
@@ -236,7 +237,7 @@ export function IndexManager(props: {
 
   return (
     <Panel
-      title={`Índices y constraints · ${props.table}`}
+      title={t("im.title", { name: props.table })}
       wide
       onClose={props.onClose}
       onRefresh={() => void load()}
@@ -253,9 +254,9 @@ export function IndexManager(props: {
         {(p) => (
           <ConfirmDialog
             title={p().label}
-            message="Esta acción no se puede deshacer."
+            message={t("im.undoWarning")}
             sql={p().sql}
-            confirmLabel="Eliminar"
+            confirmLabel={t("common.delete")}
             busy={busy()}
             error={error()}
             onConfirm={() => void applySql(p().sql)}
@@ -269,7 +270,7 @@ export function IndexManager(props: {
       </datalist>
 
       {/* ── Índices ── */}
-      <h3>Índices</h3>
+      <h3>{t("im.indexes")}</h3>
       <Show
         when={idxSupport().supported}
         fallback={<p class="grid-empty">{idxSupport().reason}</p>}
@@ -279,32 +280,32 @@ export function IndexManager(props: {
           support={idxSupport()}
           nameIdx={idxNameIdx()}
           loading={loading()}
-          empty="No hay índices."
+          empty={t("im.noIndexes")}
           onDrop={(name) => dropIndexRow(name)}
         />
 
         <div class="im-form">
-          <strong>Nuevo índice</strong>
+          <strong>{t("im.newIndex")}</strong>
           <div class="im-fields">
             <input
               class="td-in"
-              placeholder="nombre_del_indice"
+              placeholder={t("im.indexNamePlaceholder")}
               value={idxName()}
               onInput={(e) => setIdxName(e.currentTarget.value)}
             />
             <input
               class="td-in"
               list="im-cols"
-              placeholder="columnas (col1, col2)"
+              placeholder={t("im.columnsPlaceholder")}
               value={idxCols()}
               onInput={(e) => setIdxCols(e.currentTarget.value)}
             />
             <label class="im-check">
               <input type="checkbox" checked={idxUnique()} onChange={(e) => setIdxUnique(e.currentTarget.checked)} />
-              Único
+              {t("im.unique")}
             </label>
             <button class="primary" disabled={busy() || !idxPreview().ok} onClick={createIndex}>
-              Crear índice
+              {t("im.createIndex")}
             </button>
           </div>
           <pre class="ddl-text">{idxPreview().ok ? (idxPreview() as { sql: string }).sql : previewError(idxPreview())}</pre>
@@ -312,7 +313,7 @@ export function IndexManager(props: {
       </Show>
 
       {/* ── Constraints ── */}
-      <h3>Constraints</h3>
+      <h3>{t("im.constraints")}</h3>
       <Show
         when={conSupport().supported}
         fallback={<p class="grid-empty">{conSupport().reason}</p>}
@@ -322,12 +323,12 @@ export function IndexManager(props: {
           support={conSupport()}
           nameIdx={conNameIdx()}
           loading={loading()}
-          empty="No hay constraints."
+          empty={t("im.noConstraints")}
           onDrop={(name, row) => dropConstraintRow(name, conTypeIdx() >= 0 ? row[conTypeIdx()] : null)}
         />
 
         <div class="im-form">
-          <strong>Nueva constraint</strong>
+          <strong>{t("im.newConstraint")}</strong>
           <div class="im-fields">
             <select value={conKind()} onChange={(e) => setConKind(e.currentTarget.value as ConstraintKind)}>
               <option value="unique">UNIQUE</option>
@@ -336,7 +337,7 @@ export function IndexManager(props: {
             </select>
             <input
               class="td-in"
-              placeholder="nombre_constraint"
+              placeholder={t("im.constraintNamePlaceholder")}
               value={conName()}
               onInput={(e) => setConName(e.currentTarget.value)}
             />
@@ -344,7 +345,7 @@ export function IndexManager(props: {
               <input
                 class="td-in"
                 list="im-cols"
-                placeholder="columnas (col1, col2)"
+                placeholder={t("im.columnsPlaceholder")}
                 value={conCols()}
                 onInput={(e) => setConCols(e.currentTarget.value)}
               />
@@ -352,7 +353,7 @@ export function IndexManager(props: {
             <Show when={conKind() === "check"}>
               <input
                 class="td-in"
-                placeholder="expresión (p.ej. edad >= 0)"
+                placeholder={t("im.exprPlaceholder")}
                 value={conExpr()}
                 onInput={(e) => setConExpr(e.currentTarget.value)}
               />
@@ -360,19 +361,19 @@ export function IndexManager(props: {
             <Show when={conKind() === "foreignKey"}>
               <input
                 class="td-in"
-                placeholder="tabla referenciada"
+                placeholder={t("im.refTablePlaceholder")}
                 value={conRefTable()}
                 onInput={(e) => setConRefTable(e.currentTarget.value)}
               />
               <input
                 class="td-in"
-                placeholder="columnas referenciadas"
+                placeholder={t("im.refColumnsPlaceholder")}
                 value={conRefCols()}
                 onInput={(e) => setConRefCols(e.currentTarget.value)}
               />
             </Show>
             <button class="primary" disabled={busy() || !conPreview().ok} onClick={addConstraint}>
-              Agregar constraint
+              {t("im.addConstraint")}
             </button>
           </div>
           <pre class="ddl-text">{conPreview().ok ? (conPreview() as { sql: string }).sql : previewError(conPreview())}</pre>
@@ -398,12 +399,12 @@ function CatalogTable(props: {
   return (
     <Show
       when={dataRows().length > 0}
-      fallback={<p class="grid-empty">{props.loading ? "Cargando…" : props.empty}</p>}
+      fallback={<p class="grid-empty">{props.loading ? t("panel.loading") : props.empty}</p>}
     >
       <table class="struct-table">
         <thead>
           <tr>
-            <th>Nombre</th>
+            <th>{t("im.name")}</th>
             <For each={props.support.detailCols}>{(d) => <th>{d.label}</th>}</For>
             <th />
           </tr>
@@ -423,7 +424,7 @@ function CatalogTable(props: {
                   </For>
                   <td class="td-c">
                     <Show when={name}>
-                      <button class="grid-action danger" title="Eliminar" onClick={() => props.onDrop(name!, row)}>
+                      <button class="grid-action danger" title={t("common.delete")} onClick={() => props.onDrop(name!, row)}>
                         🗑
                       </button>
                     </Show>
