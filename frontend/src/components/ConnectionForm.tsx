@@ -15,6 +15,7 @@ import {
 import { errorText } from "../utils/errors";
 import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 type TestState =
   | { kind: "idle" }
@@ -57,7 +58,7 @@ export function ConnectionForm(props: {
   // Fields are split across tabs so the form is not one long scroll: base
   // (ungrouped) fields live under "General"; each declared group (SSL, SSH…)
   // becomes its own tab. Tabs only appear when a driver actually has groups.
-  const GENERAL = "General";
+  const GENERAL = "cform.general";
   const groups = createMemo(() => {
     const gs: string[] = [];
     for (const f of schema()?.fields ?? []) {
@@ -125,7 +126,7 @@ export function ConnectionForm(props: {
     setTest({ kind: "testing" });
     try {
       await props.onTest(snapshot());
-      setTest({ kind: "ok", msg: "Conexión exitosa." });
+      setTest({ kind: "ok", msg: t("cform.testOk") });
     } catch (err) {
       setTest({ kind: "error", msg: errorText(err) });
     }
@@ -133,36 +134,36 @@ export function ConnectionForm(props: {
 
   return (
     <Panel
-      title={props.initial.name ? "Editar conexión" : "Nueva conexión"}
+      title={props.initial.name ? t("cform.edit") : t("cform.new")}
       onClose={props.onCancel}
     >
       <h2>
         <span class="engine-icon">{connIcon(draft)}</span>{" "}
-        {props.initial.name ? "Editar conexión" : "Nueva conexión"}
+        {props.initial.name ? t("cform.edit") : t("cform.new")}
       </h2>
 
         <label class="field">
-          <span>Nombre</span>
+          <span>{t("cform.name")}</span>
           <input
             type="text"
             class={showErrors() && errors().name ? "input-invalid" : ""}
             value={draft.name}
             onInput={(e) => setDraft("name", e.currentTarget.value)}
-            placeholder="Mi base de datos"
+            placeholder={t("cform.namePlaceholder")}
           />
           <Show when={showErrors() && errors().name}>
-            <span class="field-error">{errors().name}</span>
+            <span class="field-error">{t(errors().name!)}</span>
           </Show>
         </label>
 
         <div class="field">
-          <span>Color</span>
-          <div class="color-swatches" role="radiogroup" aria-label="Color de la conexión">
+          <span>{t("cform.color")}</span>
+          <div class="color-swatches" role="radiogroup" aria-label={t("cform.color")}>
             <button
               type="button"
               class={`color-swatch color-none ${!draft.color ? "selected" : ""}`}
-              title="Sin color"
-              aria-label="Sin color"
+              title={t("cform.noColor")}
+              aria-label={t("cform.noColor")}
               aria-checked={!draft.color}
               role="radio"
               onClick={() => setDraft("color", undefined)}
@@ -188,13 +189,13 @@ export function ConnectionForm(props: {
             from the last connection removes it. The datalist suggests the ones
             already in use. */}
         <label class="field">
-          <span>Grupo</span>
+          <span>{t("cform.group")}</span>
           <input
             type="text"
             list="conn-groups"
             value={draft.group ?? ""}
             onInput={(e) => setDraft("group", e.currentTarget.value)}
-            placeholder="Sin grupo"
+            placeholder={t("cform.noGroup")}
           />
           <datalist id="conn-groups">
             <For each={props.groups ?? []}>{(g) => <option value={g} />}</For>
@@ -202,16 +203,16 @@ export function ConnectionForm(props: {
         </label>
 
         <div class="field">
-          <span>Icono</span>
+          <span>{t("cform.icon")}</span>
           <div class="icon-swatches">
             <button
               type="button"
               class={`icon-swatch icon-engine ${!draft.icon ? "selected" : ""}`}
-              title="Usar el icono del motor"
+              title={t("cform.engineIcon")}
               aria-pressed={!draft.icon}
               onClick={() => setDraft("icon", undefined)}
             >
-              {engineIcon(draft.driver)} del motor
+              {engineIcon(draft.driver)} {t("cform.engineIconShort")}
             </button>
             <For each={CONNECTION_ICONS}>
               {(emoji) => (
@@ -231,15 +232,15 @@ export function ConnectionForm(props: {
               class="icon-input"
               maxLength={4}
               value={draft.icon ?? ""}
-              title="Pega cualquier emoji (Win + .)"
-              aria-label="Otro emoji"
+              title={t("cform.otherEmojiTitle")}
+              aria-label={t("cform.otherEmoji")}
               onInput={(e) => setDraft("icon", e.currentTarget.value || undefined)}
             />
           </div>
         </div>
 
         <label class="field">
-          <span>Motor</span>
+          <span>{t("cform.engine")}</span>
           <select
             value={draft.driver}
             onChange={(e) => selectDriver(e.currentTarget.value)}
@@ -267,9 +268,9 @@ export function ConnectionForm(props: {
                   }`}
                   onClick={() => setActiveFormTab(name)}
                 >
-                  {name}
+                  {t(name)}
                   <Show when={showErrors() && tabHasError(name)}>
-                    <span class="form-tab-dot" aria-label="Campos con errores">
+                    <span class="form-tab-dot" aria-label={t("cform.tabHasErrors")}>
                       ●
                     </span>
                   </Show>
@@ -284,7 +285,7 @@ export function ConnectionForm(props: {
             {(field) => (
               <label class="field">
                 <span>
-                  {field.label}
+                  {t(field.label)}
                   {field.required ? " *" : ""}
                 </span>
                 <Show
@@ -296,7 +297,10 @@ export function ConnectionForm(props: {
                         showErrors() && errors().params[field.key] ? "input-invalid" : ""
                       }
                       value={draft.params[field.key] ?? ""}
-                      placeholder={field.placeholder ?? ""}
+                      /* Placeholders go through t() as well: most are hostnames, ports and
+                         paths that read the same in any language, and an unknown key
+                         resolves to itself, so only the ones that ARE keys get translated. */
+                      placeholder={field.placeholder ? t(field.placeholder) : ""}
                       onInput={(e) => setDraft("params", field.key, e.currentTarget.value)}
                     />
                   }
@@ -306,7 +310,7 @@ export function ConnectionForm(props: {
                     onChange={(e) => setDraft("params", field.key, e.currentTarget.value)}
                   >
                     <For each={field.options ?? []}>
-                      {(opt) => <option value={opt.value}>{opt.label}</option>}
+                      {(opt) => <option value={opt.value}>{t(opt.label)}</option>}
                     </For>
                   </select>
                 </Show>
@@ -314,13 +318,13 @@ export function ConnectionForm(props: {
                   <button
                     type="button"
                     class="status-btn"
-                    title="Elegir el archivo en el disco"
+                    title={t("cform.browseTitle")}
                     onClick={async () => {
-                      const path = await pickFile(field.label);
+                      const path = await pickFile(t(field.label));
                       if (path) setDraft("params", field.key, path);
                     }}
                   >
-                    Examinar…
+                    {t("cform.browse")}
                   </button>
                 </Show>
                 <Show when={field.fetch === "databases" && props.onListDatabases}>
@@ -328,11 +332,11 @@ export function ConnectionForm(props: {
                     <button
                       type="button"
                       class="status-btn"
-                      title="Listar las bases del servidor con los datos ya ingresados"
+                      title={t("cform.listDbTitle")}
                       disabled={dbLoading()}
                       onClick={loadDatabases}
                     >
-                      {dbLoading() ? "Cargando…" : "Cargar lista"}
+                      {dbLoading() ? t("panel.loading") : t("cform.listDb")}
                     </button>
                     <Show when={dbList()}>
                       {(list) => (
@@ -344,7 +348,7 @@ export function ConnectionForm(props: {
                           }
                         >
                           <option value="">
-                            {list().length > 0 ? "— elegir base —" : "(sin bases)"}
+                            {list().length > 0 ? t("cform.pickDb") : t("cform.noDbs")}
                           </option>
                           <For each={list()}>
                             {(db) => <option value={db}>{db}</option>}
@@ -358,7 +362,7 @@ export function ConnectionForm(props: {
                   </Show>
                 </Show>
                 <Show when={showErrors() && errors().params[field.key]}>
-                  <span class="field-error">{errors().params[field.key]}</span>
+                  <span class="field-error">{t(errors().params[field.key])}</span>
                 </Show>
               </label>
             )}
@@ -374,19 +378,20 @@ export function ConnectionForm(props: {
 
         <Show when={showErrors() && !isValid(errors())}>
           <p class="test-error">
-            No se pudo guardar: revisa los campos marcados
-            {errors().name ? " — falta el Nombre de la conexión" : ""}.
+            {t("cform.saveBlocked", {
+              detail: errors().name ? t("cform.saveBlockedName") : "",
+            })}
           </p>
         </Show>
 
         <div class="modal-actions">
           <button onClick={runTest} disabled={test().kind === "testing"}>
-            {test().kind === "testing" ? "Probando…" : "Probar conexión"}
+            {test().kind === "testing" ? t("cform.testing") : t("cform.test")}
           </button>
           <span class="status-spacer" />
-          <button onClick={props.onCancel}>Cancelar</button>
+          <button onClick={props.onCancel}>{t("common.cancel")}</button>
           <button class="primary" onClick={save}>
-            Guardar
+            {t("cform.save")}
           </button>
         </div>
     </Panel>

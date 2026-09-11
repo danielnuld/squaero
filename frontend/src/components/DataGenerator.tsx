@@ -13,6 +13,7 @@ import {
   type GenKind,
 } from "../utils/dataGen";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 
 const PREVIEW_ROWS = 5;
 const PREVIEW_SEED = 0x9e3779b9; // stable preview independent of the real run
@@ -78,7 +79,7 @@ export function DataGenerator(props: {
   const generate = async () => {
     const n = clampCount(count());
     if (activeCols().length === 0) {
-      setError("Todas las columnas están omitidas: no hay nada que insertar.");
+      setError(t("dg.allSkipped"));
       return;
     }
     const rows = generateRows([...gens], n, Math.random);
@@ -109,8 +110,8 @@ export function DataGenerator(props: {
   };
 
   return (
-    <Panel title="Generar datos" wide onClose={props.onClose}>
-      <h2>Generar datos · {props.target.table}</h2>
+    <Panel title={t("dg.title")} wide onClose={props.onClose}>
+      <h2>{t("dg.heading", { name: props.target.table })}</h2>
 
       <Show when={error()}>
         <div class="grid-error" role="alert">
@@ -123,18 +124,18 @@ export function DataGenerator(props: {
         fallback={
           <div class="import-summary">
             <p>
-              <strong>{summary()}</strong> fila(s) generada(s) e insertada(s).
+              <strong>{summary()}</strong> {t("dg.generated")}
             </p>
             <div class="modal-actions">
               <button class="primary" onClick={props.onClose}>
-                Cerrar
+                {t("common.close")}
               </button>
             </div>
           </div>
         }
       >
         <label class="field">
-          <span>Número de filas</span>
+          <span>{t("dg.rowCount")}</span>
           <input
             type="number"
             min="1"
@@ -144,14 +145,14 @@ export function DataGenerator(props: {
           />
         </label>
 
-        <Show when={loaded()} fallback={<p class="grid-empty">Cargando columnas…</p>}>
+        <Show when={loaded()} fallback={<p class="grid-empty">{t("dg.loadingColumns")}</p>}>
           <table class="td-table">
             <thead>
               <tr>
-                <th>Columna</th>
-                <th>Tipo</th>
-                <th>Estrategia</th>
-                <th>Parámetros</th>
+                <th>{t("dg.column")}</th>
+                <th>{t("dg.type")}</th>
+                <th>{t("dg.strategy")}</th>
+                <th>{t("dg.params")}</th>
               </tr>
             </thead>
             <tbody>
@@ -167,35 +168,35 @@ export function DataGenerator(props: {
                         onChange={(e) => patch(i(), "kind", e.currentTarget.value as GenKind)}
                       >
                         <For each={GEN_KINDS}>
-                          {(k) => <option value={k.kind}>{k.label}</option>}
+                          {(k) => <option value={k.kind}>{t(k.label)}</option>}
                         </For>
                       </select>
                     </td>
                     <td>
                       <Show when={g.kind === "sequence"}>
                         <span class="dg-params">
-                          <label>inicio <input class="td-in dg-num" type="number" value={g.seqStart} onInput={(e) => patchNum(i(), "seqStart", e.currentTarget.value)} /></label>
-                          <label>paso <input class="td-in dg-num" type="number" value={g.seqStep} onInput={(e) => patchNum(i(), "seqStep", e.currentTarget.value)} /></label>
+                          <label>{t("dg.start")} <input class="td-in dg-num" type="number" value={g.seqStart} onInput={(e) => patchNum(i(), "seqStart", e.currentTarget.value)} /></label>
+                          <label>{t("dg.step")} <input class="td-in dg-num" type="number" value={g.seqStep} onInput={(e) => patchNum(i(), "seqStep", e.currentTarget.value)} /></label>
                         </span>
                       </Show>
                       <Show when={g.kind === "number"}>
                         <span class="dg-params">
-                          <label>mín <input class="td-in dg-num" type="number" value={g.min} onInput={(e) => patchNum(i(), "min", e.currentTarget.value)} /></label>
-                          <label>máx <input class="td-in dg-num" type="number" value={g.max} onInput={(e) => patchNum(i(), "max", e.currentTarget.value)} /></label>
-                          <label>dec <input class="td-in dg-num" type="number" value={g.decimals} onInput={(e) => patchNum(i(), "decimals", e.currentTarget.value)} /></label>
+                          <label>{t("dg.min")} <input class="td-in dg-num" type="number" value={g.min} onInput={(e) => patchNum(i(), "min", e.currentTarget.value)} /></label>
+                          <label>{t("dg.max")} <input class="td-in dg-num" type="number" value={g.max} onInput={(e) => patchNum(i(), "max", e.currentTarget.value)} /></label>
+                          <label>{t("dg.decimals")} <input class="td-in dg-num" type="number" value={g.decimals} onInput={(e) => patchNum(i(), "decimals", e.currentTarget.value)} /></label>
                         </span>
                       </Show>
                       <Show when={g.kind === "date"}>
                         <span class="dg-params">
-                          <label>desde <input class="td-in" type="date" value={g.from} onInput={(e) => patch(i(), "from", e.currentTarget.value)} /></label>
-                          <label>hasta <input class="td-in" type="date" value={g.to} onInput={(e) => patch(i(), "to", e.currentTarget.value)} /></label>
+                          <label>{t("dg.from")} <input class="td-in" type="date" value={g.from} onInput={(e) => patch(i(), "from", e.currentTarget.value)} /></label>
+                          <label>{t("dg.to")} <input class="td-in" type="date" value={g.to} onInput={(e) => patch(i(), "to", e.currentTarget.value)} /></label>
                         </span>
                       </Show>
                       <Show when={g.kind === "list"}>
-                        <input class="td-in dg-wide" placeholder="a, b, c" value={g.list} onInput={(e) => patch(i(), "list", e.currentTarget.value)} />
+                        <input class="td-in dg-wide" placeholder={t("dg.listPlaceholder")} value={g.list} onInput={(e) => patch(i(), "list", e.currentTarget.value)} />
                       </Show>
                       <Show when={g.kind === "fixed"}>
-                        <input class="td-in dg-wide" placeholder="valor" value={g.fixed} onInput={(e) => patch(i(), "fixed", e.currentTarget.value)} />
+                        <input class="td-in dg-wide" placeholder={t("dg.fixedPlaceholder")} value={g.fixed} onInput={(e) => patch(i(), "fixed", e.currentTarget.value)} />
                       </Show>
                     </td>
                   </tr>
@@ -205,7 +206,7 @@ export function DataGenerator(props: {
           </table>
 
           <div class="ddl-header" style={{ "margin-top": "1rem" }}>
-            <span>Vista previa ({preview().length} de {clampCount(count())})</span>
+            <span>{t("dg.preview", { shown: preview().length, total: clampCount(count()) })}</span>
           </div>
           <div class="import-preview-scroll">
             <table>
@@ -232,14 +233,14 @@ export function DataGenerator(props: {
         <div class="modal-actions">
           <span class="status-spacer" />
           <button disabled={busy()} onClick={props.onClose}>
-            Cancelar
+            {t("common.cancel")}
           </button>
           <button
             class="primary"
             disabled={busy() || !loaded() || activeCols().length === 0}
             onClick={generate}
           >
-            {busy() ? "Generando…" : `Generar ${clampCount(count())} fila(s)`}
+            {busy() ? t("dg.generating") : t("dg.generate", { n: clampCount(count()) })}
           </button>
         </div>
       </Show>

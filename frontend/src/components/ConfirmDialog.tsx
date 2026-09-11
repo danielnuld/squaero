@@ -1,4 +1,5 @@
 import { Show, onCleanup, onMount } from "solid-js";
+import { t } from "../utils/i18n";
 
 // Reusable destructive-confirmation dialog (issue #177): a single themed overlay
 // replacing native confirm(), which ignores the theme and renders multi-line SQL
@@ -80,7 +81,7 @@ export function ConfirmDialog(props: {
         aria-labelledby="confirm-dialog-title"
         ref={dialogEl}
       >
-        <h2 id="confirm-dialog-title">{props.title ?? "Confirmar"}</h2>
+        <h2 id="confirm-dialog-title">{props.title ?? t("confirm.title")}</h2>
         <p class="confirm-message">{props.message}</p>
         <Show when={props.sql}>
           <pre class="ddl-text">{props.sql}</pre>
@@ -90,10 +91,10 @@ export function ConfirmDialog(props: {
         </Show>
         <div class="modal-actions">
           <button ref={cancelBtn} disabled={props.busy} onClick={props.onCancel}>
-            {props.cancelLabel ?? "Cancelar"}
+            {props.cancelLabel ?? t("common.cancel")}
           </button>
           <button class="danger" disabled={props.busy} onClick={props.onConfirm}>
-            {props.busy ? "Aplicando…" : props.confirmLabel ?? "Eliminar"}
+            {props.busy ? t("confirm.applying") : props.confirmLabel ?? t("common.delete")}
           </button>
         </div>
       </div>

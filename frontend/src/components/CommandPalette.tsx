@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { t } from "../utils/i18n";
 import {
   filterCommands,
   groupByCategory,
@@ -92,13 +93,13 @@ export function CommandPalette(props: {
   return (
     <Show when={props.open}>
       <div class="cmdk-backdrop" onMouseDown={() => props.onClose()}>
-        <div class="cmdk" role="dialog" aria-label="Paleta de comandos" onMouseDown={(e) => e.stopPropagation()}>
+        <div class="cmdk" role="dialog" aria-label={t("cmdk.title")} onMouseDown={(e) => e.stopPropagation()}>
           <input
             ref={inputEl}
             class="cmdk-input"
             type="text"
-            placeholder={props.placeholder ?? "Buscar herramientas, objetos, snippets, historial…"}
-            aria-label="Buscar comandos"
+            placeholder={props.placeholder ?? t("cmdk.placeholder")}
+            aria-label={t("cmdk.inputLabel")}
             value={query()}
             onInput={(e) => {
               setQuery(e.currentTarget.value);
@@ -114,7 +115,7 @@ export function CommandPalette(props: {
                 <div class="cmdk-empty">
                   {props.commands.length === 0 && props.emptySetLabel
                     ? props.emptySetLabel
-                    : "Sin resultados"}
+                    : t("cmdk.noResults")}
                 </div>
               }
             >

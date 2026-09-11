@@ -172,14 +172,16 @@ export function clampCount(n: number): number {
 }
 
 /** The strategies offered in the UI, with Spanish labels. */
+/* `label` is an i18n KEY, resolved with t() where the list is rendered (the
+   toolCatalog pattern): this module is pure and must not know the locale. */
 export const GEN_KINDS: { kind: GenKind; label: string }[] = [
-  { kind: "sequence", label: "Secuencia" },
-  { kind: "number", label: "Número aleatorio" },
-  { kind: "text", label: "Texto" },
-  { kind: "date", label: "Fecha" },
-  { kind: "list", label: "Lista de valores" },
-  { kind: "boolean", label: "Booleano" },
-  { kind: "fixed", label: "Valor fijo" },
-  { kind: "null", label: "NULL" },
-  { kind: "skip", label: "Omitir columna" },
+  { kind: "sequence", label: "dg.kind.sequence" },
+  { kind: "number", label: "dg.kind.number" },
+  { kind: "text", label: "dg.kind.text" },
+  { kind: "date", label: "dg.kind.date" },
+  { kind: "list", label: "dg.kind.list" },
+  { kind: "boolean", label: "dg.kind.boolean" },
+  { kind: "fixed", label: "dg.kind.fixed" },
+  { kind: "null", label: "dg.kind.null" },
+  { kind: "skip", label: "dg.kind.skip" },
 ];

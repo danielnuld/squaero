@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 import { autoFocus } from "../utils/autoFocus";
 import { searchHistory, type HistoryEntry } from "../utils/history";
 import { formatDuration, isSlow } from "../utils/duration";
@@ -31,25 +32,25 @@ export function HistoryPanel(props: {
   };
 
   return (
-    <Panel title="Historial de consultas" class="history" onClose={props.onClose}>
-      <h2>Historial de consultas</h2>
+    <Panel title={t("hist.title")} class="history" onClose={props.onClose}>
+      <h2>{t("hist.title")}</h2>
       <div class="history-controls">
         <input
           class="history-search"
           type="search"
-          placeholder="Buscar en el historial…"
-          aria-label="Buscar en el historial"
+          placeholder={t("hist.searchPlaceholder")}
+          aria-label={t("hist.searchLabel")}
           value={query()}
           onInput={(e) => setQuery(e.currentTarget.value)}
           ref={autoFocus}
         />
-        <label class="history-only-slow" title="Mostrar solo consultas lentas">
+        <label class="history-only-slow" title={t("hist.onlySlowTitle")}>
           <input
             type="checkbox"
             checked={onlySlow()}
             onChange={(e) => setOnlySlow(e.currentTarget.checked)}
           />
-          Solo lentas
+          {t("hist.onlySlow")}
         </label>
       </div>
 
@@ -58,8 +59,8 @@ export function HistoryPanel(props: {
         fallback={
           <p class="history-empty">
             {props.entries.length === 0
-              ? "Aún no has ejecutado consultas."
-              : "Ninguna consulta coincide con la búsqueda."}
+              ? t("hist.none")
+              : t("hist.noMatches")}
           </p>
         }
       >
@@ -71,17 +72,17 @@ export function HistoryPanel(props: {
                 <li class="history-item">
                   <button
                     class="history-run"
-                    title="Reejecutar en una pestaña nueva"
+                    title={t("hist.rerun")}
                     onClick={() => pick(e.sql)}
                   >
                     <span class="history-sql">{e.sql}</span>
                     <span class="history-meta">
-                      {e.connName || "sin conexión"} · {new Date(e.ts).toLocaleString()}
+                      {e.connName || t("hist.noConnection")} · {new Date(e.ts).toLocaleString()}
                       <Show when={e.durationMs !== undefined}>
                         {" · "}
                         <span class={`history-duration ${slow() ? "slow" : ""}`}>
                           {formatDuration(e.durationMs!)}
-                          <Show when={slow()}> · lenta</Show>
+                          <Show when={slow()}>{t("hist.slowTag")}</Show>
                         </span>
                       </Show>
                     </span>
@@ -99,10 +100,10 @@ export function HistoryPanel(props: {
           onClick={props.onClear}
           disabled={props.entries.length === 0}
         >
-          Limpiar historial
+          {t("hist.clear")}
         </button>
         <button class="primary" onClick={props.onClose}>
-          Cerrar
+          {t("common.close")}
         </button>
       </div>
     </Panel>

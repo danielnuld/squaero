@@ -29,33 +29,34 @@ export interface Shortcut {
   id: ActionId;
   /** Human key label (Mod is rendered as Ctrl/⌘ by the help overlay). */
   keys: string;
+  /** i18n KEY for the description ("sc.<id>"), resolved where it is shown. */
   description: string;
   /** When false, App's global matcher ignores it (handled elsewhere). */
   global: boolean;
 }
 
 export const SHORTCUTS: Shortcut[] = [
-  { id: "run-query", keys: "Mod+Enter", description: "Ejecutar la consulta", global: false },
-  { id: "format-sql", keys: "Mod+Shift+F", description: "Formatear la consulta", global: false },
-  { id: "new-tab", keys: "Mod+Alt+T", description: "Nueva pestaña", global: true },
-  { id: "close-tab", keys: "Mod+Alt+W", description: "Cerrar la pestaña activa", global: true },
-  { id: "next-tab", keys: "Ctrl+PageDown", description: "Siguiente pestaña", global: true },
-  { id: "prev-tab", keys: "Ctrl+PageUp", description: "Pestaña anterior", global: true },
-  { id: "refresh", keys: "F5", description: "Refrescar datos y árbol", global: true },
-  { id: "toggle-theme", keys: "Mod+Alt+L", description: "Cambiar tema claro/oscuro", global: true },
-  { id: "toggle-help", keys: "F1", description: "Mostrar/ocultar atajos", global: true },
-  { id: "command-palette", keys: "Mod+K", description: "Paleta de comandos", global: true },
-  { id: "object-palette", keys: "Mod+P", description: "Buscar objetos (tablas, vistas…)", global: true },
-  { id: "snippet-palette", keys: "Mod+J", description: "Buscar snippets guardados", global: true },
-  { id: "save-snippet", keys: "Mod+Shift+S", description: "Guardar la consulta como snippet", global: true },
-  { id: "save-edits", keys: "Mod+S", description: "Guardar los cambios de la rejilla", global: true },
-  { id: "editor-find", keys: "Mod+F", description: "Buscar en el editor", global: true },
+  { id: "run-query", keys: "Mod+Enter", description: "sc.run-query", global: false },
+  { id: "format-sql", keys: "Mod+Shift+F", description: "sc.format-sql", global: false },
+  { id: "new-tab", keys: "Mod+Alt+T", description: "sc.new-tab", global: true },
+  { id: "close-tab", keys: "Mod+Alt+W", description: "sc.close-tab", global: true },
+  { id: "next-tab", keys: "Ctrl+PageDown", description: "sc.next-tab", global: true },
+  { id: "prev-tab", keys: "Ctrl+PageUp", description: "sc.prev-tab", global: true },
+  { id: "refresh", keys: "F5", description: "sc.refresh", global: true },
+  { id: "toggle-theme", keys: "Mod+Alt+L", description: "sc.toggle-theme", global: true },
+  { id: "toggle-help", keys: "F1", description: "sc.toggle-help", global: true },
+  { id: "command-palette", keys: "Mod+K", description: "sc.command-palette", global: true },
+  { id: "object-palette", keys: "Mod+P", description: "sc.object-palette", global: true },
+  { id: "snippet-palette", keys: "Mod+J", description: "sc.snippet-palette", global: true },
+  { id: "save-snippet", keys: "Mod+Shift+S", description: "sc.save-snippet", global: true },
+  { id: "save-edits", keys: "Mod+S", description: "sc.save-edits", global: true },
+  { id: "editor-find", keys: "Mod+F", description: "sc.editor-find", global: true },
   // The grid owns it (it only makes sense with the grid focused), so it is
   // documented here but never matched globally.
-  { id: "select-rows", keys: "Mod+A", description: "Seleccionar las filas de la rejilla", global: false },
+  { id: "select-rows", keys: "Mod+A", description: "sc.select-rows", global: false },
   // The filter panel owns it (issue #462): Enter there applies the draft, so
   // Shift+Enter is the "one more line" of the same reflex. Not matched globally.
-  { id: "add-condition", keys: "Shift+Enter", description: "Añadir otra condición al filtro", global: false },
+  { id: "add-condition", keys: "Shift+Enter", description: "sc.add-condition", global: false },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */

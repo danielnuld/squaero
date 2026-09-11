@@ -6,6 +6,7 @@ import { openConnection, closeConnection } from "../utils/conn";
 import { runPlanItem, txBegin, txCommit, txRollback } from "../utils/edit";
 import { diffData, dataDiffEmpty, diffToPlan } from "../utils/dataDiff";
 import { buildDsn, type Connection } from "../utils/connections";
+import { t } from "../utils/i18n";
 import type { PlanItem } from "../utils/editSession";
 
 /**
@@ -54,7 +55,7 @@ export function DataDiffWizard(props: {
   const compare = async () => {
     const def = props.connections.find((c) => c.id === targetDefId());
     if (!def) {
-      setError("Elige una conexión destino.");
+      setError(t("ssync.pickTarget"));
       return;
     }
     setBusy(true);
@@ -100,14 +101,14 @@ export function DataDiffWizard(props: {
           await runPlanItem(targetConnId, target(), item, false);
         }
         await txCommit(targetConnId);
-        setApplied(`${items.length} operación(es) aplicada(s) en el destino.`);
+        setApplied(t("ddiff.applied", { n: items.length }));
         setPlan(null);
       } catch (err) {
         await txRollback(targetConnId).catch(() => {});
         throw err;
       }
     } catch (err) {
-      setError(`Error al aplicar: ${errMsg(err)}`);
+      setError(t("ssync.applyError", { reason: errMsg(err) }));
     } finally {
       setBusy(false);
     }
@@ -115,15 +116,16 @@ export function DataDiffWizard(props: {
 
   return (
     <Panel wide onClose={props.onClose}>
-        <h2>Sincronizar datos · {props.source.table}</h2>
+        <h2>{t("ddiff.title", { name: props.source.table })}</h2>
         <p class="import-subtitle">
-          Origen: {props.sourceResult.rows.length} fila(s) cargada(s)
-          {props.sourceResult.truncated ? " (truncado)" : ""}
+          {t(props.sourceResult.truncated ? "ddiff.sourceTruncated" : "ddiff.source", {
+            n: props.sourceResult.rows.length,
+          })}
         </p>
 
         <div class="import-field">
           <label>
-            Destino:{" "}
+            {t("ssync.target")}{" "}
             <select
               value={targetDefId()}
               onChange={(e) => setTargetDefId(e.currentTarget.value)}
@@ -134,16 +136,16 @@ export function DataDiffWizard(props: {
             </select>
           </label>{" "}
           <label>
-            Base:{" "}
+            {t("ssync.db")}{" "}
             <input
               type="text"
               value={targetDb()}
-              placeholder="(por defecto)"
+              placeholder={t("ssync.dbDefault")}
               onInput={(e) => setTargetDb(e.currentTarget.value)}
             />
           </label>{" "}
           <button class="edit-btn" disabled={busy()} onClick={compare}>
-            Comparar
+            {t("ssync.compare")}
           </button>
         </div>
 
@@ -157,11 +159,11 @@ export function DataDiffWizard(props: {
           {(items) => (
             <>
               <div class="import-subtitle">
-                {items().length} operación(es) para igualar el destino
+                {t("ddiff.opsToMatch", { n: items().length })}
               </div>
               <Show
                 when={items().length > 0}
-                fallback={<p>Los datos ya coinciden.</p>}
+                fallback={<p>{t("ddiff.alreadyMatch")}</p>}
               >
                 <pre class="ddl-text preview-sql">{preview().join(";\n")}</pre>
               </Show>
@@ -174,10 +176,10 @@ export function DataDiffWizard(props: {
         </Show>
 
         <div class="modal-actions">
-          <button onClick={props.onClose}>Cerrar</button>
+          <button onClick={props.onClose}>{t("common.close")}</button>
           <Show when={plan() && plan()!.length > 0 && !applied()}>
             <button class="primary" disabled={busy()} onClick={apply}>
-              {busy() ? "Aplicando…" : `Aplicar (${plan()!.length})`}
+              {busy() ? t("ssync.applying") : t("ddiff.apply", { n: plan()!.length })}
             </button>
           </Show>
         </div>

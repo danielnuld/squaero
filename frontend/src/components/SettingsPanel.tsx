@@ -46,14 +46,15 @@ interface CoreInfo {
   protocolVersion: number;
 }
 
-/** What each type is called where the user picks its colour. */
+/** What each type is called where the user picks its colour: i18n KEYS,
+    resolved with t() where the row is rendered. */
 const KIND_LABEL: Record<CellKind, string> = {
-  text: "Texto",
-  number: "Números",
-  temporal: "Fecha y hora",
-  bool: "Booleanos",
-  blob: "Binarios",
-  null: "NULL",
+  text: "kind.text",
+  number: "kind.number",
+  temporal: "kind.temporal",
+  bool: "kind.bool",
+  blob: "kind.blob",
+  null: "kind.null",
 };
 
 export function SettingsPanel(props: {
@@ -210,25 +211,25 @@ export function SettingsPanel(props: {
                         <input
                           type="color"
                           class="type-color-swatch"
-                          aria-label={KIND_LABEL[kind]}
+                          aria-label={t(KIND_LABEL[kind])}
                           value={value()}
                           onInput={(e) => props.onSetCellColor(kind, e.currentTarget.value)}
                         />
-                        <span class="type-color-name">{KIND_LABEL[kind]}</span>
+                        <span class="type-color-name">{t(KIND_LABEL[kind])}</span>
                         <span class="type-color-sample" style={{ color: value() }}>
                           {SAMPLE[kind]}
                         </span>
                         {/* Not blocked, flagged: it is the user's grid, but a
                             column that has gone invisible looks like a bug. */}
                         <Show when={!readable()}>
-                          <span class="type-color-warn" title="Contraste bajo sobre el fondo">
+                          <span class="type-color-warn" title={t("settings.lowContrast")}>
                             ⚠
                           </span>
                         </Show>
                         <Show when={props.cellColors[kind] !== undefined}>
                           <button
                             class="type-color-reset"
-                            title={`Volver al color del tema para ${KIND_LABEL[kind]}`}
+                            title={t("settings.resetColor", { kind: t(KIND_LABEL[kind]) })}
                             onClick={() => props.onSetCellColor(kind, null)}
                           >
                             ⟲

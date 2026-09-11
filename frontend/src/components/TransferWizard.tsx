@@ -1,5 +1,6 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
 import { Panel } from "./Panel";
+import { t } from "../utils/i18n";
 import type { ResultSet } from "../utils/query";
 import { QueryError } from "../utils/query";
 import { schemaDescribe } from "../utils/schema";
@@ -64,7 +65,7 @@ export function TransferWizard(props: {
   const prepare = async () => {
     const def = props.connections.find((c) => c.id === destDefId());
     if (!def || !destTable().trim()) {
-      setError("Elige una conexión destino y una tabla.");
+      setError(t("tw.pickTarget"));
       return;
     }
     setBusy(true);
@@ -85,7 +86,7 @@ export function TransferWizard(props: {
           ? []
           : desc.rows.map((r) => r[nameIdx]).filter((n): n is string => n !== null);
       if (cols.length === 0) {
-        setError("La tabla destino no existe o no tiene columnas.");
+        setError(t("tw.noTargetColumns"));
         return;
       }
       setDestCols(cols);
@@ -128,10 +129,11 @@ export function TransferWizard(props: {
 
   return (
     <Panel wide onClose={props.onClose}>
-        <h2>Transferir datos · {props.sourceTable}</h2>
+        <h2>{t("tw.title", { name: props.sourceTable })}</h2>
         <p class="import-subtitle">
-          Origen: {props.sourceResult.rows.length} fila(s) cargada(s)
-          {props.sourceResult.truncated ? " (truncado)" : ""}
+          {t(props.sourceResult.truncated ? "ddiff.sourceTruncated" : "ddiff.source", {
+            n: props.sourceResult.rows.length,
+          })}
         </p>
 
         <Show when={error()}>
@@ -145,16 +147,16 @@ export function TransferWizard(props: {
           fallback={
             <div class="import-summary">
               <p>
-                <strong>{summary()!.inserted}</strong> fila(s) transferida(s)
+                <strong>{summary()!.inserted}</strong> {t("imp.transferred")}
                 {summary()!.aborted
-                  ? " — abortado, no se aplicó ningún cambio."
+                  ? t("imp.aborted")
                   : summary()!.errors.length > 0
-                    ? `, ${summary()!.errors.length} con error (omitidas).`
-                    : "."}
+                    ? t("imp.withErrors", { n: summary()!.errors.length })
+                    : t("imp.done")}
               </p>
               <div class="modal-actions">
                 <button class="primary" onClick={props.onClose}>
-                  Cerrar
+                  {t("common.close")}
                 </button>
               </div>
             </div>
@@ -162,7 +164,7 @@ export function TransferWizard(props: {
         >
           <div class="import-field">
             <label>
-              Destino:{" "}
+              {t("ssync.target")}{" "}
               <select
                 value={destDefId()}
                 onChange={(e) => setDestDefId(e.currentTarget.value)}
@@ -173,16 +175,16 @@ export function TransferWizard(props: {
               </select>
             </label>{" "}
             <label>
-              Base:{" "}
+              {t("ssync.db")}{" "}
               <input
                 type="text"
                 value={destDb()}
-                placeholder="(por defecto)"
+                placeholder={t("ssync.dbDefault")}
                 onInput={(e) => setDestDb(e.currentTarget.value)}
               />
             </label>{" "}
             <label>
-              Tabla:{" "}
+              {t("tw.table")}{" "}
               <input
                 type="text"
                 value={destTable()}
@@ -190,13 +192,13 @@ export function TransferWizard(props: {
               />
             </label>{" "}
             <button class="edit-btn" disabled={busy()} onClick={prepare}>
-              Preparar
+              {t("tw.prepare")}
             </button>
           </div>
 
           <Show when={destCols()}>
             <div class="import-mapping">
-              <div class="import-subtitle">Mapeo de columnas (destino ← origen)</div>
+              <div class="import-subtitle">{t("imp.mappingTarget")}</div>
               <For each={destCols()!}>
                 {(col) => (
                   <div class="map-row">
@@ -207,7 +209,7 @@ export function TransferWizard(props: {
                       value={mapping()[col] ?? OMIT}
                       onChange={(e) => setColumn(col, e.currentTarget.value)}
                     >
-                      <option value={OMIT}>— (omitir)</option>
+                      <option value={OMIT}>{t("imp.omit")}</option>
                       <For each={sourceHeaders()}>
                         {(h) => <option value={h}>{h}</option>}
                       </For>
@@ -218,7 +220,7 @@ export function TransferWizard(props: {
             </div>
 
             <div class="import-policy">
-              <span class="import-subtitle">Si una fila falla:</span>
+              <span class="import-subtitle">{t("imp.onRowError")}</span>
               <label>
                 <input
                   type="radio"
@@ -226,7 +228,7 @@ export function TransferWizard(props: {
                   checked={policy() === "skip"}
                   onChange={() => setPolicy("skip")}
                 />{" "}
-                Omitir e insertar el resto
+                {t("imp.skipRest")}
               </label>
               <label>
                 <input
@@ -235,19 +237,19 @@ export function TransferWizard(props: {
                   checked={policy() === "abort"}
                   onChange={() => setPolicy("abort")}
                 />{" "}
-                Abortar todo
+                {t("imp.abortAll")}
               </label>
             </div>
           </Show>
 
           <div class="modal-actions">
-            <button onClick={props.onClose}>Cancelar</button>
+            <button onClick={props.onClose}>{t("common.cancel")}</button>
             <button
               class="primary"
               disabled={busy() || !destCols() || !hasMapping(mapping())}
               onClick={transfer}
             >
-              {busy() ? "Transfiriendo…" : "Transferir"}
+              {busy() ? t("tw.transferring") : t("tw.transfer")}
             </button>
           </div>
         </Show>

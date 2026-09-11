@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { translate } from "../../src/utils/i18n";
 import {
   driverSchema,
   secretFieldKeys,
@@ -99,7 +100,7 @@ describe("fieldErrors / isValid", () => {
     expect(isValid(e)).toBe(true);
   });
   it("flags a missing name", () => {
-    expect(fieldErrors(sqliteConn({ name: "  " })).name).toMatch(/obligatorio/i);
+    expect(es(fieldErrors(sqliteConn({ name: "  " })).name!)).toMatch(/obligatorio/i);
   });
   it("flags a missing required field by key", () => {
     const e = fieldErrors(sqliteConn({ params: { path: "" } }));
@@ -110,7 +111,7 @@ describe("fieldErrors / isValid", () => {
     const e = fieldErrors(
       pgConn({ params: { host: "h", database: "d", user: "u", port: "abc" } }),
     );
-    expect(e.params.port).toMatch(/número/i);
+    expect(es(e.params.port)).toMatch(/número/i);
   });
   it("accepts a numeric value and blank optional number field", () => {
     expect(
@@ -123,21 +124,25 @@ describe("fieldErrors / isValid", () => {
   });
 });
 
+// The validation messages are composed sentences, so validateConnection takes a
+// translator (the app passes the reactive one); here it is pinned to Spanish.
+const es = (key: string, params?: Record<string, string | number>) => translate("es", key, params);
+
 describe("validateConnection", () => {
   it("accepts a valid sqlite connection", () => {
     expect(validateConnection(sqliteConn())).toEqual([]);
   });
   it("requires a name", () => {
-    expect(validateConnection(sqliteConn({ name: "  " }))).toContain(
+    expect(validateConnection(sqliteConn({ name: "  " }), es)).toContain(
       "El nombre es obligatorio.",
     );
   });
   it("requires required fields", () => {
-    const errs = validateConnection(sqliteConn({ params: { path: "" } }));
+    const errs = validateConnection(sqliteConn({ params: { path: "" } }), es);
     expect(errs.some((e) => e.includes("Archivo de base de datos"))).toBe(true);
   });
   it("rejects an unknown driver", () => {
-    const errs = validateConnection(sqliteConn({ driver: "nope" }));
+    const errs = validateConnection(sqliteConn({ driver: "nope" }), es);
     expect(errs.some((e) => e.includes("Motor desconocido"))).toBe(true);
   });
   it("treats optional fields as not required (postgres password)", () => {
@@ -404,7 +409,7 @@ describe("Informix schema", () => {
   it("requires host, port (service) and server", () => {
     const errors = validateConnection({
       id: "c", name: "ifx", driver: "informix", params: {},
-    });
+    }, es);
     expect(errors).toContain('El campo "Host" es obligatorio.');
     expect(errors).toContain('El campo "Puerto / servicio" es obligatorio.');
     expect(errors).toContain('El campo "Servidor (INFORMIXSERVER)" es obligatorio.');
@@ -449,7 +454,7 @@ describe("MongoDB schema", () => {
   it("requires host and database", () => {
     const errors = validateConnection({
       id: "c", name: "mongo", driver: "mongodb", params: {},
-    });
+    }, es);
     expect(errors).toContain('El campo "Host" es obligatorio.');
     expect(errors).toContain('El campo "Base de datos" es obligatorio.');
   });

@@ -7,6 +7,7 @@ import { formatSql } from "../utils/sqlFormat";
 import { errorText } from "../utils/errors";
 import { Panel } from "./Panel";
 import type { TreeNodeKind } from "../utils/tree";
+import { t } from "../utils/i18n";
 
 // Panel showing a table/view structure: the column list (schema.describe) and
 // the engine's CREATE statement (schema.ddl) with a copy button (#20/#21). For
@@ -52,7 +53,7 @@ export function StructureView(props: {
   const [section, setSection] = createSignal<"structure" | "definition">(
     props.kind === "view" ? "definition" : "structure",
   );
-  const defLabel = () => (isView() ? "Definición" : "DDL");
+  const defLabel = () => (isView() ? t("struct.definition") : t("struct.ddl"));
 
   const loadDdl = async () => {
     const raw = await schemaDdl(props.connId, props.table, props.db, props.schema);
@@ -150,7 +151,7 @@ export function StructureView(props: {
 
   return (
     <Panel
-      title={`Estructura · ${props.table}`}
+      title={t("tab.structure", { name: props.table })}
       class="struct-view"
       wide
       onClose={props.onClose}
@@ -167,7 +168,7 @@ export function StructureView(props: {
               disabled={editing()}
               onClick={() => setSection("structure")}
             >
-              Estructura
+              {t("struct.structure")}
             </button>
             <button
               class={`edit-btn ${section() === "definition" ? "active" : ""}`}
@@ -181,23 +182,23 @@ export function StructureView(props: {
           <Show when={section() === "definition"}>
             <Show when={isView() && !editing()}>
               <button class="edit-btn" onClick={startEdit} disabled={!ddl()}>
-                Editar definición
+                {t("struct.editDef")}
               </button>
             </Show>
             <Show when={editing()}>
               <button class="edit-btn" onClick={formatDraft} disabled={!draft()}>
-                Formatear
+                {t("struct.format")}
               </button>
             </Show>
             <button class="edit-btn" onClick={copyDdl} disabled={!ddl() || editing()}>
-              {copied() ? "¡Copiado!" : "Copiar DDL"}
+              {copied() ? t("struct.copied") : t("struct.copyDdl")}
             </button>
           </Show>
         </>
       }
       status={
         <Show when={applied()}>
-          <span class="test-ok">Vista actualizada.</span>
+          <span class="test-ok">{t("struct.viewUpdated")}</span>
         </Show>
       }
     >
@@ -241,7 +242,7 @@ export function StructureView(props: {
                 when={ddlError()}
                 fallback={<pre class="ddl-text">{ddl() || "—"}</pre>}
               >
-                <p class="test-error">DDL no disponible: {ddlError()}</p>
+                <p class="test-error">{t("struct.ddlUnavailable", { reason: ddlError()! })}</p>
               </Show>
             }
           >
@@ -269,13 +270,13 @@ export function StructureView(props: {
           <span class="status-spacer" />
           <Show
             when={editing()}
-            fallback={<button onClick={props.onClose}>Cerrar</button>}
+            fallback={<button onClick={props.onClose}>{t("common.close")}</button>}
           >
             <button disabled={busy()} onClick={() => setEditing(false)}>
-              Cancelar
+              {t("common.cancel")}
             </button>
             <button class="primary" disabled={busy()} onClick={applyEdit}>
-              {busy() ? "Aplicando…" : "Aplicar"}
+              {busy() ? t("struct.applying") : t("struct.apply")}
             </button>
           </Show>
         </div>
