@@ -97,6 +97,12 @@ métodos existentes; el núcleo no ganó ningún método para ellos:
 - **Transferencia** entre conexiones: se abre una segunda conexión con
   `conn.open` (el núcleo ya soporta varios `connId` simultáneos), se leen las
   filas de origen con `query.run` y se insertan en destino con `row.*`/`tx.*`.
+- **Respaldo y restauración** (#143, fase 1): el respaldo es un volcado SQL que el
+  frontend arma con `schema.tree` (qué objetos), `schema.ddl` (sus `CREATE`) y el
+  cursor de `query.run` (las filas, como `INSERT`), y escribe a disco por trozos.
+  Restaurar parte el archivo en sentencias y ejecuta un `query.run` por cada una,
+  parando en la primera que falla. Las herramientas nativas de cada motor
+  (mysqldump, pg_dump, dbexport) quedan para una fase posterior.
 - **Diff de esquema/datos**: el frontend compara la salida de `schema.describe`
   (estructura) o de `query.run` (filas, indexadas por PK) entre dos conexiones y
   materializa las diferencias como una tanda de `row.*` en una transacción.

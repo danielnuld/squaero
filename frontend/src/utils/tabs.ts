@@ -28,6 +28,7 @@ export type ToolKind =
   | "explainPlan"
   | "objectList"
   | "notebook"
+  | "backup"
   | "settings"
   | "help";
 
