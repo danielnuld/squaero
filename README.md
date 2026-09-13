@@ -84,7 +84,12 @@ engine never touches the core. See [how to write a driver](docs/WRITING_A_DRIVER
 [**Releases**](https://github.com/danielnuld/squaero/releases) and run it. Requires
 the **WebView2** runtime (already bundled in Windows 11). Every release attaches a
 `SHA256SUMS.txt` to verify the download:
-`sha256sum -c SHA256SUMS.txt` (or `CertUtil -hashfile quaero-*.msi SHA256`).
+`sha256sum -c SHA256SUMS.txt` (or `CertUtil -hashfile squaero-*.msi SHA256`).
+Releases from v0.26.0 on also carry a signed build-provenance attestation, which
+proves the MSI was built by this repository's release workflow:
+`gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero`.
+The MSI is not Authenticode-signed yet, so Windows SmartScreen shows an unknown
+publisher.
 
 > Linux (AppImage/deb) and macOS (.app) are coming in future releases.
 
