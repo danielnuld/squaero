@@ -196,7 +196,7 @@ Informix ODBC Driver*. El `dsn` admite dos formas:
 | `host` | Host del servidor Informix (forma directa). |
 | `port` / `service` | Puerto TCP (número) o nombre de servicio. |
 | `server` | Nombre de `INFORMIXSERVER` (requerido en la forma directa). |
-| `protocol` | Protocolo de red (por defecto `onsoctcp`). |
+| `protocol` | Protocolo de red (por defecto `onsoctcp`). `onsocssl` cifra con TLS (ver abajo). |
 | `database` | Base de datos inicial. |
 | `user` / `password` | Credenciales. |
 | `driver` | Sobrescribe el nombre del controlador ODBC registrado. |
@@ -214,6 +214,20 @@ Squaero lo trae dentro (`<installdir>/csdk`) cuando se construye en una máquina
 que lo tenga instalado — ver `installer/build-msi.sh`. En las máquinas donde ya
 hay un CSDK instalado por IBM, el instalador respeta el existente y no toca su
 registro.
+
+**TLS de Informix (issue #144).** `protocol=onsocssl` conecta con un listener
+TLS del servidor (una entrada `onsocssl` en su `sqlhosts`, con `NETTYPE onsocssl`
+y `SSL_KEYSTORE_LABEL` en el `onconfig`). El cliente verifica el certificado del
+servidor con un keystore GSKit que **no viaja en el DSN**: lo nombra el archivo
+`etc\conssl.cfg` del Client SDK (`SSL_KEYSTORE_FILE` y `SSL_KEYSTORE_STH`), que es
+configuración de la máquina. Medido en el build x86 contra Informix 15.0.1:
+
+- Con el certificado del servidor en el keystore del cliente, conecta y consulta.
+- Con un keystore que no confía en él, falla con *Secure Sockets Layer error:
+  GSK_ERROR_BAD_CERT*. Si falta `conssl.cfg`, falla con *Secure Sockets Layer
+  error: GSK_KEYRING_OPEN_ERROR*.
+- `onsoctcp` contra un listener TLS falla con *Invalid message received during
+  connection attempt*.
 
 **Locales de Informix (issue #323).** Las dos formas del DSN aceptan
 `client_locale` y `db_locale`, y viajan como las palabras clave `CLIENT_LOCALE`
