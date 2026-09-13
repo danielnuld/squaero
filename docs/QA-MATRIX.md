@@ -145,10 +145,17 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     **re-importar** en Informix habría que activar `DELIMIDENT` (sin él, las
     comillas dobles son literales de cadena). El archivo se genera correctamente.
 36. **SQLite — SSL/TLS:** no aplica; es una base embebida, sin transporte de red.
-37. **MySQL — SSL/TLS:** **verificado en vivo (2026-07-08)** — `ssl_mode=required`
-    contra `mysql:8.0` → cifrado `TLS_AES_128_GCM_SHA256`, **TLSv1.3**
-    (`SHOW STATUS LIKE 'Ssl_cipher'` no vacío). Campos DSN `ssl_mode` /
-    `ssl_ca` / `ssl_cert` / `ssl_key` (`DBC_FEAT_SSL`).
+37. **MySQL — SSL/TLS:** **verificado en vivo en el build x86 que se distribuye
+    (2026-09-13, #144)**, contra `mysql:8.4` con OpenSSL 3.0.22 estático:
+    `required` → `TLS_AES_256_GCM_SHA384`; `verify_ca` con la CA del servidor
+    conecta y con otra CA se rechaza; `verify_ca` **sin** `ssl_ca` se rechaza
+    (el conector no verificaba nada sin CA). Si se pide TLS y la sesión no queda
+    cifrada, la conexión falla. La verificación del 2026-07-08 había sido en x64:
+    hasta #144 el x86 aceptaba `ssl_mode=required` y **conectaba en claro**.
+    Campos DSN `ssl_mode` / `ssl_ca` / `ssl_cert` / `ssl_key` (`DBC_FEAT_SSL`).
+    PostgreSQL (sin columna propia): `require` y `verify-full` → TLSv1.3
+    verificados en el mismo build; una CA equivocada o un host que no coincide
+    con el certificado se rechazan.
 38. **Informix — SSL/TLS:** **no implementado todavía** — el driver ODBC no
     expone opciones SSL (`entry.c` declara TLS ausente honestamente). Es el
     trabajo restante de **#144** (necesita opciones de connection-string ODBC +
