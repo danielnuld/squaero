@@ -22,3 +22,11 @@ int mysql_ssl_mode_parse(const char *s, mysql_ssl_mode *out)
     }
     return 1;
 }
+
+int mysql_tls_satisfied(mysql_ssl_mode mode, const char *cipher)
+{
+    int wants_tls = (mode == MYSQL_SSL_REQUIRED ||
+                     mode == MYSQL_SSL_VERIFY_CA ||
+                     mode == MYSQL_SSL_VERIFY_IDENTITY);
+    return !wants_tls || (cipher != NULL && cipher[0] != '\0');
+}

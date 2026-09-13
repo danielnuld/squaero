@@ -31,6 +31,18 @@ typedef enum {
  */
 int mysql_ssl_mode_parse(const char *s, mysql_ssl_mode *out);
 
+/*
+ * Whether an open connection honours what `mode` asked for (issue #144).
+ *
+ * `cipher` is the negotiated TLS cipher (mysql_get_ssl_cipher), NULL or empty
+ * when the session is plaintext. Returns 0 when the mode demands encryption
+ * (required / verify_ca / verify_identity) but none was negotiated, else 1.
+ *
+ * Needed because the client does not always refuse by itself: a connector built
+ * without TLS accepts ssl_mode=required and quietly connects in plaintext.
+ */
+int mysql_tls_satisfied(mysql_ssl_mode mode, const char *cipher);
+
 #ifdef __cplusplus
 }
 #endif
