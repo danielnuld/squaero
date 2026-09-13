@@ -17,7 +17,8 @@ make=$(command -v make || command -v mingw32-make)
 
 cd "$src"
 # Git's perl lacks pure-Perl core modules OpenSSL's scripts load
-# (Locale::Maketext::Simple, ExtUtils::MakeMaker, Pod::Usage); borrow MSYS2's.
+# (Locale::Maketext::Simple, ExtUtils::MakeMaker, Pod::Usage); borrow them from
+# another Perl install ($5: MSYS2's or Strawberry Perl's module tree).
 # Two places, because two kinds of process need them:
 #  - Configure and the configdata.pm it spawns: through PERL5LIB, pointing at a
 #    directory holding ONLY these modules, so nothing of Git's perl is shadowed.

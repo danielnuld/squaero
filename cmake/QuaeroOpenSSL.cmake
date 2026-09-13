@@ -4,8 +4,8 @@
 #
 # OpenSSL is not a CMake project, and its mingw Configure needs a perl that speaks
 # Unix paths plus a make: that is Git for Windows' perl and sh, a GNU make, and a
-# few pure-Perl modules Git's perl lacks, borrowed from MSYS2. Both this machine
-# and the windows-latest CI runner have all of them. The build runs once, at
+# few pure-Perl modules Git's perl lacks, borrowed from another Perl install
+# (MSYS2's here; Strawberry Perl's on the windows-latest CI runner). The build runs once, at
 # configure time — find_package(OpenSSL) in the MariaDB connector needs the result
 # before any build step exists — and is reused until the version changes.
 #
@@ -31,12 +31,28 @@ function(quaero_enable_openssl)
   if(NOT EXISTS "${_stamp}")
     find_program(QUAERO_GIT_SH NAMES sh
       PATHS "C:/Program Files/Git/usr/bin" "C:/Program Files/Git/bin")
-    set(_perl_mods "C:/msys64/usr/share/perl5/core_perl")
-    if(NOT QUAERO_GIT_SH OR NOT EXISTS "${_perl_mods}/Pod/Usage.pm")
+    # Where to borrow the pure-Perl modules Git's perl lacks. Any Perl install
+    # carries them; the first directory holding all three wins. The GitHub
+    # Windows runner has Strawberry Perl but no MSYS2 Perl tree.
+    set(QUAERO_PERL_MODULES "" CACHE PATH
+      "Directory with Locale/, ExtUtils/ and Pod/ Perl modules for the OpenSSL build")
+    set(_perl_mods "")
+    foreach(_dir "${QUAERO_PERL_MODULES}" "C:/msys64/usr/share/perl5/core_perl"
+                 "C:/Strawberry/perl/lib")
+      if(_dir AND EXISTS "${_dir}/Pod/Usage.pm" AND EXISTS "${_dir}/ExtUtils/MakeMaker.pm"
+         AND EXISTS "${_dir}/Locale/Maketext/Simple.pm")
+        set(_perl_mods "${_dir}")
+        break()
+      endif()
+    endforeach()
+    if(NOT QUAERO_GIT_SH OR NOT _perl_mods)
       message(FATAL_ERROR
-        "Building OpenSSL needs Git for Windows' sh and MSYS2's Perl modules "
-        "(${_perl_mods}); found sh='${QUAERO_GIT_SH}'.")
+        "Building OpenSSL needs Git for Windows' sh (found: '${QUAERO_GIT_SH}') and "
+        "a Perl module tree with Pod::Usage, ExtUtils::MakeMaker and "
+        "Locale::Maketext::Simple (MSYS2's or Strawberry Perl's; or set "
+        "QUAERO_PERL_MODULES).")
     endif()
+    message(STATUS "OpenSSL: borrowing Perl modules from ${_perl_mods}")
 
     set(_tarball "${_root}/openssl-${QUAERO_OPENSSL_VERSION}.tar.gz")
     message(STATUS "OpenSSL ${QUAERO_OPENSSL_VERSION}: downloading")
