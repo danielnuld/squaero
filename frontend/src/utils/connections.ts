@@ -234,6 +234,19 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: true, placeholder: "informix" },
       { key: "password", label: "field.password", type: "password", required: false },
+      // TLS is a different protocol on a listener of its own (issue #144). The
+      // client verifies the server certificate with the keystore the Client SDK's
+      // etc/conssl.cfg names — machine configuration, so there is no CA field.
+      {
+        key: "protocol",
+        label: "field.protocol",
+        type: "select",
+        required: false,
+        options: [
+          { value: "", label: "field.protoTcpDefault" },
+          { value: "onsocssl", label: "field.protoSsl" },
+        ],
+      },
     ]),
   },
   // MongoDB connects via the mongo-c-driver. Queries use a mongosh-style surface
