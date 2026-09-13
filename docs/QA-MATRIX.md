@@ -37,7 +37,7 @@ pudo verificar: el contenedor de 2022 sin configurar corta la conexión.
 | Funcionalidad | SQLite | MySQL/MariaDB | Informix | MongoDB |
 |---|:---:|:---:|:---:|:---:|
 | Conexión / desconexión / reconexión | ✅ | ✅ | ✅ 28 | ✅ |
-| Conexión cifrada (SSL/TLS) | ➖ 36 | ✅ 37 | ❌ 38 | ✅ 39 |
+| Conexión cifrada (SSL/TLS) | ➖ 36 | ✅ 37 | ✅ 38 | ✅ 39 |
 | Árbol de objetos + carpetas por tipo | ⚠️ 1 | ✅ | ⚠️ 2 | ⚠️ 3 |
 | Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4·34 |
 | Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5·34 |
@@ -163,10 +163,17 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     PostgreSQL (sin columna propia): `require` y `verify-full` → TLSv1.3
     verificados en el mismo build; una CA equivocada o un host que no coincide
     con el certificado se rechazan.
-38. **Informix — SSL/TLS:** **no implementado todavía** — el driver ODBC no
-    expone opciones SSL (`entry.c` declara TLS ausente honestamente). Es el
-    trabajo restante de **#144** (necesita opciones de connection-string ODBC +
-    un servidor Informix con TLS para verificar).
+38. **Informix — SSL/TLS:** **verificado en vivo en el build x86 (2026-09-13,
+    #144)** contra Informix 15.0.1 con un listener `onsocssl` (keystore GSKit del
+    servidor + `SSL_KEYSTORE_LABEL`). El DSN usa `protocol=onsocssl`, con su propio
+    selector en el formulario. El cliente verifica el certificado con el keystore
+    que nombra `etc\conssl.cfg` del Client SDK:
+    - con el certificado del servidor en ese keystore, conecta y consulta;
+    - con un keystore que no confía en él → *GSK_ERROR_BAD_CERT*;
+    - sin `conssl.cfg` → *GSK_KEYRING_OPEN_ERROR*;
+    - `onsoctcp` contra el listener TLS → *Invalid message received*.
+
+    El keystore es configuración de la máquina, no un campo del DSN.
 39. **MongoDB — SSL/TLS:** **verificado en vivo en el build x86 (2026-09-13,
     #144)** contra `mongo:6.0` con `requireTLS`: sin `tls` el servidor corta la
     conexión; con `tls=true` el certificado **se verifica** contra las CA de

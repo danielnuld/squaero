@@ -11,7 +11,10 @@
  * query cancellation (cancel, via ODBC SQLCancel on a side thread). Informix
  * databases play the role of the top tree level (owners are not exposed as a
  * separate schema layer), so list_schemas is NULL and DBC_FEAT_SCHEMAS is not
- * advertised. TLS is honestly absent for now (its flag is unset).
+ * advertised. TLS (DBC_FEAT_SSL, issue #144) is the DSN's `protocol=onsocssl`,
+ * passed through to the connection string; the Client SDK then verifies the
+ * server certificate against the GSKit keystore named in its etc/conssl.cfg,
+ * which is machine-wide client configuration, not something a DSN can carry.
  */
 static const dbc_driver_t k_informix_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -48,7 +51,7 @@ static const dbc_driver_t k_informix_driver = {
     .cancel        = ifx_cancel,
 
     .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL | DBC_FEAT_TRANSACTIONS |
-                     DBC_FEAT_DML | DBC_FEAT_CANCEL,
+                     DBC_FEAT_DML | DBC_FEAT_CANCEL | DBC_FEAT_SSL,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)
