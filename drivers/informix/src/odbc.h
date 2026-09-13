@@ -14,7 +14,7 @@
  *
  * ifx_odbc_load() fills the table below once per process, from the first of:
  *   1. $INFORMIXDIR                       (a client chosen by the user)
- *   2. <this plugin>/../csdk              (the one the installer ships)
+ *   2. <this plugin>/../csdk              (an MSI built --with-csdk; #506)
  *   3. %LOCALAPPDATA%\Squaero\csdk        (a client the app unpacked itself)
  *   4. INFORMIXDIR in the registry        (IBM's own install on this machine)
  *   5. the linked Driver Manager          (unixODBC, or odbc32 on Windows)

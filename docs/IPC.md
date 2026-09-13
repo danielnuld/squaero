@@ -208,12 +208,14 @@ La forma directa requiere `host` + `port`/`service` + `server`; la forma DSN
 requiere `odbc_dsn`. El driver es de 32 bits (el CSDK lo es), por lo que Squaero
 se compila en x86 — ver `cmake/toolchain-i686-mingw.cmake`.
 
-El equipo necesita el **IBM Informix Client SDK de 32 bits**: sin el controlador
-registrado en el registro ODBC de 32 bits, conectar falla con `IM002`. El MSI de
-Squaero lo trae dentro (`<installdir>/csdk`) cuando se construye en una máquina
-que lo tenga instalado — ver `installer/build-msi.sh`. En las máquinas donde ya
-hay un CSDK instalado por IBM, el instalador respeta el existente y no toca su
-registro.
+El equipo necesita el **IBM Informix Client SDK de 32 bits**, instalado desde IBM.
+El driver lo busca en `INFORMIXDIR`, `<app>\csdk`, `%LOCALAPPDATA%\Squaero\csdk` y
+el registro. **El MSI publicado no lo incluye** (issue #506): es software
+propietario y la mayoría de usuarios no usa Informix. Si no encuentra ningún
+cliente, `conn.open` falla con `-32000` y un `message` que empieza por
+`IFX_CLIENT_MISSING`, un marcador estable que la UI convierte en «instala el
+Client SDK» con el enlace a la descarga de IBM. `installer/build-msi.sh
+<versión> --with-csdk` construye, a propósito, un MSI que sí lo trae.
 
 **TLS de Informix (issue #144).** `protocol=onsocssl` conecta con un listener
 TLS del servidor (una entrada `onsocssl` en su `sqlhosts`, con `NETTYPE onsocssl`
