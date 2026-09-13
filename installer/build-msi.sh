@@ -21,15 +21,15 @@
 # squaero.exe automatically (the MariaDB client is linked statically into
 # mysql.dll, so there is no separate client DLL to ship).
 #
-# Informix client: the 32-bit IBM Informix Client SDK is bundled into the MSI
-# (see the CsdkStage block in quaero.wxs) so the group does not need IBM's
-# installer. It is taken from INFORMIX_CSDK, or from the CSDK installed on this
-# machine. Without either the build FAILS: an MSI with no CSDK registers no ODBC
-# driver and Informix connections die with IM002. Pass --no-csdk for an
-# app-only MSI on purpose.
+# Informix client (issue #506): the MSI does NOT include IBM's proprietary
+# Informix Client SDK by default. Users who need Informix install the 32-bit SDK
+# from IBM, and the app tells them so when a connection finds no client. Pass
+# --with-csdk to bundle one anyway (e.g. for an internal deployment): it is taken
+# from INFORMIX_CSDK, or from the SDK installed on this machine, and the build
+# fails if neither exists.
 #
-# Usage: installer/build-msi.sh [version] [--no-csdk]   (default: ./VERSION)
-#        INFORMIX_CSDK=/path/to/csdk installer/build-msi.sh [version]
+# Usage: installer/build-msi.sh [version] [--with-csdk]   (default: ./VERSION)
+#        INFORMIX_CSDK=/path/to/csdk installer/build-msi.sh [version] --with-csdk
 set -eu
 cd "$(dirname "$0")/.."
 VERSION="${1:-$(cat VERSION)}"
@@ -38,11 +38,10 @@ export PATH="$HOME/.dotnet/tools:$PATH"
 CSDK_ARGS=()
 STAGE="$PWD/build-x86/csdk-stage"
 rm -rf "$STAGE"
-if [ "${2:-}" != "--no-csdk" ]; then
-  # INFORMIX_CSDK points at an unpacked CSDK tree: the release runner has no IBM
-  # install and fetches one (see .github/workflows/release.yml). Otherwise use
-  # the CSDK installed on this machine; MSYS_NO_PATHCONV keeps Git Bash from
-  # rewriting the registry key and /flags.
+if [ "${2:-}" = "--with-csdk" ]; then
+  # INFORMIX_CSDK points at an unpacked CSDK tree; otherwise use the CSDK
+  # installed on this machine. MSYS_NO_PATHCONV keeps Git Bash from rewriting
+  # the registry key and /flags.
   SRC="${INFORMIX_CSDK:-}"
   if [ -z "$SRC" ]; then
     RAW=$(MSYS_NO_PATHCONV=1 reg query 'HKLM\SOFTWARE\WOW6432Node\Informix\Environment' /v INFORMIXDIR 2>/dev/null |
@@ -50,13 +49,10 @@ if [ "${2:-}" != "--no-csdk" ]; then
     [ -n "$RAW" ] && SRC=$(cygpath "$RAW")
   fi
   SRC=${SRC%/}
-  # Failing beats the silent fallback this used to have: an MSI with no CSDK
-  # registers no ODBC driver, so every machine without an IBM install fails to
-  # connect with IM002 — which is exactly how the released MSIs shipped up to
-  # v0.24.0. --no-csdk builds the app-only MSI deliberately.
+  # Asked for a CSDK and none found: fail rather than quietly build without one.
   if [ -z "$SRC" ] || [ ! -f "$SRC/bin/iclit09b.dll" ]; then
-    echo "error: no 32-bit Informix Client SDK at ${SRC:-<none>}." >&2
-    echo "       Set INFORMIX_CSDK to an unpacked CSDK, or pass --no-csdk." >&2
+    echo "error: --with-csdk, but no 32-bit Informix Client SDK at ${SRC:-<none>}." >&2
+    echo "       Set INFORMIX_CSDK to an unpacked CSDK, or drop --with-csdk." >&2
     exit 1
   fi
   # OAT, the bundled JRE, demos and the uninstaller are ~400 MB the ODBC

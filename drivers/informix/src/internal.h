@@ -57,6 +57,9 @@ struct dbc_conn {
        error — the app cannot offer to reconnect over something it cannot tell
        apart from a typo (issue #407). */
     int       conn_lost;
+    /* SQLSTATE of the first record ifx_stash_diag read, "" when there was none.
+       The connect path reads it to recognize a missing client (issue #506). */
+    char      sqlstate[6];
 };
 
 /*

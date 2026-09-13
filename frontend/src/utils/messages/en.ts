@@ -813,6 +813,8 @@ export const en: Record<string, string> = {
   "cform.pickDb": "— pick a database —",
   "cform.noDbs": "(no databases)",
   "cform.testOk": "Connection succeeded.",
+  "ifx.clientMissing": "The Informix client is missing: install the 32-bit IBM Informix Client SDK and test the connection again (no need to reinstall Squaero).",
+  "ifx.clientMissingLink": "Where to download the Client SDK (IBM)",
   "cform.test": "Test connection",
   "cform.testing": "Testing…",
   "cform.saveBlocked": "Could not save: check the marked fields{detail}.",

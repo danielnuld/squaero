@@ -91,6 +91,11 @@ proves the MSI was built by this repository's release workflow:
 The MSI is not Authenticode-signed yet, so Windows SmartScreen shows an unknown
 publisher.
 
+**Informix** needs IBM's **32-bit Informix Client SDK**, which the installer does
+not include: install it from IBM
+([where to download](https://www.ibm.com/support/pages/where-download-informix-client-sdk)).
+Squaero tells you when a connection finds no client.
+
 > Linux (AppImage/deb) and macOS (.app) are coming in future releases.
 
 ## Build from source

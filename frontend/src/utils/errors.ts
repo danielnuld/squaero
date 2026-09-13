@@ -31,6 +31,22 @@ const STANDARD: Record<number, string> = {
   [-32603]: "Error interno del núcleo.",
 };
 
+/**
+ * The marker the Informix driver puts at the start of a connect error when no
+ * IBM Informix client is installed (drivers/informix/src/utils/clientmissing.h,
+ * issue #506). Part of the contract: do not change one without the other.
+ */
+export const INFORMIX_CLIENT_MISSING = "IFX_CLIENT_MISSING";
+
+/** IBM's own page on where to download the Informix Client SDK. */
+export const INFORMIX_CSDK_URL = "https://www.ibm.com/support/pages/where-download-informix-client-sdk";
+
+/** True when `err` is the Informix driver saying the client is not installed. */
+export function isInformixClientMissing(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  return message.includes(INFORMIX_CLIENT_MISSING);
+}
+
 /** Map any error into a friendly {title, detail}. */
 export function describeError(err: unknown): FriendlyError {
   if (err instanceof QueryError) {

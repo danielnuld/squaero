@@ -84,10 +84,12 @@
     </Component>
 
 <?ifdef CsdkStage ?>
-    <!-- The 32-bit IBM Informix Client SDK, cloned from the build machine by
-         installer/build-msi.sh (which defines CsdkStage only when a CSDK is
-         installed there; without it this whole block is preprocessed away and
-         the MSI is the plain app, which is what CI builds).
+    <!-- The 32-bit IBM Informix Client SDK, ONLY in an MSI built with the
+         with-csdk option of installer/build-msi.sh (issue #506). The published
+         MSI does not define CsdkStage, so this whole block is preprocessed away:
+         the SDK is proprietary, and users who need Informix install it from IBM.
+         Upgrading from a release that bundled it removes that copy with the old
+         product; the app then points to IBM's download when Informix connects.
 
          Squaero's Informix driver loads iclit09b.dll straight out of this tree
          (see drivers/informix/src/odbc.h), so nothing here is registered with

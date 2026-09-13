@@ -12,7 +12,8 @@ import {
   CONNECTION_ICONS,
   type Connection,
 } from "../utils/connections";
-import { errorText } from "../utils/errors";
+import { errorText, INFORMIX_CSDK_URL, isInformixClientMissing } from "../utils/errors";
+import { openExternal } from "../utils/openExternal";
 import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -21,7 +22,9 @@ type TestState =
   | { kind: "idle" }
   | { kind: "testing" }
   | { kind: "ok"; msg: string }
-  | { kind: "error"; msg: string };
+  /* `clientMissing`: the Informix driver found no IBM client (issue #506), so the
+     message is install guidance with a link rather than the raw diagnostic. */
+  | { kind: "error"; msg: string; clientMissing?: boolean };
 
 // Data-driven connection form: fields come from the selected driver's schema,
 // so a new engine needs no UI changes. "Probar" opens and immediately closes a
@@ -128,7 +131,11 @@ export function ConnectionForm(props: {
       await props.onTest(snapshot());
       setTest({ kind: "ok", msg: t("cform.testOk") });
     } catch (err) {
-      setTest({ kind: "error", msg: errorText(err) });
+      setTest(
+        isInformixClientMissing(err)
+          ? { kind: "error", msg: t("ifx.clientMissing"), clientMissing: true }
+          : { kind: "error", msg: errorText(err) },
+      );
     }
   };
 
@@ -374,6 +381,13 @@ export function ConnectionForm(props: {
         </Show>
         <Show when={test().kind === "error"}>
           <p class="test-error">{(test() as { msg: string }).msg}</p>
+          <Show when={(test() as { clientMissing?: boolean }).clientMissing}>
+            {/* A button, not an <a>: the webview would navigate itself away;
+                openExternal hands the URL to the default browser. */}
+            <button class="edit-btn" onClick={() => openExternal(INFORMIX_CSDK_URL)}>
+              {t("ifx.clientMissingLink")}
+            </button>
+          </Show>
         </Show>
 
         <Show when={showErrors() && !isValid(errors())}>

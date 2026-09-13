@@ -92,6 +92,11 @@ repositorio: `gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squa
 El MSI aún no lleva firma Authenticode, así que SmartScreen de Windows muestra
 un editor desconocido.
 
+**Informix** necesita el **IBM Informix Client SDK de 32 bits**, que el
+instalador no incluye: instálalo desde IBM
+([dónde descargarlo](https://www.ibm.com/support/pages/where-download-informix-client-sdk)).
+Squaero te avisa si una conexión no encuentra el cliente.
+
 > Linux (AppImage/deb) y macOS (.app) llegan en próximos releases.
 
 ## Compilar desde el código

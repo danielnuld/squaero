@@ -1,4 +1,5 @@
 #include "internal.h"
+#include "utils/clientmissing.h"
 #include "utils/connlost.h"
 #include "utils/connstr.h"
 #include "utils/text.h"
@@ -137,6 +138,7 @@ void ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h, const char *ctx
 
     /* Every stash is about one failure, so the verdict starts clean. */
     c->conn_lost = 0;
+    c->sqlstate[0] = '\0';
 
     /* Concatenate the diagnostic records: "<ctx>: [SQLSTATE] message; ...". */
     int pos = snprintf(c->err, sizeof c->err, "%s", ctx != NULL ? ctx : "error");
@@ -153,6 +155,9 @@ void ifx_stash_diag(dbc_conn *c, SQLSMALLINT htype, SQLHANDLE h, const char *ctx
     while ((size_t)pos < sizeof c->err &&
            SQLGetDiagRec(htype, h, rec, state, &native, msg, sizeof msg,
                          &msg_len) == SQL_SUCCESS) {
+        if (rec == 1) {
+            memcpy(c->sqlstate, state, sizeof c->sqlstate);
+        }
         /* One record saying the link is gone is enough (issue #407). */
         if (ifx_sqlstate_is_conn_lost((const char *)state)) {
             c->conn_lost = 1;
@@ -286,6 +291,18 @@ dbc_status ifx_connect(const char *dsn_json, dbc_conn **out)
                                     NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
     if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
         ifx_stash_diag(c, SQL_HANDLE_DBC, c->dbc, "connect");
+        if (ifx_client_missing(ifx_odbc_is_direct(), c->sqlstate)) {
+            /* Not found anywhere the driver looks, and the Driver Manager has no
+               Informix driver either. Said as such, with the stable marker the
+               frontend turns into install guidance (issue #506); the manager's
+               own diagnostic stays at the end for the curious. */
+            char diag[sizeof c->err];
+            memcpy(diag, c->err, sizeof diag);
+            snprintf(c->err, sizeof c->err,
+                     IFX_CLIENT_MISSING_MARKER ": the IBM Informix Client SDK (32-bit) was "
+                     "not found (looked in INFORMIXDIR, <app>\\csdk, "
+                     "%%LOCALAPPDATA%%\\Squaero\\csdk and the registry) [%.700s]", diag);
+        }
         *out = c;
         return DBC_ERR_CONN;
     }
