@@ -196,6 +196,39 @@ static mongoc_uri_t *build_uri(dbc_conn *c, const cJSON *root, char **db_out)
     return uri;
 }
 
+/*
+ * Refuse URI options that would change the machine's certificate trust (issue
+ * #144). On Windows the mongo-c-driver's TLS backend is Secure Channel, and its
+ * handling of a CA file is to ADD that CA to the LOCAL_MACHINE "Root" system
+ * store (mongoc_secure_channel_setup_ca): the CA a user names for one database
+ * connection would end up trusted by the whole machine, for every program and
+ * every site. A connection must never do that, so the option is rejected before
+ * mongoc sees it — under its current name and its deprecated ssl* alias; a
+ * private CA belongs in the Windows certificate store, installed deliberately,
+ * which tls=true then uses. Returns 1 (and stashes a reason) when the URI has it.
+ */
+static int refuse_store_writing_options(dbc_conn *c, const mongoc_uri_t *uri)
+{
+#if MONGOC_ENABLE_SSL_SECURE_CHANNEL
+    static const char *const refused[] = {MONGOC_URI_TLSCAFILE,
+                                          MONGOC_URI_SSLCERTIFICATEAUTHORITYFILE};
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        if (mongoc_uri_get_option_as_utf8(uri, refused[i], NULL) != NULL) {
+            snprintf(c->err, sizeof c->err,
+                     "%s is not supported on Windows: the TLS backend would install it into "
+                     "the machine's trusted certificate store. Install the CA in the Windows "
+                     "certificate store instead and connect with tls=true.",
+                     refused[i]);
+            return 1;
+        }
+    }
+#else
+    (void)c;
+    (void)uri;
+#endif
+    return 0;
+}
+
 dbc_status mongo_connect(const char *dsn_json, dbc_conn **out)
 {
     *out = NULL;
@@ -218,6 +251,11 @@ dbc_status mongo_connect(const char *dsn_json, dbc_conn **out)
     if (uri == NULL) {
         *out = c; /* reason already stashed */
         return DBC_ERR_CONN;
+    }
+    if (refuse_store_writing_options(c, uri)) {
+        mongoc_uri_destroy(uri);
+        *out = c;
+        return DBC_ERR_PARAM;
     }
 
     c->client = mongoc_client_new_from_uri(uri);

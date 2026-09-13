@@ -37,7 +37,7 @@ pudo verificar: el contenedor de 2022 sin configurar corta la conexión.
 | Funcionalidad | SQLite | MySQL/MariaDB | Informix | MongoDB |
 |---|:---:|:---:|:---:|:---:|
 | Conexión / desconexión / reconexión | ✅ | ✅ | ✅ 28 | ✅ |
-| Conexión cifrada (SSL/TLS) | ➖ 36 | ✅ 37 | ❌ 38 | ⚠️ 39 |
+| Conexión cifrada (SSL/TLS) | ➖ 36 | ✅ 37 | ❌ 38 | ✅ 39 |
 | Árbol de objetos + carpetas por tipo | ⚠️ 1 | ✅ | ⚠️ 2 | ⚠️ 3 |
 | Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4·34 |
 | Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5·34 |
@@ -167,8 +167,15 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     expone opciones SSL (`entry.c` declara TLS ausente honestamente). Es el
     trabajo restante de **#144** (necesita opciones de connection-string ODBC +
     un servidor Informix con TLS para verificar).
-39. **MongoDB — SSL/TLS:** el driver soporta `tls`/`ssl` (→ `MONGOC_URI_TLS`);
-    no verificado en vivo (el contenedor de prueba no tiene TLS configurado).
+39. **MongoDB — SSL/TLS:** **verificado en vivo en el build x86 (2026-09-13,
+    #144)** contra `mongo:6.0` con `requireTLS`: sin `tls` el servidor corta la
+    conexión; con `tls=true` el certificado **se verifica** contra las CA de
+    confianza de Windows (una CA propia sin instalar → *Untrusted root
+    certificate*); con la verificación desactivada en la URI la sesión cifrada
+    funciona (Secure Channel). `DBC_FEAT_SSL` anunciado. **`tlsCAFile` se
+    rechaza en Windows**: Secure Channel no la usa en memoria, la *instala* en el
+    almacén `LOCAL_MACHINE\Root`, con lo que toda la máquina pasaría a confiar en
+    esa CA. Una CA privada se instala a propósito en el almacén de Windows.
 
 ## Cobertura del smoke automatizado (#199)
 
