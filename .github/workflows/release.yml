@@ -6,10 +6,14 @@ name: Release
 # Informix ODBC driver is 32-bit only and Squaero loads drivers in-process, so the
 # whole app must be x86 (see cmake/toolchain-i686-mingw.cmake, installer/quaero.wxs).
 #
-# Signing is not wired yet (no certificate available). The MSI ships unsigned
-# alongside a SHA256SUMS.txt so downloads can be integrity-checked. When an
-# Authenticode certificate exists, uncomment the "Sign the MSI" step below and
-# add the WINDOWS_PFX_BASE64 / WINDOWS_PFX_PASSWORD repository secrets.
+# Signing: every MSI gets a build-provenance attestation — a Sigstore signature,
+# issued to this workflow through GitHub's OIDC token, over the MSI's digest. It
+# proves the file was built by this workflow from this repository at this tag:
+#   gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero
+# It is not Authenticode, so Windows SmartScreen still reports an unknown
+# publisher. Authenticode needs a certificate whose key lives in an HSM (CA/B
+# Forum rules since 2023 — an exportable .pfx is no longer issued), which this
+# project does not have yet; see docs/VERSIONING.md.
 
 on:
   push:
@@ -28,6 +32,10 @@ concurrency:
 
 permissions:
   contents: write
+  # Both for the build-provenance attestation: the OIDC token Sigstore signs with,
+  # and the right to store the attestation on the repository.
+  id-token: write
+  attestations: write
 
 jobs:
   windows-msi:
@@ -141,27 +149,19 @@ jobs:
         shell: bash
         run: installer/build-msi.sh "${{ steps.tag.outputs.version }}"
 
-      # --- Sign the MSI (enable once an Authenticode certificate exists) ---------
-      # - name: Sign the MSI
-      #   shell: pwsh
-      #   env:
-      #     WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
-      #     WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
-      #   run: |
-      #     [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
-      #     $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
-      #       Sort-Object FullName | Select-Object -Last 1
-      #     & $signtool.FullName sign /f cert.pfx /p $env:WINDOWS_PFX_PASSWORD `
-      #       /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
-      #       "dist/squaero-${{ steps.tag.outputs.version }}-x86.msi"
-      #     Remove-Item cert.pfx
-      # ---------------------------------------------------------------------------
-
-      # SHA256SUMS.txt lets downloaders verify integrity without a code signature.
+      # SHA256SUMS.txt lets downloaders check the file arrived intact.
       - name: Generate checksums
         shell: bash
         working-directory: dist
         run: sha256sum "squaero-${{ steps.tag.outputs.version }}-x86.msi" > SHA256SUMS.txt
+
+      # Build provenance (issue #41): a signed statement, stored on the repository,
+      # that this exact MSI came out of this workflow run. Before publishing, so a
+      # release never goes out without it.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/squaero-${{ steps.tag.outputs.version }}-x86.msi
 
       - name: Publish the release
         shell: bash
