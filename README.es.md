@@ -90,7 +90,8 @@ Desde la v0.26.0 cada release lleva además una attestation de procedencia
 firmada, que demuestra que el MSI lo construyó el workflow de release de este
 repositorio: `gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero`.
 El MSI aún no lleva firma Authenticode, así que SmartScreen de Windows muestra
-un editor desconocido.
+un editor desconocido. Se está preparando la firma con SignPath Foundation; ver la
+[code signing policy](https://danielnuld.github.io/squaero/code-signing-policy/).
 
 **Informix** necesita el **IBM Informix Client SDK de 32 bits**, que el
 instalador no incluye: instálalo desde IBM
