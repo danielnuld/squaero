@@ -263,14 +263,43 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       },
     ]),
   },
+  // SQL Server connects via FreeTDS's db-lib. `port` and `instance` are
+  // alternatives (a named instance is found through SQL Browser). `encryption`
+  // encrypts the transport, but the driver cannot verify the server certificate
+  // (db-lib takes no CA file), so there is no CA field to fill and trust.
+  mssql: {
+    driver: "mssql",
+    label: "SQL Server",
+    fields: withSshTunnel([
+      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
+      { key: "port", label: "field.port", type: "number", required: false, placeholder: "1433" },
+      { key: "instance", label: "field.instance", type: "text", required: false, placeholder: "SQLEXPRESS" },
+      { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
+      { key: "user", label: "field.user", type: "text", required: true, placeholder: "sa" },
+      { key: "password", label: "field.password", type: "password", required: false },
+      {
+        key: "encryption",
+        label: "field.encryption",
+        type: "select",
+        required: false,
+        options: [
+          { value: "", label: "field.encRequireDefault" },
+          { value: "request", label: "field.encRequest" },
+          { value: "off", label: "field.encOff" },
+          { value: "strict", label: "field.encStrict" },
+        ],
+      },
+    ]),
+  },
 };
 
 // Drivers the UI offers. Only engines whose driver actually ships are listed,
 // so the UI never advertises a connection it cannot honor (honest capabilities).
-// sqlite ships everywhere; postgres, mysql, informix and mongodb ship where their
-// client libraries are present (postgres via libpq, mysql via MariaDB
-// Connector/C, informix via the ODBC driver, mongodb via the mongo-c-driver).
-export const AVAILABLE_DRIVERS: string[] = ["sqlite", "postgres", "mysql", "informix", "mongodb"];
+// sqlite ships everywhere; postgres, mysql, informix, mongodb and mssql ship where
+// their client libraries are present (postgres via libpq, mysql via MariaDB
+// Connector/C, informix via the ODBC driver, mongodb via the mongo-c-driver,
+// mssql via FreeTDS).
+export const AVAILABLE_DRIVERS: string[] = ["sqlite", "postgres", "mysql", "informix", "mongodb", "mssql"];
 
 /** Schema for a driver name, or undefined when unknown. */
 export function driverSchema(driver: string): DriverSchema | undefined {

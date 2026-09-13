@@ -291,6 +291,7 @@ jobs:
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DQUAERO_BUILD_APP=OFF
           -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_LIBPQ=ON
+          -DQUAERO_FREETDS=ON
 
       - name: Build
         shell: bash

@@ -48,6 +48,16 @@ export function previewSelect(
     const first = n >= 1 ? `FIRST ${n} ` : "";
     return `SELECT ${skip}${first}* FROM ${qualified}${filter}${order};`;
   }
+  if (engineFamily(engine) === "mssql") {
+    // T-SQL has no LIMIT. OFFSET … FETCH is the paging clause, and it is only
+    // legal after an ORDER BY — so a preview with no chosen order sorts by a
+    // constant, which keeps the server's own order.
+    if (n < 1) {
+      return `SELECT * FROM ${qualified}${filter}${order};`;
+    }
+    const by = order || " ORDER BY (SELECT NULL)";
+    return `SELECT * FROM ${qualified}${filter}${by} OFFSET ${m} ROWS FETCH NEXT ${n} ROWS ONLY;`;
+  }
   const off = m > 0 ? ` OFFSET ${m}` : "";
   if (n < 1) {
     // No LIMIT to hang the OFFSET on; an export reads the object whole anyway.
