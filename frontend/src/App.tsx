@@ -258,6 +258,7 @@ import { IndexManager } from "./components/IndexManager";
 import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
+import { BackupPanel } from "./components/BackupPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { SnippetsPanel } from "./components/SnippetsPanel";
 import { RowDetail } from "./components/RowDetail";
@@ -3789,6 +3790,14 @@ export function App() {
                     sourceTable={(tt().params as { sourceTable: string }).sourceTable}
                     connections={connections()}
                     onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
+                <Match when={tt().tool === "backup"}>
+                  <BackupPanel
+                    connId={toolConn()?.connId ?? ""}
+                    engine={activeDialect()}
+                    db={activeDb()}
+                    onCatalogChanged={refreshTreeInPlace}
                   />
                 </Match>
                 <Match when={tt().tool === "history"}>

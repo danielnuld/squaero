@@ -184,6 +184,15 @@ export const IconSnippets: IconComponent = () => (
   </Svg>
 );
 
+/** lucide/archive — backup and restore of a database (#143). */
+export const IconBackup: IconComponent = () => (
+  <Svg>
+    <rect x="2" y="3" width="20" height="5" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+    <path d="M10 12h4" />
+  </Svg>
+);
+
 /** lucide/wrench — the connection's tools menu, in the explorer header.
     It was the last emoji left in the chrome (🧰): #332 replaced the ribbon and
     the tools menu, not this trigger. An emoji paints itself, so on the themes

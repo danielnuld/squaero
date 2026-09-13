@@ -6,6 +6,7 @@
 
 import type { ToolKind } from "./tabs";
 import {
+  IconBackup,
   IconBuilder,
   IconEr,
   IconMonitor,
@@ -54,4 +55,5 @@ export const TOOL_CATALOG: ToolMenuItem[] = [
   { tool: "triggers", key: "triggers", Icon: IconTriggers, label: "tool.triggers.label", tabTitle: "tool.triggers.tab", title: "tool.triggers.title" },
   { tool: "notebook", key: "notebook", Icon: IconNotebook, label: "tool.notebook.label", tabTitle: "tool.notebook.tab", title: "tool.notebook.title" },
   { tool: "snippets", key: "snippets", Icon: IconSnippets, label: "tool.snippets.label", tabTitle: "tool.snippets.tab", title: "tool.snippets.title" },
+  { tool: "backup", key: "backup", Icon: IconBackup, label: "tool.backup.label", tabTitle: "tool.backup.tab", title: "tool.backup.title" },
 ];
