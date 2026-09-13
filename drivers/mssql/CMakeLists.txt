@@ -69,19 +69,27 @@ if(FREETDS_INCLUDE_DIR AND FREETDS_SYBDB_LIBRARY)
   include(CheckCSourceCompiles)
   set(CMAKE_REQUIRED_INCLUDES ${FREETDS_INCLUDE_DIR})
   set(CMAKE_REQUIRED_LIBRARIES ${FREETDS_SYBDB_LIBRARY})
+  # Not only "does it link": the driver needs the login-record setters for the
+  # encryption level and the port, which FreeTDS added in 1.4. Ubuntu 24.04 ships
+  # 1.3, where the DSN's `encryption` could only be ignored — and a connection
+  # that asked for encryption must never be opened without it. So an older
+  # FreeTDS means no plugin, said out loud, rather than a quietly weaker one.
   check_c_source_compiles(
-    "#include <sybfront.h>\n#include <sybdb.h>\nint main(void){ return dbinit() == FAIL; }"
-    FREETDS_SYBDB_LINKS)
+    "#include <sybfront.h>\n#include <sybdb.h>\nint main(void){ LOGINREC *l = dblogin(); DBSETLENCRYPTION(l, \"require\"); DBSETLPORT(l, 1433); return dbinit() == FAIL; }"
+    FREETDS_SYBDB_USABLE)
   unset(CMAKE_REQUIRED_INCLUDES)
   unset(CMAKE_REQUIRED_LIBRARIES)
 endif()
 
-if(FREETDS_INCLUDE_DIR AND FREETDS_SYBDB_LIBRARY AND FREETDS_SYBDB_LINKS)
+if(FREETDS_INCLUDE_DIR AND FREETDS_SYBDB_LIBRARY AND FREETDS_SYBDB_USABLE)
   add_library(mssql_driver MODULE ${MSSQL_DRIVER_SRC})
   _quaero_mssql_common()
   target_include_directories(mssql_driver SYSTEM PRIVATE ${FREETDS_INCLUDE_DIR})
   target_link_libraries(mssql_driver PRIVATE ${FREETDS_SYBDB_LIBRARY})
   message(STATUS "SQL Server driver: using ${FREETDS_SYBDB_LIBRARY}")
+elseif(FREETDS_INCLUDE_DIR AND FREETDS_SYBDB_LIBRARY)
+  message(STATUS "SQL Server driver: the system FreeTDS lacks DBSETLENCRYPTION/DBSETLPORT "
+    "(needs 1.4+) or does not link for this target; plugin not built")
 else()
   message(STATUS "SQL Server driver: FreeTDS db-lib not found; plugin not built")
 endif()

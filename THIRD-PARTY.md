@@ -64,7 +64,7 @@ distribuye ninguna DLL de OpenSSL aparte.
 | Componente | Versión | Licencia | Enlace |
 |---|---|---|---|
 | OpenSSL | 3.0.22 | Apache-2.0 | Estático en los plugins `mysql`, `postgres` y `mssql` (x86) |
-| FreeTDS (db-lib) | 1.5.19 | LGPL-2.0-or-later | Estático en el plugin `mssql` (x86, `cmake/QuaeroFreeTDS.cmake`); en Linux, dinámico contra `freetds-dev` |
+| FreeTDS (db-lib) | 1.5.19 | LGPL-2.0-or-later | Estático en el plugin `mssql` (x86, `cmake/QuaeroFreeTDS.cmake`); donde haya una FreeTDS 1.4+ del sistema, dinámico contra ella |
 
 ### Librerías cliente de los drivers (enlace dinámico, opcional)
 

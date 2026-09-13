@@ -35,7 +35,10 @@ Result sets are buffered whole in memory.
 
 ## Build
 
-- System FreeTDS (e.g. `apt install freetds-dev`) is used when it links.
+- A system FreeTDS is used when it is **1.4 or later** (it needs the
+  `DBSETLENCRYPTION` / `DBSETLPORT` login setters). Older ones — Ubuntu 24.04's
+  `freetds-dev` is 1.3 — are skipped with a configure message rather than built
+  into a driver that would have to ignore the requested encryption.
 - `-DQUAERO_FREETDS=ON` builds db-lib statically from the 1.5.19 tarball
   (`cmake/QuaeroFreeTDS.cmake`), with TLS from the static OpenSSL of the x86 build.
 
