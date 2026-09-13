@@ -95,16 +95,21 @@ export async function schemaDdl(
 
 /**
  * Quote a SQL identifier for a generated statement, per engine: MySQL/MariaDB
- * use backticks (doubled to escape), Informix uses none, every other engine the
- * ANSI double quote (doubled). `engine` is the driver name; omitted defaults to
- * ANSI double quotes. MySQL treats "..." as a string literal, so the quote char
- * matters; Informix has no delimited identifiers unless DELIMIDENT is set — a
+ * use backticks (doubled to escape), SQL Server brackets (a `]` doubled),
+ * Informix uses none, every other engine the ANSI double quote (doubled).
+ * `engine` is the driver name; omitted defaults to ANSI double quotes. MySQL
+ * treats "..." as a string literal, so the quote char matters; SQL Server only
+ * reads "..." as an identifier while QUOTED_IDENTIFIER is on, and brackets work
+ * either way; Informix has no delimited identifiers unless DELIMIDENT is set — a
  * "quoted" name is parsed as a string literal and errors — so it stays bare.
  */
 export function quoteIdentifier(id: string, engine?: string): string {
   const e = (engine ?? "").toLowerCase();
   if (e === "mysql" || e === "mariadb") {
     return "`" + id.replace(/`/g, "``") + "`";
+  }
+  if (e === "mssql") {
+    return "[" + id.replace(/]/g, "]]") + "]";
   }
   if (e === "informix") {
     return id;

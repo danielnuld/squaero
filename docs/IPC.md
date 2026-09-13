@@ -231,6 +231,21 @@ y `DB_LOCALE` de la cadena de conexión.
 - Mirar los bytes después no sustituye a esto: un «Ã±» en Latin-1 y un «ñ» en
   UTF-8 son los mismos dos bytes.
 
+*SQL Server (FreeTDS, #49).* El driver `mssql` usa la db-lib de FreeTDS, enlazada
+dentro del plugin; no lee `freetds.conf`: todo va en el registro de login.
+
+| Campo | Descripción |
+|-------|-------------|
+| `host` | Servidor (requerido). |
+| `port` / `instance` | Uno u otro: puerto TCP, o instancia con nombre (vía SQL Browser). Dar los dos es un error. |
+| `database` | Base inicial; si falta, la predeterminada del login. |
+| `user` / `password` | Credenciales de SQL Server (`user` requerido). |
+| `encryption` | `require` (predeterminado) \| `request` \| `off` \| `strict`. `request` solo cifra si el servidor lo exige, y medido contra SQL Server 2022 dejó la sesión **en claro**: por eso no es el predeterminado. `off` cifra solo el login. `strict` (TDS 8) está sin verificar. **El certificado del servidor no se verifica**: la db-lib no admite un archivo de CA. |
+
+El texto viaja en UTF-8, los result sets se guardan enteros en memoria, y un lote
+devuelve su último result set con columnas y la suma de filas afectadas de sus
+sentencias. Aún no anuncia DDL, edición de filas ni cancelación.
+
 *Túnel SSH (agnóstico al motor).* El núcleo reconoce, dentro del `dsn`, un grupo
 de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
 **antes** de invocar al driver, entregándole un DSN reescrito que apunta a

@@ -63,7 +63,8 @@ distribuye ninguna DLL de OpenSSL aparte.
 
 | Componente | Versión | Licencia | Enlace |
 |---|---|---|---|
-| OpenSSL | 3.0.22 | Apache-2.0 | Estático en los plugins `mysql` y `postgres` (x86) |
+| OpenSSL | 3.0.22 | Apache-2.0 | Estático en los plugins `mysql`, `postgres` y `mssql` (x86) |
+| FreeTDS (db-lib) | 1.5.19 | LGPL-2.0-or-later | Estático en el plugin `mssql` (x86, `cmake/QuaeroFreeTDS.cmake`); donde haya una FreeTDS 1.4+ del sistema, dinámico contra ella |
 
 ### Librerías cliente de los drivers (enlace dinámico, opcional)
 
@@ -168,4 +169,7 @@ enlazado en ese artefacto**:
 - Si se compiló con `QUAERO_SSH`: BSD-3-Clause de libssh2 (+ Apache-2.0/`NOTICE`
   de OpenSSL donde aplique).
 - Si es el instalador x86: Apache-2.0 de OpenSSL 3.0 (va enlazado dentro de los
-  plugins `mysql` y `postgres`).
+  plugins `mysql`, `postgres` y `mssql`) y LGPL de FreeTDS (dentro de `mssql`).
+  Al ir estático, la LGPL pide ofrecer lo necesario para re-enlazar el plugin con
+  otra FreeTDS: el código del plugin es público y `cmake/QuaeroFreeTDS.cmake` lo
+  reconstruye.

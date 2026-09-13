@@ -24,6 +24,13 @@ vs `postgres:16`, ver [QA-SMOKE](./QA-SMOKE.md)). Aún no tiene columna propia e
 la matriz de abajo — las funciones a nivel UI (monitor, ER, builder, charts,
 designer, etc.) faltan por recorrer en vivo; los usuarios/permisos no están
 implementados para PG y slow-queries requiere la extensión `pg_stat_statements`.
+**SQL Server** (FreeTDS db-lib, #49) llega con conexión, consultas, mapeo de
+tipos, introspección, transacciones y cifrado, verificados en vivo en el build
+x86 contra SQL Server 2022 (`encrypt_option = TRUE` con el cifrado por defecto,
+16 tipos con su texto correcto, árbol, describe, rollback y paginación por
+cursor). DDL, edición de filas y cancelación aún no están (`DBC_ERR_UNSUPPORTED`),
+el cifrado no verifica el certificado del servidor, y `strict` (TDS 8) no se
+pudo verificar: el contenedor de 2022 sin configurar corta la conexión.
 
 ## Matriz
 

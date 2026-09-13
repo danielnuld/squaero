@@ -106,6 +106,7 @@ jobs:
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DQUAERO_BUILD_APP=ON
           -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_LIBPQ=ON
+          -DQUAERO_FREETDS=ON
 
       # Build everything so every driver plugin is produced and staged next to
       # squaero.exe (build-x86/app/ + build-x86/app/drivers/), which the MSI ships.
