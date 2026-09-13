@@ -186,6 +186,17 @@ if(TARGET mongodb_driver)
     VERBATIM)
 endif()
 
+# The SQL Server driver (issue #49) is built only when FreeTDS is available; it
+# links db-lib statically, so the plugin is all there is to stage. Missing here,
+# the v0.26.0 release failed: installer/quaero.wxs lists drivers/mssql.dll.
+if(TARGET mssql_driver)
+  add_dependencies(quaero mssql_driver)
+  add_custom_command(TARGET quaero POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:mssql_driver>" "$<TARGET_FILE_DIR:quaero>/drivers/"
+    VERBATIM)
+endif()
+
 # Stage the MinGW runtime DLLs next to the executable so the app (and any driver
 # that links libmariadb, which imports libgcc) runs without the toolchain on PATH
 # — required for a self-contained install, and doubly so for the x86 build where
