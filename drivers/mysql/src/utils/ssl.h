@@ -43,6 +43,16 @@ int mysql_ssl_mode_parse(const char *s, mysql_ssl_mode *out);
  */
 int mysql_tls_satisfied(mysql_ssl_mode mode, const char *cipher);
 
+/*
+ * Whether `mode` can be honoured with the given CA file (issue #144). Returns 0
+ * for verify_ca / verify_identity with no ssl_ca, else 1.
+ *
+ * Measured: MariaDB Connector/C given verify_ca and no CA does not refuse — it
+ * connects without verifying anything, so the certificate check the user chose
+ * silently never happens. Requiring the CA makes that choice mean what it says.
+ */
+int mysql_ssl_ca_sufficient(mysql_ssl_mode mode, const char *ca);
+
 #ifdef __cplusplus
 }
 #endif

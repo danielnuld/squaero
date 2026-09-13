@@ -51,6 +51,13 @@ int main(void)
     EXPECT(mysql_tls_satisfied(MYSQL_SSL_DISABLED, NULL), "disabled + plaintext");
     EXPECT(mysql_tls_satisfied(MYSQL_SSL_UNSET, "TLS_AES_128_GCM_SHA256"), "unset + cipher");
 
+    /* Verifying modes need a CA to verify against; the others do not. */
+    EXPECT(!mysql_ssl_ca_sufficient(MYSQL_SSL_VERIFY_CA, NULL), "verify_ca without CA");
+    EXPECT(!mysql_ssl_ca_sufficient(MYSQL_SSL_VERIFY_IDENTITY, ""), "verify_identity empty CA");
+    EXPECT(mysql_ssl_ca_sufficient(MYSQL_SSL_VERIFY_CA, "ca.pem"), "verify_ca with CA");
+    EXPECT(mysql_ssl_ca_sufficient(MYSQL_SSL_REQUIRED, NULL), "required needs no CA");
+    EXPECT(mysql_ssl_ca_sufficient(MYSQL_SSL_UNSET, NULL), "unset needs no CA");
+
     if (failures == 0) {
         printf("OK: mysql ssl_mode parse + tls guard (all cases)\n");
         return 0;

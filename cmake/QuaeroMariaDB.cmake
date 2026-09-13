@@ -6,9 +6,9 @@
 #
 # Static link => the plugin (mysql.dll) carries the client and its auth plugins
 # inside it: no libmariadb.dll to ship and no external plugin directory to locate.
-# TLS is OFF — the connector's Secure Channel backend needs wincrypt constants
-# absent from the i686 MinGW headers, and Squaero's saved connections do not
-# request TLS.
+# TLS comes from OpenSSL (cmake/QuaeroOpenSSL.cmake, issue #144). The
+# connector's own Windows backend, Secure Channel, needs wincrypt constants absent
+# from the i686 MinGW headers, which is why this build had no TLS before.
 #
 # Both auth plugins MySQL/MariaDB servers actually default to must be among those
 # compiled in. caching_sha2_password is the default for every MySQL since 8.0, and
@@ -22,6 +22,7 @@
 # mysql_load_plugin declaration); see cmake/patches/mariadb-connector-c-stdcall.cmake.
 
 include(FetchContent)
+include(QuaeroOpenSSL)
 
 # Captured at include() time — the module's own directory. Inside the function
 # below, CMAKE_CURRENT_LIST_DIR would resolve to the *caller's* list file (the
@@ -34,7 +35,10 @@ function(quaero_enable_mariadb target)
   # Steer the connector's build. Static only; no tests, no libcurl.
   set(WITH_UNIT_TESTS OFF CACHE BOOL "" FORCE)
   set(WITH_CURL OFF CACHE BOOL "" FORCE)
-  set(WITH_SSL OFF CACHE STRING "" FORCE)
+  # OPENSSL_FOUND and friends, set here, are what the connector's
+  # find_package(OpenSSL) guard checks first.
+  quaero_enable_openssl()
+  set(WITH_SSL OPENSSL CACHE STRING "" FORCE)
   set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
   # Compile the auth plugins in rather than leaving them as DLLs we do not ship.

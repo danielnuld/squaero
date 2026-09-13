@@ -1,6 +1,7 @@
 /*
  * pg_config.h — hand-authored for building a minimal static libpq with the
- * 32-bit (i686) winlibs MinGW-w64 / UCRT toolchain, no SSL / GSSAPI / NLS / zlib.
+ * 32-bit (i686) winlibs MinGW-w64 / UCRT toolchain, no GSSAPI / NLS / zlib. TLS
+ * (USE_OPENSSL and its HAVE_* probes) is defined by cmake/QuaeroLibpq.cmake.
  * Mirrors the values PostgreSQL's configure/meson would compute for that target.
  * Only what the frontend libpq + src/common + src/port subset needs.
  */

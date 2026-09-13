@@ -10,12 +10,12 @@
 # hand-authored pg_config.h for the i686 MinGW/UCRT target (cmake/libpq-win32/).
 #
 # Static link => the plugin (postgres.dll) carries libpq inside it: no libpq.dll
-# to ship. TLS is OFF (no OpenSSL) — mirroring the MariaDB x86 decision; SCRAM
-# authentication still works through libpq's built-in SHA-2 fallback, so a normal
-# password login to a modern server succeeds. A connection that requires SSL will
-# fail explicitly rather than silently downgrade.
+# to ship. TLS comes from OpenSSL (cmake/QuaeroOpenSSL.cmake, issue #144): libpq
+# is compiled with USE_OPENSSL, so its TLS, SCRAM hashing and channel binding all
+# go through it.
 
 include(FetchContent)
+include(QuaeroOpenSSL)
 
 # Captured at include() time — the module's own directory. Inside the function
 # CMAKE_CURRENT_LIST_DIR would resolve to the caller's list file.
@@ -52,15 +52,19 @@ function(quaero_enable_libpq target)
     COMMENT "Generating kwlist_d.h for libpq"
     VERBATIM)
 
-  # The libpq subset (no SSL / GSSAPI / NLS). These lists are the frontend build
-  # of libpq + the src/common and src/port objects it links against on Windows;
-  # unreferenced objects are dropped by the linker.
+  quaero_enable_openssl()
+
+  # The libpq subset (TLS through OpenSSL's API; no GSSAPI / NLS). These lists are
+  # the frontend build of libpq + the src/common and src/port objects it links
+  # against on Windows; unreferenced objects are dropped by the linker. With
+  # OpenSSL, src/common swaps its own hash implementations for the *_openssl ones,
+  # exactly as PostgreSQL's meson.build does.
   set(_libpq fe-auth-scram fe-auth fe-connect fe-exec fe-lobj fe-misc fe-print
-             fe-protocol3 fe-secure fe-trace legacy-pqsignal libpq-events
-             pqexpbuffer pthread-win32 win32)
-  set(_common scram-common saslprep cryptohash hmac md5 md5_common sha1 sha2
-              base64 encnames wchar string pg_prng ip link-canary fe_memutils
-              unicode_norm stringinfo psprintf pg_get_line)
+             fe-protocol3 fe-secure fe-secure-common fe-secure-openssl fe-trace
+             legacy-pqsignal libpq-events pqexpbuffer pthread-win32 win32)
+  set(_common scram-common saslprep cryptohash_openssl hmac_openssl
+              protocol_openssl md5_common base64 encnames wchar string pg_prng ip
+              link-canary fe_memutils unicode_norm stringinfo psprintf pg_get_line)
   set(_port snprintf strerror pgsleep noblock path pgstrcasecmp pg_strong_random
             pgstrsignal chklocale inet_net_ntop inet_aton bsearch_arg pg_bitutils
             pg_crc32c_sb8 open win32stat win32ntdll dirmod win32common win32error
@@ -89,8 +93,16 @@ function(quaero_enable_libpq target)
     "${_pg}/src/include"
     "${_pg}/src/interfaces/libpq"
     "${_pg}/src/port")
+  # USE_OPENSSL and the HAVE_* results meson computes by probing the library:
+  # OpenSSL 3.0 has every function PostgreSQL 16 checks for except CRYPTO_lock,
+  # which was removed in 1.1.0 and must stay undefined.
   target_compile_definitions(quaero_libpq PRIVATE
-    FRONTEND WIN32 SO_MAJOR_VERSION=5 _WIN32_WINNT=0x0A00)
+    FRONTEND WIN32 SO_MAJOR_VERSION=5 _WIN32_WINNT=0x0A00
+    USE_OPENSSL=1 OPENSSL_API_COMPAT=0x10001000L
+    HAVE_X509_GET_SIGNATURE_NID=1 HAVE_SSL_CTX_SET_CERT_CB=1
+    HAVE_OPENSSL_INIT_SSL=1 HAVE_BIO_METH_NEW=1 HAVE_ASN1_STRING_GET0_DATA=1
+    HAVE_HMAC_CTX_NEW=1 HAVE_HMAC_CTX_FREE=1 HAVE_X509_GET_SIGNATURE_INFO=1
+    HAVE_SSL_CTX_SET_NUM_TICKETS=1)
   # Third-party code: keep it out of the strict -Werror policy and quiet its own
   # warnings. -std=gnu11 overrides the project's strict -std=c11: PostgreSQL's
   # Windows port files rely on GNU/Win32 extensions that __STRICT_ANSI__ hides
@@ -103,10 +115,10 @@ function(quaero_enable_libpq target)
   # libpq-fe.h) and the libpq source dir (libpq-fe.h / postgres_ext.h) are needed —
   # not the socket shims. System libraries the static client references.
   set(_pg_syslibs ws2_32 secur32 crypt32 wldap32 shell32 advapi32)
-  target_link_libraries(quaero_libpq PRIVATE ${_pg_syslibs})
+  target_link_libraries(quaero_libpq PRIVATE quaero_openssl_ssl ${_pg_syslibs})
   target_include_directories(${target} SYSTEM PRIVATE
     "${_pg}/src/interfaces/libpq"
     "${_pg}/src/include"
     "${_quaero_libpq_module_dir}/libpq-win32")
-  target_link_libraries(${target} PRIVATE quaero_libpq ${_pg_syslibs})
+  target_link_libraries(${target} PRIVATE quaero_libpq quaero_openssl_ssl ${_pg_syslibs})
 endfunction()

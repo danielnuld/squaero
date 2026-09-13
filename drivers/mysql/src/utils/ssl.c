@@ -30,3 +30,9 @@ int mysql_tls_satisfied(mysql_ssl_mode mode, const char *cipher)
                      mode == MYSQL_SSL_VERIFY_IDENTITY);
     return !wants_tls || (cipher != NULL && cipher[0] != '\0');
 }
+
+int mysql_ssl_ca_sufficient(mysql_ssl_mode mode, const char *ca)
+{
+    int verifies = (mode == MYSQL_SSL_VERIFY_CA || mode == MYSQL_SSL_VERIFY_IDENTITY);
+    return !verifies || (ca != NULL && ca[0] != '\0');
+}
