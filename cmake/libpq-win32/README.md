@@ -10,8 +10,8 @@ sysroot does not ship. Used **only** when building with `-DQUAERO_LIBPQ=ON`.
 
 - `pg_config.h` — the values `configure` would compute for `i686-w64-mingw32`
   (UCRT): data sizes/alignment for ILP32, little-endian, `long long` 64-bit, no
-  `__int128`, portable slicing-by-8 CRC, SCRAM via libpq's built-in SHA-2 (no
-  OpenSSL → no TLS, mirroring the MariaDB x86 decision). Version-stamped to match
+  `__int128`, portable slicing-by-8 CRC. TLS is not here: `QuaeroLibpq.cmake`
+  compiles with `USE_OPENSSL` against a static OpenSSL 3.0 (issue #144). Version-stamped to match
   the `REL_16_9` tag fetched by `QuaeroLibpq.cmake` — bump both together.
 - `pg_config_os.h` — selects the platform port header (`port/win32.h`).
 - `pg_config_ext.h` — `PG_INT64_TYPE` (`long long int`).

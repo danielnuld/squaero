@@ -249,6 +249,9 @@ jobs:
   # from-source dependencies in 32-bit: MariaDB Connector/C (QUAERO_MARIADB,
   # static), mongo-c-driver (QUAERO_MONGOC), libssh2 (QUAERO_SSH) and libpq
   # (QUAERO_LIBPQ, static, from the PostgreSQL source — no 32-bit libpq ships).
+  # MariaDB and libpq pull in OpenSSL 3.0 for TLS (cmake/QuaeroOpenSSL.cmake,
+  # #144), built at configure time with Git's sh/perl, the runner's MSYS2 Perl
+  # modules and winlibs' mingw32-make — which is why Configure takes minutes.
   # The app shell is skipped (QUAERO_BUILD_APP=OFF) to keep the job lean; unit
   # tests run (32-bit exes run under WOW64), integration tests self-skip without
   # a server.

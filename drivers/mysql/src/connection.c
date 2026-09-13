@@ -156,6 +156,14 @@ static int configure_ssl(MYSQL *db, const cJSON *root, mysql_ssl_mode *mode_out,
                    "verify_identity");
         return -1;
     }
+    if (!mysql_ssl_ca_sufficient(mode, ca)) {
+        free(ca);
+        free(cert);
+        free(key);
+        copy_err(errbuf, errcap, "ssl_mode verify_ca / verify_identity needs ssl_ca: "
+                   "without a CA file the server certificate is not verified");
+        return -1;
+    }
     *mode_out = mode;
 
     /* mysql_ssl_set is what actually arms the client's TLS subsystem in MariaDB

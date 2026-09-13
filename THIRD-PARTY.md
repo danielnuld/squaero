@@ -55,6 +55,16 @@ El wrapper `webview` (MIT) no trae motor de render; usa el del sistema operativo
 | Windows | WinCNG (Windows CNG) | Sistema (Windows) |
 | Otras | OpenSSL 3.x | Apache-2.0 |
 
+### TLS de los drivers en el build x86 (`QUAERO_MARIADB` / `QUAERO_LIBPQ`)
+
+El instalador x86 compila OpenSSL desde su código fuente (`cmake/QuaeroOpenSSL.cmake`,
+#144) y lo enlaza **estáticamente** dentro de `mysql.dll` y `postgres.dll`; no se
+distribuye ninguna DLL de OpenSSL aparte.
+
+| Componente | Versión | Licencia | Enlace |
+|---|---|---|---|
+| OpenSSL | 3.0.22 | Apache-2.0 | Estático en los plugins `mysql` y `postgres` (x86) |
+
 ### Librerías cliente de los drivers (enlace dinámico, opcional)
 
 Cada plugin de driver enlaza la librería cliente de su motor **solo si está
@@ -157,3 +167,5 @@ enlazado en ese artefacto**:
 - Si trae el driver `mongodb`: Apache-2.0 + `NOTICE` de mongo-c-driver.
 - Si se compiló con `QUAERO_SSH`: BSD-3-Clause de libssh2 (+ Apache-2.0/`NOTICE`
   de OpenSSL donde aplique).
+- Si es el instalador x86: Apache-2.0 de OpenSSL 3.0 (va enlazado dentro de los
+  plugins `mysql` y `postgres`).
