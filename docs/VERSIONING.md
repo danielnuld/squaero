@@ -67,16 +67,50 @@ repositorio y de ese tag. Se comprueba con:
 gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero
 ```
 
-**Authenticode (pendiente).** Sin él, SmartScreen muestra «editor desconocido».
-Desde 2023 las CA solo emiten certificados de firma de código con la clave en un
-HSM, así que un `.pfx` en un secret ya no es un camino. Las opciones son:
+**Authenticode (en preparación, con SignPath Foundation).** Sin él, SmartScreen
+muestra «editor desconocido». Desde 2023 las CA solo emiten certificados de firma
+de código con la clave en un HSM, así que un `.pfx` en un secret ya no es un
+camino. SignPath Foundation firma gratis proyectos open source, y desde #506 el
+MSI ya cumple su condición principal: no contiene componentes propietarios.
 
-- un servicio en la nube (Azure Artifact Signing);
-- un certificado OV/EV en un HSM;
-- SignPath Foundation, gratuito para proyectos open source. Exige que el paquete
-  **no contenga componentes propietarios**, y el MSI trae el IBM Informix Client
-  SDK. Solo aplicaría a un MSI sin él (`build-msi.sh --no-csdk`). Pide además una
-  página «Code signing policy» con roles y MFA.
+Lo que ya está en el repositorio:
+
+- La página **«Code signing policy»** que exige SignPath, en
+  <https://danielnuld.github.io/squaero/code-signing-policy/> (`site/code-signing-policy/`),
+  enlazada desde el pie de la web. Incluye la atribución, los roles, qué se firma
+  y la política de privacidad (la comprobación de actualizaciones contacta con
+  GitHub al arrancar).
+- Los pasos de firma en `release.yml`, que **no se ejecutan** mientras no exista
+  la variable `SIGNPATH_ORGANIZATION_ID`. Suben el MSI como artefacto del
+  workflow, lo envían con `signpath/github-action-submit-signing-request@v2`,
+  comprueban en el runner que la firma sea `Valid` y lo sustituyen antes de la
+  checksum, la attestation y la publicación.
+
+Lo que solo puede hacer el mantenedor, en este orden:
+
+1. Activar **MFA** en GitHub (y luego en SignPath): lo exigen a todo el equipo.
+2. Publicar la web con la página de la política (`bash site/publish.sh`).
+3. Solicitar la suscripción en <https://signpath.org/apply> (repositorio, licencia
+   GPL-3.0, página de la política, artefacto: el MSI del workflow de release).
+4. Una vez aprobado, en SignPath: añadir el *Trusted Build System* «GitHub.com» y
+   vincularlo al proyecto, e instalar la *SignPath GitHub App* en el repositorio.
+   La configuración de artefacto firma el MSI directamente, porque el workflow lo
+   sube con `archive: false`. Revisar el esquema en la documentación de SignPath
+   al crearla:
+
+   ```xml
+   <?xml version="1.0" encoding="utf-8"?>
+   <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+     <msi-file>
+       <authenticode-sign />
+     </msi-file>
+   </artifact-configuration>
+   ```
+
+5. En GitHub (*Settings → Secrets and variables → Actions*): las variables
+   `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG` y `SIGNPATH_POLICY_SLUG`,
+   y el secret `SIGNPATH_API_TOKEN`. La siguiente release saldrá firmada, y la
+   primera firma conviene revisarla a mano (*Propiedades → Firmas digitales*).
 
 ## Nombre del producto y ejecutable
 
