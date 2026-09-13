@@ -59,13 +59,15 @@
 
     <!-- Driver plugins discovered at runtime from <installdir>/drivers.
          postgres.dll links libpq statically (no 32-bit libpq ships; built from
-         the PostgreSQL source), so like mysql.dll it needs no separate client. -->
+         the PostgreSQL source), so like mysql.dll it needs no separate client;
+         mssql.dll links FreeTDS's db-lib statically the same way. -->
     <ComponentGroup Id="DriverFiles" Directory="DriversDir">
       <File Source="build-x86/app/drivers/sqlite.dll" />
       <File Source="build-x86/app/drivers/mysql.dll" />
       <File Source="build-x86/app/drivers/postgres.dll" />
       <File Source="build-x86/app/drivers/informix.dll" />
       <File Source="build-x86/app/drivers/mongodb.dll" />
+      <File Source="build-x86/app/drivers/mssql.dll" />
     </ComponentGroup>
 
     <!-- Start Menu shortcut with the app icon. -->

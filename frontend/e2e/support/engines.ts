@@ -7,7 +7,7 @@
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-export type EngineName = "sqlite" | "postgres" | "mysql" | "informix";
+export type EngineName = "sqlite" | "postgres" | "mysql" | "informix" | "mssql";
 
 export interface EngineSpec {
   readonly name: EngineName;
@@ -189,6 +189,35 @@ export const ENGINES: readonly EngineSpec[] = [
     ],
     treePath: ["quaero_enc", "Tablas"],
   },
+  {
+    name: "mssql",
+    driver: "mssql",
+    dsn: {
+      host: "127.0.0.1",
+      port: "14333",
+      user: "sa",
+      password: "Quaero_test123",
+      database: "quaero_test",
+    },
+    label: "E2E SQL Server",
+    dropFixture: "DROP TABLE IF EXISTS e2e_items",
+    fixture: [
+      // nvarchar and N'' literals: SQL Server stores Unicode, so the driver's
+      // UTF-8 conversion is what these rows exercise.
+      "CREATE TABLE e2e_items (id int PRIMARY KEY, nombre nvarchar(60))",
+      "INSERT INTO e2e_items (id, nombre) VALUES (1, N'Nogales')",
+      "INSERT INTO e2e_items (id, nombre) VALUES (2, N'Ã±')",
+      "INSERT INTO e2e_items (id, nombre) VALUES (3, N'Cd. Obregón')",
+      ...filler(),
+    ],
+    encodingRows: { discriminator: "Ã±", accented: "Cd. Obregón" },
+    bulk: [
+      // No generator either: number the rows of a catalogue cross join.
+      `INSERT INTO e2e_items (id, nombre) SELECT n + 1000, CONCAT('fila ', n) FROM (SELECT TOP (${BULK_ROWS}) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_objects a CROSS JOIN sys.all_objects b) t`,
+    ],
+    // Database > schema > folder, like PostgreSQL.
+    treePath: ["quaero_test", "dbo", "Tablas"],
+  },
 ];
 
 export function engineByName(name: EngineName): EngineSpec {
@@ -208,6 +237,8 @@ export function startHint(name: EngineName): string {
       return "docker start quaero-my-test";
     case "informix":
       return "docker start quaero-ifx-test  (takes ~1 min to come online)";
+    case "mssql":
+      return "docker start quaero-mssql-test  (SQL Server 2022 on :14333, sa / Quaero_test123)";
     case "sqlite":
       return "no container needed; check the build produced the sqlite plugin";
   }
