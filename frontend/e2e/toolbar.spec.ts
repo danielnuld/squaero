@@ -10,7 +10,7 @@
 import { connect } from "./support/app-actions";
 import { describeEngine, expect, test } from "./support/fixtures";
 
-/** The nine tools in the strip, by the accessible name a user hears. */
+/** The tools in the strip, by the accessible name a user hears. */
 const TOOLS = [
   "Monitor de servidor",
   "Consultas lentas",
@@ -21,6 +21,7 @@ const TOOLS = [
   "Triggers y eventos",
   "Notebook SQL",
   "Snippets",
+  "Respaldo y restauración",
 ];
 
 describeEngine("sqlite", () => {
@@ -32,7 +33,7 @@ describeEngine("sqlite", () => {
     await connect(app);
 
     const strip = page.getByRole("toolbar", { name: "Acciones" });
-    // Shown by default: it is how someone finds out these nine exist at all.
+    // Shown by default: it is how someone finds out these exist at all.
     await expect(strip).toBeVisible();
 
     for (const name of TOOLS) {
@@ -100,7 +101,7 @@ describeEngine("sqlite", () => {
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
 
-    // The same nine tools as the strip, each with its own icon. The exact-name
+    // The same tools as the strip, each with its own icon. The exact-name
     // match is what proves the emoji is gone: the label used to have one glued in
     // front of it, so the accessible name was "🖥️  Monitor de servidor" — a screen
     // reader read the decoration aloud and this match would fail.
