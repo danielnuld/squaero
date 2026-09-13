@@ -40,8 +40,19 @@ int main(void)
         EXPECT(mysql_ssl_mode_parse("verifyca", &m) == 0, "no fuzzy match");
     }
 
+    /* A mode that demands TLS is only satisfied by a negotiated cipher. */
+    EXPECT(mysql_tls_satisfied(MYSQL_SSL_REQUIRED, "TLS_AES_128_GCM_SHA256"), "required + cipher");
+    EXPECT(!mysql_tls_satisfied(MYSQL_SSL_REQUIRED, NULL), "required + plaintext (NULL)");
+    EXPECT(!mysql_tls_satisfied(MYSQL_SSL_REQUIRED, ""), "required + plaintext (empty)");
+    EXPECT(!mysql_tls_satisfied(MYSQL_SSL_VERIFY_CA, ""), "verify_ca + plaintext");
+    EXPECT(!mysql_tls_satisfied(MYSQL_SSL_VERIFY_IDENTITY, NULL), "verify_identity + plaintext");
+    /* Modes that do not demand it are satisfied either way. */
+    EXPECT(mysql_tls_satisfied(MYSQL_SSL_UNSET, NULL), "unset + plaintext");
+    EXPECT(mysql_tls_satisfied(MYSQL_SSL_DISABLED, NULL), "disabled + plaintext");
+    EXPECT(mysql_tls_satisfied(MYSQL_SSL_UNSET, "TLS_AES_128_GCM_SHA256"), "unset + cipher");
+
     if (failures == 0) {
-        printf("OK: mysql ssl_mode parse (all cases)\n");
+        printf("OK: mysql ssl_mode parse + tls guard (all cases)\n");
         return 0;
     }
     fprintf(stderr, "%d assertion(s) failed\n", failures);

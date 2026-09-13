@@ -128,8 +128,10 @@ static char *dup_string(const cJSON *root, const char *key, int *oom)
  * certificates but cannot enforce the mode (documented; effectively unreachable
  * on supported clients).
  */
-static int configure_ssl(MYSQL *db, const cJSON *root, char *errbuf, size_t errcap)
+static int configure_ssl(MYSQL *db, const cJSON *root, mysql_ssl_mode *mode_out,
+                         char *errbuf, size_t errcap)
 {
+    *mode_out = MYSQL_SSL_UNSET;
     int oom = 0;
     char *ca = dup_string(root, "ssl_ca", &oom);
     char *cert = dup_string(root, "ssl_cert", &oom);
@@ -154,6 +156,7 @@ static int configure_ssl(MYSQL *db, const cJSON *root, char *errbuf, size_t errc
                    "verify_identity");
         return -1;
     }
+    *mode_out = mode;
 
     /* mysql_ssl_set is what actually arms the client's TLS subsystem in MariaDB
        Connector/C; MYSQL_OPT_SSL_MODE/ENFORCE alone do not. Call it whenever the
@@ -251,7 +254,8 @@ static dbc_status connect_handle(MYSQL *db, const char *dsn_json,
     mysql_options(db, MYSQL_SET_CHARSET_NAME, "utf8mb4");
 
     /* TLS options must be set on the handle before mysql_real_connect. */
-    int ssl_rc = configure_ssl(db, root, errbuf, errcap);
+    mysql_ssl_mode ssl_mode;
+    int ssl_rc = configure_ssl(db, root, &ssl_mode, errbuf, errcap);
     cJSON_Delete(root);
 
     dbc_status st = DBC_OK;
@@ -265,6 +269,14 @@ static dbc_status connect_handle(MYSQL *db, const char *dsn_json,
     } else if (mysql_real_connect(db, host, user, password, database, port,
                                   socket, 0) == NULL) {
         copy_err(errbuf, errcap, mysql_error(db));
+        st = DBC_ERR_CONN;
+    } else if (!mysql_tls_satisfied(ssl_mode, mysql_get_ssl_cipher(db))) {
+        /* Measured on the x86 build (issue #144): a connector compiled without TLS
+           takes ssl_mode=required and connects in plaintext without a word. A user
+           who asked for encryption must get a refusal, never a session that only
+           looks protected. The caller closes the handle. */
+        copy_err(errbuf, errcap, "TLS was requested (ssl_mode) but the connection "
+                   "is not encrypted: this client or the server has no TLS support");
         st = DBC_ERR_CONN;
     }
 
