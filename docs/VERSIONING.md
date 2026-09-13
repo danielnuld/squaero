@@ -43,7 +43,8 @@ se dispara al empujar un tag `vX.Y.Z` y hace todo en un runner `windows-latest`:
    fuente) — el mismo x86 que exige el ODBC de Informix (32-bit).
 3. Construye el MSI con WiX (`installer/build-msi.sh`).
 4. Genera `SHA256SUMS.txt`.
-5. Publica el release de GitHub adjuntando `quaero-X.Y.Z-x86.msi` +
+5. Emite una **attestation de procedencia** del MSI (`actions/attest-build-provenance`).
+6. Publica el release de GitHub adjuntando `squaero-X.Y.Z-x86.msi` +
    `SHA256SUMS.txt` (o los sube a un release ya existente con `--clobber`).
 
 Flujo típico: bumpea `VERSION`, mergea a `main` con CI en verde, y entonces:
@@ -57,10 +58,25 @@ Run workflow** (input `tag`).
 
 ### Firma
 
-El MSI se publica **sin firmar**, junto al `SHA256SUMS.txt` para verificar
-integridad. Cuando exista un certificado Authenticode, se descomenta el paso
-«Sign the MSI» del workflow y se añaden los secrets `WINDOWS_PFX_BASE64` y
-`WINDOWS_PFX_PASSWORD` (issue #41, «firma donde aplique»).
+**Procedencia (activa).** Cada MSI lleva una attestation de procedencia: una
+firma de Sigstore, emitida al workflow mediante el token OIDC de GitHub, sobre el
+digest del MSI. Demuestra que ese archivo exacto salió de `release.yml`, de este
+repositorio y de ese tag. Se comprueba con:
+
+```sh
+gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero
+```
+
+**Authenticode (pendiente).** Sin él, SmartScreen muestra «editor desconocido».
+Desde 2023 las CA solo emiten certificados de firma de código con la clave en un
+HSM, así que un `.pfx` en un secret ya no es un camino. Las opciones son:
+
+- un servicio en la nube (Azure Artifact Signing);
+- un certificado OV/EV en un HSM;
+- SignPath Foundation, gratuito para proyectos open source. Exige que el paquete
+  **no contenga componentes propietarios**, y el MSI trae el IBM Informix Client
+  SDK. Solo aplicaría a un MSI sin él (`build-msi.sh --no-csdk`). Pide además una
+  página «Code signing policy» con roles y MFA.
 
 ## Nombre del producto y ejecutable
 

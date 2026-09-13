@@ -85,7 +85,12 @@ en C: agregar un motor no requiere tocar el núcleo. Ver
 [**Releases**](https://github.com/danielnuld/squaero/releases) y ejecútalo. Requiere
 el runtime de **WebView2** (ya incluido en Windows 11). Cada release adjunta un
 `SHA256SUMS.txt` para verificar la descarga:
-`sha256sum -c SHA256SUMS.txt` (o `CertUtil -hashfile quaero-*.msi SHA256`).
+`sha256sum -c SHA256SUMS.txt` (o `CertUtil -hashfile squaero-*.msi SHA256`).
+Desde la v0.26.0 cada release lleva además una attestation de procedencia
+firmada, que demuestra que el MSI lo construyó el workflow de release de este
+repositorio: `gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero`.
+El MSI aún no lleva firma Authenticode, así que SmartScreen de Windows muestra
+un editor desconocido.
 
 > Linux (AppImage/deb) y macOS (.app) llegan en próximos releases.
 
