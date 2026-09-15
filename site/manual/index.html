@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manual de Squaero — guía de uso</title>
-<meta name="description" content="Manual de usuario de Squaero: conectar a SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB, explorar el esquema, consultar, editar datos en una transacción, importar y exportar, y las herramientas de servidor.">
+<meta name="description" content="Manual de usuario de Squaero: conectar a SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB y SQL Server, explorar el esquema, consultar, editar datos en una transacción, importar y exportar, y las herramientas de servidor.">
 
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Squaero">
@@ -74,7 +74,7 @@
       <div class="note">
         <p><b>Windows por ahora.</b> El instalador es de 32 bits (x86) a propósito:
           es lo que exige el CSDK de Informix, y así una sola compilación habla con
-          los cinco motores. Corre igual en Windows de 64 bits. macOS y Linux están
+          los seis motores. Corre igual en Windows de 64 bits. macOS y Linux están
           en camino.</p>
       </div>
       <div class="note">
@@ -141,6 +141,7 @@
           <tr><td class="k">PostgreSQL</td><td>Host, Puerto (<code>5432</code>), Base de datos, Usuario, Contraseña.</td></tr>
           <tr><td class="k">IBM Informix</td><td>Host, <b>Puerto / servicio</b> (un número como <code>1526</code> o un nombre de <code>/etc/services</code>), <b>Servidor (INFORMIXSERVER)</b>, Base de datos, Usuario, Contraseña.</td></tr>
           <tr><td class="k">MongoDB</td><td>Host, Puerto (<code>27017</code>), Base de datos, Usuario, Contraseña, <b>Base de autenticación</b> (normalmente <code>admin</code>) y <b>TLS</b>.</td></tr>
+          <tr><td class="k">SQL Server</td><td>Host, Puerto (<code>1433</code>) o <b>Instancia</b> (un nombre como <code>SQLEXPRESS</code>, en vez del puerto), Base de datos, Usuario, Contraseña y <b>Cifrado</b>.</td></tr>
         </tbody>
       </table>
       <p>En los motores de servidor, el campo <b>Base de datos</b> se puede desplegar:
@@ -148,7 +149,7 @@
         en vez de hacerte teclear el nombre.</p>
 
       <h3>Conectar por un túnel SSH</h3>
-      <p>Disponible en <b>los cinco motores</b>. En el mismo formulario, el bloque SSH:</p>
+      <p>Disponible en <b>todos los motores de servidor</b> (todos menos SQLite). En el mismo formulario, el bloque SSH:</p>
       <ul>
         <li><b>Host SSH</b>, <b>Puerto SSH</b> (22) y <b>Usuario SSH</b>.</li>
         <li><b>Autenticación SSH</b>: Agente SSH (lo predeterminado), Contraseña o
@@ -165,6 +166,10 @@
         hasta <i>verificar identidad</i>) con sus campos de <b>Certificado CA</b>,
         <b>Certificado cliente</b> y <b>Clave cliente</b>. MongoDB tiene el
         interruptor <b>TLS</b>.</p>
+      <p>SQL Server tiene <b>Cifrado</b>: obligatorio por omisión, <i>solo si el
+        servidor lo exige</i>, <i>desactivado</i> (solo cifra el inicio de sesión) o
+        <i>estricto</i> (TDS 8, SQL Server 2022+). Cifra el tráfico, pero no puede
+        verificar el certificado del servidor: no hay campo de CA.</p>
 
       <h3>Traerte las conexiones de otra herramienta</h3>
       <p>Mudarte no debería empezar por reteclear treinta servidores. <b>Importar</b>,
@@ -555,6 +560,10 @@
           nombre del servicio.</li>
         <li><b>MongoDB</b>: si el usuario no está en la misma base, hay que poner la
           <b>Base de autenticación</b> (casi siempre <code>admin</code>).</li>
+        <li><b>SQL Server</b>: usa <b>Puerto</b> o <b>Instancia</b>, no los dos. Una
+          instancia con nombre se busca a través del servicio SQL Browser, que tiene
+          que estar en marcha en el servidor. Por un túnel SSH pon el <b>Puerto</b>:
+          la instancia con nombre no funciona a través del túnel.</li>
         <li><b>Por SSH</b>: prueba primero el túnel con tu cliente SSH de siempre. Si
           la clave del host cambió, la política <i>aceptar y recordar</i> rechaza la
           conexión a propósito.</li>
