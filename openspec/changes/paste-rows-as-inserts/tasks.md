@@ -21,12 +21,11 @@ de la nota).
       menos, mayúsculas, texto con cabecera y sin ella, formas que van al
       asistente, NULL frente a cadena vacía, tabuladores dentro de valores
       en la copia exacta, clave compuesta)
-- [ ] 1.6 Prueba e2e contra MySQL real: tres inserciones, la segunda falla,
+- [x] 1.6 Prueba e2e contra MySQL real: tres inserciones, la segunda falla,
       corregir y reintentar deja exactamente tres filas (leer de la base con
-      `readNombre`, no de la rejilla) — `e2e/edit-retry.spec.ts` escrita para
-      los cuatro motores; **verde en SQLite** y comprobado que falla con el
-      `applyEdit` anterior. Falta correrla en PostgreSQL, MySQL e Informix
-      (Docker estaba apagado)
+      `readNombre`, no de la rejilla) — `e2e/edit-retry.spec.ts`, **verde en
+      SQLite, PostgreSQL, MySQL e Informix**; comprobado en SQLite que falla con
+      el `applyEdit` anterior
 
 ## 2. Copiar, marcar y duplicar (fase B)
 
@@ -69,15 +68,15 @@ de la nota).
       asistente, Guardar desactivado con conflicto y activado al corregir,
       cambiar la clave cambia el SQL de la vista previa, pegar dentro de un
       campo no se intercepta
-- [ ] 3.7 Repartir el e2e de pegado de #383 entre los dos caminos (filas
+- [x] 3.7 Repartir el e2e de pegado de #383 entre los dos caminos (filas
       pendientes y asistente) y añadir el e2e de copiar → pegar → corregir el
       email → guardar contra MySQL real — `paste-import.spec.ts` prueba ahora el
       asistente con una forma que no encaja, y `paste-rows.spec.ts` pega filas,
-      las guarda y bloquea una clave repetida hasta corregirla (cuatro motores,
-      **verde en SQLite**). `edit-retry.spec.ts` provoca el fallo con un id no
-      numérico, porque la detección previa ya ataja el duplicado. Faltan
-      PostgreSQL, MySQL e Informix, y el caso del índice único contra un MySQL
-      real (la tabla de pruebas no tiene uno)
+      las guarda y bloquea una clave repetida hasta corregirla: **verde en
+      SQLite, PostgreSQL, MySQL e Informix**. `edit-retry.spec.ts` provoca el
+      fallo con un id no numérico, porque la detección previa ya ataja el
+      duplicado. Sigue sin probarse extremo a extremo un **índice único** real:
+      la tabla de pruebas no tiene uno (lo cubren las pruebas unitarias)
 
 ## 4. Idioma
 
