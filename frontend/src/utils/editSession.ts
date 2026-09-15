@@ -29,6 +29,9 @@ export interface PendingChanges {
   insertBatch?: (number | null)[];
   /** batch -> what its rows do with the primary key they carry. */
   pkModes?: Record<number, PkMode>;
+  /** batch -> whether its empty cells were taken as NULL. Only batches pasted
+      as text have an entry: an exact copy knows NULL from "" already. */
+  emptyAsNull?: Record<number, boolean>;
 }
 
 /** Neutral column type per name, so the driver can emit numeric columns unquoted
@@ -97,12 +100,14 @@ export function addInsert(state: PendingChanges): PendingChanges {
 
 /**
  * Append several rows as one pasted batch, whose primary key starts in
- * `pkMode`. Immutable.
+ * `pkMode`. Pass `emptyAsNull` for rows parsed from text, so the choice can be
+ * switched afterwards (setBatchEmptyAsNull). Immutable.
  */
 export function addInserts(
   state: PendingChanges,
   rows: Record<string, string | null>[],
   pkMode: PkMode,
+  emptyAsNull?: boolean,
 ): PendingChanges {
   const modes = state.pkModes ?? {};
   const batch = Object.keys(modes).reduce((max, k) => Math.max(max, Number(k) + 1), 0);
@@ -111,7 +116,52 @@ export function addInserts(
     inserts: [...state.inserts, ...rows.map((r) => ({ ...r }))],
     insertBatch: [...batchesOf(state), ...rows.map(() => batch)],
     pkModes: { ...modes, [batch]: pkMode },
+    ...(emptyAsNull === undefined
+      ? {}
+      : { emptyAsNull: { ...(state.emptyAsNull ?? {}), [batch]: emptyAsNull } }),
   };
+}
+
+/**
+ * Switch a text batch between reading empty cells as NULL and as "". Pasted
+ * text has no NULL of its own, so every NULL in the batch came from an empty
+ * cell and flipping is exact. A batch that did not come from text is returned
+ * unchanged. Immutable.
+ */
+export function setBatchEmptyAsNull(
+  state: PendingChanges,
+  batch: number,
+  on: boolean,
+): PendingChanges {
+  const current = state.emptyAsNull?.[batch];
+  if (current === undefined || current === on) return state;
+  const inserts = state.inserts.map((row, i) =>
+    insertBatchOf(state, i) !== batch
+      ? row
+      : Object.fromEntries(
+          Object.entries(row).map(([k, v]) => [k, on ? (v === "" ? null : v) : (v ?? "")]),
+        ),
+  );
+  return { ...state, inserts, emptyAsNull: { ...state.emptyAsNull, [batch]: on } };
+}
+
+/** Drop every row of a batch (handing a paste to the import wizard). Immutable. */
+export function removeBatch(state: PendingChanges, batch: number): PendingChanges {
+  const keep = state.inserts.map((_, i) => insertBatchOf(state, i) !== batch);
+  return {
+    ...state,
+    inserts: state.inserts.filter((_, i) => keep[i]),
+    insertBatch: batchesOf(state).filter((_, i) => keep[i]),
+  };
+}
+
+/** The most recent batch still holding a row, or null. */
+export function lastBatch(state: PendingChanges): number | null {
+  for (let i = state.inserts.length - 1; i >= 0; i--) {
+    const batch = insertBatchOf(state, i);
+    if (batch !== null) return batch;
+  }
+  return null;
 }
 
 /** The pasted batch an inserted row belongs to, or null. */

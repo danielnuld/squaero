@@ -19,7 +19,7 @@ describeEngine("sqlite", () => {
       );
     }, text);
 
-  test("pasting TSV over a table opens the wizard, and importing writes the rows", async ({
+  test("pasting TSV that does not fit the grid opens the wizard, and importing writes the rows", async ({
     app,
   }) => {
     const { page } = app;
@@ -27,7 +27,9 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
-    await paste(page, "id\tnombre\n901\tEmpalme\n902\tMagdalena");
+    // Three columns over a two-column table: not a shape the grid can take as
+    // new rows (#517), so it goes to the wizard, which maps by header.
+    await paste(page, "id\tnombre\tnotas\n901\tEmpalme\tx\n902\tMagdalena\ty");
 
     // It opened the wizard, not the database: nothing is written yet.
     await expect(page.getByText("Vista previa de lo pegado")).toBeVisible();

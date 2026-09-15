@@ -6,7 +6,10 @@ import {
   addInsert,
   addInserts,
   insertBatchOf,
+  lastBatch,
   pkModeOf,
+  removeBatch,
+  setBatchEmptyAsNull,
   setPkMode,
   setInsertCell,
   removeInsert,
@@ -229,5 +232,56 @@ describe("pasted batches", () => {
     expect(buildPlan(source, cols, rows, s)).toEqual([
       { kind: "insert", values: { id: "5", name: "eve" }, setTypes: { id: "int", name: "text" }, insertIndex: 1 },
     ]);
+  });
+});
+
+describe("text batches and batch removal", () => {
+  it("records the empty-cell choice only for rows pasted as text", () => {
+    let s = addInserts(emptyPending(), [{ name: null }], "keep", true);
+    s = addInserts(s, [{ name: "" }], "keep");
+    expect(s.emptyAsNull).toEqual({ 0: true });
+  });
+
+  it("flips a text batch's empty cells between NULL and empty text, and back", () => {
+    let s = addInserts(emptyPending(), [{ id: "1", name: null }], "keep", true);
+    s = setBatchEmptyAsNull(s, 0, false);
+    expect(s.inserts).toEqual([{ id: "1", name: "" }]);
+    expect(s.emptyAsNull).toEqual({ 0: false });
+    s = setBatchEmptyAsNull(s, 0, true);
+    expect(s.inserts).toEqual([{ id: "1", name: null }]);
+  });
+
+  it("leaves other batches and hand-made rows alone when flipping", () => {
+    let s = addInsert(emptyPending());
+    s = setInsertCell(s, 0, "name", "");
+    s = addInserts(s, [{ name: null }], "keep", true);
+    s = addInserts(s, [{ name: "" }], "keep");
+    s = setBatchEmptyAsNull(s, 0, false);
+    expect(s.inserts).toEqual([{ name: "" }, { name: "" }, { name: "" }]);
+  });
+
+  it("does nothing for a batch that did not come from text, or is already so", () => {
+    const exact = addInserts(emptyPending(), [{ name: "" }], "keep");
+    expect(setBatchEmptyAsNull(exact, 0, true)).toBe(exact);
+    const text = addInserts(emptyPending(), [{ name: null }], "keep", true);
+    expect(setBatchEmptyAsNull(text, 0, true)).toBe(text);
+  });
+
+  it("removes every row of one batch, keeping the rest aligned", () => {
+    let s = addInserts(emptyPending(), [{ id: "1" }], "keep");
+    s = addInsert(s);
+    s = addInserts(s, [{ id: "2" }, { id: "3" }], "generate");
+    s = removeBatch(s, 1);
+    expect(s.inserts).toEqual([{ id: "1" }, {}]);
+    expect(s.insertBatch).toEqual([0, null]);
+  });
+
+  it("finds the most recent batch still holding a row", () => {
+    expect(lastBatch(emptyPending())).toBeNull();
+    let s = addInserts(emptyPending(), [{ id: "1" }], "keep");
+    s = addInserts(s, [{ id: "2" }], "keep");
+    s = addInsert(s);
+    expect(lastBatch(s)).toBe(1);
+    expect(lastBatch(removeBatch(s, 1))).toBe(0);
   });
 });
