@@ -6,6 +6,7 @@
 
 import type { ResultColumn } from "./query";
 import { whereForRow } from "./edit";
+import type { PkMode } from "./rowPaste";
 
 /** The table a result was read from, plus its primary key (empty => read-only). */
 export interface EditSource {
@@ -23,6 +24,11 @@ export interface PendingChanges {
   deletes: number[];
   /** new rows, each a { column -> value } map. */
   inserts: Record<string, string | null>[];
+  /** Parallel to `inserts`: the pasted batch a row came in with, or null for a
+      row added by hand. Absent until the first batch. */
+  insertBatch?: (number | null)[];
+  /** batch -> what its rows do with the primary key they carry. */
+  pkModes?: Record<number, PkMode>;
 }
 
 /** Neutral column type per name, so the driver can emit numeric columns unquoted
@@ -39,7 +45,14 @@ export type PlanItem =
       setTypes?: ColumnTypes;
     }
   | { kind: "delete"; where: Record<string, string | null> }
-  | { kind: "insert"; values: Record<string, string | null>; setTypes?: ColumnTypes };
+  | {
+      kind: "insert";
+      values: Record<string, string | null>;
+      setTypes?: ColumnTypes;
+      /** Which pending row this came from, to point at it when it fails. Not
+          sent to the core: runPlanItem passes fields one by one. */
+      insertIndex?: number;
+    };
 
 /** An empty change set. */
 export function emptyPending(): PendingChanges {
@@ -68,9 +81,53 @@ export function toggleDelete(state: PendingChanges, rowIndex: number): PendingCh
   };
 }
 
+/** The batch of every inserted row, filling in null for rows added before any. */
+function batchesOf(state: PendingChanges): (number | null)[] {
+  return state.inserts.map((_, i) => state.insertBatch?.[i] ?? null);
+}
+
 /** Append a blank inserted row. Immutable. */
 export function addInsert(state: PendingChanges): PendingChanges {
-  return { ...state, inserts: [...state.inserts, {}] };
+  return {
+    ...state,
+    inserts: [...state.inserts, {}],
+    ...(state.insertBatch ? { insertBatch: [...batchesOf(state), null] } : {}),
+  };
+}
+
+/**
+ * Append several rows as one pasted batch, whose primary key starts in
+ * `pkMode`. Immutable.
+ */
+export function addInserts(
+  state: PendingChanges,
+  rows: Record<string, string | null>[],
+  pkMode: PkMode,
+): PendingChanges {
+  const modes = state.pkModes ?? {};
+  const batch = Object.keys(modes).reduce((max, k) => Math.max(max, Number(k) + 1), 0);
+  return {
+    ...state,
+    inserts: [...state.inserts, ...rows.map((r) => ({ ...r }))],
+    insertBatch: [...batchesOf(state), ...rows.map(() => batch)],
+    pkModes: { ...modes, [batch]: pkMode },
+  };
+}
+
+/** The pasted batch an inserted row belongs to, or null. */
+export function insertBatchOf(state: PendingChanges, insertIndex: number): number | null {
+  return state.insertBatch?.[insertIndex] ?? null;
+}
+
+/** What an inserted row does with its primary key ("keep" for a hand-made row). */
+export function pkModeOf(state: PendingChanges, insertIndex: number): PkMode {
+  const batch = insertBatchOf(state, insertIndex);
+  return batch === null ? "keep" : (state.pkModes?.[batch] ?? "keep");
+}
+
+/** Switch a batch between generating and keeping its primary key. Immutable. */
+export function setPkMode(state: PendingChanges, batch: number, mode: PkMode): PendingChanges {
+  return { ...state, pkModes: { ...(state.pkModes ?? {}), [batch]: mode } };
 }
 
 /** Set a cell of an inserted row (by its index in `inserts`). Immutable. */
@@ -88,7 +145,13 @@ export function setInsertCell(
 
 /** Drop an inserted row (by its index in `inserts`). Immutable. */
 export function removeInsert(state: PendingChanges, insertIndex: number): PendingChanges {
-  return { ...state, inserts: state.inserts.filter((_, i) => i !== insertIndex) };
+  return {
+    ...state,
+    inserts: state.inserts.filter((_, i) => i !== insertIndex),
+    ...(state.insertBatch
+      ? { insertBatch: batchesOf(state).filter((_, i) => i !== insertIndex) }
+      : {}),
+  };
 }
 
 /** True when there is at least one edit, deletion or insert to apply. */
@@ -155,11 +218,21 @@ export function buildPlan(
     }
   }
 
-  for (const values of state.inserts) {
+  const pkLower = source.pk.map((k) => k.toLowerCase());
+  state.inserts.forEach((row, insertIndex) => {
+    // A batch that generates its key leaves the key columns out, so the
+    // database assigns them; the copied values stay in the pending row in case
+    // the user switches back to keeping them.
+    const values =
+      pkModeOf(state, insertIndex) === "generate"
+        ? Object.fromEntries(
+            Object.entries(row).filter(([k]) => !pkLower.includes(k.toLowerCase())),
+          )
+        : row;
     if (Object.keys(values).length > 0) {
-      plan.push({ kind: "insert", values, setTypes: typesFor(Object.keys(values)) });
+      plan.push({ kind: "insert", values, setTypes: typesFor(Object.keys(values)), insertIndex });
     }
-  }
+  });
 
   return plan;
 }
