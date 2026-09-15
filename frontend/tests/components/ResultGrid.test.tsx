@@ -1145,3 +1145,123 @@ describe("ResultGrid pending rows", () => {
     expect(rows[1].classList.contains("row-failed")).toBe(true);
   });
 });
+
+// The row-number column that marks rows with a checkbox (#517 follow-up), so
+// marking does not depend on knowing Ctrl/Shift+click.
+describe("ResultGrid mark column", () => {
+  const grid: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "name", type: "text" },
+    ],
+    rows: [
+      ["1", "ana"],
+      ["2", "beto"],
+      ["3", "carla"],
+      ["4", "dora"],
+    ],
+    truncated: false,
+    rowsAffected: 0,
+  };
+
+  let marked: number[] = [];
+
+  function mountMarks(withMarks = true) {
+    marked = [];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={grid}
+            loading={false}
+            error={null}
+            onMarkedRowsChange={withMarks ? (rows) => (marked = rows) : undefined}
+          />
+        ),
+        host!,
+      );
+    });
+  }
+
+  const box = (name: string) =>
+    [...host!.querySelectorAll<HTMLInputElement>("input[type=checkbox]")].find(
+      (b) => b.getAttribute("aria-label") === name,
+    )!;
+  const click = (el: HTMLElement, init: MouseEventInit = {}) =>
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...init }));
+
+  it("adds no column where the marks go nowhere", () => {
+    mountMarks(false);
+    expect(host!.querySelector(".grid-mark")).toBeNull();
+    expect(host!.querySelector(".grid-scroll")!.getAttribute("aria-colcount")).toBe("2");
+    expect(host!.querySelector("[data-cell='0-0']")!.getAttribute("aria-colindex")).toBe("1");
+  });
+
+  it("counts itself as the first column, shifting the data columns by one", () => {
+    mountMarks();
+    expect(host!.querySelector(".grid-scroll")!.getAttribute("aria-colcount")).toBe("3");
+    expect(host!.querySelector("[data-cell='0-0']")!.getAttribute("aria-colindex")).toBe("2");
+    expect(host!.querySelector(".grid-rows .grid-mark")!.textContent).toContain("1");
+  });
+
+  it("marks and unmarks a row from its checkbox", () => {
+    mountMarks();
+    const second = box("Marcar la fila 2");
+    click(second);
+    expect(marked).toEqual([1]);
+    expect(box("Marcar la fila 2").checked).toBe(true);
+    click(box("Marcar la fila 2"));
+    expect(marked).toEqual([]);
+    expect(box("Marcar la fila 2").checked).toBe(false);
+  });
+
+  it("adds to the marks, unlike a plain click on a cell", () => {
+    mountMarks();
+    click(box("Marcar la fila 1"));
+    click(box("Marcar la fila 3"));
+    expect(marked).toEqual([0, 2]);
+  });
+
+  it("marks the range back to the last row touched with Shift", () => {
+    mountMarks();
+    click(box("Marcar la fila 1"));
+    click(box("Marcar la fila 4"), { shiftKey: true });
+    expect(marked).toEqual([0, 1, 2, 3]);
+  });
+
+  it("marks every visible row from the header, and clears them again", () => {
+    mountMarks();
+    const all = box("Marcar todas las filas visibles");
+    click(all);
+    expect(marked).toEqual([0, 1, 2, 3]);
+    expect(box("Marcar todas las filas visibles").checked).toBe(true);
+    click(box("Marcar todas las filas visibles"));
+    expect(marked).toEqual([]);
+  });
+
+  it("marks only what the filter shows", () => {
+    mountMarks();
+    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    filter.value = "a";
+    filter.dispatchEvent(new Event("input", { bubbles: true })); // ana, carla, dora
+    click(box("Marcar todas las filas visibles"));
+    expect(marked).toEqual([0, 2, 3]);
+  });
+
+  it("shows the header checkbox half-set while only some rows are marked", () => {
+    mountMarks();
+    click(box("Marcar la fila 2"));
+    const all = box("Marcar todas las filas visibles");
+    expect(all.indeterminate).toBe(true);
+    expect(all.checked).toBe(false);
+  });
+
+  it("keeps the row checkboxes out of the tab order, but not the header one", () => {
+    mountMarks();
+    expect(box("Marcar la fila 1").getAttribute("tabindex")).toBe("-1");
+    expect(box("Marcar todas las filas visibles").hasAttribute("tabindex")).toBe(false);
+  });
+});
