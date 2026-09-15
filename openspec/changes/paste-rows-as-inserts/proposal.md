@@ -2,7 +2,7 @@
 
 Crear filas parecidas a las que ya existen es de las tareas más repetidas en un
 cliente de bases de datos: un cliente de prueba igual a otro, una tarifa copiada
-de la del año pasado, un registro de otra base. En Aroo hoy no hay un camino
+de la del año pasado, un registro de otra base. En Squaero hoy no hay un camino
 directo:
 
 1. **Pegar abre un asistente.** Pegar texto con tabuladores sobre una tabla
@@ -31,7 +31,7 @@ las duplica dentro de la transacción.
 - **Pegar filas sobre una tabla editable las añade como filas nuevas sin
   guardar**, en la misma sesión de edición que ya existe, que se abre sola si
   no estaba abierta. Nada se escribe en la base hasta Guardar.
-  - Filas copiadas en Aroo: se colocan **por nombre de columna**, conservando
+  - Filas copiadas en Squaero: se colocan **por nombre de columna**, conservando
     NULL. Sirve entre tablas distintas con columnas del mismo nombre.
   - Texto de fuera con **el mismo número de columnas** que la rejilla y sin
     cabecera: se coloca por posición, con la opción «celdas vacías como NULL».

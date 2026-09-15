@@ -66,7 +66,7 @@ en la señal. Al pegar, si `clipboardData.getData("text/plain") === rowClipboard
 se usa la copia exacta; si no, el texto es de otra aplicación.
 
 *Por qué:* el evento `paste` es la única lectura del portapapeles que el webview
-garantiza (#383), y un formato propio (`application/x-aroo-rows`) no se puede
+garantiza (#383), y un formato propio (`application/x-squaero-rows`) no se puede
 escribir con `copyText`. Comparar el texto detecta si alguien copió otra cosa
 después.
 

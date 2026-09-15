@@ -16,7 +16,7 @@ la celda seleccionada. Copiar como INSERT MUST NOT sustituir la copia exacta.
 - **WHEN** no hay filas marcadas, la celda seleccionada está en la fila 4 y el usuario pulsa Ctrl+C
 - **THEN** se copia la fila 4
 
-### Requirement: Pegar filas de Aroo las añade como filas nuevas pendientes
+### Requirement: Pegar filas copiadas en Squaero las añade como filas nuevas pendientes
 Pegar sobre la rejilla de una tabla editable, cuando el texto del portapapeles
 coincide con la última copia exacta, SHALL añadir una fila pendiente por cada
 fila copiada, colocando los valores por nombre de columna sin distinguir

@@ -75,8 +75,10 @@ de la nota).
       las guarda y bloquea una clave repetida hasta corregirla: **verde en
       SQLite, PostgreSQL, MySQL e Informix**. `edit-retry.spec.ts` provoca el
       fallo con un id no numérico, porque la detección previa ya ataja el
-      duplicado. Sigue sin probarse extremo a extremo un **índice único** real:
-      la tabla de pruebas no tiene uno (lo cubren las pruebas unitarias)
+      duplicado. El **índice único** real también está probado: `paste-rows`
+      crea uno en `nombre` y pega un nombre repetido. SQLite, PostgreSQL y MySQL
+      lo detectan antes de guardar; en Informix lo rechaza la base al guardar y,
+      corregido, se guarda. Verde en los cuatro
 
 ## 4. Idioma
 
