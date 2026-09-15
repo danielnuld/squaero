@@ -4,10 +4,10 @@
 // becomes pending rows of the open table, nothing is written until the SQL is
 // reviewed and applied, and then the database really holds the rows.
 
-import { connect, openFixtureTable, readNombre } from "./support/app-actions";
+import { connect, onCore, openFixtureTable, readNombre } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
 
-describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
+describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => {
   /** Fire a real paste at the document, carrying `text` as text/plain. */
   const paste = (page: import("@playwright/test").Page, text: string) =>
     page.evaluate((payload) => {
@@ -65,6 +65,55 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     await page.getByRole("button", { name: "Aplicar y confirmar" }).click();
 
     await expect.poll(() => readNombre(app, 913), { timeout: 15_000 }).toBe("Repetida");
+    expect(await readNombre(app, 1)).toBe("Nogales");
+  });
+
+  // A unique index the fixture does not have (reseeding drops it with the table).
+  // Where the catalog gives the index's columns — SQLite, PostgreSQL, MySQL — the
+  // repeated value is caught before saving. Informix's listing has no columns, so
+  // there the database is what says no, the session survives, and fixing the row
+  // saves it.
+  test("a pasted value a unique index already holds is caught, and saves once fixed", async ({
+    app,
+  }) => {
+    const { page } = app;
+    await app.open();
+    await connect(app);
+    await openFixtureTable(app);
+    // Created after the table is on screen: MySQL pages an ORDER BY-less preview
+    // through the new index, which pushes "Nogales" off the first page. The index
+    // is still there to find, because the catalog is read on entering edit mode,
+    // and the paste below is what enters it.
+    await onCore(app, "CREATE UNIQUE INDEX e2e_items_nombre_uq ON e2e_items (nombre)");
+
+    // Row 1 is "Nogales"; the pasted id is new, the name is not.
+    await paste(page, "921\tNogales");
+    const bar = page.getByRole("toolbar", { name: "Filas nuevas sin guardar" });
+    await expect(bar.getByText("1 fila nueva sin guardar")).toBeVisible({ timeout: 15_000 });
+    const save = bar.getByRole("button", { name: /Revisar y guardar/ });
+    const nombre = page.getByRole("textbox", { name: "nombre (fila nueva)", exact: true });
+
+    if (engineName === "informix") {
+      await save.click();
+      await page.getByRole("button", { name: "Aplicar y confirmar" }).click();
+      await expect(page.getByText(/Error al aplicar/)).toBeVisible({ timeout: 15_000 });
+      // The pending row is still there to fix.
+      await expect(nombre).toHaveValue("Nogales");
+    } else {
+      await expect(bar.getByText("1 choca con un valor que ya existe")).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(nombre).toHaveAttribute("aria-invalid", "true");
+      await expect(save).toBeDisabled();
+    }
+    expect(await readNombre(app, 921)).toBeNull();
+
+    await nombre.fill("Unica");
+    await expect(save).toBeEnabled();
+    await save.click();
+    await page.getByRole("button", { name: "Aplicar y confirmar" }).click();
+
+    await expect.poll(() => readNombre(app, 921), { timeout: 15_000 }).toBe("Unica");
     expect(await readNombre(app, 1)).toBe("Nogales");
   });
 });
