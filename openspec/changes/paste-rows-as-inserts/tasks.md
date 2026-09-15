@@ -48,25 +48,36 @@ de la nota).
 
 ## 3. Pegar como filas pendientes (fase C)
 
-- [ ] 3.1 `onPaste`: comparar con `rowClipboard.text`, `planPaste`, abrir la
+- [x] 3.1 `onPaste`: comparar con `rowClipboard.text`, `planPaste`, abrir la
       edición si hace falta, `addInserts`; si no es editable o
       `planPaste` devuelve `wizard`, el camino actual
-- [ ] 3.2 `RowActionBar` en modo pendientes: contador, conflictos, clave
+- [x] 3.2 `RowActionBar` en modo pendientes: contador, conflictos, clave
       generar/conservar, «vacías como NULL» (solo con texto de fuera), Ver SQL,
-      Descartar, Guardar e «Importar con el asistente…»
-- [ ] 3.3 `ResultGrid`: `+` en la columna del número de fila de las pendientes
+      Descartar, Guardar e «Importar con el asistente…» — hecho como
+      `components/PendingRowsBar.tsx`. **Ver SQL y Guardar son un solo botón,
+      «Revisar y guardar»**: guardar ya pasa siempre por la vista previa del
+      SQL, así que eran la misma acción. Más de 500 filas van al asistente sin
+      aviso aparte (la spec lo recoge así)
+- [x] 3.3 `ResultGrid`: `+` en la columna del número de fila de las pendientes
       (quita la fila), clave mostrada como `auto` en «generar», celdas en
-      conflicto y fila fallida señaladas
-- [ ] 3.4 `loadUniqueIndexes` en segundo plano al entrar en edición (patrón de
+      conflicto y fila fallida señaladas — la fila pendiente **conserva la ✕**
+      que ya tenía para quitarla: un `+` que borra se lee al revés
+- [x] 3.4 `loadUniqueIndexes` en segundo plano al entrar en edición (patrón de
       `loadFkLookups`), y `findConflicts` recalculado al editar una pendiente
-- [ ] 3.5 Aviso de columnas ignoradas al pegar entre tablas distintas
-- [ ] 3.6 Pruebas de componente: pegar crea pendientes, forma distinta abre el
+- [x] 3.5 Aviso de columnas ignoradas al pegar entre tablas distintas
+- [x] 3.6 Pruebas de componente: pegar crea pendientes, forma distinta abre el
       asistente, Guardar desactivado con conflicto y activado al corregir,
       cambiar la clave cambia el SQL de la vista previa, pegar dentro de un
       campo no se intercepta
 - [ ] 3.7 Repartir el e2e de pegado de #383 entre los dos caminos (filas
       pendientes y asistente) y añadir el e2e de copiar → pegar → corregir el
-      email → guardar contra MySQL real
+      email → guardar contra MySQL real — `paste-import.spec.ts` prueba ahora el
+      asistente con una forma que no encaja, y `paste-rows.spec.ts` pega filas,
+      las guarda y bloquea una clave repetida hasta corregirla (cuatro motores,
+      **verde en SQLite**). `edit-retry.spec.ts` provoca el fallo con un id no
+      numérico, porque la detección previa ya ataja el duplicado. Faltan
+      PostgreSQL, MySQL e Informix, y el caso del índice único contra un MySQL
+      real (la tabla de pruebas no tiene uno)
 
 ## 4. Idioma
 

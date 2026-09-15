@@ -150,9 +150,18 @@ parte del plan ya se ejecutó.
 
 ### 7. Barras en un componente, atajos en el componente de la rejilla
 
-`components/RowActionBar.tsx` es presentacional: recibe el modo (selección o
-pendientes), los contadores, los conflictos, `pkMode`, «vacías como NULL» y los
-callbacks. Se monta sobre la rejilla, en posición absoluta, para no robar altura.
+Son dos componentes presentacionales que comparten estilo:
+`components/RowActionBar.tsx` para las filas marcadas y
+`components/PendingRowsBar.tsx` para las pendientes. Esta última recibe los
+contadores, los conflictos, `pkMode`, «vacías como NULL», las columnas ignoradas y
+los callbacks. Ninguna rama del JSX depende de un «modo», y cada una se prueba por
+separado. Las dos se montan sobre la rejilla, en posición absoluta, para no robar
+altura.
+
+La barra de pendientes no tiene «Ver SQL»: guardar ya abre siempre la vista previa
+del SQL, así que habría dos botones para la misma acción. Queda un solo «Revisar
+y guardar». Cada fila pendiente conserva la ✕ que ya tenía para quitarla, en lugar
+del `+` del prototipo, que se leía al revés.
 
 `Ctrl+C` y `Ctrl+D` se manejan en el `onKeyDown` de `ResultGrid`, que ya maneja
 `Ctrl+A`. `Ctrl+V` sigue en el listener `paste` de `document`, porque es el que

@@ -46,10 +46,9 @@ las duplica dentro de la transacción.
 - **Barra flotante de selección** en cuanto hay una fila marcada: copiar, copiar
   como INSERT, duplicar, pegar N filas y desmarcar. El menú contextual ofrece lo
   mismo también con una sola fila.
-- **Barra de filas pendientes**: cuántas hay, el selector de clave, Ver SQL (la
-  vista previa que ya existe), Descartar y Guardar (`Ctrl+S`, #436). Cada fila
-  pendiente lleva un `+` en la columna del número de fila, se puede editar y se
-  puede quitar.
+- **Barra de filas pendientes**: cuántas hay, el selector de clave, Descartar y
+  «Revisar y guardar» (`Ctrl+S`, #436), que abre la vista previa del SQL que ya
+  existe. Cada fila pendiente se puede editar y se puede quitar con su ✕.
 - **Conflictos avisados antes de guardar**, cuando se pueden saber: una clave
   primaria conservada que ya existe en las filas cargadas o en otra pendiente, y
   los índices únicos del catálogo, que se leen en segundo plano como las llaves
@@ -82,7 +81,8 @@ que este cambio no cubre.
   - `utils/editSession.ts`: añadir varias inserciones de una vez y quitar las columnas de la clave.
   - `App.tsx`: portapapeles de filas, `onPaste`, atajos, barras, `applyEdit` con reversión y lectura de índices únicos.
   - `components/ResultGrid.tsx`: columna del número de fila en las pendientes y celdas en conflicto.
-  - Componente nuevo `components/RowActionBar.tsx`.
+  - Componentes nuevos `components/RowActionBar.tsx` (filas marcadas) y
+    `components/PendingRowsBar.tsx` (filas pendientes).
   - `styles.css` y los dos catálogos de mensajes.
 - **Sin cambios de IPC ni del core**: se usan `tx.begin`, `tx.rollback`,
   `tx.commit` y `row.insert` tal como están, más la consulta de índices de
