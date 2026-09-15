@@ -31,10 +31,11 @@ de la nota).
 
 - [x] 2.1 Señal `rowClipboard` en `App.tsx`; copiar filas (menú, barra y
       `Ctrl+C`) escribe el texto y guarda la copia exacta
-- [ ] 2.2 `Ctrl+C` y `Ctrl+D` en el `onKeyDown` de `ResultGrid` (filas marcadas
+- [x] 2.2 `Ctrl+C` y `Ctrl+D` en el `onKeyDown` de `ResultGrid` (filas marcadas
       o fila de la celda seleccionada); comprobar en WebView2 que `Ctrl+D` llega
-      — hecho y probado en jsdom y Chromium (e2e); **falta comprobarlo en la
-      ventana nativa (WebView2)**
+      — probado en jsdom y Chromium (e2e), y **comprobado por el usuario en la
+      ventana nativa** (build x86, MySQL): Ctrl+C, Ctrl+V, Ctrl+D, Escape, la
+      barra de pendientes y el bloqueo por clave repetida funcionan
 - [x] 2.3 `components/RowActionBar.tsx` en modo selección: contador, Copiar,
       Copiar como INSERT, Duplicar, Pegar N (desactivado si no hay copia) y
       Desmarcar; Escape desmarca. «Pegar N» pega la copia exacta de la app;
