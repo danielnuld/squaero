@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Squaero — Gestor de bases de datos ligero, local y libre</title>
-<meta name="description" content="Squaero es un gestor de bases de datos ligero y nativo, local y de código abierto. Sin nube, sin cuentas, sin telemetría — con edición transaccional segura para SQLite, MySQL/MariaDB, Informix y MongoDB.">
+<meta name="description" content="Squaero es un gestor de bases de datos ligero y nativo, local y de código abierto. Sin nube, sin cuentas, sin telemetría — con edición transaccional segura para SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB.">
 
 <!-- Open Graph / Twitter -->
 <meta property="og:type" content="website">
@@ -65,7 +65,7 @@
 
     <ul class="values" style="margin-top:40px">
       <li><p class="k"><span class="d"></span>Ligero y nativo</p><p>Núcleo en C y WebView del sistema: arranca al instante, sin el peso de un entorno Electron o una JVM.</p></li>
-      <li><p class="k"><span class="d"></span>Multi-motor</p><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB desde una misma interfaz, con soporte de Informix incluido.</p></li>
+      <li><p class="k"><span class="d"></span>Multi-motor</p><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB y SQL Server desde una misma interfaz.</p></li>
       <li><p class="k"><span class="d"></span>Local y privado</p><p>Tus conexiones y consultas se quedan en tu equipo. Sin cuentas, sin nube, sin telemetría.</p></li>
       <li><p class="k"><span class="d"></span>Edición segura</p><p>Cambios sobre los datos en una transacción con vista previa del SQL: confirmas o descartas.</p></li>
       <li><p class="k"><span class="d"></span>Código abierto</p><p>Gratuito y auditable. Sin licencias por asiento ni funciones tras un muro de pago.</p></li>
@@ -105,7 +105,7 @@
       <div class="feature"><div class="ic" style="background:var(--obj-view)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg></div><h3>Explorador por tipo</h3><p>Árbol de conexión → base → tablas, vistas, funciones, procedimientos, triggers y eventos, con iconos a color.</p></div>
       <div class="feature"><div class="ic" style="background:var(--obj-proc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/></svg></div><h3>Import / Export</h3><p>CSV, JSON, XLSX, XML, HTML y SQL. Importa hojas de cálculo y exporta cualquier resultado.</p></div>
       <div class="feature"><div class="ic" style="background:var(--obj-func)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><h3>Herramientas</h3><p>Diagrama ER, constructor visual de consultas, gráficos, monitor de servidor, usuarios y permisos.</p></div>
-      <div class="feature"><div class="ic" style="background:var(--obj-event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></div><h3>Multi-motor</h3><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB — mismo flujo de trabajo en todos.</p></div>
+      <div class="feature"><div class="ic" style="background:var(--obj-event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></div><h3>Multi-motor</h3><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB y SQL Server — mismo flujo de trabajo en todos.</p></div>
     </div>
 
     <div class="gallery">
@@ -210,8 +210,9 @@
   <!-- DOWNLOADS -->
   <section id="download">
     <h2>Descargar</h2>
-    <p class="intro">Instalador para Windows con los cinco motores incluidos (SQLite, MySQL/MariaDB,
-      PostgreSQL, Informix, MongoDB).</p>
+    <p class="intro">Instalador para Windows con los seis motores (SQLite, MySQL/MariaDB,
+      PostgreSQL, Informix, MongoDB, SQL Server). Para Informix hace falta instalar aparte
+      el IBM Informix Client SDK de 32 bits.</p>
     <div class="downloads">
       <div class="dl">
         <h3>Windows</h3>
