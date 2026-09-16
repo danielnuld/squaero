@@ -2185,15 +2185,22 @@ kbd {
   min-height: 0;
   overflow: auto;
   display: grid;
-  grid-template-columns: 180px minmax(0, 640px);
+  grid-template-columns: 180px minmax(0, 640px) 260px;
   gap: var(--sp-5);
   padding: var(--sp-5);
   align-items: start;
 }
 
-.cf-index {
+.cf-index,
+.cf-side {
   position: sticky;
   top: 0;
+}
+
+.cf-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
 }
 
 .cf-index ul {
@@ -2411,6 +2418,142 @@ kbd {
   padding: var(--sp-3) var(--sp-5);
   border-top: 1px solid var(--border);
   background: var(--bg-elev);
+}
+
+/* One strip with every option readable at once, instead of a dropdown whose
+   values ("verify_ca") the user had to decode (issue #531). */
+.cf-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.cf-seg-btn {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-elev);
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+}
+
+.cf-seg-btn:hover {
+  background: var(--bg-elev2);
+}
+
+.cf-seg-btn.is-on {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* The sentence under a security control: what that mode actually protects. */
+.cf-hint {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* The tunnel's switch — the thing the tabs never gave it. */
+.cf-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-md);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.cf-advanced > summary {
+  cursor: pointer;
+  padding: var(--sp-2) 0;
+  font-size: var(--fs-base);
+  color: var(--accent-text);
+}
+
+.cf-advanced[open] > summary {
+  margin-bottom: var(--sp-3);
+}
+
+.cf-advanced > .cf-field {
+  margin-bottom: var(--sp-3);
+}
+
+/* The right-hand column: what you are building, and whether it answers. */
+.cf-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.cf-card-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.cf-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.cf-preview-accent {
+  flex-shrink: 0;
+  width: 3px;
+  align-self: stretch;
+  min-height: var(--h-sm);
+  border-radius: var(--r-pill);
+  background: var(--border);
+}
+
+.cf-preview-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-preview-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-preview-sub {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-test[data-state="ok"] {
+  border-color: var(--number);
+}
+
+.cf-test[data-state="error"] {
+  border-color: var(--error);
+}
+
+.cf-test-line {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 /* The saved connections as a tab of their own (issue #525). The list was drawn

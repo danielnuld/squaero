@@ -101,11 +101,11 @@ describe("ConnectionForm sections", () => {
     expect(sectionTitles()).toEqual(["Motor", "Archivo", "Apariencia"]);
   });
 
-  it("shows every field at once, tunnel included", () => {
+  it("shows the engine's own fields at once, with no tab to open", () => {
     mount({ initial: mysql() });
     const labels = [...host!.querySelectorAll(".cf-label")].map((s) => s.textContent ?? "");
-    expect(labels.some((l) => l.startsWith("Host SSH"))).toBe(true);
     expect(labels.some((l) => l.startsWith("Host"))).toBe(true);
+    expect(labels.some((l) => l.startsWith("Usuario"))).toBe(true);
   });
 
   it("marks the fields that are not required", () => {
@@ -271,6 +271,166 @@ describe("ConnectionForm save and connect", () => {
     mount({ initial: mysql(), onSaveAndConnect });
     clickText("Guardar y conectar");
     expect(onSaveAndConnect).not.toHaveBeenCalled();
+  });
+});
+
+describe("ConnectionForm security", () => {
+  const segments = () =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".cf-seg-btn")].map(
+      (b) => b.textContent?.trim() ?? "",
+    );
+  const hint = () => host!.querySelector(".cf-hint")?.textContent ?? "";
+  /** By prefix: some option labels carry a parenthesis ("Estricto (TDS 8…)"). */
+  const pick = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".cf-seg-btn")]
+      .find((b) => (b.textContent ?? "").trim().startsWith(label))!
+      .click();
+
+  // The dropdown said "verify_ca" and left the user to work out what that
+  // protects. Every choice is visible, and each one says what it does.
+  it("lays the modes out in the open, with a sentence for the chosen one", () => {
+    mount({ initial: mysql() });
+    expect(segments()).toContain("Verificar CA");
+    expect(hint()).toMatch(/cifra/i);
+  });
+
+  it("changes the sentence with the mode", () => {
+    mount({ initial: mysql() });
+    pick("Desactivado");
+    expect(hint()).toMatch(/en claro/i);
+    pick("Verificar identidad");
+    expect(hint()).toMatch(/nombre del servidor/i);
+  });
+
+  // Offering certificate boxes where the driver cannot read them would promise
+  // a check that never happens.
+  it("asks for certificates only in the modes that verify one", () => {
+    mount({ initial: mysql() });
+    const caShown = () =>
+      [...host!.querySelectorAll(".cf-label")].some((s) =>
+        (s.textContent ?? "").startsWith("Certificado CA"),
+      );
+    expect(caShown()).toBe(false);
+    pick("Verificar CA");
+    expect(caShown()).toBe(true);
+    pick("Desactivado");
+    expect(caShown()).toBe(false);
+  });
+
+  it("offers no certificates for an engine whose driver cannot check one", () => {
+    // SQL Server encrypts but db-lib takes no CA file.
+    mount({ initial: { id: "c", name: "", driver: "mssql", params: {} } });
+    pick("Estricto");
+    expect(
+      [...host!.querySelectorAll(".cf-label")].some((s) =>
+        (s.textContent ?? "").startsWith("Certificado"),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("ConnectionForm SSH tunnel", () => {
+  const sshSwitch = () => host!.querySelector<HTMLInputElement>(".cf-switch input")!;
+  const sshHostShown = () =>
+    [...host!.querySelectorAll(".cf-label")].some((s) =>
+      (s.textContent ?? "").startsWith("Host SSH"),
+    );
+  const toggle = () => {
+    const box = sshSwitch();
+    box.checked = !box.checked;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  // The whole point of the redesign: the tunnel used to turn itself on by
+  // typing into a field of a tab nobody had opened.
+  it("is off on a new connection, and says so with a switch", () => {
+    mount({ initial: mysql() });
+    expect(sshSwitch().checked).toBe(false);
+    expect(sshHostShown()).toBe(false);
+  });
+
+  it("reveals its fields when switched on", () => {
+    mount({ initial: mysql() });
+    toggle();
+    expect(sshHostShown()).toBe(true);
+  });
+
+  // The model has no flag: a saved connection is tunnelling precisely when it
+  // has a host, so editing one arrives with the switch already on.
+  it("arrives on for a connection that already tunnels", () => {
+    mount({ initial: mysql({ host: "h", user: "u", ssh_host: "bastion" }) });
+    expect(sshSwitch().checked).toBe(true);
+    expect(sshHostShown()).toBe(true);
+  });
+
+  it("wants somewhere to tunnel to once it is on", () => {
+    const onSave = vi.fn();
+    mount({ initial: mysql({ host: "h", user: "u" }), onSave });
+    toggle();
+    clickText("Guardar");
+    expect(onSave).not.toHaveBeenCalled();
+    expect(indexNames()).toContain("Túnel SSH: con errores");
+  });
+
+  // Leaving an ssh_host behind would keep tunnelling silently — the very thing
+  // the switch exists to make visible.
+  it("drops every ssh_* key when saved with the tunnel off", () => {
+    const onSave = vi.fn();
+    mount({
+      initial: mysql({ host: "h", user: "u", ssh_host: "bastion", ssh_user: "root" }),
+      onSave,
+    });
+    toggle(); // off
+    clickText("Guardar");
+    const saved = onSave.mock.calls[0][0].params;
+    expect(Object.keys(saved).some((k) => k.startsWith("ssh_"))).toBe(false);
+    expect(saved.host).toBe("h");
+  });
+
+  it("keeps what was typed while the switch is off, so turning it back on restores it", () => {
+    const onSave = vi.fn();
+    mount({ initial: mysql({ host: "h", user: "u", ssh_host: "bastion" }), onSave });
+    toggle(); // off
+    toggle(); // on again
+    clickText("Guardar");
+    expect(onSave.mock.calls[0][0].params.ssh_host).toBe("bastion");
+  });
+
+  it("folds away the options nobody fills on a first connection", () => {
+    mount({ initial: mysql({ ssh_host: "bastion" }) });
+    const advanced = host!.querySelector("details.cf-advanced")!;
+    expect(advanced).not.toBeNull();
+    expect((advanced as HTMLDetailsElement).open).toBe(false);
+    expect(advanced.textContent).toContain("Host destino");
+  });
+});
+
+describe("ConnectionForm preview and test card", () => {
+  it("previews the connection as the bar will draw it", () => {
+    mount({ initial: mysql({ host: "10.0.4.12", database: "ventas" }) });
+    const preview = host!.querySelector(".cf-preview")!;
+    expect(preview.textContent).toContain("MY"); // monogram
+    expect(preview.textContent).toContain("ventas @ 10.0.4.12"); // deduced name
+    expect(preview.textContent).toContain("MySQL / MariaDB");
+  });
+
+  it("starts by saying it has not been tested", () => {
+    mount({});
+    expect(host!.querySelector(".cf-test")!.textContent).toContain("Sin probar");
+  });
+
+  // The core reports no latency, so the number is measured here — showing one
+  // nobody measured would be worse than showing none.
+  it("reports how long a successful test took", async () => {
+    mount({
+      initial: { id: "c", name: "L", driver: "sqlite", params: { path: "/tmp/a.db" } },
+      onTest: async () => {},
+    });
+    clickText("Probar conexión");
+    await flush();
+    const card = host!.querySelector(".cf-test")!;
+    expect(card.getAttribute("data-state")).toBe("ok");
+    expect(card.textContent).toMatch(/\d+ ms/);
   });
 });
 
