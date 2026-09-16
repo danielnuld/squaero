@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { connectionTarget, engineMonogram } from "../../src/utils/connections";
+import {
+  connectionTarget,
+  defaultConnectionName,
+  engineMonogram,
+} from "../../src/utils/connections";
 
 // The two pieces the connection bar's rows need (#525): a monogram that fits a
 // 28px chip, and the one-line "where does this point" that the search also
@@ -112,6 +116,80 @@ const pgConn = (over: Partial<Connection> = {}): Connection => ({
   driver: "postgres",
   params: { host: "localhost", database: "app", user: "me", password: "secret" },
   ...over,
+});
+
+// Issue #531: the name stops being something you must invent before you can
+// save. These are the names the form offers when the field is left empty.
+describe("defaultConnectionName", () => {
+  const c = (params: Record<string, string>, driver = "mysql") => ({
+    id: "c1",
+    name: "",
+    driver,
+    params,
+  });
+
+  it("names a server connection after the database and where it lives", () => {
+    expect(defaultConnectionName(c({ host: "10.0.4.12", database: "ventas" }))).toBe(
+      "ventas @ 10.0.4.12",
+    );
+  });
+
+  it("falls back to the host when no database was given", () => {
+    expect(defaultConnectionName(c({ host: "10.0.4.12" }))).toBe("10.0.4.12");
+  });
+
+  // Informix keeps the useful half in `server`, not in `host`.
+  it("uses the Informix instance when there is no host", () => {
+    expect(defaultConnectionName(c({ server: "ol_informix1210" }, "informix"))).toBe(
+      "ol_informix1210",
+    );
+  });
+
+  it("names a file connection after the file, on either kind of path", () => {
+    expect(defaultConnectionName(c({ path: "C:\\datos\\notas.db" }, "sqlite"))).toBe("notas.db");
+    expect(defaultConnectionName(c({ path: "/var/lib/ventas.sqlite" }, "sqlite"))).toBe(
+      "ventas.sqlite",
+    );
+    expect(defaultConnectionName(c({ path: "notas.db" }, "sqlite"))).toBe("notas.db");
+    expect(defaultConnectionName(c({ path: ":memory:" }, "sqlite"))).toBe(":memory:");
+  });
+
+  it("ignores blank and padded values instead of naming something ' @ '", () => {
+    expect(defaultConnectionName(c({ host: "  ", database: "  " }))).toBe("");
+    expect(defaultConnectionName(c({}))).toBe("");
+    expect(defaultConnectionName(c({ host: "  db1  ", database: "  ventas  " }))).toBe(
+      "ventas @ db1",
+    );
+  });
+});
+
+// The tunnel has no flag in the model — the core opens it when `ssh_host` has a
+// value — so "the switch is on" is the one state the schema cannot express.
+describe("fieldErrors with the tunnel switched on", () => {
+  const c = (params: Record<string, string>) => ({
+    id: "c1",
+    name: "x",
+    driver: "mysql",
+    params,
+  });
+
+  it("leaves ssh_host optional by default, as the schema says", () => {
+    expect(fieldErrors(c({ host: "h", user: "u" })).params.ssh_host).toBeUndefined();
+  });
+
+  it("requires a host once the caller says the tunnel is on", () => {
+    expect(fieldErrors(c({ host: "h", user: "u" }), { sshRequired: true }).params.ssh_host).toBe(
+      "valid.required",
+    );
+  });
+
+  it("is satisfied by a host, and still ignores the other ssh fields", () => {
+    const errors = fieldErrors(c({ host: "h", user: "u", ssh_host: "bastion" }), {
+      sshRequired: true,
+    });
+    expect(errors.params.ssh_host).toBeUndefined();
+    expect(errors.params.ssh_user).toBeUndefined();
+  });
 });
 
 describe("driverSchema", () => {
