@@ -10,6 +10,13 @@ export const DEFAULT_COL_WIDTH = 180;
 export interface ColumnMeta {
   name: string;
   type?: string;
+  /**
+   * The header carries a mark beside the name — the key icon, the referenced
+   * arrow (issues #540, #311). Counted as characters, because a short name like
+   * "id" otherwise sizes the column to two letters and the mark then sits on
+   * top of the name.
+   */
+  marks?: number;
 }
 
 export interface WidthOptions {
@@ -57,7 +64,7 @@ export function computeColumnWidths(
   return columns.map((col, ci) => {
     // Header contributes the name plus the (shorter, uppercased) type label and
     // a little room for the sort glyph; take the longer of name and type line.
-    const headerLen = Math.max(col.name.length, (col.type ?? "").length);
+    const headerLen = Math.max(col.name.length + (col.marks ?? 0) * 2, (col.type ?? "").length);
     let maxLen = headerLen;
     for (let r = 0; r < sampleCount; r++) {
       const len = cellLen(rows[r]?.[ci] ?? null);
