@@ -72,11 +72,19 @@
           <code>SHA256SUMS.txt</code>.</li>
       </ol>
       <div class="note">
-        <p><b>Windows por ahora.</b> El instalador es de 32 bits (x86) a propósito:
-          es lo que exige el CSDK de Informix, y así una sola compilación habla con
-          los seis motores. Corre igual en Windows de 64 bits. macOS y Linux están
-          en camino.</p>
+        <p><b>Windows de 32 bits a propósito.</b> El instalador es x86 porque es lo
+          que exige el CSDK de Informix, y así una sola compilación habla con los
+          seis motores. Corre igual en Windows de 64 bits. macOS está en camino.</p>
       </div>
+      <p><b>En Linux</b> (x86_64) hay dos opciones:</p>
+      <ul>
+        <li>El <b>.deb</b>, para Ubuntu 24.04+ y Debian 13+: descarga
+          <code>squaero_X.Y.Z_amd64.deb</code> de la misma página e instálalo con
+          <code>sudo apt install ./squaero_X.Y.Z_amd64.deb</code>. apt trae el
+          cliente de cada motor.</li>
+        <li>El <b>snap</b>, para cualquier distribución con snapd:
+          <code>sudo snap install squaero --edge</code>. No incluye Informix.</li>
+      </ul>
       <div class="note">
         <p><b>Informix.</b> El instalador no incluye el cliente de IBM. Para conectar
           a Informix instala el <b>IBM Informix Client SDK de 32 bits</b>

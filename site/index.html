@@ -54,10 +54,10 @@
       en tu equipo —sin nube, sin cuentas, sin telemetría— con edición transaccional
       segura para SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB.</p>
     <div class="cta">
-      <a class="btn" href="#download">Descargar para Windows</a>
+      <a class="btn" href="#download">Descargar</a>
       <a class="btn ghost" href="https://github.com/danielnuld/squaero" rel="noopener">Ver en GitHub</a>
     </div>
-    <p class="sub">Gratis y de código abierto · Windows (macOS y Linux próximamente)</p>
+    <p class="sub">Gratis y de código abierto · Windows y Linux (macOS próximamente)</p>
 
     <figure class="shot">
       <img src="img/social-preview.png" alt="Squaero — gestor de bases de datos ligero, local y libre" width="1280" height="640">
@@ -152,7 +152,7 @@
         <tbody>
           <tr><th>Precio</th><td class="q">Gratis</td><td>Gratis</td><td>De pago</td><td>Gratis</td><td>Gratis</td><td>Freemium</td><td>Gratis</td><td>Freemium</td></tr>
           <tr><th>Código abierto</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td></tr>
-          <tr><th>Plataforma</th><td class="q">Windows*</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Windows</td><td>Win/mac/Linux</td><td>Web</td><td>Win/mac/Linux</td></tr>
+          <tr><th>Plataforma</th><td class="q">Win/Linux*</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Windows</td><td>Win/mac/Linux</td><td>Web</td><td>Win/mac/Linux</td></tr>
           <tr><th>Ligero (sin Electron/JVM)</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td><span class="yes">Sí</span></td><td><span class="no">No (JVM)</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td>Web</td><td><span class="no">No (JVM)</span></td></tr>
           <tr><th>Local, sin telemetría</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td></tr>
           <tr><th>Soporta Informix</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td></tr>
@@ -170,7 +170,7 @@
         </tbody>
       </table>
     </div>
-    <p class="cmp-note">Windows por ahora; macOS y Linux en camino. <b>Tabularis</b> = cliente Apache-2.0 (Tauri/Rust); Informix y otros motores vía plugins. <b>Server Studio</b> = edición gratuita <i>JE (Java Edition)</i> de la suite para Informix. «~» = parcial o según edición/plugin.</p>
+    <p class="cmp-note">Windows y Linux; macOS en camino. <b>Tabularis</b> = cliente Apache-2.0 (Tauri/Rust); Informix y otros motores vía plugins. <b>Server Studio</b> = edición gratuita <i>JE (Java Edition)</i> de la suite para Informix. «~» = parcial o según edición/plugin.</p>
     <!--
       Verificabilidad (issue #201). Fuentes canónicas por columna, revisado 2026-07-11:
         Squaero        = este repositorio (código + pruebas automatizadas / smokes)
@@ -210,9 +210,9 @@
   <!-- DOWNLOADS -->
   <section id="download">
     <h2>Descargar</h2>
-    <p class="intro">Instalador para Windows con los seis motores (SQLite, MySQL/MariaDB,
+    <p class="intro">Para Windows y Linux, con los seis motores (SQLite, MySQL/MariaDB,
       PostgreSQL, Informix, MongoDB, SQL Server). Para Informix hace falta instalar aparte
-      el IBM Informix Client SDK de 32 bits.</p>
+      el IBM Informix Client SDK: de 32 bits en Windows, de 64 bits en Linux.</p>
     <div class="downloads">
       <div class="dl">
         <h3>Windows</h3>
@@ -228,9 +228,10 @@
       </div>
       <div class="dl">
         <h3>Linux</h3>
-        <div class="os">&nbsp;</div>
-        <span class="soon">Próximamente</span>
-        <small>El núcleo es multiplataforma; falta el empaquetado.</small>
+        <div class="os">.deb (Ubuntu 24.04+, Debian 13+) o snap · x86_64</div>
+        <a class="btn" href="https://github.com/danielnuld/squaero/releases/latest" rel="noopener">Descargar .deb</a>
+        <small>O desde la <a href="https://snapcraft.io/squaero" rel="noopener">Snap Store</a>:<br><code style="white-space:nowrap">sudo snap install squaero --edge</code></small>
+        <small>El snap no incluye Informix.</small>
       </div>
     </div>
   </section>
