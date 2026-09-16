@@ -26,6 +26,8 @@ import { t } from "../utils/i18n";
 
 const DEFAULT_ROW_HEIGHT = 28;
 const ACTION_WIDTH = 36;
+/** The row-number column that doubles as the mark checkbox. */
+const MARK_WIDTH = 44;
 
 /**
  * Edit hooks passed by the workspace when the active tab is in edit mode over an
@@ -301,7 +303,33 @@ export function ResultGrid(props: {
     const body = order()
       .map((ci) => `${colWidth(ci)}px`)
       .join(" ");
-    return editing() ? `${ACTION_WIDTH}px ${body}` : body;
+    const lead = [
+      markable() ? `${MARK_WIDTH}px` : "",
+      editing() ? `${ACTION_WIDTH}px` : "",
+    ].filter(Boolean);
+    return [...lead, body].join(" ");
+  };
+
+  // The mark column (#517 follow-up): a row number that turns into a checkbox,
+  // for marking rows without knowing Ctrl/Shift+click. Only where the marks go
+  // somewhere — a panel that does nothing with them gets no column. It counts
+  // as a column for assistive tech, so the data cells' indices shift by one.
+  const markable = () => !!props.onMarkedRowsChange;
+  const colOffset = () => (markable() ? 1 : 0);
+  const allMarked = () => view().length > 0 && view().every((r) => marks().has(r));
+  const someMarked = () => marks().size > 0 && !allMarked();
+  const toggleAllMarks = () => setMarks(allMarked() ? new Set<number>() : new Set(view()));
+  // A checkbox click toggles its row; with Shift it takes everything back to
+  // the last row touched, adding to what is already marked.
+  const onMarkClick = (viewPos: number, e: MouseEvent) => {
+    const rowIndex = view()[viewPos];
+    if (rowIndex === undefined) return;
+    if (e.shiftKey && anchor() !== null) {
+      setMarks((m) => markRange(m, view(), anchor()!, viewPos, true));
+    } else {
+      setMarks((m) => toggleMark(m, rowIndex));
+    }
+    setAnchor(viewPos);
   };
 
   // Drag a header resize handle: capture the start geometry, then set the dragged
@@ -537,7 +565,8 @@ export function ResultGrid(props: {
               aria-label={t("grid.ariaLabel")}
               aria-multiselectable={true}
               aria-rowcount={rows().length + 1}
-              aria-colcount={cols().length}
+              aria-colcount={cols().length + colOffset()}
+              classList={{ "has-marks": marks().size > 0 }}
               tabindex={0}
               style={{ "--grid-row-h": `${rowHeight()}px` }}
               onScroll={(e) => {
@@ -553,6 +582,24 @@ export function ResultGrid(props: {
                   aria-rowindex={1}
                   style={{ "grid-template-columns": gridCols() }}
                 >
+                  <Show when={markable()}>
+                    <div class="grid-cell grid-head grid-mark" role="columnheader" aria-colindex={1}>
+                      <input
+                        type="checkbox"
+                        aria-label={t("grid.markAll")}
+                        title={t("grid.markAll")}
+                        checked={allMarked()}
+                        // `indeterminate` exists only as a DOM property, never
+                        // as an attribute, so it is set from an effect.
+                        ref={(el) =>
+                          createEffect(() => {
+                            el.indeterminate = someMarked();
+                          })
+                        }
+                        onClick={toggleAllMarks}
+                      />
+                    </div>
+                  </Show>
                   <Show when={editing()}>
                     <div class="grid-cell grid-head grid-action" />
                   </Show>
@@ -564,7 +611,7 @@ export function ResultGrid(props: {
                       <div
                         class={`grid-cell grid-head grid-head-sort ${dragFrom() === di() ? "is-dragging" : ""} ${dropAt() === di() && dragFrom() !== di() ? "is-drop-target" : ""}`}
                         role="columnheader"
-                        aria-colindex={di() + 1}
+                        aria-colindex={di() + 1 + colOffset()}
                         aria-sort={sortDirOf(ci())}
                         tabindex={0}
                         title={t("grid.sortOrMove")}
@@ -669,6 +716,9 @@ export function ResultGrid(props: {
                   role="row"
                   style={{ "grid-template-columns": gridCols() }}
                 >
+                  <Show when={markable()}>
+                    <div class="grid-cell grid-mark" />
+                  </Show>
                   <Show when={editing()}>
                     <div class="grid-cell grid-action" />
                   </Show>
@@ -715,6 +765,20 @@ export function ResultGrid(props: {
                             aria-selected={isMarked(rowIndex())}
                             style={{ "grid-template-columns": gridCols() }}
                           >
+                            <Show when={markable()}>
+                              <div class="grid-cell grid-mark" role="gridcell" aria-colindex={1}>
+                                <span class="grid-mark-num" aria-hidden="true">
+                                  {viewPos() + 1}
+                                </span>
+                                <input
+                                  type="checkbox"
+                                  tabindex="-1"
+                                  aria-label={t("grid.markRow", { n: viewPos() + 1 })}
+                                  checked={isMarked(rowIndex())}
+                                  onClick={(e) => onMarkClick(viewPos(), e)}
+                                />
+                              </div>
+                            </Show>
                             <Show when={editing()}>
                               <button
                                 class="grid-cell grid-action danger"
@@ -740,7 +804,7 @@ export function ResultGrid(props: {
                                         <div
                                           class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${related() ? "cell-related" : ""}`}
                                           role="gridcell"
-                                          aria-colindex={di() + 1}
+                                          aria-colindex={di() + 1 + colOffset()}
                                           aria-selected={isSelected(viewPos(), ci())}
                                           style={{ "text-align": cellAlign(cell.kind) }}
                                           title={cell.text}
@@ -783,7 +847,7 @@ export function ResultGrid(props: {
                                         <div
                                           class="grid-cell cell-edit"
                                           role="gridcell"
-                                          aria-colindex={di() + 1}
+                                          aria-colindex={di() + 1 + colOffset()}
                                           data-cell={`${viewPos()}-${ci()}`}
                                         >
                                         <input
@@ -877,6 +941,9 @@ export function ResultGrid(props: {
                       role="row"
                       style={{ "grid-template-columns": gridCols() }}
                     >
+                      <Show when={markable()}>
+                        <div class="grid-cell grid-mark" />
+                      </Show>
                       <button
                         class="grid-cell grid-action danger"
                         title={t("grid.removeNewRow")}

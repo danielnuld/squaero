@@ -482,6 +482,8 @@ export const es: Record<string, string> = {
   "grid.deleteRow": "Borrar fila",
   "grid.newRows": "Nuevas filas",
   "grid.removeNewRow": "Quitar fila nueva",
+  "grid.markRow": "Marcar la fila {n}",
+  "grid.markAll": "Marcar todas las filas visibles",
   "grid.noFilterMatch": "Ninguna fila de la página coincide con el filtro.",
   "grid.truncated": "Mostrando las primeras {n} filas (resultado truncado). El orden y los filtros se aplican solo sobre las filas cargadas, no con ORDER BY/WHERE en el servidor.",
   "grid.runToSee": "Ejecuta una consulta para ver resultados.",
