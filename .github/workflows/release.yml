@@ -135,51 +135,6 @@ jobs:
         shell: bash
         run: installer/build-msi.sh "${{ steps.tag.outputs.version }}"
 
-      # --- Authenticode through SignPath Foundation --------------------------------
-      # Skipped until the SignPath project exists: the maintainer then sets the
-      # repository VARIABLES SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG and
-      # SIGNPATH_POLICY_SLUG, and the SECRET SIGNPATH_API_TOKEN (docs/VERSIONING.md).
-      # SignPath checks that the artifact came from this run on a GitHub-hosted
-      # runner, so the MSI is uploaded as a workflow artifact first; the checksum
-      # and the provenance attestation below are then computed over the SIGNED file.
-      # Policy: https://danielnuld.github.io/squaero/code-signing-policy/
-      - name: Upload the unsigned MSI for signing
-        id: unsigned-msi
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: squaero-unsigned-msi
-          path: dist/squaero-${{ steps.tag.outputs.version }}-x86.msi
-          archive: false
-
-      - name: Sign the MSI (SignPath)
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
-          github-artifact-id: ${{ steps.unsigned-msi.outputs.artifact-id }}
-          skip-decompress: true
-          wait-for-completion: true
-          output-artifact-directory: dist-signed
-
-      # Never publish something that only looks signed: the signature must verify
-      # on the runner, or the release stops here.
-      - name: Use the signed MSI
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        shell: pwsh
-        run: |
-          $msi = "squaero-${{ steps.tag.outputs.version }}-x86.msi"
-          $signed = Get-ChildItem dist-signed -Recurse -Filter *.msi | Select-Object -First 1
-          if (-not $signed) { throw "SignPath returned no MSI" }
-          $sig = Get-AuthenticodeSignature $signed.FullName
-          if ($sig.Status -ne "Valid") { throw "signature status: $($sig.Status) $($sig.StatusMessage)" }
-          "signed by: $($sig.SignerCertificate.Subject)"
-          Move-Item -Force $signed.FullName "dist/$msi"
-      # -------------------------------------------------------------------------------
-
       # SHA256SUMS.txt lets downloaders check the file arrived intact.
       - name: Generate checksums
         shell: bash

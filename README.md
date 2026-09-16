@@ -89,8 +89,7 @@ Releases from v0.26.0 on also carry a signed build-provenance attestation, which
 proves the MSI was built by this repository's release workflow:
 `gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero`.
 The MSI is not Authenticode-signed yet, so Windows SmartScreen shows an unknown
-publisher; signing through SignPath Foundation is being set up — see the
-[code signing policy](https://danielnuld.github.io/squaero/code-signing-policy/).
+publisher.
 
 **Informix** needs IBM's **32-bit Informix Client SDK**, which the installer does
 not include: install it from IBM
