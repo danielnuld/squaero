@@ -63,38 +63,56 @@ https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
 
 ## 3. Buscador y pestaña del gestor (fase C)
 
-- [ ] 3.1 Desplegable del `+`: `role="dialog"`, campo enfocado al abrir, filtra
+- [x] 3.1 Desplegable del `+`: `role="dialog"`, campo enfocado al abrir, filtra
       con `searchGroups`, marca las abiertas, ↑/↓ + Enter, Escape y clic fuera
       cierran
-- [ ] 3.2 Elegir una cerrada la abre y la enfoca; una ya abierta solo la enfoca;
+- [x] 3.2 Elegir una cerrada la abre y la enfoca; una ya abierta solo la enfoca;
       sin coincidencias lo dice
-- [ ] 3.3 Pie del desplegable: nueva conexión, importar y gestionar
-- [ ] 3.4 `ToolKind` += `connections`, en `GLOBAL_TOOLS` y en `TOOL_CATALOG`;
-      `ConnectionManager` pasa a ser el contenido de la pestaña, sin conectar
-- [ ] 3.5 Retirar `connbarOpenTick` y su efecto; comprobar que guardar una
-      conexión nueva la deja visible en el gestor y en el buscador
-- [ ] 3.6 Pruebas: buscar por motor y por servidor, elegir abierta vs cerrada,
-      una sola pestaña de gestor con dos conexiones distintas enfocadas,
-      exportar con contraseñas conserva el aviso, importar de DBeaver sigue
-      leyendo los dos ficheros
+- [x] 3.3 Pie del desplegable: nueva conexión, importar y gestionar — importar
+      **lleva a la pestaña**, que es donde vive el selector de ficheros, en vez
+      de duplicar un segundo `input` oculto en el buscador
+- [x] 3.4 `ToolKind` += `connections`, en `GLOBAL_TOOLS` y en `TOOL_CATALOG`;
+      `ConnectionManager` pasa a ser el contenido de la pestaña, sin conectar.
+      El toolstrip y la paleta dejan de exigir conexión para las herramientas
+      **globales**: esta pestaña se abre justamente cuando no hay ninguna
+- [x] 3.5 Retirar `connbarOpenTick` y su efecto. El riesgo que anotaba el diseño
+      **se cumplió**: sin el tic, guardar cerraba el formulario sin confirmar
+      nada, porque la barra solo lista las **abiertas**. Guardar ahora deja la
+      pestaña del gestor delante, donde la conexión nueva sí se ve
+- [x] 3.6 Pruebas: 12 de `ConnectionSearch` (motor, servidor, acentos, abierta vs
+      cerrada, ↑/↓ con vuelta, Enter, Escape, ratón y teclado comparten resalte,
+      pie) y las de la barra reescritas al buscador; en `ConnectionManager` se
+      conservan exportar con aviso e importar de DBeaver con dos ficheros
+- [x] 3.7 **Defecto encontrado por las pruebas**: al hacer que toda la fila
+      edite, la fila y el lápiz quedaron con el mismo nombre accesible
+      («Editar»), dos por fila. La fila pasa a nombrarse con su conexión
+      (`conn.editName`), como el desconectar de la fase B
 
 ## 4. Estilos, temas e idioma
 
 - [ ] 4.1 CSS con los tokens de las escalas y sin transiciones; revisado en
       oscuro, claro, Ciruela, Pizarra y Terminal, con la guardia de contraste en
       verde
-- [ ] 4.2 Retirar el CSS que quede sin uso (`.connbar-active`, `.connbar-drop`,
-      `.connbar-status`…) comprobando con grep que nadie más lo usa
-- [ ] 4.3 Texto nuevo por `t()` con espejo en `messages/en.ts`; retirar las
-      claves `conn.*` que queden sin uso (`conn.choose`, `conn.statusConnected`…)
+- [x] 4.2 Retirado el CSS sin uso comprobado con grep: `.connbar-row`,
+      `.connbar-active(:hover)`, `.connbar-status(.lost)` y `.connbar-caret`.
+      `.connbar-drop` **se queda**: ahora envuelve al buscador
+- [x] 4.3 Texto nuevo por `t()` con espejo en `messages/en.ts`; retiradas
+      `conn.choose`, `conn.statusConnected`, `conn.connecting` y
+      `conn.disconnect` (todo desconectar va nombrado desde la fase B).
+      **A comprobar en 5.4**: al quitar `conn.connecting` de la lista no queda
+      señal de «conectando» en ninguna parte
 - [ ] 4.4 Recorrer la barra, el buscador y la pestaña con la app en inglés
 
 ## 5. Cierre
 
-- [ ] 5.1 `pnpm test` y `pnpm typecheck` en verde en las tres fases
-- [ ] 5.2 Actualizar el helper `connect()` de `e2e/support/app-actions.ts` al
+- [x] 5.1 `pnpm test` y `pnpm typecheck` en verde en las tres fases
+- [x] 5.2 Actualizar el helper `connect()` de `e2e/support/app-actions.ts` al
       gesto nuevo (`+` → escribir → elegir) y correr `pnpm e2e` **entero**: de
-      ese helper cuelga toda la suite
+      ese helper cuelga toda la suite. 140 en verde contra los cinco motores.
+      Además del helper hubo que mover tres specs que pasaban por el gestor
+      viejo: `import-connections` (el selector de ficheros vive en la pestaña),
+      `paste-rows-english` (ya no hay un «Disconnect» a secas) y `toolbar` (la
+      herramienta número once y su excepción sin conexión)
 - [ ] 5.3 E2E propio: abrir dos conexiones, cambiar de una a otra y comprobar que
       cada sección del explorador es la suya; buscar por motor y abrir desde el
       buscador

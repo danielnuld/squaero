@@ -81,10 +81,10 @@ function mountApp() {
   });
 }
 
-/** Open the connections popover (the + in the bar) and click the saved connection. */
+/** Open the connection search (the + in the bar) and click the saved connection. */
 const connect = async () => {
   click(host!.querySelector(".connbar-add"));
-  click(host!.querySelector(".conn-list .conn-open"));
+  click(host!.querySelector(".connsearch-hit"));
   await settle();
 };
 

@@ -2,6 +2,7 @@ import { For, Show, createSignal } from "solid-js";
 import {
   connIcon,
   connectionGroups,
+  connectionTarget,
   driverSchema,
   groupConnections,
   type Connection,
@@ -10,28 +11,17 @@ import { loadCollapsedGroups, saveCollapsedGroups } from "../utils/connectionSto
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
 
-// Props for the connection list + CRUD. Shared with ConnectionBar, which wraps
-// this component in a collapsible sidebar popover (Explorer-first layout).
+// Props for the connection list + CRUD. Opening, closing and reconnecting are
+// NOT here: they belong to the sidebar's bar and its search (issue #525).
 export interface ConnectionManagerProps {
   connections: Connection[];
   /** The focused connection's id (drives the tree + new tabs); highlighted. */
   activeConnId: string | null;
   /** Ids of every open connection (several can be open at once). */
   openIds?: string[];
-  /** Of the open ones, those the core has told us are gone (issue #407). The
-      entry stays open — its tabs and their unsaved SQL depend on it — but the
-      bar must stop claiming it is connected. */
-  lostIds?: string[];
-  /** Id of the connection currently being opened (shows a busy state). */
-  connectingId: string | null;
-  onConnect: (c: Connection) => void;
   onEdit: (c: Connection) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
-  /** Close an open connection (defaults to the focused one). */
-  onDisconnect: (defId?: string) => void;
-  /** Reconnect the focused connection with a fresh session (recovers a drop). */
-  onReconnect: () => void;
   /** Export saved connections to a JSON file (issue #188). */
   onExport: (includePasswords: boolean) => void;
   /** Import connections from a file; resolves with a message to show the user. */
@@ -89,6 +79,10 @@ export function ConnectionManager(props: ConnectionManagerProps) {
     openContextMenu(e, items);
   };
 
+  // A row is what the connection IS, not a way to open it: opening moved to the
+  // bar's search (issue #525), and this list is where a connection is created,
+  // renamed, moved between groups or deleted. Editing is the row's own action,
+  // so the whole row activates it rather than being dead weight next to a pencil.
   const row = (c: Connection) => (
     <li
       class={`conn-item ${c.id === props.activeConnId ? "active" : ""} ${
@@ -97,12 +91,10 @@ export function ConnectionManager(props: ConnectionManagerProps) {
       style={c.color ? { "border-left": `3px solid ${c.color}` } : undefined}
       onContextMenu={(e) => rowMenu(e, c)}
     >
-      <button
-        class="conn-open"
-        title={props.openIds?.includes(c.id) ? t("conn.focus") : t("conn.connect")}
-        disabled={props.connectingId !== null}
-        onClick={() => props.onConnect(c)}
-      >
+      {/* Named after its connection, not just "Editar": the pencil beside it
+          edits too, and two buttons sharing an accessible name are ambiguous
+          for a screen reader as much as for a test. */}
+      <button class="conn-open" title={t("conn.editName", { name: c.name })} onClick={() => props.onEdit(c)}>
         <span class="conn-name">
           <Show when={c.color}>
             <span class="conn-color" style={{ background: c.color }} />
@@ -114,24 +106,10 @@ export function ConnectionManager(props: ConnectionManagerProps) {
         </span>
         <span class="conn-driver">
           {driverSchema(c.driver)?.label ?? c.driver}
-          {props.connectingId === c.id ? " · " + t("conn.connecting") : ""}
+          {connectionTarget(c) ? ` · ${connectionTarget(c)}` : ""}
         </span>
       </button>
       <div class="conn-actions">
-        <Show when={c.id === props.activeConnId}>
-          <button
-            title={t("conn.reconnect")}
-            disabled={props.connectingId !== null}
-            onClick={() => props.onReconnect()}
-          >
-            ↻
-          </button>
-        </Show>
-        <Show when={props.openIds?.includes(c.id)}>
-          <button title={t("conn.disconnect")} onClick={() => props.onDisconnect(c.id)}>
-            ⏏
-          </button>
-        </Show>
         <button title={t("common.edit")} onClick={() => props.onEdit(c)}>
           ✎
         </button>
