@@ -83,19 +83,37 @@ de la nota).
 
 ## 4. Idioma
 
-- [ ] 4.1 Todo el texto nuevo por `t()` con espejo en `messages/en.ts`, plurales
-      incluidos («1 fila nueva», «2 filas nuevas»)
-- [ ] 4.2 Recorrer el flujo con la app en inglés
+- [x] 4.1 Todo el texto nuevo por `t()` con espejo en `messages/en.ts`, plurales
+      incluidos («1 fila nueva», «2 filas nuevas») — los dos catálogos tienen las
+      mismas 865 claves, y la prueba de paridad ahora exige **los dos sentidos**
+      (antes solo comprobaba que el inglés no inventara claves)
+- [x] 4.2 Recorrer el flujo con la app en inglés — `e2e/paste-rows-english.spec.ts`
+      conduce marcar, pegar, la barra de pendientes y guardar con la interfaz en
+      inglés, y lee la fila guardada de la base; otra prueba comprueba el texto
+      inglés del guardado bloqueado
 
 ## 5. Cierre
 
-- [ ] 5.1 `pnpm test` y `pnpm typecheck` en verde en las tres fases
-- [ ] 5.2 `pnpm e2e` **entero** en verde en las tres fases
+- [x] 5.1 `pnpm test` y `pnpm typecheck` en verde en las tres fases (1812 pruebas
+      unitarias con lo de las casillas y el idioma)
+- [x] 5.2 `pnpm e2e` **entero** en verde en las tres fases — corrido con los cinco
+      motores (SQLite, PostgreSQL, MySQL, Informix, SQL Server): 129 pasan y los
+      4 que fallaban eran `connection-form.spec.ts`, roto desde #496 y ajeno a
+      este cambio (arreglado en PR #521)
 - [ ] 5.3 Probado a mano en la ventana nativa (WebView2, build x86) contra el
       contenedor MySQL de pruebas y contra Informix: copiar y pegar en la misma
       tabla, entre dos tablas, desde una hoja de cálculo, duplicar, conflicto
-      de único, fallo al guardar y reintento
-- [ ] 5.4 Manual de usuario: sección de copiar, pegar y duplicar filas
-- [ ] 5.5 Nota de la versión: qué pegados van ahora a filas y cuáles siguen al
-      asistente
-- [ ] 5.6 Commits en Conventional Commits referenciando el issue del cambio
+      de único, fallo al guardar y reintento — **hecho contra MySQL en la misma
+      tabla** (Ctrl+C, Ctrl+V, Ctrl+D, Escape, barra de pendientes, clave
+      repetida bloqueando el guardado) y las casillas de marcar. **Faltan**:
+      Informix, pegar entre dos tablas y pegar desde una hoja de cálculo real
+- [x] 5.4 Manual de usuario: sección de copiar, pegar y duplicar filas — más las
+      casillas de marcar, los atajos de la rejilla en `docs/SHORTCUTS.md` y en la
+      ayuda de F1 (`shortcuts.ts`). **El sitio no se ha republicado**:
+      `site/publish.sh` es un paso aparte
+- [x] 5.5 Nota de la versión: qué pegados van ahora a filas y cuáles siguen al
+      asistente — las notas se generan solas al publicar (`--generate-notes`), así
+      que lo que queda escrito es el título de cada PR y su descripción, donde ya
+      está dicho; el manual lo explica para quien lo lea después
+- [x] 5.6 Commits en Conventional Commits referenciando el issue del cambio
+      (#517), sin coautoría ni atribución a ninguna herramienta
