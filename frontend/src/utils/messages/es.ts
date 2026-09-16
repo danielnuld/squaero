@@ -972,6 +972,21 @@ export const es: Record<string, string> = {
   "group.ssh": "Túnel SSH (opcional)",
   "group.ssl": "TLS / SSL (opcional)",
 
+  // Meses abreviados: el estilo Informe de la rejilla escribe «14 feb 2023»
+  // (#540). Van por el catálogo para que el inglés no dependa del locale del
+  // sistema, que decidiría también el separador de miles.
+  "month.1": "ene",
+  "month.2": "feb",
+  "month.3": "mar",
+  "month.4": "abr",
+  "month.5": "may",
+  "month.6": "jun",
+  "month.7": "jul",
+  "month.8": "ago",
+  "month.9": "sep",
+  "month.10": "oct",
+  "month.11": "nov",
+  "month.12": "dic",
   // field validation (connections.ts fieldErrors / validateConnection)
   "valid.nameRequired": "El nombre es obligatorio.",
   "valid.required": "Obligatorio.",
