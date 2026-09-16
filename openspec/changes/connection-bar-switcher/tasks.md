@@ -126,9 +126,16 @@ https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
       `seedConnections()` nuevo en `support/state.ts`
 - [ ] 5.4 Probado a mano en la ventana nativa (WebView2, build x86) con tres
       conexiones abiertas de motores distintos, una de ellas Informix
-- [ ] 5.5 Capturas regeneradas (`pnpm media`: `app-dark`, `app-light` e
-      `initial-dark` llevan la barra) y el manual al día («Varias conexiones a la
-      vez», «Crear una conexión», «Llevártelas a otro equipo»)
+- [x] 5.5 Capturas regeneradas (`pnpm media`: las ocho, copiadas a `site/img/`
+      según `docs/SITE.md`) y el manual al día: «Crear una conexión»,
+      «Llevártelas a otro equipo», «Varias conexiones a la vez» y un apartado
+      nuevo **«Abrir una conexión»** para el buscador, que no estaba documentado
+      en ninguna parte. De paso se corrigió «La ventana, por partes», que aún
+      describía la cinta de botones retirada en **#386**.
+      **Las capturas necesitan su propio contenedor**, separado del de pruebas
+      para que la base de test no salga en las imágenes:
+      `docker start quaero-demo-mysql` (13307).
+      **Falta republicar el sitio** (`site/publish.sh`), que es un paso aparte
 - [x] 5.6 Resueltas en `design.md`: el grupo **no** va en la fila (es criterio de
       búsqueda, no de reconocimiento); el atajo del buscador queda **aplazado** a
       un issue propio, porque comprobar que `Mod+Shift+O` está libre exige la

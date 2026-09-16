@@ -91,12 +91,13 @@
         <figcaption>La pantalla inicial. Todo empieza por crear una conexión.</figcaption>
       </figure>
       <ul>
-        <li><b>Barra superior</b> — la marca, el selector de conexión, los botones de
-          acción (<b>Consulta</b>, <b>Tabla</b>, <b>Objetos</b>) y
-          <b>Buscar o ejecutar</b> (<kbd>Ctrl</kbd>+<kbd>K</kbd>), que encuentra
-          objetos, herramientas y acciones sin quitar las manos del teclado.</li>
-        <li><b>Barra lateral</b> — el explorador: el árbol de objetos de la base
-          activa, y una tira plegable con las herramientas.</li>
+        <li><b>Barra superior</b> — <b>Buscar o ejecutar</b>
+          (<kbd>Ctrl</kbd>+<kbd>K</kbd>), que encuentra objetos, herramientas y
+          acciones sin quitar las manos del teclado; las pestañas abiertas; y
+          <b>⋯</b>, que despliega la tira de herramientas.</li>
+        <li><b>Barra lateral</b> — arriba, las <b>conexiones abiertas</b>: una fila
+          por cada una, con su motor y a qué servidor apunta. Debajo, el explorador,
+          con una sección plegable por conexión abierta.</li>
         <li><b>Centro</b> — las pestañas. Cada una es una consulta, los datos de una
           tabla o una herramienta, y queda atada a la conexión con la que se abrió.</li>
         <li><b>Barra de estado</b> — conexión activa, filas y columnas del último
@@ -122,15 +123,19 @@
       <h2>2. Conectar a una base</h2>
 
       <h3>Crear una conexión</h3>
+      <p>Las conexiones guardadas viven en su propia pestaña: ábrela con <b>⋯</b> y
+        luego <b>Conexiones</b>. Es la única herramienta que funciona sin estar
+        conectado a nada, porque es por donde se crea la primera.</p>
       <ol class="steps">
-        <li>Abre el panel <b>Conexiones</b> y pulsa <b>Nueva conexión</b>.</li>
+        <li>Pulsa <b>+ Nueva conexión</b>.</li>
         <li>Ponle <b>Nombre</b>, y si quieres un <b>Color</b>, un <b>Grupo</b> y un
           <b>Icono</b>. El color pinta la franja de la ventana cuando esa conexión
           tiene el foco — la forma más rápida de no ejecutar en producción creyendo
           que estás en pruebas. El grupo es solo un nombre: escribir uno nuevo lo crea.</li>
         <li>Elige el <b>Motor</b>. El formulario cambia a los campos que ese motor
           necesita (tabla de abajo).</li>
-        <li>Rellena los datos y guarda. Luego <b>Conectar</b>.</li>
+        <li>Rellena los datos y <b>guarda</b>: vuelves a la lista con la conexión
+          nueva ya en ella. Abrirla es el paso siguiente.</li>
       </ol>
 
       <table class="ref">
@@ -147,6 +152,20 @@
       <p>En los motores de servidor, el campo <b>Base de datos</b> se puede desplegar:
         cuando el resto de los datos ya son válidos, trae la lista real del servidor
         en vez de hacerte teclear el nombre.</p>
+
+      <h3>Abrir una conexión</h3>
+      <p>El <b>+</b> de la barra lateral abre el buscador. Escribe y se va acotando
+        por <b>nombre</b>, por <b>motor</b> o por <b>servidor</b>, sin distinguir
+        mayúsculas ni acentos: <i>nomina</i> encuentra <i>Nómina</i>. Varias palabras
+        estrechan, no suman — <i>ventas dev</i> pide las dos.</p>
+      <ul>
+        <li><kbd>↑</kbd> y <kbd>↓</kbd> recorren los resultados y <kbd>Enter</kbd>
+          abre el señalado; <kbd>Esc</kbd> cierra.</li>
+        <li>Las que ya están abiertas salen marcadas <b>Abierta</b>: elegir una de
+          esas no vuelve a conectar, solo te lleva a ella.</li>
+        <li>Al pie están <b>Nueva conexión</b>, <b>Importar</b> y <b>Gestionar</b>,
+          que llevan a la pestaña de conexiones.</li>
+      </ul>
 
       <h3>Conectar por un túnel SSH</h3>
       <p>Disponible en <b>todos los motores de servidor</b> (todos menos SQLite). En el mismo formulario, el bloque SSH:</p>
@@ -173,7 +192,7 @@
 
       <h3>Traerte las conexiones de otra herramienta</h3>
       <p>Mudarte no debería empezar por reteclear treinta servidores. <b>Importar</b>,
-        en el panel de conexiones, lee tres formatos y los reconoce por su contenido,
+        en la pestaña de conexiones, lee tres formatos y los reconoce por su contenido,
         no por la extensión:</p>
       <ul>
         <li>El <b>export de Squaero</b> (JSON).</li>
@@ -193,16 +212,23 @@
       </div>
 
       <h3>Llevártelas a otro equipo</h3>
-      <p><b>Exportar</b> guarda tus conexiones en un JSON. La casilla <b>Incluir
-        contraseñas</b> hace justo eso, y te avisa de lo que implica: quedan en
-        <b>texto plano</b> dentro del archivo. Sin marcarla, el archivo es seguro de
-        compartir y cada quien pone su contraseña al conectar.</p>
+      <p><b>Exportar</b>, en la misma pestaña, guarda tus conexiones en un JSON. La
+        casilla <b>Incluir contraseñas</b> hace justo eso, y te avisa de lo que
+        implica: quedan en <b>texto plano</b> dentro del archivo. Sin marcarla, el
+        archivo es seguro de compartir y cada quien pone su contraseña al conectar.</p>
 
       <h3>Varias conexiones a la vez</h3>
-      <p>Puedes tener abiertas todas las que quieras. Cada pestaña recuerda con qué
-        conexión nació y sigue trabajando contra ella aunque cambies el foco a otra,
-        así que una consulta de pruebas no se ejecuta sola en producción por haber
-        cambiado de conexión en la barra.</p>
+      <p>Puedes tener abiertas todas las que quieras, y la barra lateral las lista
+        todas: una fila por conexión, con su motor y a qué servidor apunta. Un clic
+        en una fila <b>cambia el foco</b> a esa conexión — no abre ni cierra nada—, y
+        el explorador de debajo le da a cada una su propia sección plegable, así que
+        la misma tabla se puede mirar en producción y en pruebas sin cambiar de sitio.</p>
+      <p>Cada fila lleva su <b>⏏</b> para cerrar esa conexión, y si el servidor deja
+        caer la sesión la fila lo dice y ofrece <b>reconectar</b> sin perder las
+        pestañas que colgaban de ella.</p>
+      <p>Cada pestaña recuerda con qué conexión nació y sigue trabajando contra ella
+        aunque cambies el foco a otra, así que una consulta de pruebas no se ejecuta
+        sola en producción por haber cambiado de conexión en la barra.</p>
     </section>
 
     <!-- 3 ─────────────────────────────────────────────────────────────── -->
