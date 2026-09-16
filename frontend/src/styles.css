@@ -989,15 +989,18 @@ body {
   white-space: nowrap;
   font-weight: 600;
 }
+/* A balloon over the workspace, not a panel wedged into the sidebar: the search
+   is 360px wide and the sidebar is 280 and CLIPS (overflow:hidden, for the
+   virtualized tree below), so it is positioned against the viewport — App
+   measures the bar and sets top/left inline. */
 .connbar-drop {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - var(--sp-5));
   z-index: 30;
   background: var(--bg-overlay);
   border: 1px solid var(--border);
-  border-top: none;
+  border-radius: var(--r-md);
   box-shadow: var(--shadow-lg);
   max-height: 60vh;
   /* The search inside scrolls its own result list, so the popover must NOT
@@ -2244,18 +2247,40 @@ kbd {
   white-space: nowrap;
 }
 
+/* A ring that fills in, not a character floating in the margin: at a glance the
+   index reads as a checklist. */
 .cf-index-mark {
   flex-shrink: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-dim);
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  color: transparent;
 }
 
 .cf-index-item[data-status="ok"] .cf-index-mark {
-  color: var(--number);
+  background: var(--number);
+  border-color: var(--number);
+  color: var(--bg);
 }
 
 .cf-index-item[data-status="error"] .cf-index-mark {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--bg);
+}
+
+.cf-index-item[data-status="error"] {
   color: var(--error);
+}
+
+/* A section that is switched off is still listed — greyed, not hidden. */
+.cf-index-item[data-status="off"] {
+  opacity: 0.5;
 }
 
 .cf-main {
@@ -2375,6 +2400,7 @@ kbd {
 }
 
 .cf-input-row {
+  position: relative;
   display: flex;
   gap: var(--sp-2);
 }
@@ -2385,15 +2411,24 @@ kbd {
   min-width: 0;
 }
 
-/* Inside the field, because listing the databases is a way of filling THIS box
-   rather than an action of the form. */
+/* Room for the button that sits ON the input. */
+.cf-input-row.has-btn > input {
+  padding-right: 88px;
+}
+
+/* Inside the field — literally, overlaid on its right edge — because listing
+   the databases is a way of filling THIS box rather than an action of the form.
+   Parked beside it, it read as one more control of the page. */
 .cf-inline-btn {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  bottom: 2px;
   flex-shrink: 0;
-  height: var(--h-md);
   padding: 0 var(--sp-3);
   background: var(--bg-elev2);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--r-sm);
   font: inherit;
   font-size: var(--fs-base);
@@ -2422,9 +2457,13 @@ kbd {
 
 /* One strip with every option readable at once, instead of a dropdown whose
    values ("verify_ca") the user had to decode (issue #531). */
+/* Sized to its options, not stretched across the column: a four-choice strip
+   blown out to 540px reads as four buttons, not as one control. */
 .cf-seg {
   display: flex;
   flex-wrap: wrap;
+  align-self: flex-start;
+  max-width: 100%;
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
@@ -2433,8 +2472,6 @@ kbd {
 }
 
 .cf-seg-btn {
-  flex: 1;
-  min-width: 0;
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-elev);
   border: none;
@@ -2461,7 +2498,10 @@ kbd {
   color: var(--text-dim);
 }
 
-/* The tunnel's switch — the thing the tabs never gave it. */
+/* The tunnel's switch — the thing the tabs never gave it. Drawn rather than
+   left to the OS checkbox, which is the one control that still looked like
+   Windows in the middle of the form. The real input stays, hidden, so it is
+   still a checkbox to the keyboard and to a screen reader. */
 .cf-switch {
   display: flex;
   align-items: center;
@@ -2469,6 +2509,54 @@ kbd {
   font-size: var(--fs-md);
   color: var(--text);
   cursor: pointer;
+}
+
+.cf-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  margin: 0;
+}
+
+.cf-switch-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 18px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+}
+
+.cf-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--text-dim);
+}
+
+.cf-switch input:checked + .cf-switch-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cf-switch input:checked + .cf-switch-track > .cf-switch-knob {
+  left: 16px;
+  background: var(--accent-fg);
+}
+
+.cf-switch input:focus-visible + .cf-switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* An address is a host and a port, and the port never needs half the row. */
+.cf-field.is-narrow {
+  flex: 0 0 104px;
 }
 
 .cf-advanced > summary {
@@ -2888,6 +2976,10 @@ kbd {
    fell back to the OS default; `.btn` and a bare `.primary` now get the look
    wherever they sit. */
 .modal-actions button,
+/* The connection form's footer is not a .modal-actions row (it is pinned
+   outside the scrolling area), so its buttons were falling back to the OS
+   default — reported after v0.27.0 shipped. */
+.cf-foot button,
 button.btn,
 button.primary {
   background: var(--bg-elev2);
@@ -2900,11 +2992,13 @@ button.primary {
 }
 
 .modal-actions button:hover:not(:disabled),
+.cf-foot button:hover:not(:disabled),
 button.btn:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
 .modal-actions button:disabled,
+.cf-foot button:disabled,
 button.btn:disabled,
 button.primary:disabled {
   opacity: 0.6;
