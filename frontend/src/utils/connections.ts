@@ -385,6 +385,56 @@ export function engineIcon(driver: string): string {
   return ENGINE_ICON[driver?.toLowerCase()] ?? "🛢️";
 }
 
+// Two or three letters per engine, for the places a row has no room for a word
+// (issue #525): the connection bar's rows and the connection form's engine
+// cards. The emoji of ENGINE_ICON stay where they are — a connection's own icon
+// and the rest of the app.
+const ENGINE_MONOGRAM: Record<string, string> = {
+  sqlite: "SQ",
+  mysql: "MY",
+  mariadb: "MY",
+  postgres: "PG",
+  postgresql: "PG",
+  informix: "IFX",
+  mongodb: "MG",
+  mssql: "MS",
+  sqlserver: "MS",
+};
+
+/** Short monogram for an engine ("MY", "PG"…), or a neutral "DB". */
+export function engineMonogram(driver: string): string {
+  return ENGINE_MONOGRAM[driver?.toLowerCase()] ?? "DB";
+}
+
+/**
+ * Where a connection points, in one line: what the bar shows under the name and
+ * what the search matches on, so the two cannot drift apart (issue #525).
+ *
+ * Engines differ in what "where" means: SQLite is a file, Informix needs its
+ * server name beside the host, SQL Server may name an instance, and the rest are
+ * host plus port. The database, when there is one, leads — it is what the user
+ * is actually looking at. Missing pieces are simply left out rather than
+ * rendered as empty punctuation.
+ */
+export function connectionTarget(conn: Pick<Connection, "driver" | "params">): string {
+  const p = conn.params ?? {};
+  const val = (key: string) => (p[key] ?? "").trim();
+  const driver = conn.driver?.toLowerCase() ?? "";
+
+  if (driver === "sqlite") return val("path");
+
+  const host = val("host");
+  const port = val("port");
+  let where = port ? [host, port].filter(Boolean).join(":") : host;
+  // Informix identifies the server beside the host; SQL Server the instance.
+  const extra = driver === "informix" ? val("server") : val("instance");
+  if (extra) where = where ? `${where}/${extra}` : extra;
+
+  const db = val("database");
+  if (db && where) return `${db} @ ${where}`;
+  return db || where;
+}
+
 /** The icon to show for a connection: its own emoji, else the engine's. */
 export function connIcon(conn: Pick<Connection, "driver" | "icon">): string {
   return conn.icon || engineIcon(conn.driver);
