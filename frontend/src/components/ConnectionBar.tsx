@@ -50,7 +50,17 @@ export function ConnectionBar(props: {
   onManage: () => void;
 }) {
   const [searching, setSearching] = createSignal(false);
+  // Where the balloon hangs. Measured rather than left to CSS: the popover is
+  // wider than the sidebar, which clips, so it is positioned against the
+  // viewport and has to be told where the bar actually is.
+  const [popAt, setPopAt] = createSignal({ top: 0, left: 0 });
   let rootEl: HTMLDivElement | undefined;
+
+  const openSearch = () => {
+    const box = rootEl?.getBoundingClientRect();
+    if (box) setPopAt({ top: box.bottom + 4, left: box.left + 8 });
+    setSearching(true);
+  };
 
   // Dismiss on a click outside the bar + popover.
   onMount(() => {
@@ -83,7 +93,7 @@ export function ConnectionBar(props: {
           aria-expanded={searching()}
           title={t("connbar.add")}
           aria-label={t("connbar.add")}
-          onClick={() => setSearching((v) => !v)}
+          onClick={() => (searching() ? setSearching(false) : openSearch())}
         >
           +
         </button>
@@ -100,7 +110,7 @@ export function ConnectionBar(props: {
             {/* Its own wording, not the + button's: two buttons with the same
                 accessible name are ambiguous for a screen reader as much as for
                 a test. */}
-            <button class="connbar-empty-link" onClick={() => setSearching(true)}>
+            <button class="connbar-empty-link" onClick={openSearch}>
               {t("connbar.emptyAction")}
             </button>
           </p>
@@ -169,7 +179,10 @@ export function ConnectionBar(props: {
       </Show>
 
       <Show when={searching()}>
-        <div class="connbar-drop">
+        <div
+          class="connbar-drop"
+          style={{ top: `${popAt().top}px`, left: `${popAt().left}px` }}
+        >
           <ConnectionSearch
             connections={props.connections}
             openIds={openIds()}
