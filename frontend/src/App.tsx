@@ -616,6 +616,15 @@ export function App() {
     else document.documentElement.setAttribute("data-cell-colors", "off");
   });
 
+  // The grid's style is an attribute on the root too (issue #540): every visual
+  // difference between the three is CSS under `:root[data-grid-style="…"]`, so
+  // the component draws ONE structure and there are no three trees to keep in
+  // step. What the component does take is the text a cell shows.
+  createEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.setAttribute("data-grid-style", settings().gridStyle);
+  });
+
   /** Set (or, with null, take back) one type's colour for the look in use. */
   const setCellColor = (kind: CellKind, hex: string | null) => {
     const key = palette();
@@ -3849,7 +3858,8 @@ export function App() {
                         result={currentResult().result}
                         loading={currentResult().loading}
                         error={currentResult().error}
-                        rowHeight={rowHeightFor(settings().gridDensity)}
+                        rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                        gridStyle={settings().gridStyle}
                         emptyState={
                           <EmptyState
                             recentTables={recentTables()}
