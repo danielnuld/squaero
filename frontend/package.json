@@ -1,6 +1,6 @@
 {
   "name": "quaero-frontend",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "private": true,
   "type": "module",
   "description": "Squaero web UI (rendered in the OS webview)",
