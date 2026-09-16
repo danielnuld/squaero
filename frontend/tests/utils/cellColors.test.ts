@@ -116,7 +116,24 @@ describe("applyCellColors", () => {
     const t = target();
     applyCellColors(t, {});
     expect(Object.keys(t.set)).toEqual([]);
-    expect(t.removed.sort()).toEqual(CELL_KINDS.map((k) => CELL_VAR[k]).sort());
+    expect(t.removed.sort()).toEqual(
+      [...CELL_KINDS.map((k) => CELL_VAR[k]), "--cell-text-chosen"].sort(),
+    );
+  });
+
+  // A second variable that says "the user picked this one", which --cell-text
+  // cannot: the theme defines that too, so CSS has no way to tell a chosen red
+  // from the palette's default. The registro grid style reads it to put text
+  // back to plain ink WITHOUT overriding a deliberate choice (#540).
+  it("marks a chosen text colour separately, and takes the mark off again", () => {
+    const t = target();
+    applyCellColors(t, { text: "#ff0000" });
+    expect(t.set["--cell-text-chosen"]).toBe("#ff0000");
+
+    const t2 = target();
+    applyCellColors(t2, { number: "#00ff00" });
+    expect(t2.set["--cell-text-chosen"]).toBeUndefined();
+    expect(t2.removed).toContain("--cell-text-chosen");
   });
 });
 

@@ -8,6 +8,7 @@ import {
   MIN_SLOW_MS,
   MAX_SLOW_MS,
   type GridDensity,
+  type GridStyle,
   type Settings,
 } from "../utils/settings";
 import { clampLimit, MIN_HISTORY_LIMIT, MAX_HISTORY_LIMIT } from "../utils/history";
@@ -39,6 +40,32 @@ const THEME_OPTS: { value: ThemePref; label: string }[] = [
 const DENSITY_OPTS: { value: GridDensity; label: string }[] = [
   { value: "normal", label: "Normal" },
   { value: "compact", label: "Compacta" },
+];
+
+/**
+ * Cómo se lee la rejilla (#540). La densidad es cuánto cabe; esto es qué
+ * aspecto tiene, y son ajustes independientes: cada estilo tiene su altura
+ * normal y su compacta.
+ *
+ * Cada uno lleva su frase porque los nombres solos no dicen nada: «Informe» no
+ * anuncia que va a separar los miles.
+ */
+const GRID_STYLE_OPTS: { value: GridStyle; label: string; hint: string }[] = [
+  {
+    value: "registro",
+    label: "Registro",
+    hint: "El texto en tinta y el color reservado a números, fechas y booleanos. El tipo va bajo el nombre de la columna.",
+  },
+  {
+    value: "hoja",
+    label: "Hoja densa",
+    hint: "Cuadrícula completa, filas más bajas y color en todos los tipos: caben más filas y se lee como una hoja de cálculo.",
+  },
+  {
+    value: "informe",
+    label: "Informe",
+    hint: "Sin líneas verticales y con los datos en tinta. Separa los miles y escribe las fechas como «14 feb 2023» — solo en pantalla: lo que se copia o exporta no cambia.",
+  },
 ];
 
 interface CoreInfo {
@@ -257,6 +284,27 @@ export function SettingsPanel(props: {
             />
             <span class="settings-label">Barra de herramientas bajo las pestañas</span>
           </label>
+          {/* Encima de la densidad: primero cómo se lee, después cuánto cabe. */}
+          <div class="settings-row">
+            <span class="settings-label">Estilo de rejilla</span>
+            <div class="settings-choice" role="radiogroup" aria-label="Estilo de rejilla">
+              <For each={GRID_STYLE_OPTS}>
+                {(o) => (
+                  <button
+                    class={`chip ${props.settings.gridStyle === o.value ? "active" : ""}`}
+                    role="radio"
+                    aria-checked={props.settings.gridStyle === o.value}
+                    onClick={() => props.onSetSettings({ gridStyle: o.value })}
+                  >
+                    {o.label}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
+          <p class="settings-hint">
+            {GRID_STYLE_OPTS.find((o) => o.value === props.settings.gridStyle)?.hint}
+          </p>
           <div class="settings-row">
             <span class="settings-label">Densidad del grid</span>
             <div class="settings-choice" role="radiogroup" aria-label="Densidad del grid">

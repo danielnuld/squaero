@@ -146,4 +146,11 @@ export function applyCellColors(target: StyleTarget, colors: CellColors): void {
     if (value === undefined) target.removeProperty(CELL_VAR[kind]);
     else target.setProperty(CELL_VAR[kind], value);
   }
+  // A second variable that exists ONLY when the user picked the text colour
+  // themselves. `--cell-text` cannot answer that: the theme defines it too, so
+  // by the time CSS reads it there is no telling a chosen red from the palette's
+  // default. The "registro" style needs to know, because it puts text back to
+  // plain ink — but never over a colour someone chose on purpose (issue #540).
+  if (colors.text === undefined) target.removeProperty("--cell-text-chosen");
+  else target.setProperty("--cell-text-chosen", colors.text);
 }

@@ -8,9 +8,23 @@
 /** Row density of the result grid. */
 export type GridDensity = "normal" | "compact";
 
+/**
+ * How the result grid is READ (issue #540). Density is how much fits; this is
+ * what the grid looks like.
+ *
+ * - `registro`: ink for text, colour kept for the types that are not text, the
+ *   type under each column name, NULL as a tag. The default.
+ * - `hoja`: full gridlines, shorter rows, colour on every type — a spreadsheet.
+ * - `informe`: no vertical rules, taller rows, the type's colour as a rule under
+ *   the header, and thousands and dates FORMATTED on screen.
+ */
+export type GridStyle = "registro" | "hoja" | "informe";
+
 export interface Settings {
   /** Result-grid row density. */
   gridDensity: GridDensity;
+  /** How the result grid is drawn and read (issue #540). */
+  gridStyle: GridStyle;
   /** A query slower than this (ms) is flagged as slow (consumed by #179/#180).
       0 disables the mark. */
   slowThresholdMs: number;
@@ -39,6 +53,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   gridDensity: "normal",
+  gridStyle: "registro",
   slowThresholdMs: 1000,
   checkUpdatesOnStart: true,
   toolStrip: true,
@@ -55,13 +70,27 @@ export function clampSlowThreshold(ms: number): number {
   return Math.min(MAX_SLOW_MS, Math.max(MIN_SLOW_MS, Math.round(ms)));
 }
 
-/** Row height (px) for a density. Single source shared by the grid component
-    (virtualization math) and the CSS, so they never drift apart. */
-export function rowHeightFor(density: GridDensity): number {
-  return density === "compact" ? 22 : 28;
+/**
+ * Row height (px) per style and density. Single source shared by the grid
+ * component (virtualization math), gridNav (scrolling a cell into view) and the
+ * CSS via `--grid-row-h`, so the three can never drift apart — which is exactly
+ * what a virtualized list punishes: rows that measure one thing and paint
+ * another leave gaps or overlap as you scroll.
+ */
+const ROW_HEIGHT: Record<GridStyle, Record<GridDensity, number>> = {
+  registro: { normal: 28, compact: 22 },
+  hoja: { normal: 22, compact: 20 },
+  informe: { normal: 32, compact: 28 },
+};
+
+export function rowHeightFor(style: GridStyle, density: GridDensity): number {
+  return ROW_HEIGHT[style][density];
 }
 
 const isDensity = (v: unknown): v is GridDensity => v === "normal" || v === "compact";
+
+const isGridStyle = (v: unknown): v is GridStyle =>
+  v === "registro" || v === "hoja" || v === "informe";
 
 /**
  * Parse persisted settings, tolerantly. Unknown/missing/ill-typed fields fall
@@ -82,6 +111,8 @@ export function parseSettings(raw: string | null | undefined): Settings {
   }
   return {
     gridDensity: isDensity(obj.gridDensity) ? obj.gridDensity : DEFAULT_SETTINGS.gridDensity,
+    // Absent (settings saved before #540) or unknown → the default style.
+    gridStyle: isGridStyle(obj.gridStyle) ? obj.gridStyle : DEFAULT_SETTINGS.gridStyle,
     slowThresholdMs:
       typeof obj.slowThresholdMs === "number"
         ? clampSlowThreshold(obj.slowThresholdMs)

@@ -67,6 +67,37 @@ describe("SettingsPanel", () => {
     expect(active).toContain("Compacta");
   });
 
+  // Issue #540: how the grid READS, next to how much of it fits. Two separate
+  // settings — each style has its own normal and compact heights.
+  it("offers the three grid styles and marks the active one", () => {
+    mount({ settings: { ...DEFAULT_SETTINGS, gridStyle: "informe" } });
+    const chips = [...host!.querySelectorAll(".chip")].map((c) => c.textContent);
+    expect(chips).toEqual(expect.arrayContaining(["Registro", "Hoja densa", "Informe"]));
+    expect([...host!.querySelectorAll(".chip.active")].map((c) => c.textContent)).toContain(
+      "Informe",
+    );
+  });
+
+  it("patches the grid style through the handler", () => {
+    const onSetSettings = vi.fn();
+    mount({ onSetSettings });
+    const chip = [...host!.querySelectorAll(".chip")].find((c) => c.textContent === "Hoja densa")!;
+    (chip as HTMLButtonElement).click();
+    expect(onSetSettings).toHaveBeenCalledWith({ gridStyle: "hoja" });
+  });
+
+  // The names alone say nothing: "Informe" does not announce that it will group
+  // thousands, which is the part worth warning about.
+  it("describes the style that is selected, and follows the selection", () => {
+    mount({ settings: { ...DEFAULT_SETTINGS, gridStyle: "informe" } });
+    expect(host!.querySelector(".settings-hint")!.textContent).toMatch(/miles/i);
+
+    dispose?.();
+    host?.remove();
+    mount({ settings: { ...DEFAULT_SETTINGS, gridStyle: "hoja" } });
+    expect(host!.querySelector(".settings-hint")!.textContent).toMatch(/hoja de cálculo/i);
+  });
+
   it("reports a theme change through the handler", () => {
     const onSetTheme = vi.fn();
     mount({ theme: "system", onSetTheme });
