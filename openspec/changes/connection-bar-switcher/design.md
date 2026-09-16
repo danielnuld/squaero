@@ -156,9 +156,19 @@ importación. Tres PRs (ver tasks.md). Para revertir basta con revertirlos; lo
 
 ## Open Questions
 
+Resueltas al cerrar el cambio (tarea 5.6):
+
 - ¿La fila de la barra debe llevar también el **grupo** de la conexión, además
-  del motor y el servidor? Propuesta: no, lo dice el buscador; la fila ya tiene
-  dos líneas.
+  del motor y el servidor? → **No.** La fila ya lleva dos líneas, y el grupo es
+  un criterio para *encontrar* una conexión, no para reconocer la que ya está
+  abierta: cuando está abierta, lo que la distingue es su nombre y su servidor.
+  El buscador sí lo usa, y ahí sirve de dos maneras — agrupa los resultados bajo
+  su encabezado y entra en la coincidencia. Cubierto en
+  `e2e/connection-switcher.spec.ts`.
 - ¿Merece un atajo para el buscador de conexiones (por ejemplo `Mod+Shift+O`)?
-  Propuesta: sí, no global sino documentado, y solo si `Mod+Shift+O` está libre
-  en WebView2.
+  → **Aplazado, no entra en este cambio.** Que `Mod+Shift+O` esté libre no se
+  puede comprobar desde el navegador: hay que medirlo en WebView2 (tarea 5.4), y
+  registrar un atajo global sin verificarlo es exactamente como se pisan los del
+  editor. Hoy el buscador se abre desde el `+` de la barra y desde el enlace del
+  estado vacío; **no** hay tercer camino (la paleta abre la *pestaña* del gestor,
+  que es otra cosa). Si tras 5.4 se quiere el atajo, es un issue propio.

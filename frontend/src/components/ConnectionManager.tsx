@@ -99,7 +99,11 @@ export function ConnectionManager(props: ConnectionManagerProps) {
           <Show when={c.color}>
             <span class="conn-color" style={{ background: c.color }} />
           </Show>
-          <span class="engine-icon">{connIcon(c)}</span> {c.name}
+          {/* Decoration: the engine is spelled out on the second line, so the
+              icon adds nothing a screen reader needs — and unmarked it landed
+              INSIDE the button's accessible name ("🗄️ Nómina SQLite · …"),
+              which is the very thing the emoji-to-SVG move settled (#332). */}
+          <span class="engine-icon" aria-hidden="true">{connIcon(c)}</span> {c.name}
           <Show when={props.openIds?.includes(c.id)}>
             <span class="conn-live" title={t("conn.connectedDot")}>●</span>
           </Show>
