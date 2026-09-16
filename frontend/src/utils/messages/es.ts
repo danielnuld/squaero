@@ -879,6 +879,20 @@ export const es: Record<string, string> = {
   "cform.saveBlocked": "No se pudo guardar: revisa los campos marcados{detail}.",
   "cform.saveBlockedName": " — falta el Nombre de la conexión",
   "cform.tabHasErrors": "Campos con errores",
+  // Qué protege cada modo de seguridad (#531): el desplegable decía «verify_ca»
+  // y tocaba adivinar. Una frase por valor, bajo el control.
+  "cform.sec.none": "Sin cifrar: los datos y la contraseña viajan en claro.",
+  "cform.sec.mysqlDefault": "Lo que decida el cliente: cifra si el servidor lo ofrece, y no avisa si no.",
+  "cform.sec.pgDefault": "Lo que decida libpq: cifra si el servidor puede y, si no, conecta igual sin cifrar.",
+  "cform.sec.ifxDefault": "TCP sin cifrar.",
+  "cform.sec.tlsOff": "Sin TLS.",
+  "cform.sec.encDefault": "Cifra el tráfico, sin comprobar el certificado del servidor.",
+  "cform.sec.allow": "Cifra solo si el servidor rechaza la conexión sin cifrar.",
+  "cform.sec.prefer": "Cifra si el servidor puede; si no, conecta igual sin cifrar.",
+  "cform.sec.encrypted": "Cifra el tráfico, pero no comprueba quién está al otro lado.",
+  "cform.sec.strict": "TDS 8: cifrado desde el principio (SQL Server 2022 o posterior).",
+  "cform.sec.verifyCa": "Cifra y comprueba que el certificado del servidor lo firma una CA de confianza.",
+  "cform.sec.verifyIdentity": "Cifra, comprueba la CA y además que el nombre del servidor coincide.",
   "cform.save": "Guardar",
 
   "field.host": "Host",
