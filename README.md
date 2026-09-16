@@ -97,7 +97,12 @@ not include: install it from IBM
 ([where to download](https://www.ibm.com/support/pages/where-download-informix-client-sdk)).
 Squaero tells you when a connection finds no client.
 
-> Linux (AppImage/deb) and macOS (.app) are coming in future releases.
+**Linux:** from v0.29.0, releases attach a `.deb` for Ubuntu 24.04+ and Debian 13+
+(x86_64), listed in the same `SHA256SUMS.txt`:
+`sudo apt install ./squaero_X.Y.Z_amd64.deb`. apt pulls in every driver's client
+library. Informix on Linux needs IBM's 64-bit Client SDK.
+
+> AppImage/Flatpak and macOS (.app) are coming in future releases.
 
 ## Build from source
 

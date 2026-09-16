@@ -2,7 +2,8 @@ name: Release
 
 # Tag-triggered release (issue #41). Pushing a version tag (e.g. v0.5.5) builds
 # the x86 Windows app, packages the MSI, generates checksums, and publishes a
-# GitHub release with those artifacts attached. The build is x86 because the IBM
+# GitHub release with those artifacts attached; then the Linux .deb joins it
+# (issue #40, job linux-deb). The build is x86 because the IBM
 # Informix ODBC driver is 32-bit only and Squaero loads drivers in-process, so the
 # whole app must be x86 (see cmake/toolchain-i686-mingw.cmake, installer/quaero.wxs).
 #
@@ -210,3 +211,89 @@ jobs:
               "dist/squaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" \
               --title "Squaero $TAG" --generate-notes
           fi
+
+  # The Linux .deb (issue #40), after the Windows job so the release exists: a
+  # failure here never holds the MSI back. x86_64, built on Ubuntu 24.04, whose
+  # WebKitGTK 6.0 and t64 libraries set the floor — Ubuntu 24.04+ / Debian 13+.
+  # The x86-only rule is a Windows one (IBM's 32-bit ODBC driver); on Linux the
+  # Informix Client SDK is 64-bit.
+  linux-deb:
+    name: linux-deb (amd64)
+    needs: windows-msi
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve the tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Verify tag matches VERSION
+        run: |
+          FILE_VERSION="$(cat VERSION)"
+          if [ "$FILE_VERSION" != "${{ steps.tag.outputs.version }}" ]; then
+            echo "::error::tag ${{ steps.tag.outputs.tag }} != VERSION $FILE_VERSION"
+            exit 1
+          fi
+
+      # Every client library the drivers link comes from the distribution, and
+      # becomes a Depends of the package (installer/build-deb.sh).
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev libgtk-4-dev libwebkitgtk-6.0-dev \
+            libmariadb-dev libpq-dev libmongoc-dev unixodbc-dev libssl-dev
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build the frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Build the app
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DQUAERO_SSH=ON -DQUAERO_FREETDS=ON -DWEBVIEW_WEBKITGTK_API=6.0
+          cmake --build build --target quaero
+
+      - name: Build the .deb
+        run: installer/build-deb.sh "${{ steps.tag.outputs.version }}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/squaero_${{ steps.tag.outputs.version }}_amd64.deb
+
+      # SHA256SUMS.txt already holds the MSI's line: add (or, on a re-run,
+      # replace) the .deb's and upload both.
+      - name: Publish to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          DEB="squaero_${{ steps.tag.outputs.version }}_amd64.deb"
+          gh release download "$TAG" --pattern SHA256SUMS.txt --dir dist --clobber
+          grep -v " $DEB\$" dist/SHA256SUMS.txt > dist/sums.tmp || true
+          (cd dist && sha256sum "$DEB" >> sums.tmp && mv sums.tmp SHA256SUMS.txt)
+          gh release upload "$TAG" "dist/$DEB" dist/SHA256SUMS.txt --clobber

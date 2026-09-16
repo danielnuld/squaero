@@ -326,10 +326,41 @@ static void rpc_handler(const char *id, const char *req, void *arg)
 // localStorage (saved connections, theme) PERSISTS across restarts. Loading via
 // set_html gives an opaque origin, for which Chromium never persists
 // localStorage. Any failure falls back to set_html (same as before, just no
-// persistence). Non-Windows uses set_html until an equivalent is wired.
+// persistence).
+//
+// On Linux set_html is worse: WebKitGTK loads it as about:blank, origin null,
+// and localStorage THROWS (SecurityError) — nothing the user saves survives
+// (measured, issue #40). A file:// page has the origin "file://", which WebKit
+// persists; the origin carries no path, so where the file lives can change.
+// The storage itself is per program — $XDG_DATA_HOME/squaero/storage, named
+// after g_set_prgname in main() — so other WebKitGTK apps never see it.
 static void load_frontend(webview_t w)
 {
     const char *html = reinterpret_cast<const char *>(quaero_frontend_html);
+#if defined(__linux__)
+    do {
+        // $XDG_DATA_HOME/squaero/ui, rewritten on every launch like Windows'.
+        char *dir = g_build_filename(g_get_user_data_dir(), "squaero", "ui", nullptr);
+        char *file = g_build_filename(dir, "index.html", nullptr);
+        char *uri = nullptr;
+        if (g_mkdir_with_parents(dir, 0700) == 0 &&
+            g_file_set_contents(file, html, -1, nullptr)) {
+            uri = g_filename_to_uri(file, nullptr, nullptr);
+        }
+        g_free(dir);
+        g_free(file);
+        if (uri == nullptr) {
+            break;
+        }
+        webview_navigate(w, uri);
+        std::printf("Squaero: UI served from %s (persistent)\n", uri);
+        g_free(uri);
+        return;
+    } while (0);
+    std::fprintf(stderr,
+                 "Squaero: could not write the UI to the data directory; falling "
+                 "back to set_html (settings will not be saved)\n");
+#endif
 #if defined(_WIN32)
     do {
         wchar_t appdata[MAX_PATH];
@@ -766,6 +797,81 @@ static void download_install_handler(const char *id, const char *req, void *arg)
 }
 #endif
 
+#if defined(__linux__)
+// The Linux counterparts of the Windows bridges above (issue #40). There is no
+// quaeroDownloadAndInstall: a .deb is updated by the package manager, so the
+// update modal sends the user to the release page instead.
+
+// The first argument of a bound call when it is a string, else empty.
+static std::string first_string_arg(const char *req)
+{
+    std::string out;
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *first = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    if (cJSON_IsString(first) && first->valuestring != nullptr) {
+        out = first->valuestring;
+    }
+    cJSON_Delete(args);
+    return out;
+}
+
+// Bridge: window.quaeroOpenExternal(url) — http(s) only, through GIO, which
+// asks the desktop (or its portal) for the default browser.
+static void open_external_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    std::string url = first_string_arg(req);
+    if (url.rfind("https://", 0) == 0 || url.rfind("http://", 0) == 0) {
+        g_app_info_launch_default_for_uri(url.c_str(), nullptr, nullptr);
+    }
+    webview_return(w, id, 0, "null");
+}
+
+struct PickFileCtx {
+    webview_t w;
+    std::string id;
+};
+
+// GTK: the dialog finished — resolve with the chosen path, or null on cancel.
+static void pick_file_done(GObject *source, GAsyncResult *res, gpointer data)
+{
+    auto *ctx = static_cast<PickFileCtx *>(data);
+    std::string result = "null";
+    GFile *file = gtk_file_dialog_open_finish(GTK_FILE_DIALOG(source), res, nullptr);
+    if (file != nullptr) {
+        char *path = g_file_get_path(file);
+        if (path != nullptr) {
+            cJSON *str = cJSON_CreateString(path);
+            char *json = cJSON_PrintUnformatted(str);
+            if (json != nullptr) {
+                result = json;
+                cJSON_free(json);
+            }
+            cJSON_Delete(str);
+            g_free(path);
+        }
+        g_object_unref(file);
+    }
+    webview_return(ctx->w, ctx->id.c_str(), 0, result.c_str());
+    g_object_unref(source);
+    delete ctx;
+}
+
+// Bridge: window.quaeroPickFile(title) — the GTK file dialog (4.10+), modal to
+// the app window; resolves asynchronously, so the UI thread never blocks.
+static void pick_file_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    std::string title = first_string_arg(req);
+    GtkFileDialog *dialog = gtk_file_dialog_new();
+    if (!title.empty()) {
+        gtk_file_dialog_set_title(dialog, title.c_str());
+    }
+    gtk_file_dialog_open(dialog, GTK_WINDOW(webview_get_window(w)), nullptr,
+                         pick_file_done, new PickFileCtx{w, id});
+}
+#endif
+
 #if defined(_WIN32)
 // Carrying the user's data across the rename (issues #466, #476).
 //
@@ -859,6 +965,10 @@ int main()
     // MUST run before webview_create: it fills the profile the WebView2
     // environment is about to open, and the user's data lives in that profile.
     migrate_user_data();
+#elif defined(__linux__)
+    // The Wayland app id and X11 WM_CLASS: what ties the window to
+    // squaero.desktop, and so to its icon and its launcher entry.
+    g_set_prgname("squaero");
 #endif
 
     // Register driver plugins before the UI opens so conn.open can resolve them.
@@ -897,11 +1007,16 @@ int main()
     if (HWND hwnd = static_cast<HWND>(webview_get_window(w))) {
         ShowWindow(hwnd, SW_MAXIMIZE);
     }
+#elif defined(__linux__)
+    gtk_window_set_default_icon_name("squaero");
+    gtk_window_maximize(GTK_WINDOW(webview_get_window(w)));
 #endif
     webview_bind(w, "quaeroRpc", rpc_handler, w);
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__)
     webview_bind(w, "quaeroOpenExternal", open_external_handler, w);
     webview_bind(w, "quaeroPickFile", pick_file_handler, w);
+#endif
+#if defined(_WIN32)
     webview_bind(w, "quaeroDownloadAndInstall", download_install_handler, w);
 #endif
 
@@ -910,7 +1025,7 @@ int main()
     g_rpc_worker = std::thread(rpc_worker_loop);
 
     // Load the embedded, self-contained frontend bundle (persistent origin on
-    // Windows; set_html fallback otherwise).
+    // Windows and Linux; set_html fallback otherwise).
     load_frontend(w);
 
     webview_run(w);

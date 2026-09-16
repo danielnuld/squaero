@@ -8,7 +8,7 @@ import type { UpdateInfo } from "../utils/update";
 //
 // When the native in-app installer is available (onInstall + a .msi asset), the
 // primary action downloads and runs it (the app then closes); otherwise it opens
-// the download in the browser.
+// the release page in the browser.
 export function UpdateModal(props: {
   update: UpdateInfo | null;
   currentVersion: string;
@@ -84,16 +84,14 @@ export function UpdateModal(props: {
             <button disabled={installing()} onClick={() => props.onClose()}>
               {t("upd.later")}
             </button>
+            {/* Without the native installer — Linux, or a release with no MSI —
+                the release page is the only honest target: the direct asset is
+                the Windows MSI, useless to anyone else (issue #40). */}
             <Show
               when={canInAppInstall()}
               fallback={
-                <button
-                  class="primary"
-                  onClick={() =>
-                    props.onDownload(props.update!.downloadUrl ?? props.update!.releaseUrl)
-                  }
-                >
-                  {props.update!.downloadUrl ? t("upd.download") : t("upd.viewRelease")}
+                <button class="primary" onClick={() => props.onDownload(props.update!.releaseUrl)}>
+                  {t("upd.viewRelease")}
                 </button>
               }
             >

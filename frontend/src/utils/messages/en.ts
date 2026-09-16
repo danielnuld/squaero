@@ -838,7 +838,6 @@ export const en: Record<string, string> = {
   "upd.downloadFailed": "The update could not be downloaded. You can get it in the browser.",
   "upd.skip": "Skip this version",
   "upd.later": "Not now",
-  "upd.download": "Download",
   "upd.viewRelease": "View release",
   "upd.inBrowser": "In the browser",
   "upd.install": "Install update",
