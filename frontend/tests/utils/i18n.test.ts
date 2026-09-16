@@ -46,6 +46,14 @@ describe("es/en catalog parity", () => {
   it("en only defines keys that exist in the es base (so es-fallback always works)", () => {
     for (const k of Object.keys(en)) expect(es[k]).toBeDefined();
   });
+
+  // The direction that catches new text: a key added to the base and never
+  // translated falls back to Spanish, which reads as a bug in English rather
+  // than as a missing translation.
+  it("every es key has an en mirror, so nothing shows in Spanish in English", () => {
+    const missing = Object.keys(es).filter((k) => en[k] === undefined);
+    expect(missing).toEqual([]);
+  });
 });
 
 describe("isLocale", () => {
