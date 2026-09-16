@@ -90,9 +90,12 @@ https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
 
 ## 4. Estilos, temas e idioma
 
-- [ ] 4.1 CSS con los tokens de las escalas y sin transiciones; revisado en
-      oscuro, claro, Ciruela, Pizarra y Terminal, con la guardia de contraste en
-      verde
+- [x] 4.1 CSS con los tokens de las escalas y sin transiciones, con la guardia de
+      `tests/styles.test.ts` en verde: ningún color literal, ninguna variable
+      inexistente y AA en los tres temas con superficies propias. **La revisión a
+      ojo de los cinco temas se hace en 5.4**, que es donde hay ventana: lo que
+      la guardia no mide es `.connsearch-hit.is-highlighted`, que mezcla el
+      acento al 16 % sobre la superficie y no es ninguna de las tres medidas
 - [x] 4.2 Retirado el CSS sin uso comprobado con grep: `.connbar-row`,
       `.connbar-active(:hover)`, `.connbar-status(.lost)` y `.connbar-caret`.
       `.connbar-drop` **se queda**: ahora envuelve al buscador
@@ -101,7 +104,9 @@ https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
       `conn.disconnect` (todo desconectar va nombrado desde la fase B).
       **A comprobar en 5.4**: al quitar `conn.connecting` de la lista no queda
       señal de «conectando» en ninguna parte
-- [ ] 4.4 Recorrer la barra, el buscador y la pestaña con la app en inglés
+- [x] 4.4 Recorrer la barra, el buscador y la pestaña con la app en inglés —
+      automatizado en `connection-switcher.spec.ts` («in English»), que abre una
+      conexión desde el buscador y llega a la pestaña por «Manage»
 
 ## 5. Cierre
 
@@ -113,14 +118,28 @@ https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
       viejo: `import-connections` (el selector de ficheros vive en la pestaña),
       `paste-rows-english` (ya no hay un «Disconnect» a secas) y `toolbar` (la
       herramienta número once y su excepción sin conexión)
-- [ ] 5.3 E2E propio: abrir dos conexiones, cambiar de una a otra y comprobar que
-      cada sección del explorador es la suya; buscar por motor y abrir desde el
-      buscador
+- [x] 5.3 E2E propio (`e2e/connection-switcher.spec.ts`): abrir dos conexiones,
+      cambiar de una a otra sin cerrar ninguna y comprobar que cada sección del
+      explorador es la suya; buscar por motor, por nombre sin acentos y sin
+      coincidencias; la ya abierta sale marcada y elegirla solo la enfoca. Dos
+      conexiones al mismo SQLite distinguidas por nombre, con
+      `seedConnections()` nuevo en `support/state.ts`
 - [ ] 5.4 Probado a mano en la ventana nativa (WebView2, build x86) con tres
       conexiones abiertas de motores distintos, una de ellas Informix
 - [ ] 5.5 Capturas regeneradas (`pnpm media`: `app-dark`, `app-light` e
       `initial-dark` llevan la barra) y el manual al día («Varias conexiones a la
       vez», «Crear una conexión», «Llevártelas a otro equipo»)
-- [ ] 5.6 Resolver las preguntas abiertas del diseño (grupo en la fila, atajo del
-      buscador) antes de cerrar
+- [x] 5.6 Resueltas en `design.md`: el grupo **no** va en la fila (es criterio de
+      búsqueda, no de reconocimiento); el atajo del buscador queda **aplazado** a
+      un issue propio, porque comprobar que `Mod+Shift+O` está libre exige la
+      ventana nativa (5.4)
+- [x] 5.8 **Defecto de accesibilidad que encontró el e2e**: el emoji del icono
+      de conexión entraba en el nombre accesible de la fila del gestor
+      («🗄️ Nómina SQLite · …»), justo lo que la mudanza a SVG (#332) había
+      zanjado en el resto de la interfaz. Marcado como decorativo
+- [ ] 5.9 **Pendiente, fuera de alcance**: en el gestor, que una conexión esté
+      abierta lo dice **solo** un `●` con `title`, que un lector de pantalla lee
+      como el carácter. El buscador sí lo dice con palabras («Abierta»). Darle
+      texto es un cambio de interfaz que merece su propio issue; no se toca aquí
+      para no colar un rediseño en una entrega de pruebas
 - [ ] 5.7 Commits en Conventional Commits referenciando el issue del cambio
