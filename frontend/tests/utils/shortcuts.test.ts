@@ -76,6 +76,21 @@ describe("SHORTCUTS table", () => {
     const ids = SHORTCUTS.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  // The grid's row keys (#517): listed for the help overlay, never matched
+  // globally — they only mean anything with the grid focused, and Mod+C / Mod+V
+  // must stay the browser's everywhere else.
+  it("lists the grid's row keys without claiming them globally", () => {
+    for (const id of ["copy-rows", "duplicate-rows", "paste-rows", "unmark-rows"]) {
+      const sc = SHORTCUTS.find((s) => s.id === id);
+      expect(sc, id).toBeDefined();
+      expect(sc!.global).toBe(false);
+    }
+    expect(matchShortcut(ev({ key: "c", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "d", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "v", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "Escape" }))).toBeNull();
+  });
   it("run-query is present but not globally matched", () => {
     const run = SHORTCUTS.find((s) => s.id === "run-query");
     expect(run?.global).toBe(false);

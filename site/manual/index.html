@@ -381,10 +381,32 @@
       </ul>
 
       <h3>Marcar filas y llevarlas a otro lado</h3>
-      <p><kbd>Ctrl</kbd>+clic y <kbd>Mayús</kbd>+clic marcan filas,
-        <kbd>Ctrl</kbd>+<kbd>A</kbd> las marca todas; la barra de estado lleva la
-        cuenta. Con el clic derecho: <b>Copiar n filas</b>, <b>Copiar n filas como
-        INSERT</b> o <b>Transferir n filas a otra tabla…</b>.</p>
+      <p>Cada fila lleva su número a la izquierda, y al pasar el ratón ese número
+        se convierte en una <b>casilla</b>. La casilla de la cabecera marca o
+        desmarca todas las filas que se estén viendo, y <kbd>Mayús</kbd>+clic en
+        una casilla marca el rango desde la última que tocaste. También valen
+        <kbd>Ctrl</kbd>+clic, <kbd>Mayús</kbd>+clic sobre la fila y
+        <kbd>Ctrl</kbd>+<kbd>A</kbd>; <kbd>Esc</kbd> desmarca.</p>
+      <p>Con filas marcadas aparece una barra sobre la rejilla: <b>Copiar</b>
+        (<kbd>Ctrl</kbd>+<kbd>C</kbd>), <b>Copiar como INSERT</b>, <b>Duplicar</b>
+        (<kbd>Ctrl</kbd>+<kbd>D</kbd>) y <b>Pegar</b>. Las mismas acciones, más
+        <b>Transferir a otra tabla…</b>, están en el clic derecho, y funcionan
+        también con una sola fila.</p>
+
+      <h3>Copiar filas y pegarlas como filas nuevas</h3>
+      <p>Copiar guarda las filas tal cual, con sus NULL, además del texto que
+        reciben otros programas. Al pegarlas sobre una tabla (<kbd>Ctrl</kbd>+<kbd>V</kbd>)
+        se añaden abajo como <b>filas nuevas sin guardar</b>: se pueden editar celda
+        a celda y quitarse con su ✕. Los valores se colocan por nombre de columna,
+        así que sirve para copiar de una tabla a otra.</p>
+      <p>La barra de filas pendientes decide qué pasa con la <b>clave primaria</b>:
+        <b>la genera la base</b> (lo normal al pegar en la misma tabla) o
+        <b>conservar la copiada</b>. Si un valor ya existe —la clave, o una columna
+        con índice único— la celda se marca en rojo y no deja guardar hasta
+        corregirla. Lo que no se puede saber de antemano lo dice la base al guardar,
+        señalando la fila que falló.</p>
+      <p><b>Revisar y guardar</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) enseña el SQL antes
+        de ejecutarlo, como cualquier otra edición; <b>Descartar</b> las tira.</p>
 
       <h3>Graficar el resultado</h3>
       <p><b>Graficar</b> convierte el resultado en barras, líneas o pastel: eliges la
@@ -416,9 +438,15 @@
       </ol>
 
       <h3>Pegar desde una hoja de cálculo</h3>
-      <p>Copia las filas en Excel o en Google Sheets y pégalas sobre la tabla. El
-        portapapeles es una fuente más del mismo asistente: misma vista previa, mismo
-        mapeo por cabecera, misma transacción.</p>
+      <p>Copia las filas en Excel o en Google Sheets y pégalas sobre la tabla. Si
+        traen tantas columnas como la rejilla, entran como <b>filas nuevas sin
+        guardar</b> (ver «Copiar filas y pegarlas como filas nuevas»), con la opción
+        de tratar las celdas vacías como NULL.</p>
+      <p>Cualquier otra forma —otro número de columnas, una cabecera que no
+        coincide o más de 500 filas— abre el <b>asistente de importación</b>: misma
+        vista previa, mismo mapeo por cabecera y misma transacción que un archivo.
+        Desde la barra de filas pendientes también se puede mandar el pegado al
+        asistente.</p>
     </section>
 
     <!-- 7 ─────────────────────────────────────────────────────────────── -->

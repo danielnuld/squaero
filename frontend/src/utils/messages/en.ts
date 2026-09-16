@@ -790,6 +790,10 @@ export const en: Record<string, string> = {
   "sc.save-edits": "Save the grid's changes",
   "sc.editor-find": "Find in the editor",
   "sc.select-rows": "Select the grid's rows",
+  "sc.copy-rows": "Copy the marked rows",
+  "sc.duplicate-rows": "Duplicate the marked rows as new rows",
+  "sc.paste-rows": "Paste rows as new rows",
+  "sc.unmark-rows": "Unmark the rows",
   "sc.add-condition": "Add another condition to the filter",
 
   // command palette (CommandPalette.tsx)

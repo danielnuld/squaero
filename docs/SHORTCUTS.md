@@ -18,8 +18,23 @@ desincroniza del comportamiento).
 | Cambiar tema claro/oscuro | `Mod`+Alt+L |
 | Mostrar/ocultar esta ayuda | F1 |
 
+En la **rejilla de resultados** (cuando el foco está en ella):
+
+| Acción | Atajo |
+|---|---|
+| Marcar todas las filas visibles | `Mod`+A |
+| Copiar las filas marcadas | `Mod`+C |
+| Duplicar las filas marcadas como filas nuevas | `Mod`+D |
+| Pegar filas como filas nuevas | `Mod`+V |
+| Desmarcar | Esc |
+| Revisar y guardar los cambios | `Mod`+S |
+
 Notas:
 
+- Los atajos de la rejilla actúan sobre las filas marcadas o, si no hay ninguna,
+  sobre la fila de la celda seleccionada. Sin nada que copiar o duplicar, la
+  combinación se deja al navegador. Duplicar y pegar solo funcionan en una tabla
+  con clave primaria.
 - **Ejecutar** y **formatear** los maneja el editor (CodeMirror); funcionan
   cuando el foco está en el editor (formatear también con el botón "Formatear").
   El formateo usa el dialecto del motor de la conexión activa y deja intacta una
