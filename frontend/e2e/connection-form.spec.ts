@@ -5,6 +5,7 @@
 // that types it in.
 
 import { DRIVER_SCHEMAS } from "../src/utils/connections";
+import { es } from "../src/utils/messages/es";
 import { connect } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
 
@@ -12,11 +13,15 @@ import { describeAllEngines, expect, test } from "./support/fixtures";
  * The visible label of a DSN field, taken from the production schema rather than
  * copied here — so renaming a label cannot leave this test asserting a caption the
  * interface no longer shows.
+ *
+ * Since the i18n sweep (#496) a schema label is a message KEY ("field.host") that
+ * the form passes through t(). The suite runs the interface in Spanish, so the
+ * caption on screen is the Spanish catalog's entry; looking for the key itself
+ * found nothing and the test timed out on every engine.
  */
 function labelFor(driver: string, key: string): string | null {
-  return (
-    DRIVER_SCHEMAS[driver]?.fields.find((f) => f.key === key)?.label ?? null
-  );
+  const label = DRIVER_SCHEMAS[driver]?.fields.find((f) => f.key === key)?.label;
+  return label === undefined ? null : (es[label] ?? label);
 }
 
 describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
