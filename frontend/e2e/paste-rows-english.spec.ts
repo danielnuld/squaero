@@ -15,10 +15,15 @@ describeEngine("sqlite", () => {
   // English. That the labels differ is the point of this file.
   async function connectAndOpenTable(app: App) {
     const { page, engine } = app;
-    await page.getByRole("button", { name: "Choose connection" }).click();
-    await page.getByRole("button", { name: /New connection/ }).waitFor();
-    await page.getByRole("button", { name: new RegExp(engine.label) }).click();
-    await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Connect to a database…" }).click();
+    // The + opens a search over the saved connections (#525). Scoped to the
+    // dialog, so the engine name cannot match a row of the bar behind it.
+    const search = page.getByRole("dialog", { name: "Search for a connection" });
+    await search.waitFor();
+    await search.getByRole("button", { name: new RegExp(engine.label) }).click();
+    // There is no bare "Disconnect" left to wait for: every disconnect is named
+    // after its connection, so the signal is the connection's row in the bar.
+    await page.getByRole("button", { name: new RegExp(`^${engine.label}`) }).first().waitFor();
 
     const row = (name: string) => page.getByRole("treeitem", { name, exact: true }).first();
     await row("main").click();

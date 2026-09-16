@@ -158,9 +158,9 @@ describe("App — the foreign-key picker, end to end", () => {
       render(() => <App />, host!);
     });
 
-    // Connect (the + opens the popover, which lists the saved connection).
+    // Connect (the + opens the search, which lists the saved connection).
     click(host.querySelector(".connbar-add"));
-    click(host.querySelector(".conn-list .conn-open"));
+    click(host.querySelector(".connsearch-hit"));
     await settle();
 
     // Run a plain single-table query from the empty state's history.
@@ -200,7 +200,7 @@ describe("App — the foreign-key picker, end to end", () => {
     });
 
     click(host.querySelector(".connbar-add"));
-    click(host.querySelector(".conn-list .conn-open"));
+    click(host.querySelector(".connsearch-hit"));
     await settle();
 
     // Expand the database, then open the table.

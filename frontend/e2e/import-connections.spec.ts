@@ -43,9 +43,17 @@ describeEngine("sqlite", () => {
   // Nothing pre-saved: importing into an empty list is the migration case.
   test.use({ seedConnection: false });
 
-  /** Opens the connection manager. Clicking it twice would close it again. */
+  /**
+   * Opens the connections tab, where importing lives since #525 — the bar's +
+   * opens a search for OPENING a connection, and the file picker moved to the
+   * tab with the rest of what outlives a session. Reached from the tool strip,
+   * which keeps this one tool enabled with nothing connected.
+   */
   const openManager = (page: import("@playwright/test").Page) =>
-    page.getByRole("button", { name: "Conectar a una base…" }).click();
+    page
+      .getByRole("toolbar", { name: "Acciones" })
+      .getByRole("button", { name: "Conexiones", exact: true })
+      .click();
 
   /** Hands `text` to the manager's hidden file input under `name`. */
   const importFile = async (

@@ -13,12 +13,14 @@ import type { App } from "./fixtures";
 /** Opens the saved connection through the sidebar, as a user would. */
 export async function connect(app: App): Promise<void> {
   const { page, engine } = app;
-  // The + in the connection bar opens the popover with the saved connections
+  // The + in the connection bar opens the SEARCH over the saved connections
   // (issue #525); the bar itself is now the list of what is already open.
   await page.getByRole("button", { name: "Conectar a una base…" }).click();
-  // Wait for the popover itself, not for time: the list renders inside it.
-  await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
-  await page.getByRole("button", { name: new RegExp(engine.label) }).click();
+  // Wait for the search itself, not for time: the hits render inside it. Scoped
+  // to the dialog, so the engine name cannot match a row of the bar behind it.
+  const search = page.getByRole("dialog", { name: "Buscar una conexión" });
+  await search.waitFor();
+  await search.getByRole("button", { name: new RegExp(engine.label) }).click();
   // The signal that it is open: its row in the bar, which only exists for an
   // open connection (issue #525). It used to be a button named exactly
   // "Desconectar", and there is no longer one: every disconnect is named after

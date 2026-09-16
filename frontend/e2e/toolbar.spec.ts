@@ -22,7 +22,15 @@ const TOOLS = [
   "Notebook SQL",
   "Snippets",
   "Respaldo y restauración",
+  "Conexiones",
 ];
+
+/**
+ * The one tool that belongs to no connection (issue #525): it is the list of the
+ * saved ones, and it is how the first connection gets opened, so it cannot wait
+ * for a connection to exist. Every other tool asks some server something.
+ */
+const NEEDS_NO_CONNECTION = "Conexiones";
 
 describeEngine("sqlite", () => {
   test("every tool in the strip has a name and an icon, and ⋯ folds it away", async ({
@@ -117,11 +125,18 @@ describeEngine("sqlite", () => {
     await app.open();
 
     const strip = page.getByRole("toolbar", { name: "Acciones" });
-    for (const name of TOOLS) {
+    for (const name of TOOLS.filter((n) => n !== NEEDS_NO_CONNECTION)) {
       await expect(
         strip.getByRole("button", { name, exact: true }),
         `${name} is disabled with no connection`,
       ).toBeDisabled();
     }
+
+    // And the exception stays live: with nothing connected it is the only way
+    // to reach the saved connections at all.
+    await expect(
+      strip.getByRole("button", { name: NEEDS_NO_CONNECTION, exact: true }),
+      `${NEEDS_NO_CONNECTION} is usable with no connection`,
+    ).toBeEnabled();
   });
 });
