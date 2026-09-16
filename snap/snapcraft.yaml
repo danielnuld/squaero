@@ -1,0 +1,86 @@
+name: squaero
+base: core24
+adopt-info: squaero
+summary: Modern, lightweight, multi-engine database client
+description: |
+  Squaero is a native database client for SQLite, MySQL/MariaDB, PostgreSQL,
+  MongoDB and SQL Server. Browse schemas in a tree, read and edit rows in a
+  grid, write and format SQL, and use the ER diagram, the query builder, the
+  server monitor, users and permissions, and charts over any result.
+
+  Connections can go through an SSH tunnel and use TLS. Everything runs
+  locally: saved connections stay on this computer.
+grade: stable
+confinement: strict
+license: GPL-3.0
+icon: assets/icons/hicolor/512x512/apps/quaero.png
+website: https://danielnuld.github.io/squaero/
+source-code: https://github.com/danielnuld/squaero
+issues: https://github.com/danielnuld/squaero/issues
+platforms:
+  amd64:
+
+apps:
+  squaero:
+    command: usr/lib/squaero/squaero
+    desktop: usr/share/applications/squaero.desktop
+    # GTK, WebKitGTK and the desktop integration come from the GNOME 46
+    # platform snap. It ships WebKitGTK 4.1 (GTK 3), not the 6.0 the .deb
+    # uses, hence WEBVIEW_WEBKITGTK_API=4.1 below.
+    extensions: [gnome]
+    plugs:
+      - network          # every engine but SQLite is a server
+      - home             # SQLite files, SSH keys, TLS certificates
+      - removable-media
+    environment:
+      # WebKit's own bubblewrap sandbox cannot start inside snap confinement,
+      # which already confines the whole process.
+      WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
+
+parts:
+  squaero:
+    plugin: nil
+    source: .
+    build-snaps:
+      - node/22/stable
+    build-packages:
+      - cmake
+      - ninja-build
+      - pkg-config
+      - libmariadb-dev
+      - libpq-dev
+      - libmongoc-dev
+      - unixodbc-dev
+      - libssl-dev
+    # The drivers' client libraries: the GNOME platform does not carry them.
+    stage-packages:
+      - libmariadb3
+      - libpq5
+      - libmongoc-1.0-0t64
+      - libbson-1.0-0t64
+      - libodbc2
+      - libsnappy1v5
+      - libzstd1
+    override-build: |
+      craftctl set version="$(tr -d '\r\n' < VERSION)"
+
+      # The frontend is embedded at configure time, so it is built first.
+      npm install --global pnpm@11
+      (cd frontend && pnpm install --frozen-lockfile && pnpm build)
+
+      # Same options as the .deb (installer/build-deb.sh), but WebKitGTK 4.1.
+      cmake -S . -B build-snap -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=OFF \
+        -DQUAERO_SSH=ON -DQUAERO_FREETDS=ON -DWEBVIEW_WEBKITGTK_API=4.1
+      cmake --build build-snap --target quaero
+
+      # The app finds its drivers next to its own executable.
+      LIB="$CRAFT_PART_INSTALL/usr/lib/squaero"
+      install -D -m 755 build-snap/app/squaero "$LIB/squaero"
+      install -D -m 644 -t "$LIB/drivers" build-snap/app/drivers/*.so
+      install -D -m 644 assets/icons/hicolor/512x512/apps/quaero.png \
+        "$CRAFT_PART_INSTALL/usr/share/icons/hicolor/512x512/apps/squaero.png"
+      mkdir -p "$CRAFT_PART_INSTALL/usr/share/applications"
+      tr -d '\r' < assets/icons/quaero.desktop \
+        | sed 's|^Icon=.*|Icon=${SNAP}/usr/share/icons/hicolor/512x512/apps/squaero.png|' \
+        > "$CRAFT_PART_INSTALL/usr/share/applications/squaero.desktop"

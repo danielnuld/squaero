@@ -48,3 +48,7 @@ connections.json
 
 # Raw recording left behind if `pnpm video` fails before encoding.
 site/video/.raw.webm
+
+# snapcraft (snap/snapcraft.yaml)
+/build-snap/
+*.snap

@@ -827,6 +827,23 @@ static void open_external_handler(const char *id, const char *req, void *arg)
     webview_return(w, id, 0, "null");
 }
 
+// A chosen path as the bridge's JSON result: a JSON string, or null.
+static std::string path_result(const char *path)
+{
+    std::string result = "null";
+    if (path != nullptr) {
+        cJSON *str = cJSON_CreateString(path);
+        char *json = cJSON_PrintUnformatted(str);
+        if (json != nullptr) {
+            result = json;
+            cJSON_free(json);
+        }
+        cJSON_Delete(str);
+    }
+    return result;
+}
+
+#if GTK_MAJOR_VERSION >= 4
 struct PickFileCtx {
     webview_t w;
     std::string id;
@@ -836,23 +853,14 @@ struct PickFileCtx {
 static void pick_file_done(GObject *source, GAsyncResult *res, gpointer data)
 {
     auto *ctx = static_cast<PickFileCtx *>(data);
-    std::string result = "null";
+    char *path = nullptr;
     GFile *file = gtk_file_dialog_open_finish(GTK_FILE_DIALOG(source), res, nullptr);
     if (file != nullptr) {
-        char *path = g_file_get_path(file);
-        if (path != nullptr) {
-            cJSON *str = cJSON_CreateString(path);
-            char *json = cJSON_PrintUnformatted(str);
-            if (json != nullptr) {
-                result = json;
-                cJSON_free(json);
-            }
-            cJSON_Delete(str);
-            g_free(path);
-        }
+        path = g_file_get_path(file);
         g_object_unref(file);
     }
-    webview_return(ctx->w, ctx->id.c_str(), 0, result.c_str());
+    webview_return(ctx->w, ctx->id.c_str(), 0, path_result(path).c_str());
+    g_free(path);
     g_object_unref(source);
     delete ctx;
 }
@@ -870,6 +878,27 @@ static void pick_file_handler(const char *id, const char *req, void *arg)
     gtk_file_dialog_open(dialog, GTK_WINDOW(webview_get_window(w)), nullptr,
                          pick_file_done, new PickFileCtx{w, id});
 }
+#else
+// GTK 3, for WebKitGTK 4.1 — the snap (issue #40): its GNOME 46 platform ships
+// no WebKitGTK 6.0. The native chooser goes through the desktop portal when
+// confined, which is how a snap reaches files outside its sandbox. It runs a
+// nested main loop, so the window stays painted while it is open.
+static void pick_file_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    std::string title = first_string_arg(req);
+    GtkFileChooserNative *dialog = gtk_file_chooser_native_new(
+        title.empty() ? nullptr : title.c_str(), GTK_WINDOW(webview_get_window(w)),
+        GTK_FILE_CHOOSER_ACTION_OPEN, nullptr, nullptr);
+    char *path = nullptr;
+    if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+    }
+    webview_return(w, id, 0, path_result(path).c_str());
+    g_free(path);
+    g_object_unref(dialog);
+}
+#endif
 #endif
 
 #if defined(_WIN32)
