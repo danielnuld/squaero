@@ -1,4 +1,72 @@
 import { describe, it, expect } from "vitest";
+import { connectionTarget, engineMonogram } from "../../src/utils/connections";
+
+// The two pieces the connection bar's rows need (#525): a monogram that fits a
+// 28px chip, and the one-line "where does this point" that the search also
+// matches on.
+describe("engineMonogram", () => {
+  it("gives every shipped engine its own monogram", () => {
+    expect(engineMonogram("sqlite")).toBe("SQ");
+    expect(engineMonogram("mysql")).toBe("MY");
+    expect(engineMonogram("postgres")).toBe("PG");
+    expect(engineMonogram("informix")).toBe("IFX");
+    expect(engineMonogram("mongodb")).toBe("MG");
+    expect(engineMonogram("mssql")).toBe("MS");
+  });
+
+  it("treats the aliases like the engine they are", () => {
+    expect(engineMonogram("mariadb")).toBe("MY");
+    expect(engineMonogram("postgresql")).toBe("PG");
+    expect(engineMonogram("sqlserver")).toBe("MS");
+  });
+
+  it("ignores case and falls back to a neutral DB", () => {
+    expect(engineMonogram("MySQL")).toBe("MY");
+    expect(engineMonogram("oracle")).toBe("DB");
+    expect(engineMonogram("")).toBe("DB");
+  });
+});
+
+describe("connectionTarget", () => {
+  it("puts the database before the host and port", () => {
+    expect(
+      connectionTarget({ driver: "mysql", params: { host: "10.0.4.12", port: "3306", database: "ventas" } }),
+    ).toBe("ventas @ 10.0.4.12:3306");
+  });
+
+  it("is the file for SQLite, and nothing else", () => {
+    expect(connectionTarget({ driver: "sqlite", params: { path: "C:\\datos\\notas.db" } })).toBe(
+      "C:\\datos\\notas.db",
+    );
+  });
+
+  it("names the Informix server beside its host", () => {
+    expect(
+      connectionTarget({
+        driver: "informix",
+        params: { host: "sia01", port: "1526", server: "ol_informix1210", database: "nomina" },
+      }),
+    ).toBe("nomina @ sia01:1526/ol_informix1210");
+  });
+
+  it("names a SQL Server instance the same way", () => {
+    expect(
+      connectionTarget({ driver: "mssql", params: { host: "sql02", instance: "SQLEXPRESS" } }),
+    ).toBe("sql02/SQLEXPRESS");
+  });
+
+  it("leaves out what is missing instead of rendering empty punctuation", () => {
+    expect(connectionTarget({ driver: "mysql", params: { host: "localhost" } })).toBe("localhost");
+    expect(connectionTarget({ driver: "mysql", params: { database: "ventas" } })).toBe("ventas");
+    expect(connectionTarget({ driver: "mysql", params: {} })).toBe("");
+  });
+
+  it("trims what the form may have left padded", () => {
+    expect(connectionTarget({ driver: "mysql", params: { host: " localhost ", port: " 3306 " } })).toBe(
+      "localhost:3306",
+    );
+  });
+});
 import { translate } from "../../src/utils/i18n";
 import {
   driverSchema,
