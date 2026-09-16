@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   FALLBACK_SECTION,
+  fieldRows,
   formSections,
   isKnownField,
   needsCertificates,
@@ -87,6 +88,32 @@ describe("formSections", () => {
     for (const schema of Object.values(DRIVER_SCHEMAS)) {
       const laid = formSections(schema).flatMap((s) => s.fields.map((f) => f.key));
       expect(laid.sort()).toEqual(schema.fields.map((f) => f.key).sort());
+    }
+  });
+});
+
+describe("fieldRows", () => {
+  it("puts an address on one line and credentials on another", () => {
+    const rows = fieldRows(section("mysql", "server").fields).map((r) => r.map((f) => f.key));
+    expect(rows).toEqual([["host", "port"]]);
+    const auth = fieldRows(section("mysql", "auth").fields).map((r) => r.map((f) => f.key));
+    expect(auth).toEqual([["database"], ["user", "password"]]);
+  });
+
+  // A half-width field with a hole beside it is worse than a full-width one.
+  it("leaves a field alone when its other half is not in the schema", () => {
+    const rows = fieldRows([
+      { key: "host", label: "field.host", type: "text", required: true },
+    ]).map((r) => r.map((f) => f.key));
+    expect(rows).toEqual([["host"]]);
+  });
+
+  it("keeps every field, in order, whatever the pairing", () => {
+    for (const driver of ["sqlite", "mysql", "postgres", "informix", "mongodb", "mssql"]) {
+      for (const sec of sectionsOf(driver)) {
+        const flat = fieldRows(sec.fields).flat().map((f) => f.key);
+        expect(flat.sort()).toEqual(sec.fields.map((f) => f.key).sort());
+      }
     }
   });
 });

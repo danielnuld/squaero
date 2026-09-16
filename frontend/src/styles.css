@@ -2169,6 +2169,250 @@ kbd {
   flex: 1;
 }
 
+/* The connection form as one page of sections (issue #531). The fields used to
+   be split across tabs, which is what hid the SSH tunnel; now everything is on
+   one surface and the index says which section still wants something. */
+.cf-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The PANEL scrolls, not the middle column: a scrollbar halfway across the
+   screen reads as an embedded box rather than as the page. */
+.cf {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: 180px minmax(0, 640px);
+  gap: var(--sp-5);
+  padding: var(--sp-5);
+  align-items: start;
+}
+
+.cf-index {
+  position: sticky;
+  top: 0;
+}
+
+.cf-index ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cf-index-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-index-item:hover {
+  background: var(--bg-elev2);
+}
+
+.cf-index-item.is-current {
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+
+.cf-index-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-index-mark {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.cf-index-item[data-status="ok"] .cf-index-mark {
+  color: var(--number);
+}
+
+.cf-index-item[data-status="error"] .cf-index-mark {
+  color: var(--error);
+}
+
+.cf-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+
+.cf-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.cf-section-title {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+
+/* Cards instead of a dropdown: the engine decides every other field on the
+   page, so it is the one choice that should not be collapsed out of sight. */
+.cf-engines {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-3);
+}
+
+.cf-engine {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-engine:hover {
+  background: var(--bg-elev2);
+}
+
+.cf-engine.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.cf-engine-mono {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cf-engine-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-engine-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-engine-port {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.cf-row {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+/* Host and port are one idea, and so are user and password: stacking them makes
+   a four-field form twice as tall as it needs to be. */
+.cf-row.is-pair > .cf-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.cf-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
+  color: var(--text-dim);
+}
+
+.cf-optional {
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.cf-input-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.cf-input-row > input,
+.cf-input-row > select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Inside the field, because listing the databases is a way of filling THIS box
+   rather than an action of the form. */
+.cf-inline-btn {
+  flex-shrink: 0;
+  height: var(--h-md);
+  padding: 0 var(--sp-3);
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+}
+
+.cf-inline-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.cf-inline-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Outside the scrolling area: saving and testing are what the page is for. */
+.cf-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
 /* The saved connections as a tab of their own (issue #525). The list was drawn
    for a 280px sidebar; handed the whole workspace it would stretch a two-line
    row across 1600px, so it keeps a readable column instead. */

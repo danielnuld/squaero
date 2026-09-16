@@ -37,22 +37,31 @@ lienzo https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
 
 ## 2. Estructura del formulario (fase B)
 
-- [ ] 2.1 Rejilla de tarjetas de motor que sustituye al `<select>`; cambiar de
+- [x] 2.1 Rejilla de tarjetas de motor que sustituye al `<select>`; cambiar de
       motor conserva el comportamiento de `selectDriver`
-- [ ] 2.2 Secciones apiladas renderizadas desde `formSections`, sin pestañas;
-      filas host + puerto y usuario + contraseña
-- [ ] 2.3 Índice lateral con salto por `scrollIntoView` y marca de estado; el
-      resaltado de la sección visible por `IntersectionObserver`
-- [ ] 2.4 Etiquetas «opcional», errores debajo del campo y desplazamiento al
-      primer error al guardar o probar
-- [ ] 2.5 Base de datos: botón «Listar» dentro del campo y lista desplegable;
+- [x] 2.2 Secciones apiladas renderizadas desde `formSections`, sin pestañas;
+      filas host + puerto y usuario + contraseña (`fieldRows`, en el módulo puro)
+- [x] 2.3 Índice lateral con salto por `scrollIntoView` y marca de estado; el
+      resaltado de la sección visible por `IntersectionObserver`. **Ambos van
+      guardados**: jsdom no implementa ninguno de los dos y una prueba no puede
+      morirse por un scroll. El estado va **en palabras** en el nombre accesible
+      («Servidor: falta algo»), porque un «✓» leído en voz alta no dice nada
+- [x] 2.4 Etiquetas «opcional», errores debajo del campo y salto al primer error
+      al guardar o probar
+- [x] 2.5 Base de datos: botón «Listar» dentro del campo y lista desplegable;
       mismo requisito de host y usuario que hoy
-- [ ] 2.6 Nombre opcional con el placeholder deducido; `save()` rellena el
-      nombre
-- [ ] 2.7 Pie fijo con Cancelar, Guardar y (si llega la prop) Guardar y
+- [x] 2.6 Nombre opcional con el placeholder deducido; `save()` rellena el
+      nombre (y aquí sí, `fieldErrors` deja de exigirlo — la mitad que la fase A
+      dejó pendiente a propósito)
+- [x] 2.7 Pie fijo con Cancelar, Guardar y (si llega la prop) Guardar y
       conectar
-- [ ] 2.8 Pruebas de componente que sustituyen a las de pestañas: secciones por
+- [x] 2.8 Pruebas de componente que sustituyen a las de pestañas: secciones por
       motor, índice con error tras guardar, guardar sin nombre, SQLite
+- [x] 2.9 **Defecto que costó tres fallos de e2e**: dos entradas del índice se
+      tragaban el nombre de un campo que vive dentro («Acceso y base de datos» ⊃
+      «Base de datos»; «Nombre y apariencia» ⊃ «Nombre»), así que buscar el
+      campo por su etiqueta encontraba el botón del índice. Las secciones pasan a
+      **«Acceso»** y **«Apariencia»**, con una prueba que vigila la clase entera
 
 ## 3. Seguridad, túnel, vista previa y prueba (fase C)
 
