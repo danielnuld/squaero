@@ -1,6 +1,6 @@
-import { For, Show, createSignal, createEffect, onCleanup, onMount, mergeProps } from "solid-js";
+import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { engineMonogram, type Connection } from "../utils/connections";
-import { ConnectionManager, type ConnectionManagerProps } from "./ConnectionManager";
+import { ConnectionSearch } from "./ConnectionSearch";
 import { t } from "../utils/i18n";
 
 /** One open connection, as the bar draws it. */
@@ -16,78 +16,57 @@ export interface OpenConnRow {
 }
 
 // The sidebar's connection bar (issue #525). It used to be ONE row — the focused
-// connection — with everything else behind a popover: with three connections
-// open it showed one, and switching meant open the popover, find it, click it.
-// Now every open connection has its own row, always visible, and a click focuses
-// it. What belongs to a single connection (its tools, refresh, collapse, working
-// database) stays in that connection's explorer section header (issue #444);
-// this bar answers "what is open, and which one am I in".
+// connection — with the whole manager behind a popover: with three connections
+// open it showed one, switching meant open the popover, find it, click it, and
+// finding one among thirty meant folding groups by hand.
 //
-// Connecting still goes through the popover below, which holds the full manager.
-// Phase C of the change replaces it with a search and moves the manager to its
-// own tab — until then this stays the only road to a saved connection.
-export function ConnectionBar(
-  props: ConnectionManagerProps & {
-    openTick?: number;
-    /** The open connections, in the order they were opened. */
-    open: OpenConnRow[];
-    /** Which one the workspace is on. */
-    focusedDefId: string | null;
-    /** Bring a connection into focus (never opens or closes anything). */
-    onFocus: (defId: string) => void;
-    /** Reconnect one connection — a lost session is recovered from its row. */
-    onReconnectConn: (defId: string) => void;
-  },
-) {
-  const [open, setOpen] = createSignal(false);
+// Now every open connection has its own row, always visible, and a click focuses
+// it. The + opens a SEARCH over the saved ones (ConnectionSearch); creating,
+// editing, importing and exporting live in their own tab, which the search's
+// footer opens. What belongs to a single connection (its tools, refresh,
+// collapse, working database) stays in that connection's explorer section header
+// (issue #444); this bar answers "what is open, and which one am I in".
+export function ConnectionBar(props: {
+  /** Every saved connection — what the search looks through. */
+  connections: Connection[];
+  /** The open connections, in the order they were opened. */
+  open: OpenConnRow[];
+  /** Which one the workspace is on. */
+  focusedDefId: string | null;
+  /** Non-null while a connection is being opened. */
+  connectingId: string | null;
+  /** Bring a connection into focus (never opens or closes anything). */
+  onFocus: (defId: string) => void;
+  /** Open a saved connection, or focus it when it is already open. */
+  onPick: (c: Connection) => void;
+  onDisconnect: (defId: string) => void;
+  /** Reconnect one connection — a lost session is recovered from its row. */
+  onReconnectConn: (defId: string) => void;
+  /** Open the connection form for a new connection. */
+  onNew: () => void;
+  /** Open the manager tab on its import step. */
+  onImport: () => void;
+  /** Open the manager tab. */
+  onManage: () => void;
+}) {
+  const [searching, setSearching] = createSignal(false);
   let rootEl: HTMLDivElement | undefined;
-
-  // Reopen the popover when the app asks (bumped after saving a connection), so
-  // a just-added connection is visible in the list — otherwise the form closes
-  // over a collapsed bar and the save appears to have done nothing.
-  let lastOpenTick = props.openTick ?? 0;
-  createEffect(() => {
-    const tick = props.openTick ?? 0;
-    if (tick !== lastOpenTick) {
-      lastOpenTick = tick;
-      setOpen(true);
-    }
-  });
-
-  // Close the popover after an action that navigates away from it (connecting,
-  // or opening the new/edit form), while forwarding the real handler.
-  // mergeProps (NOT object spread) keeps `props` reactive: spreading `{...props}`
-  // snapshots the connection list at mount time, so a connection added later
-  // never reaches the ConnectionManager below (it only appeared after a restart).
-  const closingProps: ConnectionManagerProps = mergeProps(props, {
-    onConnect: (c: Connection) => {
-      props.onConnect(c);
-      setOpen(false);
-    },
-    onNew: () => {
-      props.onNew();
-      setOpen(false);
-    },
-    onEdit: (c: Connection) => {
-      props.onEdit(c);
-      setOpen(false);
-    },
-  });
 
   // Dismiss on a click outside the bar + popover.
   onMount(() => {
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      // The context menu of a connection row renders outside this popover (it
-      // lives in App); clicking one of its items must not collapse the list.
+      // A context menu renders outside this popover (it lives in App); clicking
+      // one of its items must not collapse the search.
       if (target instanceof Element && target.closest(".context-menu")) return;
-      if (open() && rootEl && !rootEl.contains(target)) setOpen(false);
+      if (searching() && rootEl && !rootEl.contains(target)) setSearching(false);
     };
     document.addEventListener("mousedown", onDown);
     onCleanup(() => document.removeEventListener("mousedown", onDown));
   });
 
   const count = () => props.open.length;
+  const openIds = () => props.open.map((r) => r.defId);
 
   return (
     <div class="connbar" ref={rootEl}>
@@ -101,10 +80,10 @@ export function ConnectionBar(
         </span>
         <button
           class="connbar-add"
-          aria-expanded={open()}
+          aria-expanded={searching()}
           title={t("connbar.add")}
           aria-label={t("connbar.add")}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setSearching((v) => !v)}
         >
           +
         </button>
@@ -119,9 +98,9 @@ export function ConnectionBar(
           <p class="connbar-empty">
             {t("connbar.emptyHint")}{" "}
             {/* Its own wording, not the + button's: two buttons with the same
-                accessible name are ambiguous for a screen reader — and for a
-                test, which is how this was caught. */}
-            <button class="connbar-empty-link" onClick={() => setOpen(true)}>
+                accessible name are ambiguous for a screen reader as much as for
+                a test. */}
+            <button class="connbar-empty-link" onClick={() => setSearching(true)}>
               {t("connbar.emptyAction")}
             </button>
           </p>
@@ -189,9 +168,27 @@ export function ConnectionBar(
         </ul>
       </Show>
 
-      <Show when={open()}>
+      <Show when={searching()}>
         <div class="connbar-drop">
-          <ConnectionManager {...closingProps} />
+          <ConnectionSearch
+            connections={props.connections}
+            openIds={openIds()}
+            connectingId={props.connectingId}
+            onPick={props.onPick}
+            onNew={() => {
+              props.onNew();
+              setSearching(false);
+            }}
+            onImport={() => {
+              props.onImport();
+              setSearching(false);
+            }}
+            onManage={() => {
+              props.onManage();
+              setSearching(false);
+            }}
+            onClose={() => setSearching(false)}
+          />
         </div>
       </Show>
     </div>

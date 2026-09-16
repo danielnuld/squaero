@@ -34,16 +34,12 @@ export const es: Record<string, string> = {
 
   // connection bar / manager
   "conn.title": "Conexiones",
-  "conn.choose": "Elegir conexión",
-  "conn.statusConnected": "conectado",
   // conexión caída (#407): el núcleo dijo que la sesión ya no existe
   "conn.lost": "Se perdió la conexión con «{name}». Reconecta para seguir trabajando.",
   "conn.statusLost": "desconectada",
   "conn.connectedDot": "Conectada",
   "conn.connect": "Conectar",
   "conn.focus": "Enfocar",
-  "conn.connecting": "conectando…",
-  "conn.disconnect": "Desconectar",
   "conn.disconnectOf": "Desconectar {name}",
   "conn.reconnect": "Reconectar",
   "conn.new": "Nueva conexión",
@@ -56,6 +52,7 @@ export const es: Record<string, string> = {
   "conn.moveTo": "Mover a «{group}»",
   "conn.moveToNone": "Quitar del grupo",
   "conn.disconnectName": "Desconectar {name}",
+  "conn.editName": "Editar {name}",
   "connbar.listLabel": "Conexiones abiertas",
   "connbar.noneOpen": "Ninguna abierta",
   "connbar.openOne": "1 abierta",
@@ -64,6 +61,14 @@ export const es: Record<string, string> = {
   "connbar.focusTitle": "Trabajar en {name}",
   "connbar.emptyHint": "No hay ninguna conexión abierta.",
   "connbar.emptyAction": "Elegir una conexión guardada…",
+  "connsearch.label": "Buscar una conexión",
+  "connsearch.placeholder": "Buscar por nombre, motor o servidor",
+  "connsearch.noMatch": "Ninguna conexión coincide.",
+  "connsearch.alreadyOpen": "Abierta",
+  "connsearch.manage": "Gestionar",
+  "tool.connections.label": "Conexiones",
+  "tool.connections.tab": "Conexiones",
+  "tool.connections.title": "Crear, editar, importar y exportar conexiones guardadas",
   "conn.failed": 'No se pudo conectar a "{name}": {detail}',
 
   // top action ribbon

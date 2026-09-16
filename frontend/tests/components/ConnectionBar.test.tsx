@@ -5,8 +5,8 @@ import { ConnectionBar, type OpenConnRow } from "../../src/components/Connection
 import type { Connection } from "../../src/utils/connections";
 
 // The bar lists the open connections and focuses one with a click (#525).
-// Connecting still goes through the manager popover behind the + until phase C
-// replaces it with a search.
+// Opening another one goes through the search behind the +; creating, editing
+// and importing belong to the connections tab, which the search links to.
 
 const conns: Connection[] = [
   { id: "a", name: "Prod", driver: "mysql", params: {} },
@@ -31,20 +31,20 @@ afterEach(() => {
 
 function mount(
   over: {
+    connections?: Connection[];
     open?: OpenConnRow[];
     focusedDefId?: string | null;
-    onFocus?: (defId: string) => void;
-    onDisconnect?: (defId?: string) => void;
-    onReconnectConn?: (defId: string) => void;
-    onConnect?: (c: Connection) => void;
     connectingId?: string | null;
   } = {},
 ) {
   const handlers = {
-    onFocus: over.onFocus ?? vi.fn(),
-    onDisconnect: over.onDisconnect ?? vi.fn(),
-    onReconnectConn: over.onReconnectConn ?? vi.fn(),
-    onConnect: over.onConnect ?? vi.fn(),
+    onFocus: vi.fn(),
+    onDisconnect: vi.fn(),
+    onReconnectConn: vi.fn(),
+    onPick: vi.fn(),
+    onNew: vi.fn(),
+    onImport: vi.fn(),
+    onManage: vi.fn(),
   };
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -53,23 +53,11 @@ function mount(
     render(
       () => (
         <ConnectionBar
-          connections={conns}
+          connections={over.connections ?? conns}
           open={over.open ?? []}
           focusedDefId={over.focusedDefId ?? null}
-          activeConnId={over.focusedDefId ?? null}
-          openIds={(over.open ?? []).map((r) => r.defId)}
           connectingId={over.connectingId ?? null}
-          onFocus={handlers.onFocus}
-          onReconnectConn={handlers.onReconnectConn}
-          onConnect={handlers.onConnect}
-          onEdit={() => {}}
-          onDelete={() => {}}
-          onMoveToGroup={() => {}}
-          onNew={() => {}}
-          onDisconnect={handlers.onDisconnect}
-          onReconnect={() => {}}
-          onExport={() => {}}
-          onImport={async () => ""}
+          {...handlers}
         />
       ),
       host!,
@@ -117,13 +105,13 @@ describe("ConnectionBar rows", () => {
   });
 
   it("focuses a connection on click, without opening or closing anything", () => {
-    const { onFocus, onConnect, onDisconnect } = mount({
+    const { onFocus, onPick, onDisconnect } = mount({
       open: [row({ defId: "a", name: "Prod" }), row({ defId: "b", name: "Local" })],
       focusedDefId: "a",
     });
     host!.querySelectorAll<HTMLButtonElement>(".connbar-pick")[1].click();
     expect(onFocus).toHaveBeenCalledWith("b");
-    expect(onConnect).not.toHaveBeenCalled();
+    expect(onPick).not.toHaveBeenCalled();
     expect(onDisconnect).not.toHaveBeenCalled();
   });
 
@@ -180,41 +168,63 @@ describe("ConnectionBar with nothing open", () => {
         (b) => (b.getAttribute("aria-label") ?? b.textContent) === "Conectar a una base…",
       ),
     ).toHaveLength(1);
-    // The popover is not rendered until asked for.
+    // The search is not rendered until asked for.
     expect(host!.querySelector(".connbar-drop")).toBeNull();
   });
 
-  it("opens the manager popover from the empty state", () => {
+  it("opens the search from the empty state", () => {
     mount({ open: [] });
     host!.querySelector<HTMLButtonElement>(".connbar-empty-link")!.click();
-    expect(host!.querySelector(".connbar-drop")).not.toBeNull();
+    expect(host!.querySelector(".connsearch")).not.toBeNull();
   });
 });
 
-describe("ConnectionBar popover (kept until phase C)", () => {
-  it("toggles the manager on the + button", () => {
+describe("ConnectionBar search", () => {
+  it("toggles the search on the + button", () => {
     mount({ open: [row({ defId: "a", name: "Prod" })] });
     const add = button("Conectar a una base…");
     add.click();
     const drop = host!.querySelector(".connbar-drop")!;
+    expect(drop.querySelector(".connsearch")).not.toBeNull();
     expect(drop.textContent).toContain("Prod");
     expect(drop.textContent).toContain("Local");
     add.click();
     expect(host!.querySelector(".connbar-drop")).toBeNull();
   });
 
-  it("connects and closes the popover when a saved connection is clicked", () => {
-    const { onConnect } = mount({ open: [] });
+  it("opens the picked connection and closes the search", () => {
+    const { onPick } = mount({ open: [] });
     button("Conectar a una base…").click();
-    host!.querySelector<HTMLButtonElement>(".conn-open")!.click();
-    expect(onConnect).toHaveBeenCalledOnce();
+    host!.querySelector<HTMLButtonElement>(".connsearch-hit")!.click();
+    expect(onPick).toHaveBeenCalledOnce();
     expect(host!.querySelector(".connbar-drop")).toBeNull();
   });
 
-  // Regression: the popover forwarded props via `{...props}`, which SNAPSHOTS the
-  // connection list at mount — so a connection added afterwards never showed
-  // until an app restart. mergeProps keeps it reactive.
-  it("reflects a connection added AFTER mount while the popover is open", () => {
+  it("says which of the saved ones are already open", () => {
+    mount({ open: [row({ defId: "a", name: "Prod" })] });
+    button("Conectar a una base…").click();
+    const open = host!.querySelectorAll(".connsearch-open");
+    expect(open).toHaveLength(1);
+    expect(host!.querySelectorAll(".connsearch-hit")[0].textContent).toContain("Abierta");
+  });
+
+  it("sends the footer's actions out and closes behind them", () => {
+    const { onNew, onManage } = mount({ open: [] });
+    button("Conectar a una base…").click();
+    host!.querySelector<HTMLButtonElement>(".connsearch-foot button")!.click();
+    expect(onNew).toHaveBeenCalledOnce();
+    expect(host!.querySelector(".connbar-drop")).toBeNull();
+
+    button("Conectar a una base…").click();
+    [...host!.querySelectorAll<HTMLButtonElement>(".connsearch-foot button")].at(-1)!.click();
+    expect(onManage).toHaveBeenCalledOnce();
+    expect(host!.querySelector(".connbar-drop")).toBeNull();
+  });
+
+  // Regression: the popover used to forward props via `{...props}`, which
+  // SNAPSHOTS the connection list at mount — a connection added afterwards never
+  // showed until an app restart.
+  it("reflects a connection added AFTER mount while the search is open", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     const [list, setList] = createSignal<Connection[]>([conns[0]]);
@@ -226,19 +236,14 @@ describe("ConnectionBar popover (kept until phase C)", () => {
             connections={list()}
             open={[]}
             focusedDefId={null}
-            activeConnId={null}
             connectingId={null}
             onFocus={() => {}}
             onReconnectConn={() => {}}
-            onConnect={() => {}}
-            onEdit={() => {}}
-            onDelete={() => {}}
-            onMoveToGroup={() => {}}
+            onPick={() => {}}
             onNew={() => {}}
             onDisconnect={() => {}}
-            onReconnect={() => {}}
-            onExport={() => {}}
-            onImport={async () => ""}
+            onImport={() => {}}
+            onManage={() => {}}
           />
         ),
         host!,
@@ -249,45 +254,5 @@ describe("ConnectionBar popover (kept until phase C)", () => {
     expect(host!.querySelector(".connbar-drop")!.textContent).not.toContain("Reportes");
     setList([conns[0], { id: "c", name: "Reportes", driver: "postgres", params: {} }]);
     expect(host!.querySelector(".connbar-drop")!.textContent).toContain("Reportes");
-  });
-
-  it("reopens the popover on an openTick bump (so a saved connection is visible)", () => {
-    host = document.createElement("div");
-    document.body.appendChild(host);
-    const [list, setList] = createSignal<Connection[]>([]);
-    const [tick, setTick] = createSignal(0);
-    createRoot((d) => {
-      dispose = d;
-      render(
-        () => (
-          <ConnectionBar
-            connections={list()}
-            openTick={tick()}
-            open={[]}
-            focusedDefId={null}
-            activeConnId={null}
-            connectingId={null}
-            onFocus={() => {}}
-            onReconnectConn={() => {}}
-            onConnect={() => {}}
-            onEdit={() => {}}
-            onDelete={() => {}}
-            onMoveToGroup={() => {}}
-            onNew={() => {}}
-            onDisconnect={() => {}}
-            onReconnect={() => {}}
-            onExport={() => {}}
-            onImport={async () => ""}
-          />
-        ),
-        host!,
-      );
-    });
-    expect(host!.querySelector(".connbar-drop")).toBeNull();
-    setList([{ id: "c", name: "Reportes", driver: "postgres", params: {} }]);
-    setTick(1);
-    const drop = host!.querySelector(".connbar-drop");
-    expect(drop).not.toBeNull();
-    expect(drop!.textContent).toContain("Reportes");
   });
 });
