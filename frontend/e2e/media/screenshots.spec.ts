@@ -68,10 +68,10 @@ test("capture the published screenshots", async ({ page }) => {
     const openDemoTable = async () => {
       await page.goto("/");
     await startBlank(page);
-      await page.getByRole("button", { name: "Elegir conexión" }).click();
+      await page.getByRole("button", { name: "Conectar a una base…" }).click();
       await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
       await page.getByRole("button", { name: /Ventas \(demo\)/ }).click();
-      await page.getByRole("button", { name: "Desconectar", exact: true }).waitFor();
+      await page.getByRole("button", { name: /^Desconectar Ventas/ }).first().waitFor();
 
       const row = (name: string) =>
         page.getByRole("treeitem", { name, exact: true }).first();

@@ -105,11 +105,11 @@ test("record the demo video", async ({ page }) => {
     await caption("Conecta a SQLite, MySQL, PostgreSQL, Informix o MongoDB");
     await beat(1600);
 
-    await page.getByRole("button", { name: "Elegir conexión" }).click();
+    await page.getByRole("button", { name: "Conectar a una base…" }).click();
     await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
     await beat(700);
     await page.getByRole("button", { name: /Ventas \(demo\)/ }).click();
-    await page.getByRole("button", { name: "Desconectar", exact: true }).waitFor();
+    await page.getByRole("button", { name: /^Desconectar Ventas/ }).first().waitFor();
     await beat(900);
 
     // --- 2. Explore --------------------------------------------------------

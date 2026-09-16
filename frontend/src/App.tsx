@@ -108,6 +108,8 @@ import {
   nextConnectionId,
   upsertConnection,
   connectionGroups,
+  connectionTarget,
+  driverSchema,
   setConnectionGroup,
   removeConnection,
   AVAILABLE_DRIVERS,
@@ -3277,6 +3279,24 @@ export function App() {
             connections={connections()}
             openTick={connbarOpenTick()}
             activeConnId={activeDefId()}
+            /* The bar draws one row per open connection (#525). The second line
+               comes from the SAVED connection, which is where the DSN lives. */
+            open={openConns().map((o) => {
+              const saved = connections().find((c) => c.id === o.defId);
+              const label = driverSchema(o.driver)?.label ?? o.driver;
+              const target = saved ? connectionTarget(saved) : "";
+              return {
+                defId: o.defId,
+                name: o.name,
+                driver: o.driver,
+                color: o.color,
+                lost: o.lost,
+                sub: target ? `${label} · ${target}` : label,
+              };
+            })}
+            focusedDefId={focusedDefId()}
+            onFocus={setFocusedDefId}
+            onReconnectConn={(defId) => inConn(defId, reconnect)()}
             openIds={openConns().map((o) => o.defId)}
             lostIds={openConns().filter((o) => o.lost).map((o) => o.defId)}
             connectingId={connectingId()}

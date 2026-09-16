@@ -102,7 +102,7 @@ const openWithRows = async () => {
     dispose = d;
     render(() => <App />, host!);
   });
-  click(host.querySelector(".connbar-active"));
+  click(host.querySelector(".connbar-add"));
   click(host.querySelector(".conn-list .conn-open"));
   await settle();
   click(host.querySelector(".empty-history button, .empty-state button"));

@@ -158,8 +158,8 @@ describe("App — the foreign-key picker, end to end", () => {
       render(() => <App />, host!);
     });
 
-    // Connect (the connections popover lists the saved connection).
-    click(host.querySelector(".connbar-active"));
+    // Connect (the + opens the popover, which lists the saved connection).
+    click(host.querySelector(".connbar-add"));
     click(host.querySelector(".conn-list .conn-open"));
     await settle();
 
@@ -199,7 +199,7 @@ describe("App — the foreign-key picker, end to end", () => {
       render(() => <App />, host!);
     });
 
-    click(host.querySelector(".connbar-active"));
+    click(host.querySelector(".connbar-add"));
     click(host.querySelector(".conn-list .conn-open"));
     await settle();
 

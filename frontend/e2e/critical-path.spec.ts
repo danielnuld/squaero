@@ -29,7 +29,12 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
 
     await connect(app);
 
-    await expect(app.page.getByRole("button", { name: /conectado/ })).toBeVisible();
+    // Open means it has its own row in the bar, with its named disconnect
+    // (#525). It used to be a "conectado" pill on the bar's single row, which
+    // said which connection was focused but never which ones were open.
+    await expect(
+      app.page.getByRole("button", { name: `Desconectar ${app.engine.label}` }).first(),
+    ).toBeVisible();
     await expect(monitor).toBeEnabled();
   });
 
