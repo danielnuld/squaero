@@ -407,6 +407,36 @@ export function engineMonogram(driver: string): string {
 }
 
 /**
+ * A name to save the connection under when the user did not type one
+ * (issue #531): "ventas @ 10.0.4.12", the host alone, or the file's name.
+ *
+ * The form shows this as the input's placeholder and fills it in on save — it
+ * never types into the field while the user is editing, because changing the
+ * host would then overwrite a name they had already chosen.
+ *
+ * Empty when there is nothing to build one from, and the caller decides what to
+ * do with that: this is a suggestion, not validation.
+ */
+export function defaultConnectionName(conn: Connection): string {
+  const p = conn.params ?? {};
+  const val = (key: string) => (p[key] ?? "").trim();
+
+  // A file engine has no host to name it after. Split on both separators: the
+  // path is whatever the user pasted, and on Windows both are legal.
+  const path = val("path");
+  if (path) {
+    const parts = path.split(/[\\/]/).filter((s) => s !== "");
+    return parts[parts.length - 1] ?? path;
+  }
+
+  const db = val("database");
+  // Informix names its instance in `server`, and that is the useful half there.
+  const host = val("host") || val("server");
+  if (db && host) return `${db} @ ${host}`;
+  return db || host || "";
+}
+
+/**
  * Where a connection points, in one line: what the bar shows under the name and
  * what the search matches on, so the two cannot drift apart (issue #525).
  *
@@ -508,7 +538,10 @@ export interface FieldErrors {
  *
  * The messages are i18n KEYS ("valid.required"), resolved by the form.
  */
-export function fieldErrors(conn: Connection): FieldErrors {
+export function fieldErrors(
+  conn: Connection,
+  opts: { sshRequired?: boolean } = {},
+): FieldErrors {
   const result: FieldErrors = { name: null, params: {} };
   if (!conn.name.trim()) {
     result.name = "valid.nameRequired";
@@ -522,6 +555,14 @@ export function fieldErrors(conn: Connection): FieldErrors {
     } else if (field.type === "number" && value !== "" && !/^\d+$/.test(value)) {
       result.params[field.key] = "valid.number";
     }
+  }
+  // Every ssh_* field is optional in the schema, because the tunnel is opened by
+  // `ssh_host` having a value at all (docs/IPC.md) — there is no flag in the
+  // model. So when the form's tunnel switch is ON, the host stops being optional:
+  // a tunnel turned on with nowhere to tunnel to is the one state the schema
+  // cannot express (issue #531).
+  if (opts.sshRequired && (conn.params.ssh_host ?? "").trim() === "") {
+    result.params.ssh_host = "valid.required";
   }
   return result;
 }
