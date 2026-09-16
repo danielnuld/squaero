@@ -69,10 +69,10 @@ function mountApp() {
   });
 }
 
-/** Open the connections popover (the + in the bar) and connect (or focus) the nth saved one. */
+/** Open the connection search (the + in the bar) and connect (or focus) the nth saved one. */
 const connect = async (n: number) => {
   (host!.querySelector(".connbar-add") as HTMLElement).click();
-  const entries = host!.querySelectorAll<HTMLElement>(".conn-list .conn-open");
+  const entries = host!.querySelectorAll<HTMLElement>(".connsearch-hit");
   entries[n].click();
   await settle();
 };
@@ -108,17 +108,25 @@ describe("App — a tool tab per connection", () => {
   // connection opened the first one's draft under the second one's name.
   it("shows the second connection when the form is already open for the first", async () => {
     mountApp();
-    (host!.querySelector(".connbar-add") as HTMLElement).click();
+    // Editing a saved connection lives in the connections tab now (issue #525),
+    // not in the bar's popover — which is a search for opening one.
+    const openConns = () => openTool("Crear, editar");
+    openConns();
+    await settle();
     const edit = () => host!.querySelectorAll<HTMLElement>(".conn-list button[title='Editar']");
     edit()[0].click();
     await settle();
     const nameInput = () => host!.querySelector<HTMLInputElement>(".field input[type='text']")!;
     expect(nameInput().value).toBe("local");
 
-    (host!.querySelector(".connbar-add") as HTMLElement).click();
+    // Back to the list (the same tab, not a second one) and edit the other.
+    openConns();
+    await settle();
     edit()[1].click();
     await settle();
-    expect(host!.querySelectorAll(".tab-tool").length).toBe(1);
+    // Two tool tabs — the list and ONE form — and the form shows the second
+    // connection rather than the first one's draft under its name.
+    expect(host!.querySelectorAll(".tab-tool").length).toBe(2);
     expect(nameInput().value).toBe("prod");
   });
 

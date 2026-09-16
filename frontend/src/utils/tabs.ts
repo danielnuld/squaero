@@ -16,6 +16,7 @@ export type ToolKind =
   | "history"
   | "snippets"
   | "connectionForm"
+  | "connections"
   | "schemaSync"
   | "dataDiff"
   | "transfer"
@@ -134,6 +135,9 @@ export const GLOBAL_TOOLS: ReadonlySet<ToolKind> = new Set<ToolKind>([
   "help",
   "settings",
   "connectionForm",
+  // Managing the saved connections belongs to no connection in particular
+  // (issue #525): one tab serves them all, whichever one is focused.
+  "connections",
   "history",
   "snippets",
   "notebook",

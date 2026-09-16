@@ -859,70 +859,135 @@ body {
   text-decoration: underline;
 }
 
-.connbar-row {
+/* Finding a saved connection to open (#525): the popover is a search, not the
+   whole manager. */
+.connsearch {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  min-height: 0;
 }
-.connbar-active {
+
+.connsearch-field {
+  padding: var(--sp-2) var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.connsearch-input {
+  width: 100%;
+  height: var(--h-md);
+  box-sizing: border-box;
+  padding: 0 var(--sp-3);
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: var(--fs-md);
+}
+
+.connsearch-input:focus {
+  border-color: var(--accent);
+}
+
+.connsearch-results {
   flex: 1;
-  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+
+.connsearch-group {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.connsearch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.connsearch-hit {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
   background: none;
   border: none;
+  border-radius: var(--r-sm);
   color: var(--text);
   font: inherit;
-  font-size: var(--fs-md);
   text-align: left;
   cursor: pointer;
 }
-.connbar-active:hover {
-  background: var(--bg-elev2);
+
+/* One highlight for the keyboard and the mouse: the arrows move it, and so
+   does hovering, so Enter always takes what the eye is on. */
+.connsearch-hit.is-highlighted {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
-/* Disconnect the focused connection straight from the bar. */
-.connbar-disconnect {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  border-left: 1px solid var(--border);
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: var(--fs-lg);
-  padding: 0 var(--sp-4);
-}
-.connbar-disconnect:hover:not(:disabled) {
-  color: var(--error);
-  background: var(--bg-elev2);
-}
-.connbar-disconnect:disabled {
-  opacity: 0.5;
+
+.connsearch-hit:disabled {
+  opacity: 0.6;
   cursor: default;
 }
+
+.connsearch-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.connsearch-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connsearch-open {
+  flex-shrink: 0;
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--number);
+  background: color-mix(in srgb, var(--number) 16%, transparent);
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.connsearch-empty {
+  margin: 0;
+  padding: var(--sp-4);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+}
+
+.connsearch-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-2);
+  border-top: 1px solid var(--border);
+}
+
 .connbar-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-}
-.connbar-none {
-  flex: 1;
-  color: var(--text-dim);
-}
-.connbar-status {
-  font-size: var(--fs-micro);
-  color: var(--number);
-  background: color-mix(in srgb, var(--number) 16%, transparent);
-  padding: 1px var(--sp-2);
-  border-radius: var(--r-md);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.connbar-caret {
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
 }
 .connbar-drop {
   position: absolute;
@@ -935,8 +1000,10 @@ body {
   border-top: none;
   box-shadow: var(--shadow-lg);
   max-height: 60vh;
-  overflow: auto;
-  padding: var(--sp-3);
+  /* The search inside scrolls its own result list, so the popover must NOT
+     scroll as a whole — the field and the footer stay put (issue #525). */
+  display: flex;
+  overflow: hidden;
 }
 
 /* The connection-color dot shown on a query tab. Since the tab lost the
@@ -1811,10 +1878,7 @@ body {
   color: var(--text);
 }
 
-.grid-empty,
-/* A connection the core says is gone (issue #407): the bar must stop reading
-   like everything is fine, so the status word takes the error colour. */
-.connbar-status.lost {
+.grid-empty {
   color: var(--error);
   font-weight: 600;
 }
@@ -2103,6 +2167,15 @@ kbd {
 
 .status-spacer {
   flex: 1;
+}
+
+/* The saved connections as a tab of their own (issue #525). The list was drawn
+   for a 280px sidebar; handed the whole workspace it would stretch a two-line
+   row across 1600px, so it keeps a readable column instead. */
+.conn-tab {
+  padding: var(--sp-4);
+  overflow: auto;
+  max-width: 720px;
 }
 
 /* Connection manager (sidebar) */

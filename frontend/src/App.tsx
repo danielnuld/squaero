@@ -247,6 +247,7 @@ import {
 import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
+import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar } from "./components/ObjectToolbar";
 import { ResultTabs } from "./components/ResultTabs";
 import { ObjectListView } from "./components/ObjectListView";
@@ -442,8 +443,6 @@ export function App() {
   let panesEl: HTMLDivElement | undefined;
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
-  // Bumped to reopen the connections popover (e.g. after saving a connection).
-  const [connbarOpenTick, setConnbarOpenTick] = createSignal(0);
   // Several connections can be open at once; `focusedDefId` names the one the
   // object tree and newly-created query tabs bind to. `active`/`activeDefId` are
   // derived views of the focused connection, so most of the app keeps referring
@@ -1360,6 +1359,12 @@ export function App() {
     }
   };
 
+  // The saved connections get a tab of their own (issue #525): the sidebar bar
+  // answers "what is open", and everything that OUTLIVES a session — creating,
+  // renaming, grouping, importing, exporting — needs room the popover never had.
+  const openConnectionsTab = () =>
+    showTool("connections", t("tool.connections.tab"), { key: "connections" });
+
   // Move a connection between existing groups from the list's context menu.
   const moveConnToGroup = (id: string, group: string) =>
     persist(setConnectionGroup(connections(), id, group));
@@ -1367,9 +1372,10 @@ export function App() {
   const onSaveConnection = (c: Connection) => {
     persist(upsertConnection(connections(), c));
     closeToolByKind("connectionForm");
-    // Reopen the connections popover so the saved connection is visible (the
-    // list lives inside it, and opening the form had collapsed it).
-    setConnbarOpenTick((t) => t + 1);
+    // Land on the list, where the connection that was just saved is visible.
+    // The bar cannot show it — it lists what is OPEN — so without this, saving
+    // would close the form onto whatever was behind it and confirm nothing.
+    openConnectionsTab();
   };
 
   // Close one open connection (the focused one when no id is given). Other open
@@ -3223,9 +3229,10 @@ export function App() {
     out.push({ id: "act:settings", category: "action", label: t("common.settings"), run: () => showTool("settings", t("common.settings"), { key: "settings" }) });
     out.push({ id: "act:help", category: "action", label: t("status.shortcuts"), run: () => showTool("help", t("status.shortcuts"), { key: "help" }) });
 
-    // Tools (need a connection to be useful).
-    if (connected)
-      for (const tool of TOOL_CATALOG)
+    // Tools (need a connection to be useful — except the saved connections,
+    // which belong to no connection at all and are how you open the first one).
+    for (const tool of TOOL_CATALOG)
+      if (connected || tool.tool === "connections")
         out.push({ id: `tool:${tool.tool}`, category: "tool", label: t(tool.label), run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }) });
 
     // Objects loaded in the tree.
@@ -3277,8 +3284,6 @@ export function App() {
           <div class="sidebar-section-title">{t("conn.title")}</div>
           <ConnectionBar
             connections={connections()}
-            openTick={connbarOpenTick()}
-            activeConnId={activeDefId()}
             /* The bar draws one row per open connection (#525). The second line
                comes from the SAVED connection, which is where the DSN lives. */
             open={openConns().map((o) => {
@@ -3297,18 +3302,14 @@ export function App() {
             focusedDefId={focusedDefId()}
             onFocus={setFocusedDefId}
             onReconnectConn={(defId) => inConn(defId, reconnect)()}
-            openIds={openConns().map((o) => o.defId)}
-            lostIds={openConns().filter((o) => o.lost).map((o) => o.defId)}
             connectingId={connectingId()}
-            onConnect={onConnect}
-            onEdit={onEditConnection}
-            onDelete={onDeleteConnection}
+            onPick={onConnect}
             onNew={onNewConnection}
             onDisconnect={(defId) => void disconnect(defId)}
-            onReconnect={reconnect}
-            onExport={exportConns}
-            onImport={importConns}
-            onMoveToGroup={moveConnToGroup}
+            /* Creating, editing, importing and exporting live in their own tab
+               now (#525); the bar's search only links to it. */
+            onImport={openConnectionsTab}
+            onManage={openConnectionsTab}
           />
           {/* One collapsible section per open connection (issue #444): the
               same table can be looked up in prod and dev without swapping the
@@ -3515,7 +3516,13 @@ export function App() {
                     class="toolstrip-btn"
                     title={t(item.title)}
                     aria-label={t(item.label)}
-                    disabled={!active()}
+                    /* The saved connections are the one tool that asks no server
+                       anything, so it stays usable with nothing connected —
+                       which is the whole point of it (issue #525). NOT every
+                       GLOBAL_TOOLS entry: that set means "one tab whichever
+                       connection is focused", and the notebook is in it while
+                       still needing a connection to run anything. */
+                    disabled={!active() && item.tool !== "connections"}
                     onClick={() => showTool(item.tool, t(item.tabTitle), { key: item.key })}
                   >
                     <item.Icon />
@@ -4096,6 +4103,21 @@ export function App() {
                     db={activeDb()}
                     onCatalogChanged={refreshTreeInPlace}
                   />
+                </Match>
+                <Match when={tt().tool === "connections"}>
+                  <div class="conn-tab">
+                    <ConnectionManager
+                      connections={connections()}
+                      activeConnId={activeDefId()}
+                      openIds={openConns().map((o) => o.defId)}
+                      onEdit={onEditConnection}
+                      onDelete={onDeleteConnection}
+                      onNew={onNewConnection}
+                      onExport={exportConns}
+                      onImport={importConns}
+                      onMoveToGroup={moveConnToGroup}
+                    />
+                  </div>
                 </Match>
                 <Match when={tt().tool === "history"}>
                   <HistoryPanel

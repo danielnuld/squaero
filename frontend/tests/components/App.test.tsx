@@ -53,14 +53,14 @@ describe("App — one navigation band", () => {
     expect(host!.querySelector(".cmdk")).not.toBeNull();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 
-    // The strip shows by default: it is how someone finds out the ten tools
+    // The strip shows by default: it is how someone finds out the eleven tools
     // are there at all. ⋯ folds it away, and that choice is remembered.
     const tools = host!.querySelector(".tab-tools") as HTMLButtonElement;
-    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(10);
+    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(11);
     tools.click();
     expect(host!.querySelector(".toolstrip")).toBeNull();
     tools.click();
-    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(10);
+    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(11);
   });
 
   it("does not spell the connection out on the tab", () => {

@@ -4,12 +4,13 @@ import { render } from "solid-js/web";
 import { ConnectionManager } from "../../src/components/ConnectionManager";
 import type { Connection } from "../../src/utils/connections";
 
-// The active connection exposes Reconectar (↻) + Desconectar (⏏) actions; other
-// connections do not. Both fire their callbacks.
+// The saved connections as their own tab (issue #525): create, edit, group,
+// delete, import, export. Opening, closing and reconnecting are NOT here — they
+// belong to the sidebar's bar and its search.
 
 const conns: Connection[] = [
-  { id: "a", name: "Prod", driver: "mysql", params: {} },
-  { id: "b", name: "Local", driver: "sqlite", params: {} },
+  { id: "a", name: "Prod", driver: "mysql", params: { host: "10.0.4.12", database: "ventas" } },
+  { id: "b", name: "Local", driver: "sqlite", params: { path: "C:/datos/notas.db" } },
 ];
 
 let dispose: (() => void) | null = null;
@@ -25,16 +26,16 @@ afterEach(() => {
 function mount(
   activeConnId: string | null,
   cbs: {
-    onDisconnect?: () => void;
-    onReconnect?: () => void;
+    onEdit?: (c: Connection) => void;
+    onDelete?: (id: string) => void;
     onExport?: (p: boolean) => void;
     onImport?: (files: File[]) => Promise<string>;
   } = {},
 ) {
   host = document.createElement("div");
   document.body.appendChild(host);
-  const onDisconnect = cbs.onDisconnect ?? vi.fn();
-  const onReconnect = cbs.onReconnect ?? vi.fn();
+  const onEdit = cbs.onEdit ?? vi.fn();
+  const onDelete = cbs.onDelete ?? vi.fn();
   const onExport = cbs.onExport ?? vi.fn();
   const onImport = cbs.onImport ?? vi.fn(async () => "");
   createRoot((d) => {
@@ -45,14 +46,10 @@ function mount(
           connections={conns}
           activeConnId={activeConnId}
           openIds={activeConnId ? [activeConnId] : []}
-          connectingId={null}
-          onConnect={() => {}}
-          onEdit={() => {}}
-          onDelete={() => {}}
+          onEdit={onEdit}
+          onDelete={onDelete}
           onMoveToGroup={() => {}}
           onNew={() => {}}
-          onDisconnect={onDisconnect}
-          onReconnect={onReconnect}
           onExport={onExport}
           onImport={onImport}
         />
@@ -60,34 +57,62 @@ function mount(
       host!,
     );
   });
-  return { onDisconnect, onReconnect, onExport, onImport };
+  return { onEdit, onDelete, onExport, onImport };
 }
 
 const btn = (title: string) =>
   [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.title === title) ?? null;
+const textBtn = (label: string) =>
+  [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
+    (b) => b.textContent?.trim() === label,
+  );
 
 describe("ConnectionManager", () => {
-  it("shows Reconectar + Desconectar only for the active connection", () => {
-    mount(null);
+  it("offers no way to open or close a connection — that is the bar's job", () => {
+    mount("a");
     expect(btn("Reconectar")).toBeNull();
     expect(btn("Desconectar")).toBeNull();
+    expect(btn("Conectar")).toBeNull();
+  });
 
-    dispose?.();
+  it("edits the connection the row belongs to", () => {
+    const { onEdit } = mount(null);
+    host!.querySelectorAll<HTMLButtonElement>(".conn-open")[1].click();
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "b" }));
+  });
+
+  // The row edits and so does the pencil beside it; naming both "Editar" left a
+  // screen reader — and anything asking for the second connection's edit button
+  // — with four identical buttons and no way to tell one row from the next.
+  it("names the row after its connection, not the same as the pencil", () => {
+    mount(null);
+    expect(host!.querySelector<HTMLButtonElement>(".conn-open")!.title).toBe("Editar Prod");
+    const named = [...host!.querySelectorAll<HTMLButtonElement>("button")].filter(
+      (b) => b.title === "Editar",
+    );
+    expect(named).toHaveLength(2); // one pencil per row, and nothing else
+  });
+
+  it("shows each connection's engine and where it points", () => {
+    mount(null);
+    const rows = host!.querySelectorAll(".conn-item");
+    expect(rows[0].textContent).toContain("ventas @ 10.0.4.12");
+    expect(rows[1].textContent).toContain("C:/datos/notas.db");
+  });
+
+  it("marks the open connection without claiming to be the way to open one", () => {
     mount("a");
-    expect(btn("Reconectar")).not.toBeNull();
-    expect(btn("Desconectar")).not.toBeNull();
+    expect(host!.querySelectorAll(".conn-item")[0].classList.contains("open")).toBe(true);
+    expect(host!.querySelector(".conn-live")).not.toBeNull();
   });
 
-  it("fires onReconnect and onDisconnect", () => {
-    const { onDisconnect, onReconnect } = mount("a");
-    btn("Reconectar")!.click();
-    btn("Desconectar")!.click();
-    expect(onReconnect).toHaveBeenCalledTimes(1);
-    expect(onDisconnect).toHaveBeenCalledTimes(1);
+  it("deletes from its own row", () => {
+    const { onDelete } = mount(null);
+    [...host!.querySelectorAll<HTMLButtonElement>("button")]
+      .filter((b) => b.title === "Eliminar")[0]
+      .click();
+    expect(onDelete).toHaveBeenCalledWith("a");
   });
-
-  const textBtn = (label: string) =>
-    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === label);
 
   it("exports without passwords by default and only warns on opt-in (#188)", () => {
     const onExport = vi.fn();
