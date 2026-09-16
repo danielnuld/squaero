@@ -23,6 +23,10 @@ export type ActionId =
   | "save-snippet"
   | "save-edits"
   | "select-rows"
+  | "copy-rows"
+  | "duplicate-rows"
+  | "paste-rows"
+  | "unmark-rows"
   | "add-condition";
 
 export interface Shortcut {
@@ -51,9 +55,15 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "save-snippet", keys: "Mod+Shift+S", description: "sc.save-snippet", global: true },
   { id: "save-edits", keys: "Mod+S", description: "sc.save-edits", global: true },
   { id: "editor-find", keys: "Mod+F", description: "sc.editor-find", global: true },
-  // The grid owns it (it only makes sense with the grid focused), so it is
-  // documented here but never matched globally.
+  // The grid owns these (they only make sense with the grid focused), so they
+  // are documented here but never matched globally. Copy and duplicate act on
+  // the marked rows, or the selected cell's row; paste comes in on the paste
+  // event, which is what carries the clipboard (#517).
   { id: "select-rows", keys: "Mod+A", description: "sc.select-rows", global: false },
+  { id: "copy-rows", keys: "Mod+C", description: "sc.copy-rows", global: false },
+  { id: "duplicate-rows", keys: "Mod+D", description: "sc.duplicate-rows", global: false },
+  { id: "paste-rows", keys: "Mod+V", description: "sc.paste-rows", global: false },
+  { id: "unmark-rows", keys: "Esc", description: "sc.unmark-rows", global: false },
   // The filter panel owns it (issue #462): Enter there applies the draft, so
   // Shift+Enter is the "one more line" of the same reflex. Not matched globally.
   { id: "add-condition", keys: "Shift+Enter", description: "sc.add-condition", global: false },

@@ -793,6 +793,10 @@ export const es: Record<string, string> = {
   "sc.save-edits": "Guardar los cambios de la rejilla",
   "sc.editor-find": "Buscar en el editor",
   "sc.select-rows": "Seleccionar las filas de la rejilla",
+  "sc.copy-rows": "Copiar las filas marcadas",
+  "sc.duplicate-rows": "Duplicar las filas marcadas como filas nuevas",
+  "sc.paste-rows": "Pegar filas como filas nuevas",
+  "sc.unmark-rows": "Desmarcar las filas",
   "sc.add-condition": "Añadir otra condición al filtro",
 
   // command palette (CommandPalette.tsx)
