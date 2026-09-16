@@ -886,7 +886,15 @@ export const es: Record<string, string> = {
   "cform.listDb": "Listar",
   "cform.pickDb": "— elegir base —",
   "cform.noDbs": "(sin bases)",
-  "cform.testOk": "Conexión exitosa.",
+  // La prueba vive en su tarjeta y dice cuánto tardó (#531): el tiempo se mide
+  // en el formulario, porque el núcleo no informa de latencia.
+  "cform.testOkMs": "Correcta · {ms} ms",
+  "cform.testTitle": "Prueba de conexión",
+  "cform.testIdle": "Sin probar todavía.",
+  "cform.preview": "Cómo se verá",
+  "cform.unnamed": "Sin nombre",
+  "cform.sshOn": "Conectar a través de un túnel SSH",
+  "cform.sshAdvanced": "Opciones avanzadas",
   "ifx.clientMissing": "Falta el cliente de Informix: instala el IBM Informix Client SDK de 32 bits y vuelve a probar la conexión (no hace falta reinstalar Squaero).",
   "ifx.clientMissingLink": "Dónde descargar el Client SDK (IBM)",
   "cform.test": "Probar conexión",

@@ -1378,6 +1378,16 @@ export function App() {
     openConnectionsTab();
   };
 
+  // Save and open it in one go (issue #531). No detour through the list: the
+  // connection opening IS the confirmation that it saved, and landing on the
+  // manager instead would put a list between the user and the database they
+  // just said they wanted to work in.
+  const onSaveAndConnectConnection = (c: Connection) => {
+    persist(upsertConnection(connections(), c));
+    closeToolByKind("connectionForm");
+    void onConnect(c);
+  };
+
   // Close one open connection (the focused one when no id is given). Other open
   // connections stay up; focus falls to another, or none.
   const disconnect = async (defId?: string) => {
@@ -4145,6 +4155,7 @@ export function App() {
                   <ConnectionForm
                     initial={(tt().params as { draft: Connection }).draft}
                     onSave={onSaveConnection}
+                    onSaveAndConnect={onSaveAndConnectConnection}
                     onCancel={() => closeTool(tt().id)}
                     onTest={(c) => testConnection(c.driver, buildDsn(c))}
                     onListDatabases={(c) =>
