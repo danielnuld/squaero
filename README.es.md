@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://github.com/danielnuld/squaero/releases"><img alt="Release" src="https://img.shields.io/github/v/release/danielnuld/squaero?include_prereleases&sort=semver"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-blue"></a>
-  <img alt="Motores" src="https://img.shields.io/badge/motores-SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB-5b5bd6">
+  <img alt="Motores" src="https://img.shields.io/badge/motores-SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB%20%C2%B7%20SQL%20Server-5b5bd6">
 </p>
 
 **Squaero** (del latín *quaero*, «yo busco/indago») es un cliente de bases de datos
@@ -31,7 +31,8 @@ habla directo con las librerías cliente de cada base de datos.
 | **MySQL / MariaDB** | ✅ Completo (verificado) — SSL/TLS, túnel SSH |
 | **Informix** | ✅ Vía ODBC (build x86) |
 | **MongoDB** | ✅ Lectura (find/aggregate, sintaxis mongosh) |
-| SQL Server, Oracle | ⏳ Planeado (M12) |
+| **SQL Server** | ✅ Vía FreeTDS — consultas, tipos, esquema, transacciones, cifrado, instancias con nombre. Aún no: editar filas en la rejilla, DDL, cancelar una consulta |
+| Oracle | ⏳ Planeado (M12) |
 
 Los motores se cargan como **plugins** (`.dll`/`.so`) que implementan un contrato
 en C: agregar un motor no requiere tocar el núcleo. Ver
@@ -66,7 +67,7 @@ en C: agregar un motor no requiere tocar el núcleo. Ver
   conexiones, **generación de datos** de prueba.
 
 **Conectividad y plataforma**
-- **Túnel SSH** (todos los motores), **SSL/TLS** (MySQL, PostgreSQL),
+- **Túnel SSH** (todos los motores), **SSL/TLS** (MySQL, PostgreSQL, MongoDB, Informix, SQL Server),
   **import/export** de conexiones guardadas — y también se leen las de
   **DBeaver** (`data-sources.json`, con su `credentials-config.json` al lado) y
   **Navicat** (`.ncx`), **con contraseñas**, para no reteclear treinta servidores
@@ -127,6 +128,10 @@ de release x86 compila un libpq estático desde el código con `-DQUAERO_LIBPQ=O
 compílalo desde el código con `-DQUAERO_MONGOC=ON` (descarga y enlaza
 mongo-c-driver estáticamente; TLS con Secure Channel en Windows).
 
+**SQL Server:** el driver enlaza db-lib de FreeTDS, 1.4 o posterior. Si no hay
+una (la de Ubuntu 24.04 es más vieja), `-DQUAERO_FREETDS=ON` descarga FreeTDS y
+la enlaza estáticamente, como hacen los builds de release.
+
 **Instalador (Windows MSI):** ver [`installer/build-msi.sh`](installer/build-msi.sh)
 (WiX v5 vía `dotnet tool`). Los releases se cortan automáticamente al empujar un tag
 de versión — ver [docs/VERSIONING.md](docs/VERSIONING.md).
@@ -139,7 +144,7 @@ de versión — ver [docs/VERSIONING.md](docs/VERSIONING.md).
 ```
 Frontend (webview del SO)  ──IPC JSON──>  Núcleo en C (libdbcore)  ──vtable──>  Drivers (plugins)
    UI SolidJS, grid virtual,               conexión, queries,                    sqlite, postgres,
-   editor SQL, herramientas                introspección, edición, tx            mysql, informix, mongodb, …
+   editor SQL, herramientas                introspección, edición, tx            mysql, informix, mongodb, mssql
 ```
 
 Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
