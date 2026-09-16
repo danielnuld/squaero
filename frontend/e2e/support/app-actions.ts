@@ -13,14 +13,17 @@ import type { App } from "./fixtures";
 /** Opens the saved connection through the sidebar, as a user would. */
 export async function connect(app: App): Promise<void> {
   const { page, engine } = app;
-  await page.getByRole("button", { name: "Elegir conexión" }).click();
+  // The + in the connection bar opens the popover with the saved connections
+  // (issue #525); the bar itself is now the list of what is already open.
+  await page.getByRole("button", { name: "Conectar a una base…" }).click();
   // Wait for the popover itself, not for time: the list renders inside it.
   await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
   await page.getByRole("button", { name: new RegExp(engine.label) }).click();
-  // "Desconectar" only exists once a connection is open, so it is the signal —
-  // exact, because since #444 each explorer section carries its own "Desconectar
-  // <nombre>", and a substring match now resolves to two buttons.
-  await page.getByRole("button", { name: "Desconectar", exact: true }).waitFor();
+  // The signal that it is open: its row in the bar, which only exists for an
+  // open connection (issue #525). It used to be a button named exactly
+  // "Desconectar", and there is no longer one: every disconnect is named after
+  // its connection, in the bar's row and in the explorer section since #444.
+  await page.getByRole("button", { name: new RegExp(`^${engine.label}`) }).first().waitFor();
 }
 
 /**
@@ -39,7 +42,10 @@ export async function startBlank(page: Page): Promise<void> {
 }
 
 export async function disconnect(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Desconectar", exact: true }).click();
+  // Every disconnect is named after its connection now — the bar's row (#525)
+  // and the explorer section (#444) — so there is no bare "Desconectar" left.
+  // The first one is the bar's, which is the one a user reaches for.
+  await page.getByRole("button", { name: /^Desconectar / }).first().click();
 }
 
 /**

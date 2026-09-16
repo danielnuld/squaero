@@ -27,19 +27,39 @@ https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
 
 ## 2. La barra como lista de abiertas (fase B)
 
-- [ ] 2.1 `ConnectionBar` reescrito: una fila por conexión abierta con raya de
+> **Secuencia.** La barra es hoy el único camino para conectar, así que esta fase
+> **conserva el desplegable con el gestor** detrás de un botón `+`: si el
+> buscador no llegara hasta la fase C, entre los dos PR no habría forma de abrir
+> una conexión. La fase C sustituye el contenido de ese desplegable por el
+> buscador y muda el gestor a su pestaña.
+>
+> **Desviación del diseño:** las filas **no** son `listbox`/`option`. Cada fila
+> lleva sus propios botones (desconectar, reconectar), y meter botones dentro de
+> un `option` es peor que no tener `listbox`: es una lista con un botón por fila
+> y `aria-current` en la enfocada.
+
+- [x] 2.1 `ConnectionBar` reescrito: una fila por conexión abierta con raya de
       color, monograma, nombre y destino; la enfocada marcada; `listbox`/`option`
-      con `aria-selected` y flechas
-- [ ] 2.2 Clic en una fila enfoca (nunca abre ni cierra); desconectar y
-      reconectar por fila; aviso de sesión caída (#407) en la fila
-- [ ] 2.3 Estado sin conexiones abiertas: lo dice y ofrece el buscador
-- [ ] 2.4 Lista con scroll propio y altura máxima por encima de cinco filas, para
+      con `aria-selected` y flechas — **hecho como lista con un botón por fila y
+      `aria-current`**, por el motivo de arriba; el recorrido con flechas se
+      queda fuera (las filas son paradas de tabulación normales)
+- [x] 2.2 Clic en una fila enfoca (nunca abre ni cierra); desconectar y
+      reconectar por fila; aviso de sesión caída (#407) en la fila. Desconectar
+      va **nombrado** («Desconectar Local»), como en #444: tres botones iguales
+      no dicen cuál cierran
+- [x] 2.3 Estado sin conexiones abiertas: lo dice y ofrece el buscador — de
+      momento abre el desplegable del gestor, que es lo que hay hasta la fase C
+- [x] 2.4 Lista con scroll propio y altura máxima por encima de cinco filas, para
       no comerse el explorador
-- [ ] 2.5 `App.tsx` le pasa las abiertas ya resueltas y los cuatro callbacks; la
-      cabecera de sección (#444) se queda como está, sin duplicar acciones
-- [ ] 2.6 Pruebas de componente: tres abiertas con la enfocada marcada, enfocar
+- [x] 2.5 `App.tsx` le pasa las abiertas ya resueltas y los cuatro callbacks; la
+      cabecera de sección (#444) se queda como está, sin duplicar acciones. La
+      segunda línea la arma `App` con `connectionTarget` de la conexión
+      **guardada**, que es donde vive el DSN
+- [x] 2.6 Pruebas de componente: tres abiertas con la enfocada marcada, enfocar
       no cierra, desconectar la enfocada pasa el foco a otra, fila sin color, y
-      la fila caída ofrece reconectar
+      la fila caída ofrece reconectar — 15 casos, incluidos el contador, las
+      acciones desactivadas mientras se abre otra conexión, y los dos casos del
+      desplegable que se conservan (lista reactiva y `openTick`)
 
 ## 3. Buscador y pestaña del gestor (fase C)
 

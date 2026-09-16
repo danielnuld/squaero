@@ -31,7 +31,9 @@ describe("App shell", () => {
     mount();
     // Explorer-first layout: the connection bar sits at the top of the sidebar.
     expect(host!.querySelector(".connbar")).not.toBeNull();
-    expect(host!.textContent).toContain("Elegir conexión");
+    // With nothing open the bar says so and offers to connect (issue #525).
+    expect(host!.textContent).toContain("Ninguna abierta");
+    expect(host!.textContent).toContain("No hay ninguna conexión abierta");
     // A fresh workspace has one query tab and the empty-grid prompt.
     expect(host!.querySelector(".tabbar")).not.toBeNull();
     expect(host!.textContent).toContain("Ejecuta una consulta");
