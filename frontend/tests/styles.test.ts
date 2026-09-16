@@ -17,10 +17,21 @@ import { resolve } from "node:path";
 
 // Resolved from the cwd, not from `import.meta.url`: the jsdom environment
 // replaces the global URL, and fileURLToPath then rejects its output.
-const CSS = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+//
+// Line endings NORMALISED, and that is load-bearing: the checkout on Windows has
+// CRLF, so the `\n` marker below was never found, `slice(-1)` left a
+// one-character string, and EVERY rule-level guard in this file silently
+// inspected nothing. Green here, red in CI — twice, before anyone looked.
+const CSS = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8").replace(/\r\n/g, "\n");
 
 /** The `:root` blocks, where the literal values are supposed to live. */
 const TOKEN_BLOCK_END = CSS.indexOf("* {\n  box-sizing: border-box;\n}");
+
+// If the marker ever moves, every guard below would quietly inspect nothing.
+// Fail loudly instead.
+if (TOKEN_BLOCK_END < 0) {
+  throw new Error("styles.test.ts: could not find the end of the token block");
+}
 
 /** Everything after the token definitions: the rules that must use them. */
 const RULES = CSS.slice(TOKEN_BLOCK_END);
@@ -68,7 +79,9 @@ describe("styles.css scales", () => {
     // 1px is a hairline rather than a space, `auto` centres, and a negative
     // margin is a deliberate overlap — none of them are scale steps.
     // 12vh centres a modal against the viewport, which no px scale can express.
-    const allowed = /^(0|auto|1px|-\d+px|12vh|inherit|var\(--sp-[1-6]\))$/;
+    // 88px is the room a field leaves for the button overlaid on its right edge
+    // ("Listar", "Examinar…"): it is the width of that button, not a space.
+    const allowed = /^(0|auto|1px|-\d+px|12vh|88px|inherit|var\(--sp-[1-6]\))$/;
     const offScale: string[] = [];
     const sides = ["top", "right", "bottom", "left"];
     const props = ["padding", "gap", "row-gap", "column-gap", "margin"].concat(
