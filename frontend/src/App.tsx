@@ -138,8 +138,20 @@ import {
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { rowHeightFor, type Settings } from "./utils/settings";
 import { applyPlan } from "./utils/editApply";
-import { planPaste, type PkMode, type RowClipboard, type RowSource } from "./utils/rowPaste";
+
+/** Rows to read from a table's index catalog; one per index, so plenty. */
+const UNIQUE_CATALOG_LIMIT = 500;
+import {
+  findConflicts,
+  planPaste,
+  type PastePlan,
+  type PkMode,
+  type RowClipboard,
+  type RowSource,
+} from "./utils/rowPaste";
 import { RowActionBar } from "./components/RowActionBar";
+import { PendingRowsBar } from "./components/PendingRowsBar";
+import { indexListFor, uniqueSetsFrom } from "./utils/indexes";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
@@ -168,6 +180,11 @@ import {
   toggleDelete,
   addInsert,
   addInserts,
+  insertBatchOf,
+  pkModeOf,
+  removeBatch,
+  setBatchEmptyAsNull,
+  setPkMode,
   setInsertCell,
   removeInsert,
   hasChanges,
@@ -751,6 +768,15 @@ export function App() {
       const src = currentResult().source;
       if (!src || !active()) return;
       const text = e.clipboardData?.getData("text/plain") ?? "";
+      // Over a table that takes new rows, a paste that fits the grid becomes
+      // pending rows (#517); any other shape still goes to the wizard.
+      if (currentEditable()) {
+        const plan = pastePlanFor(text);
+        if (!plan || plan.kind === "none") return;
+        e.preventDefault();
+        runPastePlan(plan, text);
+        return;
+      }
       // One value is a cell, not a table: leave it to whatever wanted it.
       if (!text.includes("\t") && !text.includes("\n")) return;
       e.preventDefault();
@@ -1600,7 +1626,10 @@ export function App() {
     const keepSource =
       prev?.source && prev.pageSql === trimmed ? prev.source : undefined;
     setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
-    if (!keepSource) setFkLookups(id, {}); // the pickers belong to the old table
+    if (!keepSource) {
+      setFkLookups(id, {}); // the pickers belong to the old table
+      dropUniqueSets(id); // and so do its unique indexes
+    }
     const started = performance.now();
     // Several statements in one run go to the engine one by one: no engine takes
     // a whole script in a single call (MySQL answers `PREPARE …; EXECUTE …;`
@@ -1724,7 +1753,10 @@ export function App() {
     );
     // Keep the edit source across page turns of the same table so the grid stays editable.
     const keepSource = results[tabId]?.source ?? undefined;
-    if (!keepSource) setFkLookups(tabId, {}); // a fresh table: drop the old pickers
+    if (!keepSource) {
+      setFkLookups(tabId, {}); // a fresh table: drop the old pickers
+      dropUniqueSets(tabId); // and its unique indexes
+    }
     setResults(tabId, { ...emptyResult(), loading: true, ranScope: "document", source: keepSource, preview });
     setTabs((s) => updateTabSql(s, tabId, sql));
     const started = performance.now();
@@ -2431,6 +2463,7 @@ export function App() {
       patchEdit(t.id, { editing: true, pending: emptyPending(), busy: false });
       // Fill the pickers while the user starts typing; they appear as they land.
       void loadFkLookups(t.id, conn);
+      void loadUniqueIndexes(t.id, conn);
     } catch (err) {
       patchEdit(t.id, { busy: false, error: errMsg(err) });
     }
@@ -2487,6 +2520,14 @@ export function App() {
     const conn = tabConn(tab);
     const res = currentResult();
     if (!tab || !conn || !res.result || !res.source) return;
+    // A new row already known to collide would only fail inside the
+    // transaction (#517); every road to saving — the bar, the toolbar, Ctrl+S —
+    // passes through here, so this is the one place that blocks it.
+    const conflicts = currentConflicts().size;
+    if (conflicts > 0) {
+      patchEdit(tab.id, { error: t("pending.blockedConfirm", { n: conflicts }) });
+      return;
+    }
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
                            currentEdit().pending);
     if (plan.length === 0) {
@@ -2633,32 +2674,136 @@ export function App() {
   /** Why this grid cannot take new rows, or null. */
   const addRowsBlocked = (): string | null =>
     currentEditable() ? null : t("result.duplicateReadOnly");
+  // The last rows added as a batch, so its bar can switch the key mode and the
+  // empty cells, or hand the paste to the wizard. Bound to its tab.
+  const [lastPaste, setLastPaste] = createSignal<{
+    tabId: number;
+    batch: number;
+    /** The pasted text, when the wizard could take it instead. */
+    text: string | null;
+    ignored: string[];
+  } | null>(null);
+  const currentPaste = () => {
+    const lp = lastPaste();
+    return lp && lp.tabId === current()?.id ? lp : null;
+  };
+
   // New pending rows in this tab's edit session, which is opened first when
   // needed. Nothing reaches the database until the session is saved.
-  const addRowsAsInserts = async (rows: Record<string, string | null>[], pkMode: PkMode) => {
+  const addRowsAsInserts = async (
+    rows: Record<string, string | null>[],
+    pkMode: PkMode,
+    info: { text: string | null; fromText: boolean; ignored: string[] },
+  ) => {
     const tab = current();
     if (!tab || rows.length === 0 || !currentEditable()) return;
     if (!currentEdit().editing) await beginEdit();
     // beginEdit reports its own failure; without a session there is nowhere to add.
     if (!edits[tab.id]?.editing) return;
-    mutatePending(tab.id, (p) => addInserts(p, rows, pkMode));
+    mutatePending(tab.id, (p) => addInserts(p, rows, pkMode, info.fromText ? true : undefined));
+    const pending = edits[tab.id].pending;
+    const batch = insertBatchOf(pending, pending.inserts.length - 1);
+    if (batch !== null) {
+      setLastPaste({ tabId: tab.id, batch, text: info.text, ignored: info.ignored });
+    }
   };
   const duplicateRows = (rows: number[]) => {
     const res = currentResult().result;
-    if (res) void addRowsAsInserts(rowsAsInserts(res, rows), "generate");
+    if (res) {
+      void addRowsAsInserts(rowsAsInserts(res, rows), "generate", {
+        text: null,
+        fromText: false,
+        ignored: [],
+      });
+    }
   };
-  // The row bar's Pegar: the app's own copy, placed by column name. Pasting
-  // from the keyboard, and text from other programs, come with phase C.
-  const pasteRowClipboard = () => {
-    const clip = rowClipboard();
+  /** What pasting `text` over the current grid would do, or null off a table. */
+  const pastePlanFor = (text: string): PastePlan | null => {
     const source = rowSourceOf();
     const res = currentResult().result;
-    if (!clip || !source || !res) return;
+    if (!source || !res) return null;
     const columns = applyOrder(columnOrder(), res.columns).map((c) => c.name);
-    const plan = planPaste(clip.text, clip, { columns, source }, { emptyAsNull: true });
-    if (plan.kind === "inserts") void addRowsAsInserts(plan.rows, plan.pkMode);
-    else if (plan.kind === "wizard") openImport(clip.text);
+    return planPaste(text, rowClipboard(), { columns, source }, { emptyAsNull: true });
   };
+  const runPastePlan = (plan: PastePlan, text: string) => {
+    if (plan.kind === "inserts") {
+      void addRowsAsInserts(plan.rows, plan.pkMode, {
+        text,
+        fromText: plan.fromText,
+        ignored: plan.ignoredColumns,
+      });
+    } else if (plan.kind === "wizard") {
+      openImport(text);
+    }
+  };
+  // The row bar's Pegar: the app's own copy, placed by column name.
+  const pasteRowClipboard = () => {
+    const clip = rowClipboard();
+    const plan = clip ? pastePlanFor(clip.text) : null;
+    if (clip && plan) runPastePlan(plan, clip.text);
+  };
+  const togglePastePk = () => {
+    const lp = currentPaste();
+    const tab = current();
+    if (!lp || !tab) return;
+    const mode = currentEdit().pending.pkModes?.[lp.batch];
+    mutatePending(tab.id, (p) => setPkMode(p, lp.batch, mode === "generate" ? "keep" : "generate"));
+  };
+  const togglePasteEmptyAsNull = () => {
+    const lp = currentPaste();
+    const tab = current();
+    if (!lp || !tab) return;
+    const on = currentEdit().pending.emptyAsNull?.[lp.batch];
+    mutatePending(tab.id, (p) => setBatchEmptyAsNull(p, lp.batch, !on));
+  };
+  // Hand the last paste to the wizard after all, taking its rows back out.
+  const importLastPaste = () => {
+    const lp = currentPaste();
+    const tab = current();
+    if (!lp?.text || !tab) return;
+    mutatePending(tab.id, (p) => removeBatch(p, lp.batch));
+    setLastPaste(null);
+    openImport(lp.text);
+  };
+
+  // Unique indexes of the table being edited, by tab (#517), to warn about a
+  // new row's duplicate values before saving. Loaded like the FK pickers: in
+  // the background on entering edit mode, and a failure just means no warning.
+  const [uniqueSets, setUniqueSets] = createSignal<Record<number, string[][]>>({});
+  const dropUniqueSets = (tabId: number) =>
+    setUniqueSets((m) => {
+      if (!(tabId in m)) return m;
+      const next = { ...m };
+      delete next[tabId];
+      return next;
+    });
+  const loadUniqueIndexes = async (tabId: number, conn: ActiveConnection) => {
+    const src = results[tabId]?.source;
+    if (!src || tabId in uniqueSets()) return;
+    const list = indexListFor(conn.driver, src.table, src.db, src.schema);
+    if (!list.supported || !list.sql) return;
+    try {
+      const res = await runQuery(conn.connId, list.sql, UNIQUE_CATALOG_LIMIT);
+      const sets = uniqueSetsFrom(conn.driver, res.columns.map((c) => c.name), res.rows, src.pk);
+      setUniqueSets((m) => ({ ...m, [tabId]: sets }));
+    } catch {
+      /* no index catalog: a duplicate is reported by the database on save */
+    }
+  };
+  const currentConflicts = createMemo(() => {
+    const tab = current();
+    const res = currentResult();
+    const pending = currentEdit().pending;
+    if (!tab || !res.result || !res.source || pending.inserts.length === 0) {
+      return new Map<number, string[]>();
+    }
+    return findConflicts(
+      pending.inserts,
+      { columns: res.result.columns.map((c) => c.name), rows: res.result.rows },
+      { pk: res.source.pk, uniqueSets: uniqueSets()[tab.id] ?? [] },
+      (i) => pkModeOf(pending, i),
+    );
+  });
   const openTransfer = (rows?: number[]) => {
     const res = currentResult();
     if (!res.result || !res.source) return;
@@ -3709,6 +3854,10 @@ export function App() {
                                 onToggleDelete,
                                 onInsertCell,
                                 onRemoveInsert,
+                                pkColumns: currentResult().source?.pk ?? [],
+                                pkModeOf: (i) => pkModeOf(currentEdit().pending, i),
+                                conflicts: currentConflicts(),
+                                failedInsert: currentEdit().failedInsert,
                               }
                             : undefined
                         }
@@ -3727,6 +3876,36 @@ export function App() {
                           onDuplicate={() => duplicateRows(markedRows())}
                           onPaste={pasteRowClipboard}
                           onClear={() => setClearMarksTick((n) => n + 1)}
+                        />
+                      </Show>
+                      <Show
+                        when={
+                          currentEdit().editing &&
+                          currentEdit().pending.inserts.length > 0 &&
+                          !currentEdit().preview
+                        }
+                      >
+                        <PendingRowsBar
+                          count={currentEdit().pending.inserts.length}
+                          conflicts={currentConflicts().size}
+                          pkMode={
+                            currentPaste()
+                              ? (currentEdit().pending.pkModes?.[currentPaste()!.batch] ?? null)
+                              : null
+                          }
+                          emptyAsNull={
+                            currentPaste()
+                              ? (currentEdit().pending.emptyAsNull?.[currentPaste()!.batch] ?? null)
+                              : null
+                          }
+                          ignoredColumns={currentPaste()?.ignored ?? []}
+                          busy={currentEdit().busy}
+                          canImport={!!currentPaste()?.text}
+                          onTogglePk={togglePastePk}
+                          onToggleEmptyAsNull={togglePasteEmptyAsNull}
+                          onReview={() => void confirmEdit()}
+                          onDiscard={() => void discardEdit()}
+                          onImport={importLastPaste}
                         />
                       </Show>
                     </div>

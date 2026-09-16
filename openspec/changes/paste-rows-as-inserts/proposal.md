@@ -2,7 +2,7 @@
 
 Crear filas parecidas a las que ya existen es de las tareas más repetidas en un
 cliente de bases de datos: un cliente de prueba igual a otro, una tarifa copiada
-de la del año pasado, un registro de otra base. En Aroo hoy no hay un camino
+de la del año pasado, un registro de otra base. En Squaero hoy no hay un camino
 directo:
 
 1. **Pegar abre un asistente.** Pegar texto con tabuladores sobre una tabla
@@ -31,7 +31,7 @@ las duplica dentro de la transacción.
 - **Pegar filas sobre una tabla editable las añade como filas nuevas sin
   guardar**, en la misma sesión de edición que ya existe, que se abre sola si
   no estaba abierta. Nada se escribe en la base hasta Guardar.
-  - Filas copiadas en Aroo: se colocan **por nombre de columna**, conservando
+  - Filas copiadas en Squaero: se colocan **por nombre de columna**, conservando
     NULL. Sirve entre tablas distintas con columnas del mismo nombre.
   - Texto de fuera con **el mismo número de columnas** que la rejilla y sin
     cabecera: se coloca por posición, con la opción «celdas vacías como NULL».
@@ -46,10 +46,9 @@ las duplica dentro de la transacción.
 - **Barra flotante de selección** en cuanto hay una fila marcada: copiar, copiar
   como INSERT, duplicar, pegar N filas y desmarcar. El menú contextual ofrece lo
   mismo también con una sola fila.
-- **Barra de filas pendientes**: cuántas hay, el selector de clave, Ver SQL (la
-  vista previa que ya existe), Descartar y Guardar (`Ctrl+S`, #436). Cada fila
-  pendiente lleva un `+` en la columna del número de fila, se puede editar y se
-  puede quitar.
+- **Barra de filas pendientes**: cuántas hay, el selector de clave, Descartar y
+  «Revisar y guardar» (`Ctrl+S`, #436), que abre la vista previa del SQL que ya
+  existe. Cada fila pendiente se puede editar y se puede quitar con su ✕.
 - **Conflictos avisados antes de guardar**, cuando se pueden saber: una clave
   primaria conservada que ya existe en las filas cargadas o en otra pendiente, y
   los índices únicos del catálogo, que se leen en segundo plano como las llaves
@@ -82,7 +81,8 @@ que este cambio no cubre.
   - `utils/editSession.ts`: añadir varias inserciones de una vez y quitar las columnas de la clave.
   - `App.tsx`: portapapeles de filas, `onPaste`, atajos, barras, `applyEdit` con reversión y lectura de índices únicos.
   - `components/ResultGrid.tsx`: columna del número de fila en las pendientes y celdas en conflicto.
-  - Componente nuevo `components/RowActionBar.tsx`.
+  - Componentes nuevos `components/RowActionBar.tsx` (filas marcadas) y
+    `components/PendingRowsBar.tsx` (filas pendientes).
   - `styles.css` y los dos catálogos de mensajes.
 - **Sin cambios de IPC ni del core**: se usan `tx.begin`, `tx.rollback`,
   `tx.commit` y `row.insert` tal como están, más la consulta de índices de

@@ -16,7 +16,7 @@ la celda seleccionada. Copiar como INSERT MUST NOT sustituir la copia exacta.
 - **WHEN** no hay filas marcadas, la celda seleccionada está en la fila 4 y el usuario pulsa Ctrl+C
 - **THEN** se copia la fila 4
 
-### Requirement: Pegar filas de Aroo las añade como filas nuevas pendientes
+### Requirement: Pegar filas copiadas en Squaero las añade como filas nuevas pendientes
 Pegar sobre la rejilla de una tabla editable, cuando el texto del portapapeles
 coincide con la última copia exacta, SHALL añadir una fila pendiente por cada
 fila copiada, colocando los valores por nombre de columna sin distinguir
@@ -58,7 +58,7 @@ como hasta ahora.
 
 #### Scenario: Muchas filas
 - **WHEN** el usuario pega 2 000 filas copiadas
-- **THEN** se abre el asistente de importación con esas filas, y un aviso explica que por encima de 500 filas se importa con el asistente
+- **THEN** se abre el asistente de importación con esas filas y no se crean filas pendientes
 
 ### Requirement: Clave primaria generada o conservada
 La barra de filas pendientes SHALL ofrecer «clave: generar» y «clave: conservar».
@@ -99,13 +99,14 @@ MUST aparecer también con una sola fila marcada.
 
 ### Requirement: Barra de filas pendientes
 Con filas pendientes, la rejilla SHALL mostrar una barra con el número de filas
-nuevas, los conflictos conocidos, el selector de clave, Ver SQL, Descartar y
-Guardar. Cada fila pendiente MUST llevar un `+` en la columna del número de fila
-(que la quita al pulsarlo) y MUST poderse editar celda a celda. Guardar y `Ctrl+S`
-MUST pasar por la vista previa del SQL que ya existe antes de ejecutar.
+nuevas, los conflictos conocidos, el selector de clave, Descartar y «Revisar y
+guardar». Guardar ya pasa siempre por la vista previa del SQL, así que no hay un
+«Ver SQL» aparte: «Revisar y guardar» y `Ctrl+S` MUST abrir esa vista previa antes
+de ejecutar nada. Cada fila pendiente MUST llevar un botón ✕ que la quita y MUST
+poderse editar celda a celda.
 
 #### Scenario: Quitar una fila pendiente
-- **WHEN** hay tres filas pendientes y el usuario pulsa el `+` de la segunda
+- **WHEN** hay tres filas pendientes y el usuario pulsa la ✕ de la segunda
 - **THEN** quedan dos filas pendientes y la barra dice «2 filas nuevas sin guardar»
 
 #### Scenario: Descartar
