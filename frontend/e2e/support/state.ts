@@ -71,6 +71,44 @@ export async function seedSnippets(
   }, snippets);
 }
 
+/** A saved connection as the store holds it, for seeding more than one. */
+export interface SeedConnection {
+  readonly id: string;
+  readonly name: string;
+  readonly driver: string;
+  readonly params: Record<string, string>;
+  readonly group?: string;
+}
+
+/**
+ * Pre-saves a specific set of connections, for the cases the engine matrix cannot
+ * express: several connections at once, told apart by NAME (issue #525). The
+ * `seedConnection` option saves exactly one, named after its engine.
+ *
+ * Same shape as `seedSnippets`, and for the same reasons: a plain helper rather
+ * than a fixture option (Playwright reads an array option as its own
+ * `[value, details]` tuple), registered after `seedBrowserState` so it lands
+ * once that has cleared the key, and guarded by its own sentinel so a
+ * `page.reload()` does not overwrite what the test just did. Pair it with
+ * `test.use({ seedConnection: false })`.
+ */
+export async function seedConnections(
+  page: Page,
+  connections: readonly SeedConnection[],
+): Promise<void> {
+  await page.addInitScript((list) => {
+    try {
+      if (sessionStorage.getItem("quaero.e2e.conns-seeded") !== null) {
+        return;
+      }
+      sessionStorage.setItem("quaero.e2e.conns-seeded", "1");
+      localStorage.setItem("quaero.connections", JSON.stringify(list));
+    } catch {
+      // Same tolerance as seedBrowserState: a blocked store must not kill a test.
+    }
+  }, connections);
+}
+
 /**
  * The saved-connection shape importConnections/parseConnections accept: driver at
  * the top level and every param a string (non-string params are dropped).
