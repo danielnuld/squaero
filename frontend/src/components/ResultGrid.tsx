@@ -1,6 +1,8 @@
-import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
+import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
-import { formatCell, cellAlign, boolTo01, classifyType, NULL_LABEL } from "../utils/format";
+import { cellAlign, boolTo01, classifyType, NULL_LABEL } from "../utils/format";
+import { displayText } from "../utils/gridDisplay";
+import type { GridStyle } from "../utils/settings";
 import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../utils/gridNav";
 import {
   buildViewIndices,
@@ -21,7 +23,7 @@ import type { PendingChanges } from "../utils/editSession";
 import type { PkMode } from "../utils/rowPaste";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
-import { IconRelated } from "./icons";
+import { IconKey, IconRelated } from "./icons";
 import { t } from "../utils/i18n";
 
 const DEFAULT_ROW_HEIGHT = 28;
@@ -73,6 +75,13 @@ export function ResultGrid(props: {
   /** Row height in px (grid density, issue #181). Drives both the virtualization
       math and the cell CSS (via the --grid-row-h var) so they never diverge. */
   rowHeight?: number;
+  /**
+   * How the grid is drawn and read (issue #540). Every visual difference lives
+   * in CSS under `:root[data-grid-style]`; what the component takes it for is
+   * the text a cell shows, which the "informe" style formats. Absent →
+   * "registro", so a panel that does not care keeps the default.
+   */
+  gridStyle?: GridStyle;
   /** Rich content for the no-result state (issue #178). When absent a plain
       "run a query" message is shown. Only rendered before the tab has a result. */
   emptyState?: JSX.Element;
@@ -215,7 +224,33 @@ export function ResultGrid(props: {
 
   const cols = () => props.result?.columns ?? [];
   const rows = () => props.result?.rows ?? [];
+  const style = () => props.gridStyle ?? "registro";
   const editing = () => props.edit?.active ?? false;
+
+  /**
+   * The rows as they will be SHOWN, for measuring column widths only.
+   *
+   * Outside the report style this is `rows()` itself — same array, no copy —
+   * so the common case pays nothing.
+   */
+  /**
+   * The columns as the WIDTH MATH should see them: with the marks the header
+   * draws beside the name. A key column called "id" sized to two characters is
+   * what put the key icon on top of its own name.
+   */
+  const measuredCols = () =>
+    cols().map((col) => ({
+      ...col,
+      marks: (isKey(col.name) ? 1 : 0) + (isReferenced(col.name) ? 1 : 0),
+    }));
+
+  const shownRows = () => {
+    if (style() !== "informe") return rows();
+    const columns = cols();
+    return rows().map((row) =>
+      row.map((value, ci) => displayText(value, columns[ci]?.type ?? "text", "informe", t).text),
+    );
+  };
 
   // Client-side sort + filter over the loaded page (issue #132). The view is a
   // list of ORIGINAL row indices in display order, so edit hooks stay keyed by
@@ -230,12 +265,35 @@ export function ResultGrid(props: {
   // context menu all stay keyed by the original index, exactly as the row view
   // keeps its original row indices under a sort.
   const [colOrder, setColOrder] = createSignal<number[]>([]);
+  // Re-measure when the style changes what a cell shows, WITHOUT the reset
+  // below: switching style is not loading a result, so the sort, the filters,
+  // the selection and the scroll position all stay where the user left them.
+  // Widths the user dragged are lost — the same as any other re-measure.
+  createEffect(
+    on(
+      style,
+      () => setWidths(computeColumnWidths(measuredCols(), shownRows())),
+      { defer: true },
+    ),
+  );
+
   createEffect(() => {
     props.result; // reset on identity change
     setSort(null);
     setFilters({});
     clearSel();
-    setWidths(computeColumnWidths(cols(), rows()));
+    // Measured with the text that will be SHOWN: in the report style "1,250.00"
+    // and "14 feb 2023" are wider than what the core sent, and a column sized to
+    // the raw value would clip them.
+    //
+    // UNTRACKED, and that is the point: this effect RESETS the view, so it must
+    // fire for a new result and for nothing else. Measuring now reads the key
+    // and referenced columns, which arrive on their own schedule — tracked, a
+    // late-arriving key list would re-run the reset and wipe the user's filters
+    // and selection mid-edit. Two Informix tests caught exactly that.
+    untrack(() => {
+      setWidths(computeColumnWidths(measuredCols(), shownRows()));
+    });
     setColOrder(defaultOrder(cols().length));
     // A new result is read from its first row: the scroller survives when one
     // result replaces another, so its position would otherwise carry over into
@@ -671,7 +729,7 @@ export function ResultGrid(props: {
                               "this is the key" is the sort of thing a header has
                               to say out loud, not only draw. */}
                           <span class="col-key-mark" title={t("grid.pkColumn")}>
-                            <span aria-hidden="true">🔑</span>
+                            <IconKey />
                             <span class="visually-hidden">{t("grid.pkColumn")}</span>
                           </span>
                         </Show>
@@ -797,7 +855,17 @@ export function ResultGrid(props: {
                                   <Show
                                     when={editing()}
                                     fallback={(() => {
-                                      const cell = formatCell(original(), col.type);
+                                      // What the cell SHOWS, which in the report
+                                      // style is not what it holds (#540). The
+                                      // raw value stays in `title`, and every
+                                      // path that copies, filters or saves reads
+                                      // `props.result.rows`, never this.
+                                      const cell = displayText(
+                                        original(),
+                                        col.type,
+                                        props.gridStyle ?? "registro",
+                                        t,
+                                      );
                                       const related = () =>
                                         !!props.onRelated && isReferenced(col.name);
                                       return (
@@ -807,7 +875,10 @@ export function ResultGrid(props: {
                                           aria-colindex={di() + 1 + colOffset()}
                                           aria-selected={isSelected(viewPos(), ci())}
                                           style={{ "text-align": cellAlign(cell.kind) }}
-                                          title={cell.text}
+                                          /* The RAW value: in the report style
+                                             the cell shows "1,250.00" and this
+                                             is where the real 1250.00 is. */
+                                          title={original() ?? NULL_LABEL}
                                           data-cell={`${viewPos()}-${ci()}`}
                                           onClick={(e) => selectCell(viewPos(), ci(), e)}
                                           onDblClick={() => {
@@ -818,7 +889,13 @@ export function ResultGrid(props: {
                                             props.onCellContext?.(e, rowIndex(), ci())
                                           }
                                         >
-                                          {cell.text}
+                                          {/* NULL in its own element: it is the
+                                              absence of a value, not a value,
+                                              and the styles draw it as a tag
+                                              rather than as italic text. */}
+                                          <Show when={cell.kind === "null"} fallback={cell.text}>
+                                            <span class="cell-null-tag">{cell.text}</span>
+                                          </Show>
                                           <Show when={related()}>
                                             <button
                                               class="cell-related-btn"

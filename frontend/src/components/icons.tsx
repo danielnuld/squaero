@@ -205,6 +205,20 @@ export const IconPlug: IconComponent = () => (
   </Svg>
 );
 
+/**
+ * lucide/key-round — the primary-key column in the grid header (#540).
+ *
+ * Replaces the 🔑 emoji, which painted itself: it ignored the header's colour
+ * and stayed yellow in every theme, the same reason #332 moved the rest of the
+ * chrome to drawn icons.
+ */
+export const IconKey: IconComponent = () => (
+  <Svg>
+    <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
+    <circle cx="16.5" cy="7.5" r=".5" />
+  </Svg>
+);
+
 /** lucide/wrench — the connection's tools menu, in the explorer header.
     It was the last emoji left in the chrome (🧰): #332 replaced the ribbon and
     the tools menu, not this trigger. An emoji paints itself, so on the themes

@@ -125,6 +125,9 @@ describe("styles.css colour", () => {
     const RUNTIME_SET = [
       "--grid-row-h", // ResultGrid sets this inline per row height
       "--conn-accent", // App sets this per connection section (#444)
+      // Only exists once the user picks a text colour (#483/#540): its absence
+      // is the signal, so it must NOT have a value in the stylesheet.
+      "--cell-text-chosen",
     ];
     const defined = new Set(
       Array.from(CSS.matchAll(/^\s*(--[a-z0-9-]+):/gm), (m) => m[1]),
@@ -155,6 +158,15 @@ describe("every button surface reaches the app's button look", () => {
   it("styles the buttons of the connection form's footer", () => {
     const rule = CSS.match(BUTTON_RULE)?.[0] ?? "";
     expect(rule).toContain(".cf-foot button");
+  });
+
+  // The "registro" grid style puts text cells back to plain ink, and that must
+  // not override a colour the user picked on purpose (#483). The e2e caught it;
+  // this is the cheap guard. `--cell-text` cannot answer "did the user choose
+  // this?" because the theme defines it too, hence the separate variable.
+  it("lets a chosen text colour through the registro style", () => {
+    const rule = CSS.slice(CSS.indexOf(':root[data-grid-style="registro"] .cell-text'));
+    expect(rule.slice(0, rule.indexOf("}"))).toContain("var(--cell-text-chosen, var(--text))");
   });
 
   it("draws the connection search as a floating balloon, not a sidebar panel", () => {
