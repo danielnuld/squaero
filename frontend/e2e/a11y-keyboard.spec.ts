@@ -98,7 +98,8 @@ describeEngine("sqlite", () => {
     const grid = page.getByRole("grid");
     await expect(grid).toBeVisible();
     await expect(grid).toHaveAttribute("aria-rowcount", "29"); // 28 rows + header
-    await expect(grid).toHaveAttribute("aria-colcount", "2");
+    // Two data columns plus the row-number column that marks rows.
+    await expect(grid).toHaveAttribute("aria-colcount", "3");
     await expect(page.getByRole("row").first()).toHaveAttribute("aria-rowindex", "1");
   });
 
@@ -125,5 +126,28 @@ describeEngine("sqlite", () => {
     const input = page.getByRole("textbox", { name: "nombre", exact: true }).first();
     await expect(input).toBeVisible();
     await expect(input).toBeEditable();
+  });
+
+  // Marking rows without knowing Ctrl/Shift+click (#517 follow-up): each row
+  // number is a checkbox named after its row, and the header one takes them all.
+  test("marks rows with their checkboxes, and the row bar counts them", async ({ app }) => {
+    const { page } = app;
+    await app.open();
+    await connect(app);
+    await page.getByRole("treeitem", { name: "main", exact: true }).click();
+    await page.getByRole("treeitem", { name: "Tablas", exact: true }).click();
+    await page.getByRole("treeitem", { name: "e2e_items", exact: true }).click();
+    await expect(page.getByText("Nogales", { exact: true })).toBeVisible();
+
+    const bar = page.getByRole("toolbar", { name: "Acciones sobre las filas marcadas" });
+    await page.getByRole("checkbox", { name: "Marcar la fila 1", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "Marcar la fila 1", exact: true })).toBeChecked();
+    await expect(bar.getByText("1 fila marcada")).toBeVisible();
+
+    const all = page.getByRole("checkbox", { name: "Marcar todas las filas visibles" });
+    await all.click();
+    await expect(bar.getByText("28 filas marcadas")).toBeVisible();
+    await all.click();
+    await expect(bar).toHaveCount(0);
   });
 });

@@ -3386,6 +3386,44 @@ button.primary:hover:not(:disabled) {
   font-size: var(--fs-base);
 }
 
+/* The mark column (#517 follow-up): the row's number, which becomes a checkbox
+   while the row is hovered or marked, or once any row is marked. The checkbox
+   sits over the number and is only made transparent, never removed, so it stays
+   clickable and in the accessibility tree. */
+.grid-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-mark input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.grid-row .grid-mark input {
+  position: absolute;
+  opacity: 0;
+}
+
+.grid-row:hover .grid-mark input,
+.grid-row.row-marked .grid-mark input,
+.grid-scroll.has-marks .grid-row .grid-mark input {
+  opacity: 1;
+}
+
+.grid-row:hover .grid-mark-num,
+.grid-row.row-marked .grid-mark-num,
+.grid-scroll.has-marks .grid-mark-num {
+  visibility: hidden;
+}
+
 button.grid-action {
   border: none;
   background: transparent;
