@@ -1071,3 +1071,77 @@ describe("ResultGrid row keys", () => {
     expect(marked).toEqual([]);
   });
 });
+
+// New rows from a paste (#517): a generated key is not an input, a known
+// collision is marked on its cell, and the row the database rejected is marked.
+describe("ResultGrid pending rows", () => {
+  function mountPending(edit: {
+    pkModeOf?: (i: number) => "generate" | "keep";
+    conflicts?: Map<number, string[]>;
+    failedInsert?: number | null;
+  }) {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const pending = addInsert(addInsert(emptyPending()));
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={result}
+            loading={false}
+            error={null}
+            edit={{
+              active: true,
+              pending: setInsertCell(setInsertCell(pending, 0, "id", "1"), 1, "name", "bob"),
+              onEditCell: () => {},
+              onToggleDelete: () => {},
+              onInsertCell: () => {},
+              onRemoveInsert: () => {},
+              pkColumns: ["ID"],
+              ...edit,
+            }}
+          />
+        ),
+        host!,
+      );
+    });
+  }
+
+  const insertInputs = (row: number) =>
+    host!.querySelectorAll(".row-insert")[row].querySelectorAll<HTMLInputElement>(".cell-input");
+
+  it("shows a generated key as auto, not as an input to fill", () => {
+    mountPending({ pkModeOf: () => "generate" });
+    const [id, name] = insertInputs(0);
+    expect(id.disabled).toBe(true);
+    expect(id.value).toBe("");
+    expect(id.placeholder).toBe("auto");
+    expect(id.getAttribute("aria-label")).toBe("id (fila nueva)");
+    expect(name.disabled).toBe(false);
+  });
+
+  it("keeps a kept key editable with its copied value", () => {
+    mountPending({ pkModeOf: () => "keep" });
+    const [id] = insertInputs(0);
+    expect(id.disabled).toBe(false);
+    expect(id.value).toBe("1");
+  });
+
+  it("marks only the colliding cell, for the eye and for assistive tech", () => {
+    mountPending({ conflicts: new Map([[1, ["NAME"]]]) });
+    const cells = host!.querySelectorAll(".row-insert")[1].querySelectorAll(".cell-edit");
+    expect(cells[1].classList.contains("cell-conflict")).toBe(true);
+    expect(cells[1].getAttribute("title")).toBe("Este valor ya existe en la tabla");
+    expect(insertInputs(1)[1].getAttribute("aria-invalid")).toBe("true");
+    expect(cells[0].classList.contains("cell-conflict")).toBe(false);
+    expect(host!.querySelectorAll(".cell-conflict")).toHaveLength(1);
+  });
+
+  it("marks the row whose insert failed", () => {
+    mountPending({ failedInsert: 1 });
+    const rows = host!.querySelectorAll(".row-insert");
+    expect(rows[0].classList.contains("row-failed")).toBe(false);
+    expect(rows[1].classList.contains("row-failed")).toBe(true);
+  });
+});

@@ -154,6 +154,53 @@ export function indexListFor(
   }
 }
 
+/**
+ * The column sets of a table's unique indexes, read from the rows `indexListFor`
+ * returns (#517), to warn about duplicate values before saving new rows.
+ *
+ * MySQL and SQLite list the columns and a unique flag. PostgreSQL only gives the
+ * index definition, so the columns are read from a plain
+ * `CREATE UNIQUE INDEX … USING method (a, b)`. An index on expressions, with an
+ * operator class, a WHERE (partial) or an INCLUDE is skipped, because it does
+ * not mean "these values are unique" in a way that can be checked here. Informix
+ * does not resolve the columns, so it gets nothing, and so does any other engine.
+ * The set equal to the primary key is left out: the key is checked on its own,
+ * and only when it is kept rather than generated.
+ */
+export function uniqueSetsFrom(
+  engine: string,
+  columns: string[],
+  rows: (string | null)[][],
+  pk: string[],
+): string[][] {
+  const at = (name: string) => columns.findIndex((c) => c.toLowerCase() === name);
+  const sets: string[][] = [];
+  const f = family(engine);
+  if (f === "mysql" || f === "sqlite") {
+    const ci = at("columnas");
+    const ui = at("unico");
+    if (ci < 0 || ui < 0) return [];
+    for (const row of rows) {
+      if (row[ui] !== "Sí" || !row[ci]) continue;
+      sets.push(row[ci]!.split(",").map((s) => s.trim()).filter(Boolean));
+    }
+  } else if (f === "postgres") {
+    const di = at("definicion");
+    if (di < 0) return [];
+    for (const row of rows) {
+      const m = /^CREATE UNIQUE INDEX .+? USING \w+ \(([^()]+)\)\s*$/i.exec(row[di] ?? "");
+      if (!m) continue;
+      const parts = m[1].split(",").map((s) => s.trim().replace(/^"(.*)"$/, "$1"));
+      if (parts.some((p) => p === "" || /\s/.test(p))) continue;
+      sets.push(parts);
+    }
+  }
+  const keyOf = (cols: string[]) =>
+    cols.map((c) => c.toLowerCase()).sort().join(" ");
+  const pkKey = keyOf(pk);
+  return sets.filter((s) => s.length > 0 && keyOf(s) !== pkKey);
+}
+
 /** SQL + column mapping to list a table's constraints (PK/FK/UNIQUE/CHECK). */
 export function constraintListFor(
   engine: string,

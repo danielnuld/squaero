@@ -1,11 +1,15 @@
 // Retrying a save that failed halfway (openspec: paste-rows-as-inserts, fase A).
 //
-// Three new rows, the second one reusing a key that already exists. Before the
+// Three new rows, the second one with a key the database rejects. Before the
 // fix the failed apply left the transaction open with the first insert already
 // run, so the retry ran it again and collided with itself (and PostgreSQL
 // refused everything in the aborted transaction). Now a failure rolls back and
 // opens a fresh transaction: fixing the one bad row and saving again must leave
 // exactly the three rows in the database.
+//
+// The bad key is not numeric rather than a duplicate: since #517 phase C a
+// duplicate of a loaded row is caught before saving, and this test is about
+// what happens when only the database can tell.
 
 import { connect, openFixtureTable, readNombre } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
@@ -28,10 +32,11 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     const ids = page.getByRole("textbox", { name: "id (fila nueva)", exact: true });
     const nombres = page.getByRole("textbox", { name: "nombre (fila nueva)", exact: true });
     await expect(ids).toHaveCount(3);
-    // Row 1 already holds id 1 ("Nogales"): the second insert must fail.
+    // A non-numeric id for an integer key: nothing before the database can
+    // object, and the second insert must fail after the first one has run.
     const rows: [string, string][] = [
       ["901", "Primera"],
-      ["1", "Choca"],
+      ["abc", "Choca"],
       ["902", "Tercera"],
     ];
     for (const [i, [id, nombre]] of rows.entries()) {

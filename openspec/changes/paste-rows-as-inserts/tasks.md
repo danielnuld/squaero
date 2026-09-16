@@ -21,21 +21,21 @@ de la nota).
       menos, mayúsculas, texto con cabecera y sin ella, formas que van al
       asistente, NULL frente a cadena vacía, tabuladores dentro de valores
       en la copia exacta, clave compuesta)
-- [ ] 1.6 Prueba e2e contra MySQL real: tres inserciones, la segunda falla,
+- [x] 1.6 Prueba e2e contra MySQL real: tres inserciones, la segunda falla,
       corregir y reintentar deja exactamente tres filas (leer de la base con
-      `readNombre`, no de la rejilla) — `e2e/edit-retry.spec.ts` escrita para
-      los cuatro motores; **verde en SQLite** y comprobado que falla con el
-      `applyEdit` anterior. Falta correrla en PostgreSQL, MySQL e Informix
-      (Docker estaba apagado)
+      `readNombre`, no de la rejilla) — `e2e/edit-retry.spec.ts`, **verde en
+      SQLite, PostgreSQL, MySQL e Informix**; comprobado en SQLite que falla con
+      el `applyEdit` anterior
 
 ## 2. Copiar, marcar y duplicar (fase B)
 
 - [x] 2.1 Señal `rowClipboard` en `App.tsx`; copiar filas (menú, barra y
       `Ctrl+C`) escribe el texto y guarda la copia exacta
-- [ ] 2.2 `Ctrl+C` y `Ctrl+D` en el `onKeyDown` de `ResultGrid` (filas marcadas
+- [x] 2.2 `Ctrl+C` y `Ctrl+D` en el `onKeyDown` de `ResultGrid` (filas marcadas
       o fila de la celda seleccionada); comprobar en WebView2 que `Ctrl+D` llega
-      — hecho y probado en jsdom y Chromium (e2e); **falta comprobarlo en la
-      ventana nativa (WebView2)**
+      — probado en jsdom y Chromium (e2e), y **comprobado por el usuario en la
+      ventana nativa** (build x86, MySQL): Ctrl+C, Ctrl+V, Ctrl+D, Escape, la
+      barra de pendientes y el bloqueo por clave repetida funcionan
 - [x] 2.3 `components/RowActionBar.tsx` en modo selección: contador, Copiar,
       Copiar como INSERT, Duplicar, Pegar N (desactivado si no hay copia) y
       Desmarcar; Escape desmarca. «Pegar N» pega la copia exacta de la app;
@@ -48,41 +48,72 @@ de la nota).
 
 ## 3. Pegar como filas pendientes (fase C)
 
-- [ ] 3.1 `onPaste`: comparar con `rowClipboard.text`, `planPaste`, abrir la
+- [x] 3.1 `onPaste`: comparar con `rowClipboard.text`, `planPaste`, abrir la
       edición si hace falta, `addInserts`; si no es editable o
       `planPaste` devuelve `wizard`, el camino actual
-- [ ] 3.2 `RowActionBar` en modo pendientes: contador, conflictos, clave
+- [x] 3.2 `RowActionBar` en modo pendientes: contador, conflictos, clave
       generar/conservar, «vacías como NULL» (solo con texto de fuera), Ver SQL,
-      Descartar, Guardar e «Importar con el asistente…»
-- [ ] 3.3 `ResultGrid`: `+` en la columna del número de fila de las pendientes
+      Descartar, Guardar e «Importar con el asistente…» — hecho como
+      `components/PendingRowsBar.tsx`. **Ver SQL y Guardar son un solo botón,
+      «Revisar y guardar»**: guardar ya pasa siempre por la vista previa del
+      SQL, así que eran la misma acción. Más de 500 filas van al asistente sin
+      aviso aparte (la spec lo recoge así)
+- [x] 3.3 `ResultGrid`: `+` en la columna del número de fila de las pendientes
       (quita la fila), clave mostrada como `auto` en «generar», celdas en
-      conflicto y fila fallida señaladas
-- [ ] 3.4 `loadUniqueIndexes` en segundo plano al entrar en edición (patrón de
+      conflicto y fila fallida señaladas — la fila pendiente **conserva la ✕**
+      que ya tenía para quitarla: un `+` que borra se lee al revés
+- [x] 3.4 `loadUniqueIndexes` en segundo plano al entrar en edición (patrón de
       `loadFkLookups`), y `findConflicts` recalculado al editar una pendiente
-- [ ] 3.5 Aviso de columnas ignoradas al pegar entre tablas distintas
-- [ ] 3.6 Pruebas de componente: pegar crea pendientes, forma distinta abre el
+- [x] 3.5 Aviso de columnas ignoradas al pegar entre tablas distintas
+- [x] 3.6 Pruebas de componente: pegar crea pendientes, forma distinta abre el
       asistente, Guardar desactivado con conflicto y activado al corregir,
       cambiar la clave cambia el SQL de la vista previa, pegar dentro de un
       campo no se intercepta
-- [ ] 3.7 Repartir el e2e de pegado de #383 entre los dos caminos (filas
+- [x] 3.7 Repartir el e2e de pegado de #383 entre los dos caminos (filas
       pendientes y asistente) y añadir el e2e de copiar → pegar → corregir el
-      email → guardar contra MySQL real
+      email → guardar contra MySQL real — `paste-import.spec.ts` prueba ahora el
+      asistente con una forma que no encaja, y `paste-rows.spec.ts` pega filas,
+      las guarda y bloquea una clave repetida hasta corregirla: **verde en
+      SQLite, PostgreSQL, MySQL e Informix**. `edit-retry.spec.ts` provoca el
+      fallo con un id no numérico, porque la detección previa ya ataja el
+      duplicado. El **índice único** real también está probado: `paste-rows`
+      crea uno en `nombre` y pega un nombre repetido. SQLite, PostgreSQL y MySQL
+      lo detectan antes de guardar; en Informix lo rechaza la base al guardar y,
+      corregido, se guarda. Verde en los cuatro
 
 ## 4. Idioma
 
-- [ ] 4.1 Todo el texto nuevo por `t()` con espejo en `messages/en.ts`, plurales
-      incluidos («1 fila nueva», «2 filas nuevas»)
-- [ ] 4.2 Recorrer el flujo con la app en inglés
+- [x] 4.1 Todo el texto nuevo por `t()` con espejo en `messages/en.ts`, plurales
+      incluidos («1 fila nueva», «2 filas nuevas») — los dos catálogos tienen las
+      mismas 865 claves, y la prueba de paridad ahora exige **los dos sentidos**
+      (antes solo comprobaba que el inglés no inventara claves)
+- [x] 4.2 Recorrer el flujo con la app en inglés — `e2e/paste-rows-english.spec.ts`
+      conduce marcar, pegar, la barra de pendientes y guardar con la interfaz en
+      inglés, y lee la fila guardada de la base; otra prueba comprueba el texto
+      inglés del guardado bloqueado
 
 ## 5. Cierre
 
-- [ ] 5.1 `pnpm test` y `pnpm typecheck` en verde en las tres fases
-- [ ] 5.2 `pnpm e2e` **entero** en verde en las tres fases
+- [x] 5.1 `pnpm test` y `pnpm typecheck` en verde en las tres fases (1812 pruebas
+      unitarias con lo de las casillas y el idioma)
+- [x] 5.2 `pnpm e2e` **entero** en verde en las tres fases — corrido con los cinco
+      motores (SQLite, PostgreSQL, MySQL, Informix, SQL Server): 129 pasan y los
+      4 que fallaban eran `connection-form.spec.ts`, roto desde #496 y ajeno a
+      este cambio (arreglado en PR #521)
 - [ ] 5.3 Probado a mano en la ventana nativa (WebView2, build x86) contra el
       contenedor MySQL de pruebas y contra Informix: copiar y pegar en la misma
       tabla, entre dos tablas, desde una hoja de cálculo, duplicar, conflicto
-      de único, fallo al guardar y reintento
-- [ ] 5.4 Manual de usuario: sección de copiar, pegar y duplicar filas
-- [ ] 5.5 Nota de la versión: qué pegados van ahora a filas y cuáles siguen al
-      asistente
-- [ ] 5.6 Commits en Conventional Commits referenciando el issue del cambio
+      de único, fallo al guardar y reintento — **hecho contra MySQL en la misma
+      tabla** (Ctrl+C, Ctrl+V, Ctrl+D, Escape, barra de pendientes, clave
+      repetida bloqueando el guardado) y las casillas de marcar. **Faltan**:
+      Informix, pegar entre dos tablas y pegar desde una hoja de cálculo real
+- [x] 5.4 Manual de usuario: sección de copiar, pegar y duplicar filas — más las
+      casillas de marcar, los atajos de la rejilla en `docs/SHORTCUTS.md` y en la
+      ayuda de F1 (`shortcuts.ts`). **El sitio no se ha republicado**:
+      `site/publish.sh` es un paso aparte
+- [x] 5.5 Nota de la versión: qué pegados van ahora a filas y cuáles siguen al
+      asistente — las notas se generan solas al publicar (`--generate-notes`), así
+      que lo que queda escrito es el título de cada PR y su descripción, donde ya
+      está dicho; el manual lo explica para quien lo lea después
+- [x] 5.6 Commits en Conventional Commits referenciando el issue del cambio
+      (#517), sin coautoría ni atribución a ninguna herramienta

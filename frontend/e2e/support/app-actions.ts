@@ -147,3 +147,20 @@ export async function readNombre(app: App, id: number): Promise<string | null> {
     await app.rpc.call("conn.close", { connId });
   }
 }
+
+/**
+ * Runs a statement straight against the database, behind the interface's back —
+ * to set up a case the fixture does not have (a unique index) or to check what a
+ * journey really left there. Throws with the engine's message on failure.
+ */
+export async function onCore(app: App, sql: string): Promise<(string | null)[][]> {
+  const opened = await app.rpc.call("conn.open", { driver: app.engine.driver, dsn: app.engine.dsn });
+  const connId = (opened.result as { connId: string }).connId;
+  try {
+    const res = await app.rpc.call("query.run", { connId, sql, limit: 5000 });
+    if (res.error) throw new Error(`${sql}: ${res.error.message}`);
+    return (res.result as { rows?: (string | null)[][] }).rows ?? [];
+  } finally {
+    await app.rpc.call("conn.close", { connId });
+  }
+}

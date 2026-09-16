@@ -66,7 +66,7 @@ en la señal. Al pegar, si `clipboardData.getData("text/plain") === rowClipboard
 se usa la copia exacta; si no, el texto es de otra aplicación.
 
 *Por qué:* el evento `paste` es la única lectura del portapapeles que el webview
-garantiza (#383), y un formato propio (`application/x-aroo-rows`) no se puede
+garantiza (#383), y un formato propio (`application/x-squaero-rows`) no se puede
 escribir con `copyText`. Comparar el texto detecta si alguien copió otra cosa
 después.
 
@@ -150,9 +150,18 @@ parte del plan ya se ejecutó.
 
 ### 7. Barras en un componente, atajos en el componente de la rejilla
 
-`components/RowActionBar.tsx` es presentacional: recibe el modo (selección o
-pendientes), los contadores, los conflictos, `pkMode`, «vacías como NULL» y los
-callbacks. Se monta sobre la rejilla, en posición absoluta, para no robar altura.
+Son dos componentes presentacionales que comparten estilo:
+`components/RowActionBar.tsx` para las filas marcadas y
+`components/PendingRowsBar.tsx` para las pendientes. Esta última recibe los
+contadores, los conflictos, `pkMode`, «vacías como NULL», las columnas ignoradas y
+los callbacks. Ninguna rama del JSX depende de un «modo», y cada una se prueba por
+separado. Las dos se montan sobre la rejilla, en posición absoluta, para no robar
+altura.
+
+La barra de pendientes no tiene «Ver SQL»: guardar ya abre siempre la vista previa
+del SQL, así que habría dos botones para la misma acción. Queda un solo «Revisar
+y guardar». Cada fila pendiente conserva la ✕ que ya tenía para quitarla, en lugar
+del `+` del prototipo, que se leía al revés.
 
 `Ctrl+C` y `Ctrl+D` se manejan en el `onKeyDown` de `ResultGrid`, que ya maneja
 `Ctrl+A`. `Ctrl+V` sigue en el listener `paste` de `document`, porque es el que

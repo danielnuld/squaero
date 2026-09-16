@@ -18,6 +18,7 @@ import {
 import { toggleMark, markRange, orderedMarks, type RowMarks } from "../utils/rowSelection";
 import type { ResultSet } from "../utils/query";
 import type { PendingChanges } from "../utils/editSession";
+import type { PkMode } from "../utils/rowPaste";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
 import { IconRelated } from "./icons";
@@ -39,6 +40,15 @@ export interface GridEdit {
   onToggleDelete: (rowIndex: number) => void;
   onInsertCell: (insertIndex: number, column: string, value: string | null) => void;
   onRemoveInsert: (insertIndex: number) => void;
+  /** The table's primary key, so a new row whose key is generated shows it as
+      `auto` instead of an input (#517). */
+  pkColumns?: string[];
+  /** What a new row does with its key; absent → every key is an input. */
+  pkModeOf?: (insertIndex: number) => PkMode;
+  /** New rows with cells already known to collide: insert index -> columns. */
+  conflicts?: Map<number, string[]>;
+  /** The new row whose insert failed on the last save, or null. */
+  failedInsert?: number | null;
 }
 
 // Virtualized result grid: only the rows intersecting the viewport are in the
@@ -863,7 +873,7 @@ export function ResultGrid(props: {
                 <Index each={props.edit?.pending.inserts ?? []}>
                   {(ins, ii) => (
                     <div
-                      class="grid-row row-insert"
+                      class={`grid-row row-insert ${props.edit?.failedInsert === ii ? "row-failed" : ""}`}
                       role="row"
                       style={{ "grid-template-columns": gridCols() }}
                     >
@@ -875,34 +885,67 @@ export function ResultGrid(props: {
                         ✕
                       </button>
                       <For each={displayCols()}>
-                        {({ col }) => (
-                          <Show
-                            when={fkFor(col.name)}
-                            fallback={
-                              <div class="grid-cell cell-edit" role="gridcell">
-                                <input
-                                  class="cell-input"
-                                  aria-label={t("grid.newRowCell", { name: col.name })}
-                                  placeholder={col.name}
-                                  value={ins()[col.name] ?? ""}
-                                  onInput={(e) =>
-                                    props.edit?.onInsertCell(ii, col.name, e.currentTarget.value)
-                                  }
-                                />
-                              </div>
-                            }
-                          >
-                            {(lookup) => (
-                              <FkPicker
-                                lookup={lookup()}
-                                rootClass="grid-cell cell-fk"
-                                class="cell-input"
-                                value={ins()[col.name] ?? ""}
-                                onChange={(v) => props.edit?.onInsertCell(ii, col.name, v)}
-                              />
-                            )}
-                          </Show>
-                        )}
+                        {({ col }) => {
+                          const same = (c: string) => c.toLowerCase() === col.name.toLowerCase();
+                          // A key the database will generate is not an input:
+                          // typing into it would be thrown away on save (#517).
+                          const autoKey = () =>
+                            props.edit?.pkModeOf?.(ii) === "generate" &&
+                            !!props.edit?.pkColumns?.some(same);
+                          const conflict = () => !!props.edit?.conflicts?.get(ii)?.some(same);
+                          const conflictClass = () => (conflict() ? "cell-conflict" : "");
+                          const conflictTitle = () =>
+                            conflict() ? t("pending.conflictCell") : undefined;
+                          return (
+                            <Show
+                              when={!autoKey()}
+                              fallback={
+                                <div class="grid-cell cell-edit" role="gridcell">
+                                  <input
+                                    class="cell-input"
+                                    aria-label={t("grid.newRowCell", { name: col.name })}
+                                    placeholder={t("pending.auto")}
+                                    title={t("pending.autoTitle")}
+                                    value=""
+                                    disabled
+                                  />
+                                </div>
+                              }
+                            >
+                              <Show
+                                when={fkFor(col.name)}
+                                fallback={
+                                  <div
+                                    class={`grid-cell cell-edit ${conflictClass()}`}
+                                    role="gridcell"
+                                    title={conflictTitle()}
+                                  >
+                                    <input
+                                      class="cell-input"
+                                      aria-label={t("grid.newRowCell", { name: col.name })}
+                                      aria-invalid={conflict()}
+                                      placeholder={col.name}
+                                      value={ins()[col.name] ?? ""}
+                                      onInput={(e) =>
+                                        props.edit?.onInsertCell(ii, col.name, e.currentTarget.value)
+                                      }
+                                    />
+                                  </div>
+                                }
+                              >
+                                {(lookup) => (
+                                  <FkPicker
+                                    lookup={lookup()}
+                                    rootClass={`grid-cell cell-fk ${conflictClass()}`}
+                                    class="cell-input"
+                                    value={ins()[col.name] ?? ""}
+                                    onChange={(v) => props.edit?.onInsertCell(ii, col.name, v)}
+                                  />
+                                )}
+                              </Show>
+                            </Show>
+                          );
+                        }}
                       </For>
                     </div>
                   )}

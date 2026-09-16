@@ -5,22 +5,8 @@
 // showSaveFilePicker is replaced by one that keeps what is written. Everything
 // else — schema.ddl, the cursor walk, splitting the file, running it — is real.
 
-import { connect } from "./support/app-actions";
+import { connect, onCore } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
-import type { App } from "./support/fixtures";
-
-/** Runs `sql` on a connection of the harness's own, outside the page. */
-async function onCore(app: App, sql: string): Promise<(string | null)[][]> {
-  const opened = await app.rpc.call("conn.open", { driver: app.engine.driver, dsn: app.engine.dsn });
-  const connId = (opened.result as { connId: string }).connId;
-  try {
-    const res = await app.rpc.call("query.run", { connId, sql, limit: 5000 });
-    if (res.error) throw new Error(`${sql}: ${res.error.message}`);
-    return (res.result as { rows?: (string | null)[][] }).rows ?? [];
-  } finally {
-    await app.rpc.call("conn.close", { connId });
-  }
-}
 
 describeAllEngines(["mysql", "postgres"], (name) => {
   test("a backup restores the table it was taken from", async ({ app }) => {
