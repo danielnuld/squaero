@@ -864,11 +864,26 @@ export const es: Record<string, string> = {
   "cform.engineIconShort": "del motor",
   "field.dbFilePlaceholder": "/ruta/a/base.db  (o :memory:)",
   "cform.engine": "Motor",
-  "cform.general": "General",
+  // Secciones de la ventana de conexión (#531), en el orden de la tarea.
+  "cform.sections": "Secciones",
+  "cform.section.server": "Servidor",
+  "cform.section.file": "Archivo",
+  // «Acceso», no «Acceso y base de datos»: el índice no debe repetir el nombre
+  // de un campo que hay dentro («Base de datos»), o los dos compiten.
+  "cform.section.auth": "Acceso",
+  "cform.section.security": "Seguridad",
+  "cform.section.ssh": "Túnel SSH",
+  "cform.section.appearance": "Apariencia",
+  "cform.optional": "opcional",
+  "cform.status.ok": "completa",
+  "cform.status.error": "con errores",
+  "cform.status.off": "apagado",
+  "cform.status.pending": "falta algo",
+  "cform.saveAndConnect": "Guardar y conectar",
   "cform.browse": "Examinar…",
   "cform.browseTitle": "Elegir el archivo en el disco",
   "cform.listDbTitle": "Listar las bases del servidor con los datos ya ingresados",
-  "cform.listDb": "Cargar lista",
+  "cform.listDb": "Listar",
   "cform.pickDb": "— elegir base —",
   "cform.noDbs": "(sin bases)",
   "cform.testOk": "Conexión exitosa.",
@@ -877,8 +892,6 @@ export const es: Record<string, string> = {
   "cform.test": "Probar conexión",
   "cform.testing": "Probando…",
   "cform.saveBlocked": "No se pudo guardar: revisa los campos marcados{detail}.",
-  "cform.saveBlockedName": " — falta el Nombre de la conexión",
-  "cform.tabHasErrors": "Campos con errores",
   // Qué protege cada modo de seguridad (#531): el desplegable decía «verify_ca»
   // y tocaba adivinar. Una frase por valor, bajo el control.
   "cform.sec.none": "Sin cifrar: los datos y la contraseña viajan en claro.",

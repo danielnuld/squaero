@@ -39,9 +39,13 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     await page.getByRole("button", { name: /Nueva conexión/ }).click();
 
     const form = page.getByRole("region", { name: /conexión/ });
-    await form.getByRole("textbox", { name: "Nombre" }).fill(name);
-    // By value, not by label: the options carry an emoji ("🗄️ SQLite").
-    await form.getByRole("combobox", { name: "Motor" }).selectOption(engine.driver);
+
+    // The engine first, and as a CARD: the dropdown is gone (#531), because the
+    // engine decides every other field on the page. Its label comes from the
+    // production schema, like the field labels below.
+    await form
+      .getByRole("radio", { name: new RegExp(DRIVER_SCHEMAS[engine.driver]!.label) })
+      .click();
 
     // Fill exactly the DSN this engine needs, by the label the form shows for it.
     for (const [key, value] of Object.entries(engine.dsn)) {
@@ -53,7 +57,11 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
       await form.getByLabel(label!, { exact: false }).first().fill(value);
     }
 
-    await page.getByRole("button", { name: "Guardar" }).click();
+    // The name comes last, and it is optional now — its label reads
+    // "Nombre opcional", so the accessible name is not just "Nombre".
+    await form.getByRole("textbox", { name: /^Nombre/ }).fill(name);
+
+    await page.getByRole("button", { name: "Guardar", exact: true }).click();
     // It is listed, and it survives a reload — which is what "saved" has to mean.
     await expect(page.getByRole("button", { name: new RegExp(name) })).toBeVisible();
     await page.reload();

@@ -116,7 +116,14 @@ describe("App — a tool tab per connection", () => {
     const edit = () => host!.querySelectorAll<HTMLElement>(".conn-list button[title='Editar']");
     edit()[0].click();
     await settle();
-    const nameInput = () => host!.querySelector<HTMLInputElement>(".field input[type='text']")!;
+    // By its label, not by position: the form is sections now (#531), and the
+    // name lives last — the first text input on the page is the host.
+    const nameInput = () => {
+      const field = [...host!.querySelectorAll(".cf-field")].find((f) =>
+        f.querySelector(".cf-label")?.textContent?.startsWith("Nombre"),
+      );
+      return field!.querySelector("input")!;
+    };
     expect(nameInput().value).toBe("local");
 
     // Back to the list (the same tab, not a second one) and edit the other.
