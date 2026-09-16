@@ -5390,6 +5390,15 @@ button.grid-action.danger:hover:not(:disabled) {
   gap: var(--sp-2);
 }
 
+/* The line under a choice that says what the selected option actually does
+   (issue #540): "Informe" does not announce that it will group thousands. */
+.settings-hint {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
 .chip {
   border: 1px solid var(--border);
   background: var(--bg-elev);
@@ -6409,12 +6418,13 @@ button.grid-action.danger:hover:not(:disabled) {
   line-height: 1.3;
 }
 
-/* Stacked, the header is two LINES, so the name, its marks and the sort glyph
-   have to share a row of their own — the column's own `margin-left: auto` on
-   the sort glyph would otherwise push them apart vertically and squeeze the
-   name to nothing. `display: contents` on the name makes the four children lay
-   out as one line without another wrapper in the markup. */
-:root[data-grid-style="registro"] .grid-head {
+/* A header on TWO LINES — Registro and Informe both stack the type under the
+   name — needs the name, its marks and the sort glyph sharing a row of their
+   own. The sort glyph's `margin-left: auto`, written for a single-line header,
+   otherwise divides the HEIGHT and squeezes the name down to nothing: that is
+   what left the "id" column showing its key icon and no name at all. */
+:root[data-grid-style="registro"] .grid-head,
+:root[data-grid-style="informe"] .grid-head {
   display: grid;
   grid-template-columns: auto auto auto 1fr;
   grid-template-rows: auto auto;
@@ -6422,18 +6432,21 @@ button.grid-action.danger:hover:not(:disabled) {
   column-gap: var(--sp-2);
 }
 
-:root[data-grid-style="registro"] .grid-head > .col-name {
+:root[data-grid-style="registro"] .grid-head > .col-name,
+:root[data-grid-style="informe"] .grid-head > .col-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 /* The type goes under everything, across the full width. */
-:root[data-grid-style="registro"] .grid-head > .col-type {
+:root[data-grid-style="registro"] .grid-head > .col-type,
+:root[data-grid-style="informe"] .grid-head > .col-type {
   grid-column: 1 / -1;
 }
 
-:root[data-grid-style="registro"] .grid-head > .col-sort {
+:root[data-grid-style="registro"] .grid-head > .col-sort,
+:root[data-grid-style="informe"] .grid-head > .col-sort {
   margin-left: 0;
 }
 
@@ -6442,6 +6455,62 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 :root[data-grid-style="registro"] .cell-number {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hoja densa: the spreadsheet. Full gridlines, shorter rows, colour on every
+   type including text — the most like the grid before all this. Nothing to undo
+   here: the base rules already draw it, and this is where its own bits go. */
+:root[data-grid-style="hoja"] .grid-head {
+  /* One line, with the type as a pill beside the name rather than under it. */
+  align-items: center;
+}
+
+:root[data-grid-style="hoja"] .col-type {
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev2);
+}
+
+/* Informe: the color leaves the data and goes to a rule under each header, so a
+   page of numbers reads as a report rather than as a paint chart. */
+:root[data-grid-style="informe"] .grid-cell {
+  border-right: none;
+}
+
+:root[data-grid-style="informe"] .grid-head {
+  position: relative;
+  line-height: 1.3;
+}
+
+/* The type's colour, as a rule under its column's name. `--k` is set inline per
+   header; with the per-type colours off it falls back to the plain border. */
+:root[data-grid-style="informe"] .grid-head-sort::after {
+  content: "";
+  position: absolute;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  bottom: 0;
+  height: 2px;
+  background: var(--k, var(--border));
+}
+
+:root[data-cell-colors="off"][data-grid-style="informe"] .grid-head-sort::after {
+  background: var(--border);
+}
+
+/* The data itself in ink: the colour already said what the type is, up in the
+   header. The NULL tag keeps its own colour — it is a mark, not a value — and a
+   text colour the user chose still wins, as everywhere else. */
+:root[data-grid-style="informe"] .grid-cell:not(.grid-head) {
+  color: var(--text);
+}
+
+:root[data-grid-style="informe"] .cell-text {
+  color: var(--cell-text-chosen, var(--text));
+}
+
+:root[data-grid-style="informe"] .cell-number {
   font-variant-numeric: tabular-nums;
 }
 
