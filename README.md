@@ -100,7 +100,10 @@ Squaero tells you when a connection finds no client.
 **Linux:** from v0.29.0, releases attach a `.deb` for Ubuntu 24.04+ and Debian 13+
 (x86_64), listed in the same `SHA256SUMS.txt`:
 `sudo apt install ./squaero_X.Y.Z_amd64.deb`. apt pulls in every driver's client
-library. Informix on Linux needs IBM's 64-bit Client SDK.
+library. Informix on Linux needs IBM's 64-bit Client SDK. A `.snap` is attached
+too, for any distribution with snapd (`sudo snap install --dangerous
+./squaero_X.Y.Z_amd64.snap` until it reaches the Snap Store); Informix is not
+available in the snap.
 
 > AppImage/Flatpak and macOS (.app) are coming in future releases.
 
