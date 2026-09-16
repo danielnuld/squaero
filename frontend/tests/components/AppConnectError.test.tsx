@@ -81,9 +81,9 @@ function mountApp() {
   });
 }
 
-/** Open the connections popover and click the saved connection. */
+/** Open the connections popover (the + in the bar) and click the saved connection. */
 const connect = async () => {
-  click(host!.querySelector(".connbar-active"));
+  click(host!.querySelector(".connbar-add"));
   click(host!.querySelector(".conn-list .conn-open"));
   await settle();
 };
@@ -114,6 +114,7 @@ describe("App — connect failures are visible (toast)", () => {
     failConnect = false; // the user fixes the credentials / the server is back
     await connect();
     expect(host!.querySelector(".app-toast-error")).toBeNull();
-    expect(host!.querySelector(".connbar-status")).not.toBeNull(); // now connected
+    // Connected: the bar now draws a row for it (issue #525).
+    expect(host!.querySelector(".connbar-item")).not.toBeNull();
   });
 });

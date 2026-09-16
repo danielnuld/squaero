@@ -55,6 +55,15 @@ export const es: Record<string, string> = {
   "conn.importForeign": "Importar lee también el data-sources.json de DBeaver (elige a la vez su credentials-config.json para traer las contraseñas) y el .ncx de Navicat.",
   "conn.moveTo": "Mover a «{group}»",
   "conn.moveToNone": "Quitar del grupo",
+  "conn.disconnectName": "Desconectar {name}",
+  "connbar.listLabel": "Conexiones abiertas",
+  "connbar.noneOpen": "Ninguna abierta",
+  "connbar.openOne": "1 abierta",
+  "connbar.openN": "{n} abiertas",
+  "connbar.add": "Conectar a una base…",
+  "connbar.focusTitle": "Trabajar en {name}",
+  "connbar.emptyHint": "No hay ninguna conexión abierta.",
+  "connbar.emptyAction": "Elegir una conexión guardada…",
   "conn.failed": 'No se pudo conectar a "{name}": {detail}',
 
   // top action ribbon

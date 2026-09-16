@@ -45,7 +45,7 @@ describeEngine("sqlite", () => {
 
   /** Opens the connection manager. Clicking it twice would close it again. */
   const openManager = (page: import("@playwright/test").Page) =>
-    page.getByRole("button", { name: "Elegir conexión" }).click();
+    page.getByRole("button", { name: "Conectar a una base…" }).click();
 
   /** Hands `text` to the manager's hidden file input under `name`. */
   const importFile = async (

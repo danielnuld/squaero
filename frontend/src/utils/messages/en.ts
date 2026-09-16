@@ -51,7 +51,16 @@ export const en: Record<string, string> = {
   "conn.empty": "No saved connections.",
   "conn.importForeign": "Import also reads DBeaver’s data-sources.json (pick its credentials-config.json too for the passwords) and Navicat’s .ncx.",
   "conn.moveTo": "Move to “{group}”",
-  "conn.moveToNone": "Remove from group",
+  "conn.disconnectName": "Disconnect {name}",
+  "connbar.listLabel": "Open connections",
+  "connbar.noneOpen": "None open",
+  "connbar.openOne": "1 open",
+  "connbar.openN": "{n} open",
+  "connbar.add": "Connect to a database…",
+  "connbar.focusTitle": "Work on {name}",
+  "connbar.emptyHint": "No connection is open.",
+  "connbar.emptyAction": "Pick a saved connection…",
+  "conn.moveToNone":"Remove from group",
   "conn.failed": 'Could not connect to "{name}": {detail}',
 
   // top action ribbon
