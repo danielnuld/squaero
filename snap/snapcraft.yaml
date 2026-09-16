@@ -1,4 +1,5 @@
 name: squaero
+title: Squaero
 base: core24
 adopt-info: squaero
 summary: Modern, lightweight, multi-engine database client
@@ -17,6 +18,7 @@ icon: assets/icons/hicolor/512x512/apps/quaero.png
 website: https://danielnuld.github.io/squaero/
 source-code: https://github.com/danielnuld/squaero
 issues: https://github.com/danielnuld/squaero/issues
+contact: https://github.com/danielnuld/squaero/issues
 platforms:
   amd64:
 
@@ -36,6 +38,10 @@ apps:
       # WebKit's own bubblewrap sandbox cannot start inside snap confinement,
       # which already confines the whole process.
       WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
+      # libmariadb loads its auth plugins (caching_sha2_password…) from the
+      # host's /usr path it was built with; inside the snap they live under
+      # $SNAP. Without this MySQL 8 refuses every connection.
+      MARIADB_PLUGIN_DIR: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libmariadb3/plugin
 
 parts:
   squaero:
