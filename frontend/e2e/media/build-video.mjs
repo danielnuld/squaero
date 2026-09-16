@@ -14,7 +14,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const OUT = join(import.meta.dirname, "..", "..", "..", "site", "video");
+// VIDEO_OUT: the same override video.spec.ts records into (the English cut).
+const OUT = process.env.VIDEO_OUT ?? join(import.meta.dirname, "..", "..", "..", "site", "video");
 const RAW = join(OUT, ".raw.webm");
 
 if (!existsSync(RAW)) {
