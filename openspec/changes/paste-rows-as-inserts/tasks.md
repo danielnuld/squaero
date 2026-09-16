@@ -30,16 +30,20 @@ de la nota).
 
 ## 2. Copiar, marcar y duplicar (fase B)
 
-- [ ] 2.1 Señal `rowClipboard` en `App.tsx`; copiar filas (menú, barra y
+- [x] 2.1 Señal `rowClipboard` en `App.tsx`; copiar filas (menú, barra y
       `Ctrl+C`) escribe el texto y guarda la copia exacta
 - [ ] 2.2 `Ctrl+C` y `Ctrl+D` en el `onKeyDown` de `ResultGrid` (filas marcadas
       o fila de la celda seleccionada); comprobar en WebView2 que `Ctrl+D` llega
-- [ ] 2.3 `components/RowActionBar.tsx` en modo selección: contador, Copiar,
+      — hecho y probado en jsdom y Chromium (e2e); **falta comprobarlo en la
+      ventana nativa (WebView2)**
+- [x] 2.3 `components/RowActionBar.tsx` en modo selección: contador, Copiar,
       Copiar como INSERT, Duplicar, Pegar N (desactivado si no hay copia) y
-      Desmarcar; Escape desmarca
-- [ ] 2.4 Menú contextual: copiar, copiar como INSERT y duplicar también con una
+      Desmarcar; Escape desmarca. «Pegar N» pega la copia exacta de la app;
+      el pegado desde el teclado y el texto de otros programas quedan para la
+      fase C
+- [x] 2.4 Menú contextual: copiar, copiar como INSERT y duplicar también con una
       sola fila marcada
-- [ ] 2.5 Pruebas de componente: barra con 1 y con N filas, atajos, duplicar no
+- [x] 2.5 Pruebas de componente: barra con 1 y con N filas, atajos, duplicar no
       toca la copia exacta
 
 ## 3. Pegar como filas pendientes (fase C)

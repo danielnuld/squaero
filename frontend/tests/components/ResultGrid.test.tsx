@@ -943,3 +943,131 @@ describe("ResultGrid row marking", () => {
     ]);
   });
 });
+
+// Copy and duplicate from the keyboard, and clearing the marks (#517). The grid
+// only decides WHICH rows; the workspace does the copying.
+describe("ResultGrid row keys", () => {
+  const grid: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "name", type: "text" },
+    ],
+    rows: [
+      ["1", "ana"],
+      ["2", "beto"],
+      ["3", "carla"],
+    ],
+    truncated: false,
+    rowsAffected: 0,
+  };
+
+  let marked: number[] = [];
+
+  function mountKeys(over: {
+    onCopyRows?: (rows: number[]) => void;
+    onDuplicateRows?: (rows: number[]) => void;
+  } = {}) {
+    marked = [];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [tick, setTick] = createSignal(0);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={grid}
+            loading={false}
+            error={null}
+            onMarkedRowsChange={(rows) => (marked = rows)}
+            clearMarksTick={tick()}
+            {...over}
+          />
+        ),
+        host!,
+      );
+    });
+    return { bump: () => setTick((n) => n + 1) };
+  }
+
+  const click = (r: number, mods: MouseEventInit = {}) =>
+    host!
+      .querySelector<HTMLElement>(`[data-cell="${r}-0"]`)!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, ...mods }));
+  /** Fire a key at the grid; returns false when the grid called preventDefault. */
+  const key = (init: KeyboardEventInit) =>
+    host!
+      .querySelector<HTMLElement>(".grid-scroll")!
+      .dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+
+  it("copies the marked rows in view order with ctrl + C", () => {
+    let copied: number[] | null = null;
+    mountKeys({ onCopyRows: (rows) => (copied = rows) });
+    click(2, { ctrlKey: true });
+    click(0, { ctrlKey: true });
+    expect(key({ key: "c", ctrlKey: true })).toBe(false);
+    expect(copied).toEqual([0, 2]);
+  });
+
+  it("copies the selected cell's row when nothing is marked", () => {
+    let copied: number[] | null = null;
+    mountKeys({ onCopyRows: (rows) => (copied = rows) });
+    click(1);
+    key({ key: "c", ctrlKey: true });
+    expect(copied).toEqual([1]);
+  });
+
+  it("works with cmd on macOS", () => {
+    let copied: number[] | null = null;
+    mountKeys({ onCopyRows: (rows) => (copied = rows) });
+    click(1);
+    key({ key: "c", metaKey: true });
+    expect(copied).toEqual([1]);
+  });
+
+  it("leaves ctrl + C to the browser with nothing to copy or no handler", () => {
+    let calls = 0;
+    mountKeys({ onCopyRows: () => calls++ });
+    // No selection and no marks: nothing is copied and the key is not swallowed.
+    expect(key({ key: "c", ctrlKey: true })).toBe(true);
+    expect(calls).toBe(0);
+    dispose?.();
+    host?.remove();
+    mountKeys();
+    click(1);
+    expect(key({ key: "c", ctrlKey: true })).toBe(true);
+  });
+
+  it("duplicates the marked rows with ctrl + D", () => {
+    let duplicated: number[] | null = null;
+    mountKeys({ onDuplicateRows: (rows) => (duplicated = rows) });
+    click(0);
+    click(1, { shiftKey: true });
+    expect(key({ key: "d", ctrlKey: true })).toBe(false);
+    expect(duplicated).toEqual([0, 1]);
+  });
+
+  it("does not claim ctrl + D when the table cannot take new rows", () => {
+    mountKeys();
+    click(1);
+    expect(key({ key: "d", ctrlKey: true })).toBe(true);
+  });
+
+  it("unmarks with Escape, and leaves Escape alone when nothing is marked", () => {
+    mountKeys();
+    click(1, { ctrlKey: true });
+    expect(marked).toEqual([1]);
+    expect(key({ key: "Escape" })).toBe(false);
+    expect(marked).toEqual([]);
+    expect(key({ key: "Escape" })).toBe(true);
+  });
+
+  it("clears the marks when the workspace bumps the tick", () => {
+    const { bump } = mountKeys();
+    click(0, { ctrlKey: true });
+    click(2, { ctrlKey: true });
+    expect(marked).toEqual([0, 2]);
+    bump();
+    expect(marked).toEqual([]);
+  });
+});

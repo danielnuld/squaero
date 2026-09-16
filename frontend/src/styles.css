@@ -1315,6 +1315,37 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* Anchors the floating row bar (#517). */
+  position: relative;
+}
+
+/* Actions on the marked rows, floating over the bottom of the grid (#517) so it
+   takes no height from the rows. It appears and stays: no animation (#386). */
+.row-action-bar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--sp-5);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  white-space: nowrap;
+}
+
+.row-action-count {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  padding: 0 var(--sp-2);
+}
+
+.row-action-bar .tab-kbd {
+  margin-left: var(--sp-2);
 }
 
 /* Inline confirm-changes panel (former modal), above the grid. */

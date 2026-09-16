@@ -121,6 +121,15 @@ export function ResultGrid(props: {
    * copying a row copies what the user sees; the grid needs nothing back.
    */
   onColumnOrderChange?: (order: number[]) => void;
+  /**
+   * Ctrl+C on the grid (#517): the marked rows, or else the selected cell's row,
+   * by index into `result.rows`. Absent → the key is left to the browser.
+   */
+  onCopyRows?: (rows: number[]) => void;
+  /** Ctrl+D: the same rows, to add again as new pending rows. Absent → no-op. */
+  onDuplicateRows?: (rows: number[]) => void;
+  /** Bumped by the workspace to clear the marks (the row bar's ✕). */
+  clearMarksTick?: number;
 }) {
   const rowHeight = () => props.rowHeight ?? DEFAULT_ROW_HEIGHT;
   const isReferenced = (name: string) =>
@@ -151,6 +160,15 @@ export function ResultGrid(props: {
     setAnchor(null);
     setMarks(new Set<number>());
   };
+  // The workspace clears the marks from outside (the row bar's ✕) by bumping a
+  // counter; only a CHANGE clears, so mounting with any value does nothing.
+  let lastClearTick = props.clearMarksTick ?? 0;
+  createEffect(() => {
+    const tick = props.clearMarksTick ?? 0;
+    if (tick === lastClearTick) return;
+    lastClearTick = tick;
+    setMarks(new Set<number>());
+  });
 
   // The scroller is rendered only once a result with columns exists, and it can
   // come and go across queries, so we measure it from a callback ref rather than
@@ -409,7 +427,24 @@ export function ResultGrid(props: {
       }
       return;
     }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+    const mod = e.ctrlKey || e.metaKey;
+    const letter = e.key.toLowerCase();
+    if (mod && (letter === "c" || letter === "d")) {
+      // Rows, not text (#517): the marked rows, or the selected cell's row.
+      const handler = letter === "c" ? props.onCopyRows : props.onDuplicateRows;
+      const targets = rowTargets();
+      if (handler && targets.length > 0) {
+        e.preventDefault();
+        handler(targets);
+      }
+      return;
+    }
+    if (e.key === "Escape" && marks().size > 0) {
+      e.preventDefault();
+      setMarks(new Set<number>());
+      return;
+    }
+    if (mod && letter === "a") {
       // Everything the view is showing — a filtered grid selects what it shows,
       // not the rows hidden behind the filter.
       e.preventDefault();
@@ -435,6 +470,16 @@ export function ResultGrid(props: {
       setAnchor(next.r);
       setMarks(new Set<number>());
     }
+  };
+
+  /** The rows a row action takes: the marked ones in view order, or else the
+      selected cell's row (index into result.rows). */
+  const rowTargets = (): number[] => {
+    const marked = orderedMarks(marks(), view());
+    if (marked.length > 0) return marked;
+    const s = sel();
+    const row = s === null ? undefined : view()[s.r];
+    return row === undefined ? [] : [row];
   };
 
   const isSelected = (viewPos: number, c: number) => {

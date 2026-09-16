@@ -77,7 +77,7 @@ import {
 import { emptyCondition, type ColumnTypes } from "./utils/queryBuilder";
 import { autoFocus } from "./utils/autoFocus";
 import { splitStatements, type RunScope } from "./utils/runScope";
-import { rowToTsv, rowToJson, copyText } from "./utils/rowCopy";
+import { copyRows, rowToJson, rowsAsInserts, copyText } from "./utils/rowCopy";
 import {
   loadTheme,
   saveTheme,
@@ -138,6 +138,8 @@ import {
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { rowHeightFor, type Settings } from "./utils/settings";
 import { applyPlan } from "./utils/editApply";
+import { planPaste, type PkMode, type RowClipboard, type RowSource } from "./utils/rowPaste";
+import { RowActionBar } from "./components/RowActionBar";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
@@ -165,6 +167,7 @@ import {
   setCell,
   toggleDelete,
   addInsert,
+  addInserts,
   setInsertCell,
   removeInsert,
   hasChanges,
@@ -2601,9 +2604,60 @@ export function App() {
   // generating SQL (inserts, transfer) keeps the table's own order, which is
   // semantic rather than visual.
   const [columnOrder, setColumnOrder] = createSignal<number[]>([]);
-  const markedResult = () => {
+  // --- Copying and duplicating rows (#517) -------------------------------
+  // The exact copy kept beside the clipboard text: a later paste in this app
+  // uses it to keep the NULLs and tabs the text form cannot carry.
+  const [rowClipboard, setRowClipboard] = createSignal<RowClipboard | null>(null);
+  // Bumped to clear the grid's marks from the row bar.
+  const [clearMarksTick, setClearMarksTick] = createSignal(0);
+  const rowSourceOf = (): RowSource | null => {
+    const src = currentResult().source;
+    const defId = tabConn(current())?.defId;
+    return src && defId
+      ? { connDefId: defId, db: src.db, schema: src.schema, table: src.table }
+      : null;
+  };
+  const copyRowsFromGrid = (rows: number[]) => {
     const res = currentResult().result;
-    return res ? pickRows(res, markedRows()) : null;
+    if (!res || rows.length === 0) return;
+    const clip = copyRows(res, rows, columnOrder(), rowSourceOf());
+    setRowClipboard(clip);
+    copyText(clip.text);
+  };
+  const copyRowsAsInserts = (rows: number[]) => {
+    const res = currentResult().result;
+    if (res && rows.length > 0) {
+      copyText(toInserts(pickRows(res, rows), currentResult().source?.table ?? "exported"));
+    }
+  };
+  /** Why this grid cannot take new rows, or null. */
+  const addRowsBlocked = (): string | null =>
+    currentEditable() ? null : t("result.duplicateReadOnly");
+  // New pending rows in this tab's edit session, which is opened first when
+  // needed. Nothing reaches the database until the session is saved.
+  const addRowsAsInserts = async (rows: Record<string, string | null>[], pkMode: PkMode) => {
+    const tab = current();
+    if (!tab || rows.length === 0 || !currentEditable()) return;
+    if (!currentEdit().editing) await beginEdit();
+    // beginEdit reports its own failure; without a session there is nowhere to add.
+    if (!edits[tab.id]?.editing) return;
+    mutatePending(tab.id, (p) => addInserts(p, rows, pkMode));
+  };
+  const duplicateRows = (rows: number[]) => {
+    const res = currentResult().result;
+    if (res) void addRowsAsInserts(rowsAsInserts(res, rows), "generate");
+  };
+  // The row bar's Pegar: the app's own copy, placed by column name. Pasting
+  // from the keyboard, and text from other programs, come with phase C.
+  const pasteRowClipboard = () => {
+    const clip = rowClipboard();
+    const source = rowSourceOf();
+    const res = currentResult().result;
+    if (!clip || !source || !res) return;
+    const columns = applyOrder(columnOrder(), res.columns).map((c) => c.name);
+    const plan = planPaste(clip.text, clip, { columns, source }, { emptyAsNull: true });
+    if (plan.kind === "inserts") void addRowsAsInserts(plan.rows, plan.pkMode);
+    else if (plan.kind === "wizard") openImport(clip.text);
   };
   const openTransfer = (rows?: number[]) => {
     const res = currentResult();
@@ -2843,36 +2897,41 @@ export function App() {
         action: () => openRelated(rowIndex, colIndex),
       });
       items.push({ separator: true });
+      // Row actions take the marked rows, or the row under the pointer when none
+      // is marked. One marked row counts too (#517); these used to need two.
+      // Copying follows the grid's column order (#446); the INSERT and transfer
+      // keep the table's own order, which is part of the statement.
       const marked = markedRows();
-      if (marked.length > 1) {
-        const table = currentResult().source?.table ?? "exported";
-        items.push({
-          label: t("result.copyRowsN", { n: marked.length }),
-          action: () =>
-            copyText(
-              marked.map((i) => rowToTsv(applyOrder(columnOrder(), res.rows[i]))).join("\n"),
-            ),
-        });
-        items.push({
-          label: t("result.copyRowsInserts", { n: marked.length }),
-          action: () => copyText(toInserts(markedResult()!, table)),
-        });
-        items.push({
-          label: t("result.transferRowsN", { n: marked.length }),
-          action: () => openTransfer(marked),
-          disabled: !currentResult().source,
-        });
-        items.push({ separator: true });
-      }
+      const targets = marked.length > 0 ? marked : [rowIndex];
+      const n = targets.length;
+      items.push({
+        label: n === 1 ? t("result.copyRow") : t("result.copyRowsN", { n }),
+        action: () => copyRowsFromGrid(targets),
+      });
+      items.push({
+        label: n === 1 ? t("result.copyRowInsert") : t("result.copyRowsInserts", { n }),
+        action: () => copyRowsAsInserts(targets),
+      });
+      items.push({
+        get label() {
+          return (
+            addRowsBlocked() ??
+            (n === 1 ? t("result.duplicateRow") : t("result.duplicateRowsN", { n }))
+          );
+        },
+        get disabled() {
+          return addRowsBlocked() !== null;
+        },
+        action: () => duplicateRows(targets),
+      });
+      items.push({
+        label: n === 1 ? t("result.transferRow") : t("result.transferRowsN", { n }),
+        action: () => openTransfer(targets),
+        disabled: !currentResult().source,
+      });
+      items.push({ separator: true });
       const cell = row[colIndex];
       items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
-      // What is copied is what is on screen: the grid's column order, not the
-      // engine's (issue #446). The INSERT and transfer entries above keep the
-      // table's own order on purpose — there the order is part of the statement.
-      items.push({
-        label: t("result.copyRow"),
-        action: () => copyText(rowToTsv(applyOrder(columnOrder(), row))),
-      });
       items.push({
         label: t("result.copyRowJson"),
         action: () =>
@@ -3623,6 +3682,9 @@ export function App() {
                         onCellContext={onCellContext}
                         onMarkedRowsChange={setMarkedRows}
                         onColumnOrderChange={setColumnOrder}
+                        onCopyRows={copyRowsFromGrid}
+                        onDuplicateRows={currentEditable() ? duplicateRows : undefined}
+                        clearMarksTick={clearMarksTick()}
                         referencedColumns={referencedColumns()}
                         onRelated={openRelated}
                         onSortColumn={
@@ -3651,6 +3713,22 @@ export function App() {
                             : undefined
                         }
                       />
+                      {/* While pending rows exist the bar gives way: they get their
+                          own bar with the save flow (#517, phase C). */}
+                      <Show
+                        when={markedRows().length > 0 && currentEdit().pending.inserts.length === 0}
+                      >
+                        <RowActionBar
+                          count={markedRows().length}
+                          pasteCount={rowClipboard()?.rows.length ?? 0}
+                          addBlocked={addRowsBlocked()}
+                          onCopy={() => copyRowsFromGrid(markedRows())}
+                          onCopyInsert={() => copyRowsAsInserts(markedRows())}
+                          onDuplicate={() => duplicateRows(markedRows())}
+                          onPaste={pasteRowClipboard}
+                          onClear={() => setClearMarksTick((n) => n + 1)}
+                        />
+                      </Show>
                     </div>
                     <Show when={detailData()}>
                       {(d) => (
