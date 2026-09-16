@@ -22,10 +22,42 @@ describe("clampSlowThreshold", () => {
   });
 });
 
-describe("rowHeightFor", () => {
-  it("maps density to a pixel height", () => {
-    expect(rowHeightFor("normal")).toBe(28);
-    expect(rowHeightFor("compact")).toBe(22);
+describe("rowHeightFor (per style and density, issue #540)", () => {
+  it("gives each style its own pair of heights", () => {
+    expect(rowHeightFor("registro", "normal")).toBe(28);
+    expect(rowHeightFor("registro", "compact")).toBe(22);
+    expect(rowHeightFor("hoja", "normal")).toBe(22);
+    expect(rowHeightFor("hoja", "compact")).toBe(20);
+    expect(rowHeightFor("informe", "normal")).toBe(32);
+    expect(rowHeightFor("informe", "compact")).toBe(28);
+  });
+
+  // A virtualized list punishes a mismatch: rows that measure one thing and
+  // paint another leave gaps or overlap as you scroll.
+  it("is compact <= normal for every style, and always a positive number", () => {
+    for (const style of ["registro", "hoja", "informe"] as const) {
+      const normal = rowHeightFor(style, "normal");
+      const compact = rowHeightFor(style, "compact");
+      expect(compact).toBeLessThanOrEqual(normal);
+      expect(compact).toBeGreaterThan(0);
+    }
+  });
+});
+
+
+describe("parseSettings with a grid style (issue #540)", () => {
+  // Settings saved before this existed must keep working, and land on the
+  // default rather than on undefined.
+  it("defaults the style when it is absent or unknown", () => {
+    expect(parseSettings(JSON.stringify({ gridDensity: "compact" })).gridStyle).toBe("registro");
+    expect(parseSettings(JSON.stringify({ gridStyle: "ninguno" })).gridStyle).toBe("registro");
+    expect(parseSettings(JSON.stringify({ gridStyle: 7 })).gridStyle).toBe("registro");
+  });
+
+  it("keeps a style it recognises", () => {
+    for (const style of ["registro", "hoja", "informe"] as const) {
+      expect(parseSettings(JSON.stringify({ gridStyle: style })).gridStyle).toBe(style);
+    }
   });
 });
 
@@ -48,6 +80,7 @@ describe("parseSettings", () => {
   it("round-trips a full settings object", () => {
     const s = {
       gridDensity: "compact" as const,
+      gridStyle: "informe" as const,
       slowThresholdMs: 1200,
       checkUpdatesOnStart: false,
       toolStrip: false,

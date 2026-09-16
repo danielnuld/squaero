@@ -3849,7 +3849,7 @@ export function App() {
                         result={currentResult().result}
                         loading={currentResult().loading}
                         error={currentResult().error}
-                        rowHeight={rowHeightFor(settings().gridDensity)}
+                        rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
                         emptyState={
                           <EmptyState
                             recentTables={recentTables()}
