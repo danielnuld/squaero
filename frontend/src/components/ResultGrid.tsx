@@ -695,6 +695,12 @@ export function ResultGrid(props: {
                           setDragFrom(null);
                           setDropAt(null);
                         }}
+                        /* The column's type colour, for the rule the report
+                           style draws under its header. Set here because only
+                           the component knows each column's type; with the
+                           per-type colours off, the CSS falls back to the
+                           ordinary border. */
+                        style={{ "--k": `var(--cell-${classifyType(col.type)})` }}
                         onClick={() => toggleSort(ci())}
                         onKeyDown={(e) => {
                           // Alt+←/→ is the keyboard route to the same move: a

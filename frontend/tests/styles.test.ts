@@ -128,6 +128,9 @@ describe("styles.css colour", () => {
       // Only exists once the user picks a text colour (#483/#540): its absence
       // is the signal, so it must NOT have a value in the stylesheet.
       "--cell-text-chosen",
+      // ResultGrid sets this per column header: the type's colour, for the rule
+      // the report style draws underneath (#540).
+      "--k",
     ];
     const defined = new Set(
       Array.from(CSS.matchAll(/^\s*(--[a-z0-9-]+):/gm), (m) => m[1]),

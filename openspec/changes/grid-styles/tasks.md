@@ -7,24 +7,28 @@ rejilla» del lienzo https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2 (selector
 
 ## 1. Lógica pura (fase A)
 
-- [ ] 1.1 `utils/settings.ts`: `GridStyle`, `gridStyle` en `Settings` y
+- [x] 1.1 `utils/settings.ts`: `GridStyle`, `gridStyle` en `Settings` y
       `DEFAULT_SETTINGS`, `parseSettings` tolerante (ausente o desconocido →
       `registro`)
-- [ ] 1.2 `rowHeightFor(style, density)` con la tabla fija; actualizar sus
+- [x] 1.2 `rowHeightFor(style, density)` con la tabla fija; actualizar sus
       llamadas en `App.tsx`
-- [ ] 1.3 `utils/gridDisplay.ts`: `displayText(value, type, style, lang)` —
+- [x] 1.3 `utils/gridDisplay.ts`: `displayText(value, type, style, t)` —
       miles sobre la cadena, fechas ISO con mes abreviado desde el catálogo,
       todo lo demás tal cual, delega en `formatCell` fuera de Informe
-- [ ] 1.4 Pruebas: ajustes antiguos y valor desconocido, tabla de alturas,
+- [x] 1.4 Pruebas: ajustes antiguos y valor desconocido, tabla de alturas,
       números (enteros, negativos, decimales con ceros, `bigint` más allá de
       2^53, notación científica), fechas (`date`, `timestamp`, no ISO de
       Informix, con zona), NULL, booleanos, español e inglés
+- [x] 1.5 **Decisión cambiada**: se agrupan los miles **desde cuatro dígitos**,
+      como enseña el prototipo (`1,250.00`). Exceptuar los de cuatro para salvar
+      los años es incoherente (`1250` y `2024` miden lo mismo); distinguirlos
+      pide la **columna**, no el valor
 
 ## 2. Estructura común y estilo Registro (fase B)
 
-- [ ] 2.1 `IconKey` en `components/icons.tsx`; la cabecera usa el icono en lugar
+- [x] 2.1 `IconKey` en `components/icons.tsx`; la cabecera usa el icono en lugar
       del emoji y conserva el nombre accesible
-- [ ] 2.2 Cabecera con nombre y tipo en elementos separados; variable `--k` por
+- [x] 2.2 Cabecera con nombre y tipo en elementos separados; variable `--k` por
       columna con el color de su tipo
 - [x] 2.3 Columna del número de fila: número, casilla `role="checkbox"` que llama
       al mismo `toggleMark` que Ctrl+clic y casilla de cabecera que marca o
@@ -33,29 +37,38 @@ rejilla» del lienzo https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2 (selector
       `feat/517-row-mark-checkbox` (seguimiento de #517): casilla nativa, solo en
       rejillas con `onMarkedRowsChange`, Mayús+clic marca el rango, y la columna
       cuenta en `aria-colcount`
-- [ ] 2.4 NULL en su propio `span` con la clase de etiqueta
-- [ ] 2.5 `App.tsx` pone `data-grid-style` en la raíz; CSS de Registro (texto en
+- [x] 2.4 NULL en su propio `span` con la clase de etiqueta
+- [x] 2.5 `App.tsx` pone `data-grid-style` en la raíz; CSS de Registro (texto en
       tinta, color solo en número, fecha, booleano y binario, etiqueta NULL,
       cifras tabulares)
-- [ ] 2.6 Pruebas de componente: marcar desde la casilla alimenta `markedRows`,
-      casilla de cabecera ≡ Ctrl+A, NULL frente a cadena vacía, llave accesible
+- [x] 2.6 Pruebas de componente: los tres estilos, el valor crudo en el `title`,
+      cambiar de estilo sin recargar, NULL como etiqueta, llave accesible
+- [x] 2.7 **Tres defectos que solo se vieron mirando o ejecutando**: (a) la
+      columna `id` perdía su nombre bajo la llave — el ancho no contaba las
+      marcas de la cabecera Y el `margin-left:auto` del glifo de orden repartía
+      el **alto** al pasar a dos líneas; (b) devolver el texto a tinta pisaba el
+      color elegido por el usuario (lo cazó el e2e) → `--cell-text-chosen`;
+      (c) medir leyendo las columnas clave hacía que el efecto que **resetea la
+      vista** borrara los filtros en mitad de una edición en Informix →
+      medición sin rastrear
 
 ## 3. Hoja densa, Informe y ajustes (fase C)
 
-- [ ] 3.1 CSS de Hoja densa: cuadrícula completa, cabecera en una línea con
+- [x] 3.1 CSS de Hoja densa: cuadrícula completa, cabecera en una línea con
       pastilla de tipo, color en todos los tipos
-- [ ] 3.2 CSS de Informe: sin líneas verticales, raya `--k` bajo la cabecera
+- [x] 3.2 CSS de Informe: sin líneas verticales, raya `--k` bajo la cabecera
       (`--border` con colores apagados), celdas en tinta
-- [ ] 3.3 `ResultGrid` muestra `displayText` y deja `title` con el valor crudo;
+- [x] 3.3 `ResultGrid` muestra `displayText` y deja `title` con el valor crudo;
       `computeColumnWidths` mide con el texto mostrado
-- [ ] 3.4 `SettingsPanel`: «Estilo de rejilla» con chips `role="radio"` y la
+- [x] 3.4 `SettingsPanel`: «Estilo de rejilla» con chips `role="radio"` y la
       frase del estilo elegido, encima de la densidad
-- [ ] 3.5 Pruebas: copiar fila y celda, copiar como INSERT, filtrar y editar en
-      Informe operan sobre el valor crudo; el tooltip muestra el crudo; cambiar
-      de estilo no vuelve a ejecutar la consulta; `data-cell-colors="off"`
-      gana en los tres estilos
-- [ ] 3.6 Resolver las preguntas abiertas del diseño (formatear claves en
-      Informe, entrada en la paleta) antes de cerrar la fase
+- [x] 3.5 Pruebas del selector y de los tres estilos dibujados; el `title`
+      conserva el crudo y cambiar de estilo no re-ejecuta la consulta
+- [ ] 3.6 **Preguntas abiertas, sin resolver todavía**: (a) si Informe debe
+      dejar sin formatear las columnas de clave — hoy un año en una columna
+      numérica se ve `2,024`, y arreglarlo pide mirar la PK/FK desde
+      `ResultGrid`, que sí las conoce; (b) si merece una entrada en la paleta
+      para cambiar de estilo sin ir a Ajustes
 
 ## 4. Temas e idioma
 
