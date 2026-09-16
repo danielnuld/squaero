@@ -523,10 +523,16 @@ export function setConnectionGroup(
   return list.map((c) => (c.id === id ? { ...c, group: group.trim() } : c));
 }
 
-/** Per-field validation errors (issue #109): name + each param field. */
+/**
+ * Per-field validation errors (issue #109), one per param field.
+ *
+ * The NAME is not here any more (issue #531): it stopped being something the
+ * user must invent before the form will save, because host and database already
+ * say what to call it. The form fills in `defaultConnectionName` on save.
+ * `validateConnection` still requires a name — that one guards IMPORT, where
+ * there is no form to fill anything in.
+ */
 export interface FieldErrors {
-  /** Error for the connection name, or null when valid. */
-  name: string | null;
   /** Errors keyed by field key (only invalid fields are present). */
   params: Record<string, string>;
 }
@@ -542,10 +548,7 @@ export function fieldErrors(
   conn: Connection,
   opts: { sshRequired?: boolean } = {},
 ): FieldErrors {
-  const result: FieldErrors = { name: null, params: {} };
-  if (!conn.name.trim()) {
-    result.name = "valid.nameRequired";
-  }
+  const result: FieldErrors = { params: {} };
   const schema = driverSchema(conn.driver);
   if (!schema) return result;
   for (const field of schema.fields) {
@@ -567,9 +570,9 @@ export function fieldErrors(
   return result;
 }
 
-/** True when a FieldErrors has no name or field error. */
+/** True when no field is in error. */
 export function isValid(errors: FieldErrors): boolean {
-  return errors.name === null && Object.keys(errors.params).length === 0;
+  return Object.keys(errors.params).length === 0;
 }
 
 /** Builds the dsn object for conn.open from a connection's params. */

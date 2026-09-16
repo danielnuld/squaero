@@ -241,12 +241,16 @@ describe("engineIcon", () => {
 describe("fieldErrors / isValid", () => {
   it("is clean for a valid connection", () => {
     const e = fieldErrors(pgConn({ params: { host: "h", database: "d", user: "u" } }));
-    expect(e.name).toBeNull();
     expect(e.params).toEqual({});
     expect(isValid(e)).toBe(true);
   });
-  it("flags a missing name", () => {
-    expect(es(fieldErrors(sqliteConn({ name: "  " })).name!)).toMatch(/obligatorio/i);
+  // Issue #531: the name stopped blocking the form — host and database already
+  // say what to call it, and the form fills a deduced name in on save. Import
+  // still demands one, because there no form is going to fill it in.
+  it("does not block on a missing name any more", () => {
+    const e = fieldErrors(sqliteConn({ name: "  ", params: { path: "/tmp/a.db" } }));
+    expect(isValid(e)).toBe(true);
+    expect(validateConnection(sqliteConn({ name: "  " }), es)).not.toEqual([]);
   });
   it("flags a missing required field by key", () => {
     const e = fieldErrors(sqliteConn({ params: { path: "" } }));
