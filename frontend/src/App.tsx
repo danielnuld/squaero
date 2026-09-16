@@ -137,6 +137,7 @@ import {
 } from "./utils/snippets";
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { rowHeightFor, type Settings } from "./utils/settings";
+import { applyPlan } from "./utils/editApply";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
@@ -311,6 +312,8 @@ interface EditSessionState {
   error: string | null;
   /** Generated SQL statements to confirm; non-null shows the preview dialog. */
   preview: string[] | null;
+  /** The pending row whose insert failed on the last apply, or null. */
+  failedInsert: number | null;
 }
 
 const emptyEdit = (): EditSessionState => ({
@@ -319,6 +322,7 @@ const emptyEdit = (): EditSessionState => ({
   busy: false,
   error: null,
   preview: null,
+  failedInsert: null,
 });
 
 // The live connection opened in the core: its core-side connId plus the saved
@@ -2500,7 +2504,10 @@ export function App() {
     }
   };
 
-  // Aplicar: execute the plan for real, then commit and reload.
+  // Aplicar: execute the plan for real, then commit and reload. A failure rolls
+  // the transaction back and opens a new one (utils/editApply.ts): the old
+  // "leave it open to fix and retry" kept the items that had already run, so a
+  // retry ran them twice — an insert that had gone through collided with itself.
   const applyEdit = async () => {
     const tab = current();
     const conn = tabConn(tab);
@@ -2509,18 +2516,28 @@ export function App() {
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
                            currentEdit().pending);
     const target = { table: res.source.table, db: res.source.db, schema: res.source.schema };
-    patchEdit(tab.id, { busy: true, error: null });
-    try {
-      for (const item of plan) {
-        await runPlanItem(conn.connId, target, item, false);
-      }
-      await txCommit(conn.connId);
+    patchEdit(tab.id, { busy: true, error: null, failedInsert: null });
+    const outcome = await applyPlan(plan, {
+      run: (item) => runPlanItem(conn.connId, target, item, false),
+      commit: () => txCommit(conn.connId),
+      rollback: () => txRollback(conn.connId),
+      begin: () => txBegin(conn.connId),
+    });
+    if (outcome.ok) {
       setEdits(tab.id, emptyEdit());
       reloadCurrent(tab.id);
-    } catch (err) {
-      // Leave the transaction open so the user can fix and retry or discard.
-      patchEdit(tab.id, { busy: false, preview: null, error: t("ssync.applyError", { reason: errMsg(err) }) });
+      return;
     }
+    const failed = outcome.failedIndex === null ? null : plan[outcome.failedIndex];
+    patchEdit(tab.id, {
+      busy: false,
+      preview: null,
+      error: t("ssync.applyError", { reason: errMsg(outcome.error) }),
+      failedInsert: failed?.kind === "insert" ? (failed.insertIndex ?? null) : null,
+      // No transaction could be opened again, so the session cannot go on. The
+      // pending set stays in state; editing again starts from a fresh one.
+      ...(outcome.reopened ? {} : { editing: false }),
+    });
   };
 
   const cancelPreview = () => {
