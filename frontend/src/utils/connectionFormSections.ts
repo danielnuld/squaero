@@ -109,6 +109,37 @@ export function formSections(schema: DriverSchema): FormSection[] {
   }));
 }
 
+/**
+ * Fields that belong on one line, because they are one idea: an address is a
+ * host AND a port, and credentials are a user AND a password. Stacking them
+ * turns a four-field form into a column twice as tall as it needs to be.
+ */
+const PAIRED_WITH: Record<string, string> = { host: "port", user: "password" };
+
+/**
+ * A section's fields grouped into rows of one or two.
+ *
+ * Pairs only when BOTH halves are actually in the schema, so an engine that
+ * drops one of them (a port-less driver) gets a single full-width field rather
+ * than a half-width one with a hole beside it.
+ */
+export function fieldRows(fields: DriverField[]): DriverField[][] {
+  const rows: DriverField[][] = [];
+  const used = new Set<string>();
+  for (const field of fields) {
+    if (used.has(field.key)) continue;
+    const mateKey = PAIRED_WITH[field.key];
+    const mate = mateKey ? fields.find((f) => f.key === mateKey) : undefined;
+    if (mate) {
+      used.add(mate.key);
+      rows.push([field, mate]);
+    } else {
+      rows.push([field]);
+    }
+  }
+  return rows;
+}
+
 export type SectionStatus = "ok" | "error" | "off" | "pending";
 
 /**
