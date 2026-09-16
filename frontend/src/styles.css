@@ -861,7 +861,12 @@ body {
 
 /* Finding a saved connection to open (#525): the popover is a search, not the
    whole manager. */
+/* Fills the balloon. Without this it sized itself to its content inside the
+   popover's flex row, leaving a dead strip down the right and squeezing the
+   footer until "+ Nueva conexión" wrapped onto two lines. */
 .connsearch {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2188,7 +2193,11 @@ kbd {
   min-height: 0;
   overflow: auto;
   display: grid;
-  grid-template-columns: 180px minmax(0, 640px) 260px;
+  /* The middle column TAKES the room that is left. Capped at 640px it stopped
+     short of the panel's edge and left a dead band down the right on any wide
+     window — and on a narrow one it was squeezed anyway, since the three fixed
+     columns asked for more than the panel had. */
+  grid-template-columns: 180px minmax(0, 1fr) 260px;
   gap: var(--sp-5);
   padding: var(--sp-5);
   align-items: start;
@@ -2376,6 +2385,12 @@ kbd {
   min-width: 0;
 }
 
+/* Beats the rule above, which was winning on specificity and giving the port
+   half the row it never needs. */
+.cf-row.is-pair > .cf-field.is-narrow {
+  flex: 0 0 104px;
+}
+
 .cf-field {
   flex: 1;
   min-width: 0;
@@ -2457,27 +2472,27 @@ kbd {
 
 /* One strip with every option readable at once, instead of a dropdown whose
    values ("verify_ca") the user had to decode (issue #531). */
-/* Sized to its options, not stretched across the column: a four-choice strip
-   blown out to 540px reads as four buttons, not as one control. */
+/* Sized to its options, not stretched across the column. Separate chips rather
+   than one welded strip: five security modes with names like "Verificar
+   identidad" do not fit on a 480px line, and a welded strip that wraps shows
+   its grey rail between the rows with an orphan button hanging off it. */
 .cf-seg {
   display: flex;
   flex-wrap: wrap;
   align-self: flex-start;
   max-width: 100%;
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  overflow: hidden;
+  gap: var(--sp-2);
 }
 
 .cf-seg-btn {
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-elev);
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   color: var(--text-dim);
   font: inherit;
   font-size: var(--fs-base);
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -2487,6 +2502,7 @@ kbd {
 
 .cf-seg-btn.is-on {
   background: var(--accent);
+  border-color: var(--accent);
   color: var(--accent-fg);
 }
 
@@ -5679,6 +5695,9 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .conn-io-btn {
   flex: 1;
+  /* In the search's footer these sit three across a 360px balloon, and "+ Nueva
+     conexión" was breaking onto two lines with room to spare beside it. */
+  white-space: nowrap;
 }
 
 .conn-io-btn:hover {
