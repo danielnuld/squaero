@@ -841,7 +841,6 @@ export const es: Record<string, string> = {
   "upd.downloadFailed": "No se pudo descargar la actualización. Puedes descargarla en el navegador.",
   "upd.skip": "Omitir esta versión",
   "upd.later": "Ahora no",
-  "upd.download": "Descargar",
   "upd.viewRelease": "Ver release",
   "upd.inBrowser": "En el navegador",
   "upd.install": "Instalar actualización",

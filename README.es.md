@@ -98,7 +98,15 @@ instalador no incluye: instálalo desde IBM
 ([dónde descargarlo](https://www.ibm.com/support/pages/where-download-informix-client-sdk)).
 Squaero te avisa si una conexión no encuentra el cliente.
 
-> Linux (AppImage/deb) y macOS (.app) llegan en próximos releases.
+**Linux:** desde la v0.29.0 cada release adjunta un `.deb` para Ubuntu 24.04+ y
+Debian 13+ (x86_64), con su línea en el mismo `SHA256SUMS.txt`:
+`sudo apt install ./squaero_X.Y.Z_amd64.deb`. apt instala el cliente de cada
+driver. Informix en Linux necesita el Client SDK de IBM de 64 bits. También se
+adjunta un `.snap`, para cualquier distribución con snapd (`sudo snap install
+--dangerous ./squaero_X.Y.Z_amd64.snap` hasta que llegue a la Snap Store);
+Informix no está disponible en el snap.
+
+> AppImage/Flatpak y macOS (.app) llegan en próximos releases.
 
 ## Compilar desde el código
 
