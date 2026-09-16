@@ -27,7 +27,66 @@ import { seedBrowserState } from "../support/state";
 import { startBlank } from "../support/app-actions";
 
 const SIZE = { width: 1360, height: 860 };
-const SITE_VIDEO = join(import.meta.dirname, "..", "..", "..", "site", "video");
+
+/**
+ * Spanish by default, for the site. `VIDEO_LOCALE=en VIDEO_OUT=<dir>` records the
+ * English cut the Snap Store listing links to; build-video.mjs reads the same
+ * VIDEO_OUT, so both halves of `pnpm video` agree on where the files are.
+ */
+const EN = process.env.VIDEO_LOCALE === "en";
+const SITE_VIDEO =
+  process.env.VIDEO_OUT ?? join(import.meta.dirname, "..", "..", "..", "site", "video");
+
+/** The interface's own labels (they locate controls) and the captions. */
+const T = EN
+  ? {
+      notConnected: "Not connected",
+      connect: "Connect to a database…",
+      newConnection: /New connection/,
+      disconnect: /^Disconnect Ventas/,
+      tables: "Tables",
+      viewStructure: "View structure",
+      newQuery: "New query",
+      editor: "SQL editor",
+      run: "Run",
+      actions: "Actions",
+      er: "ER diagram",
+      erReady: /relation\(s\)/i,
+      builder: "Query builder",
+      builderReady: /columns/i,
+      cConnect: "Connect to SQLite, MySQL, PostgreSQL, Informix, MongoDB or SQL Server",
+      cExplore: "Explore tables, views, routines, triggers and events",
+      cActions: "Every object carries its own actions",
+      cStructure: "Columns, types and the table's DDL",
+      cQuery: "Write SQL with schema-aware completion",
+      cResults: "Typed, editable, paginated results",
+      cEr: "An ER diagram from the real foreign keys",
+      cBuilder: "And a visual builder, to assemble a query without typing it",
+    }
+  : {
+      notConnected: "Sin conexión",
+      connect: "Conectar a una base…",
+      newConnection: /Nueva conexión/,
+      disconnect: /^Desconectar Ventas/,
+      tables: "Tablas",
+      viewStructure: "Ver estructura",
+      newQuery: "Nueva consulta",
+      editor: "Editor SQL",
+      run: "Ejecutar",
+      actions: "Acciones",
+      er: "Diagrama ER",
+      erReady: /relaci[óo]n\(es\)/i,
+      builder: "Constructor de consultas",
+      builderReady: /columnas/i,
+      cConnect: "Conecta a SQLite, MySQL, PostgreSQL, Informix, MongoDB o SQL Server",
+      cExplore: "Explora tablas, vistas, rutinas, triggers y eventos",
+      cActions: "Cada objeto lleva sus acciones encima",
+      cStructure: "Columnas, tipos y el DDL de la tabla",
+      cQuery: "Escribe SQL con autocompletado por esquema",
+      cResults: "Resultados tipados, editables y paginados",
+      cEr: "Diagrama ER con las llaves foráneas reales",
+      cBuilder: "Y un constructor visual, para armar la consulta sin escribirla",
+    };
 
 /** Where the raw recording lands; build-video.mjs encodes from it. */
 export const RAW = join(SITE_VIDEO, ".raw.webm");
@@ -40,7 +99,7 @@ test("record the demo video", async ({ page }) => {
 
   try {
     await installBridge(page, rpc);
-    await seedBrowserState(page, { locale: "es", connections: [] });
+    await seedBrowserState(page, { locale: EN ? "en" : "es", connections: [] });
     // Theme and connection are seeded as init scripts so the recording opens
     // straight into the app. Setting them afterwards would cost a second
     // navigation, and the reload is visible in a video in a way it is not in a
@@ -101,23 +160,23 @@ test("record the demo video", async ({ page }) => {
     // --- 1. Connect ---------------------------------------------------------
     await page.goto("/");
     await startBlank(page);
-    await expect(page.getByText("Sin conexión")).toBeVisible();
-    await caption("Conecta a SQLite, MySQL, PostgreSQL, Informix o MongoDB");
+    await expect(page.getByText(T.notConnected)).toBeVisible();
+    await caption(T.cConnect);
     await beat(1600);
 
-    await page.getByRole("button", { name: "Conectar a una base…" }).click();
-    await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
+    await page.getByRole("button", { name: T.connect }).click();
+    await page.getByRole("button", { name: T.newConnection }).waitFor();
     await beat(700);
     await page.getByRole("button", { name: /Ventas \(demo\)/ }).click();
-    await page.getByRole("button", { name: /^Desconectar Ventas/ }).first().waitFor();
+    await page.getByRole("button", { name: T.disconnect }).first().waitFor();
     await beat(900);
 
     // --- 2. Explore --------------------------------------------------------
-    await caption("Explora tablas, vistas, rutinas, triggers y eventos");
+    await caption(T.cExplore);
     await row("ventas").click();
-    await row("Tablas").waitFor();
+    await row(T.tables).waitFor();
     await beat(500);
-    await row("Tablas").click();
+    await row(T.tables).click();
     await row("clientes").waitFor();
     await beat(600);
     // Scroll the demo database to the top: MySQL always lists information_schema,
@@ -131,13 +190,13 @@ test("record the demo video", async ({ page }) => {
     // double-click — which opens the same tab, but a dblclick also fires the two
     // single clicks under it, so the demo ended up with four tabs of the same table
     // stacked in the strip.
-    await caption("Cada objeto lleva sus acciones encima");
+    await caption(T.cActions);
     await row("clientes").click({ button: "right" });
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
     await beat(1100);
-    await caption("Columnas, tipos y el DDL de la tabla");
-    await menu.getByRole("menuitem", { name: "Ver estructura" }).click();
+    await caption(T.cStructure);
+    await menu.getByRole("menuitem", { name: T.viewStructure }).click();
     // Columns first, then the DDL: #408 moved it behind its own tab inside the
     // panel, so the shot that used to show both now needs the click.
     await expect(page.getByRole("tab", { name: "DDL" })).toBeVisible({ timeout: 20_000 });
@@ -147,9 +206,9 @@ test("record the demo video", async ({ page }) => {
     await beat(1800);
 
     // --- 3. Query ----------------------------------------------------------
-    await caption("Escribe SQL con autocompletado por esquema");
-    await page.getByRole("button", { name: "Nueva consulta", exact: true }).click();
-    const editor = page.getByRole("textbox", { name: "Editor SQL", exact: true });
+    await caption(T.cQuery);
+    await page.getByRole("button", { name: T.newQuery, exact: true }).click();
+    const editor = page.getByRole("textbox", { name: T.editor, exact: true });
     await editor.click();
     await page.keyboard.press("ControlOrMeta+a");
     // Typed rather than pasted, because the typing is the point of this beat.
@@ -160,8 +219,8 @@ test("record the demo video", async ({ page }) => {
     await beat(900);
     await page.keyboard.press("Escape");
 
-    await caption("Resultados tipados, editables y paginados");
-    await page.getByRole("button", { name: "Ejecutar", exact: true }).click();
+    await caption(T.cResults);
+    await page.getByRole("button", { name: T.run, exact: true }).click();
     await expect(page.getByText("Miguel Ángel").first()).toBeVisible();
     await beat(1200);
 
@@ -170,15 +229,15 @@ test("record the demo video", async ({ page }) => {
     await caption("");
     await beat(300);
     await page.screenshot({ path: join(SITE_VIDEO, "quaero-demo-poster.png") });
-    await caption("Resultados tipados, editables y paginados");
+    await caption(T.cResults);
     await beat(700);
 
     // --- 4. Tools ----------------------------------------------------------
-    const ribbon = page.getByRole("toolbar", { name: "Acciones" });
+    const ribbon = page.getByRole("toolbar", { name: T.actions });
 
-    await caption("Diagrama ER con las llaves foráneas reales");
-    await ribbon.getByRole("button", { name: "Diagrama ER", exact: true }).click();
-    await expect(page.getByText(/relaci[óo]n\(es\)/i).first()).toBeVisible({
+    await caption(T.cEr);
+    await ribbon.getByRole("button", { name: T.er, exact: true }).click();
+    await expect(page.getByText(T.erReady).first()).toBeVisible({
       timeout: 30_000,
     });
     await beat(2400);
@@ -188,11 +247,11 @@ test("record the demo video", async ({ page }) => {
     // click until now.
     await page.keyboard.press("Escape");
 
-    await caption("Y un constructor visual, para armar la consulta sin escribirla");
+    await caption(T.cBuilder);
     await ribbon
-      .getByRole("button", { name: "Constructor de consultas", exact: true })
+      .getByRole("button", { name: T.builder, exact: true })
       .click();
-    await expect(page.getByText(/columnas/i).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(T.builderReady).first()).toBeVisible({ timeout: 30_000 });
     await beat(2400);
 
     // Fade the caption before the loop restarts, so the last frame and the first
