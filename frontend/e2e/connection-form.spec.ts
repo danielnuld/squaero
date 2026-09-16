@@ -35,7 +35,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     const name = `Formulario ${engine.name}`;
 
     await app.open();
-    await page.getByRole("button", { name: "Elegir conexión" }).click();
+    await page.getByRole("button", { name: "Conectar a una base…" }).click();
     await page.getByRole("button", { name: /Nueva conexión/ }).click();
 
     const form = page.getByRole("region", { name: /conexión/ });
@@ -57,12 +57,15 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     // It is listed, and it survives a reload — which is what "saved" has to mean.
     await expect(page.getByRole("button", { name: new RegExp(name) })).toBeVisible();
     await page.reload();
-    await page.getByRole("button", { name: "Elegir conexión" }).click();
+    await page.getByRole("button", { name: "Conectar a una base…" }).click();
     await expect(page.getByRole("button", { name: new RegExp(name) })).toBeVisible();
 
     // And it actually works: open it and see the engine answer.
     await page.getByRole("button", { name: new RegExp(name) }).click();
-    await expect(page.getByRole("button", { name: "Desconectar", exact: true })).toBeVisible();
+    // Open: it has its own row in the bar, with its own named disconnect (#525).
+    await expect(
+      page.getByRole("button", { name: `Desconectar ${name}` }).first(),
+    ).toBeVisible();
     expect(connect).toBeInstanceOf(Function); // the seeded path stays available
   });
 });
