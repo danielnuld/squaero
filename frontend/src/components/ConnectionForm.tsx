@@ -59,12 +59,16 @@ const STATUS_LABEL: Record<SectionStatus, string> = {
   pending: "cform.status.pending",
 };
 
+/** What goes inside the index's ring. Empty means an outline, nothing more. */
 const STATUS_MARK: Record<SectionStatus, string> = {
   ok: "✓",
   error: "!",
-  off: "—",
-  pending: "·",
+  off: "",
+  pending: "",
 };
+
+/** Fields that never need half a row: a port is four digits. */
+const NARROW_FIELDS = new Set(["port", "ssh_port", "ssh_target_port"]);
 
 /**
  * Tunnel fields that only matter when the database is NOT on the machine you
@@ -281,15 +285,20 @@ export function ConnectionForm(props: {
     }
   };
 
-  const field = (f: DriverField) => (
-    <label class="cf-field">
+  const field = (f: DriverField) => {
+    // Whether a button is overlaid on the input, so it gets room for it.
+    const hasInlineBtn =
+      (f.type === "file" && canPickFile()) ||
+      (f.fetch === "databases" && !!props.onListDatabases);
+    return (
+    <label class="cf-field" classList={{ "is-narrow": NARROW_FIELDS.has(f.key) }}>
       <span class="cf-label">
         {t(f.label)}
         <Show when={!f.required}>
           <span class="cf-optional">{t("cform.optional")}</span>
         </Show>
       </span>
-      <div class="cf-input-row">
+      <div class="cf-input-row" classList={{ "has-btn": hasInlineBtn }}>
         <Show
           when={f.type === "select"}
           fallback={
@@ -361,7 +370,8 @@ export function ConnectionForm(props: {
         <span class="field-error">{t(errors().params[f.key])}</span>
       </Show>
     </label>
-  );
+    );
+  };
 
   /** A choice laid out as one strip, so every option is readable at once. */
   const segmented = (f: DriverField) => (
@@ -421,11 +431,16 @@ export function ConnectionForm(props: {
     return (
       <>
         <label class="cf-switch">
+          {/* The real checkbox stays — hidden, but still a checkbox to the
+              keyboard and to a screen reader; the track and knob are drawn. */}
           <input
             type="checkbox"
             checked={sshOn()}
             onChange={(e) => setSshOn(e.currentTarget.checked)}
           />
+          <span class="cf-switch-track" aria-hidden="true">
+            <span class="cf-switch-knob" />
+          </span>
           <span>{t("cform.sshOn")}</span>
         </label>
         <Show when={sshOn()}>

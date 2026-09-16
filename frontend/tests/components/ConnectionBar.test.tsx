@@ -200,6 +200,18 @@ describe("ConnectionBar search", () => {
     expect(host!.querySelector(".connbar-drop")).toBeNull();
   });
 
+  // Reported after v0.27.0: it was drawn as a panel wedged into the sidebar,
+  // stretched to its 280px. The prototype's is a 360px balloon, which the
+  // sidebar would clip (overflow:hidden, for the virtualized tree), so it hangs
+  // off the viewport and has to be told where the bar is.
+  it("hangs as a balloon positioned against the viewport, not inside the sidebar", () => {
+    mount({ open: [row({ defId: "a", name: "Prod" })] });
+    button("Conectar a una base…").click();
+    const drop = host!.querySelector<HTMLElement>(".connbar-drop")!;
+    expect(drop.style.top).not.toBe("");
+    expect(drop.style.left).not.toBe("");
+  });
+
   it("says which of the saved ones are already open", () => {
     mount({ open: [row({ defId: "a", name: "Prod" })] });
     button("Conectar a una base…").click();

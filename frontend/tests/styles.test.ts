@@ -132,6 +132,26 @@ describe("styles.css colour", () => {
   });
 });
 
+// Reported after v0.27.0 shipped: the connection form's footer buttons rendered
+// with the OS chrome. The app's button look is reachable through three
+// selectors, and a footer pinned outside .modal-actions matched none of them —
+// the same trap that once left the filter panel's Apply unstyled.
+describe("every button surface reaches the app's button look", () => {
+  const BUTTON_RULE = /\.modal-actions button,[\s\S]*?\{/;
+
+  it("styles the buttons of the connection form's footer", () => {
+    const rule = CSS.match(BUTTON_RULE)?.[0] ?? "";
+    expect(rule).toContain(".cf-foot button");
+  });
+
+  it("draws the connection search as a floating balloon, not a sidebar panel", () => {
+    // The sidebar clips (overflow:hidden), so an absolutely-positioned popover
+    // wider than it would be cut off.
+    const rule = CSS.slice(CSS.indexOf(".connbar-drop {"));
+    expect(rule.slice(0, rule.indexOf("}"))).toMatch(/position: fixed/);
+  });
+});
+
 describe("styles.css keyboard focus", () => {
   it("suppresses the focus outline in exactly one place", () => {
     // Twelve scattered `outline: none` rules removed the keyboard focus ring;
