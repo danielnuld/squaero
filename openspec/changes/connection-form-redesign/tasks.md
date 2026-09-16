@@ -65,20 +65,25 @@ lienzo https://claude.ai/artifact/6FeFimonbnaQPURCWxgZR2.
 
 ## 3. Seguridad, túnel, vista previa y prueba (fase C)
 
-- [ ] 3.1 Control segmentado de seguridad con frase explicativa y campos de
-      certificado condicionales
-- [ ] 3.2 Interruptor SSH: estado inicial desde `ssh_host`, avanzados plegados,
+- [x] 3.1 Control segmentado de seguridad con frase explicativa y campos de
+      certificado condicionales — y **ninguno** en SQL Server ni Informix, donde
+      el driver no puede leer un fichero de CA
+- [x] 3.2 Interruptor SSH: estado inicial desde `ssh_host`, avanzados plegados,
       método de autenticación segmentado, limpieza de `ssh_*` al guardar
-      apagado
-- [ ] 3.3 Columna derecha fija: vista previa (color, monograma, nombre, destino)
-- [ ] 3.4 Tarjeta de prueba con sus cinco estados y el tiempo medido con
+      apagado. Apagarlo **conserva lo escrito** mientras se edita (volver a
+      encenderlo no obliga a reteclear el bastión); quien descarta es
+      `snapshot()`
+- [x] 3.3 Columna derecha fija: vista previa (color, monograma, nombre, destino)
+- [x] 3.4 Tarjeta de prueba con sus estados y el tiempo medido con
       `performance.now()`; la guía de Informix sin cliente se conserva
-- [ ] 3.5 `App.tsx`: `onSaveAndConnect` guarda, abre y enfoca, sin reabrir el
-      menú desplegable
-- [ ] 3.6 Selector de emoji movido a «Nombre y apariencia»
-- [ ] 3.7 Pruebas: apagar el túnel descarta `ssh_*`, editar con túnel lo
-      enciende, certificados solo en verificar, estados de la prueba,
-      `ConnectionFormClientMissing` sigue en verde, guardar y conectar
+- [x] 3.5 `App.tsx`: `onSaveAndConnect` guarda y abre **sin pasar por la lista**
+      — la conexión abriéndose ES la confirmación de que se guardó, y aterrizar
+      en el gestor pondría una lista entre el usuario y su base
+- [x] 3.6 Selector de emoji en «Apariencia» — ya quedó ahí en la fase B
+- [x] 3.7 Pruebas (14 nuevas): apagar el túnel descarta `ssh_*` y conservar lo
+      escrito al reencenderlo, editar con túnel lo enciende, certificados solo
+      en verificar y nunca en SQL Server, la frase cambia con el modo, estados
+      de la prueba con el tiempo, vista previa, guardar y conectar
 
 ## 4. Estilos
 

@@ -2,6 +2,7 @@ import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-j
 import { createStore } from "solid-js/store";
 import {
   driverSchema,
+  connectionTarget,
   defaultConnectionName,
   fieldErrors,
   isValid,
@@ -17,7 +18,9 @@ import {
 import {
   fieldRows,
   formSections,
+  needsCertificates,
   sectionStatus,
+  securityHint,
   type SectionId,
   type SectionStatus,
 } from "../utils/connectionFormSections";
@@ -30,7 +33,8 @@ import { t } from "../utils/i18n";
 type TestState =
   | { kind: "idle" }
   | { kind: "testing" }
-  | { kind: "ok"; msg: string }
+  /** `ms`: measured here, because the core reports neither latency nor version. */
+  | { kind: "ok"; ms: number }
   /* `clientMissing`: the Informix driver found no IBM client (issue #506), so the
      message is install guidance with a link rather than the raw diagnostic. */
   | { kind: "error"; msg: string; clientMissing?: boolean };
@@ -62,6 +66,18 @@ const STATUS_MARK: Record<SectionStatus, string> = {
   pending: "·",
 };
 
+/**
+ * Tunnel fields that only matter when the database is NOT on the machine you
+ * SSH into, or when the host-key policy needs changing. Folded away by default:
+ * they are four of the eleven fields and nobody fills them on a first connection.
+ */
+const SSH_ADVANCED = new Set([
+  "ssh_target_host",
+  "ssh_target_port",
+  "ssh_host_key_policy",
+  "ssh_known_hosts",
+]);
+
 // Data-driven connection form: fields come from the selected driver's schema,
 // so a new engine needs no UI changes. "Probar" opens and immediately closes a
 // real connection through the core; secrets are kept only in memory.
@@ -70,8 +86,9 @@ const STATUS_MARK: Record<SectionStatus, string> = {
 // TABS built from DriverField.group, which is what hid the SSH tunnel: nothing
 // said it existed, and it turns itself on by typing into a field of a tab nobody
 // opened — the model has no flag for the tunnel, the core opens it when
-// `ssh_host` has a value. Sections put everything on one surface, and the side
-// index says at a glance which ones still want something.
+// `ssh_host` has a value. Sections put everything on one surface, the side index
+// says which ones still want something, and the right-hand column keeps the
+// preview and the connection test in sight while you scroll.
 export function ConnectionForm(props: {
   initial: Connection;
   onSave: (c: Connection) => void;
@@ -100,12 +117,15 @@ export function ConnectionForm(props: {
   const [dbLoading, setDbLoading] = createSignal(false);
   const [dbError, setDbError] = createSignal<string | null>(null);
 
-  const schema = () => driverSchema(draft.driver);
-  const errors = createMemo(() => fieldErrors(draft));
+  // The tunnel's switch is view state, not model state: the saved connection has
+  // no flag for it (the core opens the tunnel when `ssh_host` has a value), so
+  // an editing session starts with the switch wherever the data left it.
+  // Turning it OFF keeps what was typed, so turning it back on does not mean
+  // retyping a bastion; `snapshot()` is what actually drops the ssh_* keys.
+  const [sshOn, setSshOn] = createSignal((props.initial.params.ssh_host ?? "").trim() !== "");
 
-  // The tunnel's own state is, for now, exactly what the model says: it is on
-  // when there is a host to tunnel to. The explicit switch arrives with phase C.
-  const sshOn = () => (draft.params.ssh_host ?? "").trim() !== "";
+  const schema = () => driverSchema(draft.driver);
+  const errors = createMemo(() => fieldErrors(draft, { sshRequired: sshOn() }));
 
   const panes = createMemo<{ id: PaneId; fields: DriverField[] }[]>(() => {
     const s = schema();
@@ -165,11 +185,23 @@ export function ConnectionForm(props: {
   const selectDriver = (driver: string) => {
     setDraft({ driver, params: {} });
     setTest({ kind: "idle" });
+    setSshOn(false);
     setDbList(null);
     setDbError(null);
   };
 
-  const snapshot = (): Connection => ({ ...draft, params: { ...draft.params } });
+  const snapshot = (): Connection => {
+    const params = { ...draft.params };
+    // Saved with the switch off, the tunnel keys go: leaving an ssh_user behind
+    // would be dead data, and leaving an ssh_host behind would silently keep
+    // tunnelling — the very thing the switch exists to make visible.
+    if (!sshOn()) {
+      for (const key of Object.keys(params)) {
+        if (key.startsWith("ssh_")) delete params[key];
+      }
+    }
+    return { ...draft, params };
+  };
 
   /** What the connection will be called: what was typed, or the deduced name. */
   const deducedName = () => defaultConnectionName(draft);
@@ -215,34 +247,31 @@ export function ConnectionForm(props: {
     }
   };
 
-  const save = () => {
+  /** Shared by save, save-and-connect and test: check, or go to what is wrong. */
+  const ready = (): boolean => {
     setTried(true);
-    if (!isValid(errors())) {
-      goToFirstError();
-      return;
-    }
-    props.onSave(named(snapshot()));
+    if (isValid(errors())) return true;
+    goToFirstError();
+    return false;
+  };
+
+  const save = () => {
+    if (ready()) props.onSave(named(snapshot()));
   };
 
   const saveAndConnect = () => {
-    setTried(true);
-    if (!isValid(errors())) {
-      goToFirstError();
-      return;
-    }
-    props.onSaveAndConnect?.(named(snapshot()));
+    if (ready()) props.onSaveAndConnect?.(named(snapshot()));
   };
 
   const runTest = async () => {
-    setTried(true);
-    if (!isValid(errors())) {
-      goToFirstError();
-      return;
-    }
+    if (!ready()) return;
     setTest({ kind: "testing" });
+    // Measured here because the core reports no latency of its own; showing a
+    // number nobody measured would be worse than showing none.
+    const started = performance.now();
     try {
       await props.onTest(snapshot());
-      setTest({ kind: "ok", msg: t("cform.testOk") });
+      setTest({ kind: "ok", ms: Math.round(performance.now() - started) });
     } catch (err) {
       setTest(
         isInformixClientMissing(err)
@@ -334,6 +363,101 @@ export function ConnectionForm(props: {
     </label>
   );
 
+  /** A choice laid out as one strip, so every option is readable at once. */
+  const segmented = (f: DriverField) => (
+    <div class="cf-seg" role="radiogroup" aria-label={t(f.label)}>
+      <For each={f.options ?? []}>
+        {(opt) => {
+          const on = () => (draft.params[f.key] ?? "") === opt.value;
+          return (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={on()}
+              class="cf-seg-btn"
+              classList={{ "is-on": on() }}
+              onClick={() => setDraft("params", f.key, opt.value)}
+            >
+              {t(opt.label)}
+            </button>
+          );
+        }}
+      </For>
+    </div>
+  );
+
+  /**
+   * Security, explained. The dropdown said "verify_ca" and left the user to
+   * work out what that protects; each choice now carries a sentence, and the
+   * certificate boxes only appear for the modes that actually read them.
+   */
+  const securityPane = (fields: DriverField[]) => {
+    const main = fields.find((f) => f.options);
+    const certs = fields.filter((f) => f.type === "file");
+    const value = () => (main ? draft.params[main.key] ?? "" : "");
+    return (
+      <>
+        <Show when={main}>
+          {(f) => (
+            <div class="cf-field">
+              <span class="cf-label">{t(f().label)}</span>
+              {segmented(f())}
+              <p class="cf-hint">{t(securityHint(f().key, value()))}</p>
+            </div>
+          )}
+        </Show>
+        <Show when={certs.length > 0 && needsCertificates(value())}>
+          <For each={certs}>{field}</For>
+        </Show>
+      </>
+    );
+  };
+
+  /** The tunnel, with a switch — the thing the tabs never gave it. */
+  const sshPane = (fields: DriverField[]) => {
+    const auth = fields.find((f) => f.key === "ssh_auth");
+    const basic = fields.filter((f) => f.key !== "ssh_auth" && !SSH_ADVANCED.has(f.key));
+    const advanced = fields.filter((f) => SSH_ADVANCED.has(f.key));
+    return (
+      <>
+        <label class="cf-switch">
+          <input
+            type="checkbox"
+            checked={sshOn()}
+            onChange={(e) => setSshOn(e.currentTarget.checked)}
+          />
+          <span>{t("cform.sshOn")}</span>
+        </label>
+        <Show when={sshOn()}>
+          <For each={fieldRows(basic)}>
+            {(row) => (
+              <div class="cf-row" classList={{ "is-pair": row.length > 1 }}>
+                <For each={row}>{field}</For>
+              </div>
+            )}
+          </For>
+          <Show when={auth}>
+            {(f) => (
+              <div class="cf-field">
+                <span class="cf-label">{t(f().label)}</span>
+                {segmented(f())}
+              </div>
+            )}
+          </Show>
+          {/* Folded: four of the eleven fields, and nobody fills them on a first
+              connection — they are for a database that is not on the machine you
+              SSH into. */}
+          <Show when={advanced.length > 0}>
+            <details class="cf-advanced">
+              <summary>{t("cform.sshAdvanced")}</summary>
+              <For each={advanced}>{field}</For>
+            </details>
+          </Show>
+        </Show>
+      </>
+    );
+  };
+
   return (
     <Panel
       title={props.initial.name ? t("cform.edit") : t("cform.new")}
@@ -355,7 +479,9 @@ export function ConnectionForm(props: {
                       data-status={status()}
                       /* Spelled out rather than left to the glyph: "✓" read aloud
                          is nothing, and the mark is the only thing that says
-                         whether a section still wants something. */
+                         whether a section still wants something. The names never
+                         repeat a field's own label, or asking for the field by
+                         name lands here instead. */
                       aria-label={`${t(SECTION_LABEL[pane.id])}: ${t(STATUS_LABEL[status()])}`}
                       onClick={() => jumpTo(pane.id)}
                     >
@@ -413,13 +539,27 @@ export function ConnectionForm(props: {
             {(pane) => (
               <section class="cf-section" ref={registerPane(pane.id)}>
                 <h3 class="cf-section-title">{t(SECTION_LABEL[pane.id])}</h3>
-                <For each={fieldRows(pane.fields)}>
-                  {(row) => (
-                    <div class="cf-row" classList={{ "is-pair": row.length > 1 }}>
-                      <For each={row}>{field}</For>
-                    </div>
-                  )}
-                </For>
+                <Show
+                  when={pane.id === "security"}
+                  fallback={
+                    <Show
+                      when={pane.id === "ssh"}
+                      fallback={
+                        <For each={fieldRows(pane.fields)}>
+                          {(row) => (
+                            <div class="cf-row" classList={{ "is-pair": row.length > 1 }}>
+                              <For each={row}>{field}</For>
+                            </div>
+                          )}
+                        </For>
+                      }
+                    >
+                      {sshPane(pane.fields)}
+                    </Show>
+                  }
+                >
+                  {securityPane(pane.fields)}
+                </Show>
               </section>
             )}
           </For>
@@ -529,25 +669,62 @@ export function ConnectionForm(props: {
               </div>
             </div>
           </section>
-
-          <Show when={test().kind === "ok"}>
-            <p class="test-ok">{(test() as { msg: string }).msg}</p>
-          </Show>
-          <Show when={test().kind === "error"}>
-            <p class="test-error">{(test() as { msg: string }).msg}</p>
-            <Show when={(test() as { clientMissing?: boolean }).clientMissing}>
-              {/* A button, not an <a>: the webview would navigate itself away;
-                  openExternal hands the URL to the default browser. */}
-              <button class="edit-btn" onClick={() => openExternal(INFORMIX_CSDK_URL)}>
-                {t("ifx.clientMissingLink")}
-              </button>
-            </Show>
-          </Show>
-
-          <Show when={tried() && !isValid(errors())}>
-            <p class="test-error">{t("cform.saveBlocked", { detail: "" })}</p>
-          </Show>
         </div>
+
+        {/* Sticky, so what you are building and whether it answers stay in sight
+            while the form scrolls. */}
+        <aside class="cf-side">
+          <div class="cf-card">
+            <h4 class="cf-card-title">{t("cform.preview")}</h4>
+            <div class="cf-preview">
+              <span
+                class="cf-preview-accent"
+                style={draft.color ? { background: draft.color } : undefined}
+                aria-hidden="true"
+              />
+              <span class="cf-engine-mono" aria-hidden="true">
+                {engineMonogram(draft.driver)}
+              </span>
+              <span class="cf-preview-text">
+                <span class="cf-preview-name">
+                  {draft.name.trim() || deducedName() || t("cform.unnamed")}
+                </span>
+                <span class="cf-preview-sub">
+                  {DRIVER_SCHEMAS[draft.driver]?.label ?? draft.driver}
+                  {connectionTarget(draft) ? ` · ${connectionTarget(draft)}` : ""}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div class="cf-card cf-test" data-state={test().kind}>
+            <h4 class="cf-card-title">{t("cform.testTitle")}</h4>
+            <Show when={test().kind === "idle"}>
+              <p class="cf-test-line">{t("cform.testIdle")}</p>
+            </Show>
+            <Show when={test().kind === "testing"}>
+              <p class="cf-test-line">{t("cform.testing")}</p>
+            </Show>
+            <Show when={test().kind === "ok"}>
+              <p class="cf-test-line test-ok">
+                {t("cform.testOkMs", { ms: (test() as { ms: number }).ms })}
+              </p>
+            </Show>
+            <Show when={test().kind === "error"}>
+              <p class="cf-test-line test-error">{(test() as { msg: string }).msg}</p>
+              <Show when={(test() as { clientMissing?: boolean }).clientMissing}>
+                {/* A button, not an <a>: the webview would navigate itself away;
+                    openExternal hands the URL to the default browser. */}
+                <button class="edit-btn" onClick={() => openExternal(INFORMIX_CSDK_URL)}>
+                  {t("ifx.clientMissingLink")}
+                </button>
+              </Show>
+            </Show>
+            <Show when={tried() && !isValid(errors())}>
+              <p class="cf-test-line test-error">{t("cform.saveBlocked", { detail: "" })}</p>
+            </Show>
+          </div>
+        </aside>
       </div>
 
       {/* Outside the scrolling area: saving and testing are what the page is
