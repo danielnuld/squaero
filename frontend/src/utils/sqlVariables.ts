@@ -204,6 +204,9 @@ function scan(
             break;
           }
           if (sql[i - 1] === ":") break;
+          // Glued to a name, the colon qualifies it — Informix `db:tabla`,
+          // `db@srv:owner.tabla`, a slice `a[lo:hi]` — not a variable.
+          if (i > 0 && NAME_CHAR.test(sql[i - 1])) break;
           const name = readName(sql, i + 1);
           if (name !== null) {
             onVar(name, "value", i, i + 1 + name.length);
