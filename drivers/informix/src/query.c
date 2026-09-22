@@ -15,10 +15,11 @@
  * DRDA has no autocommit: a unit of work starts by itself and lasts until a
  * commit. The ODBC driver ran in autocommit, and the app relies on that, so
  * outside an explicit transaction (begin, or BEGIN WORK typed in the editor)
- * every statement is committed as soon as it has run. A commit leaves open
- * cursors open (libdrda's are held). In a database without a log the server
- * commits on its own and refuses the request with -256; the first refusal marks
- * the connection so no more are sent.
+ * every statement is committed as soon as it has run, a query as soon as its
+ * cursor is open. A commit leaves open cursors open (libdrda's are held). In
+ * a database without a log the server commits on its own and refuses the
+ * request with -256; the first refusal marks the connection so no more are
+ * sent.
  */
 
 #define IFX_NO_TRANSACTION (-256)
@@ -143,7 +144,15 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
             return st;
         }
     } else {
+        /* A query too: an open unit of work would keep its table locked
+           against other sessions (a CREATE INDEX elsewhere failed with -242
+           while the grid paged). The cursor survives the commit: it is held. */
         r->r = dr;
+        st = autocommit(c);
+        if (st != DBC_OK) {
+            ifx_free_result(r);
+            return st;
+        }
     }
     *out = r;
     return DBC_OK;
