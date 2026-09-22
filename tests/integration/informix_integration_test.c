@@ -16,7 +16,7 @@
  * writable: the test creates and drops table quaero_ifx_it.
  * INFORMIX_PLUGIN_PATH is injected by CMake as the built plugin's full path.
  */
-#define _POSIX_C_SOURCE 199309L
+#define _POSIX_C_SOURCE 200809L
 
 #include "dbcore/ipc.h"
 #include "dbcore/loader.h"
