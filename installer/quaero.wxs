@@ -3,8 +3,9 @@
   Windows installer definition for Squaero (issue #40, WiX v4+ schema).
   Built with the WiX CLI + the UI extension; see installer/build-msi.sh.
   Files are staged in build-x86/app/ (the app plus its runtime DLLs and
-  drivers). The release is x86 (32-bit): the IBM Informix ODBC driver is
-  32-bit only, and Squaero loads drivers in-process, so the whole app is x86.
+  drivers). The release is x86 (32-bit). That was forced by the IBM Informix
+  ODBC driver until issue #557 replaced it with DRDA; moving to x64 is its own
+  change (dependencies, install folder, upgrading x86 installs).
   Version is passed on the command line: -d Version=<x.y.z>.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
@@ -38,9 +39,6 @@
     <StandardDirectory Id="ProgramFilesFolder">
       <Directory Id="INSTALLFOLDER" Name="Squaero">
         <Directory Id="DriversDir" Name="drivers" />
-<?ifdef CsdkStage ?>
-        <Directory Id="CsdkDir" Name="csdk" />
-<?endif?>
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
@@ -83,38 +81,11 @@
                      Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
-<?ifdef CsdkStage ?>
-    <!-- The 32-bit IBM Informix Client SDK, ONLY in an MSI built with the
-         with-csdk option of installer/build-msi.sh (issue #506). The published
-         MSI does not define CsdkStage, so this whole block is preprocessed away:
-         the SDK is proprietary, and users who need Informix install it from IBM.
-         Upgrading from a release that bundled it removes that copy with the old
-         product; the app then points to IBM's download when Informix connects.
-
-         Squaero's Informix driver loads iclit09b.dll straight out of this tree
-         (see drivers/informix/src/odbc.h), so nothing here is registered with
-         the ODBC Driver Manager: no administrator, no ODBCINST keys, and no way
-         to disturb another Informix client already on the machine. That is also
-         why the whole feature installs unconditionally now — earlier versions
-         skipped it when any driver was registered, which left machines with a
-         stale registration failing to connect with IM002.
-
-         The CSDK is relocatable: it finds its locale (gls/) and message (msg/)
-         files through INFORMIXDIR, which the driver sets in-process to this
-         directory before loading. -->
-    <ComponentGroup Id="CsdkFiles" Directory="CsdkDir">
-      <Files Include="$(CsdkStage)\**" />
-    </ComponentGroup>
-
-<?endif?>
 
     <Feature Id="Main" Title="Squaero" Level="1">
       <ComponentGroupRef Id="AppFiles" />
       <ComponentGroupRef Id="DriverFiles" />
       <ComponentRef Id="AppShortcut" />
-<?ifdef CsdkStage ?>
-      <ComponentGroupRef Id="CsdkFiles" />
-<?endif?>
     </Feature>
 
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />

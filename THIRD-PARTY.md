@@ -76,8 +76,8 @@ núcleo GPL.
 |---|---|---|---|
 | `mysql` | MariaDB Connector/C | LGPL-2.1 | Dinámico |
 | `mongodb` | mongo-c-driver (libmongoc/libbson) | Apache-2.0 | Dinámico |
-| `informix` | Administrador ODBC: unixODBC (Linux) / `odbc32` (Windows) | LGPL-2.1 / sistema | Dinámico |
-| `informix` | **IBM Informix CSDK (ODBC Driver)** | **Propietario (IBM)** | **No enlazado ni distribuido** — lo instala el usuario desde IBM; el driver lo carga en runtime |
+| `informix` | [libdrda](https://github.com/danielnuld/libdrda) (cliente DRDA) | Apache-2.0 | Estático |
+| `informix` | OpenSSL (TLS de libdrda) | Apache-2.0 | Estático (Windows x86) / dinámico (Linux) |
 
 ### Frontend (empaquetado en el bundle)
 
@@ -122,15 +122,10 @@ drivers sea de carga dinámica:
 - Cada **driver** es una biblioteca compartida independiente que el núcleo carga
   en runtime (`dlopen`/`LoadLibrary`). Un driver depende únicamente de la ABI,
   nunca del código del núcleo.
-- El driver de **Informix** enlaza solo el **administrador de controladores ODBC**
-  (unixODBC / `odbc32`), que es de licencia abierta / del sistema. La librería
-  **propietaria de IBM** (Informix CSDK) **no se enlaza**: en Windows el driver
-  carga en tiempo de ejecución el `iclit09b.dll` del cliente que encuentre
-  instalado (`INFORMIXDIR`, `<app>\csdk`, `%LOCALAPPDATA%\Squaero\csdk`, registro),
-  y si no hay ninguno recurre al administrador ODBC. El usuario final instala el
-  CSDK de IBM por su cuenta, bajo su propia licencia con IBM: **el instalador
-  publicado no lo incluye** (issue #506), y la app indica dónde descargarlo cuando
-  una conexión Informix no encuentra el cliente.
+- El driver de **Informix** habla DRDA con **libdrda** (Apache-2.0, compatible
+  con la GPLv3), enlazada estáticamente en el plugin (issue #557). DRDA es un
+  protocolo abierto (especificación de The Open Group): **ningún componente de
+  IBM** se enlaza, se distribuye ni se necesita en el equipo del usuario.
 - Los drivers de clientes propietarios (Informix hoy; Oracle en el futuro, M12)
   se **distribuyen por separado** del paquete GPL y se cargan en runtime — nunca
   se enlazan al núcleo GPL ni se incluyen en el instalador principal.
@@ -155,8 +150,8 @@ máquina del usuario, a través de una frontera de proceso/carga dinámica.
 ## Checklist de auditoría (#44)
 
 - [x] **Inventario de dependencias y licencias** — este documento.
-- [x] **Separación de drivers propietarios confirmada** — carga dinámica; el CSDK
-  de IBM no se enlaza (se resuelve vía ODBC en runtime); drivers propietarios se
+- [x] **Separación de drivers propietarios confirmada** — carga dinámica; Informix
+  ya no usa el CSDK de IBM (DRDA con libdrda, #557); drivers propietarios se
   distribuyen aparte.
 - [x] **NOTICE / THIRD-PARTY** — este archivo; las obligaciones Apache-2.0 se
   recogen al empaquetar cada instalador (issue #40) que incluya esos componentes.

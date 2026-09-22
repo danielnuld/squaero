@@ -72,9 +72,9 @@
           <code>SHA256SUMS.txt</code>.</li>
       </ol>
       <div class="note">
-        <p><b>Windows de 32 bits a propósito.</b> El instalador es x86 porque es lo
-          que exige el CSDK de Informix, y así una sola compilación habla con los
-          seis motores. Corre igual en Windows de 64 bits. macOS está en camino.</p>
+        <p><b>Windows de 32 bits, por ahora.</b> El instalador es x86: lo exigía el
+          cliente de Informix, que ya no se usa. Corre igual en Windows de 64 bits.
+          macOS está en camino.</p>
       </div>
       <p><b>En Linux</b> (x86_64) hay dos opciones:</p>
       <ul>
@@ -83,13 +83,13 @@
           <code>sudo apt install ./squaero_X.Y.Z_amd64.deb</code>. apt trae el
           cliente de cada motor.</li>
         <li>El <b>snap</b>, para cualquier distribución con snapd:
-          <code>sudo snap install squaero</code>. No incluye Informix.</li>
+          <code>sudo snap install squaero</code>.</li>
       </ul>
       <div class="note">
-        <p><b>Informix.</b> El instalador no incluye el cliente de IBM. Para conectar
-          a Informix instala el <b>IBM Informix Client SDK de 32 bits</b>
-          (<a href="https://www.ibm.com/support/pages/where-download-informix-client-sdk" rel="noopener">dónde descargarlo</a>).
-          Si falta, Squaero te lo dice al probar la conexión.</p>
+        <p><b>Informix.</b> No hace falta ningún cliente de IBM: Squaero se conecta
+          por DRDA al listener <code>drsoctcp</code> del servidor, normalmente en el
+          puerto 9089 (no el 9088 de los clientes de IBM). Si tu servidor no lo tiene,
+          pídele al administrador que lo añada.</p>
       </div>
 
       <h3>La ventana, por partes</h3>

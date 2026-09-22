@@ -29,7 +29,7 @@ habla directo con las librerías cliente de cada base de datos.
 | **SQLite** | ✅ Completo (verificado) |
 | **PostgreSQL** | ✅ Vía libpq — SSL/TLS, SCRAM |
 | **MySQL / MariaDB** | ✅ Completo (verificado) — SSL/TLS, túnel SSH |
-| **Informix** | ✅ Vía ODBC (build x86) |
+| **Informix** | ✅ Por DRDA, sin cliente de IBM |
 | **MongoDB** | ✅ Lectura (find/aggregate, sintaxis mongosh) |
 | **SQL Server** | ✅ Vía FreeTDS — consultas, tipos, esquema, transacciones, cifrado, instancias con nombre. Aún no: editar filas en la rejilla, DDL, cancelar una consulta |
 | Oracle | ⏳ Planeado (M12) |
@@ -93,17 +93,19 @@ repositorio: `gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squa
 El MSI aún no lleva firma Authenticode, así que SmartScreen de Windows muestra
 un editor desconocido.
 
-**Informix** necesita el **IBM Informix Client SDK de 32 bits**, que el
-instalador no incluye: instálalo desde IBM
-([dónde descargarlo](https://www.ibm.com/support/pages/where-download-informix-client-sdk)).
-Squaero te avisa si una conexión no encuentra el cliente.
+**Informix** no necesita ningún cliente de IBM: Squaero habla DRDA con el
+servidor mediante [libdrda](https://github.com/danielnuld/libdrda). El servidor
+debe tener un listener DRDA (una entrada `drsoctcp` en su `sqlhosts`, normalmente
+en el puerto 9089; se comprueba con `onstat -g ntt`). Las conexiones guardadas
+de versiones anteriores pasan solas al 9089, y piden revisar el puerto cuando el
+suyo no era el 9088.
 
 **Linux:** desde la v0.29.0 cada release adjunta un `.deb` para Ubuntu 24.04+ y
 Debian 13+ (x86_64), con su línea en el mismo `SHA256SUMS.txt`:
 `sudo apt install ./squaero_X.Y.Z_amd64.deb`. apt instala el cliente de cada
-driver. Informix en Linux necesita el Client SDK de IBM de 64 bits. En cualquier
+driver. En cualquier
 distribución con snapd, instálalo desde la [Snap Store](https://snapcraft.io/squaero):
-`sudo snap install squaero`. Informix no está disponible en el snap.
+`sudo snap install squaero`.
 
 > AppImage/Flatpak y macOS (.app) llegan en próximos releases.
 

@@ -3,9 +3,9 @@ name: Release
 # Tag-triggered release (issue #41). Pushing a version tag (e.g. v0.5.5) builds
 # the x86 Windows app, packages the MSI, generates checksums, and publishes a
 # GitHub release with those artifacts attached; then the Linux .deb joins it
-# (issue #40, job linux-deb), and the snap after it (job linux-snap). The build is x86 because the IBM
-# Informix ODBC driver is 32-bit only and Squaero loads drivers in-process, so the
-# whole app must be x86 (see cmake/toolchain-i686-mingw.cmake, installer/quaero.wxs).
+# (issue #40, job linux-deb), and the snap after it (job linux-snap). The build is x86: the IBM
+# Informix ODBC driver forced that until #557 moved Informix to DRDA, and moving
+# to x64 is a change of its own (see cmake/toolchain-i686-mingw.cmake).
 #
 # Signing: every MSI gets a build-provenance attestation — a Sigstore signature,
 # issued to this workflow through GitHub's OIDC token, over the MSI's digest. It
@@ -129,9 +129,7 @@ jobs:
           dotnet tool install --global wix --version 5.0.2
           "$HOME/.dotnet/tools/wix" extension add -g WixToolset.UI.wixext/5.0.2
 
-      # No IBM Informix Client SDK in the published MSI (issue #506): it is
-      # proprietary, most users never touch Informix, and those who do install it
-      # from IBM — the app says so when a connection finds no client.
+      # Informix needs no IBM client: its driver speaks DRDA (issue #557).
       - name: Build the MSI
         shell: bash
         run: installer/build-msi.sh "${{ steps.tag.outputs.version }}"
@@ -170,8 +168,6 @@ jobs:
   # The Linux .deb (issue #40), after the Windows job so the release exists: a
   # failure here never holds the MSI back. x86_64, built on Ubuntu 24.04, whose
   # WebKitGTK 6.0 and t64 libraries set the floor — Ubuntu 24.04+ / Debian 13+.
-  # The x86-only rule is a Windows one (IBM's 32-bit ODBC driver); on Linux the
-  # Informix Client SDK is 64-bit.
   linux-deb:
     name: linux-deb (amd64)
     needs: windows-msi
@@ -202,7 +198,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y dpkg-dev libgtk-4-dev libwebkitgtk-6.0-dev \
-            libmariadb-dev libpq-dev libmongoc-dev unixodbc-dev libssl-dev
+            libmariadb-dev libpq-dev libmongoc-dev libssl-dev
 
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest

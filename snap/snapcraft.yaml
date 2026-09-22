@@ -56,7 +56,6 @@ parts:
       - libmariadb-dev
       - libpq-dev
       - libmongoc-dev
-      - unixodbc-dev
       - libssl-dev
     # The drivers' client libraries: the GNOME platform does not carry them.
     stage-packages:
@@ -64,7 +63,6 @@ parts:
       - libpq5
       - libmongoc-1.0-0t64
       - libbson-1.0-0t64
-      - libodbc2
       - libsnappy1v5
       - libzstd1
     override-build: |

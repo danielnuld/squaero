@@ -2,7 +2,7 @@
 
 These headers let `cmake/QuaeroLibpq.cmake` compile a static **libpq** from the
 PostgreSQL source for the 32-bit Windows build, where no prebuilt 32-bit libpq is
-available (the app must be x86 for the Informix CSDK). They stand in for the
+available (the Windows release is x86). They stand in for the
 files PostgreSQL's own `configure`/Meson would generate or that this MinGW
 sysroot does not ship. Used **only** when building with `-DQUAERO_LIBPQ=ON`.
 
