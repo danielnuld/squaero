@@ -1,8 +1,7 @@
 # Fetch the PostgreSQL source and build a static libpq from it, then link it into
 # a target — the PostgreSQL driver plugin. Enabled with -DQUAERO_LIBPQ=ON when no
 # usable system libpq is available, notably the x86 Windows release: no 32-bit
-# libpq ships on the build machine, and Informix forces the whole app to x86 (its
-# ODBC driver is 32-bit only). Mirrors cmake/QuaeroMariaDB.cmake.
+# libpq ships on the build machine. Mirrors cmake/QuaeroMariaDB.cmake.
 #
 # PostgreSQL has no CMake build, so we cannot add_subdirectory it. Instead we
 # download the source and compile the libpq subset (src/interfaces/libpq plus the

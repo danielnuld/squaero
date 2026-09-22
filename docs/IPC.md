@@ -187,65 +187,51 @@ cual como parámetros de conexión:
 | `sslrootcert` | Ruta al certificado CA. |
 | `sslcert` / `sslkey` | Certificado y clave del cliente (TLS mutuo). |
 
-*Informix (ODBC).* El driver `informix` se conecta a través del Administrador de
-controladores ODBC, seleccionando en tiempo de ejecución el controlador *IBM
-Informix ODBC Driver*. El `dsn` admite dos formas:
+*Informix (DRDA, #557).* El driver `informix` habla DRDA con
+[libdrda](https://github.com/danielnuld/libdrda), enlazada dentro del plugin:
+**no hace falta ningún cliente de IBM** (ni Client SDK ni ODBC), en ninguna
+plataforma. Se conecta al listener DRDA del servidor, una entrada de protocolo
+`drsoctcp` en su `sqlhosts` (`drsocssl` para TLS), que es **otro puerto** que el
+`onsoctcp` que usan los clientes de IBM: el de `onsoctcp` cierra la conexión con
+el primer mensaje DRDA, y el error lo dice. Se comprueba con `onstat -g ntt`.
 
 | Campo | Descripción |
 |-------|-------------|
-| `host` | Host del servidor Informix (forma directa). |
-| `port` / `service` | Puerto TCP (número) o nombre de servicio. |
-| `server` | Nombre de `INFORMIXSERVER` (requerido en la forma directa). |
-| `protocol` | Protocolo de red (por defecto `onsoctcp`). `onsocssl` cifra con TLS (ver abajo). |
-| `database` | Base de datos inicial. |
-| `user` / `password` | Credenciales. |
-| `driver` | Sobrescribe el nombre del controlador ODBC registrado. |
-| `odbc_dsn` | Forma alternativa: usa una fuente de datos ODBC ya configurada (`DSN=...`); ignora `host`/`server`/`driver`. |
-| `client_locale` | Locale del cliente. Por defecto `en_us.utf8`. |
-| `db_locale` | Locale de la base. Solo se envía si se da. |
+| `host` | Host del servidor. Requerido. |
+| `port` | Puerto del listener DRDA (número o cadena). Por defecto **9089**. |
+| `database` | Base de datos. Por defecto `sysmaster`. |
+| `user` / `password` | Credenciales. `user` es requerido. |
+| `tls` | Vacío (sin cifrar), `require` (cifra sin verificar), `verify-ca` (la CA firma el certificado) o `verify-full` (además el host o la IP coinciden). |
+| `tls_ca` | Archivo PEM de la CA. En Windows OpenSSL no lee el almacén del sistema: para verificar hay que darlo. |
 
-La forma directa requiere `host` + `port`/`service` + `server`; la forma DSN
-requiere `odbc_dsn`. El driver es de 32 bits (el CSDK lo es), por lo que Squaero
-se compila en x86 — ver `cmake/toolchain-i686-mingw.cmake`.
+Las claves del driver ODBC anterior (`server`, `client_locale`, `db_locale`) se
+ignoran; `odbc_dsn` y `protocol=onsocssl` sin `tls` se rechazan con qué poner
+en su lugar, en vez de ignorar en silencio lo que se pidió. `DBC_FEAT_SSL` solo
+se anuncia si libdrda se compiló con OpenSSL.
 
-El equipo necesita el **IBM Informix Client SDK de 32 bits**, instalado desde IBM.
-El driver lo busca en `INFORMIXDIR`, `<app>\csdk`, `%LOCALAPPDATA%\Squaero\csdk` y
-el registro. **El MSI publicado no lo incluye** (issue #506): es software
-propietario y la mayoría de usuarios no usa Informix. Si no encuentra ningún
-cliente, `conn.open` falla con `-32000` y un `message` que empieza por
-`IFX_CLIENT_MISSING`, un marcador estable que la UI convierte en «instala el
-Client SDK» con el enlace a la descarga de IBM. `installer/build-msi.sh
-<versión> --with-csdk` construye, a propósito, un MSI que sí lo trae.
+Lo que DRDA cambia, medido contra Informix 15.0.1 y 11.70.FC7:
 
-**TLS de Informix (issue #144).** `protocol=onsocssl` conecta con un listener
-TLS del servidor (una entrada `onsocssl` en su `sqlhosts`, con `NETTYPE onsocssl`
-y `SSL_KEYSTORE_LABEL` en el `onconfig`). El cliente verifica el certificado del
-servidor con un keystore GSKit que **no viaja en el DSN**: lo nombra el archivo
-`etc\conssl.cfg` del Client SDK (`SSL_KEYSTORE_FILE` y `SSL_KEYSTORE_STH`), que es
-configuración de la máquina. Medido en el build x86 contra Informix 15.0.1:
+- **Code set.** El texto llega en el de la base y libdrda lo pasa a UTF-8: se
+  admiten las bases en 819 (Latin-1) y 1208 (UTF-8). Otra da un error explícito.
+- **Autocommit.** DRDA no lo tiene; fuera de una transacción el driver confirma
+  cada sentencia al ejecutarla, como hacía el ODBC. `BEGIN WORK`, `COMMIT WORK`
+  y `ROLLBACK WORK` escritos en el editor los ejecuta el driver. En una base sin
+  log el servidor confirma solo y responde `-256` al commit; el driver deja de
+  pedirlo en esa conexión.
+- **Cursor de paginación** (#478). Puede quedar abierto mientras corren otras
+  sentencias: cada resultado usa su propia sección del paquete, y un commit no
+  cierra los cursores (son *held*).
+- **Mensajes de error.** Por DRDA llegan el `SQLCODE`, el `SQLSTATE` y los
+  tokens del mensaje, no su texto: `SQLCODE -206, SQLSTATE 42000: tabla`.
+- **Límites.** Nombres de base de hasta 18 caracteres y SQL de hasta 32000 bytes
+  (Informix no acepta un `SQLSTT` segmentado); `BOOLEAN` llega como `SMALLINT`.
 
-- Con el certificado del servidor en el keystore del cliente, conecta y consulta.
-- Con un keystore que no confía en él, falla con *Secure Sockets Layer error:
-  GSK_ERROR_BAD_CERT*. Si falta `conssl.cfg`, falla con *Secure Sockets Layer
-  error: GSK_KEYRING_OPEN_ERROR*.
-- `onsoctcp` contra un listener TLS falla con *Invalid message received during
-  connection attempt*.
-
-**Locales de Informix (issue #323).** Las dos formas del DSN aceptan
-`client_locale` y `db_locale`, y viajan como las palabras clave `CLIENT_LOCALE`
-y `DB_LOCALE` de la cadena de conexión.
-
-- `client_locale` vale **`en_us.utf8` por defecto**, y esa es la pieza que hace
-  legible una base de un solo byte: con ella el CSDK convierte el code set de la
-  base, medido como la única vía fiable. Sin ella, una fila con bytes del rango
-  0x80-0x9F tumba la consulta entera.
-- **La variable de entorno del mismo nombre no sirve**: el controlador ODBC la
-  ignora. Tiene que ir en la cadena de conexión, que es lo que hace el driver.
-  Medido contra Informix 15.0.1; **contra 11.70 está sin verificar**.
-- `db_locale` se envía **solo si se da**. El cliente deduce por sí mismo el code
-  set de la base, y declararlo mal es peor que callar.
-- Mirar los bytes después no sustituye a esto: un «Ã±» en Latin-1 y un «ñ» en
-  UTF-8 son los mismos dos bytes.
+**Conexiones guardadas** (#557). Al cargarlas (y al importar un archivo de
+conexiones) las de Informix del driver ODBC pasan a DRDA: el puerto 9088 (o
+ninguno) pasa a 9089; cualquier otro se conserva y la conexión queda marcada
+con `port_review`, que el formulario muestra como «Revisa el puerto» hasta que
+se guarda. Una conexión `onsocssl` conserva la seguridad como `tls=verify-ca` y
+queda marcada también. Las importadas de DBeaver o Navicat siguen la misma regla.
 
 *SQL Server (FreeTDS, #49).* El driver `mssql` usa la db-lib de FreeTDS, enlazada
 dentro del plugin; no lee `freetds.conf`: todo va en el registro de login.
@@ -369,8 +355,9 @@ falla luego con un error de consulta (`-32003`), que llega como el error normal 
 La cancelación real requiere que el driver anuncie `DBC_FEAT_CANCEL`; un motor sin
 soporte devuelve `canceled: false` en vez de fingir. Hoy lo respaldan **SQLite**
 (`sqlite3_interrupt`), **MySQL/MariaDB** (`KILL QUERY` sobre una conexión lateral),
-**PostgreSQL** (`PQcancel` de libpq desde otro hilo) e **Informix** (`SQLCancel` de
-ODBC desde otro hilo); MongoDB aún no lo anuncia
+**PostgreSQL** (`PQcancel` de libpq desde otro hilo) e **Informix** (DRDA no puede
+interrumpir una consulta en la propia conexión, así que la corta: la conexión queda
+perdida y la app ofrece reconectar, como tras una caída, #407); MongoDB aún no lo anuncia
 (para él la UI no se congela, pero la consulta sigue hasta terminar). A diferencia
 del resto de los métodos, el
 shell nativo despacha `op.cancel` **sin** encolarlo detrás de la consulta que

@@ -5,7 +5,7 @@
 # Ubuntu 24.04 packages (the release job installs the same):
 #   sudo apt-get install build-essential cmake ninja-build pkg-config \
 #     libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev libpq-dev libmongoc-dev \
-#     unixodbc-dev libssl-dev
+#     libssl-dev
 #   pnpm --dir frontend build
 #   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 #     -DQUAERO_SSH=ON -DQUAERO_FREETDS=ON -DWEBVIEW_WEBKITGTK_API=6.0
@@ -19,8 +19,8 @@
 # because the app finds its plugins next to the file it runs from (it resolves
 # /proc/self/exe, so the /usr/bin symlink is followed). The Depends line is
 # whatever dpkg-shlibdeps finds the binaries linking — every driver's client
-# library included, so every engine works right after installing. Informix
-# still needs IBM's Client SDK, which is proprietary and not packaged. The
+# library included, so every engine works right after installing (Informix
+# included: it speaks DRDA through libdrda, linked into its plugin). The
 # emoji font is only recommended: without it a few buttons (Chart) lose their
 # icon, measured on a bare Ubuntu 24.04.
 #
@@ -74,8 +74,7 @@ Priority: optional
 Homepage: https://danielnuld.github.io/squaero/
 Description: Modern, lightweight, multi-engine database client
  SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB and SQL Server from one
- native window. Informix also needs IBM's Informix Client SDK, installed
- separately.
+ native window, with no vendor client to install.
 EOF
 
 mkdir -p dist

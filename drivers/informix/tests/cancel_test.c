@@ -3,13 +3,13 @@
 #include <stdio.h>
 
 /*
- * Query cancellation wiring for the Informix driver (DBC_FEAT_CANCEL). A live
- * interrupt needs a running Informix server, so it is exercised by the app / a
- * manual smoke; here we lock down the contract that a broken build would trip:
- * the capability is advertised, the hook is present, and it degrades cleanly
- * when there is nothing to cancel (NULL conn, or a connection with no statement
- * in flight). No ODBC data source is required — a deliberately bad DSN yields an
- * error-state handle whose cancel lock is nonetheless initialized.
+ * Query cancellation wiring for the Informix driver (DBC_FEAT_CANCEL). Over DRDA
+ * a cancel cuts the connection; that live behavior is covered by
+ * tests/integration/informix_integration_test.c. Here we lock down the contract
+ * a broken build would trip: the capability is advertised, the hook is present,
+ * and it degrades cleanly when there is nothing to cancel (NULL conn, or a
+ * connection that never connected). No server is required: a deliberately bad
+ * DSN yields an error-state handle whose lock is nonetheless initialized.
  */
 
 static int failures = 0;

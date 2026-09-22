@@ -66,17 +66,13 @@ describe("formSections", () => {
     const keys = (driver: string) => section(driver, "security").fields.map((f) => f.key);
     expect(keys("mysql")).toContain("ssl_mode");
     expect(keys("postgres")).toContain("sslmode");
-    expect(keys("informix")).toContain("protocol");
+    expect(keys("informix")).toEqual(["tls", "tls_ca"]);
     expect(keys("mongodb")).toContain("tls");
     expect(keys("mssql")).toContain("encryption");
   });
 
-  it("keeps Informix's instance name with the server, not with the credentials", () => {
-    expect(section("informix", "server").fields.map((f) => f.key)).toEqual([
-      "host",
-      "port",
-      "server",
-    ]);
+  it("gives Informix just host and port as its server: DRDA needs no name (#557)", () => {
+    expect(section("informix", "server").fields.map((f) => f.key)).toEqual(["host", "port"]);
     expect(section("informix", "auth").fields.map((f) => f.key)).toEqual([
       "database",
       "user",
@@ -198,7 +194,6 @@ describe("securityHint", () => {
   it("gives each engine its own line for the default", () => {
     expect(securityHint("ssl_mode", "")).toBe("cform.sec.mysqlDefault");
     expect(securityHint("sslmode", "")).toBe("cform.sec.pgDefault");
-    expect(securityHint("protocol", "")).toBe("cform.sec.ifxDefault");
     expect(securityHint("tls", "")).toBe("cform.sec.tlsOff");
     expect(securityHint("encryption", "")).toBe("cform.sec.encDefault");
   });

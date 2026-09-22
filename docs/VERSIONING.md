@@ -40,7 +40,8 @@ se dispara al empujar un tag `vX.Y.Z` y hace todo en un runner `windows-latest`:
 1. Verifica que el tag coincida con `VERSION` (falla si no).
 2. Instala el MinGW i686 (winlibs), compila el frontend y hace el build **x86**
    completo con la app y todos los drivers (SSH, MariaDB, mongo-c, libpq desde
-   fuente) — el mismo x86 que exige el ODBC de Informix (32-bit).
+   fuente). El x86 lo exigía el ODBC de Informix hasta #557; pasar a x64 es un
+   cambio aparte.
 3. Construye el MSI con WiX (`installer/build-msi.sh`).
 4. Genera `SHA256SUMS.txt`.
 5. Emite una **attestation de procedencia** del MSI (`actions/attest-build-provenance`).

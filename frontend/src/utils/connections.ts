@@ -177,6 +177,52 @@ export const POSTGRES_SSL_FIELDS: DriverField[] = [
   { key: "sslkey", label: "field.clientKey", type: "file", required: false, group: SSL_GROUP },
 ];
 
+/** The port of Informix's DRDA listener (sqlhosts drsoctcp) on most servers. */
+export const INFORMIX_DRDA_PORT = "9089";
+/** The port of the onsoctcp listener the IBM clients use on most servers. */
+export const INFORMIX_SQLI_PORT = "9088";
+/**
+ * Param set on a migrated Informix connection whose port could not be moved to
+ * the DRDA listener for sure (issue #557). The form shows a notice while it is
+ * there and drops it on save; the driver ignores it.
+ */
+export const INFORMIX_PORT_REVIEW = "port_review";
+
+/**
+ * Saved Informix connections from before issue #557 point at the onsoctcp
+ * (SQLI) listener the Client SDK used, and carry keys that meant something to
+ * it (server, protocol, client_locale, db_locale). The driver now speaks DRDA,
+ * which a server serves on another listener. There is no way to know that
+ * port, so: the usual SQLI port (9088, or none) becomes the usual DRDA port
+ * (9089); any other port is kept and flagged for review, never guessed. An
+ * onsocssl (TLS) connection keeps its security as verify-ca and is flagged too:
+ * DRDA over TLS is yet another listener.
+ *
+ * A connection is legacy when it still has one of those keys, so this runs once
+ * per connection and is a no-op afterwards. `force` treats one without them as
+ * legacy too: connections imported from other tools (DBeaver, Navicat) always
+ * name the SQLI listener. Pure.
+ */
+export function migrateInformixConnection(conn: Connection, force = false): Connection {
+  if (conn.driver !== "informix") return conn;
+  const legacyKeys = ["server", "protocol", "client_locale", "db_locale"];
+  const legacy = force || legacyKeys.some((k) => k in conn.params);
+  if (!legacy) return conn;
+  const params = { ...conn.params };
+  const tls = params.protocol === "onsocssl";
+  for (const k of legacyKeys) delete params[k];
+  const port = (params.port ?? "").trim();
+  if (tls) {
+    if (!params.tls) params.tls = "verify-ca";
+    params[INFORMIX_PORT_REVIEW] = "1";
+  } else if (port === "" || port === INFORMIX_SQLI_PORT) {
+    params.port = INFORMIX_DRDA_PORT;
+  } else if (port !== INFORMIX_DRDA_PORT) {
+    params[INFORMIX_PORT_REVIEW] = "1";
+  }
+  return { ...conn, params };
+}
+
 // Driver form schemas. SQLite is the reference engine shipped in M2; the
 // PostgreSQL schema is defined for the data-driven form and lands as a usable
 // option when its driver is built (M4). Network engines carry the optional
@@ -219,34 +265,33 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
       ...MYSQL_SSL_FIELDS,
     ]),
   },
-  // Informix connects via the ODBC Driver Manager. `port` is a TCP port number
-  // OR an /etc/services name, so it is a free-text field; `server` is the
-  // INFORMIXSERVER name. The driver maps these to the ODBC connection string
-  // (see docs/IPC.md). The CSDK is 32-bit, so this engine is usable in the x86
-  // build of the app.
+  // Informix connects over DRDA (issue #557): `port` is the server's DRDA
+  // listener (sqlhosts protocol drsoctcp, usually 9089), not the onsoctcp one
+  // the IBM clients use. No INFORMIXSERVER name is needed. TLS is a drsocssl
+  // listener of its own, verified against the CA file given here.
   informix: {
     driver: "informix",
     label: "IBM Informix",
     fields: withSshTunnel([
       { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "field.portService", type: "text", required: true, placeholder: "1526" },
-      { key: "server", label: "field.informixServer", type: "text", required: true, placeholder: "ol_informix1210" },
+      { key: "port", label: "field.portDrda", type: "number", required: false, placeholder: INFORMIX_DRDA_PORT },
       { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: true, placeholder: "informix" },
       { key: "password", label: "field.password", type: "password", required: false },
-      // TLS is a different protocol on a listener of its own (issue #144). The
-      // client verifies the server certificate with the keystore the Client SDK's
-      // etc/conssl.cfg names — machine configuration, so there is no CA field.
       {
-        key: "protocol",
-        label: "field.protocol",
+        key: "tls",
+        label: "field.tls",
         type: "select",
         required: false,
         options: [
-          { value: "", label: "field.protoTcpDefault" },
-          { value: "onsocssl", label: "field.protoSsl" },
+          { value: "", label: "field.optDisabled" },
+          { value: "require", label: "field.sslRequired" },
+          { value: "verify-ca", label: "field.sslVerifyCa" },
+          { value: "verify-full", label: "field.sslVerifyIdentity" },
         ],
+        group: SSL_GROUP,
       },
+      { key: "tls_ca", label: "field.caCert", type: "file", required: false, group: SSL_GROUP },
     ]),
   },
   // MongoDB connects via the mongo-c-driver. Queries use a mongosh-style surface
@@ -310,7 +355,7 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
 // so the UI never advertises a connection it cannot honor (honest capabilities).
 // sqlite ships everywhere; postgres, mysql, informix, mongodb and mssql ship where
 // their client libraries are present (postgres via libpq, mysql via MariaDB
-// Connector/C, informix via the ODBC driver, mongodb via the mongo-c-driver,
+// Connector/C, informix via libdrda (DRDA, no IBM client), mongodb via the mongo-c-driver,
 // mssql via FreeTDS).
 export const AVAILABLE_DRIVERS: string[] = ["sqlite", "postgres", "mysql", "informix", "mongodb", "mssql"];
 
@@ -430,8 +475,7 @@ export function defaultConnectionName(conn: Connection): string {
   }
 
   const db = val("database");
-  // Informix names its instance in `server`, and that is the useful half there.
-  const host = val("host") || val("server");
+  const host = val("host");
   if (db && host) return `${db} @ ${host}`;
   return db || host || "";
 }
@@ -440,9 +484,8 @@ export function defaultConnectionName(conn: Connection): string {
  * Where a connection points, in one line: what the bar shows under the name and
  * what the search matches on, so the two cannot drift apart (issue #525).
  *
- * Engines differ in what "where" means: SQLite is a file, Informix needs its
- * server name beside the host, SQL Server may name an instance, and the rest are
- * host plus port. The database, when there is one, leads — it is what the user
+ * Engines differ in what "where" means: SQLite is a file, SQL Server may name
+ * an instance, and the rest are host plus port. The database, when there is one, leads — it is what the user
  * is actually looking at. Missing pieces are simply left out rather than
  * rendered as empty punctuation.
  */
@@ -456,8 +499,8 @@ export function connectionTarget(conn: Pick<Connection, "driver" | "params">): s
   const host = val("host");
   const port = val("port");
   let where = port ? [host, port].filter(Boolean).join(":") : host;
-  // Informix identifies the server beside the host; SQL Server the instance.
-  const extra = driver === "informix" ? val("server") : val("instance");
+  // SQL Server may name an instance beside the host.
+  const extra = driver === "mssql" ? val("instance") : "";
   if (extra) where = where ? `${where}/${extra}` : extra;
 
   const db = val("database");
@@ -679,7 +722,8 @@ export function coerceConnection(item: unknown): Connection | null {
   if (typeof c.icon === "string" && c.icon) {
     conn.icon = c.icon;
   }
-  return conn;
+  // Stored and imported connections alike come through here (issue #557).
+  return migrateInformixConnection(conn);
 }
 
 /** Tolerant parse of stored connections; malformed entries are dropped. */

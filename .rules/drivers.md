@@ -17,9 +17,10 @@ the full build playbook.
    UI never see engine-specific type codes.
 4. **ABI discipline.** Verify `abi_version` on entry. A vtable change is an ABI
    change — coordinate via an issue and bump the version.
-5. **Proprietary clients stay separate.** Oracle (OCI), Informix (CSDK) and
-   similar non-redistributable clients are built as standalone plugins loaded at
-   runtime — never linked into the GPL core.
+5. **Proprietary clients stay separate.** Oracle (OCI) and similar
+   non-redistributable clients are built as standalone plugins loaded at
+   runtime — never linked into the GPL core. (Informix no longer needs one: it
+   speaks DRDA through libdrda, Apache-2.0, issue #557.)
 6. **Tests (mandatory):** identifier quoting, SQL builders, type normalization,
    pagination, value serialization. Plus one JSON/stdio-style smoke of a real
    query against the engine where feasible.

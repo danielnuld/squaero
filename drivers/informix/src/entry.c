@@ -4,18 +4,25 @@
  * Informix driver entry point. Thin: it wires the vtable and exports
  * dbc_driver_entry. Behaviour lives in connection.c / query.c / metadata.c.
  *
- * Capabilities: connect + query + result-set (required), introspection
- * (list_databases / list_tables / describe_table), transactions (begin/commit/
- * rollback via ODBC autocommit + SQLEndTran) and single-row data modification
- * (build_dml), DDL reconstruction (get_ddl, synthesized from the catalogs) and
- * query cancellation (cancel, via ODBC SQLCancel on a side thread). Informix
- * databases play the role of the top tree level (owners are not exposed as a
- * separate schema layer), so list_schemas is NULL and DBC_FEAT_SCHEMAS is not
- * advertised. TLS (DBC_FEAT_SSL, issue #144) is the DSN's `protocol=onsocssl`,
- * passed through to the connection string; the Client SDK then verifies the
- * server certificate against the GSKit keystore named in its etc/conssl.cfg,
- * which is machine-wide client configuration, not something a DSN can carry.
+ * The engine is reached over DRDA with libdrda (issue #557), so no IBM Client
+ * SDK is involved. Capabilities: connect + query + result-set (required),
+ * introspection (list_databases / list_tables / describe_table), transactions
+ * (DRDA has no autocommit; the driver commits after each statement outside
+ * begin..commit), single-row data modification (build_dml), DDL
+ * reconstruction (get_ddl, synthesized from the catalogs) and cancellation,
+ * which cuts the connection (DRDA cannot interrupt a query on it; the app then
+ * reconnects as after a dropped link, issue #407). Informix databases play the
+ * role of the top tree level (owners are not exposed as a separate schema
+ * layer), so list_schemas is NULL and DBC_FEAT_SCHEMAS is not advertised. TLS
+ * (DBC_FEAT_SSL) is the DSN's `tls` against a drsocssl listener, and is only
+ * advertised when libdrda was built with OpenSSL (QUAERO_IFX_TLS).
  */
+#if defined(QUAERO_IFX_TLS)
+#  define IFX_FEAT_TLS DBC_FEAT_SSL
+#else
+#  define IFX_FEAT_TLS 0
+#endif
+
 static const dbc_driver_t k_informix_driver = {
     .abi_version   = DBC_ABI_VERSION,
     .name          = "informix",
@@ -51,7 +58,7 @@ static const dbc_driver_t k_informix_driver = {
     .cancel        = ifx_cancel,
 
     .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_DDL | DBC_FEAT_TRANSACTIONS |
-                     DBC_FEAT_DML | DBC_FEAT_CANCEL | DBC_FEAT_SSL,
+                     DBC_FEAT_DML | DBC_FEAT_CANCEL | IFX_FEAT_TLS,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)

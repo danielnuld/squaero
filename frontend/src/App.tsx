@@ -20,7 +20,7 @@ import {
 } from "./utils/query";
 import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
 import { cancelQuery, onConnectionLost } from "./utils/transport";
-import { errorText, describeError, isInformixClientMissing } from "./utils/errors";
+import { errorText, describeError } from "./utils/errors";
 import { openConnection, closeConnection, testConnection, listDatabases } from "./utils/conn";
 import {
   findVariables,
@@ -1488,9 +1488,7 @@ export function App() {
       setConnError(null);
     } catch (err) {
       const f = describeError(err);
-      // A missing IBM client is not a bad host or password: say what to install
-      // (the connection form's test shows the download link too) (issue #506).
-      const detail = isInformixClientMissing(err) ? t("ifx.clientMissing") : f.detail ?? f.title;
+      const detail = f.detail ?? f.title;
       setConnError(t("conn.failed", { name: c.name, detail }));
     } finally {
       setConnectingId(null);

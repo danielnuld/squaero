@@ -50,6 +50,19 @@ docker start quaero-pg-test quaero-my-test quaero-ifx-test
 
 Informix takes about a minute to come online. SQLite needs nothing.
 
+Informix is reached over DRDA (issue #557), on the container's `drsoctcp`
+listener, port 9089, which the container must publish. A container made before
+that only published 9088; make it again with both, then create the Latin-1
+database the encoding checks use:
+
+```bash
+docker run -d --name quaero-ifx-test -h ifx -e LICENSE=accept   -p 9088:9088 -p 9089:9089 icr.io/informix/informix-developer-database
+# once it is on-line:
+docker exec quaero-ifx-test bash -lc 'echo "create database quaero_enc with log" | dbaccess sysmaster -'
+```
+
+`QUAERO_E2E_IFX_PORT` points the suite at another port.
+
 **An engine you cannot reach is skipped, not failed** — the run prints why, and
 the command that would fix it. That keeps the suite usable on a machine with only
 some engines. Because a silent skip would let a CI job go green having tested
@@ -61,8 +74,8 @@ QUAERO_E2E_REQUIRE=sqlite,postgres,mysql pnpm e2e
 
 ### One architecture: x86
 
-Squaero ships as an x86 build — Informix forces it, because IBM's ODBC driver is
-32-bit only — so the suite drives the x86 build and nothing else. That is
+Squaero ships as an x86 build (IBM's 32-bit ODBC driver forced it until #557),
+so the suite drives the x86 build and nothing else. That is
 deliberate: if the shipped architecture cannot do something, the suite must go red
 rather than route around it through a build no user has. (It did, once: the x86
 MySQL client had no `caching_sha2_password`, the default auth of every MySQL since

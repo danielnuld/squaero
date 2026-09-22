@@ -183,6 +183,16 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     rechaza en Windows**: Secure Channel no la usa en memoria, la *instala* en el
     almacén `LOCAL_MACHINE\Root`, con lo que toda la máquina pasaría a confiar en
     esa CA. Una CA privada se instala a propósito en el almacén de Windows.
+40. **Informix — DRDA, sin CSDK (#557):** el driver pasa a libdrda. Verificado
+    en vivo en el build x86 (2026-09-22) contra Informix 15.0.1 (contenedor,
+    listener `drsoctcp`) con `tests/integration/informix_integration_test`:
+    UTF-8 de ida y vuelta, autocommit visible desde otra conexión, `BEGIN` /
+    `ROLLBACK` / `COMMIT WORK` desde el editor, cursor de paginación abierto con
+    otras sentencias en medio (todas las filas, sin repetir) y cancelación que
+    corta la conexión en el acto. TLS contra un listener `drsocssl` con libdrda
+    (`verify-full`, host equivocado, CA ausente). Contra el **11.70.FC7 real**,
+    solo lectura: conexión por el 9089 y catálogo (tipos de 582 tablas); el
+    9088 (`onsoctcp`) rechaza DRDA con un mensaje que lo explica.
 
 ## Cobertura del smoke automatizado (#199)
 

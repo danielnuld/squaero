@@ -27,6 +27,23 @@ if(TARGET mongodb_driver)
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
+# Informix over DRDA (issue #557): the driver always builds (libdrda needs no
+# IBM client), so this does too. It SKIPS at runtime unless QUAERO_INFORMIX_DSN
+# points at a server's drsoctcp listener; needs a threads library (cancel).
+if(TARGET informix_driver)
+  add_executable(informix_integration_test informix_integration_test.c)
+  target_link_libraries(informix_integration_test PRIVATE dbcore cjson)
+  find_package(Threads REQUIRED)
+  target_link_libraries(informix_integration_test PRIVATE Threads::Threads)
+  target_compile_definitions(informix_integration_test PRIVATE
+    INFORMIX_PLUGIN_PATH="$<TARGET_FILE:informix_driver>")
+  add_dependencies(informix_integration_test informix_driver)
+  quaero_set_warnings(informix_integration_test)
+  add_test(NAME informix_integration_test COMMAND informix_integration_test
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  set_tests_properties(informix_integration_test PROPERTIES TIMEOUT 120)
+endif()
+
 # MySQL integration runs only when the driver was built (client lib present).
 # The test itself SKIPS at runtime unless QUAERO_MYSQL_DSN points at a server,
 # so it is harmless on machines/CI jobs without one.

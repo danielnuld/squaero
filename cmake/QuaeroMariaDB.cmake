@@ -1,8 +1,7 @@
 # Fetch and build MariaDB Connector/C (static) and link it into a target — the
 # MySQL/MariaDB driver plugin. Enabled with -DQUAERO_MARIADB=ON when no system
 # client library is available, notably the x86 Windows release: no 32-bit MySQL
-# client ships on the build machine, and Informix forces the whole app to x86
-# (its ODBC driver is 32-bit only). Mirrors cmake/QuaeroMongoc.cmake.
+# client ships on the build machine. Mirrors cmake/QuaeroMongoc.cmake.
 #
 # Static link => the plugin (mysql.dll) carries the client and its auth plugins
 # inside it: no libmariadb.dll to ship and no external plugin directory to locate.

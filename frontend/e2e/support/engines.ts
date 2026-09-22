@@ -162,10 +162,11 @@ export const ENGINES: readonly EngineSpec[] = [
   {
     name: "informix",
     driver: "informix",
+    // The DRDA listener (issue #557): 9089 in the container's sqlhosts, which
+    // must be published; QUAERO_E2E_IFX_PORT points elsewhere.
     dsn: {
       host: "127.0.0.1",
-      port: "9088",
-      server: "informix",
+      port: process.env.QUAERO_E2E_IFX_PORT ?? "9089",
       database: "quaero_enc",
       user: "informix",
       password: "in4mix",
@@ -236,7 +237,7 @@ export function startHint(name: EngineName): string {
     case "mysql":
       return "docker start quaero-my-test";
     case "informix":
-      return "docker start quaero-ifx-test  (takes ~1 min to come online)";
+      return "docker start quaero-ifx-test  (takes ~1 min to come online; its DRDA port 9089 must be published)";
     case "mssql":
       return "docker start quaero-mssql-test  (SQL Server 2022 on :14333, sa / Quaero_test123)";
     case "sqlite":

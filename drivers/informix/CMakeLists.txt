@@ -1,17 +1,16 @@
-# Informix driver.
+# Informix driver, over DRDA (issue #557).
 #
-# The driver links the system ODBC library (odbc32 on Windows, unixODBC's
-# libodbc elsewhere), but on Windows it prefers to load the IBM client's own
-# driver DLL directly and skip the Driver Manager entirely — see src/odbc.h.
-# No proprietary IBM CSDK library is linked either way, so the plugin builds
-# wherever ODBC dev files are present. The CSDK itself is 32-bit on the
-# target machine — see cmake/toolchain-i686-mingw.cmake — so Squaero is built x86.
+# The plugin talks to the server's DRDA listener (sqlhosts protocol drsoctcp, or
+# drsocssl for TLS) through libdrda, fetched and linked statically by
+# cmake/QuaeroLibdrda.cmake. No IBM Client SDK and no ODBC are involved, so the
+# plugin builds on every platform and toolchain, x64 included.
 #
-# The pure helpers (native + ODBC type mapping, connection-string builder) never
-# depend on ODBC and are always built and unit-tested, so a checkout without ODBC
-# still configures and builds green.
+# The pure helpers (DSN parsing, DRDA and native type mapping, transaction
+# statements, DML builder) are unit-tested on their own, without a server.
 
-# --- pure unit tests (always) ---------------------------------------------
+include(QuaeroLibdrda)
+
+# --- pure unit tests --------------------------------------------------------
 if(BUILD_TESTING)
   add_executable(informix_types_test
     tests/types_test.c
@@ -21,34 +20,28 @@ if(BUILD_TESTING)
   quaero_set_warnings(informix_types_test)
   add_test(NAME informix_types_test COMMAND informix_types_test)
 
-  add_executable(informix_odbc_types_test
-    tests/odbc_types_test.c
-    src/utils/odbc_types.c)
-  target_include_directories(informix_odbc_types_test PRIVATE
+  add_executable(informix_drda_types_test
+    tests/drda_types_test.c
+    src/utils/drda_types.c)
+  target_include_directories(informix_drda_types_test PRIVATE
     src/utils ${CMAKE_SOURCE_DIR}/core/include)
-  quaero_set_warnings(informix_odbc_types_test)
-  add_test(NAME informix_odbc_types_test COMMAND informix_odbc_types_test)
+  quaero_set_warnings(informix_drda_types_test)
+  add_test(NAME informix_drda_types_test COMMAND informix_drda_types_test)
 
-  add_executable(informix_connstr_test
-    tests/connstr_test.c
-    src/utils/connstr.c)
-  target_include_directories(informix_connstr_test PRIVATE src/utils)
-  quaero_set_warnings(informix_connstr_test)
-  add_test(NAME informix_connstr_test COMMAND informix_connstr_test)
+  add_executable(informix_dsn_test
+    tests/dsn_test.c
+    src/utils/dsn.c)
+  target_include_directories(informix_dsn_test PRIVATE src/utils)
+  target_link_libraries(informix_dsn_test PRIVATE cjson)
+  quaero_set_warnings(informix_dsn_test)
+  add_test(NAME informix_dsn_test COMMAND informix_dsn_test)
 
-  add_executable(informix_text_test
-    tests/text_test.c
-    src/utils/text.c)
-  target_include_directories(informix_text_test PRIVATE src/utils)
-  quaero_set_warnings(informix_text_test)
-  add_test(NAME informix_text_test COMMAND informix_text_test)
-
-  add_executable(informix_utf16_test
-    tests/utf16_test.c
-    src/utils/utf16.c)
-  target_include_directories(informix_utf16_test PRIVATE src/utils)
-  quaero_set_warnings(informix_utf16_test)
-  add_test(NAME informix_utf16_test COMMAND informix_utf16_test)
+  add_executable(informix_txsql_test
+    tests/txsql_test.c
+    src/utils/txsql.c)
+  target_include_directories(informix_txsql_test PRIVATE src/utils)
+  quaero_set_warnings(informix_txsql_test)
+  add_test(NAME informix_txsql_test COMMAND informix_txsql_test)
 
   add_executable(informix_dml_test
     tests/dml_test.c
@@ -57,97 +50,41 @@ if(BUILD_TESTING)
     src/utils ${CMAKE_SOURCE_DIR}/core/include)
   quaero_set_warnings(informix_dml_test)
   add_test(NAME informix_dml_test COMMAND informix_dml_test)
-
-  add_executable(informix_connlost_test
-    tests/connlost_test.c
-    src/utils/connlost.c)
-  target_include_directories(informix_connlost_test PRIVATE src/utils)
-  quaero_set_warnings(informix_connlost_test)
-  add_test(NAME informix_connlost_test COMMAND informix_connlost_test)
-
-  add_executable(informix_clientmissing_test
-    tests/clientmissing_test.c
-    src/utils/clientmissing.c)
-  target_include_directories(informix_clientmissing_test PRIVATE src/utils)
-  quaero_set_warnings(informix_clientmissing_test)
-  add_test(NAME informix_clientmissing_test COMMAND informix_clientmissing_test)
 endif()
 
-# --- driver plugin (only when ODBC dev files are present) -----------------
-if(WIN32)
-  # The Windows ODBC Driver Manager (odbc32) ships with the OS/SDK and its
-  # import library with the toolchain; the linker resolves it via -lodbc32, so
-  # link it by name rather than probing with find_library. sql.h/sqlext.h come
-  # with the toolchain too.
-  set(ODBC_LIBRARY odbc32)
-  set(ODBC_HEADER_OK TRUE)
-else()
-  find_path(ODBC_INCLUDE_DIR NAMES sql.h)
-  find_library(ODBC_LIBRARY NAMES odbc unixodbc)
-  set(ODBC_HEADER_OK ${ODBC_INCLUDE_DIR})
-endif()
+# --- driver plugin ------------------------------------------------------------
+set(INFORMIX_DRIVER_SOURCES
+  src/entry.c
+  src/connection.c
+  src/query.c
+  src/metadata.c
+  src/ddl.c
+  src/edit.c
+  src/utils/types.c
+  src/utils/drda_types.c
+  src/utils/dsn.c
+  src/utils/txsql.c
+  src/utils/dml.c)
 
-if(ODBC_LIBRARY AND ODBC_HEADER_OK)
-  message(STATUS "Informix driver: using ODBC (${ODBC_LIBRARY})")
-  add_library(informix_driver MODULE
-    src/entry.c
-    src/odbc.c
-    src/connection.c
-    src/query.c
-    src/metadata.c
-    src/ddl.c
-    src/edit.c
-    src/utils/types.c
-    src/utils/odbc_types.c
-    src/utils/connstr.c
-    src/utils/dml.c
-    src/utils/utf16.c
-    src/utils/text.c
-    src/utils/connlost.c
-    src/utils/clientmissing.c)
-  target_include_directories(informix_driver PRIVATE
-    src ${CMAKE_SOURCE_DIR}/core/include)
-  if(NOT WIN32 AND ODBC_INCLUDE_DIR)
-    target_include_directories(informix_driver SYSTEM PRIVATE ${ODBC_INCLUDE_DIR})
-  endif()
-  # cjson supplies cJSON.h (DSN parsing), exactly as the other drivers do.
-  target_link_libraries(informix_driver PRIVATE ${ODBC_LIBRARY} cjson)
-  # The cancel path guards active_stmt with a mutex; on POSIX that is a pthread
-  # mutex, so link the threads library there (a no-op on Windows).
-  find_package(Threads REQUIRED)
-  target_link_libraries(informix_driver PRIVATE Threads::Threads)
-  set_target_properties(informix_driver PROPERTIES PREFIX "" OUTPUT_NAME "informix")
-  quaero_set_warnings(informix_driver)
+add_library(informix_driver MODULE ${INFORMIX_DRIVER_SOURCES})
+target_include_directories(informix_driver PRIVATE src ${CMAKE_SOURCE_DIR}/core/include)
+# cjson supplies cJSON.h (DSN parsing), exactly as the other drivers do.
+target_link_libraries(informix_driver PRIVATE cjson)
+quaero_enable_libdrda(informix_driver)
+# The cancel path guards the connection with a mutex; on POSIX that is a
+# pthread mutex, so link the threads library there (a no-op on Windows).
+find_package(Threads REQUIRED)
+target_link_libraries(informix_driver PRIVATE Threads::Threads)
+set_target_properties(informix_driver PROPERTIES PREFIX "" OUTPUT_NAME "informix")
+quaero_set_warnings(informix_driver)
 
-  # Cancel wiring test (contract + idle behavior); compiles the driver sources
-  # it needs directly so dbc_driver_entry stays defined. No live server required.
-  if(BUILD_TESTING)
-    add_executable(informix_cancel_test
-      tests/cancel_test.c
-      src/entry.c
-      src/odbc.c
-      src/connection.c
-      src/query.c
-      src/metadata.c
-      src/ddl.c
-      src/edit.c
-      src/utils/types.c
-      src/utils/odbc_types.c
-      src/utils/connstr.c
-      src/utils/dml.c
-      src/utils/utf16.c
-      src/utils/text.c
-      src/utils/connlost.c
-      src/utils/clientmissing.c)
-    target_include_directories(informix_cancel_test PRIVATE
-      src ${CMAKE_SOURCE_DIR}/core/include)
-    if(NOT WIN32 AND ODBC_INCLUDE_DIR)
-      target_include_directories(informix_cancel_test SYSTEM PRIVATE ${ODBC_INCLUDE_DIR})
-    endif()
-    target_link_libraries(informix_cancel_test PRIVATE ${ODBC_LIBRARY} cjson Threads::Threads)
-    quaero_set_warnings(informix_cancel_test)
-    add_test(NAME informix_cancel_test COMMAND informix_cancel_test)
-  endif()
-else()
-  message(STATUS "Informix driver: ODBC not found; plugin not built")
+# Cancel wiring (contract + idle behavior), without a server: compiles the
+# driver sources directly so dbc_driver_entry stays defined.
+if(BUILD_TESTING)
+  add_executable(informix_cancel_test tests/cancel_test.c ${INFORMIX_DRIVER_SOURCES})
+  target_include_directories(informix_cancel_test PRIVATE src ${CMAKE_SOURCE_DIR}/core/include)
+  target_link_libraries(informix_cancel_test PRIVATE cjson Threads::Threads)
+  quaero_enable_libdrda(informix_cancel_test)
+  quaero_set_warnings(informix_cancel_test)
+  add_test(NAME informix_cancel_test COMMAND informix_cancel_test)
 endif()
