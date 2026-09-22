@@ -17,7 +17,7 @@
 // loose one that gets it right: every logical field is looked up through a list
 // of aliases, case-insensitively.
 
-import type { Connection } from "./connections";
+import { migrateInformixConnection, type Connection } from "./connections";
 import { navicatPassword, type ForeignCredential } from "./foreignSecrets";
 
 export type ForeignSource = "dbeaver" | "navicat";
@@ -175,7 +175,6 @@ export function parseDbeaver(raw: string): ForeignImport | { error: string } {
       // Some versions leave the password right here in the clear; the rest keep
       // it in credentials-config.json, which applyCredentials() fills in later.
       put(params, "password", pick(cfg, ["password"]));
-      if (driver === "informix") put(params, "server", pick(cfg, ["server", "serverName"]));
     }
 
     // DBeaver nests the tunnel under handlers/network-handlers in some versions
@@ -199,13 +198,19 @@ export function parseDbeaver(raw: string): ForeignImport | { error: string } {
       pick(sshProps, ["user", "userName", "sshUser"]),
     );
 
-    out.push({
-      id: "",
-      name,
-      driver,
-      params,
-      ...(pick(e, ["folder"]) ? { group: pick(e, ["folder"]) } : {}),
-    });
+    // Their Informix connections name the SQLI listener (issue #557).
+    out.push(
+      migrateInformixConnection(
+        {
+          id: "",
+          name,
+          driver,
+          params,
+          ...(pick(e, ["folder"]) ? { group: pick(e, ["folder"]) } : {}),
+        },
+        true,
+      ),
+    );
     ids.push(foreignId);
   }
 
@@ -305,7 +310,7 @@ export async function parseNavicat(raw: string): Promise<ForeignImport | { error
       pick(attrs, ["SSH_UserName", "SSHUserName", "SSH_User"]),
     );
 
-    out.push({ id: "", name, driver, params });
+    out.push(migrateInformixConnection({ id: "", name, driver, params }, true));
   }
 
   // Navicat has no id of its own in the export; the name is what it goes by.

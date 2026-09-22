@@ -29,7 +29,7 @@ each database's client libraries.
 | **SQLite** | ✅ Complete (verified) |
 | **PostgreSQL** | ✅ Via libpq — SSL/TLS, SCRAM |
 | **MySQL / MariaDB** | ✅ Complete (verified) — SSL/TLS, SSH tunnel |
-| **Informix** | ✅ Via ODBC (x86 build) |
+| **Informix** | ✅ Over DRDA, no IBM client needed |
 | **MongoDB** | ✅ Read (find/aggregate, mongosh syntax) |
 | **SQL Server** | ✅ Via FreeTDS — queries, types, schema, transactions, encryption, named instances. Not yet: editing rows in the grid, DDL, cancelling a query |
 | Oracle | ⏳ Planned (M12) |
@@ -92,17 +92,18 @@ proves the MSI was built by this repository's release workflow:
 The MSI is not Authenticode-signed yet, so Windows SmartScreen shows an unknown
 publisher.
 
-**Informix** needs IBM's **32-bit Informix Client SDK**, which the installer does
-not include: install it from IBM
-([where to download](https://www.ibm.com/support/pages/where-download-informix-client-sdk)).
-Squaero tells you when a connection finds no client.
+**Informix** needs no IBM client: Squaero speaks DRDA to the server with
+[libdrda](https://github.com/danielnuld/libdrda). The server must have a DRDA
+listener (an `sqlhosts` entry of protocol `drsoctcp`, usually port 9089; check
+with `onstat -g ntt`). Saved connections from earlier versions move to port
+9089 on their own, and ask you to check the port when theirs was not 9088.
 
 **Linux:** from v0.29.0, releases attach a `.deb` for Ubuntu 24.04+ and Debian 13+
 (x86_64), listed in the same `SHA256SUMS.txt`:
 `sudo apt install ./squaero_X.Y.Z_amd64.deb`. apt pulls in every driver's client
-library. Informix on Linux needs IBM's 64-bit Client SDK. On any distribution
+library. On any distribution
 with snapd, install it from the [Snap Store](https://snapcraft.io/squaero):
-`sudo snap install squaero`. Informix is not available in the snap.
+`sudo snap install squaero`.
 
 > AppImage/Flatpak and macOS (.app) are coming in future releases.
 

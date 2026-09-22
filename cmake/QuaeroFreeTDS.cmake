@@ -1,7 +1,7 @@
 # Download and build FreeTDS's static db-lib and link it into a target — the SQL
 # Server driver plugin (issue #49). Enabled with -DQUAERO_FREETDS=ON where no
-# system FreeTDS exists or it is too old: the x86 Windows release (Informix forces the
-# whole app to x86, and no 32-bit FreeTDS ships) and the Linux .deb (#40).
+# system FreeTDS exists or it is too old: the x86 Windows release (no 32-bit FreeTDS
+# ships) and the Linux .deb (#40).
 #
 # An ExternalProject, not FetchContent: FreeTDS's CMakeLists reads its own files
 # through CMAKE_SOURCE_DIR, so it only configures as a top-level project. It is

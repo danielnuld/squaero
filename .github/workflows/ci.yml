@@ -29,7 +29,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev unixodbc-dev libmongoc-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libmariadb-dev libmongoc-dev
 
       # Provides a recent CMake + Ninja on all three platforms.
       - name: Set up CMake and Ninja
@@ -243,8 +243,8 @@ jobs:
           export QUAERO_SSH_DSN="{\"host\":\"127.0.0.1\",\"port\":3306,\"user\":\"root\",\"password\":\"root\",\"database\":\"quaero_test\",\"ssh_host\":\"127.0.0.1\",\"ssh_port\":22,\"ssh_user\":\"$(whoami)\",\"ssh_auth\":\"key\",\"ssh_key\":\"$HOME/.ssh/id_tunnel\",\"ssh_known_hosts\":\"$HOME/.ssh/known_hosts_quaero\",\"ssh_host_key_policy\":\"strict\"}"
           ctest --test-dir build --output-on-failure -R ssh_tunnel_integration
 
-  # Guards the x86 release build (the shipped installer is x86 because the IBM
-  # Informix ODBC driver is 32-bit only). Builds the core + all drivers with the
+  # Guards the x86 release build (the shipped installer is x86; the IBM
+  # Informix ODBC driver forced that until #557 moved Informix to DRDA). Builds the core + all drivers with the
   # same standalone i686 MinGW toolchain used locally, exercising the three
   # from-source dependencies in 32-bit: MariaDB Connector/C (QUAERO_MARIADB,
   # static), mongo-c-driver (QUAERO_MONGOC), libssh2 (QUAERO_SSH) and libpq

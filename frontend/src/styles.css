@@ -2601,6 +2601,11 @@ kbd {
   gap: var(--sp-3);
 }
 
+/* Something to check before saving (a migrated Informix port, issue #557). */
+.cf-notice {
+  border-left: 3px solid var(--accent);
+}
+
 .cf-card-title {
   margin: 0;
   font-size: var(--fs-sm);

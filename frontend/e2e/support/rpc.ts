@@ -39,9 +39,9 @@ const REPO = join(import.meta.dirname, "..", "..", "..");
 const IS_WIN = process.platform === "win32";
 
 /**
- * The x86 build is the default because it is the only one that loads all five
- * drivers: the IBM Informix ODBC driver is 32-bit only, so an x64 Squaero cannot
- * talk to Informix at all.
+ * The x86 build is the default because it is the one that ships (IBM's 32-bit
+ * Informix ODBC driver forced that until issue #557; the DRDA driver has no such
+ * limit).
  */
 function defaultBinary(): string {
   return IS_WIN

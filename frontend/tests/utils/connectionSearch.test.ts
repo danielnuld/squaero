@@ -25,7 +25,7 @@ const nomina = conn({
   name: "Nómina",
   driver: "informix",
   group: "Producción",
-  params: { host: "sia01", port: "1526", server: "ol_informix1210", database: "nomina" },
+  params: { host: "sia01", port: "9089", database: "nomina" },
 });
 const notas = conn({ id: "c4", name: "Notas", driver: "sqlite", params: { path: "C:\\datos\\notas.db" } });
 const all = [ventas, ventasDev, nomina, notas];
@@ -51,10 +51,10 @@ describe("matchesConnection", () => {
     expect(matchesConnection(notas, "sqlite", labelOf(notas.driver))).toBe(true);
   });
 
-  it("matches the server, the port and the Informix server name", () => {
+  it("matches the server and the port", () => {
     expect(matchesConnection(ventas, "10.0.4", labelOf(ventas.driver))).toBe(true);
     expect(matchesConnection(ventasDev, "13306", labelOf(ventasDev.driver))).toBe(true);
-    expect(matchesConnection(nomina, "ol_informix", labelOf(nomina.driver))).toBe(true);
+    expect(matchesConnection(nomina, "sia01:9089", labelOf(nomina.driver))).toBe(true);
   });
 
   it("matches the file of a SQLite connection", () => {
@@ -95,7 +95,7 @@ describe("searchGroups", () => {
 
   it("carries the target each row shows under the name", () => {
     const [group] = searchGroups([nomina], "", [], labelOf);
-    expect(group.hits[0].target).toBe("nomina @ sia01:1526/ol_informix1210");
+    expect(group.hits[0].target).toBe("nomina @ sia01:9089");
   });
 
   it("drops the groups with no match", () => {

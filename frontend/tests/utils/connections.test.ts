@@ -44,13 +44,13 @@ describe("connectionTarget", () => {
     );
   });
 
-  it("names the Informix server beside its host", () => {
+  it("is host and port for Informix: DRDA needs no server name (#557)", () => {
     expect(
       connectionTarget({
         driver: "informix",
-        params: { host: "sia01", port: "1526", server: "ol_informix1210", database: "nomina" },
+        params: { host: "sia01", port: "9089", database: "nomina" },
       }),
-    ).toBe("nomina @ sia01:1526/ol_informix1210");
+    ).toBe("nomina @ sia01:9089");
   });
 
   it("names a SQL Server instance the same way", () => {
@@ -138,10 +138,9 @@ describe("defaultConnectionName", () => {
     expect(defaultConnectionName(c({ host: "10.0.4.12" }))).toBe("10.0.4.12");
   });
 
-  // Informix keeps the useful half in `server`, not in `host`.
-  it("uses the Informix instance when there is no host", () => {
-    expect(defaultConnectionName(c({ server: "ol_informix1210" }, "informix"))).toBe(
-      "ol_informix1210",
+  it("names Informix after its host like any server (#557)", () => {
+    expect(defaultConnectionName(c({ host: "sia01", database: "nomina" }, "informix"))).toBe(
+      "nomina @ sia01",
     );
   });
 
@@ -316,7 +315,7 @@ describe("dsnForDatabaseList", () => {
     id: "c",
     name: "IFX",
     driver: "informix",
-    params: { host: "h", port: "1526", server: "ol", user: "informix", ...over },
+    params: { host: "h", port: "9089", user: "informix", ...over },
   });
   const my = (over: Partial<Connection["params"]> = {}): Connection => ({
     id: "c",
@@ -544,11 +543,14 @@ describe("MySQL SSL fields", () => {
 });
 
 describe("Informix schema", () => {
-  it("carries the direct-connection fields plus the SSH-tunnel group", () => {
+  it("carries the DRDA fields plus TLS and the SSH-tunnel group (#557)", () => {
     const keys = DRIVER_SCHEMAS.informix.fields.map((f) => f.key);
     expect(keys).toContain("host");
     expect(keys).toContain("port");
-    expect(keys).toContain("server");
+    expect(keys).not.toContain("server"); // DRDA needs no INFORMIXSERVER
+    expect(keys).not.toContain("protocol");
+    expect(keys).toContain("tls");
+    expect(keys).toContain("tls_ca");
     expect(keys).toContain("database");
     expect(keys).toContain("user");
     expect(keys).toContain("password");
@@ -556,27 +558,34 @@ describe("Informix schema", () => {
     expect(DRIVER_SCHEMAS.informix.driver).toBe("informix");
   });
 
-  it("requires host, port (service) and server", () => {
+  it("requires host and user; the port defaults to the DRDA listener", () => {
     const errors = validateConnection({
       id: "c", name: "ifx", driver: "informix", params: {},
     }, es);
     expect(errors).toContain('El campo "Host" es obligatorio.');
-    expect(errors).toContain('El campo "Puerto / servicio" es obligatorio.');
-    expect(errors).toContain('El campo "Servidor (INFORMIXSERVER)" es obligatorio.');
+    expect(errors).toContain('El campo "Usuario" es obligatorio.');
+    expect(errors.some((e) => e.includes("Puerto"))).toBe(false);
   });
 
-  it("models port/service as free text so a services name is allowed", () => {
+  it("models the port as a number, 9089 by default (DRDA takes no service name)", () => {
     const port = DRIVER_SCHEMAS.informix.fields.find((f) => f.key === "port");
-    expect(port?.type).toBe("text");
+    expect(port?.type).toBe("number");
+    expect(port?.placeholder).toBe("9089");
   });
 
-  it("buildDsn passes the direct-connection fields through, omitting blanks", () => {
+  it("offers the TLS modes the driver takes, with a CA file", () => {
+    const tls = DRIVER_SCHEMAS.informix.fields.find((f) => f.key === "tls");
+    expect(tls?.options?.map((o) => o.value)).toEqual(["", "require", "verify-ca", "verify-full"]);
+    expect(DRIVER_SCHEMAS.informix.fields.find((f) => f.key === "tls_ca")?.type).toBe("file");
+  });
+
+  it("buildDsn passes the fields through, omitting blanks", () => {
     const dsn = buildDsn({
       id: "c", name: "ifx", driver: "informix",
-      params: { host: "10.0.0.5", port: "1526", server: "ol_inf", user: "informix" },
+      params: { host: "10.0.0.5", port: "9089", user: "informix", tls: "" },
     });
     expect(dsn).toEqual({
-      host: "10.0.0.5", port: "1526", server: "ol_inf", user: "informix",
+      host: "10.0.0.5", port: "9089", user: "informix",
     });
     expect("database" in dsn).toBe(false);
     expect("password" in dsn).toBe(false);

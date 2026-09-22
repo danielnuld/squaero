@@ -12,6 +12,8 @@ import {
   DRIVER_SCHEMAS,
   CONNECTION_COLORS,
   CONNECTION_ICONS,
+  INFORMIX_DRDA_PORT,
+  INFORMIX_PORT_REVIEW,
   type Connection,
   type DriverField,
 } from "../utils/connections";
@@ -24,8 +26,7 @@ import {
   type SectionId,
   type SectionStatus,
 } from "../utils/connectionFormSections";
-import { errorText, INFORMIX_CSDK_URL, isInformixClientMissing } from "../utils/errors";
-import { openExternal } from "../utils/openExternal";
+import { errorText } from "../utils/errors";
 import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -35,9 +36,7 @@ type TestState =
   | { kind: "testing" }
   /** `ms`: measured here, because the core reports neither latency nor version. */
   | { kind: "ok"; ms: number }
-  /* `clientMissing`: the Informix driver found no IBM client (issue #506), so the
-     message is install guidance with a link rather than the raw diagnostic. */
-  | { kind: "error"; msg: string; clientMissing?: boolean };
+  | { kind: "error"; msg: string };
 
 /** The sections the form draws, including the two it owns itself. */
 type PaneId = SectionId | "engine" | "appearance";
@@ -204,6 +203,8 @@ export function ConnectionForm(props: {
         if (key.startsWith("ssh_")) delete params[key];
       }
     }
+    // Saved from the form, the port has been looked at: the notice goes.
+    delete params[INFORMIX_PORT_REVIEW];
     return { ...draft, params };
   };
 
@@ -277,11 +278,7 @@ export function ConnectionForm(props: {
       await props.onTest(snapshot());
       setTest({ kind: "ok", ms: Math.round(performance.now() - started) });
     } catch (err) {
-      setTest(
-        isInformixClientMissing(err)
-          ? { kind: "error", msg: t("ifx.clientMissing"), clientMissing: true }
-          : { kind: "error", msg: errorText(err) },
-      );
+      setTest({ kind: "error", msg: errorText(err) });
     }
   };
 
@@ -712,6 +709,15 @@ export function ConnectionForm(props: {
             </div>
           </div>
 
+          {/* A migrated Informix connection whose port could not be moved to the
+              DRDA listener for sure (issue #557): say so where it is fixed. */}
+          <Show when={draft.driver === "informix" && draft.params[INFORMIX_PORT_REVIEW]}>
+            <div class="cf-card cf-notice" role="note">
+              <h4 class="cf-card-title">{t("cform.ifxPortTitle")}</h4>
+              <p class="cf-test-line">{t("cform.ifxPortReview", { port: INFORMIX_DRDA_PORT })}</p>
+            </div>
+          </Show>
+
           <div class="cf-card cf-test" data-state={test().kind}>
             <h4 class="cf-card-title">{t("cform.testTitle")}</h4>
             <Show when={test().kind === "idle"}>
@@ -727,13 +733,6 @@ export function ConnectionForm(props: {
             </Show>
             <Show when={test().kind === "error"}>
               <p class="cf-test-line test-error">{(test() as { msg: string }).msg}</p>
-              <Show when={(test() as { clientMissing?: boolean }).clientMissing}>
-                {/* A button, not an <a>: the webview would navigate itself away;
-                    openExternal hands the URL to the default browser. */}
-                <button class="edit-btn" onClick={() => openExternal(INFORMIX_CSDK_URL)}>
-                  {t("ifx.clientMissingLink")}
-                </button>
-              </Show>
             </Show>
             <Show when={tried() && !isValid(errors())}>
               <p class="cf-test-line test-error">{t("cform.saveBlocked", { detail: "" })}</p>
