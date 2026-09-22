@@ -473,3 +473,31 @@ describe("ConnectionForm test-connection feedback", () => {
     expect(err!.textContent).toMatch(/No se pudo conectar/);
   });
 });
+
+describe("ConnectionForm — migrated Informix port (issue #557)", () => {
+  const ifx = (params: Record<string, string>): Connection => ({
+    id: "conn-9", name: "Nómina", driver: "informix",
+    params: { host: "sia01", user: "informix", ...params },
+  });
+
+  it("asks to check a port the migration could not move", () => {
+    mount({ initial: ifx({ port: "1526", port_review: "1" }) });
+    expect(host!.textContent).toContain("Revisa el puerto");
+    expect(host!.textContent).toContain("9089");
+  });
+
+  it("says nothing when the port was moved or set by hand", () => {
+    mount({ initial: ifx({ port: "9089" }) });
+    expect(host!.textContent).not.toContain("Revisa el puerto");
+  });
+
+  it("drops the flag once saved from the form", () => {
+    const onSave = vi.fn();
+    mount({ initial: ifx({ port: "1526", port_review: "1" }), onSave });
+    clickText("Guardar");
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as Connection;
+    expect(saved.params.port).toBe("1526");
+    expect("port_review" in saved.params).toBe(false);
+  });
+});

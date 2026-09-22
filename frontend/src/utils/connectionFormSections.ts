@@ -33,7 +33,6 @@ const FIELD_SECTION: Record<string, SectionId> = {
 
   host: "server",
   port: "server",
-  server: "server", // Informix INFORMIXSERVER
   instance: "server", // SQL Server named instance
 
   user: "auth",
@@ -51,8 +50,8 @@ const FIELD_SECTION: Record<string, SectionId> = {
   sslrootcert: "security",
   sslcert: "security",
   sslkey: "security",
-  protocol: "security", // Informix (onsocssl)
-  tls: "security", // MongoDB
+  tls: "security", // MongoDB, Informix
+  tls_ca: "security", // Informix
   encryption: "security", // SQL Server
 
   ssh_host: "ssh",
@@ -178,7 +177,6 @@ export function sectionStatus(
 const DEFAULT_HINT: Record<string, string> = {
   ssl_mode: "cform.sec.mysqlDefault",
   sslmode: "cform.sec.pgDefault",
-  protocol: "cform.sec.ifxDefault",
   tls: "cform.sec.tlsOff",
   encryption: "cform.sec.encDefault",
 };
@@ -192,7 +190,6 @@ const VALUE_HINT: Record<string, string> = {
   required: "cform.sec.encrypted",
   require: "cform.sec.encrypted",
   request: "cform.sec.encrypted",
-  onsocssl: "cform.sec.encrypted",
   true: "cform.sec.encrypted",
   strict: "cform.sec.strict",
   verify_ca: "cform.sec.verifyCa",
@@ -210,10 +207,9 @@ export function securityHint(fieldKey: string, value: string): string {
 
 /**
  * Values that verify the server's certificate, and so need the certificate
- * fields on screen. Only MySQL and PostgreSQL have them: Informix verifies
- * against the keystore its Client SDK names, and SQL Server's db-lib takes no CA
- * file at all — showing empty certificate boxes there would promise a check the
- * driver cannot make.
+ * fields on screen: MySQL, PostgreSQL and Informix (its CA file). SQL Server's
+ * db-lib takes no CA file at all — showing empty certificate boxes there would
+ * promise a check the driver cannot make.
  */
 const CERT_MODES = new Set(["verify_ca", "verify_identity", "verify-ca", "verify-full"]);
 
