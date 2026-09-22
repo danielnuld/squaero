@@ -35,6 +35,13 @@ describe("findVariables", () => {
     ]);
   });
 
+  it("is not fooled by an Informix qualified name", () => {
+    expect(findVariables("SELECT * FROM owner:tabla WHERE x = :val", "informix")).toEqual([
+      { name: "val", kind: "value", token: ":val" },
+    ]);
+    expect(findVariables("SELECT * FROM db@srv:owner.tabla", "informix")).toEqual([]);
+  });
+
   it("needs a name: a lone colon or a digit is punctuation", () => {
     expect(findVariables("SELECT * FROM a WHERE t = '1' AND x = : 1")).toEqual([]);
     expect(findVariables("SELECT ${} FROM a")).toEqual([]);
