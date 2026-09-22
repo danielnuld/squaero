@@ -221,7 +221,7 @@ import {
   type FkLookup,
 } from "./utils/fkLookup";
 import { buildXlsx, XLSX_MAX_ROWS, XLSX_MIME } from "./utils/xlsx";
-import { saveText, pickSaveTarget } from "./utils/download";
+import { saveText, pickSaveTarget, sqlFileName } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
@@ -1236,6 +1236,28 @@ export function App() {
   const boundSnippet = (): Snippet | undefined => {
     const id = currentQuery()?.snippetId;
     return id === undefined ? undefined : snippets().find((s) => s.id === id);
+  };
+
+  // Open a .sql file in a tab of its own (issue #553). UTF-8 first; a file that
+  // is not valid UTF-8 is read as Windows-1252, which is what an Informix
+  // client on Windows writes, instead of arriving full of replacement marks.
+  const openSqlFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".sql,text/plain,application/sql";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const bytes = await file.arrayBuffer();
+      let sql: string;
+      try {
+        sql = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch {
+        sql = new TextDecoder("windows-1252").decode(bytes);
+      }
+      openSqlInNewTab(sql, file.name.replace(/\.sql$/i, ""));
+    };
+    input.click();
   };
 
   const requestSaveSnippet = () => {
@@ -3697,6 +3719,18 @@ export function App() {
                       onClick={() => showTool("snippets", t("editor.snippets"), { key: "snippets" })}
                     >
                       {t("editor.snippets")}
+                    </button>
+                    <button class="status-btn" title={t("editor.openFileTitle")} onClick={openSqlFile}>
+                      {t("editor.openFile")}
+                    </button>
+                    <button
+                      class="status-btn"
+                      title={t("editor.saveFileTitle")}
+                      onClick={() =>
+                        void saveText(sqlFileName(tab().title), sqlOfTab(tab().id), "application/sql")
+                      }
+                    >
+                      {t("editor.saveFile")}
                     </button>
                     {/* Naming a snippet happens HERE, in the editor's own bar:
                         it takes the place of the run hint while it is open, so
