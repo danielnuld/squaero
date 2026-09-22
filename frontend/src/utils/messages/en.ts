@@ -157,6 +157,11 @@ export const en: Record<string, string> = {
   "editor.historyTitle": "Query history",
   "editor.snippets": "Snippets",
   "editor.snippetsTitle": "Favorites and snippets",
+  // open and save the editor SQL as a file (#553)
+  "editor.openFile": "Open .sql",
+  "editor.openFileTitle": "Open a .sql file in a new tab",
+  "editor.saveFile": "Save .sql",
+  "editor.saveFileTitle": "Save this tab's SQL to a .sql file",
   // save the query as a snippet from the editor toolbar (#320)
   "editor.saveSnippet": "Save",
   "editor.saveSnippetTitle": "Save as snippet (Ctrl/Cmd+Shift+S)",

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { saveText, saveBytes } from "../../src/utils/download";
+import { saveText, saveBytes, sqlFileName } from "../../src/utils/download";
 
 // saveText prefers the native save dialog (File System Access API) and falls
 // back to an anchor download. These drive both paths without a real file system.
@@ -101,5 +101,14 @@ describe("saveBytes — binary export (XLSX)", () => {
 
     expect(click).toHaveBeenCalledTimes(1);
     spy.mockRestore();
+  });
+});
+
+describe("sqlFileName", () => {
+  it("names the file after the tab, without what Windows forbids", () => {
+    expect(sqlFileName("Consulta 1")).toBe("Consulta 1.sql");
+    expect(sqlFileName("db:owner.tabla")).toBe("dbowner.tabla.sql");
+    expect(sqlFileName("reporte.sql")).toBe("reporte.sql");
+    expect(sqlFileName(' <?> ')).toBe("consulta.sql");
   });
 });

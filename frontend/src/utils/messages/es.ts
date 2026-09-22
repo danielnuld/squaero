@@ -160,6 +160,11 @@ export const es: Record<string, string> = {
   "editor.historyTitle": "Historial de consultas",
   "editor.snippets": "Snippets",
   "editor.snippetsTitle": "Favoritos y snippets",
+  // abrir y guardar el SQL del editor como archivo (#553)
+  "editor.openFile": "Abrir .sql",
+  "editor.openFileTitle": "Abrir un archivo .sql en una pestaña nueva",
+  "editor.saveFile": "Guardar .sql",
+  "editor.saveFileTitle": "Guardar el SQL de esta pestaña en un archivo .sql",
   // guardar la consulta como snippet desde la barra del editor (#320)
   "editor.saveSnippet": "Guardar",
   "editor.saveSnippetTitle": "Guardar como snippet (Ctrl/Cmd+Shift+S)",

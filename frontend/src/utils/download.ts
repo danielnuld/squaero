@@ -154,3 +154,12 @@ export async function saveBytes(
   const target = await pickSaveTarget(filename, mime);
   await target?.write(blob);
 }
+
+/**
+ * A file name for saving a tab's SQL (issue #553): the tab title with what
+ * Windows forbids in a name removed, and `.sql` on the end unless it is there.
+ */
+export function sqlFileName(title: string): string {
+  const base = title.replace(/[\/:*?"<>|\u0000-\u001f]/g, "").trim() || "consulta";
+  return /\.sql$/i.test(base) ? base : `${base}.sql`;
+}
