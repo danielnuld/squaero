@@ -27,6 +27,7 @@ export const en: Record<string, string> = {
   "related.needsTable": "Related data: only for one table's rows",
   "related.checking": "Related data: looking for relationships…",
   "related.noReferences": "Related data: no table references this one",
+  "related.catalogFailed": "Related data: the foreign keys could not be read ({detail})",
   "related.otherColumn": "Related data: only from {columns}",
 
   // connection bar / manager
