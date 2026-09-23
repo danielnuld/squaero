@@ -27,6 +27,14 @@ extern "C" {
  */
 char *dsn_rewrite_loopback(const char *dsn_json, int local_port);
 
+/*
+ * Why dsn_json cannot go through an SSH tunnel, or NULL when it can. A named
+ * "instance" (SQL Server) is resolved through the SQL Browser on UDP 1434 and
+ * the tunnel only forwards one TCP port, so the caller must give the
+ * instance's port instead. The returned string is static.
+ */
+const char *dsn_tunnel_unsupported(const char *dsn_json);
+
 #ifdef __cplusplus
 }
 #endif
