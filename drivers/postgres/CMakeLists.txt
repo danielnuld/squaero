@@ -66,10 +66,11 @@ endmacro()
 
 # Build libpq from source when asked (no usable system client — notably the x86
 # Windows release; see cmake/QuaeroLibpq.cmake). Otherwise discover a system
-# libpq and use it only if it links for this target.
+# libpq and use it only if it links for this target. iOS has no system libpq, so
+# it always builds its own (#573).
 option(QUAERO_LIBPQ "Fetch + build a static libpq from source for the PostgreSQL plugin" OFF)
 
-if(QUAERO_LIBPQ)
+if(QUAERO_LIBPQ OR IOS)
   add_library(postgres_driver ${QUAERO_DRIVER_LIB_TYPE} ${POSTGRES_DRIVER_SRC})
   _quaero_postgres_common()
   include(QuaeroLibpq)

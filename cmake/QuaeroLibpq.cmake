@@ -20,6 +20,53 @@ include(QuaeroOpenSSL)
 # CMAKE_CURRENT_LIST_DIR would resolve to the caller's list file.
 set(_quaero_libpq_module_dir "${CMAKE_CURRENT_LIST_DIR}")
 
+# iOS (issue #573): the Windows pg_config.h does not fit Darwin, and nobody on
+# the project has a Mac to hand-write one. PostgreSQL's own configure writes it,
+# run as a cross build against the same compiler and iPhone SDK as the rest; its
+# LIBOBJS names the src/port replacements this libc needs. No TLS, zlib, ICU or
+# readline there: USE_OPENSSL and its HAVE_* are defined below as on Windows.
+function(_quaero_libpq_configure_ios pg gen out_cfg out_libobjs)
+  set(_dir "${CMAKE_CURRENT_BINARY_DIR}/libpq-configure")
+  set(_log "${_dir}/configure.log")
+  if(NOT EXISTS "${_dir}/src/include/pg_config.h")
+    file(REMOVE_RECURSE "${_dir}")
+    file(MAKE_DIRECTORY "${_dir}")
+    if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+      set(_target "arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
+    else()
+      set(_target "arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    endif()
+    # PG_SYSROOT: left empty, the darwin template adds the macOS SDK.
+    message(STATUS "PostgreSQL driver: configuring libpq for ${_target}")
+    execute_process(
+      COMMAND sh "${pg}/configure" --host=aarch64-apple-darwin
+              --without-ssl --without-readline --without-zlib --without-icu
+              "PG_SYSROOT=${CMAKE_OSX_SYSROOT}" "CC=${CMAKE_C_COMPILER}"
+              "CFLAGS=-target ${_target} -isysroot ${CMAKE_OSX_SYSROOT}"
+              "LDFLAGS=-target ${_target} -isysroot ${CMAKE_OSX_SYSROOT}"
+      WORKING_DIRECTORY "${_dir}"
+      RESULT_VARIABLE _rc OUTPUT_FILE "${_log}" ERROR_FILE "${_log}")
+    if(NOT _rc EQUAL 0 OR NOT EXISTS "${_dir}/src/include/pg_config.h")
+      # CI has no log to open afterwards: print the end of it.
+      execute_process(COMMAND tail -n 40 "${_log}")
+      execute_process(COMMAND tail -n 60 "${_dir}/config.log")
+      message(FATAL_ERROR "PostgreSQL configure for iOS failed (${_rc}); see ${_log}")
+    endif()
+  endif()
+  # The same empty install paths as Windows: libpq only reads SYSCONFDIR, and
+  # an app has no system-wide pg_service.conf.
+  configure_file("${_quaero_libpq_module_dir}/libpq-win32/pg_config_paths.h"
+    "${gen}/pg_config_paths.h" COPYONLY)
+
+  file(STRINGS "${_dir}/src/Makefile.global" _line REGEX "^LIBOBJS =")
+  string(REGEX REPLACE "^LIBOBJS =[ ]*" "" _line "${_line}")
+  string(REPLACE ".o" "" _line "${_line}")
+  separate_arguments(_objs UNIX_COMMAND "${_line}")
+  message(STATUS "PostgreSQL driver: src/port replacements for iOS: ${_objs}")
+  set(${out_cfg} "${_dir}/src/include" PARENT_SCOPE)
+  set(${out_libobjs} ${_objs} PARENT_SCOPE)
+endfunction()
+
 function(quaero_enable_libpq target)
   # kwlist_d.h is generated from the SQL keyword list by a bundled Perl script.
   find_program(QUAERO_PERL NAMES perl)
@@ -55,20 +102,36 @@ function(quaero_enable_libpq target)
 
   # The libpq subset (TLS through OpenSSL's API; no GSSAPI / NLS). These lists are
   # the frontend build of libpq + the src/common and src/port objects it links
-  # against on Windows; unreferenced objects are dropped by the linker. With
-  # OpenSSL, src/common swaps its own hash implementations for the *_openssl ones,
+  # against; unreferenced objects are dropped by the linker. With OpenSSL,
+  # src/common swaps its own hash implementations for the *_openssl ones,
   # exactly as PostgreSQL's meson.build does.
   set(_libpq fe-auth-scram fe-auth fe-connect fe-exec fe-lobj fe-misc fe-print
              fe-protocol3 fe-secure fe-secure-common fe-secure-openssl fe-trace
-             legacy-pqsignal libpq-events pqexpbuffer pthread-win32 win32)
+             legacy-pqsignal libpq-events pqexpbuffer)
   set(_common scram-common saslprep cryptohash_openssl hmac_openssl
               protocol_openssl md5_common base64 encnames wchar string pg_prng ip
               link-canary fe_memutils unicode_norm stringinfo psprintf pg_get_line)
   set(_port snprintf strerror pgsleep noblock path pgstrcasecmp pg_strong_random
-            pgstrsignal chklocale inet_net_ntop inet_aton bsearch_arg pg_bitutils
-            pg_crc32c_sb8 open win32stat win32ntdll dirmod win32common win32error
-            win32setlocale win32env win32security win32dlopen getpeereid strlcpy
-            strlcat strnlen explicit_bzero)
+            pgstrsignal chklocale inet_net_ntop bsearch_arg pg_bitutils)
+
+  if(IOS)
+    _quaero_libpq_configure_ios("${_pg}" "${_gen}" _cfg_dir _libobjs)
+    list(APPEND _port thread ${_libobjs})
+    set(_cfg_includes "${_cfg_dir}")
+    set(_pg_defs "")
+    set(_pg_syslibs "")
+  else()
+    list(APPEND _libpq pthread-win32 win32)
+    list(APPEND _port inet_aton pg_crc32c_sb8 open win32stat win32ntdll dirmod
+              win32common win32error win32setlocale win32env win32security
+              win32dlopen getpeereid strlcpy strlcat strnlen explicit_bzero)
+    # Our config headers + socket shims. The shims stand in for POSIX headers
+    # this MinGW sysroot lacks (netdb.h/sys/socket.h/...), backed by winsock.
+    set(_cfg_dir "${_quaero_libpq_module_dir}/libpq-win32")
+    set(_cfg_includes "${_cfg_dir}" "${_cfg_dir}/shims")
+    set(_pg_defs WIN32 _WIN32_WINNT=0x0A00)
+    set(_pg_syslibs ws2_32 secur32 crypt32 wldap32 shell32 advapi32)
+  endif()
 
   set(_srcs "")
   foreach(f ${_libpq})
@@ -82,12 +145,10 @@ function(quaero_enable_libpq target)
   endforeach()
 
   add_library(quaero_libpq STATIC ${_srcs} "${_gen}/kwlist_d.h")
-  # Include order: our config headers + socket shims first, then generated, then
-  # the PostgreSQL headers. The shims stand in for POSIX headers this MinGW
-  # sysroot lacks (netdb.h/sys/socket.h/...), backed by winsock.
+  # Include order: our config headers first, then generated, then the
+  # PostgreSQL headers.
   target_include_directories(quaero_libpq PRIVATE
-    "${_quaero_libpq_module_dir}/libpq-win32"
-    "${_quaero_libpq_module_dir}/libpq-win32/shims"
+    ${_cfg_includes}
     "${_gen}"
     "${_pg}/src/include"
     "${_pg}/src/interfaces/libpq"
@@ -96,7 +157,7 @@ function(quaero_enable_libpq target)
   # OpenSSL 3.0 has every function PostgreSQL 16 checks for except CRYPTO_lock,
   # which was removed in 1.1.0 and must stay undefined.
   target_compile_definitions(quaero_libpq PRIVATE
-    FRONTEND WIN32 SO_MAJOR_VERSION=5 _WIN32_WINNT=0x0A00
+    FRONTEND SO_MAJOR_VERSION=5 ${_pg_defs}
     USE_OPENSSL=1 OPENSSL_API_COMPAT=0x10001000L
     HAVE_X509_GET_SIGNATURE_NID=1 HAVE_SSL_CTX_SET_CERT_CB=1
     HAVE_OPENSSL_INIT_SSL=1 HAVE_BIO_METH_NEW=1 HAVE_ASN1_STRING_GET0_DATA=1
@@ -113,11 +174,10 @@ function(quaero_enable_libpq target)
   # Expose libpq to the driver. Only the config dir (pg_config_ext.h, pulled in by
   # libpq-fe.h) and the libpq source dir (libpq-fe.h / postgres_ext.h) are needed —
   # not the socket shims. System libraries the static client references.
-  set(_pg_syslibs ws2_32 secur32 crypt32 wldap32 shell32 advapi32)
   target_link_libraries(quaero_libpq PRIVATE quaero_openssl_ssl ${_pg_syslibs})
   target_include_directories(${target} SYSTEM PRIVATE
     "${_pg}/src/interfaces/libpq"
     "${_pg}/src/include"
-    "${_quaero_libpq_module_dir}/libpq-win32")
+    "${_cfg_dir}")
   target_link_libraries(${target} PRIVATE quaero_libpq quaero_openssl_ssl ${_pg_syslibs})
 endfunction()
