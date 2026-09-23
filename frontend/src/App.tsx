@@ -645,6 +645,8 @@ export function App() {
     saveCellColors(store);
   };
 
+  /** The mounted filter panel's "add a condition" (#592); one panel at a time. */
+  let addFilterCondition: (() => void) | undefined;
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
     switch (action) {
       case "new-tab":
@@ -655,6 +657,12 @@ export function App() {
         // block, and the earlier cases that call it threw before ever running.
         const tab = current();
         if (tab) setTabs((s) => closeTab(s, tab.id));
+        break;
+      }
+      case "filter-add-condition": {
+        // Only a table/view tab has the panel; elsewhere the key does nothing.
+        const tab = current();
+        if (tab && isDataTab(tab.id)) addFilterCondition?.();
         break;
       }
       case "next-tab":
@@ -3639,6 +3647,7 @@ export function App() {
                         withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
                       }
                       onOpenSql={() => openSqlInNewTab(sqlOfTab(tab().id), tab().title)}
+                      addRef={(add) => (addFilterCondition = add)}
                     />
                   </Show>
                   <Show when={!isDataTab(tab().id)}>
