@@ -35,7 +35,6 @@ cp "$BUILD/app/squaero" "$APP/Contents/MacOS/"
 # The shell scans <exe_dir>/drivers for plugins.
 cp -R "$BUILD/app/drivers" "$APP/Contents/MacOS/"
 cp assets/icons/quaero.icns "$APP/Contents/Resources/squaero.icns"
-sed "s/@VERSION@/$VERSION/g" installer/Info.plist.in > "$APP/Contents/Info.plist"
 
 # Every non-system library the executable and the plugins load goes into
 # Frameworks/, with install names rewritten to find it there. A plugin is
@@ -46,6 +45,25 @@ for plugin in "$APP"/Contents/MacOS/drivers/*; do
 done
 dylibbundler -of -b "${fix[@]}" -d "$APP/Contents/Frameworks" \
   -p @executable_path/../Frameworks/
+
+# dylibbundler can add the same LC_RPATH twice (it did to libmongoc), and
+# dyld on macOS 15 refuses to load such a library: keep one of each.
+for f in "$APP"/Contents/MacOS/squaero "$APP"/Contents/MacOS/drivers/* "$APP"/Contents/Frameworks/*; do
+  otool -l "$f" | awk '/cmd LC_RPATH/{getline; getline; print $2}' | sort | uniq -d |
+    while read -r rpath; do
+      while [ "$(otool -l "$f" | awk '/cmd LC_RPATH/{getline; getline; print $2}' | grep -cxF "$rpath")" -gt 1 ]; do
+        install_name_tool -delete_rpath "$rpath" "$f"
+      done
+    done
+done
+
+# The oldest macOS the bundle runs on is the newest any of its pieces needs
+# (Homebrew's libraries are built for the runner's own macOS).
+MINOS="$(for f in "$APP"/Contents/MacOS/squaero "$APP"/Contents/MacOS/drivers/* "$APP"/Contents/Frameworks/*; do
+  otool -l "$f" | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; b=0}'
+done | sort -t. -k1,1n -k2,2n | tail -1)"
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@MINOS@/$MINOS/g" installer/Info.plist.in   > "$APP/Contents/Info.plist"
+echo "Minimum macOS: $MINOS"
 
 # Nothing may still point into Homebrew: that would only work on this machine.
 if otool -L "$APP"/Contents/MacOS/squaero "$APP"/Contents/MacOS/drivers/* \
