@@ -38,6 +38,9 @@ function(quaero_enable_mariadb target)
   # fdopen); macOS ships zlib, so take that one there (#40).
   if(APPLE)
     set(WITH_EXTERNAL_ZLIB ON CACHE BOOL "" FORCE)
+    # Its arm64 context switch (ma_context.c) uses GNU register asm, which the
+    # strict C11 this project sets hides; scoped to this function.
+    set(CMAKE_C_EXTENSIONS ON)
   endif()
   # OPENSSL_FOUND and friends, set here, are what the connector's
   # find_package(OpenSSL) guard checks first. Elsewhere (macOS, #40) the
