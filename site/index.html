@@ -3,250 +3,226 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Squaero — Gestor de bases de datos ligero, local y libre</title>
-<meta name="description" content="Squaero es un gestor de bases de datos ligero y nativo, local y de código abierto. Sin nube, sin cuentas, sin telemetría — con edición transaccional segura para SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB.">
+<title>Squaero — cliente de bases de datos nativo, local y libre</title>
+<meta name="description" content="Squaero es un cliente de bases de datos nativo y de código abierto para PostgreSQL, MySQL/MariaDB, Informix, SQL Server, SQLite y MongoDB. Para Windows, macOS y Linux, sin cuentas, sin nube y sin telemetría.">
 
 <!-- Open Graph / Twitter -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Squaero">
-<meta property="og:title" content="Squaero — Gestor de bases de datos ligero, local y libre">
-<meta property="og:description" content="Ligero y nativo, local y de código abierto. Sin nube ni telemetría, con edición transaccional segura.">
+<meta property="og:title" content="Squaero — cliente de bases de datos nativo, local y libre">
+<meta property="og:description" content="Nativo y de código abierto, para Windows, macOS y Linux. Revisas cada cambio antes de guardarlo.">
 <meta property="og:url" content="https://danielnuld.github.io/squaero/">
 <meta property="og:image" content="https://danielnuld.github.io/squaero/img/social-preview.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Squaero — Gestor de bases de datos ligero, local y libre">
-<meta name="twitter:description" content="Gestor de bases de datos ligero, nativo y de código abierto. Multi-motor, local y sin telemetría.">
+<meta name="twitter:title" content="Squaero — cliente de bases de datos nativo, local y libre">
+<meta name="twitter:description" content="Cliente de bases de datos nativo y de código abierto. Seis motores, local y sin telemetría.">
 <meta name="twitter:image" content="https://danielnuld.github.io/squaero/img/social-preview.png">
+<meta name="theme-color" content="#f2f3f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15162a" media="(prefers-color-scheme: dark)">
 
 <link rel="icon" href="assets/quaero-mark.svg" type="image/svg+xml">
 <link rel="alternate" hreflang="es" href="https://danielnuld.github.io/squaero/">
 <link rel="alternate" hreflang="en" href="https://danielnuld.github.io/squaero/en/">
 <link rel="alternate" hreflang="x-default" href="https://danielnuld.github.io/squaero/">
-
-<link rel="stylesheet" href="styles.css">
+<link rel="preload" href="fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="home.css">
 </head>
 <body>
 
-<header class="site">
-  <div class="wrap nav">
-    <span class="brand"><img src="assets/quaero-mark.svg" alt=""> Squaero</span>
-    <nav class="links">
-      <a href="#features">Características</a>
-      <a href="#compare">Comparativa</a>
-      <a href="manual/">Manual</a>
-      <a href="#download">Descargas</a>
-      <a href="https://github.com/danielnuld/squaero" rel="noopener">GitHub</a>
-      <a class="lang" href="en/" hreflang="en">EN</a>
-      <a class="btn" href="#download">Descargar</a>
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Squaero, inicio">
+      <svg viewBox="0 0 128 128" aria-hidden="true"><g fill="none" stroke="var(--accent)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"><circle cx="58" cy="56" r="38"/><path d="M85 83 L104 102"/></g><g fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M46 42 L60 56 L46 70"/><path d="M72 44 L72 68"/></g></svg>
+      <span>Squaero</span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a class="hide-narrow" href="#motores">Motores</a>
+      <a class="hide-narrow" href="#funciones">Funciones</a>
+      <a class="hide-narrow" href="#comparativa">Comparativa</a>
+      <a class="hide-narrow" href="manual/">Manual</a>
+      <a class="hide-narrow" href="https://github.com/danielnuld/squaero" rel="noopener">GitHub</a>
+      <a href="en/" hreflang="en" lang="en">English</a>
+      <a class="btn" href="#descargar">Descargar</a>
     </nav>
   </div>
 </header>
 
-<main class="wrap">
-
-  <!-- HERO -->
-  <section class="hero" style="border-top:none">
-    <p class="eyebrow">Gestor de bases de datos</p>
-    <h1>Tu gestor de bases de datos: <span class="accent">ligero, local y libre</span>.</h1>
-    <p class="lede">Nativo, sin el peso de Electron ni una JVM. Todo se queda
-      en tu equipo —sin nube, sin cuentas, sin telemetría— con edición transaccional
-      segura para SQLite, MySQL/MariaDB, PostgreSQL, Informix y MongoDB.</p>
-    <div class="cta">
-      <a class="btn" href="#download">Descargar</a>
-      <a class="btn ghost" href="https://github.com/danielnuld/squaero" rel="noopener">Ver en GitHub</a>
-    </div>
-    <p class="sub">Gratis y de código abierto, para Windows, macOS y Linux</p>
-
-    <figure class="shot">
-      <img src="img/social-preview.png" alt="Squaero — gestor de bases de datos ligero, local y libre" width="1280" height="640">
-    </figure>
-
-    <ul class="values" style="margin-top:40px">
-      <li><p class="k"><span class="d"></span>Ligero y nativo</p><p>Núcleo en C y WebView del sistema: arranca al instante, sin el peso de un entorno Electron o una JVM.</p></li>
-      <li><p class="k"><span class="d"></span>Multi-motor</p><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB y SQL Server desde una misma interfaz.</p></li>
-      <li><p class="k"><span class="d"></span>Local y privado</p><p>Tus conexiones y consultas se quedan en tu equipo. Sin cuentas, sin nube, sin telemetría.</p></li>
-      <li><p class="k"><span class="d"></span>Edición segura</p><p>Cambios sobre los datos en una transacción con vista previa del SQL: confirmas o descartas.</p></li>
-      <li><p class="k"><span class="d"></span>Código abierto</p><p>Gratuito y auditable. Sin licencias por asiento ni funciones tras un muro de pago.</p></li>
-    </ul>
-  </section>
-
-  <!-- FEATURES -->
-  <section id="features">
-    <h2>Todo lo que esperas de un gestor de bases</h2>
-    <p class="intro">Cada característica descrita aquí es algo que Squaero hace hoy —
-      explorador de objetos, editor SQL y rejilla de resultados, en un solo lugar.</p>
-
-    <figure class="showcase">
-      <video autoplay muted loop playsinline preload="metadata"
-             poster="video/quaero-demo-poster.png"
-             width="1360" height="860" aria-label="Demo: conectar, explorar el árbol de objetos, consultar y ver el diagrama ER">
-        <source src="video/quaero-demo.webm" type="video/webm">
-        <source src="video/quaero-demo.mp4" type="video/mp4">
-        <img src="video/quaero-demo-poster.png" alt="Squaero: consulta con resultados en la rejilla" width="1360" height="860">
-      </video>
-      <figcaption>Del árbol a la consulta en segundos — datos de demostración.</figcaption>
-    </figure>
-
-    <figure class="showcase">
-      <picture>
-        <source srcset="img/screenshot-app-dark.png" media="(prefers-color-scheme: dark)">
-        <img src="img/screenshot-app-light.png"
-             alt="Squaero: explorador de objetos por tipo, editor SQL con resaltado y rejilla de resultados con datos tipados"
-             width="1360" height="860" loading="lazy">
-      </picture>
-      <figcaption>Explorador por tipo, editor SQL y rejilla de resultados. Datos de demostración.</figcaption>
-    </figure>
-
-    <div class="features">
-      <div class="feature"><div class="ic" style="background:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div><h3>Editor SQL</h3><p>Autocompletado por esquema, formateo, historial de consultas y snippets reutilizables.</p></div>
-      <div class="feature"><div class="ic" style="background:var(--obj-table)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg></div><h3>Rejilla editable</h3><p>Edita, inserta y borra filas en una transacción con vista previa; detalle de fila para registros anchos.</p></div>
-      <div class="feature"><div class="ic" style="background:var(--obj-view)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg></div><h3>Explorador por tipo</h3><p>Árbol de conexión → base → tablas, vistas, funciones, procedimientos, triggers y eventos, con iconos a color.</p></div>
-      <div class="feature"><div class="ic" style="background:var(--obj-proc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/></svg></div><h3>Import / Export</h3><p>CSV, JSON, XLSX, XML, HTML y SQL. Importa hojas de cálculo y exporta cualquier resultado.</p></div>
-      <div class="feature"><div class="ic" style="background:var(--obj-func)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><h3>Herramientas</h3><p>Diagrama ER, constructor visual de consultas, gráficos, monitor de servidor, usuarios y permisos.</p></div>
-      <div class="feature"><div class="ic" style="background:var(--obj-event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></div><h3>Multi-motor</h3><p>SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB y SQL Server — mismo flujo de trabajo en todos.</p></div>
-    </div>
-
-    <div class="gallery">
-      <figure>
-        <img src="img/screenshot-er.png" alt="Diagrama entidad-relación con llaves foráneas reales" width="1360" height="860" loading="lazy">
-        <figcaption><b>Diagrama ER</b> — a partir de las llaves foráneas reales del motor.</figcaption>
-      </figure>
-      <figure>
-        <img src="img/screenshot-builder.png" alt="Constructor visual de consultas" width="1360" height="860" loading="lazy">
-        <figcaption><b>Constructor visual</b> — arma la consulta y ve el SQL generado.</figcaption>
-      </figure>
-      <figure>
-        <img src="img/screenshot-monitor.png" alt="Monitor de servidor con lista de procesos" width="1360" height="860" loading="lazy">
-        <figcaption><b>Monitor de servidor</b> — procesos en vivo, con opción de cancelarlos.</figcaption>
-      </figure>
-      <figure>
-        <img src="img/screenshot-charts.png" alt="Gráfico de barras a partir de un resultado" width="1360" height="860" loading="lazy">
-        <figcaption><b>Gráficos</b> — visualiza cualquier resultado sin salir de la app.</figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <!-- COMPARISON -->
-  <section id="compare">
-    <h2>Comparativa honesta</h2>
-    <p class="intro">Frente a herramientas conocidas. Solo afirmaciones verificables; señalamos también
-      dónde la competencia es más fuerte.</p>
-
-    <div class="table-scroll">
-      <table class="cmp">
-        <thead>
-          <tr>
-            <th>&nbsp;</th>
-            <th class="q">Squaero</th>
-            <th>Tabularis</th>
-            <th>Navicat</th>
-            <th>DBeaver CE</th>
-            <th>HeidiSQL</th>
-            <th>TablePlus</th>
-            <th>phpMyAdmin</th>
-            <th>Server Studio*</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><th>Precio</th><td class="q">Gratis</td><td>Gratis</td><td>De pago</td><td>Gratis</td><td>Gratis</td><td>Freemium</td><td>Gratis</td><td>Freemium</td></tr>
-          <tr><th>Código abierto</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td></tr>
-          <tr><th>Plataforma</th><td class="q">Win/mac/Linux</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Win/mac/Linux</td><td>Windows</td><td>Win/mac/Linux</td><td>Web</td><td>Win/mac/Linux</td></tr>
-          <tr><th>Ligero (sin Electron/JVM)</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td><span class="yes">Sí</span></td><td><span class="no">No (JVM)</span></td><td><span class="yes">Sí</span></td><td><span class="yes">Sí</span></td><td>Web</td><td><span class="no">No (JVM)</span></td></tr>
-          <tr><th>Local, sin telemetría</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td></tr>
-          <tr><th>Soporta Informix</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td><td><span class="yes">Sí</span></td></tr>
-          <tr><th>Editor SQL con autocompletado</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
-          <tr><th>Edición transaccional (vista previa)</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td><td class="partial">~</td></tr>
-          <tr><th>Diagrama ER</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td></tr>
-          <tr><th>Constructor visual de consultas</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="no">No</td><td class="partial">~</td><td class="no">No</td><td class="partial">~</td></tr>
-          <tr><th>Gráficos</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="yes">Sí</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="partial">~</td><td class="partial">~</td></tr>
-          <tr><th>Monitor de servidor</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="partial">~</td><td class="yes">Sí</td></tr>
-          <tr><th>Usuarios y permisos</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="yes">Sí</td><td class="yes">Sí</td></tr>
-          <tr><th>Import/Export (CSV/JSON/XLSX/XML/HTML/SQL)</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="yes">Sí</td><td class="yes">Sí</td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td></tr>
-          <tr><th>Generación de datos</th><td class="q"><span class="yes">Sí</span></td><td class="partial">~</td><td class="yes">Sí</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="partial">~</td></tr>
-          <tr><th>Notebooks SQL</th><td class="q"><span class="yes">Sí</span></td><td class="yes">Sí</td><td class="no">No</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
-          <tr><th>Asistente IA</th><td class="q"><span class="no">No</span></td><td class="yes">Sí</td><td class="partial">~</td><td class="partial">~</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="cmp-note"><b>Tabularis</b> = cliente Apache-2.0 (Tauri/Rust); Informix y otros motores vía plugins. <b>Server Studio</b> = edición gratuita <i>JE (Java Edition)</i> de la suite para Informix. «~» = parcial o según edición/plugin.</p>
-    <!--
-      Verificabilidad (issue #201). Fuentes canónicas por columna, revisado 2026-07-11:
-        Squaero        = este repositorio (código + pruebas automatizadas / smokes)
-        Tabularis     = https://tabularis.dev
-        Navicat       = https://navicat.com
-        DBeaver CE    = https://dbeaver.io
-        HeidiSQL      = https://www.heidisql.com
-        TablePlus     = https://tableplus.com
-        phpMyAdmin    = https://www.phpmyadmin.net
-        Server Studio = https://www.serverstudio.com   (edición JE gratuita)
-      Al actualizar una celda, re-anota aquí la fecha de revisión.
-    -->
-    <p class="cmp-note">Fuentes (revisado 11 jul 2026): las celdas de <b>Squaero</b> se verifican
-      contra el código y las pruebas automatizadas de este repositorio; las demás, contra la
-      documentación y la web oficial de cada producto —
-      <a href="https://tabularis.dev" rel="noopener">Tabularis</a>,
-      <a href="https://navicat.com" rel="noopener">Navicat</a>,
-      <a href="https://dbeaver.io" rel="noopener">DBeaver</a>,
-      <a href="https://www.heidisql.com" rel="noopener">HeidiSQL</a>,
-      <a href="https://tableplus.com" rel="noopener">TablePlus</a>,
-      <a href="https://www.phpmyadmin.net" rel="noopener">phpMyAdmin</a>,
-      <a href="https://www.serverstudio.com" rel="noopener">Server Studio</a>.
-      Las funciones evolucionan; si ves una celda inexacta,
-      <a href="https://github.com/danielnuld/squaero/issues" rel="noopener">abre un issue</a>.</p>
-
-    <div class="fair">
-      <b>Dónde la competencia gana.</b> <b>Tabularis</b> es un cliente libre muy maduro y amplio:
-      15+ motores por plugins, asistente de IA, EXPLAIN visual y MCP.
-      Comparte con Squaero la filosofía <i>ligera, local y libre</i>; hoy Squaero cubre menos motores
-      pero aporta monitor de servidor, usuarios/permisos y exportación a más formatos.
-      <b>DBeaver</b> soporta muchísimos más motores (80+ vía JDBC) y años de madurez.
-      <b>Navicat</b> es más pulido en funciones avanzadas. <b>Server Studio</b> conoce Informix a fondo.
-      <b>phpMyAdmin</b> no requiere instalar nada. Squaero no busca cubrirlo todo, sino ser mínimo y honesto.
-    </div>
-  </section>
-
-  <!-- DOWNLOADS -->
-  <section id="download">
-    <h2>Descargar</h2>
-    <p class="intro">Para Windows, macOS y Linux, con los seis motores (SQLite, MySQL/MariaDB,
-      PostgreSQL, Informix, MongoDB, SQL Server), sin instalar ningún cliente aparte:
-      Informix se conecta por DRDA, sin el Client SDK de IBM.</p>
-    <div class="downloads">
-      <div class="dl">
-        <h3>Windows</h3>
-        <div class="os">Instalador MSI (x64) · Windows 10/11</div>
-        <a class="btn" href="https://github.com/danielnuld/squaero/releases/latest" rel="noopener">Descargar (última versión)</a>
-        <small>Desde GitHub Releases · verifica el checksum en la página de la versión.</small>
+<main>
+  <section class="wrap hero">
+    <div class="hero-copy">
+      <h1>Tus bases de datos, en una app que arranca al instante.</h1>
+      <p class="lede">Squaero es un cliente de bases de datos nativo y libre. Todo se queda en tu equipo: sin cuentas, sin nube y sin telemetría.</p>
+      <div class="ctas">
+        <a class="btn" href="#descargar" data-primary-dl>Descargar para Windows</a>
+        <a class="btn ghost" href="#descargar" data-other-dl>macOS y Linux</a>
       </div>
-      <div class="dl">
-        <h3>macOS</h3>
-        <div class="os">.dmg · Apple Silicon, macOS 15 o posterior</div>
-        <a class="btn" href="https://github.com/danielnuld/squaero/releases/latest" rel="noopener">Descargar .dmg</a>
-        <small>La primera vez macOS lo bloquea: ábrelo desde Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente».</small>
+      <p class="fine"><span data-version-line>Gratis y de código abierto</span>, con licencia GPL-3.0.</p>
+    </div>
+
+    <div class="demo">
+      <p class="sr-only">Ilustración: una rejilla con un cambio sin confirmar en la fila 1041, y la vista previa del UPDATE que Squaero ejecutará, con los botones Confirmar y Descartar.</p>
+      <div class="demo-grid" aria-hidden="true">
+        <div class="demo-bar"><span class="dot"></span><b>ventas.pedidos</b><span>en PostgreSQL</span><span class="pending">1 cambio sin confirmar</span></div>
+        <table>
+          <thead><tr>
+            <th>id<small>integer</small></th><th>cliente<small>text</small></th><th class="r">total<small>numeric</small></th><th class="opt">fecha<small>date</small></th><th class="opt">pagado<small>bool</small></th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="n">1038</td><td>Ferretería Nogales</td><td class="r n">8 215.50</td><td class="d opt">2026-09-12</td><td class="b opt">sí</td></tr>
+            <tr><td class="n">1039</td><td>Abarrotes La Palma</td><td class="r n">1 930.00</td><td class="d opt">2026-09-12</td><td class="b opt">sí</td></tr>
+            <tr><td class="n">1040</td><td>Papelería Hermosillo</td><td class="r n">645.75</td><td class="d opt">2026-09-13</td><td class="b opt">no</td></tr>
+            <tr><td class="n">1041</td><td>Constructora del Yaqui</td><td class="r n edited">12 840.00</td><td class="d opt">2026-09-14</td><td class="b opt">no</td></tr>
+            <tr><td class="n">1042</td><td>Farmacia San Benito</td><td class="r n">3 402.10</td><td class="d opt">2026-09-14</td><td class="b opt">sí</td></tr>
+            <tr><td class="n">1043</td><td>Taller Mecánico Obregón</td><td class="r n">5 120.00</td><td class="d opt">2026-09-15</td><td class="b opt">no</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="dl">
-        <h3>Linux</h3>
-        <div class="os">.deb (Ubuntu 24.04+, Debian 13+) o snap · x86_64</div>
-        <a class="btn" href="https://github.com/danielnuld/squaero/releases/latest" rel="noopener">Descargar .deb</a>
-        <small>O desde la <a href="https://snapcraft.io/squaero" rel="noopener">Snap Store</a>:<br><code style="white-space:nowrap">sudo snap install squaero</code></small>
-        <small>El snap no incluye Informix.</small>
+      <div class="demo-preview" aria-hidden="true">
+        <div><strong>Revisa el cambio antes de guardarlo</strong><p>Se aplica en una transacción. Si no te convence, se descarta entero.</p></div>
+<pre>UPDATE ventas.pedidos
+   SET total = 12840.00
+ WHERE id = 1041;</pre>
+        <div class="demo-actions"><span class="ok">Confirmar</span><span class="no">Descartar</span></div>
       </div>
     </div>
   </section>
 
+  <section id="motores" class="section">
+    <div class="wrap split">
+      <div class="intro">
+        <h2>Seis motores y ningún cliente que instalar aparte.</h2>
+        <p>Los clientes de cada motor viajan dentro de Squaero. Conectas por TCP, TLS o un túnel SSH.</p>
+      </div>
+      <dl class="engines">
+        <div><dt>PostgreSQL</dt><dd>Esquemas, vistas materializadas y TLS con verificación del servidor.</dd></div>
+        <div><dt>MySQL y MariaDB</dt><dd>Edición transaccional, TLS y túnel SSH, también contra MySQL 8.</dd></div>
+        <div><dt>Informix</dt><dd>Por DRDA, sin el Client SDK de IBM, con mensajes de error legibles.</dd></div>
+        <div><dt>SQL Server</dt><dd>Consultas, estructura de tablas y cifrado de la conexión.</dd></div>
+        <div><dt>SQLite</dt><dd>Abres el archivo y editas como en cualquier otro motor.</dd></div>
+        <div><dt>MongoDB</dt><dd>Consultas find y aggregate, de solo lectura.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="wrap shots" aria-label="Capturas">
+    <figure class="main">
+      <img src="img/screenshot-app-dark.png" width="1360" height="860" alt="Squaero con el explorador de objetos, el editor SQL y la rejilla de resultados, en tema oscuro">
+      <figcaption>El explorador de objetos, el editor y la rejilla en una sola ventana. Datos de demostración.</figcaption>
+    </figure>
+    <div class="trio">
+      <figure>
+        <img src="img/screenshot-er.png" width="1360" height="860" loading="lazy" alt="Diagrama entidad-relación de una base de ventas">
+        <figcaption><b>Diagrama ER</b>, trazado desde las llaves foráneas reales del motor.</figcaption>
+      </figure>
+      <figure>
+        <img src="img/screenshot-builder.png" width="1360" height="860" loading="lazy" alt="Constructor visual de consultas con el SQL generado">
+        <figcaption><b>Constructor visual</b>: armas la consulta con clics y ves el SQL que genera.</figcaption>
+      </figure>
+      <figure>
+        <img src="img/screenshot-monitor.png" width="1360" height="860" loading="lazy" alt="Monitor del servidor con los procesos en curso">
+        <figcaption><b>Monitor del servidor</b>: los procesos en vivo, y cancelas el que estorba.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="funciones" class="section">
+    <div class="wrap split">
+      <div class="intro">
+        <h2>Lo que haces a diario, sin buscarlo en menús.</h2>
+        <p>Todo lo de esta lista funciona hoy en los motores que lo permiten.</p>
+      </div>
+      <dl class="features">
+        <div><dt>Editor SQL</dt><dd>Autocompletado por esquema, formateo, historial, snippets y variables como :cliente.</dd></div>
+        <div><dt>Rejilla editable</dt><dd>Edita, inserta y borra filas en una transacción, con el SQL a la vista antes de guardar.</dd></div>
+        <div><dt>Filtros en el servidor</dt><dd>Filtra y ordena una tabla sin escribir SQL; pasa de página sin volver a consultar.</dd></div>
+        <div><dt>Datos relacionados</dt><dd>Desde una celda, salta a las filas que la referencian o a la que apunta.</dd></div>
+        <div><dt>Importar y exportar</dt><dd>CSV, JSON, XLSX, XML, HTML y SQL. Pegar filas de una hoja de cálculo también vale.</dd></div>
+        <div><dt>Diagrama ER</dt><dd>Las tablas y sus relaciones, desde las llaves foráneas del motor.</dd></div>
+        <div><dt>Constructor de consultas</dt><dd>Arma el SELECT con clics y copia el SQL que genera.</dd></div>
+        <div><dt>Respaldo</dt><dd>Vuelca una base a un archivo .sql y restáurala en otra conexión.</dd></div>
+        <div><dt>Usuarios y monitor</dt><dd>Permisos por usuario, procesos en vivo y consultas lentas.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="band" aria-label="Privacidad y ligereza">
+    <div class="wrap">
+      <div><h3>Nada sale de tu equipo</h3><p>Conexiones, contraseñas, consultas e historial se guardan en tu equipo. No hay servidor de Squaero al que enviarlos.</p></div>
+      <div><h3>Ligero de verdad</h3><p>Un núcleo en C y el visor web del sistema. Ni Electron ni Java: el instalador de Windows pesa 9 MB.</p></div>
+      <div><h3>Código que puedes leer</h3><p>GPL-3.0, sin licencias por puesto ni funciones de pago. Cada descarga lleva su firma de procedencia.</p></div>
+    </div>
+  </section>
+
+  <section id="comparativa" class="section compare">
+    <div class="wrap">
+      <div class="head">
+        <h2>Frente a lo que ya conoces</h2>
+        <p>Solo lo que se puede comprobar. «Parcial» quiere decir que depende de la edición o de un plugin.</p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col"><span class="sr-only">Característica</span></th><th scope="col" class="q">Squaero</th><th scope="col">DBeaver CE</th><th scope="col">Navicat</th><th scope="col">TablePlus</th><th scope="col">HeidiSQL</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Precio</th><td class="q">Gratis</td><td>Gratis</td><td>De pago</td><td>Gratis con límites</td><td>Gratis</td></tr>
+            <tr><th scope="row">Código abierto</th><td class="q">Sí</td><td>Sí</td><td>No</td><td>No</td><td>Sí</td></tr>
+            <tr><th scope="row">Sin Electron ni Java</th><td class="q">Sí</td><td>No, usa Java</td><td>Sí</td><td>Sí</td><td>Sí</td></tr>
+            <tr><th scope="row">Sin telemetría</th><td class="q">Sí</td><td>Parcial</td><td>Parcial</td><td>Parcial</td><td>Sí</td></tr>
+            <tr><th scope="row">Informix</th><td class="q">Sí</td><td>Sí</td><td>No</td><td>No</td><td>No</td></tr>
+            <tr><th scope="row">Vista previa del cambio</th><td class="q">Sí</td><td>Parcial</td><td>Parcial</td><td>Parcial</td><td>Parcial</td></tr>
+            <tr><th scope="row">Windows, macOS y Linux</th><td class="q">Sí</td><td>Sí</td><td>Sí</td><td>Sí</td><td>Solo Windows</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Donde otros van por delante: Squaero no tiene asistente de IA, y DBeaver y Navicat llevan años cubriendo más motores. Revisado en la web oficial de cada producto:
+        <a href="https://dbeaver.io" rel="noopener">DBeaver</a>, <a href="https://navicat.com" rel="noopener">Navicat</a>,
+        <a href="https://tableplus.com" rel="noopener">TablePlus</a> y <a href="https://www.heidisql.com" rel="noopener">HeidiSQL</a>.
+        Si ves una celda inexacta, <a href="https://github.com/danielnuld/squaero/issues" rel="noopener">abre un issue</a>.</p>
+    </div>
+  </section>
+
+  <section id="descargar" class="section">
+    <div class="wrap">
+      <h2 data-dl-title>Descarga Squaero</h2>
+      <div class="downloads">
+        <div class="dl">
+          <h3>Windows</h3>
+          <p>Windows 10 y 11 de 64 bits. Si tenías la versión de 32 bits, la sustituye y conserva tus conexiones.</p>
+          <a class="btn" href="https://github.com/danielnuld/squaero/releases/latest" rel="noopener" data-asset="-x64.msi">Descargar el instalador</a>
+          <span class="file" data-file="-x64.msi">squaero-…-x64.msi</span>
+        </div>
+        <div class="dl">
+          <h3>macOS</h3>
+          <p>macOS 15 o posterior, en Mac con Apple Silicon. La primera vez, ábrelo desde Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente».</p>
+          <a class="btn" href="https://github.com/danielnuld/squaero/releases/latest" rel="noopener" data-asset="-arm64.dmg">Descargar el .dmg</a>
+          <span class="file" data-file="-arm64.dmg">squaero-…-arm64.dmg</span>
+        </div>
+        <div class="dl">
+          <h3>Linux</h3>
+          <p>El .deb para Ubuntu 24.04 y Debian 13 o posteriores, o el snap en cualquier distribución. El snap no incluye Informix.</p>
+          <a class="btn" href="https://github.com/danielnuld/squaero/releases/latest" rel="noopener" data-asset="_amd64.deb">Descargar el .deb</a>
+          <code class="file">sudo snap install squaero</code>
+        </div>
+      </div>
+      <p class="verify">Cada archivo lleva su suma SHA-256 en la página de la versión y una firma de procedencia que puedes comprobar con <code>gh attestation verify</code>.</p>
+    </div>
+  </section>
 </main>
 
-<footer class="site">
-  <div class="wrap row">
-    <span class="brand"><img src="assets/quaero-mark.svg" alt="" style="width:22px;height:22px"> Squaero</span>
-    <span class="sp"></span>
-    <a href="https://github.com/danielnuld/squaero" rel="noopener">GitHub</a>
-    <a href="https://github.com/danielnuld/squaero/releases" rel="noopener">Versiones</a>
-    <span>Código abierto</span>
+<footer class="site-foot">
+  <div class="wrap">
+    <span>Squaero es software libre con licencia GPL-3.0.</span>
+    <nav aria-label="Pie">
+      <a href="manual/">Manual</a>
+      <a href="https://github.com/danielnuld/squaero" rel="noopener">Código fuente</a>
+      <a href="https://github.com/danielnuld/squaero/releases" rel="noopener">Versiones</a>
+      <a href="https://github.com/danielnuld/squaero/issues" rel="noopener">Reportar un problema</a>
+      <a href="en/" hreflang="en" lang="en">English</a>
+    </nav>
   </div>
 </footer>
 
+<script src="release.js" data-version-label="Versión {v}" data-title="Descarga Squaero {v}" data-mac-first="Descargar para Mac" data-mac-other="Windows y Linux" data-linux-first="Descargar para Linux" data-linux-other="Windows y macOS"></script>
 </body>
 </html>
