@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  addCellCondition,
   applyFilter,
+  cellFilterOps,
   cycleSortColumn,
   draftFilter,
   emptyFilter,
@@ -142,3 +144,30 @@ describe("summaryParts", () => {
 it("opens folded, so a table tab starts on its rows", () => {
   expect(emptyFilter().collapsed).toBe(true);
 });
+
+describe("filter by a cell's value (#593)", () => {
+  it("offers comparisons for a value and the NULL tests for none", () => {
+    expect(cellFilterOps("ana")).toEqual(["=", "!=", "CONTAINS", "<", ">"]);
+    expect(cellFilterOps("")).toEqual(["=", "!=", "CONTAINS", "<", ">"]); // "" is a value
+    expect(cellFilterOps(null)).toEqual(["IS NULL", "IS NOT NULL"]);
+  });
+
+  it("appends the condition and opens the panel, keeping what was there", () => {
+    const base = { ...emptyFilter(), conditions: [{ column: "edad", op: ">" as const, value: "30" }] };
+    const next = addCellCondition(base, "nombre", "=", "ana");
+    expect(next.collapsed).toBe(false);
+    expect(next.conditions).toEqual([
+      { column: "edad", op: ">", value: "30" },
+      { column: "nombre", op: "=", value: "ana" },
+    ]);
+    expect(base.conditions.length).toBe(1); // not mutated
+  });
+
+  it("renders to a WHERE that quotes the raw value, NULL included", () => {
+    const quoted = addCellCondition(emptyFilter(), "nombre", "=", "O'Brien");
+    expect(draftFilter("mysql", quoted).where).toBe("`nombre` = 'O''Brien'");
+    const nul = addCellCondition(emptyFilter(), "nombre", "IS NULL", null);
+    expect(draftFilter("mysql", nul).where).toBe("`nombre` IS NULL");
+  });
+});
+
