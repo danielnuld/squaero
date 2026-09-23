@@ -27,8 +27,8 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 - [x] 1.2 `cmake/toolchain-ios.cmake` para dispositivo y simulador (arm64)
 - [x] 1.3 OpenSSL para iOS (`ios64-xcrun`, `iossimulator-xcrun`) en `QuaeroOpenSSL.cmake`
 - [x] 1.4 libdrda y libssh2 para iOS (MySQL y SQL Server esperan a los grupos 9 y 10)
-- [ ] 1.5 libpq desde el código fuente con un `pg_config.h` para Darwin arm64
-- [ ] 1.6 mongo-c 1.30: parche para CMake 4 en Apple, o CMake 3.31 en ese subproyecto
+- [x] 1.5 libpq desde el código fuente con un `pg_config.h` para Darwin arm64
+- [x] 1.6 mongo-c 1.30: parche para CMake 4 en Apple, o CMake 3.31 en ese subproyecto
 - [ ] 1.7 Script que arma `SquaeroCore.xcframework` (dispositivo + simulador) y comprueba que no enlaza nada
       fuera del SDK
 - [x] 1.8 Las pruebas unitarias del núcleo corren en el simulador
