@@ -60,6 +60,14 @@ describe("matchShortcut — global actions", () => {
   });
 });
 
+describe("matchShortcut — filter (#592)", () => {
+  it("Ctrl/Cmd+Shift+L adds a filter condition; without Shift it does not", () => {
+    expect(matchShortcut(ev({ key: "L", ctrlKey: true, shiftKey: true }))).toBe("filter-add-condition");
+    expect(matchShortcut(ev({ key: "l", metaKey: true, shiftKey: true }))).toBe("filter-add-condition");
+    expect(matchShortcut(ev({ key: "l", ctrlKey: true }))).toBeNull();
+  });
+});
+
 describe("matchShortcut — non-matches", () => {
   it("does NOT match run-query globally (editor owns Mod+Enter)", () => {
     expect(matchShortcut(ev({ key: "Enter", ctrlKey: true }))).toBeNull();
