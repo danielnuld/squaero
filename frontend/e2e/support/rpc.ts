@@ -39,19 +39,18 @@ const REPO = join(import.meta.dirname, "..", "..", "..");
 const IS_WIN = process.platform === "win32";
 
 /**
- * The x86 build is the default because it is the one that ships (IBM's 32-bit
- * Informix ODBC driver forced that until issue #557; the DRDA driver has no such
- * limit).
+ * The x64 build is the default because it is the one that ships (issue #560;
+ * x86 was forced by IBM's 32-bit Informix client until #557).
  */
 function defaultBinary(): string {
   return IS_WIN
-    ? join(REPO, "build-x86", "tools", "quaero-rpc.exe")
+    ? join(REPO, "build-x64", "tools", "quaero-rpc.exe")
     : join(REPO, "build", "tools", "quaero-rpc");
 }
 
 function defaultDrivers(): string {
   return IS_WIN
-    ? join(REPO, "build-x86", "app", "drivers")
+    ? join(REPO, "build-x64", "app", "drivers")
     : join(REPO, "build", "app", "drivers");
 }
 
@@ -97,14 +96,14 @@ export function defaultTarget(): CoreTarget {
  * Runtime DLLs the plugins need are staged next to the app, not next to
  * quaero-rpc, so loading them from the tools directory fails with a bare
  * "could not load library" that explains nothing. Putting both app directories
- * and the 32-bit mingw runtime on the child's PATH turns that lost afternoon
+ * and the mingw runtime on the child's PATH turns that lost afternoon
  * into a non-event. Harmless where the directories do not exist.
  */
 function childPath(): string {
   const extra = [
-    join(REPO, "build-x86", "app"),
+    join(REPO, "build-x64", "app"),
     join(REPO, "build", "app"),
-    "C:\\mingw32\\bin",
+    "C:\\mingw64\\bin",
   ].filter((p) => existsSync(p));
   return [...extra, process.env.PATH ?? ""].join(delimiter);
 }
@@ -120,7 +119,7 @@ export async function startRpc(target: CoreTarget = defaultTarget()): Promise<Rp
   if (!existsSync(bin)) {
     throw new Error(
       `quaero-rpc not found at ${bin}. Build it first ` +
-        `(cmake --build build-x86 --target quaero-rpc) or set QUAERO_RPC.`,
+        `(cmake --build build-x64 --target quaero-rpc) or set QUAERO_RPC.`,
     );
   }
 

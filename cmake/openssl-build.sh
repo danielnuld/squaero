@@ -1,9 +1,10 @@
 #!/bin/sh
-# Builds a static OpenSSL for the i686 MinGW toolchain (issue #144). Run by
+# Builds a static OpenSSL for the MinGW toolchain (issues #144, #560). Run by
 # cmake/QuaeroOpenSSL.cmake at configure time, under Git for Windows' sh.
 #
 #   $1 OpenSSL source dir      $2 install prefix     $3 MinGW bin dir
 #   $4 parallel jobs           $5 dir holding the pure-Perl modules to borrow
+#   $6 Configure target: mingw (i686) or mingw64 (x86_64)
 set -e
 src=$(cygpath -u "$1")
 prefix=$(cygpath -u "$2")
@@ -32,7 +33,7 @@ for dest in "$borrowed" .; do
   cp -r "$mods/Locale" "$mods/ExtUtils" "$mods/Pod" "$dest/"
 done
 
-PERL5LIB="$borrowed" /usr/bin/perl Configure mingw no-shared no-tests no-asm no-module \
+PERL5LIB="$borrowed" /usr/bin/perl Configure "${6:-mingw}" no-shared no-tests no-asm no-module \
   --prefix="$prefix" --libdir=lib CC=gcc AR=ar RANLIB=ranlib RC=windres
 "$make" -j"$4" build_libs
 "$make" install_dev

@@ -1,4 +1,4 @@
-# Download and build OpenSSL (static) for the x86 Windows release, and expose it
+# Download and build OpenSSL (static) for the Windows release (x86 or x64), and expose it
 # to the MySQL plugin (MariaDB Connector/C) and the PostgreSQL plugin (libpq),
 # which until issue #144 had no TLS at all in the build that ships.
 #
@@ -64,13 +64,19 @@ function(quaero_enable_openssl)
     file(ARCHIVE_EXTRACT INPUT "${_tarball}" DESTINATION "${_root}/src")
 
     get_filename_component(_mingw_bin "${CMAKE_C_COMPILER}" DIRECTORY)
+    # OpenSSL's Configure target: "mingw" is 32-bit, "mingw64" x86_64 (#560).
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+      set(_target mingw64)
+    else()
+      set(_target mingw)
+    endif()
     cmake_host_system_information(RESULT _jobs QUERY NUMBER_OF_LOGICAL_CORES)
     set(_log "${_root}/build.log")
     message(STATUS "OpenSSL ${QUAERO_OPENSSL_VERSION}: building (several minutes; log: ${_log})")
     execute_process(
       COMMAND "${QUAERO_GIT_SH}" "${_quaero_openssl_module_dir}/openssl-build.sh"
               "${_root}/src/openssl-${QUAERO_OPENSSL_VERSION}" "${_prefix}"
-              "${_mingw_bin}" "${_jobs}" "${_perl_mods}"
+              "${_mingw_bin}" "${_jobs}" "${_perl_mods}" "${_target}"
       RESULT_VARIABLE _rc
       OUTPUT_FILE "${_log}"
       ERROR_FILE "${_log}")

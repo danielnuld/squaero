@@ -88,7 +88,7 @@ the **WebView2** runtime (already bundled in Windows 11). Every release attaches
 `sha256sum -c SHA256SUMS.txt` (or `CertUtil -hashfile squaero-*.msi SHA256`).
 Releases from v0.26.0 on also carry a signed build-provenance attestation, which
 proves the MSI was built by this repository's release workflow:
-`gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero`.
+`gh attestation verify squaero-X.Y.Z-x64.msi --repo danielnuld/squaero`.
 The MSI is not Authenticode-signed yet, so Windows SmartScreen shows an unknown
 publisher.
 
@@ -127,8 +127,8 @@ The binary lands in `build/app/quaero` (`.exe` on Windows). **Webview
 dependencies**: Linux `libgtk-4-dev libwebkitgtk-6.0-dev`; macOS system WebKit;
 Windows WebView2 (downloaded at build time). Core only: `-DQUAERO_BUILD_APP=OFF`.
 
-**PostgreSQL:** the driver links `libpq`. On x64 it uses a system libpq; the x86
-release build compiles a static libpq from source with `-DQUAERO_LIBPQ=ON`.
+**PostgreSQL:** the driver links `libpq`: a system libpq when there is one; the
+Windows release build compiles a static libpq from source with `-DQUAERO_LIBPQ=ON`.
 
 **MongoDB:** the driver links `libmongoc`. Without a system copy, build it from
 source with `-DQUAERO_MONGOC=ON` (fetches and statically links mongo-c-driver;
