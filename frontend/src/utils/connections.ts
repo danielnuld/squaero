@@ -182,6 +182,12 @@ export const INFORMIX_DRDA_PORT = "9089";
 /** The port of the onsoctcp listener the IBM clients use on most servers. */
 export const INFORMIX_SQLI_PORT = "9088";
 /**
+ * The server's INFORMIXSERVER name, for the SQLI fallback: when DRDA fails on
+ * Windows, the driver tries the same port over SQLI through an installed IBM
+ * Client SDK (64-bit), which needs this name. Never shipped with the app.
+ */
+export const INFORMIX_SQLI_SERVER = "sqli_server";
+/**
  * Param set on a migrated Informix connection whose port could not be moved to
  * the DRDA listener for sure (issue #557). The form shows a notice while it is
  * there and drops it on save; the driver ignores it.
@@ -201,7 +207,8 @@ export const INFORMIX_PORT_REVIEW = "port_review";
  * A connection is legacy when it still has one of those keys, so this runs once
  * per connection and is a no-op afterwards. `force` treats one without them as
  * legacy too: connections imported from other tools (DBeaver, Navicat) always
- * name the SQLI listener. Pure.
+ * name the SQLI listener. The old `server` name is kept as `sqli_server`, which
+ * the SQLI fallback needs if the server turns out to have no DRDA listener. Pure.
  */
 export function migrateInformixConnection(conn: Connection, force = false): Connection {
   if (conn.driver !== "informix") return conn;
@@ -210,6 +217,7 @@ export function migrateInformixConnection(conn: Connection, force = false): Conn
   if (!legacy) return conn;
   const params = { ...conn.params };
   const tls = params.protocol === "onsocssl";
+  if (params.server && !params[INFORMIX_SQLI_SERVER]) params[INFORMIX_SQLI_SERVER] = params.server;
   for (const k of legacyKeys) delete params[k];
   const port = (params.port ?? "").trim();
   if (tls) {
@@ -267,14 +275,16 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
   },
   // Informix connects over DRDA (issue #557): `port` is the server's DRDA
   // listener (sqlhosts protocol drsoctcp, usually 9089), not the onsoctcp one
-  // the IBM clients use. No INFORMIXSERVER name is needed. TLS is a drsocssl
-  // listener of its own, verified against the CA file given here.
+  // the IBM clients use. No INFORMIXSERVER name is needed for it; sqli_server is
+  // only for the SQLI fallback on Windows (see INFORMIX_SQLI_SERVER). TLS is a
+  // drsocssl listener of its own, verified against the CA file given here.
   informix: {
     driver: "informix",
     label: "IBM Informix",
     fields: withSshTunnel([
       { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
       { key: "port", label: "field.portDrda", type: "number", required: false, placeholder: INFORMIX_DRDA_PORT },
+      { key: INFORMIX_SQLI_SERVER, label: "field.sqliServer", type: "text", required: false, placeholder: "ol_informix" },
       { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: true, placeholder: "informix" },
       { key: "password", label: "field.password", type: "password", required: false },

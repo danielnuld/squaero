@@ -34,6 +34,7 @@ const FIELD_SECTION: Record<string, SectionId> = {
   host: "server",
   port: "server",
   instance: "server", // SQL Server named instance
+  sqli_server: "server", // Informix, SQLI fallback
 
   user: "auth",
   password: "auth",
