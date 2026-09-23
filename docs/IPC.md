@@ -203,6 +203,19 @@ el primer mensaje DRDA, y el error lo dice. Se comprueba con `onstat -g ntt`.
 | `user` / `password` | Credenciales. `user` es requerido. |
 | `tls` | Vacío (sin cifrar), `require` (cifra sin verificar), `verify-ca` (la CA firma el certificado) o `verify-full` (además el host o la IP coinciden). |
 | `tls_ca` | Archivo PEM de la CA. En Windows OpenSSL no lee el almacén del sistema: para verificar hay que darlo. |
+| `sqli_server` | Nombre `INFORMIXSERVER` del servidor, solo para el respaldo SQLI (abajo). Opcional. |
+
+**Respaldo SQLI (solo Windows).** Para servidores sin listener DRDA: si DRDA
+falla al conectar, la DSN trae `sqli_server` y `tls` está vacío, el driver
+intenta **el mismo host y puerto** por SQLI (`onsoctcp`) con el ODBC del
+**IBM Informix Client SDK** instalado en el equipo, de la misma arquitectura que
+la app (64 bits en la x64). Squaero **no lo incluye**: lo carga de `INFORMIXDIR`
+(entorno, luego registro) sin Driver Manager. El nombre ha de ser uno de los
+`DBSERVERNAME`/`DBSERVERALIASES` del servidor (si no, `-761`). Si los dos fallan,
+el error lleva ambos motivos, el de DRDA primero. Por SQLI el servidor confirma
+solo (autocommit del ODBC; `begin` lo apaga), los mensajes de error llegan con
+su texto y cancelar pide al servidor que interrumpa la sentencia (`SQLCancel`),
+sin cortar la conexión.
 
 Las claves del driver ODBC anterior (`server`, `client_locale`, `db_locale`) se
 ignoran; `odbc_dsn` y `protocol=onsocssl` sin `tls` se rechazan con qué poner
@@ -231,7 +244,8 @@ conexiones) las de Informix del driver ODBC pasan a DRDA: el puerto 9088 (o
 ninguno) pasa a 9089; cualquier otro se conserva y la conexión queda marcada
 con `port_review`, que el formulario muestra como «Revisa el puerto» hasta que
 se guarda. Una conexión `onsocssl` conserva la seguridad como `tls=verify-ca` y
-queda marcada también. Las importadas de DBeaver o Navicat siguen la misma regla.
+queda marcada también. El `server` antiguo se conserva como `sqli_server`, por si
+el servidor no tuviera DRDA. Las importadas de DBeaver o Navicat siguen la misma regla.
 
 *SQL Server (FreeTDS, #49).* El driver `mssql` usa la db-lib de FreeTDS, enlazada
 dentro del plugin; no lee `freetds.conf`: todo va en el registro de login.
