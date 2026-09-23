@@ -13,6 +13,7 @@
 #include "dbcore/loader.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #if defined(_WIN32)
@@ -107,7 +108,18 @@ dbc_status dbc_plugin_load(const char *path, dbc_plugin **out,
 
     dbc_lib_handle handle = lib_open(path);
     if (handle == NULL) {
-        set_err(errbuf, errcap, "could not load library");
+        /* Say why: a missing dependency, the wrong architecture, an unsigned
+           library. The bare phrase alone cost more than one afternoon. */
+        char msg[512];
+#if defined(_WIN32)
+        snprintf(msg, sizeof msg, "could not load library (Windows error %lu)",
+                 (unsigned long)GetLastError());
+#else
+        const char *why = dlerror();
+        snprintf(msg, sizeof msg, "could not load library: %s",
+                 why != NULL ? why : "unknown reason");
+#endif
+        set_err(errbuf, errcap, msg);
         return DBC_ERR_CONN;
     }
 
