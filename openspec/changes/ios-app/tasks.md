@@ -4,14 +4,21 @@ Seguimiento: #581 (hito «M12 - App de iPhone»).
 
 Cada grupo es un issue y, salvo el 0, uno o varios PR. Un grupo queda verde en CI (y probado en un
 dispositivo o en el simulador cuando tiene interfaz) antes de fusionarse. El grupo 1 va primero porque decide
-si el resto es posible: si un cliente no compila para iOS, se sabe antes de escribir interfaz.
+si el resto es posible: si un cliente no compila para iOS, se sabe antes de escribir interfaz. Los grupos 9 y
+10 (los clientes propios de MySQL y SQL Server) avanzan en paralelo con el 2 al 6 y tienen que estar antes del
+7: sin ellos la app no lleva esos dos motores.
 
 ## 0. Decisiones previas — #572
 
-- [ ] 0.1 Cuenta de Apple Developer y equipo de firma; identificador del bundle `io.github.danielnuld.Squaero`
-- [ ] 0.2 Vía de licencia para la App Store: LGPL de MariaDB Connector/C y FreeTDS (estático o frameworks
-      dinámicos) y la GPL-3.0 propia (excepción de licencia del autor)
-- [ ] 0.3 iOS mínimo (propuesta: 17) y si iPad entra en modo iPhone
+- [x] 0.1 Tipo de cuenta: persona física (decidido el 2026-09-23)
+- [x] 0.2 LGPL de terceros: clientes propios Apache-2.0 para MySQL y SQL Server (decidido, grupos 9 y 10)
+- [ ] 0.3 Permiso adicional de la GPL-3.0 para tiendas de apps: en consulta; borrador en el issue
+- [ ] 0.4 Alta en el Apple Developer Program como persona física, y acuerdo de apps gratuitas aceptado
+- [ ] 0.5 Registrar el identificador `io.github.danielnuld.Squaero` y crear la app en App Store Connect,
+      que reserva el nombre «Squaero»
+- [ ] 0.6 Clave de la API de App Store Connect y certificado de distribución, como secretos del repositorio
+      para firmar y subir desde CI
+- [ ] 0.7 iOS mínimo (propuesta: 17) y si iPad entra en modo iPhone
 
 ## 1. Núcleo y drivers para iOS (`core-ios-build`) — #573
 
@@ -19,14 +26,13 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
       CMake; escritorio sigue con plugins. Pruebas: registro estático de los seis y `app.hello`
 - [ ] 1.2 `cmake/toolchain-ios.cmake` para dispositivo y simulador (arm64)
 - [ ] 1.3 OpenSSL para iOS (`ios64-xcrun`, `iossimulator-xcrun`) en `QuaeroOpenSSL.cmake`
-- [ ] 1.4 libdrda, libssh2 y MariaDB Connector/C para iOS
+- [ ] 1.4 libdrda y libssh2 para iOS (MySQL y SQL Server esperan a los grupos 9 y 10)
 - [ ] 1.5 libpq desde el código fuente con un `pg_config.h` para Darwin arm64
-- [ ] 1.6 FreeTDS con el `iconv` del SDK
-- [ ] 1.7 mongo-c 1.30: parche para CMake 4 en Apple, o CMake 3.31 en ese subproyecto
-- [ ] 1.8 Script que arma `SquaeroCore.xcframework` (dispositivo + simulador) y comprueba que no enlaza nada
+- [ ] 1.6 mongo-c 1.30: parche para CMake 4 en Apple, o CMake 3.31 en ese subproyecto
+- [ ] 1.7 Script que arma `SquaeroCore.xcframework` (dispositivo + simulador) y comprueba que no enlaza nada
       fuera del SDK
-- [ ] 1.9 Las pruebas unitarias del núcleo corren en el simulador
-- [ ] 1.10 Job de CI en `macos-15` que construye el xcframework y corre las pruebas; mide y anota el tamaño
+- [ ] 1.8 Las pruebas unitarias del núcleo corren en el simulador
+- [ ] 1.9 Job de CI en `macos-15` que construye el xcframework y corre las pruebas; mide y anota el tamaño
 
 ## 2. Lógica compartida (`shared-logic`) — #574
 
@@ -76,10 +82,18 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 ## 7. Distribución — #579
 
-- [ ] 7.1 Icono, pantalla de arranque y `PrivacyInfo.xcprivacy` (sin recogida de datos)
-- [ ] 7.2 Workflow de TestFlight firmado desde CI
-- [ ] 7.3 Ficha de la App Store (ES y EN) y capturas del simulador
-- [ ] 7.4 Manual y web: sección de iPhone
+- [ ] 7.1 Icono (1024 px), pantalla de arranque, y textos de Face ID y red local en ES y EN
+- [ ] 7.2 `PrivacyInfo.xcprivacy` sin recogida de datos, con las razones de las API declaradas
+- [ ] 7.3 `ITSAppUsesNonExemptEncryption` y la respuesta de cumplimiento de exportación
+- [ ] 7.4 Base de demostración SQLite incluida y ofrecida en la pantalla de conexiones
+- [ ] 7.5 Pantalla de licencias generada desde `THIRD-PARTY.md`, con los `NOTICE` de Apache-2.0
+- [ ] 7.6 Chequeo de CI: ninguna dependencia LGPL o GPL ajena en el build de iOS, y el inventario coincide con
+      lo que enlaza el `xcframework`
+- [ ] 7.7 Política de privacidad publicada en la web (ES y EN), y su URL en App Store Connect
+- [ ] 7.8 Workflow que firma y sube a TestFlight desde CI
+- [ ] 7.9 Ficha de la App Store (ES y EN), categoría Herramientas para desarrolladores, capturas de iPhone,
+      notas para la revisión (cómo abrir la base de demostración)
+- [ ] 7.10 Manual y web: sección de iPhone
 
 ## 8. Fase 2: agente de IA en el dispositivo (`ios-ai-agent`, refs #263) — #580
 
@@ -95,3 +109,28 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 - [ ] 8.7 Un cambio propuesto abre la vista previa con Face ID y nunca se ejecuta solo. Prueba: el agente no
       puede ejecutar un `UPDATE` por ninguna vía
 - [ ] 8.8 Batería de preguntas de evaluación contra la base de demostración, con los aciertos anotados
+
+## 9. `libmywire`: cliente propio del protocolo de MySQL y MariaDB (Apache-2.0) — #583
+
+- [ ] 9.1 Repositorio propio con la estructura de libdrda (C11, CMake, CI multiplataforma, pruebas en vivo)
+- [ ] 9.2 Handshake, `mysql_native_password` y `caching_sha2_password` (con TLS o clave RSA del servidor)
+- [ ] 9.3 TLS con verificación de CA y de nombre
+- [ ] 9.4 Consultas de texto, conjuntos de resultados, filas afectadas y errores con código y SQLSTATE
+- [ ] 9.5 Lectura por filas para el cursor (sin cargar el resultado entero) y cancelar con `KILL QUERY`
+- [ ] 9.6 Pruebas en vivo contra MySQL 8.4 y MariaDB (contenedores), incluidos UTF-8 y los tipos habituales
+- [ ] 9.7 El driver `mysql` gana el backend `libmywire`; el build de iOS lo usa, y escritorio sigue con MariaDB
+      hasta igualar la cobertura
+
+## 10. `libtdswire`: cliente propio de TDS para SQL Server (Apache-2.0) — #584
+
+- [ ] 10.1 Repositorio propio con la estructura de libdrda
+- [ ] 10.2 PRELOGIN con TLS dentro de TDS, LOGIN7 y cifrado obligatorio u opcional, como el `encryption` del
+      driver
+- [ ] 10.3 SQL batch y los tokens COLMETADATA, ROW, NBCROW, DONE, ERROR e INFO
+- [ ] 10.4 Tipos: enteros, decimal/numeric, money, float, fechas (datetime, datetime2, date, time,
+      datetimeoffset), (n)char/(n)varchar/(max), varbinary, bit y uniqueidentifier
+- [ ] 10.5 Cancelar con el mensaje ATTENTION
+- [ ] 10.6 Pruebas en vivo contra SQL Server 2022 (`quaero-mssql-test`), incluida la tabla de 16 tipos
+- [ ] 10.7 El driver `mssql` gana el backend `libtdswire`; el build de iOS lo usa, y escritorio sigue con
+      FreeTDS hasta igualar la cobertura
+

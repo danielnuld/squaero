@@ -3,9 +3,9 @@
 ### Requirement: The core and the six drivers build for iOS
 
 The build SHALL produce the core and the SQLite, MySQL/MariaDB, PostgreSQL, Informix, SQL Server and MongoDB
-drivers for iOS arm64 devices and the arm64 simulator, with every client library (libdrda, MariaDB
-Connector/C, libpq, FreeTDS db-lib, mongo-c-driver, libssh2, OpenSSL) compiled from source and linked
-statically.
+drivers for iOS arm64 devices and the arm64 simulator, with every client library compiled from source and linked
+statically: libdrda, Squaero's own MySQL and TDS protocol clients, libpq, mongo-c-driver, libssh2 and OpenSSL.
+MariaDB Connector/C and FreeTDS, both LGPL, SHALL NOT be part of the iOS build.
 
 #### Scenario: A clean build on the CI macOS runner
 

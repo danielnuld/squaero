@@ -25,6 +25,11 @@ fuente para macOS arm64 (#568), ya nada técnico lo impide. El prototipo aprobad
 - **La lógica pura se comparte, no se reescribe**: los módulos puros del frontend en TypeScript (exportadores,
   construcción de filtros, variables, consultas de llaves foráneas, textos de error de Informix) se empaquetan
   en un solo archivo JS que la app ejecuta con JavaScriptCore, que viene con iOS. Escritorio no cambia.
+- **Lista para la App Store**: todo lo que la app lleva tiene una licencia que la App Store admite. MySQL y
+  SQL Server usan **clientes propios Apache-2.0** del protocolo de MySQL y de TDS, escritos desde las
+  especificaciones públicas como libdrda, en lugar de MariaDB Connector/C y FreeTDS (LGPL). Además: una base de
+  demostración para la revisión de Apple, permisos explicados (Face ID, red local, Archivos), manifiesto y
+  política de privacidad («no se recogen datos»), declaración de cifrado y una pantalla de licencias.
 - **Fase 2, agente de IA en el dispositivo** (Foundation Models de Apple, iOS 26+, equipos con Apple
   Intelligence), opcional y desactivado por defecto: filtrar hablando, explicar errores, explicar una consulta
   y pedir datos en lenguaje natural. Solo tiene herramientas de lectura; **nunca ejecuta un cambio**, que pasa
@@ -43,6 +48,8 @@ fuente para macOS arm64 (#568), ya nada técnico lo impide. El prototipo aprobad
 - `ios-browse-edit`: explorar objetos, leer filas con filtros en el servidor, ver una fila y editarla con
   vista previa de la transacción y Face ID.
 - `ios-query-export`: editor SQL con snippets y variables, resultados, y exportar a Archivos o Compartir.
+- `ios-app-store`: lo que la App Store exige y comprueba: licencias admitidas, pantalla de licencias, base de
+  demostración para la revisión, permisos, privacidad, cifrado y solo código incluido en la app.
 - `ios-ai-agent`: agente de IA en el dispositivo, opcional, de solo lectura (fase 2).
 
 ### Modified Capabilities
@@ -57,8 +64,10 @@ fuente para macOS arm64 (#568), ya nada técnico lo impide. El prototipo aprobad
   contrato IPC no cambia.
 - **Frontend de escritorio**: sin cambios de comportamiento; sus módulos puros pasan a tener un segundo
   consumidor, así que no pueden depender del DOM ni de Solid.
-- **Dependencias**: Xcode, y una cuenta de Apple Developer (99 USD al año) para TestFlight y la App Store.
-- **Riesgos**: compilar FreeTDS, mongo-c y libpq para iOS no está probado; las licencias LGPL de MariaDB
-  Connector/C y FreeTDS enlazadas en una app de la App Store hay que revisarlas; iOS suspende la app en segundo plano y
+- **Dependencias**: Xcode, y una cuenta de Apple Developer de **persona física** (99 USD al año) para
+  TestFlight y la App Store. Dos bibliotecas nuevas, propias y Apache-2.0: un cliente del protocolo de MySQL y
+  uno de TDS.
+- **Riesgos**: compilar mongo-c y libpq para iOS no está probado; los dos clientes propios son trabajo nuevo
+  (TDS más que MySQL); el permiso de la App Store para el código propio de Squaero está pendiente de consulta; iOS suspende la app en segundo plano y
   corta las conexiones y los túneles; el agente de IA solo existe en equipos compatibles.
 - **Issues**: se abre uno por fase (ver `tasks.md`); el agente se vincula a #263.

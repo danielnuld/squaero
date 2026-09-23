@@ -62,7 +62,7 @@ núcleo registra al iniciar con `dbcore_runtime_register_driver`.
 - **Por qué:** es lo mínimo para cargar varios drivers en un solo binario. El vtable no cambia, y escritorio
   sigue con plugins.
 - **Alternativa:** frameworks dinámicos embebidos, que iOS sí permite si van firmados dentro del bundle.
-  Queda como salida si la licencia LGPL lo exige (ver Riesgos).
+  Ya no hace falta para las LGPL, porque no van en iOS (D10).
 
 ### D4. Toolchain de iOS y los clientes desde el código fuente
 
@@ -73,7 +73,7 @@ el núcleo, los drivers y los clientes, y un script arma el `xcframework` con la
   Darwin arm64.
 - **mongo-c 1.30:** no configura con CMake 4 en Apple (política CMP0042 y un `try_compile`). Se parchea en el
   `FetchContent` o se compila con CMake 3.31 en ese subproyecto.
-- **FreeTDS:** necesita `iconv`, que está en el SDK de iOS.
+- **MySQL y SQL Server:** no se usan MariaDB Connector/C ni FreeTDS en iOS, por su licencia (D10).
 - **Por qué desde el código fuente:** en iOS no hay Homebrew ni bibliotecas del sistema para estos clientes.
 
 ### D5. Un puente C mínimo y un solo hilo para el núcleo
@@ -122,14 +122,59 @@ teclado.
 - **Por qué buscar en vez de pasar el esquema:** la ventana de contexto es pequeña, y un Informix con cientos
   de tablas no cabe.
 
+### D10. Clientes propios, Apache-2.0, para MySQL y SQL Server
+
+Dos bibliotecas nuevas en C, con la forma de libdrda (repositorio propio, Apache-2.0, pruebas en vivo contra
+contenedores):
+- **`libmywire`:** el protocolo cliente/servidor de MySQL y MariaDB. Incluye el handshake,
+  `mysql_native_password` y `caching_sha2_password` (con TLS, o con la clave RSA del servidor por OpenSSL),
+  TLS, el protocolo de texto de las consultas y la lectura por filas para el cursor.
+- **`libtdswire`:** TDS 7.4 para SQL Server. Incluye PRELOGIN con TLS dentro de TDS, LOGIN7, SQL batch, los
+  tokens de resultado (COLMETADATA, ROW, NBCROW, DONE, ERROR/INFO) y los tipos de datos habituales.
+
+Se escriben **solo desde especificaciones públicas**: la documentación del protocolo de MySQL y MariaDB, y
+[MS-TDS] de Microsoft, publicada bajo su Open Specifications Promise. Nunca a partir del código de
+MariaDB Connector/C ni de FreeTDS, igual que libdrda con DRDA. Los drivers `mysql` y `mssql` ganan un segundo
+backend. Escritorio puede seguir con MariaDB y FreeTDS, y adoptar los propios cuando igualen su cobertura
+medida.
+- **Por qué:** la LGPL-2.1 prohíbe añadir restricciones a quien recibe el programa (sección 10), igual que la
+  GPL, y la App Store las añade. No es código nuestro, así que no podemos dar una excepción. Con clientes
+  propios el riesgo desaparece en vez de quedar pendiente.
+- **Alternativas descartadas:**
+  - Frameworks dinámicos LGPL: habituales, pero dejan en manos de terceros que la app siga publicada.
+  - Salir sin MySQL ni SQL Server: contradice el requisito de los seis motores.
+
+### D11. Lo que la App Store comprueba, desde el primer build
+
+- **Base de demostración:** una SQLite con datos de muestra dentro de la app, para que la revisión de Apple (y
+  cualquiera sin servidor) pueda probar todo.
+- **Permisos:** `NSFaceIDUsageDescription` y `NSLocalNetworkUsageDescription`, redactados en el idioma del
+  usuario. No se pide ningún permiso que no se use.
+- **`PrivacyInfo.xcprivacy`:** sin recogida de datos ni rastreo, con la razón de cada API de las que Apple
+  exige declarar (UserDefaults, marcas de tiempo de archivos). La etiqueta de privacidad: «Datos no
+  recopilados». La política de privacidad se publica en la web.
+- **Cifrado:** `ITSAppUsesNonExemptEncryption` en el `Info.plist`, con la respuesta que corresponda al uso de
+  TLS estándar. Se confirma una vez en App Store Connect y los builds dejan de pararse en esa pregunta.
+- **Pantalla de licencias:** en Ajustes, generada desde el inventario de `THIRD-PARTY.md`. Un script de CI
+  compara el inventario con lo que realmente enlaza el `xcframework`.
+- **Código incluido:** solo el `squaero-logic.js` del bundle; nada se descarga (guía 2.5.2).
+- **Cuenta:** Apple Developer de persona física, así que el vendedor que aparece es el nombre legal del
+  autor. Solo publica apps gratuitas, así que basta el acuerdo de apps gratuitas (sin datos bancarios ni
+  fiscales).
+
 ## Risks / Trade-offs
 
-- **[Licencia] MariaDB Connector/C y FreeTDS son LGPL**, y enlazarlos de forma estática en una app de la App
-  Store choca con el derecho a reenlazar. El código propio de Squaero es GPL-3.0, y la App Store tiene
-  términos que la FSF considera incompatibles con la GPL.
-  → Revisarlo antes de publicar. Salidas posibles: frameworks dinámicos embebidos para las LGPL, y una
-  excepción de licencia para la App Store, que el autor puede dar mientras sea el único titular del código.
-- **[Compilación] FreeTDS, mongo-c y libpq no se han compilado nunca para iOS.**
+- **[Licencia] El código propio de Squaero es GPL-3.0**, y la FSF considera los términos de la App Store
+  incompatibles con la GPL.
+  → Un permiso adicional de la sección 7 de la GPL-3.0 que autorice la distribución por tiendas de apps. El
+  autor puede darlo porque es el único titular: todo el historial es suyo. Está en consulta, con el borrador
+  en #572. A partir de ahí, cada colaborador tendría que aceptarlo, y CONTRIBUTING lo diría.
+- **[Licencia] Las LGPL de terceros** (MariaDB Connector/C, FreeTDS) no tienen arreglo desde nuestro lado.
+  → No van en iOS (D10), y un chequeo de CI impide que entre cualquier LGPL o GPL ajena en el build de iOS.
+- **[Trabajo] Dos clientes de protocolo nuevos.** TDS es el mayor: TLS dentro de PRELOGIN y muchos tipos.
+  → Cada uno con su issue y sus pruebas en vivo contra los contenedores de pruebas (`quaero-my-test`,
+  `quaero-mssql-test`), como libdrda. Los drivers eligen el backend al compilar.
+- **[Compilación] mongo-c y libpq no se han compilado nunca para iOS.**
   → Es la primera fase, y el CI la valida antes de escribir interfaz.
 - **[Tamaño] Seis clientes y OpenSSL estáticos.**
   → Medir el binario en la fase 1. Se acepta hasta unos 40 MB descargados.
@@ -152,7 +197,8 @@ teclado.
 
 ## Open Questions
 
-- Cuenta de Apple Developer e identificador del bundle (`io.github.danielnuld.Squaero`, el mismo que macOS).
-- La vía de licencia para la App Store (LGPL y GPL).
+- El permiso adicional de la GPL-3.0 para la App Store: en consulta (borrador en #572).
+- Identificador del bundle: `io.github.danielnuld.Squaero`, el mismo que macOS, y que el nombre «Squaero»
+  esté libre en la App Store (se reserva al crear la app en App Store Connect).
 - iOS mínimo: 17 para la app. El agente pide iOS 26 y Apple Intelligence.
 - Si el editor propio (D8) basta o hace falta Runestone.
