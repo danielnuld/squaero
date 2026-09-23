@@ -30,3 +30,14 @@ char *dsn_rewrite_loopback(const char *dsn_json, int local_port)
     cJSON_Delete(root);
     return out;
 }
+
+const char *dsn_tunnel_unsupported(const char *dsn_json)
+{
+    cJSON *root = cJSON_Parse(dsn_json != NULL ? dsn_json : "");
+    const cJSON *inst = cJSON_GetObjectItemCaseSensitive(root, "instance");
+    int named = cJSON_IsString(inst) && inst->valuestring[0] != '\0';
+    cJSON_Delete(root);
+    return named ? "a named instance cannot go through the SSH tunnel: "
+                   "clear 'instance' and give the instance's TCP port"
+                 : NULL;
+}

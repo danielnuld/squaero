@@ -82,6 +82,15 @@ int main(void)
     EXPECT(dsn_rewrite_loopback("{\"host\":\"db\"}", 70000) == NULL,
            "port > 65535 => NULL");
 
+    /* --- a named instance cannot be tunnelled (#515) --- */
+    EXPECT(dsn_tunnel_unsupported("{\"host\":\"db\",\"instance\":\"SQLEXPRESS\"}") != NULL,
+           "named instance => reason");
+    EXPECT(dsn_tunnel_unsupported("{\"host\":\"db\",\"port\":1433}") == NULL,
+           "plain host/port => tunnellable");
+    EXPECT(dsn_tunnel_unsupported("{\"host\":\"db\",\"instance\":\"\"}") == NULL,
+           "empty instance => tunnellable");
+    EXPECT(dsn_tunnel_unsupported(NULL) == NULL, "NULL dsn => no reason");
+
     if (failures == 0) {
         printf("OK: dsn_rewrite (all cases)\n");
         return 0;
