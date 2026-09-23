@@ -2254,9 +2254,14 @@ export function App() {
         truncated: res.truncated,
         reason: null,
       });
-    } catch {
-      // No catalog access: no marks and no action, rather than a wrong list.
-      setInbound(tabId, { rels: [], truncated: false, reason: null });
+    } catch (err) {
+      // No marks and no action, rather than a wrong list — but say why, or a
+      // failed catalog query reads as "this table has no relations" (#552).
+      setInbound(tabId, {
+        rels: [],
+        truncated: false,
+        reason: t("related.catalogFailed", { detail: errorText(err) }),
+      });
     }
   };
 

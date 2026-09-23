@@ -30,6 +30,7 @@ export const es: Record<string, string> = {
   "related.needsTable": "Datos relacionados: solo para el resultado de una sola tabla",
   "related.checking": "Datos relacionados: buscando relaciones…",
   "related.noReferences": "Datos relacionados: ninguna tabla referencia a esta",
+  "related.catalogFailed": "Datos relacionados: no se pudieron leer las llaves foráneas ({detail})",
   "related.otherColumn": "Datos relacionados: solo desde {columns}",
 
   // connection bar / manager
