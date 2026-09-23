@@ -6,6 +6,8 @@
 // information, the raw detail from the core.
 
 import { QueryError } from "./query";
+import { locale, type Locale } from "./i18n";
+import { informixErrorText } from "./informixErrors";
 
 export interface FriendlyError {
   /** Short, actionable sentence. */
@@ -32,8 +34,12 @@ const STANDARD: Record<number, string> = {
 };
 
 /** Map any error into a friendly {title, detail}. */
-export function describeError(err: unknown): FriendlyError {
+export function describeError(err: unknown, lang: Locale = locale()): FriendlyError {
   if (err instanceof QueryError) {
+    // An Informix SQLCODE says more than the generic domain title (#559); the
+    // raw code, SQLSTATE and tokens stay as detail, to search or report.
+    const ifx = informixErrorText(err.message, lang);
+    if (ifx) return { title: ifx, detail: err.message };
     const known = DOMAIN[err.code] ?? STANDARD[err.code];
     if (known) {
       // Keep the core's own message as detail when it says more than the title.
