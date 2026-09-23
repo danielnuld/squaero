@@ -68,10 +68,13 @@ import { openContextMenu, type MenuItem } from "./utils/contextMenu";
 import { engineFamily } from "./utils/engineFamily";
 import { DataFilterBar } from "./components/DataFilterBar";
 import {
+  addCellCondition,
   applyFilter,
+  cellFilterOps,
   cycleSortColumn,
   emptyFilter,
   filterIsDirty,
+  filterIsEmpty,
   type FilterState,
 } from "./utils/dataFilter";
 import { emptyCondition, type ColumnTypes } from "./utils/queryBuilder";
@@ -3093,6 +3096,31 @@ export function App() {
         },
         action: () => openRelated(rowIndex, colIndex),
       });
+      items.push({ separator: true });
+      // Filter the table by this cell's value (issue #593): each entry adds one
+      // condition to the tab's filter panel and applies it at the server. Only
+      // a table/view tab has that panel; anywhere else the one entry says so.
+      const tabId = current()?.id;
+      if (tabId !== undefined && isDataTab(tabId)) {
+        const value = row[colIndex];
+        const shown = value !== null && value.length > 30 ? `${value.slice(0, 30)}…` : value ?? "";
+        for (const op of cellFilterOps(value)) {
+          items.push({
+            label: t("filter.byCell", {
+              cond: `${column} ${t(`filter.op.${op}`)} ${shown}`.trim(),
+            }),
+            action: () => {
+              withFilter(tabId, (f) => addCellCondition(f, column, op, value));
+              applyDataFilter(tabId);
+            },
+          });
+        }
+        if (!filterIsEmpty(filterOf(tabId).applied)) {
+          items.push({ label: t("filter.byCellClear"), action: () => clearDataFilter(tabId) });
+        }
+      } else {
+        items.push({ label: t("filter.byCellNeedsTable"), disabled: true });
+      }
       items.push({ separator: true });
       // Row actions take the marked rows, or the row under the pointer when none
       // is marked. One marked row counts too (#517); these used to need two.
