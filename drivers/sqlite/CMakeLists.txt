@@ -13,7 +13,7 @@ set(SQLITE_DRIVER_SRC
   src/utils/dml.c
 )
 
-add_library(sqlite_driver MODULE ${SQLITE_DRIVER_SRC})
+add_library(sqlite_driver ${QUAERO_DRIVER_LIB_TYPE} ${SQLITE_DRIVER_SRC})
 target_include_directories(sqlite_driver PRIVATE
   src ${CMAKE_SOURCE_DIR}/core/include)
 target_link_libraries(sqlite_driver PRIVATE sqlite3 cjson)

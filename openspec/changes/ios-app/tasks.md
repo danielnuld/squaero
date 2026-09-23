@@ -22,7 +22,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 ## 1. Núcleo y drivers para iOS (`core-ios-build`) — #573
 
-- [ ] 1.1 `QUAERO_STATIC_DRIVERS`: símbolo de entrada con nombre por driver y tabla de registro generada por
+- [x] 1.1 `QUAERO_STATIC_DRIVERS`: símbolo de entrada con nombre por driver y tabla de registro generada por
       CMake; escritorio sigue con plugins. Pruebas: registro estático de los seis y `app.hello`
 - [ ] 1.2 `cmake/toolchain-ios.cmake` para dispositivo y simulador (arm64)
 - [ ] 1.3 OpenSSL para iOS (`ios64-xcrun`, `iossimulator-xcrun`) en `QuaeroOpenSSL.cmake`

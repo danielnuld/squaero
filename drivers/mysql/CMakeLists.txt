@@ -60,7 +60,7 @@ find_path(MYSQL_INCLUDE_DIR NAMES mysql.h
 find_library(MYSQL_CLIENT_LIBRARY NAMES mariadb libmariadb mariadbclient mysqlclient)
 
 if(QUAERO_MARIADB OR (MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY))
-  add_library(mysql_driver MODULE
+  add_library(mysql_driver ${QUAERO_DRIVER_LIB_TYPE}
     src/entry.c
     src/connection.c
     src/query.c

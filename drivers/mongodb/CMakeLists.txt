@@ -73,7 +73,7 @@ if(PkgConfig_FOUND)
 endif()
 
 if(MONGOC_FOUND OR QUAERO_MONGOC)
-  add_library(mongodb_driver MODULE
+  add_library(mongodb_driver ${QUAERO_DRIVER_LIB_TYPE}
     src/entry.c
     src/connection.c
     src/query.c

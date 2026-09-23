@@ -243,6 +243,41 @@ jobs:
           export QUAERO_SSH_DSN="{\"host\":\"127.0.0.1\",\"port\":3306,\"user\":\"root\",\"password\":\"root\",\"database\":\"quaero_test\",\"ssh_host\":\"127.0.0.1\",\"ssh_port\":22,\"ssh_user\":\"$(whoami)\",\"ssh_auth\":\"key\",\"ssh_key\":\"$HOME/.ssh/id_tunnel\",\"ssh_known_hosts\":\"$HOME/.ssh/known_hosts_quaero\",\"ssh_host_key_policy\":\"strict\"}"
           ctest --test-dir build --output-on-failure -R ssh_tunnel_integration
 
+  # The six drivers linked statically into one binary, as iOS will (issue
+  # #573): catches a symbol two drivers both define, and a vtable the static
+  # registry rejects, long before there is an iOS job to notice.
+  static-drivers:
+    name: static-drivers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install client libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb-dev libmongoc-dev libpq-dev freetds-dev
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF -DQUAERO_STATIC_DRIVERS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      # A driver whose client library went missing is simply not built, and
+      # the registry test would pass with five. Insist on all six here.
+      - name: All six drivers are in
+        run: |
+          ./build/drivers/static_registry_test | tee out.txt
+          grep -q "(sqlite,postgres,mysql,informix,mongodb,mssql)" out.txt
+
   # Guards the x64 release build (issue #560): the same job as windows-x86
   # below, with the standalone x86_64 MinGW that the release uses. Every
   # from-source dependency (MariaDB Connector/C, mongo-c-driver, libssh2,
