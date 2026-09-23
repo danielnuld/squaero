@@ -15,7 +15,9 @@ void mac_open_url(const char *url);
 // Modal open panel; true with the chosen path, false on cancel.
 bool mac_pick_file(const char *title, std::string &path);
 
-// Fill the screen's visible frame (the NSWindow* behind webview_get_window).
-void mac_maximize(void *window);
+// The menu bar (app menu + Edit, which is what makes Cmd+C/V/A work in the
+// web view), the window filling the screen, and the app brought to the front.
+// `window` is the NSWindow* behind webview_get_window.
+void mac_setup_app(void *window);
 
 #endif

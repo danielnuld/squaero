@@ -1070,7 +1070,7 @@ int main()
     gtk_window_set_default_icon_name("squaero");
     gtk_window_maximize(GTK_WINDOW(webview_get_window(w)));
 #elif defined(__APPLE__)
-    mac_maximize(webview_get_window(w));
+    mac_setup_app(webview_get_window(w));
 #endif
     webview_bind(w, "quaeroRpc", rpc_handler, w);
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)

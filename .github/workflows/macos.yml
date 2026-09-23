@@ -76,8 +76,12 @@ jobs:
       - name: What is inside
         run: |
           find dist/macos/Squaero.app -type f | sed 's#dist/macos/##'
-          for f in dist/macos/Squaero.app/Contents/MacOS/squaero dist/macos/Squaero.app/Contents/MacOS/drivers/*; do
+          for f in dist/macos/Squaero.app/Contents/MacOS/squaero dist/macos/Squaero.app/Contents/MacOS/drivers/* dist/macos/Squaero.app/Contents/Frameworks/*; do
             otool -L "$f"
+          done
+          # The loader only says "could not load library"; dlopen says why.
+          for f in dist/macos/Squaero.app/Contents/MacOS/drivers/*; do
+            python3 -c "import ctypes,sys; ctypes.CDLL(sys.argv[1]); print('dlopen ok', sys.argv[1])" "$f" || true
           done
 
       # The drivers as the bundle ships them: quaero-rpc goes into a copy of the
