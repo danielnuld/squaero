@@ -17,6 +17,9 @@ struct ifx_dsn {
     char password[256];
     int  tls;
     char tls_ca[1024];   /* "" = none */
+    /* The server's INFORMIXSERVER name, "" = none. Only the SQLI fallback uses
+       it (Windows, with the IBM Client SDK installed; see sqli.h). */
+    char sqli_server[129];
 };
 
 /*
@@ -25,8 +28,9 @@ struct ifx_dsn {
  *     "user": "informix", "password": "secret",
  *     "tls": "verify-full", "tls_ca": "C:/certs/ca.pem" }
  * port is a string or a number (default 9089), database defaults to sysmaster,
- * tls is "" (off), "require", "verify-ca" or "verify-full". Keys of the old ODBC
- * driver that no longer mean anything (server, client_locale, db_locale) are
+ * tls is "" (off), "require", "verify-ca" or "verify-full". sqli_server names
+ * the server for the SQLI fallback. Keys of the old ODBC driver that no longer
+ * mean anything (server, client_locale, db_locale) are
  * ignored; the two that would silently change what the user asked for
  * (odbc_dsn, protocol=onsocssl) are refused with a message saying what to set.
  * Returns 0, or -1 with a message in err. Pure, for unit tests.

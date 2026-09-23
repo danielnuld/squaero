@@ -96,7 +96,8 @@ int informix_dsn_parse(const char *json, struct ifx_dsn *d, char *err, size_t er
                    str_field(root, "database") ? str_field(root, "database") : "sysmaster") != 0 ||
                put(d->user, sizeof d->user, str_field(root, "user")) != 0 ||
                put(d->password, sizeof d->password, str_field(root, "password")) != 0 ||
-               put(d->tls_ca, sizeof d->tls_ca, str_field(root, "tls_ca")) != 0) {
+               put(d->tls_ca, sizeof d->tls_ca, str_field(root, "tls_ca")) != 0 ||
+               put(d->sqli_server, sizeof d->sqli_server, str_field(root, "sqli_server")) != 0) {
         msg = "a dsn value is too long";
     }
     cJSON_Delete(root);

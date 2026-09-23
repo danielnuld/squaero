@@ -71,8 +71,8 @@ describe("formSections", () => {
     expect(keys("mssql")).toContain("encryption");
   });
 
-  it("gives Informix just host and port as its server: DRDA needs no name (#557)", () => {
-    expect(section("informix", "server").fields.map((f) => f.key)).toEqual(["host", "port"]);
+  it("gives Informix host and port as its server, and the name only the SQLI fallback needs", () => {
+    expect(section("informix", "server").fields.map((f) => f.key)).toEqual(["host", "port", "sqli_server"]);
     expect(section("informix", "auth").fields.map((f) => f.key)).toEqual([
       "database",
       "user",
