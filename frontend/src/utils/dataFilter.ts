@@ -17,6 +17,7 @@ import {
   renderWhere,
   type ColumnTypes,
   type Condition,
+  type Operator,
   type OrderBy,
 } from "./queryBuilder";
 
@@ -117,4 +118,31 @@ export function cycleSortColumn(order: OrderBy[], column: string): OrderBy[] {
   if (current === null) return [{ column, dir: "ASC" }];
   if (current === "ASC") return [{ column, dir: "DESC" }];
   return [];
+}
+
+/**
+ * The filters a right-click on a cell offers (issue #593): the comparisons that
+ * make sense against that one value, or the two NULL tests when there is none.
+ */
+export function cellFilterOps(value: string | null): Operator[] {
+  return value === null ? ["IS NULL", "IS NOT NULL"] : ["=", "!=", "CONTAINS", "<", ">"];
+}
+
+/**
+ * The draft with one more condition, `column op value`, and the panel open so
+ * it shows what the grid is now filtered by. Appended, not replacing: filtering
+ * again from another cell narrows further. `value` is the cell's raw value,
+ * never the grid's formatted text.
+ */
+export function addCellCondition(
+  state: FilterState,
+  column: string,
+  op: Operator,
+  value: string | null,
+): FilterState {
+  return {
+    ...state,
+    collapsed: false,
+    conditions: [...state.conditions, { column, op, value: value ?? "" }],
+  };
 }
