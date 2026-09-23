@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
-import { runQuery, type ResultSet } from "../utils/query";
+import { drainQuery, runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
   routinesFor,
@@ -55,7 +55,9 @@ export function RoutineExplorer(props: {
     setDefinition(null);
     setList(null); // drop the previous context's rows while the reload is in flight
     try {
-      const res = await runQuery(connId, s.listSql);
+      // Every routine, page by page (issue #590): a bare runQuery stopped at the
+      // core's 1000-row default and silently hid the rest of the alphabet.
+      const res = await drainQuery(connId, s.listSql, 1000);
       if (props.connId !== connId || props.db !== db) return; // superseded
       setList(res);
     } catch (err) {

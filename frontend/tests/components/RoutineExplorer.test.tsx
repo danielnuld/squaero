@@ -274,4 +274,30 @@ describe("RoutineExplorer", () => {
     expect(host!.querySelector(".routine-ddl")!.textContent).toContain("CREATE FUNCTION");
     expect(host!.querySelector(".routine-detail-head")!.textContent).toContain("tax_rate");
   });
+  it("lists every routine past the core's 1000-row page (#590)", async () => {
+    // 1000 rows with a cursor left open, then the tail on query.next — the
+    // shape the core gives a catalog bigger than one page.
+    const first = Array.from({ length: 1000 }, (_, i): [string, string, string | null] => [
+      `r${String(i).padStart(4, "0")}`, "PROCEDURE", null,
+    ]);
+    const methods: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string };
+      methods.push(req.method);
+      if (req.method === "query.run") {
+        const r = listResult(req.id, first);
+        return { ...r, result: { ...r.result, truncated: true, cursor: true } };
+      }
+      if (req.method === "query.next") {
+        return listResult(req.id, [["visitaduria_registrosadministrativos", "PROCEDURE", null]]);
+      }
+      return { jsonrpc: "2.0", id: req.id, result: {} };
+    };
+    mount("mysql");
+    await flush();
+    await flush();
+    expect(methods).toContain("query.next");
+    expect(host!.querySelectorAll(".routine-item").length).toBe(1001);
+    expect(host!.textContent).toContain("visitaduria_registrosadministrativos");
+  });
 });
