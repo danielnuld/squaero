@@ -105,7 +105,13 @@ library. On any distribution
 with snapd, install it from the [Snap Store](https://snapcraft.io/squaero):
 `sudo snap install squaero`.
 
-> AppImage/Flatpak and macOS (.app) are coming in future releases.
+**macOS:** from v0.32.0, releases attach `squaero-X.Y.Z-arm64.dmg` for Apple
+Silicon on macOS 15 or later: open it and drag Squaero to Applications. It is
+signed ad hoc, not with an Apple Developer ID, so the first launch is blocked
+once: open **System Settings → Privacy & Security** and choose **Open Anyway**
+(or run `xattr -dr com.apple.quarantine /Applications/Squaero.app`).
+
+> AppImage/Flatpak and an Intel Mac build are not planned yet.
 
 ## Build from source
 

@@ -303,3 +303,48 @@ jobs:
           store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           snap: ${{ steps.snap.outputs.snap }}
           release: stable,edge
+
+  # The macOS app (issue #40): built and checked by macos.yml (drivers against
+  # real MySQL/PostgreSQL, two launches of the window), then attested and
+  # attached here, after the snap so nothing races on SHA256SUMS.txt.
+  macos-dmg:
+    name: macos-dmg (arm64)
+    needs: windows-msi
+    uses: ./.github/workflows/macos.yml
+    with:
+      ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+  macos-publish:
+    name: macos-publish
+    needs: [macos-dmg, linux-snap]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve the tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: squaero-macos
+          path: dist
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/dist/squaero-${{ steps.tag.outputs.version }}-arm64.dmg
+
+      - name: Publish to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          DMG="squaero-${{ steps.tag.outputs.version }}-arm64.dmg"
+          cp "dist/dist/$DMG" "dist/$DMG"
+          gh release download "$TAG" --pattern SHA256SUMS.txt --dir dist --clobber
+          grep -v " $DMG\$" dist/SHA256SUMS.txt > dist/sums.tmp || true
+          (cd dist && sha256sum "$DMG" >> sums.tmp && mv sums.tmp SHA256SUMS.txt)
+          gh release upload "$TAG" "dist/$DMG" dist/SHA256SUMS.txt --clobber

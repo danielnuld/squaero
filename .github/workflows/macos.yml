@@ -1,0 +1,156 @@
+name: macOS app
+
+# Builds Squaero.app and its .dmg on Apple Silicon (issue #40), then checks the
+# real bundle, since nobody on the project has a Mac: the drivers load from
+# inside it, they reach a real MySQL and PostgreSQL started on the runner, and
+# the window opens with its data persisted (a screenshot is kept as an
+# artifact). The release calls it too (workflow_call) and attaches the .dmg.
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "installer/build-macos.sh"
+      - "installer/Info.plist.in"
+      - "cmake/**"
+      - ".github/workflows/macos.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref to build (the release tag)."
+        type: string
+        required: true
+
+jobs:
+  macos-app:
+    name: macos-app (arm64)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install build dependencies
+        run: |
+          brew install openssl@3 libpq mongo-c-driver@1 dylibbundler ninja
+          # mongo-c-driver@1 is keg-only; the driver finds it through pkg-config.
+          echo "PKG_CONFIG_PATH=$(brew --prefix mongo-c-driver@1)/lib/pkgconfig" >> "$GITHUB_ENV"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # EmbedAssets reads the dist at configure time.
+      - name: Build the frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DCMAKE_PREFIX_PATH="$(brew --prefix libpq);$(brew --prefix openssl@3)"
+          -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DOPENSSL_USE_STATIC_LIBS=ON
+          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_FREETDS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Unit tests
+        run: ctest --test-dir build --output-on-failure -E integration
+
+      - name: Package the .app and .dmg
+        run: installer/build-macos.sh
+
+      - name: What is inside
+        run: |
+          find dist/macos/Squaero.app -type f | sed 's#dist/macos/##'
+          for f in dist/macos/Squaero.app/Contents/MacOS/squaero dist/macos/Squaero.app/Contents/MacOS/drivers/* dist/macos/Squaero.app/Contents/Frameworks/*; do
+            otool -L "$f"
+          done
+          # dlopen from INSIDE the bundle, so @executable_path is Contents/MacOS.
+          cat > /tmp/dl.c <<'EOF'
+          #include <dlfcn.h>
+          #include <stdio.h>
+          int main(int c, char **v) {
+            for (int i = 1; i < c; i++) {
+              void *h = dlopen(v[i], RTLD_NOW);
+              printf("%s: %s\n", v[i], h ? "ok" : dlerror());
+            }
+            return 0;
+          }
+          EOF
+          cc /tmp/dl.c -o dist/macos/Squaero.app/Contents/MacOS/dlprobe
+          dist/macos/Squaero.app/Contents/MacOS/dlprobe dist/macos/Squaero.app/Contents/MacOS/drivers/*
+          rm dist/macos/Squaero.app/Contents/MacOS/dlprobe
+          for f in dist/macos/Squaero.app/Contents/Frameworks/*; do otool -l "$f" | grep -A3 LC_BUILD_VERSION | grep minos | sed "s#^#$(basename $f): #"; done
+
+      # The drivers as the bundle ships them: quaero-rpc goes into a copy of the
+      # bundle so the plugins resolve Frameworks/ exactly as the app does.
+      - name: Start MySQL and PostgreSQL
+        run: |
+          brew install mysql postgresql@16
+          brew services start mysql
+          brew services start postgresql@16
+          for i in $(seq 1 60); do mysqladmin ping --silent && break; sleep 2; done
+          mysql -uroot -e "CREATE DATABASE smoke; ALTER USER 'root'@'localhost' IDENTIFIED BY 'smoke123';"
+          PG="$(brew --prefix postgresql@16)/bin"
+          for i in $(seq 1 60); do "$PG/pg_isready" -h 127.0.0.1 && break; sleep 2; done
+          "$PG/psql" -h 127.0.0.1 -d postgres -c "CREATE ROLE smoke LOGIN PASSWORD 'smoke123' SUPERUSER;"
+          "$PG/createdb" -h 127.0.0.1 -O smoke smoke
+
+      - name: Drivers from the bundle
+        run: |
+          cp -R dist/macos/Squaero.app /tmp/probe.app
+          cp build/tools/quaero-rpc /tmp/probe.app/Contents/MacOS/
+          export QUAERO_RPC=/tmp/probe.app/Contents/MacOS/quaero-rpc
+          D=/tmp/probe.app/Contents/MacOS/drivers
+          node scripts/smoke/smoke.mjs sqlite "$D"
+          QUAERO_SMOKE_DSN='{"host":"127.0.0.1","port":"3306","user":"root","password":"smoke123","database":"smoke"}' \
+            node scripts/smoke/smoke.mjs mysql "$D"
+          QUAERO_SMOKE_DSN='{"host":"127.0.0.1","port":"5432","user":"smoke","password":"smoke123","database":"smoke"}' \
+            node scripts/smoke/postgres-features.mjs "$D"
+
+      # Launch twice: the first run writes the workspace to localStorage, the
+      # second must find it. WebKit keeps it under ~/Library/WebKit.
+      - name: Open the window
+        run: |
+          APP=dist/macos/Squaero.app/Contents/MacOS/squaero
+          "$APP" > first.log 2>&1 & PID=$!
+          sleep 25
+          screencapture -x squaero-first.png || true
+          kill $PID || true
+          sleep 3
+          echo "--- first launch"; cat first.log
+          echo "--- WebKit storage: the keys the first launch saved"
+          DB="$(find ~/Library/WebKit/io.github.danielnuld.Squaero -name localstorage.sqlite3 | head -1)"
+          test -n "$DB"
+          sqlite3 "$DB" "SELECT key FROM ItemTable" | tee keys.txt
+          grep -q '^quaero\.' keys.txt
+          "$APP" > second.log 2>&1 & PID=$!
+          sleep 20
+          screencapture -x squaero-second.png || true
+          kill $PID || true
+          echo "--- second launch"; cat second.log
+          grep -q "UI served from file://" first.log
+          grep -q "driver(s) registered" first.log
+
+      - name: Keep the .dmg and the screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: squaero-macos
+          path: |
+            dist/squaero-*.dmg
+            squaero-*.png
+            *.log

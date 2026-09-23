@@ -16,7 +16,13 @@
  * writable: the test creates and drops table quaero_ifx_it.
  * INFORMIX_PLUGIN_PATH is injected by CMake as the built plugin's full path.
  */
+/* On macOS a POSIX level hides C99/BSD names (snprintf); Darwin's own macro
+   exposes everything. */
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE 1
+#else
 #define _POSIX_C_SOURCE 200809L
+#endif
 
 #include "dbcore/ipc.h"
 #include "dbcore/loader.h"
