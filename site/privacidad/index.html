@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de privacidad — Squaero</title>
+<meta name="description" content="Squaero no recoge datos personales: sin cuentas, sin analítica, sin publicidad y sin rastreo. Qué se guarda, dónde, y con quién se conecta la app.">
+<meta name="theme-color" content="#f2f3f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15162a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../assets/quaero-mark.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="es" href="https://danielnuld.github.io/squaero/privacidad/">
+<link rel="alternate" hreflang="en" href="https://danielnuld.github.io/squaero/en/privacy/">
+<link rel="stylesheet" href="../home.css">
+<style>
+.policy { max-width: 760px; padding-block: 72px 96px; }
+.policy h1 { margin: 0 0 8px; font-size: 48px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em; }
+.policy .date { margin: 0 0 40px; color: var(--muted); font-size: 15px; }
+.policy .summary { margin: 0 0 48px; padding: 24px 28px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); font-size: 19px; }
+.policy h2 { margin: 44px 0 12px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.policy p, .policy li { font-size: 17px; }
+.policy p { margin: 0 0 14px; }
+.policy ul { margin: 0 0 14px; padding-left: 22px; }
+.policy li { margin-bottom: 8px; }
+.policy a { text-decoration: underline; }
+@media (max-width: 760px) { .policy { padding-block: 40px 56px; } .policy h1 { font-size: 34px; } }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../" aria-label="Squaero, inicio">
+      <svg viewBox="0 0 128 128" aria-hidden="true"><g fill="none" stroke="var(--accent)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"><circle cx="58" cy="56" r="38"/><path d="M85 83 L104 102"/></g><g fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M46 42 L60 56 L46 70"/><path d="M72 44 L72 68"/></g></svg>
+      <span>Squaero</span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a href="../en/privacy/" hreflang="en" lang="en">English</a>
+      <a class="btn" href="../#descargar">Descargar</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap policy">
+  <h1>Política de privacidad</h1>
+  <p class="date">Vigente desde el 23 de septiembre de 2026. Se aplica a Squaero para Windows, macOS, Linux e iPhone, y a esta web.</p>
+
+  <p class="summary"><b>Squaero no recoge datos personales.</b> No tiene cuentas, ni analítica, ni publicidad, ni rastreo, ni servidores propios a los que enviar nada. Lo que configuras y consultas se queda en tu equipo o en tus propios servidores de bases de datos.</p>
+
+  <h2>Qué se guarda y dónde</h2>
+  <p>Squaero guarda en tu dispositivo, y solo ahí:</p>
+  <ul>
+    <li>tus conexiones y sus grupos, los snippets, el historial de consultas, las pestañas abiertas y los ajustes;</li>
+    <li>las contraseñas de las conexiones, si eliges guardarlas.</li>
+  </ul>
+  <p><b>En Windows, macOS y Linux</b>, todo eso vive en la carpeta de datos de la aplicación dentro de tu perfil de usuario. Squaero no cifra ahí las contraseñas: las protege el acceso a tu cuenta del sistema.</p>
+  <p><b>En el iPhone</b>, las contraseñas y las claves SSH van al llavero de iOS, ligadas al dispositivo y protegidas con Face ID o el código. El resto se queda en el espacio privado de la app. Nada de eso se sincroniza con iCloud.</p>
+
+  <h2>Con quién se conecta Squaero</h2>
+  <ul>
+    <li><b>Con los servidores que tú configuras</b>: las bases de datos y, si usas un túnel, el servidor SSH. Lo que viaja entre Squaero y ellos es lo que tú consultas o cambias, y puede ir cifrado con TLS o SSH.</li>
+    <li><b>Con GitHub, en escritorio, para buscar actualizaciones.</b> Al arrancar, la app pregunta a <code>api.github.com</code> cuál es la última versión publicada. GitHub recibe tu dirección IP, como en cualquier visita a su web; no se envía nada más. En el iPhone las actualizaciones llegan por la App Store y no se hace esta consulta.</li>
+  </ul>
+  <p>No hay informes de fallos automáticos ni estadísticas de uso. Si algo falla, solo se entera quien lo reporte.</p>
+
+  <h2>Los datos de tus bases de datos</h2>
+  <p>Las filas que ves, editas o exportas nunca salen hacia terceros. Un archivo exportado (CSV, JSON, XLSX, XML, HTML o SQL) se guarda donde tú eliges; en el iPhone, en Archivos o en la app con la que decidas compartirlo.</p>
+
+  <h2>El asistente de IA</h2>
+  <p>Squaero aún no incluye un asistente de IA. Si llega, estará desactivado hasta que lo actives, y en el iPhone usará el modelo que Apple ejecuta en el propio dispositivo: el esquema y los resultados que le pidas no saldrán del equipo. Si eso cambia, esta política lo dirá antes.</p>
+
+  <h2>Esta web</h2>
+  <p>La web se publica en GitHub Pages. No usa cookies ni analítica, y sus tipografías se sirven desde aquí mismo, no desde Google. Para mostrar la última versión y enlazar cada descarga, la página pregunta a <code>api.github.com</code> por la última publicación. GitHub, como proveedor del alojamiento, puede registrar tu dirección IP según su <a href="https://docs.github.com/es/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">declaración de privacidad</a>.</p>
+
+  <h2>Menores</h2>
+  <p>Squaero es una herramienta para trabajar con bases de datos y no está dirigida a menores. En cualquier caso, no recoge datos de nadie.</p>
+
+  <h2>Cambios en esta política</h2>
+  <p>Si cambia algo de lo anterior, esta página lo dirá antes de que llegue la versión que lo cambia. Su historial completo está en el <a href="https://github.com/danielnuld/squaero/commits/main/site/privacidad/index.html" rel="noopener">repositorio</a>.</p>
+
+  <h2>Contacto</h2>
+  <p>Para preguntas sobre privacidad, abre un <a href="https://github.com/danielnuld/squaero/issues" rel="noopener">issue en GitHub</a>.</p>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>Squaero es software libre con licencia GPL-3.0.</span>
+    <nav aria-label="Pie">
+      <a href="../manual/">Manual</a>
+      <a href="https://github.com/danielnuld/squaero" rel="noopener">Código fuente</a>
+      <a href="../en/privacy/" hreflang="en" lang="en">English</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
