@@ -50,7 +50,7 @@ function(quaero_enable_mongoc target)
     GIT_SHALLOW TRUE
     PATCH_COMMAND ${CMAKE_COMMAND}
       -DMONGOC_SRC=<SOURCE_DIR>
-      -P "${_quaero_mongoc_module_dir}/patches/mongoc-cmp0042.cmake")
+      -P "${_quaero_mongoc_module_dir}/patches/mongoc-cmake4.cmake")
   FetchContent_MakeAvailable(mongoc)
 
   set(BUILD_TESTING "${_saved_build_testing}" CACHE BOOL "" FORCE)
