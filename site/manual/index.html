@@ -76,7 +76,7 @@
           0.30), el instalador nuevo la quita y ocupa su lugar en
           <code>Program Files</code>: tus conexiones, snippets y ajustes siguen ahí.
           Lo único que se pierde es el anclaje en la barra de tareas, que apuntaba a
-          la carpeta vieja: vuelve a anclar Squaero una vez. macOS está en camino.</p>
+          la carpeta vieja: vuelve a anclar Squaero una vez.</p>
       </div>
       <p><b>En Linux</b> (x86_64) hay dos opciones:</p>
       <ul>
@@ -87,6 +87,16 @@
         <li>El <b>snap</b>, para cualquier distribución con snapd:
           <code>sudo snap install squaero</code>.</li>
       </ul>
+      <p><b>En macOS</b> (Apple Silicon, macOS 15 o posterior; desde la 0.32.0):
+        descarga <code>squaero-X.Y.Z-arm64.dmg</code>, ábrelo y arrastra Squaero a
+        Aplicaciones.</p>
+      <div class="note">
+        <p><b>La primera vez, macOS lo bloquea.</b> Squaero va firmado ad hoc, sin un
+          Developer ID de Apple, y macOS dice que no puede verificarlo. Abre
+          <b>Ajustes del Sistema → Privacidad y seguridad</b> y pulsa
+          <b>Abrir igualmente</b>; solo hace falta una vez. Desde la Terminal vale
+          también <code>xattr -dr com.apple.quarantine /Applications/Squaero.app</code>.</p>
+      </div>
       <div class="note">
         <p><b>Informix.</b> No hace falta ningún cliente de IBM: Squaero se conecta
           por DRDA al listener <code>drsoctcp</code> del servidor, normalmente en el

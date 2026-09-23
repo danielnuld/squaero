@@ -28,6 +28,14 @@ add_executable(quaero src/main.cc)
 set_target_properties(quaero PROPERTIES OUTPUT_NAME squaero)
 target_link_libraries(quaero PRIVATE dbcore frontend_assets cjson webview::core)
 
+# macOS: the AppKit calls (Application Support folder, open panel, browser)
+# live in an Objective-C++ file of their own (issue #40).
+if(APPLE)
+  enable_language(OBJCXX)
+  target_sources(quaero PRIVATE src/macos.mm)
+  target_link_libraries(quaero PRIVATE "-framework AppKit")
+endif()
+
 # Windows: embed a VERSIONINFO resource so Explorer/taskbar show the product
 # name, version and author (issue #192). The version is configured from the
 # single-source project() version (→ top-level VERSION file); no version is

@@ -90,4 +90,8 @@ function(quaero_enable_freetds target)
   # link only resolves forward — the second pass picks up what the first left. OpenSSL's target last:
   # it carries its own system libraries after it.
   target_link_libraries(${target} PRIVATE ${_libs} ${_libs} ${_ossl_link})
+  # glibc has iconv built in; macOS keeps it in its own system library (#40).
+  if(APPLE)
+    target_link_libraries(${target} PRIVATE iconv)
+  endif()
 endfunction()

@@ -34,9 +34,20 @@ function(quaero_enable_mariadb target)
   # Steer the connector's build. Static only; no tests, no libcurl.
   set(WITH_UNIT_TESTS OFF CACHE BOOL "" FORCE)
   set(WITH_CURL OFF CACHE BOOL "" FORCE)
+  # Its bundled zlib predates the macOS SDK's stdio.h (zutil.h redefines
+  # fdopen); macOS ships zlib, so take that one there (#40).
+  if(APPLE)
+    set(WITH_EXTERNAL_ZLIB ON CACHE BOOL "" FORCE)
+    # Its arm64 context switch (ma_context.c) uses GNU register asm, which the
+    # strict C11 this project sets hides; scoped to this function.
+    set(CMAKE_C_EXTENSIONS ON)
+  endif()
   # OPENSSL_FOUND and friends, set here, are what the connector's
-  # find_package(OpenSSL) guard checks first.
-  quaero_enable_openssl()
+  # find_package(OpenSSL) guard checks first. Elsewhere (macOS, #40) the
+  # connector finds the system's OpenSSL itself.
+  if(WIN32)
+    quaero_enable_openssl()
+  endif()
   set(WITH_SSL OPENSSL CACHE STRING "" FORCE)
   set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 

@@ -107,7 +107,13 @@ driver. En cualquier
 distribución con snapd, instálalo desde la [Snap Store](https://snapcraft.io/squaero):
 `sudo snap install squaero`.
 
-> AppImage/Flatpak y macOS (.app) llegan en próximos releases.
+**macOS:** desde la v0.32.0 cada release adjunta `squaero-X.Y.Z-arm64.dmg` para
+Apple Silicon con macOS 15 o posterior: ábrelo y arrastra Squaero a Aplicaciones.
+Va firmado ad hoc, no con un Developer ID de Apple, así que la primera vez macOS lo
+bloquea: abre **Ajustes del Sistema → Privacidad y seguridad** y pulsa **Abrir
+igualmente** (o ejecuta `xattr -dr com.apple.quarantine /Applications/Squaero.app`).
+
+> AppImage/Flatpak y una build para Mac con Intel no están previstas todavía.
 
 ## Compilar desde el código
 

@@ -13,7 +13,13 @@
 /* nanosleep + CLOCK on the POSIX path need the feature-test macro under
    -std=c11 (strict mode hides POSIX declarations otherwise). Must precede any
    include. */
+/* On macOS a POSIX level hides C99/BSD names (snprintf); Darwin's own macro
+   exposes everything. */
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE 1
+#else
 #define _POSIX_C_SOURCE 199309L
+#endif
 
 #include "dbcore/ipc.h"
 #include "dbcore/loader.h"

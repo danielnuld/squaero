@@ -1,8 +1,13 @@
 /* POSIX networking (getaddrinfo/struct addrinfo/ssize_t) is hidden by strict
    -std=c11 on glibc; request the default feature set before any system header.
-   Harmless on Windows/macOS. Must precede every #include. */
+   Must precede every #include. On macOS a POSIX level HIDES the BSD names
+   (INADDR_LOOPBACK), so there it is _DARWIN_C_SOURCE, like driver/loader.c. */
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE 1
+#else
 #define _DEFAULT_SOURCE
 #define _POSIX_C_SOURCE 200112L
+#endif
 
 #include "ssh_tunnel.h"
 
