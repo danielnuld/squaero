@@ -127,6 +127,16 @@ describe("App — theme & shortcuts", () => {
     );
     expect(host!.querySelectorAll(".tab").length).toBe(2);
   });
+
+  it("opens a tab with Ctrl+T and closes it with Ctrl+W, as in a browser (#591)", () => {
+    mount();
+    const t = new KeyboardEvent("keydown", { key: "t", ctrlKey: true, cancelable: true });
+    document.dispatchEvent(t);
+    expect(t.defaultPrevented).toBe(true); // the host never sees it
+    expect(host!.querySelectorAll(".tab").length).toBe(2);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "w", ctrlKey: true }));
+    expect(host!.querySelectorAll(".tab").length).toBe(1);
+  });
 });
 
 // EXPLAIN plan (issue #131): the toolbar wires the button to the plan action.

@@ -10,8 +10,8 @@ desincroniza del comportamiento).
 |---|---|
 | Ejecutar la consulta | `Mod`+Enter |
 | Formatear la consulta | `Mod`+Shift+F |
-| Nueva pestaña | `Mod`+Alt+T |
-| Cerrar la pestaña activa | `Mod`+Alt+W |
+| Nueva pestaña | `Mod`+T (o `Mod`+Alt+T) |
+| Cerrar la pestaña activa | `Mod`+W (o `Mod`+Alt+W) |
 | Siguiente pestaña | Ctrl+RePág (PageDown) |
 | Pestaña anterior | Ctrl+AvPág (PageUp) |
 | Refrescar datos y árbol | F5 |
