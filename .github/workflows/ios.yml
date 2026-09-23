@@ -72,3 +72,13 @@ jobs:
           T=$(find build -name static_registry_test -type f | head -1)
           otool -l "$T" | grep -A4 LC_BUILD_VERSION
           otool -L "$T"
+
+      - name: OpenSSL build, on failure
+        if: failure()
+        run: |
+          L=build/_deps/openssl/build.log
+          grep -m3 -E "^Configuring|CFLAGS|CC " "$L" || true
+          grep -m2 -E "aes_cbc" "$L" || true
+          grep -E "^(CC|CFLAGS|CNF_CFLAGS|LIB_CFLAGS)=" build/_deps/openssl/src/openssl-*/Makefile || true
+          O=$(find build/_deps/openssl/src -name 'libcrypto-lib-aes_cbc.o' | head -1)
+          otool -l "$O" | grep -A5 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
