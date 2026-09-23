@@ -60,7 +60,8 @@ function(_quaero_libpq_configure_ios pg gen out_cfg out_libobjs)
 
   file(STRINGS "${_dir}/src/Makefile.global" _line REGEX "^LIBOBJS =")
   string(REGEX REPLACE "^LIBOBJS =[ ]*" "" _line "${_line}")
-  string(REPLACE ".o" "" _line "${_line}")
+  # Autoconf writes each as ${LIBOBJDIR}name$U.o.
+  string(REGEX REPLACE [[\$\{LIBOBJDIR\}|\$U|\.o]] "" _line "${_line}")
   separate_arguments(_objs UNIX_COMMAND "${_line}")
   message(STATUS "PostgreSQL driver: src/port replacements for iOS: ${_objs}")
   set(${out_cfg} "${_dir}/src/include" PARENT_SCOPE)
