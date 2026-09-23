@@ -38,14 +38,15 @@ El release lo produce un tag. El workflow
 se dispara al empujar un tag `vX.Y.Z` y hace todo en un runner `windows-latest`:
 
 1. Verifica que el tag coincida con `VERSION` (falla si no).
-2. Instala el MinGW i686 (winlibs), compila el frontend y hace el build **x86**
-   completo con la app y todos los drivers (SSH, MariaDB, mongo-c, libpq desde
-   fuente). El x86 lo exigía el ODBC de Informix hasta #557; pasar a x64 es un
-   cambio aparte.
+2. Instala el MinGW x86_64 (winlibs), compila el frontend y hace el build **x64**
+   completo con la app y todos los drivers (SSH, MariaDB, mongo-c, libpq, FreeTDS
+   y OpenSSL desde fuente). Hasta #560 era x86, porque lo exigía el cliente de
+   Informix de 32 bits (eliminado en #557); el x86 aún compila
+   (`installer/build-msi.sh <v> x86`), pero no se publica.
 3. Construye el MSI con WiX (`installer/build-msi.sh`).
 4. Genera `SHA256SUMS.txt`.
 5. Emite una **attestation de procedencia** del MSI (`actions/attest-build-provenance`).
-6. Publica el release de GitHub adjuntando `squaero-X.Y.Z-x86.msi` +
+6. Publica el release de GitHub adjuntando `squaero-X.Y.Z-x64.msi` +
    `SHA256SUMS.txt` (o los sube a un release ya existente con `--clobber`).
 
 Flujo típico: bumpea `VERSION`, mergea a `main` con CI en verde, y entonces:
@@ -65,7 +66,7 @@ digest del MSI. Demuestra que ese archivo exacto salió de `release.yml`, de est
 repositorio y de ese tag. Se comprueba con:
 
 ```sh
-gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero
+gh attestation verify squaero-X.Y.Z-x64.msi --repo danielnuld/squaero
 ```
 
 **Authenticode (no).** El MSI no lleva firma Authenticode, así que SmartScreen

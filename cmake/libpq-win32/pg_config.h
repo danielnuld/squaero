@@ -14,7 +14,11 @@
 #define PG_MINORVERSION_NUM 9
 #define PG_VERSION "16.9"
 #define PG_VERSION_NUM 160009
+#ifdef _WIN64
+#define PG_VERSION_STR "PostgreSQL 16.9 on x86_64-w64-mingw32, compiled by gcc, 64-bit"
+#else
 #define PG_VERSION_STR "PostgreSQL 16.9 on i686-w64-mingw32, compiled by gcc, 32-bit"
+#endif
 #define PACKAGE_NAME "PostgreSQL"
 #define PACKAGE_BUGREPORT "pgsql-bugs@lists.postgresql.org"
 #define PACKAGE_STRING "PostgreSQL 16.9"
@@ -24,10 +28,16 @@
 #define CONFIGURE_ARGS " (quaero static libpq, i686 mingw)"
 
 /* --- data sizes / alignment (ILP32 on i686; long long is 64-bit) --- */
+/* x86_64 (issue #560) is LLP64: long stays 4 bytes, pointers and size_t grow. */
+#ifdef _WIN64
+#define SIZEOF_VOID_P 8
+#define SIZEOF_SIZE_T 8
+#else
 #define SIZEOF_VOID_P 4
+#define SIZEOF_SIZE_T 4
+#endif
 #define SIZEOF_LONG 4
 #define SIZEOF_LONG_LONG 8
-#define SIZEOF_SIZE_T 4
 #define SIZEOF_BOOL 1
 #define ALIGNOF_SHORT 2
 #define ALIGNOF_INT 4
@@ -37,12 +47,15 @@
 #define MAXIMUM_ALIGNOF 8
 #define ALIGNOF_MAX_ALIGN_T 16
 
-#define SIZEOF_DATUM 4
+#define SIZEOF_DATUM SIZEOF_VOID_P
 #define MAXALIGN(x) 0 /* placeholder, real one comes from c.h */
 #undef MAXALIGN
 
-/* Datum is uintptr_t; 32-bit here. */
-#define USE_FLOAT8_BYVAL 0
+/* Datum is uintptr_t: a double fits in it by value only on 64-bit. Tested
+   with #ifdef (backend headers only), so it is left undefined on 32-bit. */
+#ifdef _WIN64
+#define USE_FLOAT8_BYVAL 1
+#endif
 
 /* --- integer types --- */
 #define HAVE_LONG_LONG_INT 1

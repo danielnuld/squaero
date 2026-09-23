@@ -193,6 +193,17 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
     (`verify-full`, host equivocado, CA ausente). Contra el **11.70.FC7 real**,
     solo lectura: conexión por el 9089 y catálogo (tipos de 582 tablas); el
     9088 (`onsoctcp`) rechaza DRDA con un mensaje que lo explica.
+41. **Windows x64 (#560):** la release pasa a x64. Verificado en vivo en el
+    build x64 (2026-09-22): ctest 55/55; e2e 143/143 (SQLite, PostgreSQL, MySQL,
+    Informix por DRDA) y SQL Server 4/4; TLS negociado en MySQL (TLS 1.3),
+    PostgreSQL (`verify-full`), SQL Server (`encrypt_option = TRUE`), MongoDB e
+    Informix (`verify-full`), con una CA equivocada o no confiable rechazada;
+    túnel SSH por contraseña a MySQL, PostgreSQL, SQL Server e Informix, y una
+    contraseña SSH mala rechazada. MSI x64 instalado encima de la 0.30.0 x86 en
+    un equipo real: una sola entrada en Programas, la carpeta `(x86)` borrada, el
+    acceso del menú Inicio al exe nuevo y el perfil de WebView2 (conexiones,
+    grupos, snippets, historial) intacto. El anclaje de la barra de tareas queda
+    apuntando a la ruta vieja: hay que volver a anclar una vez.
 
 ## Cobertura del smoke automatizado (#199)
 

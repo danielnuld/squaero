@@ -2,12 +2,12 @@
 <!--
   Windows installer definition for Squaero (issue #40, WiX v4+ schema).
   Built with the WiX CLI + the UI extension; see installer/build-msi.sh.
-  Files are staged in build-x86/app/ (the app plus its runtime DLLs and
-  drivers). The release is x86 (32-bit). That was forced by the IBM Informix
-  ODBC driver until issue #557 replaced it with DRDA; moving to x64 is its own
-  change (dependencies, install folder, upgrading x86 installs).
+  Files are staged in build-<arch>/app/ (the app plus its runtime DLLs and
+  drivers). The release is x64 since issue #560; x86 had been forced by IBM's
+  32-bit Informix client until #557, and still builds with -arch x86.
   Version is passed on the command line: -d Version=<x.y.z>.
 -->
+<?define Stage = "build-$(sys.BUILDARCH)/app" ?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Squaero"
@@ -36,7 +36,10 @@
     <Property Id="ARPPRODUCTICON" Value="QuaeroIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/danielnuld/squaero" />
 
-    <StandardDirectory Id="ProgramFilesFolder">
+    <!-- Program Files for x64, Program Files (x86) for x86. Moving from x86
+         changes the folder (the MajorUpgrade removes the old product from the
+         x86 one), so a taskbar pin to the old path is lost once (issue #560). -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="Squaero">
         <Directory Id="DriversDir" Name="drivers" />
       </Directory>
@@ -46,31 +49,37 @@
     </StandardDirectory>
 
     <!-- App + its runtime DLLs. WebView2 is linked statically (no loader DLL);
-         the 32-bit MariaDB Connector/C is linked statically into mysql.dll (so
-         no libmariadb.dll here). The MinGW runtime uses the i686 dw2 libgcc. -->
+         MariaDB Connector/C is linked statically into mysql.dll (so no
+         libmariadb.dll here). libgcc is SEH on x64, dw2 on i686. -->
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-      <File Id="squaero.exe" Source="build-x86/app/squaero.exe" />
-      <File Source="build-x86/app/libgcc_s_dw2-1.dll" />
-      <File Source="build-x86/app/libstdc++-6.dll" />
-      <File Source="build-x86/app/libwinpthread-1.dll" />
+      <File Id="squaero.exe" Source="$(Stage)/squaero.exe" />
+<?if $(sys.BUILDARCH) = x64 ?>
+      <File Source="$(Stage)/libgcc_s_seh-1.dll" />
+<?else?>
+      <File Source="$(Stage)/libgcc_s_dw2-1.dll" />
+<?endif?>
+      <File Source="$(Stage)/libstdc++-6.dll" />
+      <File Source="$(Stage)/libwinpthread-1.dll" />
     </ComponentGroup>
 
     <!-- Driver plugins discovered at runtime from <installdir>/drivers.
-         postgres.dll links libpq statically (no 32-bit libpq ships; built from
-         the PostgreSQL source), so like mysql.dll it needs no separate client;
+         postgres.dll links libpq statically (built from the PostgreSQL source), so like mysql.dll it needs no separate client;
          mssql.dll links FreeTDS's db-lib statically the same way. -->
     <ComponentGroup Id="DriverFiles" Directory="DriversDir">
-      <File Source="build-x86/app/drivers/sqlite.dll" />
-      <File Source="build-x86/app/drivers/mysql.dll" />
-      <File Source="build-x86/app/drivers/postgres.dll" />
-      <File Source="build-x86/app/drivers/informix.dll" />
-      <File Source="build-x86/app/drivers/mongodb.dll" />
-      <File Source="build-x86/app/drivers/mssql.dll" />
+      <File Source="$(Stage)/drivers/sqlite.dll" />
+      <File Source="$(Stage)/drivers/mysql.dll" />
+      <File Source="$(Stage)/drivers/postgres.dll" />
+      <File Source="$(Stage)/drivers/informix.dll" />
+      <File Source="$(Stage)/drivers/mongodb.dll" />
+      <File Source="$(Stage)/drivers/mssql.dll" />
     </ComponentGroup>
 
     <!-- Start Menu shortcut with the app icon. -->
+    <!-- always32: every earlier release installed this GUID as a 32-bit
+         component, and a component must not change bitness under one GUID.
+         It holds only a shortcut and an HKCU value, neither redirected. -->
     <Component Id="AppShortcut" Directory="AppMenuDir"
-               Guid="B2C3D4E5-2F3A-4B5C-9D6E-1F2A3B4C5D6E">
+               Guid="B2C3D4E5-2F3A-4B5C-9D6E-1F2A3B4C5D6E" Bitness="always32">
       <Shortcut Id="StartMenuQuaero" Name="Squaero"
                 Target="[INSTALLFOLDER]squaero.exe" WorkingDirectory="INSTALLFOLDER"
                 Icon="QuaeroIcon" />
