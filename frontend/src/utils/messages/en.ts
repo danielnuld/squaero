@@ -815,6 +815,7 @@ export const en: Record<string, string> = {
   "sc.paste-rows": "Paste rows as new rows",
   "sc.unmark-rows": "Unmark the rows",
   "sc.add-condition": "Add another condition to the filter",
+  "sc.filter-add-condition": "Open the table's filter with a new condition",
 
   // command palette (CommandPalette.tsx)
   "cmdk.title": "Command palette",

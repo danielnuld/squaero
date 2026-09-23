@@ -27,7 +27,8 @@ export type ActionId =
   | "duplicate-rows"
   | "paste-rows"
   | "unmark-rows"
-  | "add-condition";
+  | "add-condition"
+  | "filter-add-condition";
 
 export interface Shortcut {
   id: ActionId;
@@ -67,6 +68,9 @@ export const SHORTCUTS: Shortcut[] = [
   // The filter panel owns it (issue #462): Enter there applies the draft, so
   // Shift+Enter is the "one more line" of the same reflex. Not matched globally.
   { id: "add-condition", keys: "Shift+Enter", description: "sc.add-condition", global: false },
+  // From anywhere in a table/view tab — the grid included — straight into a new
+  // filter condition (issue #592). App ignores it on any other tab.
+  { id: "filter-add-condition", keys: "Mod+Shift+L", description: "sc.filter-add-condition", global: true },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */
@@ -115,6 +119,7 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
   // listener still preventDefaults so the host never runs its own "save page".
   if (mod(e) && !e.altKey && !e.shiftKey && k === "s") return "save-edits";
   if (mod(e) && !e.altKey && !e.shiftKey && k === "f") return "editor-find";
+  if (mod(e) && !e.altKey && e.shiftKey && k === "l") return "filter-add-condition";
 
   // Ctrl+PageUp/PageDown cycle tabs (matches common editor/browser convention).
   if (e.ctrlKey && !e.altKey && !e.shiftKey) {

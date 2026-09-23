@@ -38,6 +38,9 @@ export function DataFilterBar(props: {
   onClear: () => void;
   onToggleCollapsed: () => void;
   onOpenSql: () => void;
+  /** Hands App the panel's "add a condition" so a global shortcut can reach it
+      from the grid (issue #592). */
+  addRef?: (add: () => void) => void;
 }) {
   const opLabel = (op: Operator) => t(`filter.op.${op}`);
 
@@ -80,6 +83,7 @@ export function DataFilterBar(props: {
       cols[cols.length - 1]?.focus();
     });
   };
+  props.addRef?.(addCond);
 
   return (
     <section
