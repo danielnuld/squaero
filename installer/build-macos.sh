@@ -3,15 +3,17 @@
 #
 # Prerequisites (Homebrew): the client libraries the drivers link and
 # dylibbundler, which copies the non-system ones into the bundle:
-#   brew install openssl@3 libpq dylibbundler
+#   brew install openssl@3 libpq mongo-c-driver@1 dylibbundler
 #
-# Build the app first (MariaDB, mongo-c, libssh2 and FreeTDS come from source
-# and link statically; libpq is Homebrew's and is bundled here):
+# Build the app first. MariaDB, libssh2 and FreeTDS come from source and link
+# statically; libpq and mongo-c-driver are Homebrew's and are bundled here
+# (mongo-c 1.30 does not configure from source on macOS with CMake 4):
+#   export PKG_CONFIG_PATH="$(brew --prefix mongo-c-driver@1)/lib/pkgconfig"
 #   pnpm --dir frontend build
 #   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 #     -DCMAKE_PREFIX_PATH="$(brew --prefix libpq);$(brew --prefix openssl@3)" \
 #     -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DOPENSSL_USE_STATIC_LIBS=ON \
-#     -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_FREETDS=ON
+#     -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_FREETDS=ON
 #   cmake --build build
 #
 # Signing: ad hoc only (no Apple Developer ID yet), so Gatekeeper asks the user

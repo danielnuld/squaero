@@ -32,7 +32,10 @@ jobs:
           ref: ${{ inputs.ref || github.ref }}
 
       - name: Install build dependencies
-        run: brew install openssl@3 libpq dylibbundler ninja
+        run: |
+          brew install openssl@3 libpq mongo-c-driver@1 dylibbundler ninja
+          # mongo-c-driver@1 is keg-only; the driver finds it through pkg-config.
+          echo "PKG_CONFIG_PATH=$(brew --prefix mongo-c-driver@1)/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -59,7 +62,7 @@ jobs:
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DCMAKE_PREFIX_PATH="$(brew --prefix libpq);$(brew --prefix openssl@3)"
           -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" -DOPENSSL_USE_STATIC_LIBS=ON
-          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_FREETDS=ON
+          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_FREETDS=ON
 
       - name: Build
         run: cmake --build build
