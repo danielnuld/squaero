@@ -133,8 +133,11 @@ jobs:
           kill $PID || true
           sleep 3
           echo "--- first launch"; cat first.log
-          echo "--- WebKit storage"
-          find ~/Library/WebKit -iname "*localstorage*" -o -iname "*.sqlite3" 2>/dev/null | head -20
+          echo "--- WebKit storage: the keys the first launch saved"
+          DB="$(find ~/Library/WebKit/io.github.danielnuld.Squaero -name localstorage.sqlite3 | head -1)"
+          test -n "$DB"
+          sqlite3 "$DB" "SELECT key FROM ItemTable" | tee keys.txt
+          grep -q '^quaero\.' keys.txt
           "$APP" > second.log 2>&1 & PID=$!
           sleep 20
           screencapture -x squaero-second.png || true
