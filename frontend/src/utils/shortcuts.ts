@@ -42,8 +42,8 @@ export interface Shortcut {
 export const SHORTCUTS: Shortcut[] = [
   { id: "run-query", keys: "Mod+Enter", description: "sc.run-query", global: false },
   { id: "format-sql", keys: "Mod+Shift+F", description: "sc.format-sql", global: false },
-  { id: "new-tab", keys: "Mod+Alt+T", description: "sc.new-tab", global: true },
-  { id: "close-tab", keys: "Mod+Alt+W", description: "sc.close-tab", global: true },
+  { id: "new-tab", keys: "Mod+T", description: "sc.new-tab", global: true },
+  { id: "close-tab", keys: "Mod+W", description: "sc.close-tab", global: true },
   { id: "next-tab", keys: "Ctrl+PageDown", description: "sc.next-tab", global: true },
   { id: "prev-tab", keys: "Ctrl+PageUp", description: "sc.prev-tab", global: true },
   { id: "refresh", keys: "F5", description: "sc.refresh", global: true },
@@ -87,13 +87,14 @@ const mod = (e: KeyEventLike) => e.ctrlKey || e.metaKey;
 export function matchShortcut(e: KeyEventLike): ActionId | null {
   const k = e.key.toLowerCase();
 
-  // Mod+Alt combinations (chosen to avoid clobbering common browser/OS keys
-  // like Ctrl+T/Ctrl+W that a webview host may reserve).
-  if (mod(e) && e.altKey && !e.shiftKey) {
+  // Ctrl/Cmd+T and +W open and close a tab, as in a browser (issue #591); the
+  // listener's preventDefault keeps them from the host. The older Mod+Alt forms
+  // stay as aliases for those who learned them. Shift is left alone.
+  if (mod(e) && !e.shiftKey) {
     if (k === "t") return "new-tab";
     if (k === "w") return "close-tab";
-    if (k === "l") return "toggle-theme";
   }
+  if (mod(e) && e.altKey && !e.shiftKey && k === "l") return "toggle-theme";
 
   // Ctrl/Cmd+K opens the command palette (issue #174), from any focus.
   if (mod(e) && !e.altKey && !e.shiftKey && k === "k") return "command-palette";
