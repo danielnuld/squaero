@@ -129,6 +129,12 @@ dbc_status dbcore_conn_manager_open(dbcore_conn_manager *mgr,
     char *rewritten = NULL;
     const char *effective_dsn = dsn_json;
     if (ssh.present) {
+        const char *why = dsn_tunnel_unsupported(dsn_json);
+        if (why != NULL) {
+            conn_copy_err(errbuf, errcap, why);
+            ssh_config_dispose(&ssh);
+            return DBC_ERR_PARAM;
+        }
         int local_port = 0;
         dbc_status tst =
             ssh_tunnel_open(&ssh, &tunnel, &local_port, errbuf, errcap);
