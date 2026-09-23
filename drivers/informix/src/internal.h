@@ -5,11 +5,14 @@
  * Internal definitions shared across the Informix driver translation units.
  * The only public symbol is dbc_driver_entry. The engine is reached over DRDA
  * through libdrda (issue #557): the server's drsoctcp (or drsocssl) listener,
- * with no IBM Client SDK anywhere. Vtable functions carry an `ifx_` prefix.
+ * with no IBM Client SDK. On Windows, a server without a DRDA listener is
+ * reached over SQLI instead, through a Client SDK installed on the machine
+ * (sqli.h). Vtable functions carry an `ifx_` prefix.
  */
 
 #include "dbcore/driver.h"
 #include "drda.h"
+#include "sqli.h"
 
 #include <stddef.h>
 
@@ -23,7 +26,10 @@ typedef pthread_mutex_t ifx_mutex;
 
 /* A live connection. */
 struct dbc_conn {
-    drda_conn *d;           /* NULL until connected (or after a failed connect) */
+    /* Exactly one of d and s is set once connected: DRDA, or the SQLI
+       fallback. Both NULL until then (or after a failed connect). */
+    drda_conn *d;
+    ifx_sqli  *s;
     char       err[1024];   /* last error */
     /* An explicit transaction is open (begin, or BEGIN WORK typed in the
        editor). Outside one the driver commits after every statement, as the
@@ -45,12 +51,19 @@ struct dbc_conn {
  */
 struct dbc_result {
     dbc_conn    *conn;
-    drda_result *r;          /* NULL for a synthetic result */
+    drda_result *r;          /* a DRDA result with rows, or NULL */
+    ifx_sqli_result *sr;     /* an SQLI result with rows, or NULL */
     int          ncols;
     long long    affected;
     char        *synth_sql;  /* the one "sql" cell of a synthetic result */
     int          synth_done;
 };
+
+/* 1 when c is connected, over either backend. */
+static inline int ifx_connected(const dbc_conn *c)
+{
+    return c != NULL && (c->d != NULL || c->s != NULL);
+}
 
 /* --- connection.c --- */
 dbc_status  ifx_connect(const char *dsn_json, dbc_conn **out);
@@ -58,14 +71,15 @@ void        ifx_disconnect(dbc_conn *c);
 const char *ifx_last_error(dbc_conn *c);
 /* Set a plain driver-side error reason on the connection. */
 void        ifx_set_err(dbc_conn *c, const char *msg);
-/* Copy libdrda's last error onto the connection, prefixed with ctx. */
-void        ifx_stash_drda(dbc_conn *c, const char *ctx);
+/* Copy the backend's last error onto the connection, prefixed with ctx. */
+void        ifx_stash(dbc_conn *c, const char *ctx);
 /* The status a just-failed call should report: DBC_ERR_CONN when the
    connection is lost (the app offers to reconnect, issue #407), else
    DBC_ERR_QUERY. */
 dbc_status  ifx_failure_status(const dbc_conn *c);
 /* Cancel the running call (DBC_FEAT_CANCEL) from another thread. DRDA cannot
-   interrupt a query on the connection itself, so this cuts the connection. */
+   interrupt a query on the connection itself, so this cuts the connection;
+   SQLI interrupts the statement. */
 dbc_status  ifx_cancel(dbc_conn *c);
 /* Bracket a call that talks to the server, so ifx_cancel can reach it. */
 void        ifx_busy(dbc_conn *c, int on);

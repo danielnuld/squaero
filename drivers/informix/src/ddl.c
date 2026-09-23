@@ -278,7 +278,7 @@ dbc_status ifx_get_ddl(dbc_conn *c, const char *schema, const char *object,
     if (out != NULL) {
         *out = NULL;
     }
-    if (c == NULL || c->d == NULL || object == NULL || object[0] == '\0' ||
+    if (!ifx_connected(c) || object == NULL || object[0] == '\0' ||
         out == NULL) {
         ifx_set_err(c, "object name is required");
         return DBC_ERR_PARAM;
