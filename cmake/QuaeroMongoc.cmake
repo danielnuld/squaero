@@ -40,6 +40,9 @@ function(quaero_enable_mongoc target)
     include(QuaeroOpenSSL)
     quaero_enable_openssl()
     set(ENABLE_SSL OPENSSL CACHE STRING "" FORCE)
+    # mongo-c defines _XOPEN_SOURCE, which on Darwin hides the BSD extras it
+    # also uses (_SC_NPROCESSORS_ONLN). Scoped to this function's subdirectory.
+    string(APPEND CMAKE_C_FLAGS " -D_DARWIN_C_SOURCE")
   else()
     set(ENABLE_SSL OPENSSL CACHE STRING "" FORCE)
   endif()
