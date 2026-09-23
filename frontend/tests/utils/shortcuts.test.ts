@@ -16,6 +16,12 @@ const ev = (over: Partial<KeyEventLike>): KeyEventLike => ({
 });
 
 describe("matchShortcut — global actions", () => {
+  it("Ctrl/Cmd+T / W open and close a tab, as in a browser (#591)", () => {
+    expect(matchShortcut(ev({ key: "t", ctrlKey: true }))).toBe("new-tab");
+    expect(matchShortcut(ev({ key: "w", ctrlKey: true }))).toBe("close-tab");
+    expect(matchShortcut(ev({ key: "T", metaKey: true }))).toBe("new-tab");
+    expect(matchShortcut(ev({ key: "W", metaKey: true }))).toBe("close-tab");
+  });
   it("Ctrl+Alt+T / W / L map to tab + theme actions", () => {
     expect(matchShortcut(ev({ key: "t", ctrlKey: true, altKey: true }))).toBe("new-tab");
     expect(matchShortcut(ev({ key: "w", ctrlKey: true, altKey: true }))).toBe("close-tab");
@@ -60,7 +66,8 @@ describe("matchShortcut — non-matches", () => {
   });
   it("ignores plain letters and unmodified typing", () => {
     expect(matchShortcut(ev({ key: "t" }))).toBeNull();
-    expect(matchShortcut(ev({ key: "t", ctrlKey: true }))).toBeNull(); // needs Alt too
+    expect(matchShortcut(ev({ key: "t", ctrlKey: true, shiftKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "w", ctrlKey: true, shiftKey: true }))).toBeNull();
   });
 });
 
