@@ -21,8 +21,8 @@ set(QUAERO_OPENSSL_SHA256 "67ebca7e50d17383028045486653492195b83db95f8558709701b
 set(_quaero_openssl_module_dir "${CMAKE_CURRENT_LIST_DIR}")
 
 # iOS (issue #573): OpenSSL's own xcrun targets, built with the Mac's make and
-# perl. The simulator target names no architecture, so arm64 and the minimum
-# version go in CFLAGS; on the device they override the target's old minimum.
+# perl. The simulator target names no architecture or platform, so a full clang
+# -target goes in CFLAGS; on the device the minimum overrides the target's old one.
 function(_quaero_build_openssl_ios root prefix)
   set(_tarball "${root}/openssl-${QUAERO_OPENSSL_VERSION}.tar.gz")
   message(STATUS "OpenSSL ${QUAERO_OPENSSL_VERSION} for iOS (${CMAKE_OSX_SYSROOT}): downloading")
@@ -35,7 +35,7 @@ function(_quaero_build_openssl_ios root prefix)
 
   if(CMAKE_OSX_SYSROOT MATCHES "simulator")
     set(_target iossimulator-xcrun)
-    set(_cflags "-arch arm64 -mios-simulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    set(_cflags "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
   else()
     set(_target ios64-xcrun)
     set(_cflags "-mios-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
