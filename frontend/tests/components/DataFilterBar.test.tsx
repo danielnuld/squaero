@@ -17,7 +17,7 @@ afterEach(() => {
   host = null;
 });
 
-const mount = () => {
+const mount = (addRef?: (add: () => void) => void) => {
   host = document.createElement("div");
   document.body.appendChild(host);
   let applied = 0;
@@ -46,6 +46,7 @@ const mount = () => {
           onClear={() => {}}
           onToggleCollapsed={() => {}}
           onOpenSql={() => {}}
+          addRef={addRef}
         />
       ),
       host!,
@@ -109,5 +110,16 @@ describe("DataFilterBar adds a condition", () => {
     expect(adders).toHaveLength(2);
     (host!.querySelector(".filter-actions button") as HTMLButtonElement).click();
     expect(added()).toBe(1);
+  });
+});
+
+describe("DataFilterBar addRef (#592)", () => {
+  it("hands App an add that adds a condition and focuses its column", async () => {
+    let add: (() => void) | undefined;
+    const { added } = mount((fn) => (add = fn));
+    add!();
+    expect(added()).toBe(1);
+    await Promise.resolve();
+    expect(document.activeElement?.classList.contains("filter-col")).toBe(true);
   });
 });
