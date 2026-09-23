@@ -22,7 +22,8 @@ set(_quaero_openssl_module_dir "${CMAKE_CURRENT_LIST_DIR}")
 
 # iOS (issue #573): OpenSSL's own xcrun targets, built with the Mac's make and
 # perl. The simulator target names no architecture or platform, so a full clang
-# -target goes in CFLAGS; on the device the minimum overrides the target's old one.
+# -target goes in CFLAGS; on the device the minimum overrides the target's old
+# one.
 function(_quaero_build_openssl_ios root prefix)
   set(_tarball "${root}/openssl-${QUAERO_OPENSSL_VERSION}.tar.gz")
   message(STATUS "OpenSSL ${QUAERO_OPENSSL_VERSION} for iOS (${CMAKE_OSX_SYSROOT}): downloading")
@@ -33,18 +34,23 @@ function(_quaero_build_openssl_ios root prefix)
   file(ARCHIVE_EXTRACT INPUT "${_tarball}" DESTINATION "${root}/src")
   set(_src "${root}/src/openssl-${QUAERO_OPENSSL_VERSION}")
 
-  if(CMAKE_OSX_SYSROOT MATCHES "simulator")
+  # CMAKE_OSX_SYSROOT is the resolved SDK path by now (".../iPhoneSimulator18.5.sdk").
+  if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
     set(_target iossimulator-xcrun)
     set(_cflags "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
   else()
     set(_target ios64-xcrun)
     set(_cflags "-mios-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
   endif()
+  # The same compiler and SDK as the rest of the build: left to itself, a CC
+  # from the environment wins over the target's xcrun and compiles against the
+  # macOS SDK, which links but carries the wrong headers.
+  string(APPEND _cflags " -isysroot ${CMAKE_OSX_SYSROOT}")
   cmake_host_system_information(RESULT _jobs QUERY NUMBER_OF_LOGICAL_CORES)
   set(_log "${root}/build.log")
   message(STATUS "OpenSSL ${QUAERO_OPENSSL_VERSION}: building ${_target} (log: ${_log})")
   execute_process(
-    COMMAND sh -c "./Configure ${_target} no-shared no-tests no-module --prefix='${prefix}' --libdir=lib CFLAGS='${_cflags}' && make -j${_jobs} build_libs && make install_dev"
+    COMMAND sh -c "./Configure ${_target} no-shared no-tests no-module --prefix='${prefix}' --libdir=lib CC='${CMAKE_C_COMPILER}' CFLAGS='${_cflags}' && make -j${_jobs} build_libs && make install_dev"
     WORKING_DIRECTORY "${_src}"
     RESULT_VARIABLE _rc OUTPUT_FILE "${_log}" ERROR_FILE "${_log}")
   if(NOT _rc EQUAL 0 OR NOT EXISTS "${prefix}/lib/libssl.a")

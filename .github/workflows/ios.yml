@@ -69,6 +69,8 @@ jobs:
           for f in $(find build -name '*.a' -path '*drivers*' -o -name 'libdbcore.a' -o -name 'libssl.a' -o -name 'libcrypto.a' -o -name 'libdrda.a' -o -name 'libssh2.a' | sort); do
             printf '%8s KB  %s\n' "$(( $(stat -f %z "$f") / 1024 ))" "$f"
           done
+          # platform 2 = iOS, 7 = iOS simulator; sdk must be an iPhone SDK.
+          echo "libcrypto.a:"; otool -l build/_deps/openssl/install/lib/libcrypto.a | grep -m1 -A4 LC_BUILD_VERSION
           T=$(find build -name static_registry_test -type f | head -1)
           otool -l "$T" | grep -A4 LC_BUILD_VERSION
           otool -L "$T"
