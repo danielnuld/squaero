@@ -12,6 +12,11 @@
  * SKIPS (exit 0) unless QUAERO_INFORMIX_DSN is set, e.g.
  *   {"host":"127.0.0.1","port":"19089","database":"drdatest",
  *    "user":"informix","password":"in4mix"}
+ * With "sqli_server" and the onsoctcp port instead (19088, "informix") it
+ * tests the SQLI fallback through the Client SDK, Windows only; there a
+ * cancel stops the statement and the connection survives. The SQLI cancel
+ * does not get through Docker Desktop's port forwarding (the query runs to the
+ * end), yet works against a real server (11.70.FC7): test it against one.
  * The database must have a log (the transaction checks need one) and be
  * writable: the test creates and drops table quaero_ifx_it.
  * INFORMIX_PLUGIN_PATH is injected by CMake as the built plugin's full path.
@@ -126,7 +131,7 @@ struct slow_query {
 static void run_slow_query(struct slow_query *s)
 {
     time_t t0 = time(NULL);
-    cJSON *root = run(s->conn_id, "SELECT COUNT(*) FROM syscolumns a, syscolumns b, systables c");
+    cJSON *root = run(s->conn_id, "SELECT COUNT(*) FROM syscolumns a, syscolumns b, syscolumns c");
     s->seconds = difftime(time(NULL), t0);
     s->failed = cJSON_GetObjectItem(root, "error") != NULL;
     cJSON_Delete(root);
@@ -231,8 +236,10 @@ int main(void)
 
     EXPECT(run_ok(a, "DROP TABLE quaero_ifx_it"), "drop table");
 
-    /* Cancel: the slow query stops at once; the connection is then lost. */
+    /* Cancel: the slow query stops at once. DRDA cuts the connection to do it;
+       SQLI interrupts the statement and the connection goes on. */
     {
+        int sqli = strstr(dsn, "sqli_server") != NULL;
         struct slow_query s;
         memset(&s, 0, sizeof s);
         snprintf(s.conn_id, sizeof s.conn_id, "%s", b);
@@ -255,8 +262,16 @@ int main(void)
         pthread_join(th, NULL);
 #endif
         EXPECT(s.failed && s.seconds < 10.0, "the cancelled query came back at once, failed");
-        EXPECT(!run_ok(b, "SELECT 1 FROM systables WHERE tabid = 1"),
-               "the cancelled connection is gone");
+        if (!s.failed || s.seconds >= 10.0) {
+            fprintf(stderr, "cancel: failed=%d after %.0f s\n", s.failed, s.seconds);
+        }
+        if (sqli) {
+            EXPECT(run_ok(b, "SELECT 1 FROM systables WHERE tabid = 1"),
+                   "the cancelled SQLI connection still works");
+        } else {
+            EXPECT(!run_ok(b, "SELECT 1 FROM systables WHERE tabid = 1"),
+                   "the cancelled connection is gone");
+        }
         cJSON_Delete(rpc("{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"conn.close\",\"params\":{\"connId\":\"%s\"}}", b));
         EXPECT(open_conn(dsn, b, sizeof b) &&
                strcmp(scalar(b, "SELECT COUNT(*) FROM systables WHERE tabid = 1", buf, sizeof buf),
@@ -269,7 +284,7 @@ int main(void)
     dbc_plugin_unload(plugin);
 
     if (failures == 0) {
-        printf("OK: informix integration (DRDA)\n");
+        printf("OK: informix integration (%s)\n", strstr(dsn, "sqli_server") ? "SQLI" : "DRDA");
         return 0;
     }
     fprintf(stderr, "%d assertion(s) failed\n", failures);
