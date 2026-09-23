@@ -80,10 +80,17 @@ jobs:
             otool -L "$f"
           done
           # dlopen from INSIDE the bundle, so @executable_path is Contents/MacOS.
-          printf '#include <dlfcn.h>
-#include <stdio.h>
-int main(int c,char**v){for(int i=1;i<c;i++){void*h=dlopen(v[i],RTLD_NOW);printf("%%s: %%s\n",v[i],h?"ok":dlerror());}return 0;}
-' > /tmp/dl.c
+          cat > /tmp/dl.c <<'EOF'
+          #include <dlfcn.h>
+          #include <stdio.h>
+          int main(int c, char **v) {
+            for (int i = 1; i < c; i++) {
+              void *h = dlopen(v[i], RTLD_NOW);
+              printf("%s: %s\n", v[i], h ? "ok" : dlerror());
+            }
+            return 0;
+          }
+          EOF
           cc /tmp/dl.c -o dist/macos/Squaero.app/Contents/MacOS/dlprobe
           dist/macos/Squaero.app/Contents/MacOS/dlprobe dist/macos/Squaero.app/Contents/MacOS/drivers/*
           rm dist/macos/Squaero.app/Contents/MacOS/dlprobe
