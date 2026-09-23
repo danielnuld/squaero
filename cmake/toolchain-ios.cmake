@@ -25,5 +25,12 @@ else()
   message(FATAL_ERROR "QUAERO_IOS_PLATFORM must be device or simulator, not '${QUAERO_IOS_PLATFORM}'")
 endif()
 
+# CMake confines find_* to the SDK on iOS, which hides the OpenSSL we build
+# into the build tree (cmake/QuaeroOpenSSL.cmake). No iOS driver looks for a
+# system client library, so nothing from the host can sneak in this way.
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
+
 set(CMAKE_OSX_ARCHITECTURES arm64)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "${QUAERO_IOS_MIN}")
