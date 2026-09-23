@@ -1,0 +1,74 @@
+name: iOS core
+
+# The core and the drivers built for iOS (issue #573): static drivers, the
+# OpenSSL we build, and the unit tests run inside a booted iPhone simulator.
+# Nobody on the project has a Mac, so this job is the only proof it builds.
+# The device build is compiled too (it cannot run here) so an API the device
+# SDK lacks shows up before the app does.
+
+on:
+  pull_request:
+    paths:
+      - "core/**"
+      - "drivers/**"
+      - "cmake/**"
+      - "third_party/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "drivers/**"
+      - "cmake/**"
+      - "third_party/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+jobs:
+  ios-core:
+    name: ios-core (${{ matrix.platform }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [simulator, device]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-ios.cmake
+          -DQUAERO_IOS_PLATFORM=${{ matrix.platform }}
+          -DQUAERO_BUILD_APP=OFF -DQUAERO_BUILD_TOOLS=OFF -DQUAERO_BUILD_EXAMPLES=OFF
+          -DQUAERO_STATIC_DRIVERS=ON -DQUAERO_SSH=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Boot a simulator
+        if: matrix.platform == 'simulator'
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for r in d for x in d[r] if "iOS" in r and x["name"].startswith("iPhone")))')
+          echo "Booting $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Test in the simulator
+        if: matrix.platform == 'simulator'
+        run: ctest --test-dir build --output-on-failure
+
+      - name: What went in
+        run: |
+          for f in $(find build -name '*.a' -path '*drivers*' -o -name 'libdbcore.a' -o -name 'libssl.a' -o -name 'libcrypto.a' -o -name 'libdrda.a' -o -name 'libssh2.a' | sort); do
+            printf '%8s KB  %s\n' "$(( $(stat -f %z "$f") / 1024 ))" "$f"
+          done
+          T=$(find build -name static_registry_test -type f | head -1)
+          otool -l "$T" | grep -A4 LC_BUILD_VERSION
+          otool -L "$T"
