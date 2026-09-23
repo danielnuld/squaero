@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy — Squaero</title>
+<meta name="description" content="Squaero collects no personal data: no accounts, no analytics, no ads and no tracking. What is stored, where, and what the app connects to.">
+<meta name="theme-color" content="#f2f3f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15162a" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../../assets/quaero-mark.svg" type="image/svg+xml">
+<link rel="alternate" hreflang="es" href="https://danielnuld.github.io/squaero/privacidad/">
+<link rel="alternate" hreflang="en" href="https://danielnuld.github.io/squaero/en/privacy/">
+<link rel="stylesheet" href="../../home.css">
+<style>
+.policy { max-width: 760px; padding-block: 72px 96px; }
+.policy h1 { margin: 0 0 8px; font-size: 48px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em; }
+.policy .date { margin: 0 0 40px; color: var(--muted); font-size: 15px; }
+.policy .summary { margin: 0 0 48px; padding: 24px 28px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); font-size: 19px; }
+.policy h2 { margin: 44px 0 12px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.policy p, .policy li { font-size: 17px; }
+.policy p { margin: 0 0 14px; }
+.policy ul { margin: 0 0 14px; padding-left: 22px; }
+.policy li { margin-bottom: 8px; }
+.policy a { text-decoration: underline; }
+@media (max-width: 760px) { .policy { padding-block: 40px 56px; } .policy h1 { font-size: 34px; } }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../" aria-label="Squaero, home">
+      <svg viewBox="0 0 128 128" aria-hidden="true"><g fill="none" stroke="var(--accent)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"><circle cx="58" cy="56" r="38"/><path d="M85 83 L104 102"/></g><g fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M46 42 L60 56 L46 70"/><path d="M72 44 L72 68"/></g></svg>
+      <span>Squaero</span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="../../privacidad/" hreflang="es" lang="es">Español</a>
+      <a class="btn" href="../#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap policy">
+  <h1>Privacy policy</h1>
+  <p class="date">In effect since 23 September 2026. It applies to Squaero for Windows, macOS, Linux and iPhone, and to this website.</p>
+
+  <p class="summary"><b>Squaero collects no personal data.</b> It has no accounts, no analytics, no ads, no tracking, and no servers of its own to send anything to. What you set up and query stays on your device or on your own database servers.</p>
+
+  <h2>What is stored, and where</h2>
+  <p>Squaero stores on your device, and only there:</p>
+  <ul>
+    <li>your connections and their groups, snippets, query history, open tabs and settings;</li>
+    <li>the passwords of your connections, if you choose to save them.</li>
+  </ul>
+  <p><b>On Windows, macOS and Linux</b>, all of that lives in the app's data folder inside your user profile. Squaero does not encrypt the passwords there: access to your system account is what protects them.</p>
+  <p><b>On iPhone</b>, passwords and SSH keys go into the iOS Keychain, bound to the device and protected by Face ID or the passcode. Everything else stays in the app's private storage. None of it is synced to iCloud.</p>
+
+  <h2>What Squaero connects to</h2>
+  <ul>
+    <li><b>The servers you set up</b>: your databases and, if you use a tunnel, the SSH server. What travels between Squaero and them is what you query or change, and it can be encrypted with TLS or SSH.</li>
+    <li><b>GitHub, on desktop, to look for updates.</b> At startup the app asks <code>api.github.com</code> for the latest published version. GitHub receives your IP address, as with any visit to its site; nothing else is sent. On iPhone, updates come through the App Store and this check is not made.</li>
+  </ul>
+  <p>There are no automatic crash reports and no usage statistics. If something fails, only whoever reports it knows.</p>
+
+  <h2>The data in your databases</h2>
+  <p>The rows you view, edit or export never go to third parties. An exported file (CSV, JSON, XLSX, XML, HTML or SQL) is saved wherever you choose; on iPhone, in Files or in the app you decide to share it with.</p>
+
+  <h2>The AI assistant</h2>
+  <p>Squaero does not include an AI assistant yet. If it arrives, it will be off until you turn it on, and on iPhone it will use the model Apple runs on the device itself: the schema and results you ask about will not leave the device. If that changes, this policy will say so first.</p>
+
+  <h2>This website</h2>
+  <p>The site is published on GitHub Pages. It uses no cookies and no analytics, and its fonts are served from here, not from Google. To show the latest version and link each download, the page asks <code>api.github.com</code> for the latest release. GitHub, as the host, may log your IP address under its <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">privacy statement</a>.</p>
+
+  <h2>Children</h2>
+  <p>Squaero is a tool for working with databases and is not aimed at children. In any case, it collects no one's data.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If anything above changes, this page will say so before the version that changes it ships. Its full history is in the <a href="https://github.com/danielnuld/squaero/commits/main/site/en/privacy/index.html" rel="noopener">repository</a>.</p>
+
+  <h2>Contact</h2>
+  <p>For privacy questions, open an <a href="https://github.com/danielnuld/squaero/issues" rel="noopener">issue on GitHub</a>.</p>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>Squaero is free software under the GPL-3.0 licence.</span>
+    <nav aria-label="Footer">
+      <a href="../../manual/" hreflang="es">Manual (Spanish)</a>
+      <a href="https://github.com/danielnuld/squaero" rel="noopener">Source code</a>
+      <a href="../../privacidad/" hreflang="es" lang="es">Español</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
