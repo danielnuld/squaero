@@ -66,9 +66,13 @@ endif()
 # statically links mongo-c-driver instead (cmake/QuaeroMongoc.cmake). If neither
 # is available the plugin is skipped (green), like the MySQL/Informix drivers.
 option(QUAERO_MONGOC "Fetch + build mongo-c-driver for the MongoDB plugin" OFF)
+if(IOS)
+  # No system client on iOS (#573).
+  set(QUAERO_MONGOC ON)
+endif()
 
 find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
+if(PkgConfig_FOUND AND NOT IOS)
   pkg_check_modules(MONGOC libmongoc-1.0)
 endif()
 

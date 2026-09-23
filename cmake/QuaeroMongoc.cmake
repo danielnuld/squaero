@@ -9,6 +9,8 @@
 
 include(FetchContent)
 
+set(_quaero_mongoc_module_dir "${CMAKE_CURRENT_LIST_DIR}")
+
 function(quaero_enable_mongoc target)
   set(_saved_build_testing "${BUILD_TESTING}")
   # mongo-c-driver uses some GNU extensions; build it with -std=gnu11 (scoped to
@@ -28,10 +30,16 @@ function(quaero_enable_mongoc target)
   set(ENABLE_SNAPPY OFF CACHE STRING "" FORCE)
   set(ENABLE_ICU OFF CACHE BOOL "" FORCE)
   set(ENABLE_SRV OFF CACHE STRING "" FORCE)
+  set(ENABLE_CLIENT_SIDE_ENCRYPTION OFF CACHE STRING "" FORCE)
   set(ENABLE_AUTOMATIC_INIT_AND_CLEANUP OFF CACHE BOOL "" FORCE)
   set(MONGO_USE_CCACHE OFF CACHE BOOL "" FORCE)
   if(WIN32)
     set(ENABLE_SSL WINDOWS CACHE STRING "" FORCE)
+  elseif(IOS)
+    # The OpenSSL we build (#573); it seeds the cache FindOpenSSL reads.
+    include(QuaeroOpenSSL)
+    quaero_enable_openssl()
+    set(ENABLE_SSL OPENSSL CACHE STRING "" FORCE)
   else()
     set(ENABLE_SSL OPENSSL CACHE STRING "" FORCE)
   endif()
@@ -39,7 +47,10 @@ function(quaero_enable_mongoc target)
   FetchContent_Declare(mongoc
     GIT_REPOSITORY https://github.com/mongodb/mongo-c-driver.git
     GIT_TAG 1.30.1
-    GIT_SHALLOW TRUE)
+    GIT_SHALLOW TRUE
+    PATCH_COMMAND ${CMAKE_COMMAND}
+      -DMONGOC_SRC=<SOURCE_DIR>
+      -P "${_quaero_mongoc_module_dir}/patches/mongoc-cmp0042.cmake")
   FetchContent_MakeAvailable(mongoc)
 
   set(BUILD_TESTING "${_saved_build_testing}" CACHE BOOL "" FORCE)

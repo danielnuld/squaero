@@ -5,16 +5,16 @@
 #
 # iOS (#573) takes only the drivers whose client already builds for it; a
 # host library found by accident (Homebrew's libpq) would not link there.
-# MongoDB joins with its iOS build; MySQL and SQL Server with their own clients
-# (#583, #584), since the LGPL ones cannot ship in the store.
+# MySQL and SQL Server join with their own clients (#583, #584), since the LGPL
+# ones cannot ship in the store.
 add_subdirectory(sqlite)
 add_subdirectory(postgres)
 if(NOT IOS)
   add_subdirectory(mysql)
 endif()
 add_subdirectory(informix)
+add_subdirectory(mongodb)
 if(NOT IOS)
-  add_subdirectory(mongodb)
   add_subdirectory(mssql)
 endif()
 
