@@ -33,6 +33,12 @@ int main(void)
     EXPECT(strcmp(d.database, "stores") == 0 && strcmp(d.user, "informix") == 0 &&
            strcmp(d.password, "s3cret") == 0, "database, user, password");
     EXPECT(d.tls == IFX_TLS_VERIFY_FULL && strcmp(d.tls_ca, "C:/ca.pem") == 0, "tls and ca");
+    EXPECT(d.sqli_server[0] == '\0', "no sqli_server unless given");
+
+    /* The SQLI fallback's server name. */
+    EXPECT(parse("{\"host\":\"h\",\"user\":\"u\",\"port\":\"9088\","
+                 "\"sqli_server\":\"ol_informix1170\"}", &d, err) == 0 &&
+           strcmp(d.sqli_server, "ol_informix1170") == 0 && d.port == 9088, "sqli_server");
 
     /* Defaults: the DRDA port, sysmaster, no TLS. */
     EXPECT(parse("{\"host\":\"h\",\"user\":\"u\"}", &d, err) == 0, "minimal dsn parses");

@@ -20,6 +20,9 @@
  * a database without a log the server commits on its own and refuses the
  * request with -256; the first refusal marks the connection so no more are
  * sent.
+ *
+ * The SQLI fallback (sqli.h) runs in the Client SDK's own autocommit instead:
+ * begin turns it off and commit or rollback back on, and nothing else is sent.
  */
 
 #define IFX_NO_TRANSACTION (-256)
@@ -28,7 +31,7 @@
 static dbc_status autocommit(dbc_conn *c)
 {
     int rc;
-    if (c->in_tx || c->no_log) {
+    if (c->in_tx || c->no_log || c->s != NULL) {
         return DBC_OK;
     }
     ifx_busy(c, 1);
@@ -39,7 +42,7 @@ static dbc_status autocommit(dbc_conn *c)
             c->no_log = 1;
             return DBC_OK;
         }
-        ifx_stash_drda(c, "commit");
+        ifx_stash(c, "commit");
         return ifx_failure_status(c);
     }
     return DBC_OK;
@@ -50,18 +53,22 @@ static dbc_status autocommit(dbc_conn *c)
 static dbc_status end_tx(dbc_conn *c, int commit)
 {
     int rc;
-    if (c == NULL || c->d == NULL) {
+    if (!ifx_connected(c)) {
         return DBC_ERR_PARAM;
     }
     ifx_busy(c, 1);
-    rc = commit ? drda_commit(c->d) : drda_rollback(c->d);
+    if (c->s != NULL) {
+        rc = ifx_sqli_end(c->s, commit);
+    } else {
+        rc = commit ? drda_commit(c->d) : drda_rollback(c->d);
+    }
     ifx_busy(c, 0);
     c->in_tx = 0;
     if (rc < 0) {
-        if (drda_sqlcode(c->d) == IFX_NO_TRANSACTION) {
+        if (c->d != NULL && drda_sqlcode(c->d) == IFX_NO_TRANSACTION) {
             c->no_log = 1;
         }
-        ifx_stash_drda(c, commit ? "commit" : "rollback");
+        ifx_stash(c, commit ? "commit" : "rollback");
         return ifx_failure_status(c);
     }
     return DBC_OK;
@@ -69,8 +76,16 @@ static dbc_status end_tx(dbc_conn *c, int commit)
 
 dbc_status ifx_begin(dbc_conn *c)
 {
-    if (c == NULL || c->d == NULL) {
+    if (!ifx_connected(c)) {
         return DBC_ERR_PARAM;
+    }
+    if (c->s != NULL) {
+        if (ifx_sqli_begin(c->s) < 0) {
+            ifx_stash(c, "begin");
+            return ifx_failure_status(c);
+        }
+        c->in_tx = 1;
+        return DBC_OK;
     }
     if (c->no_log) {
         ifx_set_err(c, "begin: this database has no transaction log (SQLCODE -256)");
@@ -96,6 +111,36 @@ static dbc_status empty_result(dbc_conn *c, dbc_result **out)
     return DBC_OK;
 }
 
+/* ifx_run over SQLI: the Client SDK commits by itself outside a transaction. */
+static dbc_status sqli_run(dbc_conn *c, const char *sql, dbc_result **out)
+{
+    ifx_sqli_result *sr = NULL;
+    dbc_result *r;
+    int rc;
+    ifx_busy(c, 1);
+    rc = ifx_sqli_query(c->s, sql, &sr);
+    ifx_busy(c, 0);
+    if (rc < 0) {
+        ifx_stash(c, "query");
+        return ifx_failure_status(c);
+    }
+    r = calloc(1, sizeof *r);
+    if (r == NULL) {
+        ifx_sqli_free(sr);
+        return DBC_ERR_NOMEM;
+    }
+    r->conn = c;
+    r->ncols = ifx_sqli_col_count(sr);
+    r->affected = ifx_sqli_rows_affected(sr);
+    if (r->ncols > 0) {
+        r->sr = sr;
+    } else {
+        ifx_sqli_free(sr);
+    }
+    *out = r;
+    return DBC_OK;
+}
+
 dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
 {
     drda_result *dr = NULL;
@@ -103,7 +148,7 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
     dbc_status st;
     int rc;
     *out = NULL;
-    if (c == NULL || c->d == NULL || sql == NULL) {
+    if (!ifx_connected(c) || sql == NULL) {
         return DBC_ERR_PARAM;
     }
 
@@ -118,12 +163,15 @@ dbc_status ifx_run(dbc_conn *c, const char *sql, dbc_result **out)
     case IFX_TX_NONE:
         break;
     }
+    if (c->s != NULL) {
+        return sqli_run(c, sql, out);
+    }
 
     ifx_busy(c, 1);
     rc = drda_query(c->d, sql, &dr);
     ifx_busy(c, 0);
     if (rc < 0) {
-        ifx_stash_drda(c, "query");
+        ifx_stash(c, "query");
         return ifx_failure_status(c);
     }
 
@@ -171,6 +219,7 @@ void ifx_free_result(dbc_result *r)
     if (r->r != NULL) {
         drda_free(r->r);
     }
+    ifx_sqli_free(r->sr);
     free(r->synth_sql);
     free(r);
 }
@@ -185,7 +234,10 @@ const char *ifx_col_name(dbc_result *r, int col)
     if (r == NULL || col < 0 || col >= r->ncols) {
         return NULL;
     }
-    return r->synth_sql != NULL ? "sql" : drda_col_name(r->r, col);
+    if (r->synth_sql != NULL) {
+        return "sql";
+    }
+    return r->sr != NULL ? ifx_sqli_col_name(r->sr, col) : drda_col_name(r->r, col);
 }
 
 dbc_type ifx_col_type(dbc_result *r, int col)
@@ -193,8 +245,11 @@ dbc_type ifx_col_type(dbc_result *r, int col)
     if (r == NULL || col < 0 || col >= r->ncols) {
         return DBC_TYPE_NULL;
     }
-    return r->synth_sql != NULL ? DBC_TYPE_TEXT
-                                : informix_drda_type_to_neutral(drda_col_sqltype(r->r, col));
+    if (r->synth_sql != NULL) {
+        return DBC_TYPE_TEXT;
+    }
+    return r->sr != NULL ? ifx_sqli_col_type(r->sr, col)
+                         : informix_drda_type_to_neutral(drda_col_sqltype(r->r, col));
 }
 
 int ifx_next_row(dbc_result *r)
@@ -210,15 +265,15 @@ int ifx_next_row(dbc_result *r)
         r->synth_done = 1;
         return 1;
     }
-    if (r->r == NULL) {
+    if (r->r == NULL && r->sr == NULL) {
         return 0;
     }
     ifx_busy(r->conn, 1);
-    rc = drda_next(r->r);
+    rc = r->sr != NULL ? ifx_sqli_next(r->sr) : drda_next(r->r);
     ifx_busy(r->conn, 0);
     if (rc < 0) {
         /* The core reads last_error when next_row fails: leave a reason. */
-        ifx_stash_drda(r->conn, "fetch");
+        ifx_stash(r->conn, "fetch");
         return -1;
     }
     return rc;
@@ -232,7 +287,7 @@ const char *ifx_cell_text(dbc_result *r, int col)
     if (r->synth_sql != NULL) {
         return r->synth_sql;
     }
-    return drda_text(r->r, col);
+    return r->sr != NULL ? ifx_sqli_text(r->sr, col) : drda_text(r->r, col);
 }
 
 long long ifx_rows_affected(dbc_result *r)

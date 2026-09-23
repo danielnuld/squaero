@@ -14,7 +14,9 @@
  *     "tls": "verify-full", "tls_ca": "C:/certs/ca.pem" }
  *
  * The port is the server's DRDA listener (sqlhosts protocol drsoctcp, or
- * drsocssl for TLS), not the onsoctcp one the IBM clients use. On any failure
+ * drsocssl for TLS), not the onsoctcp one the IBM clients use. When DRDA
+ * fails and the DSN names the server ("sqli_server": "ol_informix"), Windows
+ * tries that port over SQLI with an installed Client SDK (sqli.h). On any failure
  * connect still returns the (error-state) handle so the core can read
  * last_error before disconnecting. The engine-agnostic SSH tunnel is handled in
  * the core (issue #76), transparently to this driver.
@@ -63,17 +65,21 @@ void ifx_set_err(dbc_conn *c, const char *msg)
     }
 }
 
-void ifx_stash_drda(dbc_conn *c, const char *ctx)
+void ifx_stash(dbc_conn *c, const char *ctx)
 {
     if (c == NULL) {
         return;
     }
     snprintf(c->err, sizeof c->err, "%s: %s", ctx != NULL ? ctx : "error",
-             c->d != NULL ? drda_error(c->d) : "not connected");
+             c->s != NULL ? ifx_sqli_error(c->s)
+             : c->d != NULL ? drda_error(c->d) : "not connected");
 }
 
 dbc_status ifx_failure_status(const dbc_conn *c)
 {
+    if (c != NULL && c->s != NULL) {
+        return ifx_sqli_conn_lost(c->s) ? DBC_ERR_CONN : DBC_ERR_QUERY;
+    }
     return (c == NULL || c->d == NULL || drda_conn_lost(c->d)) ? DBC_ERR_CONN : DBC_ERR_QUERY;
 }
 
@@ -96,8 +102,10 @@ dbc_status ifx_cancel(dbc_conn *c)
     /* Under the lock, so disconnect cannot free the connection while its
        socket is being shut down. drda_cancel is only a shutdown() call. */
     lock_acquire(c);
-    if (c->d == NULL || !c->busy) {
+    if (!ifx_connected(c) || !c->busy) {
         st = DBC_ERR_PARAM; /* nothing running on this connection */
+    } else if (c->s != NULL) {
+        st = ifx_sqli_cancel(c->s) == 0 ? DBC_OK : DBC_ERR_PARAM;
     } else {
         drda_cancel(c->d);
         st = DBC_OK;
@@ -134,13 +142,20 @@ dbc_status ifx_connect(const char *dsn_json, dbc_conn **out)
     o.ca_file = d.tls_ca[0] != '\0' ? d.tls_ca : NULL;
     c->d = drda_connect_opts(d.host, d.port, d.database, d.user, d.password, &o, err,
                              (int)sizeof err);
+    if (c->d == NULL && d.sqli_server[0] != '\0' && d.tls == IFX_TLS_OFF) {
+        /* No DRDA there: an onsoctcp-only server, through the Client SDK if
+           this machine has one. Both reasons are kept, DRDA's first. */
+        char serr[512];
+        c->s = ifx_sqli_connect(&d, serr, sizeof serr);
+        if (c->s == NULL) {
+            snprintf(c->err, sizeof c->err, "connect: %.480s; over SQLI: %.480s", err, serr);
+        }
+    } else if (c->d == NULL) {
+        snprintf(c->err, sizeof c->err, "connect: %s", err);
+    }
     /* The password is not needed past this point. */
     memset(d.password, 0, sizeof d.password);
-    if (c->d == NULL) {
-        snprintf(c->err, sizeof c->err, "connect: %s", err);
-        return DBC_ERR_CONN;
-    }
-    return DBC_OK;
+    return ifx_connected(c) ? DBC_OK : DBC_ERR_CONN;
 }
 
 void ifx_disconnect(dbc_conn *c)
@@ -154,6 +169,11 @@ void ifx_disconnect(dbc_conn *c)
            inside one, closing without a commit is a rollback, as it was. */
         drda_close(c->d);
         c->d = NULL;
+    }
+    if (c->s != NULL) {
+        /* Autocommit: an open explicit transaction is rolled back. */
+        ifx_sqli_close(c->s);
+        c->s = NULL;
     }
     lock_release(c);
     lock_destroy(c);

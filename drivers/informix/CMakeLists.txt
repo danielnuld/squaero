@@ -2,8 +2,12 @@
 #
 # The plugin talks to the server's DRDA listener (sqlhosts protocol drsoctcp, or
 # drsocssl for TLS) through libdrda, fetched and linked statically by
-# cmake/QuaeroLibdrda.cmake. No IBM Client SDK and no ODBC are involved, so the
+# cmake/QuaeroLibdrda.cmake. No IBM Client SDK and no ODBC are linked, so the
 # plugin builds on every platform and toolchain, x64 included.
+#
+# On Windows a server with no DRDA listener is reached over SQLI (src/sqli.c)
+# through an IBM Client SDK installed on the machine, loaded at run time from
+# INFORMIXDIR. It is never shipped; elsewhere sqli.c is a stub that refuses.
 #
 # The pure helpers (DSN parsing, DRDA and native type mapping, transaction
 # statements, DML builder) are unit-tested on their own, without a server.
@@ -43,6 +47,33 @@ if(BUILD_TESTING)
   quaero_set_warnings(informix_txsql_test)
   add_test(NAME informix_txsql_test COMMAND informix_txsql_test)
 
+  # Helpers of the SQLI fallback.
+  add_executable(informix_connstr_test tests/connstr_test.c src/utils/connstr.c)
+  target_include_directories(informix_connstr_test PRIVATE src/utils)
+  quaero_set_warnings(informix_connstr_test)
+  add_test(NAME informix_connstr_test COMMAND informix_connstr_test)
+
+  add_executable(informix_odbc_types_test tests/odbc_types_test.c src/utils/odbc_types.c)
+  target_include_directories(informix_odbc_types_test PRIVATE
+    src/utils ${CMAKE_SOURCE_DIR}/core/include)
+  quaero_set_warnings(informix_odbc_types_test)
+  add_test(NAME informix_odbc_types_test COMMAND informix_odbc_types_test)
+
+  add_executable(informix_text_test tests/text_test.c src/utils/text.c)
+  target_include_directories(informix_text_test PRIVATE src/utils)
+  quaero_set_warnings(informix_text_test)
+  add_test(NAME informix_text_test COMMAND informix_text_test)
+
+  add_executable(informix_utf16_test tests/utf16_test.c src/utils/utf16.c)
+  target_include_directories(informix_utf16_test PRIVATE src/utils)
+  quaero_set_warnings(informix_utf16_test)
+  add_test(NAME informix_utf16_test COMMAND informix_utf16_test)
+
+  add_executable(informix_connlost_test tests/connlost_test.c src/utils/connlost.c)
+  target_include_directories(informix_connlost_test PRIVATE src/utils)
+  quaero_set_warnings(informix_connlost_test)
+  add_test(NAME informix_connlost_test COMMAND informix_connlost_test)
+
   add_executable(informix_dml_test
     tests/dml_test.c
     src/utils/dml.c)
@@ -60,11 +91,17 @@ set(INFORMIX_DRIVER_SOURCES
   src/metadata.c
   src/ddl.c
   src/edit.c
+  src/sqli.c
   src/utils/types.c
   src/utils/drda_types.c
   src/utils/dsn.c
   src/utils/txsql.c
-  src/utils/dml.c)
+  src/utils/dml.c
+  src/utils/connstr.c
+  src/utils/odbc_types.c
+  src/utils/text.c
+  src/utils/utf16.c
+  src/utils/connlost.c)
 
 add_library(informix_driver MODULE ${INFORMIX_DRIVER_SOURCES})
 target_include_directories(informix_driver PRIVATE src ${CMAKE_SOURCE_DIR}/core/include)
