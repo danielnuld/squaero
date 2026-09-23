@@ -252,9 +252,10 @@ jobs:
 
   # The snap (issue #40), after the .deb so the two never race on
   # SHA256SUMS.txt. Built by snapcraft from snap/snapcraft.yaml and attached to
-  # the release. Published to the Snap Store's edge channel only when the
-  # SNAPCRAFT_STORE_CREDENTIALS secret exists (`snapcraft export-login`, after
-  # registering the name); promote to stable from the store.
+  # the release. Published to the Snap Store's stable and edge channels only
+  # when the SNAPCRAFT_STORE_CREDENTIALS secret exists (`snapcraft export-login`,
+  # after registering the name). Edge too, because it holds a revision of its
+  # own and would otherwise stay behind stable.
   linux-snap:
     name: linux-snap (amd64)
     needs: linux-deb
@@ -295,10 +296,10 @@ jobs:
           (cd dist && sha256sum "$SNAP" >> sums.tmp && mv sums.tmp SHA256SUMS.txt)
           gh release upload "$TAG" "dist/$SNAP" dist/SHA256SUMS.txt --clobber
 
-      - name: Publish to the Snap Store (edge)
+      - name: Publish to the Snap Store (stable, edge)
         if: env.SNAPCRAFT_STORE_CREDENTIALS != ''
         uses: snapcore/action-publish@v1
         with:
           store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           snap: ${{ steps.snap.outputs.snap }}
-          release: edge
+          release: stable,edge
