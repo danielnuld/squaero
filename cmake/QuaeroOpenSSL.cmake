@@ -139,6 +139,17 @@ function(quaero_enable_openssl)
       INTERFACE_LINK_LIBRARIES quaero_openssl_crypto)
   endif()
 
+  if(IOS)
+    # On iOS the consumers (libdrda, libssh2) run FindOpenSSL themselves, some
+    # under new policies that ignore the normal variables below. Seeding the
+    # cache with the real files answers FindOpenSSL for any policy, and needs
+    # no system libraries behind it there.
+    set(OPENSSL_INCLUDE_DIR "${_prefix}/include" CACHE PATH "" FORCE)
+    set(OPENSSL_CRYPTO_LIBRARY "${_prefix}/lib/libcrypto.a" CACHE FILEPATH "" FORCE)
+    set(OPENSSL_SSL_LIBRARY "${_prefix}/lib/libssl.a" CACHE FILEPATH "" FORCE)
+    return()
+  endif()
+
   set(OPENSSL_FOUND TRUE PARENT_SCOPE)
   set(OPENSSL_INCLUDE_DIR "${_prefix}/include" PARENT_SCOPE)
   # Targets, not file paths: the connector links whatever these name, and only a
