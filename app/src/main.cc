@@ -30,6 +30,7 @@ extern "C" {
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
 #include <climits>
+#include "macos.h"
 #else
 #include <climits>
 #include <unistd.h>
@@ -360,6 +361,21 @@ static void load_frontend(webview_t w)
     std::fprintf(stderr,
                  "Squaero: could not write the UI to the data directory; falling "
                  "back to set_html (settings will not be saved)\n");
+#endif
+#if defined(__APPLE__)
+    // WKWebView gives set_html no origin either, so the same file:// page as
+    // on Linux: ~/Library/Application Support/Squaero/ui (issue #40).
+    {
+        std::string uri = mac_write_ui(html);
+        if (!uri.empty()) {
+            webview_navigate(w, uri.c_str());
+            std::printf("Squaero: UI served from %s (persistent)\n", uri.c_str());
+            return;
+        }
+        std::fprintf(stderr,
+                     "Squaero: could not write the UI to Application Support; "
+                     "falling back to set_html (settings will not be saved)\n");
+    }
 #endif
 #if defined(_WIN32)
     do {
@@ -797,10 +813,10 @@ static void download_install_handler(const char *id, const char *req, void *arg)
 }
 #endif
 
-#if defined(__linux__)
-// The Linux counterparts of the Windows bridges above (issue #40). There is no
-// quaeroDownloadAndInstall: a .deb is updated by the package manager, so the
-// update modal sends the user to the release page instead.
+#if defined(__linux__) || defined(__APPLE__)
+// The Linux and macOS counterparts of the Windows bridges above (issue #40).
+// There is no quaeroDownloadAndInstall: a .deb or a .dmg is not updated in
+// place, so the update modal sends the user to the release page instead.
 
 // The first argument of a bound call when it is a string, else empty.
 static std::string first_string_arg(const char *req)
@@ -815,14 +831,18 @@ static std::string first_string_arg(const char *req)
     return out;
 }
 
-// Bridge: window.quaeroOpenExternal(url) — http(s) only, through GIO, which
-// asks the desktop (or its portal) for the default browser.
+// Bridge: window.quaeroOpenExternal(url) — http(s) only, through GIO (which
+// asks the desktop, or its portal, for the default browser) or NSWorkspace.
 static void open_external_handler(const char *id, const char *req, void *arg)
 {
     auto w = static_cast<webview_t>(arg);
     std::string url = first_string_arg(req);
     if (url.rfind("https://", 0) == 0 || url.rfind("http://", 0) == 0) {
+#if defined(__APPLE__)
+        mac_open_url(url.c_str());
+#else
         g_app_info_launch_default_for_uri(url.c_str(), nullptr, nullptr);
+#endif
     }
     webview_return(w, id, 0, "null");
 }
@@ -843,7 +863,17 @@ static std::string path_result(const char *path)
     return result;
 }
 
-#if GTK_MAJOR_VERSION >= 4
+#if defined(__APPLE__)
+// Bridge: window.quaeroPickFile(title) — NSOpenPanel, modal to the app.
+static void pick_file_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    std::string title = first_string_arg(req);
+    std::string path;
+    bool picked = mac_pick_file(title.c_str(), path);
+    webview_return(w, id, 0, path_result(picked ? path.c_str() : nullptr).c_str());
+}
+#elif GTK_MAJOR_VERSION >= 4
 struct PickFileCtx {
     webview_t w;
     std::string id;
@@ -1039,9 +1069,11 @@ int main()
 #elif defined(__linux__)
     gtk_window_set_default_icon_name("squaero");
     gtk_window_maximize(GTK_WINDOW(webview_get_window(w)));
+#elif defined(__APPLE__)
+    mac_maximize(webview_get_window(w));
 #endif
     webview_bind(w, "quaeroRpc", rpc_handler, w);
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
     webview_bind(w, "quaeroOpenExternal", open_external_handler, w);
     webview_bind(w, "quaeroPickFile", pick_file_handler, w);
 #endif

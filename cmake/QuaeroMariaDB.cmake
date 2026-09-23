@@ -35,8 +35,11 @@ function(quaero_enable_mariadb target)
   set(WITH_UNIT_TESTS OFF CACHE BOOL "" FORCE)
   set(WITH_CURL OFF CACHE BOOL "" FORCE)
   # OPENSSL_FOUND and friends, set here, are what the connector's
-  # find_package(OpenSSL) guard checks first.
-  quaero_enable_openssl()
+  # find_package(OpenSSL) guard checks first. Elsewhere (macOS, #40) the
+  # connector finds the system's OpenSSL itself.
+  if(WIN32)
+    quaero_enable_openssl()
+  endif()
   set(WITH_SSL OPENSSL CACHE STRING "" FORCE)
   set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
