@@ -243,8 +243,51 @@ jobs:
           export QUAERO_SSH_DSN="{\"host\":\"127.0.0.1\",\"port\":3306,\"user\":\"root\",\"password\":\"root\",\"database\":\"quaero_test\",\"ssh_host\":\"127.0.0.1\",\"ssh_port\":22,\"ssh_user\":\"$(whoami)\",\"ssh_auth\":\"key\",\"ssh_key\":\"$HOME/.ssh/id_tunnel\",\"ssh_known_hosts\":\"$HOME/.ssh/known_hosts_quaero\",\"ssh_host_key_policy\":\"strict\"}"
           ctest --test-dir build --output-on-failure -R ssh_tunnel_integration
 
-  # Guards the x86 release build (the shipped installer is x86; the IBM
-  # Informix ODBC driver forced that until #557 moved Informix to DRDA). Builds the core + all drivers with the
+  # Guards the x64 release build (issue #560): the same job as windows-x86
+  # below, with the standalone x86_64 MinGW that the release uses. Every
+  # from-source dependency (MariaDB Connector/C, mongo-c-driver, libssh2,
+  # libpq, FreeTDS, OpenSSL's mingw64 target) is built in 64-bit here.
+  windows-x64:
+    name: windows-x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # winlibs x86_64 GCC 13.2.0 (UCRT, posix threads, SEH), the same release
+      # as the i686 one; its top-level folder is mingw64/, so C:\mingw64. Keep
+      # this pin in step with cmake/toolchain-x86_64-mingw.cmake and release.yml.
+      - name: Install winlibs x86_64 MinGW
+        shell: pwsh
+        run: |
+          $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0posix-18.1.5-11.0.1-ucrt-r8/winlibs-x86_64-posix-seh-gcc-13.2.0-mingw-w64ucrt-11.0.1-r8.zip"
+          curl.exe -sSL -o mingw64.zip $url
+          tar -xf mingw64.zip -C C:\
+          C:\mingw64\bin\gcc.exe --version
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Configure
+        shell: bash
+        run: >
+          cmake -S . -B build-x64 -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-x86_64-mingw.cmake
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DQUAERO_BUILD_APP=OFF
+          -DQUAERO_SSH=ON -DQUAERO_MARIADB=ON -DQUAERO_MONGOC=ON -DQUAERO_LIBPQ=ON
+          -DQUAERO_FREETDS=ON
+
+      - name: Build
+        shell: bash
+        run: cmake --build build-x64
+
+      - name: Test
+        shell: bash
+        run: ctest --test-dir build-x64 --output-on-failure -E integration
+
+  # Guards the x86 build (the release until issue #560; the IBM
+  # Informix ODBC driver forced that until #557 moved Informix to DRDA). It no longer ships but still builds: installer/build-msi.sh <v> x86. Builds the core + all drivers with the
   # same standalone i686 MinGW toolchain used locally, exercising the three
   # from-source dependencies in 32-bit: MariaDB Connector/C (QUAERO_MARIADB,
   # static), mongo-c-driver (QUAERO_MONGOC), libssh2 (QUAERO_SSH) and libpq

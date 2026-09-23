@@ -1,6 +1,6 @@
 # Download and build FreeTDS's static db-lib and link it into a target — the SQL
 # Server driver plugin (issue #49). Enabled with -DQUAERO_FREETDS=ON where no
-# system FreeTDS exists or it is too old: the x86 Windows release (no 32-bit FreeTDS
+# system FreeTDS exists or it is too old: the Windows release (no MinGW FreeTDS
 # ships) and the Linux .deb (#40).
 #
 # An ExternalProject, not FetchContent: FreeTDS's CMakeLists reads its own files
@@ -53,6 +53,13 @@ function(quaero_enable_freetds target)
       get_filename_component(_tc "${CMAKE_TOOLCHAIN_FILE}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
       set(_toolchain "-DCMAKE_TOOLCHAIN_FILE=${_tc}")
     endif()
+    # And the toolchain's root when it was overridden, or the sub-build looks
+    # for the compiler in the toolchain file's default place.
+    foreach(_root MINGW32_ROOT MINGW64_ROOT)
+      if(DEFINED ${_root})
+        list(APPEND _toolchain "-D${_root}=${${_root}}")
+      endif()
+    endforeach()
     ExternalProject_Add(quaero_freetds_build
       URL "https://www.freetds.org/files/stable/freetds-${QUAERO_FREETDS_VERSION}.tar.gz"
       URL_HASH SHA256=${QUAERO_FREETDS_SHA256}

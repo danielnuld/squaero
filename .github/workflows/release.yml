@@ -1,16 +1,16 @@
 name: Release
 
 # Tag-triggered release (issue #41). Pushing a version tag (e.g. v0.5.5) builds
-# the x86 Windows app, packages the MSI, generates checksums, and publishes a
+# the x64 Windows app, packages the MSI, generates checksums, and publishes a
 # GitHub release with those artifacts attached; then the Linux .deb joins it
-# (issue #40, job linux-deb), and the snap after it (job linux-snap). The build is x86: the IBM
-# Informix ODBC driver forced that until #557 moved Informix to DRDA, and moving
-# to x64 is a change of its own (see cmake/toolchain-i686-mingw.cmake).
+# (issue #40, job linux-deb), and the snap after it (job linux-snap). The build
+# is x64 since issue #560; until then it was x86, forced by IBM's 32-bit
+# Informix client (gone since #557 moved Informix to DRDA).
 #
 # Signing: every MSI gets a build-provenance attestation — a Sigstore signature,
 # issued to this workflow through GitHub's OIDC token, over the MSI's digest. It
 # proves the file was built by this workflow from this repository at this tag:
-#   gh attestation verify squaero-X.Y.Z-x86.msi --repo danielnuld/squaero
+#   gh attestation verify squaero-X.Y.Z-x64.msi --repo danielnuld/squaero
 # It is not Authenticode, so Windows SmartScreen still reports an unknown
 # publisher. Authenticode needs a certificate whose key lives in an HSM (CA/B
 # Forum rules since 2023 — an exportable .pfx is no longer issued), which this
@@ -40,7 +40,7 @@ permissions:
 
 jobs:
   windows-msi:
-    name: windows-msi (x86)
+    name: windows-msi (x64)
     runs-on: windows-latest
     steps:
       - name: Resolve the tag
@@ -68,16 +68,16 @@ jobs:
             exit 1
           fi
 
-      # Standalone winlibs i686 MinGW (GCC 13.2.0, UCRT, posix threads, dwarf EH)
-      # — the toolchain file expects it at C:/mingw32. Keep this pin in step with
-      # cmake/toolchain-i686-mingw.cmake and the windows-x86 job in ci.yml.
-      - name: Install winlibs i686 MinGW
+      # Standalone winlibs x86_64 MinGW (GCC 13.2.0, UCRT, posix threads, SEH)
+      # — the toolchain file expects it at C:/mingw64. Keep this pin in step with
+      # cmake/toolchain-x86_64-mingw.cmake and the windows-x64 job in ci.yml.
+      - name: Install winlibs x86_64 MinGW
         shell: pwsh
         run: |
-          $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0posix-18.1.5-11.0.1-ucrt-r8/winlibs-i686-posix-dwarf-gcc-13.2.0-mingw-w64ucrt-11.0.1-r8.zip"
-          curl.exe -sSL -o mingw32.zip $url
-          tar -xf mingw32.zip -C C:\
-          C:\mingw32\bin\gcc.exe --version
+          $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0posix-18.1.5-11.0.1-ucrt-r8/winlibs-x86_64-posix-seh-gcc-13.2.0-mingw-w64ucrt-11.0.1-r8.zip"
+          curl.exe -sSL -o mingw64.zip $url
+          tar -xf mingw64.zip -C C:\
+          C:\mingw64\bin\gcc.exe --version
 
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest
@@ -103,14 +103,15 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
-      # Full x86 build with the app ON. The from-source deps (MariaDB Connector/C,
-      # mongo-c-driver, libssh2, libpq) build in 32-bit; CMAKE_POLICY_VERSION_MINIMUM
-      # lets CMake 4.x configure the ones whose cmake_minimum_required predates 3.5.
-      - name: Configure (x86, app ON)
+      # Full x64 build with the app ON. The from-source deps (MariaDB Connector/C,
+      # mongo-c-driver, libssh2, libpq, FreeTDS, OpenSSL) build in 64-bit;
+      # CMAKE_POLICY_VERSION_MINIMUM lets CMake 4.x configure the ones whose
+      # cmake_minimum_required predates 3.5.
+      - name: Configure (x64, app ON)
         shell: bash
         run: >
-          cmake -S . -B build-x86 -G Ninja
-          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-i686-mingw.cmake
+          cmake -S . -B build-x64 -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-x86_64-mingw.cmake
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DQUAERO_BUILD_APP=ON
@@ -118,10 +119,10 @@ jobs:
           -DQUAERO_FREETDS=ON
 
       # Build everything so every driver plugin is produced and staged next to
-      # squaero.exe (build-x86/app/ + build-x86/app/drivers/), which the MSI ships.
+      # squaero.exe (build-x64/app/ + build-x64/app/drivers/), which the MSI ships.
       - name: Build
         shell: bash
-        run: cmake --build build-x86
+        run: cmake --build build-x64
 
       - name: Set up WiX
         shell: bash
@@ -132,13 +133,13 @@ jobs:
       # Informix needs no IBM client: its driver speaks DRDA (issue #557).
       - name: Build the MSI
         shell: bash
-        run: installer/build-msi.sh "${{ steps.tag.outputs.version }}"
+        run: installer/build-msi.sh "${{ steps.tag.outputs.version }}" x64
 
       # SHA256SUMS.txt lets downloaders check the file arrived intact.
       - name: Generate checksums
         shell: bash
         working-directory: dist
-        run: sha256sum "squaero-${{ steps.tag.outputs.version }}-x86.msi" > SHA256SUMS.txt
+        run: sha256sum "squaero-${{ steps.tag.outputs.version }}-x64.msi" > SHA256SUMS.txt
 
       # Build provenance (issue #41): a signed statement, stored on the repository,
       # that this exact MSI came out of this workflow run. Before publishing, so a
@@ -146,7 +147,7 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: dist/squaero-${{ steps.tag.outputs.version }}-x86.msi
+          subject-path: dist/squaero-${{ steps.tag.outputs.version }}-x64.msi
 
       - name: Publish the release
         shell: bash
@@ -158,10 +159,10 @@ jobs:
           # Attach to an existing release (created from the notes) or make one.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
-              "dist/squaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" --clobber
+              "dist/squaero-${VERSION}-x64.msi" "dist/SHA256SUMS.txt" --clobber
           else
             gh release create "$TAG" \
-              "dist/squaero-${VERSION}-x86.msi" "dist/SHA256SUMS.txt" \
+              "dist/squaero-${VERSION}-x64.msi" "dist/SHA256SUMS.txt" \
               --title "Squaero $TAG" --generate-notes
           fi
 

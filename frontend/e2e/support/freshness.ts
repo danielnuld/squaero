@@ -100,8 +100,8 @@ export function assertFresh(repo: string, binary: string, drivers: string): void
       "source, which can report green about code that was never compiled.\n\n" +
       lines.join("\n") +
       "\n\nRebuild and restage, then run again. On Windows:\n" +
-      "  cmake --build build-x86 -j 4\n" +
-      "  cp build-x86/drivers/*/[a-z]*.dll build-x86/app/drivers/\n" +
-      "  cp build-x86/tools/quaero-rpc.exe build-x86/tools/\n",
+      "  cmake --build build-x64 -j 4\n" +
+      "  cp build-x64/drivers/*/[a-z]*.dll build-x64/app/drivers/\n" +
+      "  cp build-x64/tools/quaero-rpc.exe build-x64/tools/\n",
   );
 }

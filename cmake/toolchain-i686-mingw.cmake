@@ -1,9 +1,9 @@
 # Toolchain: 32-bit Windows (x86 / i686) via standalone MinGW-w64.
 #
-# Why x86: the Windows release has been x86 since the Informix driver loaded
-# IBM's 32-bit Client SDK in-process. Issue #557 replaced it with DRDA (no IBM
-# client), so nothing forces x86 any more; moving the release to x64 is a
-# change of its own (dependencies, installer, upgrading x86 installs).
+# The Windows release was x86 while the Informix driver loaded IBM's 32-bit
+# Client SDK in-process. #557 replaced it with DRDA and #560 moved the release
+# to x64 (cmake/toolchain-x86_64-mingw.cmake); this one still builds and CI
+# keeps it green, but its MSI (installer/build-msi.sh <v> x86) is not published.
 #
 # Usage:
 #   cmake -S . -B build-x86 -G Ninja \

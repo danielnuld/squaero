@@ -2,6 +2,7 @@
 /build/
 /build-ssh/
 /build-x86/
+/build-x64/
 /out/
 /dist/
 *.o

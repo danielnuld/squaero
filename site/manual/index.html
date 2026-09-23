@@ -64,7 +64,7 @@
 
       <h3>Instalar</h3>
       <ol class="steps">
-        <li>Descarga <code>squaero-X.Y.Z-x86.msi</code> de la
+        <li>Descarga <code>squaero-X.Y.Z-x64.msi</code> de la
           <a href="https://github.com/danielnuld/squaero/releases" rel="noopener">página de versiones</a>.</li>
         <li>Ábrelo y sigue el instalador. No hace falta instalar aparte ningún
           runtime: la interfaz va dentro del ejecutable y usa el WebView del sistema.</li>
@@ -72,9 +72,11 @@
           <code>SHA256SUMS.txt</code>.</li>
       </ol>
       <div class="note">
-        <p><b>Windows de 32 bits, por ahora.</b> El instalador es x86: lo exigía el
-          cliente de Informix, que ya no se usa. Corre igual en Windows de 64 bits.
-          macOS está en camino.</p>
+        <p><b>Windows de 64 bits.</b> Si tenías la versión de 32 bits (hasta la
+          0.30), el instalador nuevo la quita y ocupa su lugar en
+          <code>Program Files</code>: tus conexiones, snippets y ajustes siguen ahí.
+          Lo único que se pierde es el anclaje en la barra de tareas, que apuntaba a
+          la carpeta vieja: vuelve a anclar Squaero una vez. macOS está en camino.</p>
       </div>
       <p><b>En Linux</b> (x86_64) hay dos opciones:</p>
       <ul>
