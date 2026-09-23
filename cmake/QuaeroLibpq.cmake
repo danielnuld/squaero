@@ -40,7 +40,7 @@ function(_quaero_libpq_configure_ios pg gen out_cfg out_libobjs)
     message(STATUS "PostgreSQL driver: configuring libpq for ${_target}")
     execute_process(
       COMMAND sh "${pg}/configure" --host=aarch64-apple-darwin
-              --without-ssl --without-readline --without-zlib --without-icu
+              --without-readline --without-zlib --without-icu
               "PG_SYSROOT=${CMAKE_OSX_SYSROOT}" "CC=${CMAKE_C_COMPILER}"
               "CFLAGS=-target ${_target} -isysroot ${CMAKE_OSX_SYSROOT}"
               "LDFLAGS=-target ${_target} -isysroot ${CMAKE_OSX_SYSROOT}"
