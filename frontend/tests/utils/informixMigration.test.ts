@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   INFORMIX_PORT_REVIEW,
+  INFORMIX_SQLI_SERVER,
   migrateInformixConnection,
   parseConnections,
   serializeConnections,
@@ -46,6 +47,22 @@ describe("migrateInformixConnection", () => {
       expect(k in m.params).toBe(false);
     }
     expect(m.params).toMatchObject({ host: "sia01", database: "nomina", user: "informix" });
+  });
+
+  it("keeps the old server name for the SQLI fallback", () => {
+    const m = migrateInformixConnection(old({ port: "9088" }));
+    expect(m.params[INFORMIX_SQLI_SERVER]).toBe("ol_informix1170");
+    // One the user already typed wins.
+    const typed = migrateInformixConnection(old({ [INFORMIX_SQLI_SERVER]: "ol_mine" }));
+    expect(typed.params[INFORMIX_SQLI_SERVER]).toBe("ol_mine");
+  });
+
+  it("leaves a connection set up for SQLI alone: 9088 with a server name is on purpose", () => {
+    const sqli: Connection = {
+      id: "c3", name: "x", driver: "informix",
+      params: { host: "h", port: "9088", user: "u", [INFORMIX_SQLI_SERVER]: "ol_informix" },
+    };
+    expect(migrateInformixConnection(sqli)).toBe(sqli);
   });
 
   it("keeps an onsocssl connection encrypted and verified, and flags its port", () => {
