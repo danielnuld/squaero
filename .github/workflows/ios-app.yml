@@ -78,7 +78,7 @@ jobs:
       - name: Build and test in the simulator
         working-directory: ios
         run: |
-          xcodebuild test -project Squaero.xcodeproj -scheme Squaero             -destination "id=$SIM" -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO             | tee xcodebuild.log | grep -E "error:|warning: .*Squaero|Test Case|Executed|\*\* " || true
+          xcodebuild test -project Squaero.xcodeproj -scheme Squaero             -destination "id=$SIM" -derivedDataPath DerivedData             | tee xcodebuild.log | grep -E "error:|warning: .*Squaero|Test Case|Executed|\*\* " || true
           grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
 
       - name: Screenshot of the running app
