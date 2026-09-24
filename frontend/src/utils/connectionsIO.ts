@@ -14,16 +14,16 @@ import {
 } from "./foreignConnections";
 import { dbeaverCredentials } from "./foreignSecrets";
 import {
+  CONNECTIONS_FILE_VERSION,
   driverSchema,
+  mergeConnections,
+  parseConnectionsFile,
   stripSecrets,
-  validateConnection,
-  nextConnectionId,
-  coerceConnection,
   type Connection,
+  type MergeSummary,
 } from "./connections";
 
-/** Current on-disk format version. */
-export const CONNECTIONS_FILE_VERSION = 1;
+export { CONNECTIONS_FILE_VERSION };
 
 export interface ConnectionsFile {
   version: number;
@@ -55,13 +55,7 @@ export function exportConnections(list: Connection[], includePasswords: boolean)
   return JSON.stringify(file, null, 2);
 }
 
-export interface ImportSummary {
-  /** New connections appended. */
-  added: number;
-  /** Existing connections replaced (matched by id+name or by name). */
-  updated: number;
-  /** Malformed/invalid entries dropped. */
-  skipped: number;
+export interface ImportSummary extends MergeSummary {
   /** Set when the file came from another tool (DBeaver, Navicat). */
   source?: ForeignSource;
   /** Entries from another tool whose engine Squaero does not ship. */
@@ -76,8 +70,6 @@ export interface ImportOutcome {
   list: Connection[];
   summary: ImportSummary;
 }
-
-const norm = (s: string) => s.trim().toLowerCase();
 
 /**
  * Merge the connections from an export file into `existing`. Returns the new list
@@ -123,62 +115,14 @@ export async function importConnections(
         ? parsed.connections.filter((c) => !c.params.password).length
         : 0);
   } else {
-    let data: unknown;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      return { error: "El archivo no es JSON válido." };
-    }
-    if (!data || typeof data !== "object" || Array.isArray(data)) {
-      return { error: "Formato de archivo no reconocido." };
-    }
-    const version = (data as { version?: unknown }).version;
-    if (version !== CONNECTIONS_FILE_VERSION) {
-      return { error: `Versión de archivo no soportada (${String(version ?? "desconocida")}).` };
-    }
-    const native = (data as { connections?: unknown }).connections;
-    if (!Array.isArray(native)) {
-      return { error: "El archivo no contiene una lista de conexiones." };
-    }
+    const native = parseConnectionsFile(raw);
+    if ("error" in native) return native;
     incoming = native;
   }
 
-  let list = existing.slice();
-
-  for (const item of incoming) {
-    const c = coerceConnection(item);
-    // A file of ours has to be valid to come in; another tool's file only has to
-    // be recognisable. DBeaver keeps the user name in its encrypted credentials
-    // store, so half an address is the normal case there — and dropping a server
-    // because one field is missing defeats the point of not retyping thirty of
-    // them. What arrives incomplete is flagged by the connection form, which is
-    // where the password has to be typed anyway.
-    if (!c || (foreign ? !c.name.trim() : validateConnection(c).length > 0)) {
-      summary.skipped += 1;
-      continue;
-    }
-    const byId = c.id.trim() ? list.find((e) => e.id === c.id) : undefined;
-    if (byId && norm(byId.name) === norm(c.name)) {
-      list = list.map((e) => (e.id === byId.id ? { ...c, id: byId.id } : e));
-      summary.updated += 1;
-      continue;
-    }
-    // Match by name (the user's label). If duplicate names already exist in the
-    // list, the first is updated — name uniqueness isn't enforced elsewhere.
-    const byName = list.find((e) => norm(e.name) === norm(c.name));
-    if (byName) {
-      list = list.map((e) => (e.id === byName.id ? { ...c, id: byName.id } : e));
-      summary.updated += 1;
-      continue;
-    }
-    // Add as new. A blank or colliding incoming id is regenerated so a stored
-    // connection never ends up with a blank/duplicate id.
-    const id = !c.id.trim() || list.some((e) => e.id === c.id) ? nextConnectionId(list) : c.id;
-    list = [...list, { ...c, id }];
-    summary.added += 1;
-  }
-
-  return { list, summary };
+  const merged = mergeConnections(existing, incoming, !!foreign);
+  Object.assign(summary, merged.summary);
+  return { list: merged.list, summary };
 }
 
 /** A short human summary line for the import result. */

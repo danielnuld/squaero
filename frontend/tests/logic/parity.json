@@ -760,6 +760,62 @@
         "key": "no.such.key",
         "expected": "no.such.key"
       }
+    ],
+    "importConnectionsFile": [
+      {
+        "existing": [
+          {
+            "id": "conn-1",
+            "name": "Juzgados",
+            "driver": "informix",
+            "params": {
+              "host": "10.0.0.5",
+              "port": "9089",
+              "user": "informix"
+            }
+          }
+        ],
+        "raw": "{\"version\": 1, \"connections\": [{\"id\": \"conn-1\", \"name\": \"juzgados\", \"driver\": \"informix\", \"params\": {\"host\": \"10.0.0.6\", \"user\": \"informix\", \"tls\": \"verify-ca\", \"tls_ca\": \"C:\\\\certs\\\\ca.pem\"}}, {\"id\": \"conn-1\", \"name\": \"Pruebas\", \"driver\": \"postgres\", \"params\": {\"host\": \"db\", \"database\": \"app\", \"user\": \"u\", \"password\": \"p\", \"ssh_host\": \"b\", \"ssh_user\": \"me\", \"ssh_auth\": \"key\", \"ssh_key\": \"/home/me/.ssh/id\"}}, {\"id\": \"conn-7\", \"name\": \"Sin host\", \"driver\": \"postgres\", \"params\": {}}, {\"name\": \"roto\"}]}",
+        "expected": {
+          "list": [
+            {
+              "id": "conn-1",
+              "name": "juzgados",
+              "driver": "informix",
+              "params": {
+                "host": "10.0.0.6",
+                "user": "informix",
+                "tls": "verify-ca",
+                "tls_ca": "C:\\certs\\ca.pem"
+              }
+            },
+            {
+              "id": "conn-2",
+              "name": "Pruebas",
+              "driver": "postgres",
+              "params": {
+                "host": "db",
+                "database": "app",
+                "user": "u",
+                "password": "p",
+                "ssh_host": "b",
+                "ssh_user": "me",
+                "ssh_auth": "key",
+                "ssh_key": "/home/me/.ssh/id"
+              }
+            }
+          ],
+          "summary": {
+            "added": 1,
+            "updated": 1,
+            "skipped": 2
+          },
+          "ids": [
+            "conn-1",
+            "conn-2"
+          ]
+        }
+      }
     ]
   }
 }

@@ -19,6 +19,7 @@ import {
   DRIVER_SCHEMAS,
   fieldErrors,
   groupConnections,
+  importConnectionsFile,
   parseConnections,
   stripSecrets,
 } from "../../src/utils/connections";
@@ -50,6 +51,7 @@ function compute(c: typeof cases) {
     }));
   }
   for (const x of k.parseConnections) x.expected = parseConnections(x.raw);
+  for (const x of k.importConnectionsFile) x.expected = importConnectionsFile(x.existing, x.raw);
   for (const x of k.translate) x.expected = translate(x.locale, x.key, x.params);
   return c;
 }

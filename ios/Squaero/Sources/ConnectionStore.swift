@@ -112,6 +112,39 @@ final class ConnectionStore {
         return target.path
     }
 
+    /// Merges desktop's export file (issue #576), with desktop's rules. Its
+    /// passwords, when the export carried them, go to the Keychain. Its file
+    /// fields name paths on the other machine, so they are cleared, keeping
+    /// what this iPhone already had picked; `needFiles` counts the connections
+    /// left without one (a CA, a SQLite file) or without their SSH key.
+    func importConnections(from url: URL) throws -> (summary: MergeSummary, needFiles: Int) {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let raw = try String(contentsOf: url, encoding: .utf8)
+        let before = connections
+        let result = try Logic.shared.importConnectionsFile(connections, raw: raw)
+        let schemas = try Logic.shared.driverSchemas()
+        var needFiles = 0
+        for id in result.ids {
+            guard var conn = result.list.first(where: { $0.id == id }) else { continue }
+            let old = before.first { $0.id == id }
+            var missing = false
+            for f in schemas[conn.driver]?.fields ?? [] where f.type == "file" {
+                guard !(conn.params[f.key] ?? "").isEmpty else { continue }
+                conn.params[f.key] = old?.params[f.key]
+                if f.key == "ssh_key" {
+                    conn.params[f.key] = nil
+                    missing = missing || !Keychain.exists(account: Keychain.account(id, Self.sshKey))
+                } else if (conn.params[f.key] ?? "").isEmpty {
+                    missing = true
+                }
+            }
+            if missing { needFiles += 1 }
+            try save(conn, keep: true)
+        }
+        return (result.summary, needFiles)
+    }
+
     /// The text of a key picked in Files, read without copying the file.
     func readKey(_ url: URL) throws -> String {
         let scoped = url.startAccessingSecurityScopedResource()
