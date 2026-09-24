@@ -31,6 +31,7 @@ private struct Cases: Decodable {
             let driver: String; let expected: [Section]
         }
         struct ParseCase: Decodable { let raw: String; let expected: [Connection] }
+        struct ImportCase: Decodable { let existing: [Connection]; let raw: String; let expected: ImportedConnections }
         struct TranslateCase: Decodable {
             let locale: String; let key: String; let params: [String: String]?; let expected: String
         }
@@ -40,6 +41,7 @@ private struct Cases: Decodable {
         let groupConnections: [GroupCase]
         let formSections: [SectionsCase]
         let parseConnections: [ParseCase]
+        let importConnectionsFile: [ImportCase]
         let translate: [TranslateCase]
     }
 
@@ -115,6 +117,10 @@ final class ParityTests: XCTestCase {
             XCTAssertEqual(got.map { $0.fields.map(\.key) }, c.expected.map(\.keys), c.driver)
         }
         for c in k.parseConnections { XCTAssertEqual(try logic.parseConnections(c.raw), c.expected) }
+        for c in k.importConnectionsFile {
+            XCTAssertEqual(try logic.importConnectionsFile(c.existing, raw: c.raw), c.expected)
+        }
+        XCTAssertThrowsError(try logic.importConnectionsFile([], raw: "{\"version\":9}"))
         for c in k.translate {
             XCTAssertEqual(try logic.translate(c.key, locale: c.locale, params: c.params), c.expected, c.key)
         }
