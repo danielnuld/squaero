@@ -50,6 +50,10 @@ private struct Cases: Decodable {
     let variables: [Variables]
     let informixErrors: [InformixError]
     let quote: [Quote]
+    struct Tree: Decodable { let result: ResultSet; let fallback: String; let expected: [TreeRow] }
+    let tree: [Tree]
+    struct Routines: Decodable { let engine: String; let db: String?; let expected: RoutineSupport }
+    let routines: [Routines]
     let connections: Connections
 }
 
@@ -98,6 +102,8 @@ final class ParityTests: XCTestCase {
     }
 
     func testQuoting() throws {
+        for c in cases.tree { XCTAssertEqual(try logic.parseTreeRows(c.result, fallback: c.fallback), c.expected) }
+        for c in cases.routines { XCTAssertEqual(try logic.routinesFor(c.engine, db: c.db), c.expected, c.engine) }
         for c in cases.quote {
             XCTAssertEqual(try logic.quoteIdentifier(c.id, engine: c.engine), c.expected, c.engine)
         }
