@@ -5,6 +5,7 @@
 
 import Foundation
 import SquaeroCore
+import SquaeroLogic
 
 enum CoreError: Error, Equatable {
     /// The core answered with a JSON-RPC error.
@@ -71,6 +72,14 @@ final class Core: @unchecked Sendable {
         }
         guard let result = body["result"] else { throw CoreError.badResponse }
         return result
+    }
+
+    /// `call` for the methods that answer with a result set (query.run,
+    /// schema.tree, schema.describe), decoded.
+    func resultSet(_ method: String, _ params: [String: Any]) async throws -> ResultSet {
+        let result = try await call(method, params)
+        let data = try JSONSerialization.data(withJSONObject: result)
+        return try JSONDecoder().decode(ResultSet.self, from: data)
     }
 
     private func allocateId() -> Int {

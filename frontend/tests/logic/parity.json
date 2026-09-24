@@ -817,5 +817,116 @@
         }
       }
     ]
-  }
+  },
+  "tree": [
+    {
+      "result": {
+        "columns": [
+          {
+            "name": "name",
+            "type": "text"
+          }
+        ],
+        "rows": [
+          [
+            "sales"
+          ],
+          [
+            null
+          ],
+          [
+            "hr"
+          ]
+        ],
+        "truncated": false,
+        "rowsAffected": 0
+      },
+      "fallback": "schema",
+      "expected": [
+        {
+          "name": "sales",
+          "kind": "schema"
+        },
+        {
+          "name": "hr",
+          "kind": "schema"
+        }
+      ]
+    },
+    {
+      "result": {
+        "columns": [
+          {
+            "name": "name",
+            "type": "text"
+          },
+          {
+            "name": "type",
+            "type": "text"
+          }
+        ],
+        "rows": [
+          [
+            "users",
+            "table"
+          ],
+          [
+            "adults",
+            "view "
+          ]
+        ],
+        "truncated": false,
+        "rowsAffected": 0
+      },
+      "fallback": "schema",
+      "expected": [
+        {
+          "name": "users",
+          "kind": "table"
+        },
+        {
+          "name": "adults",
+          "kind": "view"
+        }
+      ]
+    }
+  ],
+  "routines": [
+    {
+      "engine": "postgres",
+      "db": null,
+      "expected": {
+        "supported": true,
+        "listSql": "SELECT n.nspname AS schema, p.proname AS name, CASE p.prokind WHEN 'p' THEN 'PROCEDURE' WHEN 'a' THEN 'AGGREGATE' WHEN 'w' THEN 'WINDOW' ELSE 'FUNCTION' END AS type, pg_get_function_result(p.oid) AS returns FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, p.proname",
+        "nameCol": "name",
+        "typeCol": "type",
+        "schemaCol": "schema",
+        "idCol": null
+      }
+    },
+    {
+      "engine": "informix",
+      "db": "juzgados",
+      "expected": {
+        "supported": true,
+        "listSql": "SELECT procid, procname AS name, CASE WHEN isproc = 't' THEN 'PROCEDURE' ELSE 'FUNCTION' END AS type FROM sysprocedures ORDER BY procname",
+        "nameCol": "name",
+        "typeCol": "type",
+        "schemaCol": null,
+        "idCol": "procid"
+      }
+    },
+    {
+      "engine": "mongodb",
+      "db": null,
+      "expected": {
+        "supported": false,
+        "listSql": null,
+        "nameCol": null,
+        "typeCol": null,
+        "schemaCol": null,
+        "idCol": null
+      }
+    }
+  ]
 }
