@@ -25,6 +25,24 @@ public struct ResultSet: Codable, Equatable {
     public init(columns: [ResultColumn], rows: [[String?]]) { self.columns = columns; self.rows = rows }
 }
 
+/// One child of a schema.tree level: kind is database, schema, table or view.
+public struct TreeRow: Codable, Equatable, Hashable {
+    public var name: String
+    public var kind: String
+    public init(name: String, kind: String) { self.name = name; self.kind = kind }
+}
+
+/// How an engine lists its stored routines (routines.ts); unsupported for
+/// SQLite and MongoDB.
+public struct RoutineSupport: Codable, Equatable {
+    public var supported: Bool
+    public var listSql: String?
+    public var nameCol: String?
+    public var typeCol: String?
+    public var schemaCol: String?
+    public var idCol: String?
+}
+
 public struct SqlVariable: Codable, Equatable {
     public var name: String
     /// "value" (`:name`, a SQL literal) or "raw" (`${name}`, text as typed).
@@ -236,6 +254,16 @@ public final class SquaeroLogic {
     /// `locale` is "es" or "en".
     public func informixErrorText(_ message: String, locale: String) throws -> String? {
         try call("informixErrors.informixErrorText", [message, locale])
+    }
+
+    /// A schema.tree result as typed rows; containers take `fallback`
+    /// ("database" or "schema"), a result with a type column holds tables and views.
+    public func parseTreeRows(_ result: ResultSet, fallback: String) throws -> [TreeRow] {
+        try call("parseTreeRows", [result, fallback])
+    }
+
+    public func routinesFor(_ engine: String, db: String?) throws -> RoutineSupport {
+        try call("routines.routinesFor", [engine, db])
     }
 
     public func quoteIdentifier(_ id: String, engine: String? = nil) throws -> String {

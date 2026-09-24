@@ -13,7 +13,8 @@ import { exportResult, type ExportFormat } from "../../src/utils/exporters";
 import { draftFilter, emptyFilter } from "../../src/utils/dataFilter";
 import { applyVariables, findVariables } from "../../src/utils/sqlVariables";
 import { informixErrorText } from "../../src/utils/informixErrors";
-import { quoteIdentifier } from "../../src/utils/schema";
+import { parseTreeRows, quoteIdentifier } from "../../src/utils/schema";
+import { routinesFor } from "../../src/utils/routines";
 import {
   buildDsn,
   DRIVER_SCHEMAS,
@@ -38,6 +39,8 @@ function compute(c: typeof cases) {
   }
   for (const e of c.informixErrors) e.expected = informixErrorText(e.msg, e.locale);
   for (const q of c.quote) q.expected = quoteIdentifier(q.id, q.engine);
+  for (const x of c.tree) x.expected = parseTreeRows(x.result, x.fallback);
+  for (const x of c.routines) x.expected = routinesFor(x.engine, x.db);
   const k = c.connections;
   for (const x of k.buildDsn) x.expected = buildDsn(x.conn);
   for (const x of k.fieldErrors) x.expected = fieldErrors(x.conn, { sshRequired: x.sshRequired });

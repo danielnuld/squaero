@@ -11,7 +11,8 @@ struct ConnectionsView: View {
     @State private var creating = false
     @State private var asking: Connection?
     @State private var typed: [String: String] = [:]
-    @State private var open: OpenConnection?
+    @State private var session: Session?
+    @Environment(\.scenePhase) private var phase
     @State private var busy: String?
     @State private var failure: String?
     @State private var importing = false
@@ -57,9 +58,20 @@ struct ConnectionsView: View {
                 ConnectionForm(store: store, original: conn)
             }
             .sheet(item: $asking) { conn in askSheet(conn) }
-            .navigationDestination(item: $open) { o in
-                // A fresh session is a fresh view: its lost flag starts clear.
-                OpenConnectionView(open: o, reconnect: { reconnect(o) }).id(o.connId)
+            .navigationDestination(item: $session) { s in
+                BrowseView(session: s, level: .root(s.conn))
+            }
+            .onChange(of: session) { old, _ in
+                // Back out of the browser: the session ends with it.
+                if let old, old !== session {
+                    let id = old.connId
+                    Task { _ = try? await Core.shared.call("conn.close", ["connId": id]) }
+                }
+            }
+            .onChange(of: phase) { before, now in
+                // iOS closes a suspended app's sockets (design D7). Not
+                // .inactive: Control Center or a call banner suspends nothing.
+                if before == .background && now != .background { session?.lost = true }
             }
             .alert(Logic.t("ios.conn.failed"), isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
                 Button("OK") { failure = nil }
@@ -138,9 +150,10 @@ struct ConnectionsView: View {
     /// Drops the dead session and opens a new one the usual way: Face ID, or
     /// the sheet asking for what the Keychain does not hold. The SSH tunnel
     /// is reopened with it, by the core.
-    private func reconnect(_ o: OpenConnection) {
-        Task { _ = try? await Core.shared.call("conn.close", ["connId": o.connId]) }
-        start(o.conn)
+    private func reconnect(_ s: Session) {
+        let dead = s.connId
+        Task { _ = try? await Core.shared.call("conn.close", ["connId": dead]) }
+        start(s.conn)
     }
 
     private func connect(_ conn: Connection, typed: [String: String]) {
@@ -149,7 +162,15 @@ struct ConnectionsView: View {
             defer { busy = nil }
             do {
                 let id = try await Connector.open(conn, typed: typed)
-                open = OpenConnection(conn: conn, connId: id)
+                if let s = session, s.conn.id == conn.id {
+                    // A reconnect: the same session, wherever the user is in it.
+                    s.connId = id
+                    s.lost = false
+                } else {
+                    let s = Session(conn: conn, connId: id)
+                    s.reconnect = { [weak s] in if let s { reconnect(s) } }
+                    session = s
+                }
             } catch ConnectError.cancelled {
                 failure = Logic.t("ios.faceid.cancelled")
             } catch ConnectError.keychain(let message), ConnectError.core(let message) {
@@ -157,55 +178,6 @@ struct ConnectionsView: View {
             } catch {
                 failure = "\(error)"
             }
-        }
-    }
-}
-
-struct OpenConnection: Hashable {
-    let conn: Connection
-    let connId: String
-}
-
-/// What a connection shows once open, until the browser (#577) replaces it.
-/// iOS closes the sockets of a suspended app, so coming back from the
-/// background marks the session lost rather than trusting it (design D7), as
-/// does any call that fails for want of a connection.
-struct OpenConnectionView: View {
-    let open: OpenConnection
-    let reconnect: () -> Void
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var phase
-    @State private var lost = false
-
-    var body: some View {
-        List {
-            if lost {
-                Section {
-                    Label(Logic.t("conn.lost", ["name": open.conn.name]), systemImage: "bolt.horizontal.circle")
-                        .foregroundStyle(.orange)
-                    Button(Logic.t("conn.reconnect"), action: reconnect)
-                }
-            }
-            Section {
-                LabeledContent(Logic.t("ios.conn.connected")) {
-                    Text(open.connId).font(Theme.mono())
-                }
-                Text((try? Logic.shared.connectionTarget(open.conn)) ?? "").font(Theme.mono(12))
-            } footer: { Text(Logic.t("ios.conn.tablesSoon")) }
-            Button(Logic.t("ios.conn.disconnect"), role: .destructive) {
-                Task {
-                    _ = try? await Core.shared.call("conn.close", ["connId": open.connId])
-                    dismiss()
-                }
-            }
-        }
-        .navigationTitle(open.conn.name)
-        .onChange(of: phase) { before, now in
-            // Not .inactive: Control Center or a call banner suspends nothing.
-            if before == .background && now != .background { lost = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: Core.connectionLost)) {
-            if $0.object as? String == open.connId { lost = true }
         }
     }
 }

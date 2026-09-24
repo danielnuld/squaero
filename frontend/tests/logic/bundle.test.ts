@@ -23,6 +23,7 @@ const MODULES = [
   "connections",
   "connectionFormSections",
   "translate",
+  "routines",
 ];
 
 const DOM = "(?:window|document|localStorage|navigator)";
@@ -76,8 +77,10 @@ describe("squaero-logic.js without a DOM", () => {
       "foreignKeys",
       "i18n",
       "informixErrors",
+      "parseTreeRows",
       "qualifiedName",
       "quoteIdentifier",
+      "routines",
       "sqlVariables",
       "xlsx",
     ]);
