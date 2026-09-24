@@ -56,3 +56,5 @@ site/video/.raw.webm
 *.snap
 /ios/SquaeroLogic/Sources/SquaeroLogic/Resources/squaero-logic.js
 /ios/SquaeroLogic/.build/
+/ios/Squaero.xcodeproj/
+/ios/Squaero/Info.plist
