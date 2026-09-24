@@ -92,7 +92,7 @@ final class ConnectionTests: XCTestCase {
         let export: [String: Any] = ["version": 1, "connections": [
             ["id": "conn-1", "name": "Juzgados", "driver": "informix", "group": "Producción",
              "params": ["host": "10.0.0.5", "port": "9089", "user": "informix", "password": secret,
-                        "tls": "verify-ca", "tls_ca": "C:\certs\ca.pem"]],
+                        "tls": "verify-ca", "tls_ca": #"C:\certs\ca.pem"#]],
             ["id": "conn-2", "name": "Pruebas", "driver": "postgres",
              "params": ["host": "db", "database": "app", "user": "u"]],
         ]]
