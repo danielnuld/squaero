@@ -25,6 +25,8 @@ struct RowRef: Hashable {
     var row: [String?]
     /// Declared type per column (schema.describe), when there was one.
     var types: [String: String]
+    /// The primary key; empty when the table has none (then it is read-only).
+    var pk: [String] = []
 }
 
 /// Loads a table's rows page by page. Kept apart from the view so the paging
@@ -45,6 +47,7 @@ final class RowPager {
     private(set) var failure: String?
     private(set) var types: [String: String] = [:]
     private(set) var names: [String] = []
+    private(set) var pk: [String] = []
 
     init(session: Session, object: ObjectRef) {
         self.session = session
@@ -63,6 +66,7 @@ final class RowPager {
         guard let d = try? await Core.shared.resultSet("schema.describe", p) else { return }
         types = (try? Logic.shared.describeColumnTypes(d)) ?? [:]
         names = (try? Logic.shared.describeColumnNames(d)) ?? []
+        pk = (try? Logic.shared.describePkColumns(d)) ?? []
     }
 
     private func sql() throws -> String {
@@ -165,7 +169,7 @@ struct RowsView: View {
             }
             ForEach(pager.rows.indices, id: \.self) { i in
                 NavigationLink(value: RowRef(object: pager.object, columns: pager.columns, row: pager.rows[i],
-                                             types: pager.types)) {
+                                             types: pager.types, pk: pager.pk)) {
                     card(pager.rows[i])
                 }
                 // Opening a row leaves this screen, which closes the cursor:

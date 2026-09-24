@@ -314,6 +314,16 @@ public final class SquaeroLogic {
         try call("edit.describeColumnNames", [describe])
     }
 
+    /// The primary key's columns; empty means the table cannot be edited.
+    public func describePkColumns(_ describe: ResultSet) throws -> [String] {
+        try call("edit.describePkColumns", [describe])
+    }
+
+    /// {pkColumn: value} identifying `row`, or nil when the list lacks a key column.
+    public func whereForRow(columns: [ResultColumn], row: [String?], pk: [String]) throws -> [String: String?]? {
+        try call("edit.whereForRow", [columns, row, pk])
+    }
+
     /// The catalog query for one table's foreign keys: `outbound` the keys it
     /// holds, else the keys pointing at it.
     public func foreignKeysFor(_ engine: String, db: String?, table: String, outbound: Bool) throws -> ForeignKeyQuery {
@@ -404,6 +414,15 @@ public final class SquaeroLogic {
     }
 
     /// Where a connection points, in one line ("siaj @ 10.0.0.5:9089").
+    /// Marked as production: desktop's red. The edit preview says so.
+    public func isProduction(_ conn: Connection) throws -> Bool {
+        try call("connections.isProduction", [conn])
+    }
+
+    public func markProduction(_ conn: Connection, _ on: Bool) throws -> Connection {
+        try call("connections.markProduction", [conn, on])
+    }
+
     public func connectionTarget(_ conn: Connection) throws -> String {
         try call("connections.connectionTarget", [conn])
     }

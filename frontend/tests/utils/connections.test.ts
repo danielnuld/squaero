@@ -703,3 +703,22 @@ describe("connection groups and icons", () => {
     expect(saved[0].group).toBeUndefined();
   });
 });
+
+import { isProduction, markProduction, PRODUCTION_COLOR } from "../../src/utils/connections";
+
+describe("production marker (issue #577)", () => {
+  const base = { id: "c1", name: "Juzgados", driver: "informix", params: {} };
+
+  it("is the palette's red and nothing else", () => {
+    expect(isProduction({ color: PRODUCTION_COLOR })).toBe(true);
+    expect(isProduction({ color: "#4bb45e" })).toBe(false);
+    expect(isProduction({})).toBe(false);
+  });
+
+  it("marks with the red and unmarks without touching another color", () => {
+    expect(markProduction(base, true).color).toBe(PRODUCTION_COLOR);
+    expect(markProduction({ ...base, color: PRODUCTION_COLOR }, false).color).toBeUndefined();
+    expect(markProduction({ ...base, color: "#4bb45e" }, false).color).toBe("#4bb45e");
+    expect(base).not.toHaveProperty("color");
+  });
+});

@@ -79,9 +79,14 @@ final class RowRelations {
 
 struct RowDetailView: View {
     @State private var related: RowRelations
+    @State private var editor: RowEditor
+    @State private var editing = false
+    @State private var reviewing: RowEditor.Change?
+    @Environment(\.dismiss) private var dismiss
 
     init(session: Session, ref: RowRef) {
         _related = State(initialValue: RowRelations(session: session, ref: ref))
+        _editor = State(initialValue: RowEditor(session: session, ref: ref))
     }
 
     private var ref: RowRef { related.ref }
@@ -89,41 +94,159 @@ struct RowDetailView: View {
     var body: some View {
         List {
             Section {
-                ForEach(Array(zip(ref.columns, ref.row).enumerated()), id: \.offset) { _, pair in
-                    let (col, value) = pair
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(col.name).font(.footnote.weight(.semibold))
-                            Spacer()
-                            Text(ref.types[col.name] ?? col.type).font(Theme.mono(11)).foregroundStyle(.secondary)
-                        }
-                        Text(value ?? "NULL")
-                            .font(Theme.mono())
-                            .foregroundStyle(value == nil ? .tertiary : .primary)
-                            .textSelection(.enabled)
+                ForEach(Array(ref.columns.enumerated()), id: \.offset) { i, col in
+                    field(col, value: editor.row[i])
+                }
+            } footer: {
+                if let reason = editor.readOnlyReason { Text(reason) }
+            }
+            if editing {
+                Section {
+                    Button(Logic.t("ios.edit.deleteRow"), role: .destructive) { review(.delete) }
+                }
+            }
+            if !editing {
+                if !related.parents.isEmpty {
+                    Section(Logic.t("ios.row.pointsAt")) {
+                        ForEach(related.parents, id: \.self) { link($0, count: nil) }
                     }
-                    .padding(.vertical, 2)
                 }
-            }
-            if !related.parents.isEmpty {
-                Section(Logic.t("ios.row.pointsAt")) {
-                    ForEach(related.parents, id: \.self) { link($0, count: nil) }
+                if !related.children.isEmpty {
+                    Section(Logic.t("ios.row.dependents")) {
+                        ForEach(related.children, id: \.self) { link($0, count: related.counts[$0]) }
+                    }
                 }
-            }
-            if !related.children.isEmpty {
-                Section(Logic.t("ios.row.dependents")) {
-                    ForEach(related.children, id: \.self) { link($0, count: related.counts[$0]) }
-                }
-            }
-            if let reason = related.reason {
-                Section(Logic.t("ios.row.related")) {
-                    Text(reason).font(.footnote).foregroundStyle(.secondary)
+                if let reason = related.reason {
+                    Section(Logic.t("ios.row.related")) {
+                        Text(reason).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
-        .navigationTitle(ref.row.first.flatMap { $0 } ?? ref.object.name)
+        .navigationTitle(editor.row.first.flatMap { $0 } ?? ref.object.name)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(editing)
+        .toolbar {
+            if editing {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(Logic.t("common.cancel")) { editor.discard(); editing = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(Logic.t("ios.edit.review")) { review(.update) }
+                        .disabled(editor.changed.isEmpty)
+                }
+            } else if editor.readOnlyReason == nil {
+                Button(Logic.t("common.edit")) { editing = true }
+            }
+        }
+        .sheet(item: $reviewing) { change in reviewSheet(change) }
         .task { await related.load() }
+    }
+
+    private func review(_ change: RowEditor.Change) {
+        reviewing = change
+        Task { await editor.review(change) }
+    }
+
+    @ViewBuilder
+    private func field(_ col: ResultColumn, value: String?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(col.name).font(.footnote.weight(.semibold))
+                Spacer()
+                Text(ref.types[col.name] ?? col.type).font(Theme.mono(11)).foregroundStyle(.secondary)
+            }
+            if editing {
+                let isNull = editor.values[col.name] == .some(nil)
+                HStack {
+                    TextField("", text: Binding(
+                        get: { (editor.values[col.name] ?? nil) ?? "" },
+                        set: { editor.values[col.name] = .some($0) }),
+                        prompt: isNull ? Text("NULL") : nil, axis: .vertical)
+                        .font(Theme.mono())
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .disabled(isNull)
+                    // NULL is not an empty string: a switch, not a guess.
+                    Toggle("NULL", isOn: Binding(
+                        get: { isNull },
+                        set: { editor.values[col.name] = .some($0 ? nil : "") }))
+                        .toggleStyle(.button)
+                        .font(Theme.mono(11))
+                }
+                if editor.changed.keys.contains(col.name) {
+                    Text(Logic.t("ios.edit.was", ["value": value ?? "NULL"]))
+                        .font(Theme.mono(11)).foregroundStyle(.secondary)
+                }
+            } else {
+                Text(value ?? "NULL")
+                    .font(Theme.mono())
+                    .foregroundStyle(value == nil ? .tertiary : .primary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// "Revisa el cambio": the statement the core generated, what it touches,
+    /// a production connection saying so, then Face ID.
+    private func reviewSheet(_ change: RowEditor.Change) -> some View {
+        NavigationStack {
+            List {
+                if editor.production {
+                    Section {
+                        Label(Logic.t("ios.edit.production", ["name": related.session.conn.name]),
+                              systemImage: "exclamationmark.octagon.fill")
+                            .foregroundStyle(.red)
+                    }
+                }
+                Section {
+                    if let sql = editor.preview {
+                        Text(sql).font(Theme.mono(13)).textSelection(.enabled)
+                    } else if editor.failure == nil {
+                        ProgressView()
+                    }
+                } header: {
+                    Text(Logic.t("ios.edit.sql"))
+                } footer: {
+                    Text(Logic.t("ios.edit.oneRow"))
+                }
+                if let failure = editor.failure {
+                    Section {
+                        Label(failure, systemImage: "xmark.octagon").foregroundStyle(.red)
+                    } footer: { Text(Logic.t("ios.edit.rolledBack")) }
+                }
+                Section {
+                    Button {
+                        Task {
+                            if await editor.apply(change) {
+                                reviewing = nil
+                                if change == .delete { dismiss() } else { editing = false }
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if editor.busy { ProgressView() } else {
+                                Label(Logic.t(change == .delete ? "ios.edit.confirmDelete" : "ios.edit.confirm"),
+                                      systemImage: "faceid")
+                            }
+                            Spacer()
+                        }
+                    }
+                    .disabled(editor.preview == nil || editor.busy)
+                    .tint(change == .delete ? .red : Theme.accent)
+                }
+            }
+            .navigationTitle(Logic.t("ios.edit.reviewTitle"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(Logic.t("common.cancel")) { reviewing = nil }
+                }
+            }
+        }
+        .interactiveDismissDisabled(editor.busy)
     }
 
     @ViewBuilder
