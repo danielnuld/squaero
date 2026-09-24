@@ -9,6 +9,7 @@
 #
 # TLS: the x86 Windows release already builds a static OpenSSL for MySQL,
 # PostgreSQL and SQL Server (cmake/QuaeroOpenSSL.cmake) and libdrda reuses it.
+# iOS has no system OpenSSL and builds the same one (#573).
 # Elsewhere the system OpenSSL is used when present; without one libdrda builds
 # without TLS, refuses every TLS mode, and the driver does not advertise
 # DBC_FEAT_SSL (QUAERO_DRDA_TLS).
@@ -20,7 +21,7 @@ set(QUAERO_LIBDRDA_SHA256 "a7d500a1c6a724ae32a4ce571e2ee66b86acda4fd490cc3bb72c9
 
 function(quaero_enable_libdrda target)
   if(NOT TARGET drda)
-    if(WIN32 AND (QUAERO_LIBPQ OR QUAERO_MARIADB OR QUAERO_FREETDS))
+    if(IOS OR (WIN32 AND (QUAERO_LIBPQ OR QUAERO_MARIADB OR QUAERO_FREETDS)))
       include(QuaeroOpenSSL)
       quaero_enable_openssl()
       get_filename_component(OPENSSL_ROOT_DIR "${OPENSSL_INCLUDE_DIR}" DIRECTORY)

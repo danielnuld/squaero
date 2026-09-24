@@ -103,7 +103,7 @@ set(INFORMIX_DRIVER_SOURCES
   src/utils/utf16.c
   src/utils/connlost.c)
 
-add_library(informix_driver MODULE ${INFORMIX_DRIVER_SOURCES})
+add_library(informix_driver ${QUAERO_DRIVER_LIB_TYPE} ${INFORMIX_DRIVER_SOURCES})
 target_include_directories(informix_driver PRIVATE src ${CMAKE_SOURCE_DIR}/core/include)
 # cjson supplies cJSON.h (DSN parsing), exactly as the other drivers do.
 target_link_libraries(informix_driver PRIVATE cjson)
