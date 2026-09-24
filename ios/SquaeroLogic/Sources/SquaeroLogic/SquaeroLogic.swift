@@ -73,6 +73,61 @@ public struct PreviewFilter: Codable, Equatable {
     public var orderBy: String?
 }
 
+// MARK: Connections (connections.ts, connectionFormSections.ts)
+
+public struct FieldOption: Codable, Equatable, Hashable {
+    public var value: String
+    /// i18n key.
+    public var label: String
+}
+
+public struct DriverField: Codable, Equatable, Hashable, Identifiable {
+    public var key: String
+    /// i18n key ("field.host"); resolve with `translate`.
+    public var label: String
+    /// text, number, password, file or select.
+    public var type: String
+    public var required: Bool
+    /// A literal ("localhost") or an i18n key; `translate` returns a literal as is.
+    public var placeholder: String?
+    public var options: [FieldOption]?
+    public var group: String?
+    public var fetch: String?
+    public var id: String { key }
+}
+
+public struct DriverSchema: Codable, Equatable {
+    public var driver: String
+    public var label: String
+    public var fields: [DriverField]
+}
+
+public struct FormSection: Codable, Equatable, Identifiable {
+    /// server, file, auth, security or ssh.
+    public var id: String
+    public var fields: [DriverField]
+}
+
+public struct Connection: Codable, Equatable, Hashable, Identifiable {
+    public var id: String
+    public var name: String
+    public var driver: String
+    /// Field values by DriverField.key.
+    public var params: [String: String]
+    public var color: String?
+    public var group: String?
+    public var icon: String?
+    public init(id: String, name: String, driver: String, params: [String: String] = [:], group: String? = nil) {
+        self.id = id; self.name = name; self.driver = driver; self.params = params; self.group = group
+    }
+}
+
+public struct ConnectionGroup: Codable, Equatable {
+    /// nil for the connections with no group.
+    public var name: String?
+    public var conns: [Connection]
+}
+
 public enum SquaeroLogicError: Error, Equatable {
     /// squaero-logic.js is not in the bundle (run `pnpm build:logic`).
     case scriptMissing
@@ -109,8 +164,9 @@ public final class SquaeroLogic {
             var __squaeroCall = function (path, args) {
               var self = SquaeroLogic, fn = SquaeroLogic;
               path.split(".").forEach(function (p) { self = fn; fn = fn == null ? fn : fn[p]; });
-              if (typeof fn !== "function") throw new Error("unknown function: " + path);
-              var r = fn.apply(self, JSON.parse(args));
+              if (fn === undefined) throw new Error("unknown name: " + path);
+              // A constant (DRIVER_SCHEMAS) is read, not called.
+              var r = typeof fn === "function" ? fn.apply(self, JSON.parse(args)) : fn;
               if (r instanceof Uint8Array) r = Array.from(r);
               return JSON.stringify({ v: r === undefined ? null : r });
             };
@@ -167,6 +223,72 @@ public final class SquaeroLogic {
 
     public func quoteIdentifier(_ id: String, engine: String? = nil) throws -> String {
         try call("quoteIdentifier", [id, engine])
+    }
+
+    // MARK: Connections
+
+    private var schemaCache: [String: DriverSchema]?
+
+    /// Every driver's form, by driver name, as desktop has it.
+    public func driverSchemas() throws -> [String: DriverSchema] {
+        if let cached = schemaCache { return cached }
+        let schemas: [String: DriverSchema] = try call("connections.DRIVER_SCHEMAS", [])
+        schemaCache = schemas
+        return schemas
+    }
+
+    private func schema(_ driver: String) throws -> DriverSchema {
+        guard let schema = try driverSchemas()[driver] else {
+            throw SquaeroLogicError.script("unknown driver: \(driver)")
+        }
+        return schema
+    }
+
+    public func formSections(driver: String) throws -> [FormSection] {
+        try call("connectionForm.formSections", [schema(driver)])
+    }
+
+    /// The keys whose values are secrets (the password fields).
+    public func secretKeys(driver: String) throws -> [String] {
+        try call("connections.secretFieldKeys", [schema(driver)])
+    }
+
+    public func stripSecrets(_ conn: Connection) throws -> Connection {
+        try call("connections.stripSecrets", [conn, schema(conn.driver)])
+    }
+
+    /// The `dsn` for conn.open. Build it in memory, right before opening.
+    public func buildDsn(_ conn: Connection) throws -> [String: String] {
+        try call("connections.buildDsn", [conn])
+    }
+
+    /// Field key → i18n key of its error ("valid.required"); empty when valid.
+    public func fieldErrors(_ conn: Connection, sshRequired: Bool = false) throws -> [String: String] {
+        struct Errors: Decodable { let params: [String: String] }
+        struct Options: Encodable { let sshRequired: Bool }
+        let errors: Errors = try call("connections.fieldErrors", [conn, Options(sshRequired: sshRequired)])
+        return errors.params
+    }
+
+    public func groupConnections(_ list: [Connection]) throws -> [ConnectionGroup] {
+        try call("connections.groupConnections", [list])
+    }
+
+    public func nextConnectionId(_ list: [Connection]) throws -> String {
+        try call("connections.nextConnectionId", [list])
+    }
+
+    /// Tolerant parse of a stored list: malformed entries are dropped and old
+    /// Informix connections are migrated to DRDA, as on desktop.
+    public func parseConnections(_ raw: String) throws -> [Connection] {
+        try call("connections.parseConnections", [raw])
+    }
+
+    // MARK: i18n
+
+    /// `key` in `locale` ("es" or "en"), then Spanish, then the key itself.
+    public func translate(_ key: String, locale: String, params: [String: String]? = nil) throws -> String {
+        try call("i18n.translate", [locale, key, params])
     }
 }
 

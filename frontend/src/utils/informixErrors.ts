@@ -8,7 +8,7 @@
 // ours (IBM's message files are copyrighted), and a code with no entry yields
 // null so the caller shows the raw text — never an invented meaning. Pure.
 
-import type { Locale } from "./i18n";
+import type { Locale } from "./translate";
 
 export interface Sqlca {
   code: number;
