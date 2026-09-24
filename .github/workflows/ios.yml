@@ -3,8 +3,9 @@ name: iOS core
 # The core and the drivers built for iOS (issue #573): static drivers, the
 # OpenSSL we build, and the unit tests run inside a booted iPhone simulator.
 # Nobody on the project has a Mac, so this job is the only proof it builds.
-# The device build is compiled too (it cannot run here) so an API the device
-# SDK lacks shows up before the app does.
+# scripts/ios/build-xcframework.sh builds the device and simulator slices,
+# checks they need nothing outside the SDK and packs SquaeroCore.xcframework,
+# kept as an artifact for the app (#575).
 
 on:
   pull_request:
@@ -14,6 +15,7 @@ on:
       - "cmake/**"
       - "third_party/**"
       - "CMakeLists.txt"
+      - "scripts/ios/**"
       - ".github/workflows/ios.yml"
   push:
     branches: [main]
@@ -23,64 +25,44 @@ on:
       - "cmake/**"
       - "third_party/**"
       - "CMakeLists.txt"
+      - "scripts/ios/**"
       - ".github/workflows/ios.yml"
   workflow_dispatch:
 
 jobs:
   ios-core:
-    name: ios-core (${{ matrix.platform }})
+    name: ios-core
     runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [simulator, device]
     steps:
       - uses: actions/checkout@v7
 
       - name: Install Ninja
         run: brew install ninja
 
-      - name: Configure
-        run: >
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-ios.cmake
-          -DQUAERO_IOS_PLATFORM=${{ matrix.platform }}
-          -DQUAERO_BUILD_APP=OFF -DQUAERO_BUILD_TOOLS=OFF -DQUAERO_BUILD_EXAMPLES=OFF
-          -DQUAERO_STATIC_DRIVERS=ON -DQUAERO_SSH=ON
-
-      - name: Build
-        run: cmake --build build
+      - name: Build SquaeroCore.xcframework
+        run: sh scripts/ios/build-xcframework.sh build-ios
 
       - name: Boot a simulator
-        if: matrix.platform == 'simulator'
         run: |
-          UDID=$(xcrun simctl list devices available -j \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for r in d for x in d[r] if "iOS" in r and x["name"].startswith("iPhone")))')
+          UDID=$(xcrun simctl list devices available -j             | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for r in d for x in d[r] if "iOS" in r and x["name"].startswith("iPhone")))')
           echo "Booting $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
 
       - name: Test in the simulator
-        if: matrix.platform == 'simulator'
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build-ios/simulator --output-on-failure
 
-      - name: What went in
-        run: |
-          for f in $(find build -name '*.a' -path '*drivers*' -o -name 'libdbcore.a' -o -name 'libssl.a' -o -name 'libcrypto.a' -o -name 'libdrda.a' -o -name 'libssh2.a' | sort); do
-            printf '%8s KB  %s\n' "$(( $(stat -f %z "$f") / 1024 ))" "$f"
-          done
-          # platform 2 = iOS, 7 = iOS simulator; sdk must be an iPhone SDK.
-          echo "libcrypto.a:"; otool -l build/_deps/openssl/install/lib/libcrypto.a | grep -m1 -A4 LC_BUILD_VERSION
-          T=$(find build -name static_registry_test -type f | head -1)
-          otool -l "$T" | grep -A4 LC_BUILD_VERSION
-          otool -L "$T"
+      - name: Run the probe in the simulator
+        run: xcrun simctl spawn booted build-ios/simulator/probe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SquaeroCore.xcframework
+          path: build-ios/SquaeroCore.xcframework
 
       - name: OpenSSL build, on failure
         if: failure()
         run: |
-          L=build/_deps/openssl/build.log
-          grep -m3 -E "^Configuring|CFLAGS|CC " "$L" || true
-          grep -m2 -E "aes_cbc" "$L" || true
-          grep -E "^(CC|CFLAGS|CNF_CFLAGS|LIB_CFLAGS)=" build/_deps/openssl/src/openssl-*/Makefile || true
-          O=$(find build/_deps/openssl/src -name 'libcrypto-lib-aes_cbc.o' | head -1)
-          otool -l "$O" | grep -A5 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+          for L in build-ios/*/_deps/openssl/build.log; do
+            echo "== $L"; tail -n 40 "$L" || true
+          done
