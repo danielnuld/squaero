@@ -34,6 +34,10 @@ struct ConnectionsView: View {
                 Button { creating = true } label: { Image(systemName: "plus") }
                     .accessibilityLabel(Logic.t("ios.conn.new"))
             }
+            #if DEBUG
+            // CI screenshots open the form straight away (ios-app.yml).
+            .onAppear { if CommandLine.arguments.contains("-newConnection") { creating = true } }
+            #endif
             .sheet(isPresented: $creating) {
                 ConnectionForm(store: store, original: nil)
             }
