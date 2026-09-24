@@ -55,10 +55,11 @@ final class RowsTests: XCTestCase {
         pager.close()
     }
 
-    func testABadFilterSaysWhy() async throws {
-        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "salas"))
-        pager.draft.conditions = [Condition(column: "no_existe", op: "=", value: "1")]
+    func testAFailedQuerySaysWhy() async throws {
+        // Not a bad column: SQLite reads an unknown "quoted" name as a string.
+        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "no_existe"))
         await pager.reload()
-        XCTAssertNotNil(pager.failure)
+        XCTAssertTrue(pager.failure?.contains("no_existe") == true, pager.failure ?? "nil")
+        XCTAssertTrue(pager.rows.isEmpty)
     }
 }
