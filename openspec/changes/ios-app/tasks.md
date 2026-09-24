@@ -60,8 +60,10 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 - [x] 4.4 SQLite con archivos del teléfono (Archivos)
 - [x] 4.5 Conexión caída al volver del segundo plano: aviso y reconectar
 - [x] 4.6 Importar el archivo de conexiones de escritorio
-- [ ] 4.7 Prueba en vivo desde el simulador contra los contenedores de pruebas (Informix por DRDA con y sin
-      TLS, PostgreSQL, MySQL, SQL Server, MongoDB), también por túnel SSH
+- [x] 4.7 Prueba en vivo desde el simulador (`LiveTests`, en el job `ios-app` con servidores nativos del Mac):
+      PostgreSQL y MongoDB con TLS verificado contra una CA propia, y PostgreSQL por túnel SSH con clave.
+      Fuera: Informix (solo hay imagen Docker, y el runner de macOS no tiene Docker; el DRDA se prueba en
+      Linux) y MySQL/SQL Server (esperan #583/#584)
 
 ## 5. Explorar y editar (`ios-browse-edit`) — #577
 
