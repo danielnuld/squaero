@@ -45,11 +45,11 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 ## 3. Esqueleto de la app — #575
 
-- [ ] 3.1 Proyecto Xcode generado (XcodeGen) en `ios/`, que enlaza el xcframework y el bundle JS
-- [ ] 3.2 Puente C `quaero_ios.h` y cliente JSON-RPC en Swift sobre una cola serie, con `op.cancel` aparte
-- [ ] 3.3 Barra de pestañas (Conexiones, Consultas, Snippets, Ajustes) y estilo del prototipo: violeta,
+- [x] 3.1 Proyecto Xcode generado (XcodeGen) en `ios/`, que enlaza el xcframework y el bundle JS
+- [x] 3.2 Puente C `quaero_ios.h` y cliente JSON-RPC en Swift sobre una cola serie, con `op.cancel` aparte
+- [x] 3.3 Barra de pestañas (Conexiones, Consultas, Snippets, Ajustes) y estilo del prototipo: violeta,
       Schibsted Grotesk en títulos y Martian Mono en datos, en claro y oscuro
-- [ ] 3.4 Job de CI que compila la app para el simulador y corre sus pruebas
+- [x] 3.4 Job de CI que compila la app para el simulador y corre sus pruebas
 
 ## 4. Conexiones (`ios-connections`) — #576
 

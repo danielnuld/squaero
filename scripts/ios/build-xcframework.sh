@@ -24,11 +24,28 @@ rm -rf "$out/include" "$out/SquaeroCore.xcframework"
 mkdir -p "$out/include"
 cp -R "$root/core/include/dbcore" "$out/include/"
 cp "$root/drivers/static/static_drivers.h" "$out/include/"
+# The C bridge the app sees (design D5): register the static drivers, then
+# dbcore_ipc_handle / dbcore_ipc_free. Swift imports it as SquaeroCore.
+cat > "$out/include/quaero_ios.h" <<'EOF_H'
+#ifndef QUAERO_IOS_H
+#define QUAERO_IOS_H
+/* quaero_register_static_drivers(dbcore_runtime_get()) once, then JSON-RPC
+   through dbcore_ipc_handle. One serial queue for every call except
+   op.cancel, which may come from another thread (docs/IPC.md). */
+#include "static_drivers.h"
+#include "dbcore/ipc.h"
+#endif
+EOF_H
+cat > "$out/include/module.modulemap" <<'EOF_M'
+module SquaeroCore {
+    header "quaero_ios.h"
+    export *
+}
+EOF_M
 
 cat > "$out/probe.c" <<'EOF'
 #include <stdio.h>
-#include "static_drivers.h"
-#include "dbcore/ipc.h"
+#include "quaero_ios.h"
 
 int main(void)
 {
