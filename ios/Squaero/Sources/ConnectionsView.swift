@@ -68,6 +68,9 @@ struct ConnectionsView: View {
             .navigationDestination(for: ObjectRef.self) { object in
                 if let session { RowsView(session: session, object: object) }
             }
+            .navigationDestination(for: RowRef.self) { row in
+                if let session { RowDetailView(session: session, ref: row) }
+            }
             .onChange(of: session) { old, _ in
                 // Back out of the browser: the session ends with it.
                 if let old, old !== session {
