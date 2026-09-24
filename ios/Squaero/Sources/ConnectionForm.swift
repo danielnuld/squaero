@@ -107,7 +107,11 @@ struct ConnectionForm: View {
                 defer { picking = nil }
                 guard let key = picking, case .success(let url) = result else { return }
                 do {
-                    conn.params[key] = try store.importFile(url, connId: conn.id)
+                    if key == "ssh_key" {
+                        conn.params[ConnectionStore.sshKey] = try store.readKey(url)
+                    } else {
+                        conn.params[key] = try store.importFile(url, connId: conn.id)
+                    }
                 } catch {
                     failure = "\(error)"
                 }
@@ -136,7 +140,7 @@ struct ConnectionForm: View {
                 }
             case "file":
                 LabeledContent(label) {
-                    Button(fileName(conn.params[f.key]) ?? Logic.t("ios.conn.pickFile")) { picking = f.key }
+                    Button(fileLabel(f.key) ?? Logic.t("ios.conn.pickFile")) { picking = f.key }
                 }
             default:
                 labeled(label) {
@@ -170,6 +174,15 @@ struct ConnectionForm: View {
     private func savedPrompt(_ key: String) -> Text? {
         guard let original, Keychain.exists(account: Keychain.account(original.id, key)) else { return nil }
         return Text("••••••••")
+    }
+
+    /// What a file field shows: the file's name, or for the SSH key, which is
+    /// kept in the Keychain and has no file, that one is saved.
+    private func fileLabel(_ key: String) -> String? {
+        guard key == "ssh_key" else { return fileName(conn.params[key]) }
+        let saved = !(conn.params[ConnectionStore.sshKey] ?? "").isEmpty
+            || original.map { Keychain.exists(account: Keychain.account($0.id, ConnectionStore.sshKey)) } == true
+        return saved ? Logic.t("ios.conn.keySaved") : nil
     }
 
     private func fileName(_ path: String?) -> String? {

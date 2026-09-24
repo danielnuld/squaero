@@ -175,6 +175,20 @@ int main(void)
         ssh_config_dispose(&c);
     }
 
+    /* --- key auth with the key itself instead of a path --- */
+    {
+        ssh_config c = {0};
+        char err[128] = "";
+        EXPECT(ssh_config_parse(
+                   "{\"ssh_host\":\"h\",\"ssh_user\":\"u\",\"ssh_auth\":\"key\","
+                   "\"ssh_private_key\":\"-----BEGIN OPENSSH PRIVATE KEY-----\"}",
+                   &c, err, sizeof err) == DBC_OK,
+               "ssh_private_key satisfies key auth");
+        EXPECT(c.key_path == NULL, "no path");
+        EXPECT(c.key_data && strstr(c.key_data, "BEGIN OPENSSH") != NULL, "key data carried");
+        ssh_config_dispose(&c);
+    }
+
     /* --- NULL out is rejected; dispose(NULL) is safe --- */
     {
         EXPECT(ssh_config_parse("{}", NULL, NULL, 0) == DBC_ERR_PARAM,

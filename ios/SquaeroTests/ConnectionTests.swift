@@ -53,6 +53,37 @@ final class ConnectionTests: XCTestCase {
         XCTAssertNil(again.connections[0].params["password"])
     }
 
+    func testTheSshKeyGoesToTheKeychainNotToAFile() throws {
+        let store = ConnectionStore(directory: dir, protectSecrets: false)
+        let key = "-----BEGIN OPENSSH PRIVATE KEY-----\n\(secret)\n"
+        let picked = dir.appendingPathComponent("id_ed25519")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data(key.utf8).write(to: picked)
+
+        var conn = informix(store)
+        conn.params.merge(["ssh_host": "bastion", "ssh_user": "me", "ssh_auth": "key"]) { _, new in new }
+        conn.params[ConnectionStore.sshKey] = try store.readKey(picked)
+        try FileManager.default.removeItem(at: picked)
+        try store.save(conn, keep: false)
+        defer { try? store.delete(conn) }
+
+        // Kept even with keep off: a key cannot be typed at connect time.
+        let account = Keychain.account(conn.id, ConnectionStore.sshKey)
+        XCTAssertEqual(try Keychain.read(account: account), key)
+        XCTAssertNil(store.connections[0].params[ConnectionStore.sshKey])
+        let files = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil)
+        while let url = files?.nextObject() as? URL {
+            guard let data = try? Data(contentsOf: url) else { continue }
+            XCTAssertNil(data.range(of: Data(secret.utf8)), url.path)
+        }
+
+        // Switching the tunnel to password auth drops it.
+        var edited = store.connections[0]
+        edited.params["ssh_auth"] = "password"
+        try store.save(edited, keep: false)
+        XCTAssertFalse(Keychain.exists(account: account))
+    }
+
     func testNotKeepingMeansAskingEveryTime() throws {
         let store = ConnectionStore(directory: dir, protectSecrets: false)
         let conn = informix(store)

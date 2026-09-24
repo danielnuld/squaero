@@ -312,6 +312,13 @@ static int authenticate(LIBSSH2_SESSION *s, const ssh_config *cfg)
         return libssh2_userauth_password(s, cfg->user, cfg->password);
 
     case SSH_AUTH_KEY:
+        if (cfg->key_data != NULL) {
+            /* Not implemented by libssh2's WinCNG backend: it fails here with
+               an auth error, and desktop Windows passes a path anyway. */
+            return libssh2_userauth_publickey_frommemory(
+                s, cfg->user, strlen(cfg->user), NULL, 0, cfg->key_data,
+                strlen(cfg->key_data), cfg->key_passphrase ? cfg->key_passphrase : "");
+        }
         return libssh2_userauth_publickey_fromfile(
             s, cfg->user, NULL, cfg->key_path,
             cfg->key_passphrase ? cfg->key_passphrase : "");
