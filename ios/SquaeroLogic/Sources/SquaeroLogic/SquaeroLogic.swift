@@ -9,7 +9,7 @@
 import Foundation
 import JavaScriptCore
 
-public struct ResultColumn: Codable, Equatable {
+public struct ResultColumn: Codable, Equatable, Hashable {
     public var name: String
     /// Neutral type name: int, float, bool, text, blob, date, time, timestamp, json, null.
     public var type: String
@@ -26,6 +26,35 @@ public struct ResultSet: Codable, Equatable {
     /// query.next reads on from it (docs/IPC.md, v8).
     public var cursor: Bool?
     public init(columns: [ResultColumn], rows: [[String?]]) { self.columns = columns; self.rows = rows }
+}
+
+/// How to read an engine's foreign keys, or why it cannot (foreignKeys.ts).
+public struct ForeignKeyQuery: Codable, Equatable {
+    public var supported: Bool
+    public var bulkSql: String?
+    public var reason: String?
+}
+
+/// A whole foreign key: fromTable's columns reference toTable's.
+public struct ForeignKeyRelation: Codable, Equatable, Hashable {
+    public struct Pair: Codable, Equatable, Hashable {
+        public var from: String
+        public var to: String
+    }
+    public var fromTable: String
+    public var toTable: String
+    public var constraint: String
+    public var columns: [Pair]
+}
+
+/// A relationship prepared against one row (relatedData.ts): the rows of
+/// relation.fromTable that `where` selects, or `missing` when the row lacks
+/// a key column to fill it.
+public struct RelatedQuery: Codable, Equatable, Hashable {
+    public var relation: ForeignKeyRelation
+    public var `where`: String?
+    public var missing: String?
+    public var label: String
 }
 
 /// One child of a schema.tree level: kind is database, schema, table or view.
@@ -283,6 +312,42 @@ public final class SquaeroLogic {
 
     public func describeColumnNames(_ describe: ResultSet) throws -> [String] {
         try call("edit.describeColumnNames", [describe])
+    }
+
+    /// The catalog query for one table's foreign keys: `outbound` the keys it
+    /// holds, else the keys pointing at it.
+    public func foreignKeysFor(_ engine: String, db: String?, table: String, outbound: Bool) throws -> ForeignKeyQuery {
+        struct Scope: Encodable { let table: String; let direction: String }
+        return try call("foreignKeys.foreignKeysFor",
+                        [engine, db, Scope(table: table, direction: outbound ? "from" : "to")])
+    }
+
+    /// A foreign-key catalog result as whole keys, composite ones together.
+    public func foreignKeyRelations(_ result: ResultSet) throws -> [ForeignKeyRelation] {
+        // foreignKeys.ts' ForeignKey, only carried from one call to the next.
+        struct Pair: Codable {
+            let fromTable, fromColumn, toTable, toColumn: String
+            let constraint: String?
+            let position: Double?
+        }
+        let pairs: [Pair] = try call("foreignKeys.parseForeignKeys", [result.columns, result.rows])
+        return try call("foreignKeys.groupForeignKeys", [pairs])
+    }
+
+    /// The same key read from the other end: the parent row a column points at.
+    public func invertRelation(_ rel: ForeignKeyRelation) throws -> ForeignKeyRelation {
+        try call("relatedData.invertRelation", [rel])
+    }
+
+    public func relatedQueries(_ relations: [ForeignKeyRelation], columns: [ResultColumn], row: [String?],
+                               engine: String) throws -> [RelatedQuery] {
+        try call("relatedData.relatedQueries", [relations, columns, row, engine])
+    }
+
+    /// COUNT(*) of a relationship's rows, or nil when the row cannot fill it.
+    public func relatedCount(_ query: RelatedQuery, engine: String, db: String?, schema: String?) throws -> String? {
+        struct Scope: Encodable { let db: String?; let schema: String? }
+        return try call("relatedData.relatedCount", [query, engine, Scope(db: db, schema: schema)])
     }
 
     public func routinesFor(_ engine: String, db: String?) throws -> RoutineSupport {
