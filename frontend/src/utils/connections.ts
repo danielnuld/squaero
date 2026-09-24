@@ -74,6 +74,26 @@ export const CONNECTION_COLORS: string[] = [
   "#9a6ae0", // purple
 ];
 
+/** The palette's first color, which reads as "careful — production". */
+export const PRODUCTION_COLOR = CONNECTION_COLORS[0];
+
+/**
+ * Whether a connection is marked as production: its color is that red. There
+ * is no separate flag, so a connection colored red on desktop is marked on the
+ * iPhone too, whose edit preview says so (issue #577).
+ */
+export function isProduction(conn: Pick<Connection, "color">): boolean {
+  return conn.color === PRODUCTION_COLOR;
+}
+
+/** The connection marked as production, or not: the red, or no color. Pure. */
+export function markProduction(conn: Connection, on: boolean): Connection {
+  const out = { ...conn };
+  if (on) out.color = PRODUCTION_COLOR;
+  else if (isProduction(conn)) delete out.color;
+  return out;
+}
+
 // Optional SSH-tunnel fields, engine-agnostic. The core reads these ssh_* keys
 // from the DSN and, when ssh_host is set, opens a local port-forward before the
 // driver connects (see docs/IPC.md). Every field is optional: leaving ssh_host
