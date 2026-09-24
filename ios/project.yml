@@ -41,6 +41,10 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.9"
+        # Sign to Run Locally (ad hoc). An unsigned app has no Keychain at all
+        # (errSecMissingEntitlement, -34018). Real signing comes with #579.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
   SquaeroTests:
     type: bundle.unit-test
     platform: iOS
@@ -48,6 +52,11 @@ targets:
       - SquaeroTests
     dependencies:
       - target: Squaero
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
 schemes:
   Squaero:
     build:

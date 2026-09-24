@@ -19,11 +19,36 @@ private struct Cases: Decodable {
     struct InformixError: Decodable { let msg: String; let locale: String; let expected: String? }
     struct Quote: Decodable { let id: String; let engine: String; let expected: String }
 
+    struct Connections: Decodable {
+        struct ConnCase<T: Decodable>: Decodable { let conn: Connection; let expected: T }
+        struct FieldErrorsCase: Decodable {
+            struct Expected: Decodable { let params: [String: String] }
+            let conn: Connection; let sshRequired: Bool; let expected: Expected
+        }
+        struct GroupCase: Decodable { let list: [Connection]; let expected: [ConnectionGroup] }
+        struct SectionsCase: Decodable {
+            struct Section: Decodable { let id: String; let keys: [String] }
+            let driver: String; let expected: [Section]
+        }
+        struct ParseCase: Decodable { let raw: String; let expected: [Connection] }
+        struct TranslateCase: Decodable {
+            let locale: String; let key: String; let params: [String: String]?; let expected: String
+        }
+        let buildDsn: [ConnCase<[String: String]>]
+        let fieldErrors: [FieldErrorsCase]
+        let stripSecrets: [ConnCase<Connection>]
+        let groupConnections: [GroupCase]
+        let formSections: [SectionsCase]
+        let parseConnections: [ParseCase]
+        let translate: [TranslateCase]
+    }
+
     let exports: [Export]
     let filters: [Filter]
     let variables: [Variables]
     let informixErrors: [InformixError]
     let quote: [Quote]
+    let connections: Connections
 }
 
 final class ParityTests: XCTestCase {
@@ -74,6 +99,32 @@ final class ParityTests: XCTestCase {
         for c in cases.quote {
             XCTAssertEqual(try logic.quoteIdentifier(c.id, engine: c.engine), c.expected, c.engine)
         }
+    }
+
+    func testConnections() throws {
+        let k = cases.connections
+        for c in k.buildDsn { XCTAssertEqual(try logic.buildDsn(c.conn), c.expected, c.conn.driver) }
+        for c in k.fieldErrors {
+            XCTAssertEqual(try logic.fieldErrors(c.conn, sshRequired: c.sshRequired), c.expected.params)
+        }
+        for c in k.stripSecrets { XCTAssertEqual(try logic.stripSecrets(c.conn), c.expected) }
+        for c in k.groupConnections { XCTAssertEqual(try logic.groupConnections(c.list), c.expected) }
+        for c in k.formSections {
+            let got = try logic.formSections(driver: c.driver)
+            XCTAssertEqual(got.map(\.id), c.expected.map(\.id), c.driver)
+            XCTAssertEqual(got.map { $0.fields.map(\.key) }, c.expected.map(\.keys), c.driver)
+        }
+        for c in k.parseConnections { XCTAssertEqual(try logic.parseConnections(c.raw), c.expected) }
+        for c in k.translate {
+            XCTAssertEqual(try logic.translate(c.key, locale: c.locale, params: c.params), c.expected, c.key)
+        }
+    }
+
+    func testEverySchemaHasItsSecrets() throws {
+        let schemas = try logic.driverSchemas()
+        XCTAssertEqual(Set(schemas.keys), ["sqlite", "postgres", "mysql", "informix", "mongodb", "mssql"])
+        XCTAssertEqual(try logic.secretKeys(driver: "postgres"), ["password", "ssh_password", "ssh_key_passphrase"])
+        XCTAssertEqual(try logic.secretKeys(driver: "sqlite"), [])
     }
 
     func testUnknownFormatIsAnError() {

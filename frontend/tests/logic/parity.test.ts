@@ -14,6 +14,16 @@ import { draftFilter, emptyFilter } from "../../src/utils/dataFilter";
 import { applyVariables, findVariables } from "../../src/utils/sqlVariables";
 import { informixErrorText } from "../../src/utils/informixErrors";
 import { quoteIdentifier } from "../../src/utils/schema";
+import {
+  buildDsn,
+  DRIVER_SCHEMAS,
+  fieldErrors,
+  groupConnections,
+  parseConnections,
+  stripSecrets,
+} from "../../src/utils/connections";
+import { formSections } from "../../src/utils/connectionFormSections";
+import { translate } from "../../src/utils/translate";
 
 const file = fileURLToPath(new URL("./parity.json", import.meta.url));
 const cases = JSON.parse(readFileSync(file, "utf8"));
@@ -27,6 +37,20 @@ function compute(c: typeof cases) {
   }
   for (const e of c.informixErrors) e.expected = informixErrorText(e.msg, e.locale);
   for (const q of c.quote) q.expected = quoteIdentifier(q.id, q.engine);
+  const k = c.connections;
+  for (const x of k.buildDsn) x.expected = buildDsn(x.conn);
+  for (const x of k.fieldErrors) x.expected = fieldErrors(x.conn, { sshRequired: x.sshRequired });
+  for (const x of k.stripSecrets) x.expected = stripSecrets(x.conn, DRIVER_SCHEMAS[x.conn.driver]);
+  for (const x of k.groupConnections) x.expected = groupConnections(x.list);
+  // Keys only: the Swift side reads the fields from the same schemas.
+  for (const x of k.formSections) {
+    x.expected = formSections(DRIVER_SCHEMAS[x.driver]).map((s) => ({
+      id: s.id,
+      keys: s.fields.map((f) => f.key),
+    }));
+  }
+  for (const x of k.parseConnections) x.expected = parseConnections(x.raw);
+  for (const x of k.translate) x.expected = translate(x.locale, x.key, x.params);
   return c;
 }
 
