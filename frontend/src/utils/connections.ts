@@ -329,6 +329,9 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
           { value: "true", label: "field.enabled" },
         ],
       },
+      // Not on Windows: Secure Channel would install it machine-wide, so the
+      // driver refuses it there (a private CA goes in the certificate store).
+      { key: "tls_ca", label: "field.caCert", type: "file", required: false },
     ]),
   },
   // SQL Server connects via FreeTDS's db-lib. `port` and `instance` are

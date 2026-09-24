@@ -275,6 +275,7 @@ de campos `ssh_*` y, cuando están presentes, abre un reenvío de puerto local
 | `ssh_auth` | `password` \| `key` \| `agent` (por defecto `agent`). |
 | `ssh_password` | Contraseña para `ssh_auth=password`. |
 | `ssh_key` | Ruta a la clave privada para `ssh_auth=key`. |
+| `ssh_private_key` | La clave misma (texto PEM/OpenSSH) en lugar de una ruta; gana sobre `ssh_key`. La usa iOS, que la guarda en el llavero y no en disco. No funciona con el backend WinCNG de Windows. |
 | `ssh_key_passphrase` | Passphrase opcional de la clave. |
 | `ssh_target_host` / `ssh_target_port` | Destino del reenvío (por defecto, el `host`/`port` del DSN). |
 | `ssh_host_key_policy` | `accept-new` (por defecto) \| `strict` \| `off`. Verificación de la clave de host contra `known_hosts`. |

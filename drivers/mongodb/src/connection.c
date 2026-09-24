@@ -10,7 +10,8 @@
  * arrives as JSON:
  *
  *   { "host": "127.0.0.1", "port": 27017, "user": "app", "password": "secret",
- *     "database": "shop", "auth_source": "admin", "tls": "true" }
+ *     "database": "shop", "auth_source": "admin", "tls": "true",
+ *     "tls_ca": "/path/ca.pem" }
  *
  * or, alternatively, a ready-made connection string:
  *
@@ -190,6 +191,13 @@ static mongoc_uri_t *build_uri(dbc_conn *c, const cJSON *root, char **db_out)
     }
     if (field_is_true(root, "tls") || field_is_true(root, "ssl")) {
         mongoc_uri_set_option_as_bool(uri, MONGOC_URI_TLS, true);
+    }
+    /* A private CA, for systems without trusted roots OpenSSL can read (iOS).
+       Refused on Windows by refuse_store_writing_options, like a URI's. */
+    char *tls_ca = dup_string(root, "tls_ca", &oom);
+    if (tls_ca != NULL) {
+        mongoc_uri_set_option_as_utf8(uri, MONGOC_URI_TLSCAFILE, tls_ca);
+        free(tls_ca);
     }
 
     free(host); free(user); free(password); free(database); free(auth_source);

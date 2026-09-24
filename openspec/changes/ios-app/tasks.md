@@ -56,7 +56,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 - [x] 4.1 Lista agrupada, alta, edición y borrado, con los campos de cada uno de los seis motores
 - [x] 4.2 Contraseñas y claves SSH en el llavero con Face ID; DSN armado solo en memoria. Prueba: nada
       secreto en los archivos de la app
-- [ ] 4.3 TLS con verificación (CA desde Archivos) y túnel SSH por contraseña o clave
+- [x] 4.3 TLS con verificación (CA desde Archivos) y túnel SSH por contraseña o clave
 - [x] 4.4 SQLite con archivos del teléfono (Archivos)
 - [ ] 4.5 Conexión caída al volver del segundo plano: aviso y reconectar
 - [ ] 4.6 Importar el archivo de conexiones de escritorio
