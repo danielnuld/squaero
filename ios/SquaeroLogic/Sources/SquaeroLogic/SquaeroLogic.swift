@@ -270,6 +270,21 @@ public final class SquaeroLogic {
         return errors.params
     }
 
+    /// Where a connection points, in one line ("siaj @ 10.0.0.5:9089").
+    public func connectionTarget(_ conn: Connection) throws -> String {
+        try call("connections.connectionTarget", [conn])
+    }
+
+    /// The engine's two letters ("PG"), as desktop's badge.
+    public func engineMonogram(_ driver: String) throws -> String {
+        try call("connections.engineMonogram", [driver])
+    }
+
+    /// The name to save under when none was typed ("siaj @ 10.0.0.5", a file's name).
+    public func defaultConnectionName(_ conn: Connection) throws -> String {
+        try call("connections.defaultConnectionName", [conn])
+    }
+
     public func groupConnections(_ list: [Connection]) throws -> [ConnectionGroup] {
         try call("connections.groupConnections", [list])
     }
