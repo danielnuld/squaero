@@ -1,0 +1,98 @@
+name: iOS app
+
+# The iPhone app (issue #575): SquaeroCore.xcframework, squaero-logic.js, the
+# XcodeGen project, then the app built and its tests run in the simulator.
+# The xcframework is cached on the sources it is built from, so a change that
+# only touches the app does not rebuild the core (a quarter of an hour).
+
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - "scripts/ios/**"
+      - ".github/workflows/ios-app.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "core/**"
+      - "drivers/**"
+      - "cmake/**"
+      - "scripts/ios/**"
+      - ".github/workflows/ios-app.yml"
+  workflow_dispatch:
+
+jobs:
+  ios-app:
+    name: ios-app
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cached SquaeroCore.xcframework
+        id: core
+        uses: actions/cache@v4
+        with:
+          path: build-ios/SquaeroCore.xcframework
+          key: xcframework-${{ hashFiles('core/**', 'drivers/**', 'cmake/**', 'third_party/**', 'CMakeLists.txt', 'VERSION', 'scripts/ios/**') }}
+
+      - name: Build SquaeroCore.xcframework
+        if: steps.core.outputs.cache-hit != 'true'
+        run: |
+          brew install ninja
+          sh scripts/ios/build-xcframework.sh build-ios
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build squaero-logic.js
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:logic
+          mkdir -p ../ios/SquaeroLogic/Sources/SquaeroLogic/Resources
+          cp dist-logic/squaero-logic.js ../ios/SquaeroLogic/Sources/SquaeroLogic/Resources/
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          SQUAERO_VERSION=$(cat ../VERSION) xcodegen
+
+      - name: Boot a simulator
+        run: |
+          SIM=$(xcrun simctl list devices available -j             | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for r in d for x in d[r] if "iOS" in r and x["name"].startswith("iPhone")))')
+          echo "SIM=$SIM" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIM"
+          xcrun simctl bootstatus "$SIM" -b
+
+      - name: Build and test in the simulator
+        working-directory: ios
+        run: |
+          xcodebuild test -project Squaero.xcodeproj -scheme Squaero             -destination "id=$SIM" -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO             | tee xcodebuild.log | grep -E "error:|warning: .*Squaero|Test Case|Executed|\*\* " || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
+
+      - name: Screenshot of the running app
+        working-directory: ios
+        run: |
+          xcrun simctl install "$SIM" DerivedData/Build/Products/Debug-iphonesimulator/Squaero.app
+          xcrun simctl launch "$SIM" io.github.danielnuld.Squaero
+          sleep 5
+          xcrun simctl io "$SIM" screenshot ../squaero-ios.png
+          xcrun simctl ui "$SIM" appearance dark
+          sleep 2
+          xcrun simctl io "$SIM" screenshot ../squaero-ios-dark.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: squaero-ios-screenshot
+          path: squaero-ios*.png
