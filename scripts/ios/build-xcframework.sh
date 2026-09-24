@@ -54,7 +54,10 @@ for p in device simulator; do
 
   # The test's link line, relative to the build dir: its .a files, in order.
   link=$(cd "$b" && ninja -t commands static_registry_test | tail -n 1)
-  libs=$(echo "$link" | tr ' ' '\n' | grep '\.a$' | sed "s|^|$b/|")
+  echo "$link" > "$b/static_registry_test.link"
+  # Each archive once: CMake repeats OpenSSL after every driver that uses it,
+  # and libtool would copy it in each time.
+  libs=$(echo "$link" | tr ' ' '\n' | grep '\.a$' | awk '!seen[$0]++' | sed "s|^|$b/|")
   # System libraries and frameworks: the app has to link these too.
   sys=$(echo "$link" | grep -oE -- '-framework [^ ]+|-l[a-z0-9_]+' | tr '\n' ' ' || true)
   if [ -z "$libs" ]; then
