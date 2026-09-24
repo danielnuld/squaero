@@ -52,7 +52,11 @@ mkdir -p mongodata
 mongodb-macos-aarch64-8.0.4/bin/mongod --dbpath mongodata --bind_ip 127.0.0.1 --port 57017 \
   --tlsMode requireTLS --tlsCertificateKeyFile server-bundle.pem \
   --tlsCAFile ca.pem --tlsAllowConnectionsWithoutCertificates \
-  --fork --logpath mongo.log || { tail -n 30 mongo.log; exit 1; }
+  --logpath mongo.log &
+# Not --fork: Apple's Security framework, which mongod's TLS uses on macOS,
+# crashes loading the PEM in the forked child.
+for _ in $(seq 30); do nc -z 127.0.0.1 57017 && break; sleep 1; done
+nc -z 127.0.0.1 57017 || { tail -n 30 mongo.log; exit 1; }
 
 ssh-keygen -q -t ed25519 -N '' -f client_key
 ssh-keygen -q -t ed25519 -N '' -f host_key
