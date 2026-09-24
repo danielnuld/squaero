@@ -65,13 +65,13 @@ final class RowEditor {
             throw EditError.message(Logic.t("ios.edit.noPk"))
         }
         var p: [String: Any] = ["connId": session.connId, "table": ref.object.name,
-                                "where": pkWhere.mapValues { $0 ?? NSNull() }]
+                                "where": Self.json(pkWhere)]
         if let db = ref.object.db { p["db"] = db }
         if let schema = ref.object.schema { p["schema"] = schema }
         if preview { p["preview"] = true }
         guard change == .update else { return ("row.delete", p) }
         let set = changed
-        p["set"] = set.mapValues { $0 ?? NSNull() }
+        p["set"] = Self.json(set)
         // Neutral types, so the driver writes numbers unquoted (docs/IPC.md).
         var types: [String: String] = [:]
         for col in ref.columns where set.keys.contains(col.name) { types[col.name] = col.type }
@@ -133,6 +133,11 @@ final class RowEditor {
     }
 
     enum EditError: Error { case message(String) }
+
+    /// {column: value} for the core, a nil value as JSON null (SQL NULL).
+    private static func json(_ map: [String: String?]) -> [String: Any] {
+        map.mapValues { $0.map { $0 as Any } ?? NSNull() }
+    }
 
     /// The core's message, or for Informix the text of its SQLCODE.
     private func readable(_ error: Error) -> String {
