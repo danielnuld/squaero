@@ -1,0 +1,293 @@
+// A table's rows (issue #577, task 5.2): on a phone a row is a card, not a
+// grid line. Filters and the sort run at the server, like desktop's filter
+// panel (#347): the conditions are chips, rendered to WHERE / ORDER BY by
+// desktop's dataFilter and pagination. Pages come from one open cursor
+// (query.run + query.next, #478), read on as the list scrolls.
+
+import SquaeroLogic
+import SwiftUI
+
+/// A table or view to open, where it lives in the tree.
+struct ObjectRef: Hashable {
+    var db: String?
+    var schema: String?
+    var name: String
+}
+
+/// Loads a table's rows page by page. Kept apart from the view so the paging
+/// can be tested without one.
+@MainActor
+@Observable
+final class RowPager {
+    static let pageSize = 50
+
+    let session: Session
+    let object: ObjectRef
+    var draft = FilterDraft(conditions: [])
+    private(set) var columns: [ResultColumn] = []
+    private(set) var rows: [[String?]] = []
+    private(set) var more = false
+    private(set) var cursor = false
+    private(set) var loading = false
+    private(set) var failure: String?
+    private(set) var types: [String: String] = [:]
+    private(set) var names: [String] = []
+
+    init(session: Session, object: ObjectRef) {
+        self.session = session
+        self.object = object
+    }
+
+    private var driver: String { session.conn.driver }
+    /// MongoDB's preview is find({}): desktop shows no filter panel for it
+    /// rather than one that would not filter (pagination.ts).
+    var filterable: Bool { driver != "mongodb" }
+
+    func describe() async {
+        var p: [String: Any] = ["connId": session.connId, "table": object.name]
+        if let db = object.db { p["db"] = db }
+        if let schema = object.schema { p["schema"] = schema }
+        guard let d = try? await Core.shared.resultSet("schema.describe", p) else { return }
+        types = (try? Logic.shared.describeColumnTypes(d)) ?? [:]
+        names = (try? Logic.shared.describeColumnNames(d)) ?? []
+    }
+
+    private func sql() throws -> String {
+        let filter = filterable ? try Logic.shared.draftFilter(engine: driver, draft, types: types) : nil
+        return try Logic.shared.objectPreviewQuery(db: object.db, schema: object.schema, name: object.name,
+                                                  engine: driver, filter: filter)
+    }
+
+    /// The first page of the filtered object, on a fresh cursor.
+    func reload() async {
+        loading = true
+        defer { loading = false }
+        do {
+            let first = try await Core.shared.resultSet("query.run", [
+                "connId": session.connId, "sql": try sql(), "limit": Self.pageSize, "cursor": true,
+            ])
+            columns = first.columns
+            rows = first.rows
+            more = first.truncated
+            cursor = first.cursor == true
+            if names.isEmpty { names = first.columns.map(\.name) }
+            failure = nil
+        } catch {
+            failure = Self.text(error)
+        }
+    }
+
+    /// The next page: from the open cursor, or re-run from an offset when the
+    /// driver could not keep one (drainQuery on desktop does the same).
+    func page() async {
+        guard more, !loading else { return }
+        loading = true
+        defer { loading = false }
+        do {
+            let next = cursor
+                ? try await Core.shared.resultSet("query.next", ["connId": session.connId, "limit": Self.pageSize])
+                : try await Core.shared.resultSet("query.run", [
+                    "connId": session.connId, "sql": try sql(), "limit": Self.pageSize, "offset": rows.count,
+                ])
+            rows += next.rows
+            more = next.truncated && !next.rows.isEmpty
+            cursor = next.cursor == true
+        } catch {
+            failure = Self.text(error)
+        }
+    }
+
+    /// One cursor per connection: leave none behind for the next screen.
+    func close() {
+        guard cursor else { return }
+        cursor = false
+        let id = session.connId
+        Task { _ = try? await Core.shared.call("query.cursorClose", ["connId": id]) }
+    }
+
+    /// Header-click semantics from desktop: ascending, descending, off.
+    func sort(by column: String) {
+        let current = draft.order.count == 1 && draft.order[0].column == column ? draft.order[0].dir : nil
+        switch current {
+        case nil: draft.order = [OrderBy(column: column, dir: "ASC")]
+        case "ASC": draft.order = [OrderBy(column: column, dir: "DESC")]
+        default: draft.order = []
+        }
+    }
+
+    private static func text(_ error: Error) -> String {
+        if case let CoreError.rpc(_, message) = error { return message }
+        return "\(error)"
+    }
+}
+
+struct RowsView: View {
+    @State private var pager: RowPager
+    @State private var adding = false
+
+    init(session: Session, object: ObjectRef) {
+        _pager = State(initialValue: RowPager(session: session, object: object))
+    }
+
+    private var session: Session { pager.session }
+
+    var body: some View {
+        List {
+            if session.lost {
+                Section {
+                    Label(Logic.t("conn.lost", ["name": session.conn.name]), systemImage: "bolt.horizontal.circle")
+                        .foregroundStyle(.orange)
+                    Button(Logic.t("conn.reconnect"), action: session.reconnect)
+                }
+            }
+            if pager.filterable && !(pager.draft.conditions.isEmpty && pager.draft.order.isEmpty) {
+                Section { chips }
+            }
+            ForEach(pager.rows.indices, id: \.self) { i in
+                card(pager.rows[i])
+                    .onAppear { if i == pager.rows.count - 1 { Task { await pager.page() } } }
+            }
+            if pager.loading { HStack { Spacer(); ProgressView(); Spacer() } }
+        }
+        .overlay {
+            if let failure = pager.failure {
+                ContentUnavailableView(Logic.t("ios.browse.failed"), systemImage: "exclamationmark.triangle",
+                                       description: Text(failure))
+            } else if !pager.loading && pager.rows.isEmpty && !pager.columns.isEmpty {
+                ContentUnavailableView(Logic.t("ios.rows.none"), systemImage: "tray")
+            }
+        }
+        .navigationTitle(pager.object.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if pager.filterable {
+                Menu {
+                    Button { adding = true } label: { Label(Logic.t("ios.rows.addFilter"), systemImage: "plus") }
+                    Menu {
+                        ForEach(pager.names, id: \.self) { col in
+                            Button(col) { pager.sort(by: col); Task { await pager.reload() } }
+                        }
+                    } label: { Label(Logic.t("ios.rows.sort"), systemImage: "arrow.up.arrow.down") }
+                } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
+                    .accessibilityLabel(Logic.t("ios.rows.filter"))
+            }
+        }
+        .sheet(isPresented: $adding) {
+            ConditionSheet(columns: pager.names) { condition in
+                pager.draft.conditions.append(condition)
+                Task { await pager.reload() }
+            }
+        }
+        .task(id: session.connId) {
+            await pager.describe()
+            await pager.reload()
+        }
+        .refreshable { await pager.reload() }
+        .onDisappear { pager.close() }
+    }
+
+    private var chips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(pager.draft.conditions.indices, id: \.self) { i in
+                    let c = pager.draft.conditions[i]
+                    chip("\(c.column) \(c.op)\(c.value.isEmpty ? "" : " \(c.value)")") {
+                        pager.draft.conditions.remove(at: i)
+                        Task { await pager.reload() }
+                    }
+                }
+                ForEach(pager.draft.order.indices, id: \.self) { i in
+                    let o = pager.draft.order[i]
+                    chip("\(o.column) \(o.dir == "ASC" ? "↑" : "↓")") {
+                        pager.draft.order.remove(at: i)
+                        Task { await pager.reload() }
+                    }
+                }
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+    }
+
+    private func chip(_ text: String, remove: @escaping () -> Void) -> some View {
+        Button(action: remove) {
+            HStack(spacing: 4) {
+                Text(text).font(Theme.mono(12))
+                Image(systemName: "xmark.circle.fill").font(.caption)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Theme.accent.opacity(0.15), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Logic.t("ios.rows.removeFilter"))
+    }
+
+    /// The first column is the card's title; the next few are its lines.
+    private func card(_ row: [String?]) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(row.first.flatMap { $0 } ?? "NULL")
+                .font(Theme.mono(14).weight(.semibold))
+                .lineLimit(1)
+            ForEach(Array(zip(pager.columns.dropFirst().prefix(3), row.dropFirst().prefix(3))), id: \.0.name) { col, value in
+                HStack(spacing: 6) {
+                    Text(col.name).foregroundStyle(.secondary)
+                    Text(value ?? "NULL").foregroundStyle(value == nil ? .tertiary : .primary)
+                }
+                .font(Theme.mono(12))
+                .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+/// One condition for the server-side filter: a column, an operator and, unless
+/// the operator takes none, a value (BETWEEN's two bounds joined by "…").
+private struct ConditionSheet: View {
+    let columns: [String]
+    let add: (Condition) -> Void
+
+    // queryBuilder.ts' OPERATORS.
+    private static let operators = ["=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN",
+                                    "IS NULL", "IS NOT NULL"]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var column = ""
+    @State private var op = "="
+    @State private var value = ""
+
+    private var nullary: Bool { op == "IS NULL" || op == "IS NOT NULL" }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker(Logic.t("ios.rows.column"), selection: $column) {
+                    ForEach(columns, id: \.self) { Text($0).tag($0) }
+                }
+                Picker(Logic.t("ios.rows.operator"), selection: $op) {
+                    ForEach(Self.operators, id: \.self) { Text($0).tag($0) }
+                }
+                if !nullary {
+                    TextField(Logic.t("ios.rows.value"), text: $value,
+                              prompt: Text(op == "BETWEEN" ? "1…10" : op == "IN" ? "1, 2, 3" : ""))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(Theme.mono())
+                }
+            }
+            .navigationTitle(Logic.t("ios.rows.addFilter"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(Logic.t("common.cancel")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(Logic.t("ios.rows.apply")) {
+                        add(Condition(column: column, op: op, value: nullary ? "" : value))
+                        dismiss()
+                    }
+                    .disabled(column.isEmpty)
+                }
+            }
+            .onAppear { if column.isEmpty { column = columns.first ?? "" } }
+        }
+        .presentationDetents([.medium])
+    }
+}

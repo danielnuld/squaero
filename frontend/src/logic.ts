@@ -17,3 +17,5 @@ export * as connectionForm from "./utils/connectionFormSections";
 export * as i18n from "./utils/translate";
 export { quoteIdentifier, qualifiedName, parseTreeRows } from "./utils/schema";
 export * as routines from "./utils/routines";
+export * as pagination from "./utils/pagination";
+export * as edit from "./utils/edit";
