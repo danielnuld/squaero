@@ -101,6 +101,7 @@ dbc_status ssh_config_parse(const char *dsn_json, ssh_config *out,
     out->user = dup_field(root, "ssh_user", &oom);
     out->password = dup_field(root, "ssh_password", &oom);
     out->key_path = dup_field(root, "ssh_key", &oom);
+    out->key_data = dup_field(root, "ssh_private_key", &oom);
     out->key_passphrase = dup_field(root, "ssh_key_passphrase", &oom);
 
     int ssh_port = int_field(root, "ssh_port");
@@ -166,8 +167,8 @@ dbc_status ssh_config_parse(const char *dsn_json, ssh_config *out,
         ssh_config_dispose(out);
         return DBC_ERR_PARAM;
     }
-    if (out->auth == SSH_AUTH_KEY && out->key_path == NULL) {
-        conn_copy_err(err, errcap, "ssh_key is required for key auth");
+    if (out->auth == SSH_AUTH_KEY && out->key_path == NULL && out->key_data == NULL) {
+        conn_copy_err(err, errcap, "ssh_key (or ssh_private_key) is required for key auth");
         ssh_config_dispose(out);
         return DBC_ERR_PARAM;
     }
@@ -195,6 +196,7 @@ void ssh_config_dispose(ssh_config *cfg)
     free(cfg->user);
     free(cfg->password);
     free(cfg->key_path);
+    free(cfg->key_data);
     free(cfg->key_passphrase);
     free(cfg->target_host);
     free(cfg->known_hosts);

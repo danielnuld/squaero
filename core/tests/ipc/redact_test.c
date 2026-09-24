@@ -66,6 +66,8 @@ int main(void)
     expect_redacted("{\"params\":{\"Token\":\"s3cret\"}}", "s3cret", "\"***\"",
                     "case-insensitive");
     expect_redacted("{\"params\":{\"apiKey\":\"s3cret\"}}", "s3cret", "\"***\"", "apiKey");
+    expect_redacted("{\"params\":{\"ssh_private_key\":\"s3cret\"}}", "s3cret", "\"***\"",
+                    "ssh_private_key");
 
     /* A secret is masked whatever it holds: an object under such a key is not
        walked into, it is replaced whole. */
