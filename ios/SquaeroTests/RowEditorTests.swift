@@ -116,7 +116,8 @@ final class RowEditorTests: XCTestCase {
         XCTAssertNotNil(RowEditor(session: session, ref: ref).readOnlyReason)
 
         let mongo = Session(conn: Connection(id: "m", name: "m", driver: "mongodb"), connId: "none")
-        XCTAssertNotNil(RowEditor(session: mongo, ref: try await firstRow()).readOnlyReason)
+        let row = try await firstRow()
+        XCTAssertNotNil(RowEditor(session: mongo, ref: row).readOnlyReason)
     }
 
     func testProductionIsDesktopsRed() throws {
