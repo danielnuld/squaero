@@ -51,10 +51,13 @@ struct ConnectionForm: View {
                             ForEach(drivers, id: \.driver) { Text($0.label).tag($0.driver) }
                         }
                     }
-                    TextField(Logic.t("cform.name"), text: $conn.name,
-                              prompt: Text((try? Logic.shared.defaultConnectionName(conn)) ?? ""))
-                    TextField(Logic.t("cform.group"), text: Binding(
-                        get: { conn.group ?? "" }, set: { conn.group = $0.isEmpty ? nil : $0 }))
+                    labeled(Logic.t("cform.name")) {
+                        TextField("", text: $conn.name, prompt: Text(namePrompt))
+                    }
+                    labeled(Logic.t("cform.group")) {
+                        TextField("", text: Binding(
+                            get: { conn.group ?? "" }, set: { conn.group = $0.isEmpty ? nil : $0 }))
+                    }
                 }
                 ForEach(sections) { section in
                     if section.id == "ssh" {
@@ -113,8 +116,10 @@ struct ConnectionForm: View {
         VStack(alignment: .leading, spacing: 4) {
             switch f.type {
             case "password":
-                SecureField(label, text: value, prompt: savedPrompt(f.key) ?? prompt)
-                    .textContentType(.password)
+                labeled(label) {
+                    SecureField("", text: value, prompt: savedPrompt(f.key) ?? prompt)
+                        .textContentType(.password)
+                }
             case "select":
                 Picker(label, selection: value) {
                     ForEach(f.options ?? [], id: \.value) { Text(Logic.t($0.label)).tag($0.value) }
@@ -124,16 +129,31 @@ struct ConnectionForm: View {
                     Button(fileName(conn.params[f.key]) ?? Logic.t("ios.conn.pickFile")) { picking = f.key }
                 }
             default:
-                TextField(label, text: value, prompt: prompt)
-                    .keyboardType(f.type == "number" ? .numberPad : .default)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(f.type == "number" ? Theme.mono() : .body)
+                labeled(label) {
+                    TextField("", text: value, prompt: prompt)
+                        .keyboardType(f.type == "number" ? .numberPad : .default)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(f.type == "number" ? Theme.mono() : .body)
+                }
             }
             if let error = errors[f.key] {
                 Text(Logic.t(error)).font(.footnote).foregroundStyle(.red)
             }
         }
+    }
+
+    /// Settings style: the label on the left, what is typed on the right. A
+    /// bare TextField shows its placeholder instead of its label, so "127.0.0.1"
+    /// stood where "Host" should be.
+    private func labeled<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
+        LabeledContent(label) { content().multilineTextAlignment(.trailing) }
+    }
+
+    /// What the name becomes if left empty, else the catalog's example.
+    private var namePrompt: String {
+        let suggested = (try? Logic.shared.defaultConnectionName(conn)) ?? ""
+        return suggested.isEmpty ? Logic.t("cform.namePlaceholder") : suggested
     }
 
     /// An edited connection with a saved secret shows it is there, without it.
