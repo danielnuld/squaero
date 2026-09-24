@@ -24,6 +24,8 @@ const MODULES = [
   "connectionFormSections",
   "translate",
   "routines",
+  "pagination",
+  "edit",
 ];
 
 const DOM = "(?:window|document|localStorage|navigator)";
@@ -73,10 +75,12 @@ describe("squaero-logic.js without a DOM", () => {
       "connectionForm",
       "connections",
       "dataFilter",
+      "edit",
       "exporters",
       "foreignKeys",
       "i18n",
       "informixErrors",
+      "pagination",
       "parseTreeRows",
       "qualifiedName",
       "quoteIdentifier",

@@ -103,6 +103,34 @@ final class LiveTests: XCTestCase {
         await close(id)
     }
 
+    func testRowsOfAPostgresTablePagedAndFiltered() async throws {
+        let conn = postgres(["sslmode": "require"])
+        let id = try await Connector.open(conn, typed: ["password": "live"], protected: false)
+        _ = try await Core.shared.call("query.run", ["connId": id, "sql":
+            "DROP TABLE IF EXISTS filas; CREATE TABLE filas AS SELECT g AS n FROM generate_series(1, 70) g"])
+        let session = Session(conn: conn, connId: id)
+        let object = ObjectRef(db: "live", schema: "public", name: "filas")
+
+        let all = RowPager(session: session, object: object)
+        await all.describe()
+        await all.reload()
+        XCTAssertNil(all.failure)
+        XCTAssertEqual(all.rows.count, RowPager.pageSize)
+        await all.page()
+        XCTAssertEqual(all.rows.count, 70)
+        all.close()
+
+        // The declared int type quotes 60 as a number, not '60'.
+        let some = RowPager(session: session, object: object)
+        await some.describe()
+        some.draft.conditions = [Condition(column: "n", op: ">=", value: "60")]
+        await some.reload()
+        XCTAssertNil(some.failure)
+        XCTAssertEqual(some.rows.count, 11)
+        some.close()
+        await close(id)
+    }
+
     func testPostgresThroughAnSSHTunnelWithAKeyFromTheKeychain() async throws {
         let key = String(decoding: try decoded("QUAERO_LIVE_SSH_KEY"), as: UTF8.self)
         let conn = postgres([
