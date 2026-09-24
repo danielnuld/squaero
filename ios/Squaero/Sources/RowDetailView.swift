@@ -93,54 +93,67 @@ struct RowDetailView: View {
 
     var body: some View {
         List {
-            Section {
-                ForEach(Array(ref.columns.enumerated()), id: \.offset) { i, col in
-                    field(col, value: editor.row[i])
-                }
-            } footer: {
-                if let reason = editor.readOnlyReason { Text(reason) }
-            }
+            fields
             if editing {
                 Section {
                     Button(Logic.t("ios.edit.deleteRow"), role: .destructive) { review(.delete) }
                 }
-            }
-            if !editing {
-                if !related.parents.isEmpty {
-                    Section(Logic.t("ios.row.pointsAt")) {
-                        ForEach(related.parents, id: \.self) { link($0, count: nil) }
-                    }
-                }
-                if !related.children.isEmpty {
-                    Section(Logic.t("ios.row.dependents")) {
-                        ForEach(related.children, id: \.self) { link($0, count: related.counts[$0]) }
-                    }
-                }
-                if let reason = related.reason {
-                    Section(Logic.t("ios.row.related")) {
-                        Text(reason).font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
+            } else {
+                relatedSections
             }
         }
         .navigationTitle(editor.row.first.flatMap { $0 } ?? ref.object.name)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(editing)
-        .toolbar {
-            if editing {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(Logic.t("common.cancel")) { editor.discard(); editing = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(Logic.t("ios.edit.review")) { review(.update) }
-                        .disabled(editor.changed.isEmpty)
-                }
-            } else if editor.readOnlyReason == nil {
+        .toolbar { toolbar }
+        .sheet(item: $reviewing) { change in reviewSheet(change) }
+        .task { await related.load() }
+    }
+
+    private var fields: some View {
+        Section {
+            ForEach(Array(ref.columns.enumerated()), id: \.offset) { i, col in
+                field(col, value: editor.row[i])
+            }
+        } footer: {
+            if let reason = editor.readOnlyReason { Text(reason) }
+        }
+    }
+
+    @ViewBuilder
+    private var relatedSections: some View {
+        if !related.parents.isEmpty {
+            Section(Logic.t("ios.row.pointsAt")) {
+                ForEach(related.parents, id: \.self) { link($0, count: nil) }
+            }
+        }
+        if !related.children.isEmpty {
+            Section(Logic.t("ios.row.dependents")) {
+                ForEach(related.children, id: \.self) { link($0, count: related.counts[$0]) }
+            }
+        }
+        if let reason = related.reason {
+            Section(Logic.t("ios.row.related")) {
+                Text(reason).font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        if editing {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(Logic.t("common.cancel")) { editor.discard(); editing = false }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(Logic.t("ios.edit.review")) { review(.update) }
+                    .disabled(editor.changed.isEmpty)
+            }
+        } else if editor.readOnlyReason == nil {
+            ToolbarItem(placement: .primaryAction) {
                 Button(Logic.t("common.edit")) { editing = true }
             }
         }
-        .sheet(item: $reviewing) { change in reviewSheet(change) }
-        .task { await related.load() }
     }
 
     private func review(_ change: RowEditor.Change) {
@@ -148,7 +161,6 @@ struct RowDetailView: View {
         Task { await editor.review(change) }
     }
 
-    @ViewBuilder
     private func field(_ col: ResultColumn, value: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -157,27 +169,7 @@ struct RowDetailView: View {
                 Text(ref.types[col.name] ?? col.type).font(Theme.mono(11)).foregroundStyle(.secondary)
             }
             if editing {
-                let isNull = editor.values[col.name] == .some(nil)
-                HStack {
-                    TextField("", text: Binding(
-                        get: { (editor.values[col.name] ?? nil) ?? "" },
-                        set: { editor.values[col.name] = .some($0) }),
-                        prompt: isNull ? Text("NULL") : nil, axis: .vertical)
-                        .font(Theme.mono())
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .disabled(isNull)
-                    // NULL is not an empty string: a switch, not a guess.
-                    Toggle("NULL", isOn: Binding(
-                        get: { isNull },
-                        set: { editor.values[col.name] = .some($0 ? nil : "") }))
-                        .toggleStyle(.button)
-                        .font(Theme.mono(11))
-                }
-                if editor.changed.keys.contains(col.name) {
-                    Text(Logic.t("ios.edit.was", ["value": value ?? "NULL"]))
-                        .font(Theme.mono(11)).foregroundStyle(.secondary)
-                }
+                editable(col.name, was: value)
             } else {
                 Text(value ?? "NULL")
                     .font(Theme.mono())
@@ -188,55 +180,58 @@ struct RowDetailView: View {
         .padding(.vertical, 2)
     }
 
+    /// Whether the value being typed for `name` is SQL NULL.
+    private func isNull(_ name: String) -> Bool {
+        if case .some(.none) = editor.values[name] { return true }
+        return false
+    }
+
+    private func text(_ name: String) -> Binding<String> {
+        Binding(
+            get: {
+                if case .some(.some(let v)) = editor.values[name] { return v }
+                return ""
+            },
+            set: { editor.values[name] = .some($0) })
+    }
+
+    /// NULL is not an empty string: a switch, not a guess.
+    private func nullSwitch(_ name: String) -> Binding<Bool> {
+        Binding(get: { isNull(name) }, set: { on in editor.values[name] = .some(on ? nil : "") })
+    }
+
+    @ViewBuilder
+    private func editable(_ name: String, was: String?) -> some View {
+        let null = isNull(name)
+        HStack {
+            TextField("", text: text(name), prompt: null ? Text("NULL") : nil, axis: .vertical)
+                .font(Theme.mono())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .disabled(null)
+            Toggle("NULL", isOn: nullSwitch(name))
+                .toggleStyle(.button)
+                .font(Theme.mono(11))
+        }
+        if editor.changed.keys.contains(name) {
+            Text(Logic.t("ios.edit.was", ["value": was ?? "NULL"]))
+                .font(Theme.mono(11)).foregroundStyle(.secondary)
+        }
+    }
+
     /// "Revisa el cambio": the statement the core generated, what it touches,
     /// a production connection saying so, then Face ID.
     private func reviewSheet(_ change: RowEditor.Change) -> some View {
         NavigationStack {
             List {
-                if editor.production {
-                    Section {
-                        Label(Logic.t("ios.edit.production", ["name": related.session.conn.name]),
-                              systemImage: "exclamationmark.octagon.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
-                Section {
-                    if let sql = editor.preview {
-                        Text(sql).font(Theme.mono(13)).textSelection(.enabled)
-                    } else if editor.failure == nil {
-                        ProgressView()
-                    }
-                } header: {
-                    Text(Logic.t("ios.edit.sql"))
-                } footer: {
-                    Text(Logic.t("ios.edit.oneRow"))
-                }
+                if editor.production { productionWarning }
+                statementSection
                 if let failure = editor.failure {
                     Section {
                         Label(failure, systemImage: "xmark.octagon").foregroundStyle(.red)
                     } footer: { Text(Logic.t("ios.edit.rolledBack")) }
                 }
-                Section {
-                    Button {
-                        Task {
-                            if await editor.apply(change) {
-                                reviewing = nil
-                                if change == .delete { dismiss() } else { editing = false }
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if editor.busy { ProgressView() } else {
-                                Label(Logic.t(change == .delete ? "ios.edit.confirmDelete" : "ios.edit.confirm"),
-                                      systemImage: "faceid")
-                            }
-                            Spacer()
-                        }
-                    }
-                    .disabled(editor.preview == nil || editor.busy)
-                    .tint(change == .delete ? .red : Theme.accent)
-                }
+                Section { confirmButton(change) }
             }
             .navigationTitle(Logic.t("ios.edit.reviewTitle"))
             .navigationBarTitleDisplayMode(.inline)
@@ -247,6 +242,49 @@ struct RowDetailView: View {
             }
         }
         .interactiveDismissDisabled(editor.busy)
+    }
+
+    private var productionWarning: some View {
+        Section {
+            Label(Logic.t("ios.edit.production", ["name": related.session.conn.name]),
+                  systemImage: "exclamationmark.octagon.fill")
+                .foregroundStyle(.red)
+        }
+    }
+
+    private var statementSection: some View {
+        Section {
+            if let sql = editor.preview {
+                Text(sql).font(Theme.mono(13)).textSelection(.enabled)
+            } else if editor.failure == nil {
+                ProgressView()
+            }
+        } header: {
+            Text(Logic.t("ios.edit.sql"))
+        } footer: {
+            Text(Logic.t("ios.edit.oneRow"))
+        }
+    }
+
+    private func confirmButton(_ change: RowEditor.Change) -> some View {
+        let key = change == .delete ? "ios.edit.confirmDelete" : "ios.edit.confirm"
+        return Button {
+            Task { await confirm(change) }
+        } label: {
+            HStack {
+                Spacer()
+                if editor.busy { ProgressView() } else { Label(Logic.t(key), systemImage: "faceid") }
+                Spacer()
+            }
+        }
+        .disabled(editor.preview == nil || editor.busy)
+        .tint(change == .delete ? Color.red : Theme.accent)
+    }
+
+    private func confirm(_ change: RowEditor.Change) async {
+        guard await editor.apply(change) else { return }
+        reviewing = nil
+        if change == .delete { dismiss() } else { editing = false }
     }
 
     @ViewBuilder
