@@ -84,6 +84,46 @@ final class ConnectionTests: XCTestCase {
         XCTAssertFalse(Keychain.exists(account: account))
     }
 
+    func testImportingDesktopsFile() throws {
+        let store = ConnectionStore(directory: dir, protectSecrets: false)
+        let file = dir.appendingPathComponent("squaero-connections.json")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // What desktop's Exportar writes, passwords included (its opt-in).
+        let export: [String: Any] = ["version": 1, "connections": [
+            ["id": "conn-1", "name": "Juzgados", "driver": "informix", "group": "Producción",
+             "params": ["host": "10.0.0.5", "port": "9089", "user": "informix", "password": secret,
+                        "tls": "verify-ca", "tls_ca": "C:\certs\ca.pem"]],
+            ["id": "conn-2", "name": "Pruebas", "driver": "postgres",
+             "params": ["host": "db", "database": "app", "user": "u"]],
+        ]]
+        try JSONSerialization.data(withJSONObject: export).write(to: file)
+
+        let (summary, needFiles) = try store.importConnections(from: file)
+        defer { for c in store.connections { try? store.delete(c) } }
+        XCTAssertEqual(summary, MergeSummary(added: 2, updated: 0, skipped: 0))
+        XCTAssertEqual(needFiles, 1)
+        let juzgados = try XCTUnwrap(store.connections.first { $0.name == "Juzgados" })
+        XCTAssertNil(juzgados.params["tls_ca"], "a path on the other machine")
+        XCTAssertNil(juzgados.params["password"])
+        XCTAssertEqual(try Keychain.read(account: Keychain.account(juzgados.id, "password")), secret)
+
+        // Again: the same names update in place, nothing doubles.
+        let (again, _) = try store.importConnections(from: file)
+        XCTAssertEqual(again, MergeSummary(added: 0, updated: 2, skipped: 0))
+        XCTAssertEqual(store.connections.count, 2)
+    }
+
+    func testAnUnreadableFileSaysWhy() throws {
+        let store = ConnectionStore(directory: dir, protectSecrets: false)
+        let file = dir.appendingPathComponent("bad.json")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data("{\"version\":9}".utf8).write(to: file)
+        XCTAssertThrowsError(try store.importConnections(from: file)) { error in
+            guard case SquaeroLogicError.script(let message) = error else { return XCTFail("\(error)") }
+            XCTAssertTrue(message.contains("9"), message)
+        }
+    }
+
     func testNotKeepingMeansAskingEveryTime() throws {
         let store = ConnectionStore(directory: dir, protectSecrets: false)
         let conn = informix(store)

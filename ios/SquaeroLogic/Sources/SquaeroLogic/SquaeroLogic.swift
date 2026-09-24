@@ -122,6 +122,20 @@ public struct Connection: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
+public struct MergeSummary: Codable, Equatable {
+    public var added: Int
+    public var updated: Int
+    public var skipped: Int
+}
+
+public struct ImportedConnections: Codable, Equatable {
+    /// The whole list after the merge.
+    public var list: [Connection]
+    public var summary: MergeSummary
+    /// The ids, in `list`, of the connections the file brought.
+    public var ids: [String]
+}
+
 public struct ConnectionGroup: Codable, Equatable {
     /// nil for the connections with no group.
     public var name: String?
@@ -297,6 +311,12 @@ public final class SquaeroLogic {
     /// Informix connections are migrated to DRDA, as on desktop.
     public func parseConnections(_ raw: String) throws -> [Connection] {
         try call("connections.parseConnections", [raw])
+    }
+
+    /// Merges desktop's export file into `existing` with desktop's rules; an
+    /// unreadable file throws `.script` with the reason.
+    public func importConnectionsFile(_ existing: [Connection], raw: String) throws -> ImportedConnections {
+        try call("connections.importConnectionsFile", [existing, raw])
     }
 
     // MARK: i18n
