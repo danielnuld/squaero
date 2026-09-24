@@ -40,9 +40,7 @@ jobs:
         run: brew install ninja
 
       - name: Build SquaeroCore.xcframework
-        run: |
-          sh scripts/ios/build-xcframework.sh build-ios
-          cat build-ios/device/static_registry_test.link
+        run: sh scripts/ios/build-xcframework.sh build-ios
 
       - name: Boot a simulator
         run: |
