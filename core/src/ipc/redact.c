@@ -30,7 +30,7 @@ static const char WITHHELD[] = "<request withheld: not valid JSON>";
 /* Substrings that make a key secret. Lower-case; matching folds the key. */
 static const char *const SECRET_PARTS[] = {
     "password", "passwd", "pwd",    "passphrase", "secret",
-    "token",    "privatekey", "apikey", "credential",
+    "token",    "privatekey", "private_key", "apikey", "credential",
 };
 
 static char lower(char c)

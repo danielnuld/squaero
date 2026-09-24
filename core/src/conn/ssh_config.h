@@ -18,7 +18,11 @@
  *   ssh_user            SSH username (required when ssh_host is present).
  *   ssh_auth            "password" | "key" | "agent" (default "agent").
  *   ssh_password        password for ssh_auth=password (required for it).
- *   ssh_key             path to a private key for ssh_auth=key (required for it).
+ *   ssh_key             path to a private key for ssh_auth=key.
+ *   ssh_private_key     the key itself (PEM/OpenSSH text) instead of a path, for
+ *                       apps that keep it in a secret store, not on disk (iOS
+ *                       Keychain). Takes precedence over ssh_key; one of the two
+ *                       is required for ssh_auth=key.
  *   ssh_key_passphrase  optional passphrase protecting ssh_key.
  *   ssh_target_host     forward target host (default: the DSN "host", or
  *                       127.0.0.1 when the DSN has none).
@@ -59,6 +63,7 @@ typedef struct {
     ssh_auth_method    auth;
     char              *password;       /* owned; NULL unless auth=password */
     char              *key_path;       /* owned; NULL unless auth=key */
+    char              *key_data;       /* owned; in-memory key, wins over key_path */
     char              *key_passphrase; /* owned; optional */
     char              *target_host;    /* owned; forward target */
     int                target_port;    /* forward target; 0 = engine default */

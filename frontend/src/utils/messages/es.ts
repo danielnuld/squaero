@@ -1057,6 +1057,7 @@ export const es: Record<string, string> = {
   "ios.conn.keychainHint": "Protegidas con Face ID o el código del iPhone. Si lo apagas, se piden al conectar y no se guardan.",
   "ios.conn.informixHint": "Usa el listener DRDA del servidor (drsoctcp, normalmente 9089). No hace falta el cliente de IBM.",
   "ios.conn.pickFile": "Elegir archivo",
+  "ios.conn.keySaved": "Guardada en el llavero",
   "ios.conn.connecting": "Conectando…",
   "ios.conn.connected": "Conectado",
   "ios.conn.disconnect": "Desconectar",

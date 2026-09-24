@@ -31,7 +31,7 @@ enum Connector {
     /// Opens `conn` and returns the core's connId.
     static func open(_ conn: Connection, typed: [String: String] = [:], protected: Bool = true) async throws -> String {
         var params = conn.params
-        let saved = ((try? Logic.shared.secretKeys(driver: conn.driver)) ?? [])
+        let saved = (((try? Logic.shared.secretKeys(driver: conn.driver)) ?? []) + [ConnectionStore.sshKey])
             .filter { typed[$0] == nil && Keychain.exists(account: Keychain.account(conn.id, $0)) }
         if !saved.isEmpty {
             let context = LAContext()
@@ -58,7 +58,12 @@ enum Connector {
 
         var withSecrets = conn
         withSecrets.params = params
-        let dsn = try Logic.shared.buildDsn(withSecrets)
+        var dsn = try Logic.shared.buildDsn(withSecrets)
+        // Not a schema field (desktop passes a path), so buildDsn leaves it out.
+        if params["ssh_auth"] == "key", let key = params[ConnectionStore.sshKey] {
+            dsn[ConnectionStore.sshKey] = key
+            dsn["ssh_key"] = nil
+        }
         do {
             let result = try await Core.shared.call("conn.open", ["driver": conn.driver, "dsn": dsn])
             guard let id = (result as? [String: Any])?["connId"] as? String else {

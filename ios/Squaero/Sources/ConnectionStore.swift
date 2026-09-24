@@ -3,6 +3,8 @@
 // (connections.ts through SquaeroLogic). Secrets go to the Keychain; files a
 // connection needs (a SQLite database, later a CA) are copied into the app's
 // own folder for that connection, so they stay readable after the picker.
+// An SSH private key is the exception: it is a secret, so it goes to the
+// Keychain as text and reaches the core as ssh_private_key, never as a file.
 
 import Foundation
 import Observation
@@ -31,6 +33,9 @@ final class ConnectionStore {
     }
 
     private var file: URL { directory.appendingPathComponent("connections.json") }
+
+    /// The DSN field (docs/IPC.md) and Keychain entry of the SSH private key.
+    nonisolated static let sshKey = "ssh_private_key"
 
     /// Where the files of one connection live.
     func filesDirectory(_ connId: String) -> URL {
@@ -66,7 +71,16 @@ final class ConnectionStore {
             // keep with an empty field: leave what the Keychain already has,
             // so editing a name does not wipe a saved password.
         }
-        let stripped = try Logic.shared.stripSecrets(conn)
+        // The key is kept whatever `keep` says: there is no typing it at
+        // connect time. It goes when the tunnel stops using key auth.
+        let keyAccount = Keychain.account(conn.id, Self.sshKey)
+        if let key = conn.params[Self.sshKey], !key.isEmpty {
+            try Keychain.save(key, account: keyAccount, protected: protectSecrets)
+        } else if conn.params["ssh_auth"] != "key" {
+            Keychain.delete(account: keyAccount)
+        }
+        var stripped = try Logic.shared.stripSecrets(conn)
+        stripped.params[Self.sshKey] = nil
         if let i = connections.firstIndex(where: { $0.id == conn.id }) {
             connections[i] = stripped
         } else {
@@ -79,6 +93,7 @@ final class ConnectionStore {
         for key in (try? Logic.shared.secretKeys(driver: conn.driver)) ?? [] {
             Keychain.delete(account: Keychain.account(conn.id, key))
         }
+        Keychain.delete(account: Keychain.account(conn.id, Self.sshKey))
         try? FileManager.default.removeItem(at: filesDirectory(conn.id))
         connections.removeAll { $0.id == conn.id }
         try write()
@@ -95,6 +110,13 @@ final class ConnectionStore {
         try? FileManager.default.removeItem(at: target)
         try FileManager.default.copyItem(at: url, to: target)
         return target.path
+    }
+
+    /// The text of a key picked in Files, read without copying the file.
+    func readKey(_ url: URL) throws -> String {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        return try String(contentsOf: url, encoding: .utf8)
     }
 
     private func write() throws {
