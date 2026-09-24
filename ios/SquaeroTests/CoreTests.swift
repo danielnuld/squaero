@@ -43,6 +43,14 @@ final class CoreTests: XCTestCase {
         _ = try await Core.shared.call("conn.close", ["connId": connId])
     }
 
+    func testOnlyAConnectionErrorAfterOpeningMeansLost() {
+        XCTAssertTrue(Core.saysConnectionLost(method: "query.run", code: -32000))
+        XCTAssertTrue(Core.saysConnectionLost(method: "schema.tree", code: -32000))
+        // A failed open never had a connection to lose; a SQL error is just SQL.
+        XCTAssertFalse(Core.saysConnectionLost(method: "conn.open", code: -32000))
+        XCTAssertFalse(Core.saysConnectionLost(method: "query.run", code: -32003))
+    }
+
     func testFontsAreRegistered() {
         XCTAssertNotNil(UIFont(name: "SchibstedGrotesk-Regular", size: 12))
         XCTAssertNotNil(UIFont(name: "MartianMono-SemiExpandedRegular", size: 12))
