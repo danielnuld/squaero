@@ -68,7 +68,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 ## 5. Explorar y editar (`ios-browse-edit`) — #577
 
 - [x] 5.1 Tablas, vistas y rutinas con buscador y estado de la conexión
-- [ ] 5.2 Filas como lista, con filtros en el servidor como etiquetas y paginación por cursor
+- [x] 5.2 Filas como lista, con filtros en el servidor como etiquetas y paginación por cursor
 - [ ] 5.3 Fila como formulario, con tipos y datos relacionados por llaves foráneas
 - [ ] 5.4 Editar, vista previa del SQL, Face ID y transacción; aviso de producción; error legible y rollback
 - [ ] 5.5 MongoDB de solo lectura, sin ofrecer edición

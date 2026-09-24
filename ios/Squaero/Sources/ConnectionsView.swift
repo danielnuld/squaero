@@ -61,6 +61,13 @@ struct ConnectionsView: View {
             .navigationDestination(item: $session) { s in
                 BrowseView(session: s, level: .root(s.conn))
             }
+            // Deeper screens of the session, declared once for the whole stack.
+            .navigationDestination(for: TreeLevel.self) { level in
+                if let session { BrowseView(session: session, level: level) }
+            }
+            .navigationDestination(for: ObjectRef.self) { object in
+                if let session { RowsView(session: session, object: object) }
+            }
             .onChange(of: session) { old, _ in
                 // Back out of the browser: the session ends with it.
                 if let old, old !== session {

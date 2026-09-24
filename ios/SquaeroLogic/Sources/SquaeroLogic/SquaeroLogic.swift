@@ -22,6 +22,9 @@ public struct ResultSet: Codable, Equatable {
     public var rows: [[String?]]
     public var truncated = false
     public var rowsAffected = 0
+    /// query.run with cursor: the driver's result set is still open, and
+    /// query.next reads on from it (docs/IPC.md, v8).
+    public var cursor: Bool?
     public init(columns: [ResultColumn], rows: [[String?]]) { self.columns = columns; self.rows = rows }
 }
 
@@ -89,6 +92,7 @@ public struct FilterDraft: Codable, Equatable {
 public struct PreviewFilter: Codable, Equatable {
     public var `where`: String?
     public var orderBy: String?
+    public init(where: String? = nil, orderBy: String? = nil) { self.where = `where`; self.orderBy = orderBy }
 }
 
 // MARK: Connections (connections.ts, connectionFormSections.ts)
@@ -260,6 +264,25 @@ public final class SquaeroLogic {
     /// ("database" or "schema"), a result with a type column holds tables and views.
     public func parseTreeRows(_ result: ResultSet, fallback: String) throws -> [TreeRow] {
         try call("parseTreeRows", [result, fallback])
+    }
+
+    /// The query that opens an object's rows in the engine's own surface: a
+    /// qualified, filtered SELECT, or db.<collection>.find() for MongoDB (which
+    /// takes no filter). `limit` 0 means no cap, for paging with a cursor.
+    public func objectPreviewQuery(db: String?, schema: String?, name: String, engine: String,
+                                   limit: Int = 0, filter: PreviewFilter? = nil) throws -> String {
+        struct Parts: Encodable { let db: String?; let schema: String?; let name: String }
+        return try call("pagination.objectPreviewQuery",
+                        [Parts(db: db, schema: schema, name: name), engine, limit, 0, filter])
+    }
+
+    /// Declared type per column, from schema.describe: how the filter quotes values.
+    public func describeColumnTypes(_ describe: ResultSet) throws -> [String: String] {
+        try call("edit.describeColumnTypes", [describe])
+    }
+
+    public func describeColumnNames(_ describe: ResultSet) throws -> [String] {
+        try call("edit.describeColumnNames", [describe])
     }
 
     public func routinesFor(_ engine: String, db: String?) throws -> RoutineSupport {

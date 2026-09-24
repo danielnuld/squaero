@@ -119,7 +119,6 @@ struct BrowseView: View {
         }
         .searchable(text: $search)
         .navigationTitle(level.title)
-        .navigationDestination(for: TreeLevel.self) { BrowseView(session: session, level: $0) }
         .task(id: session.connId) { await load() }
         .task(id: kind) { if kind == .routine && routines == nil { await loadRoutines() } }
         .refreshable { await load(); if kind == .routine { await loadRoutines() } }
@@ -132,8 +131,10 @@ struct BrowseView: View {
             let names = matching(rows.filter { $0.kind == kind.rawValue }.map(\.name))
             if names.isEmpty { empty }
             ForEach(names, id: \.self) { name in
-                Label(name, systemImage: kind == .table ? "tablecells" : "eye")
-                    .font(Theme.mono())
+                NavigationLink(value: ObjectRef(db: level.db, schema: level.schema, name: name)) {
+                    Label(name, systemImage: kind == .table ? "tablecells" : "eye")
+                        .font(Theme.mono())
+                }
             }
         case .routine:
             let list = (routines ?? []).filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
