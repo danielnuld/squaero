@@ -47,4 +47,13 @@ final class CoreTests: XCTestCase {
         XCTAssertNotNil(UIFont(name: "SchibstedGrotesk-Regular", size: 12))
         XCTAssertNotNil(UIFont(name: "MartianMono-SemiExpandedRegular", size: 12))
     }
+
+    func testTitleWeightMovesTheVariableFont() {
+        // Bold strokes are wider: if the wght axis did not move, both match.
+        func width(_ weight: CGFloat) -> CGFloat {
+            let font = Theme.variable(Theme.titleFontName, size: 34, weight: weight)
+            return ("Conexiones" as NSString).size(withAttributes: [.font: font]).width
+        }
+        XCTAssertGreaterThan(width(700), width(400))
+    }
 }

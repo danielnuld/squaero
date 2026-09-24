@@ -2,6 +2,7 @@
 // titles and Martian Mono for data and SQL, in light and dark. The colours are
 // the site's --accent tokens (site/home.css).
 
+import CoreText
 import SwiftUI
 import UIKit
 
@@ -18,7 +19,7 @@ enum Theme {
     static let monoFontName = "MartianMono-SemiExpandedRegular"
 
     static func title(_ size: CGFloat = 28) -> Font {
-        .custom(titleFontName, size: size, relativeTo: .largeTitle).weight(.bold)
+        Font(UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: variable(titleFontName, size: size, weight: 700)))
     }
 
     static func mono(_ size: CGFloat = 13) -> Font {
@@ -29,21 +30,20 @@ enum Theme {
     static func applyNavigationBar() {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithDefaultBackground()
-        if let large = UIFont(name: titleFontName, size: 34) {
-            appearance.largeTitleTextAttributes = [.font: large.withWeight(.bold)]
-        }
-        if let small = UIFont(name: titleFontName, size: 17) {
-            appearance.titleTextAttributes = [.font: small.withWeight(.semibold)]
-        }
+        appearance.largeTitleTextAttributes = [.font: variable(titleFontName, size: 34, weight: 700)]
+        appearance.titleTextAttributes = [.font: variable(titleFontName, size: 17, weight: 600)]
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
     }
-}
 
-private extension UIFont {
-    /// A weight of this variable font.
-    func withWeight(_ weight: UIFont.Weight) -> UIFont {
-        let d = fontDescriptor.addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
-        return UIFont(descriptor: d, size: pointSize)
+    /// A weight of one of our variable fonts. The weight trait does not move a
+    /// variable font's wght axis (the titles came out Regular); the variation
+    /// attribute does. 0x77676874 is the axis tag "wght".
+    static func variable(_ name: String, size: CGFloat, weight: CGFloat) -> UIFont {
+        let base = UIFontDescriptor(name: name, size: size)
+        let d = base.addingAttributes([
+            UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [0x7767_6874: weight],
+        ])
+        return UIFont(descriptor: d, size: size)
     }
 }
