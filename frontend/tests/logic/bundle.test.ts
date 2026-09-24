@@ -20,7 +20,16 @@ const MODULES = [
   "foreignKeys",
   "informixErrors",
   "schema",
+  "connections",
+  "connectionFormSections",
+  "translate",
 ];
+
+const DOM = "(?:window|document|localStorage|navigator)";
+const DOM_USE = new RegExp(
+  `(?<![\\w"'.])${DOM}\\s*[.[(]|typeof\\s+${DOM}\\b|globalThis\\.${DOM}\\b`,
+  "g",
+);
 
 async function bundle(entry: string): Promise<string> {
   const out = (await build({
@@ -50,17 +59,22 @@ describe("squaero-logic.js without a DOM", () => {
       const code = await bundle(`src/utils/${name}.ts`);
       expect(() => evaluate(code), name).not.toThrow();
       // Loading is not enough: a function that touches the DOM only when
-      // called would pass. None of these names may appear at all.
-      expect(code.match(/\b(window|document|localStorage|navigator)\b/g), name).toBeNull();
+      // called would pass. So no code may use these globals: `document.x`,
+      // `typeof document`, `globalThis.localStorage`. The same words inside a
+      // string (the catalogs say "document") are not code and do not count.
+      expect(code.match(DOM_USE), name).toBeNull();
     });
   }
 
   it("the whole bundle exposes every module and runs them", async () => {
     const L = evaluate(await bundle("src/logic.ts")) as any;
     expect(Object.keys(L).sort()).toEqual([
+      "connectionForm",
+      "connections",
       "dataFilter",
       "exporters",
       "foreignKeys",
+      "i18n",
       "informixErrors",
       "qualifiedName",
       "quoteIdentifier",

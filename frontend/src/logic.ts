@@ -12,4 +12,7 @@ export * as dataFilter from "./utils/dataFilter";
 export * as sqlVariables from "./utils/sqlVariables";
 export * as foreignKeys from "./utils/foreignKeys";
 export * as informixErrors from "./utils/informixErrors";
+export * as connections from "./utils/connections";
+export * as connectionForm from "./utils/connectionFormSections";
+export * as i18n from "./utils/translate";
 export { quoteIdentifier, qualifiedName } from "./utils/schema";

@@ -403,5 +403,363 @@
       "engine": "postgres",
       "expected": "\"x\"\"y\""
     }
-  ]
+  ],
+  "connections": {
+    "buildDsn": [
+      {
+        "conn": {
+          "id": "conn-1",
+          "name": "Juzgados",
+          "driver": "informix",
+          "params": {
+            "host": "10.0.0.5",
+            "port": "9089",
+            "database": "siaj",
+            "user": "informix",
+            "password": "s3cr3t",
+            "tls": "",
+            "ssh_host": ""
+          },
+          "group": "Producción"
+        },
+        "expected": {
+          "host": "10.0.0.5",
+          "port": "9089",
+          "database": "siaj",
+          "user": "informix",
+          "password": "s3cr3t"
+        }
+      },
+      {
+        "conn": {
+          "id": "conn-2",
+          "name": "Pruebas",
+          "driver": "postgres",
+          "params": {
+            "host": "db",
+            "database": "app",
+            "user": "u",
+            "password": "p",
+            "ssh_host": "bastion",
+            "ssh_user": "me",
+            "ssh_password": "x"
+          }
+        },
+        "expected": {
+          "host": "db",
+          "database": "app",
+          "user": "u",
+          "password": "p",
+          "ssh_host": "bastion",
+          "ssh_user": "me",
+          "ssh_password": "x"
+        }
+      },
+      {
+        "conn": {
+          "id": "conn-3",
+          "name": "Local",
+          "driver": "sqlite",
+          "params": {
+            "path": "/var/mobile/a.db"
+          }
+        },
+        "expected": {
+          "path": "/var/mobile/a.db"
+        }
+      }
+    ],
+    "fieldErrors": [
+      {
+        "conn": {
+          "id": "conn-2",
+          "name": "Pruebas",
+          "driver": "postgres",
+          "params": {
+            "host": "",
+            "port": "abc",
+            "database": "app",
+            "user": "u"
+          }
+        },
+        "sshRequired": true,
+        "expected": {
+          "params": {
+            "host": "valid.required",
+            "port": "valid.number",
+            "ssh_host": "valid.required"
+          }
+        }
+      },
+      {
+        "conn": {
+          "id": "conn-1",
+          "name": "Juzgados",
+          "driver": "informix",
+          "params": {
+            "host": "10.0.0.5",
+            "port": "9089",
+            "database": "siaj",
+            "user": "informix",
+            "password": "s3cr3t",
+            "tls": "",
+            "ssh_host": ""
+          },
+          "group": "Producción"
+        },
+        "sshRequired": false,
+        "expected": {
+          "params": {}
+        }
+      }
+    ],
+    "stripSecrets": [
+      {
+        "conn": {
+          "id": "conn-2",
+          "name": "Pruebas",
+          "driver": "postgres",
+          "params": {
+            "host": "db",
+            "database": "app",
+            "user": "u",
+            "password": "p",
+            "ssh_host": "bastion",
+            "ssh_user": "me",
+            "ssh_password": "x"
+          }
+        },
+        "expected": {
+          "id": "conn-2",
+          "name": "Pruebas",
+          "driver": "postgres",
+          "params": {
+            "host": "db",
+            "database": "app",
+            "user": "u",
+            "ssh_host": "bastion",
+            "ssh_user": "me"
+          }
+        }
+      }
+    ],
+    "groupConnections": [
+      {
+        "list": [
+          {
+            "id": "conn-2",
+            "name": "Pruebas",
+            "driver": "postgres",
+            "params": {
+              "host": "db",
+              "database": "app",
+              "user": "u",
+              "password": "p",
+              "ssh_host": "bastion",
+              "ssh_user": "me",
+              "ssh_password": "x"
+            }
+          },
+          {
+            "id": "conn-1",
+            "name": "Juzgados",
+            "driver": "informix",
+            "params": {
+              "host": "10.0.0.5",
+              "port": "9089",
+              "database": "siaj",
+              "user": "informix",
+              "password": "s3cr3t",
+              "tls": "",
+              "ssh_host": ""
+            },
+            "group": "Producción"
+          },
+          {
+            "id": "conn-3",
+            "name": "Local",
+            "driver": "sqlite",
+            "params": {
+              "path": "/var/mobile/a.db"
+            }
+          },
+          {
+            "id": "conn-4",
+            "name": "Local",
+            "driver": "sqlite",
+            "params": {
+              "path": "/var/mobile/a.db"
+            },
+            "group": "Producción"
+          }
+        ],
+        "expected": [
+          {
+            "name": null,
+            "conns": [
+              {
+                "id": "conn-2",
+                "name": "Pruebas",
+                "driver": "postgres",
+                "params": {
+                  "host": "db",
+                  "database": "app",
+                  "user": "u",
+                  "password": "p",
+                  "ssh_host": "bastion",
+                  "ssh_user": "me",
+                  "ssh_password": "x"
+                }
+              },
+              {
+                "id": "conn-3",
+                "name": "Local",
+                "driver": "sqlite",
+                "params": {
+                  "path": "/var/mobile/a.db"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Producción",
+            "conns": [
+              {
+                "id": "conn-1",
+                "name": "Juzgados",
+                "driver": "informix",
+                "params": {
+                  "host": "10.0.0.5",
+                  "port": "9089",
+                  "database": "siaj",
+                  "user": "informix",
+                  "password": "s3cr3t",
+                  "tls": "",
+                  "ssh_host": ""
+                },
+                "group": "Producción"
+              },
+              {
+                "id": "conn-4",
+                "name": "Local",
+                "driver": "sqlite",
+                "params": {
+                  "path": "/var/mobile/a.db"
+                },
+                "group": "Producción"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "formSections": [
+      {
+        "driver": "informix",
+        "expected": [
+          {
+            "id": "server",
+            "keys": [
+              "host",
+              "port",
+              "sqli_server"
+            ]
+          },
+          {
+            "id": "auth",
+            "keys": [
+              "database",
+              "user",
+              "password"
+            ]
+          },
+          {
+            "id": "security",
+            "keys": [
+              "tls",
+              "tls_ca"
+            ]
+          },
+          {
+            "id": "ssh",
+            "keys": [
+              "ssh_host",
+              "ssh_port",
+              "ssh_user",
+              "ssh_auth",
+              "ssh_password",
+              "ssh_key",
+              "ssh_key_passphrase",
+              "ssh_target_host",
+              "ssh_target_port",
+              "ssh_host_key_policy",
+              "ssh_known_hosts"
+            ]
+          }
+        ]
+      },
+      {
+        "driver": "sqlite",
+        "expected": [
+          {
+            "id": "file",
+            "keys": [
+              "path"
+            ]
+          }
+        ]
+      }
+    ],
+    "parseConnections": [
+      {
+        "raw": "[{\"id\": \"conn-2\", \"name\": \"Pruebas\", \"driver\": \"postgres\", \"params\": {\"host\": \"db\", \"database\": \"app\", \"user\": \"u\", \"password\": \"p\", \"ssh_host\": \"bastion\", \"ssh_user\": \"me\", \"ssh_password\": \"x\"}}, {\"id\": 1}, {\"id\": \"conn-9\", \"name\": \"Viejo\", \"driver\": \"informix\", \"params\": {\"host\": \"h\", \"port\": \"9088\", \"server\": \"ol_x\"}}]",
+        "expected": [
+          {
+            "id": "conn-2",
+            "name": "Pruebas",
+            "driver": "postgres",
+            "params": {
+              "host": "db",
+              "database": "app",
+              "user": "u",
+              "password": "p",
+              "ssh_host": "bastion",
+              "ssh_user": "me",
+              "ssh_password": "x"
+            }
+          },
+          {
+            "id": "conn-9",
+            "name": "Viejo",
+            "driver": "informix",
+            "params": {
+              "host": "h",
+              "port": "9089",
+              "sqli_server": "ol_x"
+            }
+          }
+        ]
+      }
+    ],
+    "translate": [
+      {
+        "locale": "en",
+        "key": "field.portDrda",
+        "expected": "Port (DRDA)"
+      },
+      {
+        "locale": "es",
+        "key": "valid.fieldRequired",
+        "params": {
+          "field": "Host"
+        },
+        "expected": "El campo \"Host\" es obligatorio."
+      },
+      {
+        "locale": "en",
+        "key": "no.such.key",
+        "expected": "no.such.key"
+      }
+    ]
+  }
 }

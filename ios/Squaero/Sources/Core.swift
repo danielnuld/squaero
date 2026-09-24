@@ -28,6 +28,12 @@ final class Core: @unchecked Sendable {
         driverCount = Int(quaero_register_static_drivers(dbcore_runtime_get()))
     }
 
+    /// Whether this build links the driver (MySQL and SQL Server wait for
+    /// their own clients, #583/#584). Asks the runtime, not the IPC.
+    func hasDriver(_ name: String) -> Bool {
+        queue.sync { dbcore_runtime_find_driver(dbcore_runtime_get(), name) != nil }
+    }
+
     /// Calls `method` and returns its `result`, or throws the core's error.
     func call(_ method: String, _ params: [String: Any] = [:]) async throws -> Any {
         let request = try JSONSerialization.data(withJSONObject: [

@@ -1,20 +1,20 @@
-// The four tabs of the prototype (issue #575). Each fills in with its own
-// issue: Conexiones #576, Consultas and Snippets #578; Ajustes shows what this
-// build of the core carries.
+// The four tabs of the prototype (issue #575). Conexiones is live (#576);
+// Consultas and Snippets fill in with #578; Ajustes shows what this build of
+// the core carries.
 
 import SwiftUI
 
 struct RootView: View {
     var body: some View {
         TabView {
-            Placeholder(title: "Conexiones", detail: "Llegan con #576.")
-                .tabItem { Label("Conexiones", systemImage: "cylinder.split.1x2") }
-            Placeholder(title: "Consultas", detail: "Llegan con #578.")
-                .tabItem { Label("Consultas", systemImage: "text.alignleft") }
-            Placeholder(title: "Snippets", detail: "Llegan con #578.")
-                .tabItem { Label("Snippets", systemImage: "curlybraces") }
+            ConnectionsView()
+                .tabItem { Label(Logic.t("ios.tab.connections"), systemImage: "cylinder.split.1x2") }
+            Placeholder(title: Logic.t("ios.tab.queries"), detail: "#578")
+                .tabItem { Label(Logic.t("ios.tab.queries"), systemImage: "text.alignleft") }
+            Placeholder(title: Logic.t("ios.tab.snippets"), detail: "#578")
+                .tabItem { Label(Logic.t("ios.tab.snippets"), systemImage: "curlybraces") }
             SettingsView()
-                .tabItem { Label("Ajustes", systemImage: "gearshape") }
+                .tabItem { Label(Logic.t("ios.tab.settings"), systemImage: "gearshape") }
         }
     }
 }
@@ -37,15 +37,17 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Núcleo") {
-                    LabeledContent("Versión") { Text(core).font(Theme.mono()) }
-                    LabeledContent("Motores") { Text("\(Core.shared.driverCount)").font(Theme.mono()) }
+                Section(Logic.t("ios.settings.core")) {
+                    LabeledContent(Logic.t("ios.settings.version")) { Text(core).font(Theme.mono()) }
+                    LabeledContent(Logic.t("ios.settings.engines")) {
+                        Text("\(Core.shared.driverCount)").font(Theme.mono())
+                    }
                 }
             }
-            .navigationTitle("Ajustes")
+            .navigationTitle(Logic.t("ios.tab.settings"))
             .task {
                 let hello = try? await Core.shared.call("app.hello") as? [String: Any]
-                core = hello?["coreVersion"] as? String ?? "sin respuesta"
+                core = hello?["coreVersion"] as? String ?? "—"
             }
         }
     }

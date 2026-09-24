@@ -78,19 +78,19 @@ jobs:
       - name: Build and test in the simulator
         working-directory: ios
         run: |
-          xcodebuild test -project Squaero.xcodeproj -scheme Squaero             -destination "id=$SIM" -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO             | tee xcodebuild.log | grep -E "error:|warning: .*Squaero|Test Case|Executed|\*\* " || true
+          xcodebuild test -project Squaero.xcodeproj -scheme Squaero             -destination "id=$SIM" -derivedDataPath DerivedData             | tee xcodebuild.log | grep -E "error:|warning: .*Squaero|Test Case|Executed|\*\* " || true
           grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
 
-      - name: Screenshot of the running app
+      - name: Screenshots of the running app
         working-directory: ios
         run: |
+          APP_ID=io.github.danielnuld.Squaero
           xcrun simctl install "$SIM" DerivedData/Build/Products/Debug-iphonesimulator/Squaero.app
-          xcrun simctl launch "$SIM" io.github.danielnuld.Squaero
-          sleep 5
-          xcrun simctl io "$SIM" screenshot ../squaero-ios.png
+          shot() { sleep 5; xcrun simctl io "$SIM" screenshot "../squaero-ios-$1.png"; xcrun simctl terminate "$SIM" $APP_ID || true; }
+          xcrun simctl launch "$SIM" $APP_ID; shot list
+          xcrun simctl launch "$SIM" $APP_ID -newConnection -AppleLanguages "(es)"; shot form-es
           xcrun simctl ui "$SIM" appearance dark
-          sleep 2
-          xcrun simctl io "$SIM" screenshot ../squaero-ios-dark.png
+          xcrun simctl launch "$SIM" $APP_ID -newConnection; shot form-dark
 
       - uses: actions/upload-artifact@v4
         with:
