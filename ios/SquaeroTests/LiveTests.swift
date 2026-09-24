@@ -79,6 +79,30 @@ final class LiveTests: XCTestCase {
         }
     }
 
+    func testBrowsingPostgres() async throws {
+        let conn = postgres(["sslmode": "require"])
+        let id = try await Connector.open(conn, typed: ["password": "live"], protected: false)
+        _ = try await Core.shared.call("query.run", ["connId": id, "sql": "CREATE TABLE IF NOT EXISTS salas (n int)"])
+        _ = try await Core.shared.call("query.run", ["connId": id, "sql":
+            "CREATE OR REPLACE FUNCTION doble(n int) RETURNS int AS 'SELECT n * 2' LANGUAGE sql"])
+
+        // The screens' walk: the connection's database lists schemas, public its tables.
+        let root = TreeLevel.root(conn)
+        let schemas = try Logic.shared.parseTreeRows(
+            try await Core.shared.resultSet("schema.tree", ["connId": id, "db": root.db!]), fallback: "schema")
+        XCTAssertTrue(schemas.contains(TreeRow(name: "public", kind: "schema")), "\(schemas)")
+        let tables = try Logic.shared.parseTreeRows(
+            try await Core.shared.resultSet("schema.tree", ["connId": id, "db": root.db!, "schema": "public"]),
+            fallback: "schema")
+        XCTAssertTrue(tables.contains(TreeRow(name: "salas", kind: "table")), "\(tables)")
+
+        let routines = try Logic.shared.routinesFor("postgres", db: root.db)
+        let listed = try await Core.shared.resultSet("query.run", ["connId": id, "sql": routines.listSql!, "limit": 100_000])
+        let name = try XCTUnwrap(listed.columns.firstIndex { $0.name == routines.nameCol })
+        XCTAssertTrue(listed.rows.contains { $0[name] == "doble" })
+        await close(id)
+    }
+
     func testPostgresThroughAnSSHTunnelWithAKeyFromTheKeychain() async throws {
         let key = String(decoding: try decoded("QUAERO_LIVE_SSH_KEY"), as: UTF8.self)
         let conn = postgres([
