@@ -58,7 +58,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
       secreto en los archivos de la app
 - [x] 4.3 TLS con verificación (CA desde Archivos) y túnel SSH por contraseña o clave
 - [x] 4.4 SQLite con archivos del teléfono (Archivos)
-- [ ] 4.5 Conexión caída al volver del segundo plano: aviso y reconectar
+- [x] 4.5 Conexión caída al volver del segundo plano: aviso y reconectar
 - [ ] 4.6 Importar el archivo de conexiones de escritorio
 - [ ] 4.7 Prueba en vivo desde el simulador contra los contenedores de pruebas (Informix por DRDA con y sin
       TLS, PostgreSQL, MySQL, SQL Server, MongoDB), también por túnel SSH
