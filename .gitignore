@@ -58,3 +58,4 @@ site/video/.raw.webm
 /ios/SquaeroLogic/.build/
 /ios/Squaero.xcodeproj/
 /ios/Squaero/Info.plist
+/ios/DerivedData/
