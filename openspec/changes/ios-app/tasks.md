@@ -36,9 +36,9 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 ## 2. Lógica compartida (`shared-logic`) — #574
 
-- [ ] 2.1 Entrada de esbuild que empaqueta exportadores, `dataFilter`, `sqlVariables`, `foreignKeys`,
+- [x] 2.1 Entrada de esbuild que empaqueta exportadores, `dataFilter`, `sqlVariables`, `foreignKeys`,
       `informixErrors` y el citado de identificadores en `squaero-logic.js`
-- [ ] 2.2 Prueba de CI que evalúa el bundle sin `window` ni `document` y nombra el módulo que falle
+- [x] 2.2 Prueba de CI que evalúa el bundle sin `window` ni `document` y nombra el módulo que falle
 - [ ] 2.3 Fachada Swift sobre JavaScriptCore, con errores explícitos para formatos desconocidos
 - [ ] 2.4 Pruebas de paridad: los mismos casos de las pruebas de TypeScript dan el mismo resultado desde Swift
       (NULL en JSON, CSV con comas y comillas, filtros de Informix, variables numéricas)

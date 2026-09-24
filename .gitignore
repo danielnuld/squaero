@@ -22,6 +22,7 @@ compile_commands.json
 # Frontend
 node_modules/
 /frontend/dist/
+/frontend/dist-logic/
 *.tsbuildinfo
 .vite/
 
