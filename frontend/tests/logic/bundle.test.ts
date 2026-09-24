@@ -26,6 +26,7 @@ const MODULES = [
   "routines",
   "pagination",
   "edit",
+  "relatedData",
 ];
 
 const DOM = "(?:window|document|localStorage|navigator)";
@@ -84,6 +85,7 @@ describe("squaero-logic.js without a DOM", () => {
       "parseTreeRows",
       "qualifiedName",
       "quoteIdentifier",
+      "relatedData",
       "routines",
       "sqlVariables",
       "xlsx",

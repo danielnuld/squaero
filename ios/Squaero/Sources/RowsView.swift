@@ -7,11 +7,24 @@
 import SquaeroLogic
 import SwiftUI
 
-/// A table or view to open, where it lives in the tree.
+/// A table or view to open, where it lives in the tree. `where` narrows it
+/// for good (the rows related to another row, relatedData.ts), under whatever
+/// the user filters; `label` then says by what.
 struct ObjectRef: Hashable {
     var db: String?
     var schema: String?
     var name: String
+    var `where`: String? = nil
+    var label: String? = nil
+}
+
+/// One row, opened from its table's list.
+struct RowRef: Hashable {
+    var object: ObjectRef
+    var columns: [ResultColumn]
+    var row: [String?]
+    /// Declared type per column (schema.describe), when there was one.
+    var types: [String: String]
 }
 
 /// Loads a table's rows page by page. Kept apart from the view so the paging
@@ -53,7 +66,11 @@ final class RowPager {
     }
 
     private func sql() throws -> String {
-        let filter = filterable ? try Logic.shared.draftFilter(engine: driver, draft, types: types) : nil
+        var filter = filterable ? try Logic.shared.draftFilter(engine: driver, draft, types: types) : nil
+        if let fixed = object.where {
+            let own = filter?.where.flatMap { $0.isEmpty ? nil : $0 }
+            filter = PreviewFilter(where: own.map { "(\(fixed)) AND (\($0))" } ?? fixed, orderBy: filter?.orderBy)
+        }
         return try Logic.shared.objectPreviewQuery(db: object.db, schema: object.schema, name: object.name,
                                                   engine: driver, filter: filter)
     }
@@ -143,9 +160,17 @@ struct RowsView: View {
             if pager.filterable && !(pager.draft.conditions.isEmpty && pager.draft.order.isEmpty) {
                 Section { chips }
             }
+            if let label = pager.object.label {
+                Section { Label(label, systemImage: "link").font(Theme.mono(12)).foregroundStyle(.secondary) }
+            }
             ForEach(pager.rows.indices, id: \.self) { i in
-                card(pager.rows[i])
-                    .onAppear { if i == pager.rows.count - 1 { Task { await pager.page() } } }
+                NavigationLink(value: RowRef(object: pager.object, columns: pager.columns, row: pager.rows[i],
+                                             types: pager.types)) {
+                    card(pager.rows[i])
+                }
+                // Opening a row leaves this screen, which closes the cursor:
+                // the next page then comes from an offset (RowPager.page).
+                .onAppear { if i == pager.rows.count - 1 { Task { await pager.page() } } }
             }
             if pager.loading { HStack { Spacer(); ProgressView(); Spacer() } }
         }
