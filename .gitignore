@@ -22,6 +22,7 @@ compile_commands.json
 # Frontend
 node_modules/
 /frontend/dist/
+/frontend/dist-logic/
 *.tsbuildinfo
 .vite/
 
@@ -53,3 +54,5 @@ site/video/.raw.webm
 # snapcraft (snap/snapcraft.yaml)
 /build-snap/
 *.snap
+/ios/SquaeroLogic/Sources/SquaeroLogic/Resources/squaero-logic.js
+/ios/SquaeroLogic/.build/

@@ -1,0 +1,407 @@
+{
+  "exports": [
+    {
+      "result": {
+        "columns": [
+          {
+            "name": "nombre",
+            "type": "text"
+          },
+          {
+            "name": "monto",
+            "type": "float"
+          },
+          {
+            "name": "alta",
+            "type": "timestamp"
+          }
+        ],
+        "rows": [
+          [
+            "Pérez, \"Juan\"",
+            "12.5",
+            "2026-09-23 10:00:00"
+          ],
+          [
+            "línea\nnueva",
+            null,
+            null
+          ]
+        ],
+        "truncated": false,
+        "rowsAffected": 0
+      },
+      "format": "csv",
+      "table": "pagos",
+      "expected": "nombre,monto,alta\r\n\"Pérez, \"\"Juan\"\"\",12.5,2026-09-23 10:00:00\r\n\"línea\nnueva\",,"
+    },
+    {
+      "result": {
+        "columns": [
+          {
+            "name": "nombre",
+            "type": "text"
+          },
+          {
+            "name": "monto",
+            "type": "float"
+          },
+          {
+            "name": "alta",
+            "type": "timestamp"
+          }
+        ],
+        "rows": [
+          [
+            "Pérez, \"Juan\"",
+            "12.5",
+            "2026-09-23 10:00:00"
+          ],
+          [
+            "línea\nnueva",
+            null,
+            null
+          ]
+        ],
+        "truncated": false,
+        "rowsAffected": 0
+      },
+      "format": "json",
+      "table": "pagos",
+      "expected": "[\n  {\n    \"nombre\": \"Pérez, \\\"Juan\\\"\",\n    \"monto\": \"12.5\",\n    \"alta\": \"2026-09-23 10:00:00\"\n  },\n  {\n    \"nombre\": \"línea\\nnueva\",\n    \"monto\": null,\n    \"alta\": null\n  }\n]"
+    },
+    {
+      "result": {
+        "columns": [
+          {
+            "name": "nombre",
+            "type": "text"
+          },
+          {
+            "name": "monto",
+            "type": "float"
+          },
+          {
+            "name": "alta",
+            "type": "timestamp"
+          }
+        ],
+        "rows": [
+          [
+            "Pérez, \"Juan\"",
+            "12.5",
+            "2026-09-23 10:00:00"
+          ],
+          [
+            "línea\nnueva",
+            null,
+            null
+          ]
+        ],
+        "truncated": false,
+        "rowsAffected": 0
+      },
+      "format": "sql",
+      "table": "pagos",
+      "expected": "INSERT INTO \"pagos\" (\"nombre\", \"monto\", \"alta\") VALUES ('Pérez, \"Juan\"', '12.5', '2026-09-23 10:00:00');\nINSERT INTO \"pagos\" (\"nombre\", \"monto\", \"alta\") VALUES ('línea\nnueva', NULL, NULL);"
+    },
+    {
+      "result": {
+        "columns": [
+          {
+            "name": "nombre",
+            "type": "text"
+          },
+          {
+            "name": "monto",
+            "type": "float"
+          },
+          {
+            "name": "alta",
+            "type": "timestamp"
+          }
+        ],
+        "rows": [
+          [
+            "Pérez, \"Juan\"",
+            "12.5",
+            "2026-09-23 10:00:00"
+          ],
+          [
+            "línea\nnueva",
+            null,
+            null
+          ]
+        ],
+        "truncated": false,
+        "rowsAffected": 0
+      },
+      "format": "xml",
+      "table": "pagos",
+      "expected": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<data>\n  <row>\n    <field name=\"nombre\">Pérez, &quot;Juan&quot;</field>\n    <field name=\"monto\">12.5</field>\n    <field name=\"alta\">2026-09-23 10:00:00</field>\n  </row>\n  <row>\n    <field name=\"nombre\">línea\nnueva</field>\n    <field name=\"monto\" null=\"true\"/>\n    <field name=\"alta\" null=\"true\"/>\n  </row>\n</data>\n"
+    },
+    {
+      "result": {
+        "columns": [
+          {
+            "name": "nombre",
+            "type": "text"
+          },
+          {
+            "name": "monto",
+            "type": "float"
+          },
+          {
+            "name": "alta",
+            "type": "timestamp"
+          }
+        ],
+        "rows": [
+          [
+            "Pérez, \"Juan\"",
+            "12.5",
+            "2026-09-23 10:00:00"
+          ],
+          [
+            "línea\nnueva",
+            null,
+            null
+          ]
+        ],
+        "truncated": false,
+        "rowsAffected": 0
+      },
+      "format": "html",
+      "table": "pagos",
+      "expected": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>pagos</title>\n<style>\nbody{font-family:system-ui,sans-serif;margin:1rem;}\ntable{border-collapse:collapse;font-size:13px;}\nth,td{border:1px solid #ccc;padding:4px 8px;text-align:left;}\nth{background:#f0f0f4;}\ntd.num{text-align:right;}\ntd.null{color:#999;}\n</style>\n</head>\n<body>\n<table>\n<thead>\n<tr><th>nombre</th><th>monto</th><th>alta</th></tr>\n</thead>\n<tbody>\n      <tr><td>Pérez, &quot;Juan&quot;</td><td class=\"num\">12.5</td><td>2026-09-23 10:00:00</td></tr>\n      <tr><td>línea\nnueva</td><td class=\"null\"></td><td class=\"null\"></td></tr>\n</tbody>\n</table>\n</body>\n</html>\n"
+    }
+  ],
+  "filters": [
+    {
+      "engine": "informix",
+      "state": {
+        "conditions": [
+          {
+            "column": "juzgado",
+            "op": "=",
+            "value": "3"
+          },
+          {
+            "column": "nombre",
+            "op": "CONTAINS",
+            "value": "o'neil"
+          }
+        ],
+        "conjunction": "AND",
+        "order": [
+          {
+            "column": "alta",
+            "dir": "DESC"
+          }
+        ],
+        "applied": null,
+        "collapsed": true
+      },
+      "types": {
+        "juzgado": "int",
+        "nombre": "text"
+      },
+      "expected": {
+        "where": "juzgado = 3 AND nombre LIKE '%o''neil%'",
+        "orderBy": "alta DESC"
+      }
+    },
+    {
+      "engine": "informix",
+      "state": {
+        "conditions": [
+          {
+            "column": "alta",
+            "op": "BETWEEN",
+            "value": "2026-01-01…2026-12-31"
+          },
+          {
+            "column": "sala",
+            "op": "IN",
+            "value": "1,2,3"
+          }
+        ],
+        "conjunction": "AND",
+        "order": [],
+        "applied": null,
+        "collapsed": true
+      },
+      "types": {
+        "alta": "DATE",
+        "sala": "SMALLINT"
+      },
+      "expected": {
+        "where": "alta BETWEEN '2026-01-01' AND '2026-12-31' AND sala IN ('1', '2', '3')",
+        "orderBy": ""
+      }
+    },
+    {
+      "engine": "postgres",
+      "state": {
+        "conditions": [
+          {
+            "column": "Nombre",
+            "op": "LIKE",
+            "value": "A%"
+          },
+          {
+            "column": "x",
+            "op": "IS NULL",
+            "value": ""
+          }
+        ],
+        "conjunction": "AND",
+        "order": [
+          {
+            "column": "Nombre",
+            "dir": "ASC"
+          }
+        ],
+        "applied": null,
+        "collapsed": true
+      },
+      "types": {},
+      "expected": {
+        "where": "\"Nombre\" LIKE 'A%' AND \"x\" IS NULL",
+        "orderBy": "\"Nombre\" ASC"
+      }
+    }
+  ],
+  "variables": [
+    {
+      "sql": "SELECT * FROM expedientes WHERE sala = :sala AND anio > :anio",
+      "values": {
+        ":sala": {
+          "text": "3"
+        },
+        ":anio": {
+          "text": "2020"
+        }
+      },
+      "engine": "informix",
+      "found": [
+        {
+          "name": "sala",
+          "kind": "value",
+          "token": ":sala"
+        },
+        {
+          "name": "anio",
+          "kind": "value",
+          "token": ":anio"
+        }
+      ],
+      "expected": "SELECT * FROM expedientes WHERE sala = 3 AND anio > 2020"
+    },
+    {
+      "sql": "SELECT * FROM t WHERE n = :n AND s = :s AND d IS :d",
+      "values": {
+        ":n": {
+          "text": "-4.5"
+        },
+        ":s": {
+          "text": "o'neil"
+        },
+        ":d": {
+          "text": "",
+          "isNull": true
+        }
+      },
+      "engine": "postgres",
+      "found": [
+        {
+          "name": "n",
+          "kind": "value",
+          "token": ":n"
+        },
+        {
+          "name": "s",
+          "kind": "value",
+          "token": ":s"
+        },
+        {
+          "name": "d",
+          "kind": "value",
+          "token": ":d"
+        }
+      ],
+      "expected": "SELECT * FROM t WHERE n = -4.5 AND s = 'o''neil' AND d IS NULL"
+    },
+    {
+      "sql": "SELECT * FROM ${tabla} WHERE x = ':no'",
+      "values": {
+        "${tabla}": {
+          "text": "pagos"
+        }
+      },
+      "engine": "mysql",
+      "found": [
+        {
+          "name": "tabla",
+          "kind": "raw",
+          "token": "${tabla}"
+        }
+      ],
+      "expected": "SELECT * FROM pagos WHERE x = ':no'"
+    }
+  ],
+  "informixErrors": [
+    {
+      "msg": "SQLCODE -206, SQLSTATE 42S02: tabla",
+      "locale": "es",
+      "expected": "La tabla tabla no existe en la base de datos."
+    },
+    {
+      "msg": "SQLCODE -206, SQLSTATE 42S02: tabla",
+      "locale": "en",
+      "expected": "Table tabla does not exist in the database."
+    },
+    {
+      "msg": "SQLCODE -1264, SQLSTATE IX000",
+      "locale": "es",
+      "expected": null
+    },
+    {
+      "msg": "SQLCODE -1264, SQLSTATE IX000",
+      "locale": "en",
+      "expected": null
+    },
+    {
+      "msg": "otra cosa",
+      "locale": "es",
+      "expected": null
+    },
+    {
+      "msg": "otra cosa",
+      "locale": "en",
+      "expected": null
+    }
+  ],
+  "quote": [
+    {
+      "id": "a`b",
+      "engine": "mysql",
+      "expected": "`a``b`"
+    },
+    {
+      "id": "a]b",
+      "engine": "mssql",
+      "expected": "[a]]b]"
+    },
+    {
+      "id": "tabla",
+      "engine": "informix",
+      "expected": "tabla"
+    },
+    {
+      "id": "x\"y",
+      "engine": "postgres",
+      "expected": "\"x\"\"y\""
+    }
+  ]
+}

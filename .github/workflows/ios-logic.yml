@@ -1,0 +1,58 @@
+name: iOS logic
+
+# squaero-logic.js through the Swift facade (issue #574): the pure frontend
+# modules the iPhone app runs in JavaScriptCore. Builds the bundle, then runs
+# ios/SquaeroLogic's tests, which answer frontend/tests/logic/parity.json the
+# way the TypeScript modules do. macOS runs the same JavaScriptCore as iOS.
+
+on:
+  pull_request:
+    paths:
+      - "frontend/src/utils/**"
+      - "frontend/src/logic.ts"
+      - "frontend/vite.logic.config.ts"
+      - "frontend/tests/logic/**"
+      - "frontend/package.json"
+      - "ios/SquaeroLogic/**"
+      - ".github/workflows/ios-logic.yml"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/src/utils/**"
+      - "frontend/src/logic.ts"
+      - "frontend/vite.logic.config.ts"
+      - "frontend/tests/logic/**"
+      - "frontend/package.json"
+      - "ios/SquaeroLogic/**"
+      - ".github/workflows/ios-logic.yml"
+  workflow_dispatch:
+
+jobs:
+  swift-logic:
+    name: swift-logic
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build squaero-logic.js
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:logic
+          mkdir -p ../ios/SquaeroLogic/Sources/SquaeroLogic/Resources
+          cp dist-logic/squaero-logic.js ../ios/SquaeroLogic/Sources/SquaeroLogic/Resources/
+
+      - name: Swift tests
+        run: swift test --package-path ios/SquaeroLogic
