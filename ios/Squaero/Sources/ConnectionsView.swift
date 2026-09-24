@@ -3,6 +3,7 @@
 
 import SquaeroLogic
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ConnectionsView: View {
     @State private var store = ConnectionStore()
@@ -13,6 +14,8 @@ struct ConnectionsView: View {
     @State private var open: OpenConnection?
     @State private var busy: String?
     @State private var failure: String?
+    @State private var importing = false
+    @State private var imported: String?
 
     var body: some View {
         NavigationStack {
@@ -31,9 +34,18 @@ struct ConnectionsView: View {
             }
             .navigationTitle(Logic.t("ios.tab.connections"))
             .toolbar {
+                Button { importing = true } label: { Image(systemName: "square.and.arrow.down") }
+                    .accessibilityLabel(Logic.t("ios.import.action"))
                 Button { creating = true } label: { Image(systemName: "plus") }
                     .accessibilityLabel(Logic.t("ios.conn.new"))
             }
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+                guard case .success(let url) = result else { return }
+                importFile(url)
+            }
+            .alert(Logic.t("ios.import.done"), isPresented: Binding(get: { imported != nil }, set: { if !$0 { imported = nil } })) {
+                Button("OK") { imported = nil }
+            } message: { Text(imported ?? "") }
             #if DEBUG
             // CI screenshots open the form straight away (ios-app.yml).
             .onAppear { if CommandLine.arguments.contains("-newConnection") { creating = true } }
@@ -103,6 +115,20 @@ struct ConnectionsView: View {
             }
         }
         .presentationDetents([.medium])
+    }
+
+    /// Desktop's export file (Conexiones → Exportar), with or without passwords.
+    private func importFile(_ url: URL) {
+        do {
+            let (s, needFiles) = try store.importConnections(from: url)
+            var text = Logic.t("ios.import.summary", ["added": "\(s.added)", "updated": "\(s.updated)", "skipped": "\(s.skipped)"])
+            if needFiles > 0 { text += "\n\n" + Logic.t("ios.import.needFiles", ["n": "\(needFiles)"]) }
+            imported = text
+        } catch SquaeroLogicError.script(let message) {
+            failure = message
+        } catch {
+            failure = "\(error)"
+        }
     }
 
     private func start(_ conn: Connection) {

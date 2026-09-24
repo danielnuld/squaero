@@ -755,3 +755,104 @@ export function parseConnections(raw: string | null): Connection[] {
   }
   return data.map(coerceConnection).filter((c): c is Connection => c !== null);
 }
+
+/** Current on-disk format version of an exported connections file (#188). */
+export const CONNECTIONS_FILE_VERSION = 1;
+
+/**
+ * The connections list of a Squaero export file, or why it cannot be read.
+ * Synchronous, unlike importConnections (which also reads DBeaver and Navicat
+ * through WebCrypto), so the iPhone app can run it (issue #576).
+ */
+export function parseConnectionsFile(raw: string): unknown[] | { error: string } {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return { error: "El archivo no es JSON válido." };
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { error: "Formato de archivo no reconocido." };
+  }
+  const version = (data as { version?: unknown }).version;
+  if (version !== CONNECTIONS_FILE_VERSION) {
+    return { error: `Versión de archivo no soportada (${String(version ?? "desconocida")}).` };
+  }
+  const native = (data as { connections?: unknown }).connections;
+  if (!Array.isArray(native)) {
+    return { error: "El archivo no contiene una lista de conexiones." };
+  }
+  return native;
+}
+
+export interface MergeSummary {
+  /** New connections appended. */
+  added: number;
+  /** Existing connections replaced (matched by id+name or by name). */
+  updated: number;
+  /** Malformed/invalid entries dropped. */
+  skipped: number;
+}
+
+const norm = (s: string) => s.trim().toLowerCase();
+
+/**
+ * Merge imported entries into `existing` without duplicates:
+ *  - an entry whose id matches an existing one with the SAME name replaces it;
+ *  - else one whose (case-insensitive) name matches replaces that, keeping its id;
+ *  - else it is added, with a fresh id if its own is blank or taken.
+ * Malformed entries are skipped, and so are invalid ones unless `lenient`
+ * (another tool's file, see below). Returns the ids of the entries it took in.
+ */
+export function mergeConnections(
+  existing: Connection[],
+  incoming: unknown[],
+  lenient = false,
+): { list: Connection[]; summary: MergeSummary; ids: string[] } {
+  const summary: MergeSummary = { added: 0, updated: 0, skipped: 0 };
+  const ids: string[] = [];
+  let list = existing.slice();
+
+  for (const item of incoming) {
+    const c = coerceConnection(item);
+    // A file of ours has to be valid to come in; another tool's file only has to
+    // be recognisable. DBeaver keeps the user name in its encrypted credentials
+    // store, so half an address is the normal case there — and dropping a server
+    // because one field is missing defeats the point of not retyping thirty of
+    // them. What arrives incomplete is flagged by the connection form, which is
+    // where the password has to be typed anyway.
+    if (!c || (lenient ? !c.name.trim() : validateConnection(c).length > 0)) {
+      summary.skipped += 1;
+      continue;
+    }
+    const byId = c.id.trim() ? list.find((e) => e.id === c.id) : undefined;
+    // Match by id+name, else by name (the user's label). If duplicate names
+    // already exist, the first is updated — name uniqueness isn't enforced.
+    const match =
+      byId && norm(byId.name) === norm(c.name) ? byId : list.find((e) => norm(e.name) === norm(c.name));
+    if (match) {
+      list = list.map((e) => (e.id === match.id ? { ...c, id: match.id } : e));
+      summary.updated += 1;
+      ids.push(match.id);
+      continue;
+    }
+    const id = !c.id.trim() || list.some((e) => e.id === c.id) ? nextConnectionId(list) : c.id;
+    list = [...list, { ...c, id }];
+    summary.added += 1;
+    ids.push(id);
+  }
+  return { list, summary, ids };
+}
+
+/**
+ * parseConnectionsFile then mergeConnections, throwing the file's error: the
+ * iPhone app's import (issue #576), which gets it as the script's message.
+ */
+export function importConnectionsFile(
+  existing: Connection[],
+  raw: string,
+): { list: Connection[]; summary: MergeSummary; ids: string[] } {
+  const incoming = parseConnectionsFile(raw);
+  if ("error" in incoming) throw new Error(incoming.error);
+  return mergeConnections(existing, incoming);
+}
