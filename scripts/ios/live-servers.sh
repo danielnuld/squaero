@@ -51,6 +51,7 @@ curl -fsSL https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz | tar xz
 mkdir -p mongodata
 mongodb-macos-aarch64-8.0.4/bin/mongod --dbpath mongodata --bind_ip 127.0.0.1 --port 57017 \
   --tlsMode requireTLS --tlsCertificateKeyFile server-bundle.pem \
+  --tlsCAFile ca.pem --tlsAllowConnectionsWithoutCertificates \
   --fork --logpath mongo.log || { tail -n 30 mongo.log; exit 1; }
 
 ssh-keygen -q -t ed25519 -N '' -f client_key
