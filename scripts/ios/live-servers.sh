@@ -46,10 +46,10 @@ printf 'local all all trust\nhost all all 127.0.0.1/32 scram-sha-256\n' > pgdata
 "$pg/psql" -h "$d" -p 55432 -U postgres -q \
   -c "CREATE ROLE squaero LOGIN PASSWORD 'live'" -c "CREATE DATABASE live OWNER squaero"
 
-brew tap mongodb/brew >/dev/null
-brew install mongodb-community >/dev/null
+# MongoDB's official build: Homebrew refuses formulas from its tap (untrusted).
+curl -fsSL https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz | tar xz
 mkdir -p mongodata
-mongod --dbpath mongodata --bind_ip 127.0.0.1 --port 57017 \
+mongodb-macos-aarch64-8.0.4/bin/mongod --dbpath mongodata --bind_ip 127.0.0.1 --port 57017 \
   --tlsMode requireTLS --tlsCertificateKeyFile server-bundle.pem \
   --fork --logpath mongo.log >/dev/null
 
