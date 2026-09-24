@@ -38,7 +38,17 @@ struct ConnectionForm: View {
         return schemas.values.filter { Core.shared.hasDriver($0.driver) }.sorted { $0.label < $1.label }
     }
 
-    private var sections: [FormSection] { (try? Logic.shared.formSections(driver: conn.driver)) ?? [] }
+    /// Fields that mean nothing on iOS: sqli_server names the SQLI fallback,
+    /// which exists only on Windows (the IBM client).
+    private static let desktopOnly: Set<String> = ["sqli_server"]
+
+    private var sections: [FormSection] {
+        ((try? Logic.shared.formSections(driver: conn.driver)) ?? []).map { section in
+            var s = section
+            s.fields.removeAll { Self.desktopOnly.contains($0.key) }
+            return s
+        }
+    }
 
     private var secretKeys: [String] { (try? Logic.shared.secretKeys(driver: conn.driver)) ?? [] }
 
