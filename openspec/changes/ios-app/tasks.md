@@ -69,7 +69,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 - [x] 5.1 Tablas, vistas y rutinas con buscador y estado de la conexión
 - [x] 5.2 Filas como lista, con filtros en el servidor como etiquetas y paginación por cursor
-- [ ] 5.3 Fila como formulario, con tipos y datos relacionados por llaves foráneas
+- [x] 5.3 Fila como formulario, con tipos y datos relacionados por llaves foráneas
 - [ ] 5.4 Editar, vista previa del SQL, Face ID y transacción; aviso de producción; error legible y rollback
 - [ ] 5.5 MongoDB de solo lectura, sin ofrecer edición
 - [ ] 5.6 Prueba en vivo: editar, confirmar y descartar en MySQL, PostgreSQL e Informix

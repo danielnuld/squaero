@@ -19,3 +19,4 @@ export { quoteIdentifier, qualifiedName, parseTreeRows } from "./utils/schema";
 export * as routines from "./utils/routines";
 export * as pagination from "./utils/pagination";
 export * as edit from "./utils/edit";
+export * as relatedData from "./utils/relatedData";
