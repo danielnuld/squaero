@@ -126,6 +126,9 @@ public struct MergeSummary: Codable, Equatable {
     public var added: Int
     public var updated: Int
     public var skipped: Int
+    public init(added: Int, updated: Int, skipped: Int) {
+        self.added = added; self.updated = updated; self.skipped = skipped
+    }
 }
 
 public struct ImportedConnections: Codable, Equatable {
