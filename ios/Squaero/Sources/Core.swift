@@ -16,6 +16,17 @@ enum CoreError: Error, Equatable {
 final class Core: @unchecked Sendable {
     static let shared = Core()
 
+    /// Posted on the main actor, with the connId as `object`, when a call fails
+    /// because its connection is gone (issue #576, design D7).
+    static let connectionLost = Notification.Name("SquaeroConnectionLost")
+
+    /// Desktop's rule (transport.ts, #407): -32000 is "could not open OR use
+    /// the connection", and only conn.open opens, so from any other method the
+    /// connection was open and has stopped working.
+    static func saysConnectionLost(method: String, code: Int) -> Bool {
+        method != "conn.open" && code == -32000
+    }
+
     /// Drivers linked into this build, registered once.
     let driverCount: Int
 
@@ -52,7 +63,11 @@ final class Core: @unchecked Sendable {
             throw CoreError.badResponse
         }
         if let error = body["error"] as? [String: Any] {
-            throw CoreError.rpc(code: error["code"] as? Int ?? 0, message: error["message"] as? String ?? "")
+            let code = error["code"] as? Int ?? 0
+            if Core.saysConnectionLost(method: method, code: code), let connId = params["connId"] as? String {
+                await MainActor.run { NotificationCenter.default.post(name: Core.connectionLost, object: connId) }
+            }
+            throw CoreError.rpc(code: code, message: error["message"] as? String ?? "")
         }
         guard let result = body["result"] else { throw CoreError.badResponse }
         return result
