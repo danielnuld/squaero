@@ -2,7 +2,8 @@
 #
 # Called only when the QUAERO_SSH option is ON. libssh2 is built as a static
 # library with a platform crypto backend that needs no extra vendored dependency:
-# WinCNG (built into Windows) on Windows, the system OpenSSL elsewhere.
+# WinCNG (built into Windows) on Windows, the system OpenSSL elsewhere, and on
+# iOS the OpenSSL we build.
 #
 # libssh2's CMakeLists declares an older cmake_minimum_required, so inside its
 # scope policy CMP0077 is OLD and option() overrides plain variables. We must
@@ -30,6 +31,13 @@ function(quaero_enable_libssh2 target)
 
   if(WIN32)
     set(CRYPTO_BACKEND "WinCNG" CACHE STRING "" FORCE)
+  elseif(IOS)
+    # No system OpenSSL on iOS: the one cmake/QuaeroOpenSSL.cmake builds (#573).
+    include(QuaeroOpenSSL)
+    quaero_enable_openssl()
+    get_filename_component(OPENSSL_ROOT_DIR "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
+    set(OPENSSL_USE_STATIC_LIBS ON)
+    set(CRYPTO_BACKEND "OpenSSL" CACHE STRING "" FORCE)
   else()
     find_package(OpenSSL REQUIRED)
     set(CRYPTO_BACKEND "OpenSSL" CACHE STRING "" FORCE)

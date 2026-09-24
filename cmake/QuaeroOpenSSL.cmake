@@ -1,4 +1,5 @@
-# Download and build OpenSSL (static) for the Windows release (x86 or x64), and expose it
+# Download and build OpenSSL (static) for the Windows release (x86 or x64) and
+# for iOS (issue #573, where there is no system OpenSSL), and expose it
 # to the MySQL plugin (MariaDB Connector/C) and the PostgreSQL plugin (libpq),
 # which until issue #144 had no TLS at all in the build that ships.
 #
@@ -19,6 +20,46 @@ set(QUAERO_OPENSSL_VERSION "3.0.22")
 set(QUAERO_OPENSSL_SHA256 "67ebca7e50d17383028045486653492195b83db95f8558709701bb47b5c1ef81")
 set(_quaero_openssl_module_dir "${CMAKE_CURRENT_LIST_DIR}")
 
+# iOS (issue #573): OpenSSL's own xcrun targets, built with the Mac's make and
+# perl. The simulator target names no architecture or platform, so a full clang
+# -target goes in CFLAGS; on the device the minimum overrides the target's old
+# one.
+function(_quaero_build_openssl_ios root prefix)
+  set(_tarball "${root}/openssl-${QUAERO_OPENSSL_VERSION}.tar.gz")
+  message(STATUS "OpenSSL ${QUAERO_OPENSSL_VERSION} for iOS (${CMAKE_OSX_SYSROOT}): downloading")
+  file(DOWNLOAD
+    "https://github.com/openssl/openssl/releases/download/openssl-${QUAERO_OPENSSL_VERSION}/openssl-${QUAERO_OPENSSL_VERSION}.tar.gz"
+    "${_tarball}" EXPECTED_HASH SHA256=${QUAERO_OPENSSL_SHA256})
+  file(REMOVE_RECURSE "${root}/src" "${prefix}")
+  file(ARCHIVE_EXTRACT INPUT "${_tarball}" DESTINATION "${root}/src")
+  set(_src "${root}/src/openssl-${QUAERO_OPENSSL_VERSION}")
+
+  # CMAKE_OSX_SYSROOT is the resolved SDK path by now (".../iPhoneSimulator18.5.sdk").
+  if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+    set(_target iossimulator-xcrun)
+    set(_cflags "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
+  else()
+    set(_target ios64-xcrun)
+    set(_cflags "-mios-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+  endif()
+  # The same compiler and SDK as the rest of the build: left to itself, a CC
+  # from the environment wins over the target's xcrun and compiles against the
+  # macOS SDK, which links but carries the wrong headers.
+  string(APPEND _cflags " -isysroot ${CMAKE_OSX_SYSROOT}")
+  cmake_host_system_information(RESULT _jobs QUERY NUMBER_OF_LOGICAL_CORES)
+  set(_log "${root}/build.log")
+  message(STATUS "OpenSSL ${QUAERO_OPENSSL_VERSION}: building ${_target} (log: ${_log})")
+  execute_process(
+    COMMAND sh -c "./Configure ${_target} no-shared no-tests no-module --prefix='${prefix}' --libdir=lib CC='${CMAKE_C_COMPILER}' CFLAGS='${_cflags}' && make -j${_jobs} build_libs && make install_dev"
+    WORKING_DIRECTORY "${_src}"
+    RESULT_VARIABLE _rc OUTPUT_FILE "${_log}" ERROR_FILE "${_log}")
+  if(NOT _rc EQUAL 0 OR NOT EXISTS "${prefix}/lib/libssl.a")
+    # CI has no log to open afterwards: print the end of it.
+    execute_process(COMMAND tail -n 60 "${_log}")
+    message(FATAL_ERROR "OpenSSL build for iOS failed (${_rc}); see ${_log}")
+  endif()
+endfunction()
+
 # Sets, in the caller's scope, the variables CMake's FindOpenSSL would set, so a
 # consumer whose find_package(OpenSSL) is guarded by OPENSSL_FOUND (MariaDB
 # Connector/C) takes these, and defines the imported targets quaero_openssl_ssl /
@@ -28,7 +69,10 @@ function(quaero_enable_openssl)
   set(_prefix "${_root}/install")
   set(_stamp "${_prefix}/built-${QUAERO_OPENSSL_VERSION}")
 
-  if(NOT EXISTS "${_stamp}")
+  if(NOT EXISTS "${_stamp}" AND IOS)
+    _quaero_build_openssl_ios("${_root}" "${_prefix}")
+    file(TOUCH "${_stamp}")
+  elseif(NOT EXISTS "${_stamp}")
     find_program(QUAERO_GIT_SH NAMES sh
       PATHS "C:/Program Files/Git/usr/bin" "C:/Program Files/Git/bin")
     # Where to borrow the pure-Perl modules Git's perl lacks. Any Perl install
@@ -93,12 +137,23 @@ function(quaero_enable_openssl)
     set_target_properties(quaero_openssl_crypto PROPERTIES
       IMPORTED_LOCATION "${_prefix}/lib/libcrypto.a"
       INTERFACE_INCLUDE_DIRECTORIES "${_prefix}/include"
-      INTERFACE_LINK_LIBRARIES "ws2_32;crypt32;gdi32;user32;advapi32")
+      INTERFACE_LINK_LIBRARIES "$<$<PLATFORM_ID:Windows>:ws2_32;crypt32;gdi32;user32;advapi32>")
     add_library(quaero_openssl_ssl STATIC IMPORTED GLOBAL)
     set_target_properties(quaero_openssl_ssl PROPERTIES
       IMPORTED_LOCATION "${_prefix}/lib/libssl.a"
       INTERFACE_INCLUDE_DIRECTORIES "${_prefix}/include"
       INTERFACE_LINK_LIBRARIES quaero_openssl_crypto)
+  endif()
+
+  if(IOS)
+    # On iOS the consumers (libdrda, libssh2) run FindOpenSSL themselves, some
+    # under new policies that ignore the normal variables below. Seeding the
+    # cache with the real files answers FindOpenSSL for any policy, and needs
+    # no system libraries behind it there.
+    set(OPENSSL_INCLUDE_DIR "${_prefix}/include" CACHE PATH "" FORCE)
+    set(OPENSSL_CRYPTO_LIBRARY "${_prefix}/lib/libcrypto.a" CACHE FILEPATH "" FORCE)
+    set(OPENSSL_SSL_LIBRARY "${_prefix}/lib/libssl.a" CACHE FILEPATH "" FORCE)
+    return()
   endif()
 
   set(OPENSSL_FOUND TRUE PARENT_SCOPE)

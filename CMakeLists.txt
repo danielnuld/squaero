@@ -39,6 +39,21 @@ option(QUAERO_BUILD_APP "Build the native webview application shell" ON)
 # tunnel fails with an explicit "not built" error (see core/src/conn/ssh_tunnel.c).
 option(QUAERO_SSH "Build SSH-tunnel support (fetches libssh2)" OFF)
 
+# Static drivers (issue #573). iOS cannot dlopen a plugin, so there each driver
+# is a static library whose entry point is renamed per driver, and a generated
+# table registers them all (drivers/static/static_registry.c.in). Desktop keeps
+# plugins.
+option(QUAERO_STATIC_DRIVERS "Link the drivers statically instead of as plugins" OFF)
+if(QUAERO_STATIC_DRIVERS)
+  if(QUAERO_BUILD_APP)
+    message(FATAL_ERROR "QUAERO_STATIC_DRIVERS needs QUAERO_BUILD_APP=OFF: "
+                        "the desktop shell loads drivers as plugins")
+  endif()
+  set(QUAERO_DRIVER_LIB_TYPE STATIC)
+else()
+  set(QUAERO_DRIVER_LIB_TYPE MODULE)
+endif()
+
 # --- Default build type (single-config generators) -----------------------
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
@@ -112,8 +127,9 @@ if(QUAERO_BUILD_EXAMPLES)
 endif()
 
 # Cross-component integration tests (core + a real driver). Added after both so
-# their targets exist for the test to depend on / load.
-if(BUILD_TESTING)
+# their targets exist for the test to depend on / load. They dlopen the plugins,
+# so a static-driver build has nothing for them to load.
+if(BUILD_TESTING AND NOT QUAERO_STATIC_DRIVERS)
   add_subdirectory(tests/integration)
 endif()
 
