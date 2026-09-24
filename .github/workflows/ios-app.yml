@@ -75,11 +75,18 @@ jobs:
           xcrun simctl boot "$SIM"
           xcrun simctl bootstatus "$SIM" -b
 
+      # PostgreSQL, MongoDB and sshd on the Mac, for LiveTests (task 4.7).
+      - name: Live servers
+        run: sh scripts/ios/live-servers.sh
+
       - name: Build and test in the simulator
         working-directory: ios
         run: |
           xcodebuild test -project Squaero.xcodeproj -scheme Squaero             -destination "id=$SIM" -derivedDataPath DerivedData             | tee xcodebuild.log | grep -E "error:|warning: .*Squaero|Test Case|Executed|\*\* " || true
           grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
+          # A live test that skipped (no QUAERO_LIVE) would pass unnoticed.
+          if grep -q "LiveTests.*skipped" xcodebuild.log; then echo "LiveTests skipped"; exit 1; fi
+          grep -q "LiveTests.*passed" xcodebuild.log
 
       - name: Screenshots of the running app
         working-directory: ios
