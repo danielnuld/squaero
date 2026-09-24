@@ -53,10 +53,14 @@ for p in device simulator; do
   cmake --build "$b"
 
   # The test's link line, relative to the build dir: its .a files, in order.
-  link=$(cd "$b" && ninja -t commands drivers/static_registry_test | tail -n 1)
+  link=$(cd "$b" && ninja -t commands static_registry_test | tail -n 1)
   libs=$(echo "$link" | tr ' ' '\n' | grep '\.a$' | sed "s|^|$b/|")
   # System libraries and frameworks: the app has to link these too.
   sys=$(echo "$link" | grep -oE -- '-framework [^ ]+|-l[a-z0-9_]+' | tr '\n' ' ' || true)
+  if [ -z "$libs" ]; then
+    echo "error: no archives on static_registry_test's link line" >&2
+    exit 1
+  fi
   echo "== $p: merging"
   echo "$libs" | sed "s|^$b/|  |"
   # Apple's libtool warns about object files that share a name across
