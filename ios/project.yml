@@ -37,6 +37,11 @@ targets:
         # Plain-language purposes (task 7.1), translated in InfoPlist.strings.
         NSFaceIDUsageDescription: Squaero usa Face ID para desbloquear las contraseñas que guardaste en el llavero.
         NSLocalNetworkUsageDescription: Squaero se conecta a los servidores de bases de datos de tu red local que tú configures.
+        # Export compliance (task 7.3): the only cryptography is standard TLS,
+        # SSH and SCRAM through OpenSSL/libssh2 to reach the user's own servers,
+        # plus the Keychain; nothing proprietary and not the app's purpose, so
+        # the exempt answer. Flip it if that ever changes.
+        ITSAppUsesNonExemptEncryption: false
         UIAppFonts:
           - SchibstedGrotesk.ttf
           - MartianMono.ttf
