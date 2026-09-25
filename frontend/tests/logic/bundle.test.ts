@@ -31,6 +31,7 @@ const MODULES = [
   "sqlEditor",
   "runScope",
   "duration",
+  "snippets",
 ];
 
 const DOM = "(?:window|document|localStorage|navigator)";
@@ -94,6 +95,7 @@ describe("squaero-logic.js without a DOM", () => {
       "relatedData",
       "routines",
       "runScope",
+      "snippets",
       "sqlEditor",
       "sqlVariables",
       "xlsx",

@@ -79,7 +79,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 ## 6. Consultas y exportar (`ios-query-export`) — #578
 
 - [x] 6.1 Editor sobre `UITextView` con resaltado, completado del esquema y fila de teclas SQL
-- [ ] 6.2 Snippets y variables (`:nombre`, `${nombre}`) con los valores recordados
+- [x] 6.2 Snippets y variables (`:nombre`, `${nombre}`) con los valores recordados
 - [ ] 6.3 Hoja de exportar: seis formatos, todas las filas por cursor o solo las visibles, nombre del archivo
 - [ ] 6.4 Guardar en Archivos y Compartir
 - [ ] 6.5 Prueba: exportar las 1 284 filas de una tabla a cada formato y reabrir el archivo

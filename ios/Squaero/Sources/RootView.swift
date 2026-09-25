@@ -1,32 +1,26 @@
 // The four tabs of the prototype (issue #575). Conexiones is live (#576);
-// Consultas runs SQL on the connection it has open (#578); Snippets fills in
-// with #578; Ajustes shows what this build of the core carries.
+// Consultas runs SQL on the connection it has open and Snippets keeps saved
+// queries (#578); Ajustes shows what this build of the core carries.
 
 import SwiftUI
 
 struct RootView: View {
+    @State private var nav = AppNavigation.shared
+
     var body: some View {
-        TabView {
+        TabView(selection: $nav.tab) {
             ConnectionsView()
                 .tabItem { Label(Logic.t("ios.tab.connections"), systemImage: "cylinder.split.1x2") }
+                .tag(AppNavigation.Tab.connections)
             QueriesView()
                 .tabItem { Label(Logic.t("ios.tab.queries"), systemImage: "text.alignleft") }
-            Placeholder(title: Logic.t("ios.tab.snippets"), detail: "#578")
+                .tag(AppNavigation.Tab.queries)
+            SnippetsView()
                 .tabItem { Label(Logic.t("ios.tab.snippets"), systemImage: "curlybraces") }
+                .tag(AppNavigation.Tab.snippets)
             SettingsView()
                 .tabItem { Label(Logic.t("ios.tab.settings"), systemImage: "gearshape") }
-        }
-    }
-}
-
-private struct Placeholder: View {
-    let title: String
-    let detail: String
-
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(title, systemImage: "hammer", description: Text(detail))
-                .navigationTitle(title)
+                .tag(AppNavigation.Tab.settings)
         }
     }
 }

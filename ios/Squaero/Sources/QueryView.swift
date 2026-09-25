@@ -97,13 +97,31 @@ final class QueryModel {
 
     // MARK: Running
 
-    /// The selection when there is one, else the whole text, one statement at
-    /// a time. The last statement's result is shown; a failure stops the run.
-    func run(selection: NSRange) async {
-        guard !running else { return }
+    /// What a run takes: the selection when there is one, else the whole text.
+    func target(_ selection: NSRange) -> String {
         let whole = text as NSString
-        let target = selection.length > 0 && NSMaxRange(selection) <= whole.length
-            ? whole.substring(with: selection) : text
+        return selection.length > 0 && NSMaxRange(selection) <= whole.length ? whole.substring(with: selection) : text
+    }
+
+    /// The `:nombre` and `${nombre}` of what a run would take, each once.
+    func variables(selection: NSRange) -> [SqlVariable] {
+        (try? Logic.shared.findVariables(sql: target(selection), engine: engine)) ?? []
+    }
+
+    /// The selection when there is one, else the whole text, with `values`
+    /// written in for its variables (sqlVariables.ts), one statement at a
+    /// time. The last statement's result is shown; a failure stops the run.
+    func run(selection: NSRange, values: [String: VarValue] = [:]) async {
+        guard !running else { return }
+        var target = self.target(selection)
+        if !values.isEmpty {
+            do {
+                target = try Logic.shared.applyVariables(sql: target, values: values, engine: engine)
+            } catch {
+                failure = "\(error)"
+                return
+            }
+        }
         let statements = ((try? Logic.shared.splitStatements(target, engine: engine)) ?? [])
             .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -200,6 +218,10 @@ struct QueriesView: View {
 private struct QueryScreen: View {
     @State private var model: QueryModel
     @State private var selection = NSRange(location: 0, length: 0)
+    @State private var asking: VariablePrompt?
+    @State private var naming = false
+    @State private var name = ""
+    @State private var saved: String?
 
     init(session: Session) {
         _model = State(initialValue: QueryModel(session: session))
@@ -240,14 +262,38 @@ private struct QueryScreen: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task { await model.run(selection: selection) }
-                } label: {
+                Button(action: start) {
                     Label(Logic.t("ios.query.run"), systemImage: "play.fill")
                 }
                 .disabled(model.running || blank)
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    let target = model.target(selection)
+                    name = ((try? Logic.shared.proposedSnippetName(target, engine: model.engine)) ?? nil)
+                        ?? Logic.t("snip.fallbackName")
+                    naming = true
+                } label: {
+                    Label(Logic.t("ios.snip.save"), systemImage: "star")
+                }
+                .disabled(blank)
+            }
         }
+        .sheet(item: $asking) { prompt in
+            VariablesSheet(prompt: prompt) { values in
+                try? SnippetStore.shared.remember(values)
+                Task { await model.run(selection: prompt.selection, values: values) }
+            }
+        }
+        .alert(Logic.t("snip.nameLabel"), isPresented: $naming) {
+            TextField(Logic.t("snip.namePlaceholder"), text: $name)
+            Button(Logic.t("common.cancel"), role: .cancel) {}
+            Button(Logic.t("ios.snip.saveButton")) { save() }
+        }
+        .alert(saved ?? "", isPresented: Binding(get: { saved != nil }, set: { if !$0 { saved = nil } })) {
+            Button("OK") { saved = nil }
+        }
+        .task(id: AppNavigation.shared.pending?.id) { take() }
         .task(id: model.session.connId) { await model.loadTables() }
         .task(id: model.text) {
             // Describe the tables typed so far, once the typing pauses, and
@@ -256,6 +302,115 @@ private struct QueryScreen: View {
             if !model.cursor { await model.describeMentioned() }
         }
         .onDisappear { model.close() }
+    }
+
+    /// Runs at once, or first asks for the variables, filled in with the
+    /// values they had last time.
+    private func start() {
+        let variables = model.variables(selection: selection)
+        if variables.isEmpty {
+            Task { await model.run(selection: selection) }
+        } else {
+            asking = VariablePrompt(variables: variables, selection: selection, values: SnippetStore.shared.values)
+        }
+    }
+
+    /// A query handed over by the Snippets tab.
+    private func take() {
+        guard let pending = AppNavigation.shared.pending else { return }
+        AppNavigation.shared.pending = nil
+        model.text = pending.text
+        selection = NSRange(location: 0, length: 0)
+        if pending.run { start() }
+    }
+
+    private func save() {
+        do {
+            if let snippet = try SnippetStore.shared.add(name: name, body: model.target(selection)) {
+                saved = Logic.t("ios.snip.saved", ["name": snippet.name])
+            }
+        } catch {
+            saved = "\(error)"
+        }
+    }
+}
+
+/// The variables of a run and where it runs from.
+struct VariablePrompt: Identifiable {
+    let id = UUID()
+    let variables: [SqlVariable]
+    let selection: NSRange
+    /// What each one had last time.
+    let values: [String: VarValue]
+}
+
+/// One field per variable, as desktop's dialog: `:nombre` is a value (a number
+/// goes unquoted, NULL is a switch), `${nombre}` is text written in as typed.
+struct VariablesSheet: View {
+    let prompt: VariablePrompt
+    let run: ([String: VarValue]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var values: [String: VarValue]
+
+    init(prompt: VariablePrompt, run: @escaping ([String: VarValue]) -> Void) {
+        self.prompt = prompt
+        self.run = run
+        _values = State(initialValue: prompt.values.filter { key, _ in prompt.variables.contains { $0.token == key } })
+    }
+
+    private var missing: Bool {
+        !((try? Logic.shared.missingVariables(prompt.variables, values: values))?.isEmpty ?? false)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    ForEach(prompt.variables, id: \.token) { v in field(v) }
+                } footer: {
+                    Text(Logic.t("ios.vars.hint"))
+                }
+            }
+            .navigationTitle(Logic.t("vars.title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(Logic.t("common.cancel")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(Logic.t("ios.query.run")) {
+                        let given = values
+                        dismiss()
+                        run(given)
+                    }
+                    .disabled(missing)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func field(_ v: SqlVariable) -> some View {
+        let value = values[v.token] ?? VarValue(text: "")
+        let isNull = value.isNull == true
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(v.token).font(Theme.mono(12).weight(.semibold))
+            HStack {
+                TextField(Logic.t(v.kind == "raw" ? "vars.rawHint" : "vars.valueHint"),
+                          text: Binding(get: { value.text },
+                                        set: { values[v.token] = VarValue(text: $0, isNull: isNull ? true : nil) }))
+                    .font(Theme.mono())
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .disabled(isNull)
+                if v.kind == "value" {
+                    Toggle(Logic.t("ios.vars.null"), isOn: Binding(
+                        get: { isNull },
+                        set: { values[v.token] = VarValue(text: value.text, isNull: $0 ? true : nil) }))
+                        .toggleStyle(.button)
+                        .font(Theme.mono(11))
+                }
+            }
+        }
     }
 }
 
