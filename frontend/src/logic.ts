@@ -24,3 +24,4 @@ export * as relatedData from "./utils/relatedData";
 export * as sqlEditor from "./utils/sqlEditor";
 export * as runScope from "./utils/runScope";
 export * as duration from "./utils/duration";
+export * as snippets from "./utils/snippets";
