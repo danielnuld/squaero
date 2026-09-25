@@ -99,7 +99,9 @@ Todo lo que el build de iOS enlaza **estáticamente** en `SquaeroCore.xcframewor
 o empaqueta en la app, con el archivo del texto de licencia que la pantalla
 Ajustes › Licencias muestra. La pantalla se genera desde esta tabla
 (`node scripts/ios/licenses.mjs`); el job `ios-app` falla si la tabla y
-`ios/Squaero/Resources/Licenses.json` no coinciden. Los drivers `mysql` y `mssql`
+`ios/Squaero/Resources/Licenses.json` no coinciden, y el job `ios-core` falla si el
+`xcframework` enlaza algo que la tabla no lista, deja de enlazar algo que lista, o
+lleva código GPL/LGPL de otros autores (`scripts/ios/check-inventory.mjs`). Los drivers `mysql` y `mssql`
 no entran en el build de iOS hasta tener clientes propios Apache-2.0 (#583, #584):
 ni MariaDB Connector/C ni FreeTDS (LGPL) están en la app.
 
