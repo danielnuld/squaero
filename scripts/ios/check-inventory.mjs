@@ -28,7 +28,9 @@ const ARCHIVES = [
   [/^libssh2\w*\.a$/, "libssh2"],
   [/^libcjson\.a$/, "cJSON"],
   [/^libsqlite3\.a$/, "SQLite"],
-  [/^lib(dbcore|\w+_driver|quaero_\w+)\.a$/, "Squaero"],
+  // Squaero's own: the core, the static-driver table, and the drivers, whose
+  // archives carry the driver's name with no "lib" (sqlite.a, postgres.a…).
+  [/^lib(dbcore|\w+_driver|quaero_\w+)\.a$|^(sqlite|postgres|informix|mongodb|mysql|mssql)\.a$/, "Squaero"],
 ];
 
 // Known copyleft clients that must never reach the iOS build.
@@ -38,24 +40,24 @@ const COPYLEFT = /^lib(mariadb|mysqlclient|sybdb|ct|tds|freetds)\w*\.a$/;
 const NOT_LINKED = new Set(["fflate", "Schibsted Grotesk", "Martian Mono"]);
 
 export function checkInventory(linkLines, inventory) {
-  const problems = [];
+  const problems = new Set();
   const byName = new Map(inventory.map((c) => [c.name, c]));
   const seen = new Set();
   for (const line of linkLines) {
     const archives = line.split(/\s+/).filter((t) => t.endsWith(".a")).map((t) => t.split("/").pop());
     for (const archive of new Set(archives)) {
       if (COPYLEFT.test(archive)) {
-        problems.push(`${archive}: a GPL/LGPL client by another author is linked into the iOS build`);
+        problems.add(`${archive}: a GPL/LGPL client by another author is linked into the iOS build`);
         continue;
       }
       const hit = ARCHIVES.find(([re]) => re.test(archive));
       if (!hit) {
-        problems.push(`${archive}: linked, but no component of THIRD-PARTY.md's iOS table claims it`);
+        problems.add(`${archive}: linked, but no component of THIRD-PARTY.md's iOS table claims it`);
         continue;
       }
       const component = byName.get(hit[1]);
       if (!component) {
-        problems.push(`${archive}: belongs to "${hit[1]}", which THIRD-PARTY.md's iOS table does not list`);
+        problems.add(`${archive}: belongs to "${hit[1]}", which THIRD-PARTY.md's iOS table does not list`);
         continue;
       }
       seen.add(component.name);
@@ -63,13 +65,13 @@ export function checkInventory(linkLines, inventory) {
   }
   for (const c of inventory) {
     if (c.name !== "Squaero" && /\bL?GPL\b/i.test(c.license)) {
-      problems.push(`${c.name}: listed under ${c.license}, a copyleft licence by another author`);
+      problems.add(`${c.name}: listed under ${c.license}, a copyleft licence by another author`);
     }
     if (!NOT_LINKED.has(c.name) && !seen.has(c.name)) {
-      problems.push(`${c.name}: listed in THIRD-PARTY.md's iOS table, but no archive of it is linked`);
+      problems.add(`${c.name}: listed in THIRD-PARTY.md's iOS table, but no archive of it is linked`);
     }
   }
-  return { problems, linked: [...seen] };
+  return { problems: [...problems], linked: [...seen] };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
