@@ -71,6 +71,20 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
+  # Taps through the real screens (a table that looped back to the list got
+  # past every model test).
+  SquaeroUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - SquaeroUITests
+    dependencies:
+      - target: Squaero
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
 schemes:
   Squaero:
     build:
@@ -79,3 +93,4 @@ schemes:
     test:
       targets:
         - SquaeroTests
+        - SquaeroUITests

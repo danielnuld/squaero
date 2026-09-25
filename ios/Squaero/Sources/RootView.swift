@@ -26,6 +26,10 @@ struct RootView: View {
 }
 
 struct SettingsView: View {
+    /// Ajustes' screens, as values of one path: a view pushed with a closure
+    /// link that then pushes values looped back, as Conexiones did.
+    enum Route: Hashable { case licenses }
+
     @State private var core: String = "…"
     @State private var agent = AgentSettings.enabled
 
@@ -50,10 +54,12 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    NavigationLink(Logic.t("ios.licenses.title")) { LicensesView() }
+                    NavigationLink(Logic.t("ios.licenses.title"), value: Route.licenses)
                 }
             }
             .navigationTitle(Logic.t("ios.tab.settings"))
+            .navigationDestination(for: Route.self) { _ in LicensesView() }
+            .navigationDestination(for: LicensedComponent.self) { LicenseTextView(component: $0) }
             .task {
                 let hello = try? await Core.shared.call("app.hello") as? [String: Any]
                 core = hello?["coreVersion"] as? String ?? "—"
