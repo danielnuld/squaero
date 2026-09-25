@@ -1144,6 +1144,7 @@ export const es: Record<string, string> = {
   "ios.demo.name": "Base de demostración",
   "ios.demo.detail": "Juzgados, salas, 1 284 expedientes y sus audiencias, en SQLite dentro del iPhone.",
   "ios.demo.reset": "Restablecer",
+  "ios.query.hideKeyboard": "Ocultar el teclado",
   "ios.agent.title": "Asistente",
   "ios.agent.toggle": "Asistente en el iPhone",
   "ios.agent.explain": "Usa el modelo de Apple Intelligence de este iPhone: nada sale del equipo. Ve el esquema de la conexión abierta y los resultados de lo que le pidas; solo lee, y un cambio que proponga pasa por la vista previa y Face ID.",
