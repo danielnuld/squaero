@@ -238,6 +238,14 @@ public struct SqlStatement: Codable, Equatable {
     public var text: String
 }
 
+/// A saved query (snippets.ts): id "snip-N", a name and the SQL.
+public struct Snippet: Codable, Equatable, Hashable, Identifiable {
+    public var id: String
+    public var name: String
+    public var body: String
+    public init(id: String, name: String, body: String) { self.id = id; self.name = name; self.body = body }
+}
+
 public enum SquaeroLogicError: Error, Equatable {
     /// squaero-logic.js is not in the bundle (run `pnpm build:logic`).
     case scriptMissing
@@ -323,6 +331,50 @@ public final class SquaeroLogic {
 
     public func applyVariables(sql: String, values: [String: VarValue], engine: String? = nil) throws -> String {
         try call("sqlVariables.applyVariables", [sql, values, engine])
+    }
+
+    /// The variables of `vars` that have nothing to write yet (blank, not NULL).
+    public func missingVariables(_ vars: [SqlVariable], values: [String: VarValue]) throws -> [SqlVariable] {
+        try call("sqlVariables.missingVariables", [vars, values])
+    }
+
+    // MARK: Snippets (snippets.ts)
+
+    /// Tolerant parse of a stored list: malformed entries are dropped.
+    public func parseSnippets(_ raw: String) throws -> [Snippet] {
+        try call("snippets.parseSnippets", [raw])
+    }
+
+    public func serializeSnippets(_ list: [Snippet]) throws -> String {
+        try call("snippets.serializeSnippets", [list])
+    }
+
+    /// `list` with a new snippet; unchanged when the name or body is blank.
+    public func addSnippet(_ list: [Snippet], name: String, body: String) throws -> [Snippet] {
+        try call("snippets.addSnippet", [list, name, body])
+    }
+
+    public func renameSnippet(_ list: [Snippet], id: String, name: String) throws -> [Snippet] {
+        try call("snippets.renameSnippet", [list, id, name])
+    }
+
+    public func removeSnippet(_ list: [Snippet], id: String) throws -> [Snippet] {
+        try call("snippets.removeSnippet", [list, id])
+    }
+
+    /// Name or body containing `query`, any case; all of them for "".
+    public func searchSnippets(_ list: [Snippet], query: String) throws -> [Snippet] {
+        try call("snippets.searchSnippets", [list, query])
+    }
+
+    /// `name`, or "name (2)"… when a snippet already has it.
+    public func uniqueSnippetName(_ list: [Snippet], name: String) throws -> String {
+        try call("snippets.uniqueSnippetName", [list, name])
+    }
+
+    /// The table a query reads, as a name to propose; nil for a join or DDL.
+    public func proposedSnippetName(_ sql: String, engine: String) throws -> String? {
+        try call("snippets.proposedSnippetName", [sql, engine])
     }
 
     /// A readable text for an Informix error message, or nil when it has none.
