@@ -1133,6 +1133,7 @@ export const es: Record<string, string> = {
   "ios.import.summary": "Añadidas {added} · actualizadas {updated} · omitidas {skipped}.",
   "ios.import.needFiles": "{n} necesitan que vuelvas a elegir un archivo (CA, clave SSH o base SQLite): los del otro equipo no existen aquí.",
   "ios.conn.connecting": "Conectando…",
+  "ios.conn.localNetwork": "Si iOS te preguntó por la red local y dijiste que no, permítelo en Ajustes › Privacidad y seguridad › Red local › Squaero.",
   "ios.conn.failed": "No se pudo conectar",
   "ios.conn.askSecret": "Contraseña para {name}",
   "ios.conn.connect": "Conectar",

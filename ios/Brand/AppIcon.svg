@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The iPhone icon (issue #579, task 7.1): assets/brand/quaero-mark.svg in
+       white on the brand indigo, full bleed and opaque (iOS rounds the corners
+       itself). Rendered to AppIcon.png by scripts/ios/render-icon.mjs. -->
+  <rect width="1024" height="1024" fill="#5b5bd6"/>
+  <g transform="translate(115.2 128) scale(6.4)">
+    <g fill="none" stroke="#ffffff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="58" cy="56" r="38"/>
+      <path d="M85 83 L104 102"/>
+    </g>
+    <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M46 42 L60 56 L46 70"/>
+      <path d="M72 44 L72 68"/>
+    </g>
+  </g>
+</svg>
