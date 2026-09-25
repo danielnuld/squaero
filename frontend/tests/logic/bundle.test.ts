@@ -32,6 +32,7 @@ const MODULES = [
   "runScope",
   "duration",
   "snippets",
+  "exportSheet",
 ];
 
 const DOM = "(?:window|document|localStorage|navigator)";
@@ -84,6 +85,7 @@ describe("squaero-logic.js without a DOM", () => {
       "duration",
       "edit",
       "editSession",
+      "exportSheet",
       "exporters",
       "foreignKeys",
       "i18n",

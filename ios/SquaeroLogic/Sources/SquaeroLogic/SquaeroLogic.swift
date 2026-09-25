@@ -321,6 +321,21 @@ public final class SquaeroLogic {
         }
     }
 
+    /// The formats the export sheet offers, in its order (exportSheet.ts).
+    public func sheetFormats() throws -> [String] {
+        try call("exportSheet.SHEET_FORMATS", [])
+    }
+
+    /// `name` with `format`'s extension, made safe for a file name.
+    public func nameForFormat(_ name: String, format: String) throws -> String {
+        try call("exportSheet.nameForFormat", [name, format])
+    }
+
+    /// The rows an exported file holds, read back from its bytes.
+    public func countExportedRows(format: String, _ data: Data) throws -> Int {
+        try call("exportSheet.countExportedRows", [format, [UInt8](data)])
+    }
+
     public func draftFilter(engine: String, _ draft: FilterDraft, types: [String: String] = [:]) throws -> PreviewFilter {
         try call("dataFilter.draftFilter", [engine, draft, types])
     }
