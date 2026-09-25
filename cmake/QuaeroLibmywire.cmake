@@ -11,8 +11,8 @@
 
 include(FetchContent)
 
-set(QUAERO_LIBMYWIRE_VERSION "0.1.0")
-set(QUAERO_LIBMYWIRE_SHA256 "574d7bcdeedc9ce000ef280f9514cceed12830fd006fcf5db9bf08aa9a8792ef")
+set(QUAERO_LIBMYWIRE_VERSION "0.1.1")
+set(QUAERO_LIBMYWIRE_SHA256 "936896b68e557523b8f86e6339dc78c4e2fc14d3cbcd500b4e1cb91e37a3a5fb")
 
 function(quaero_enable_libmywire target)
   if(NOT TARGET mywire)
