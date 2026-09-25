@@ -14,10 +14,14 @@ final class NavigationUITests: XCTestCase {
         app.launch()
     }
 
+    /// The demo, then its only database, main: its tables are the next level.
     private func openDemo() {
         let demo = app.buttons["demo-open"]
         XCTAssertTrue(demo.waitForExistence(timeout: 20))
         demo.tap()
+        let main = app.buttons["main"]
+        XCTAssertTrue(main.waitForExistence(timeout: 30))
+        main.tap()
     }
 
     func testATableOpensItsRowsAndStaysThere() {
