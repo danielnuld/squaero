@@ -49,4 +49,18 @@ final class NavigationUITests: XCTestCase {
         wait(for: [gone], timeout: 5)
         XCTAssertTrue(app.tabBars.element.isHittable)
     }
+
+    func testALicenceOpensItsTextAndStaysThere() {
+        app.tabBars.buttons.element(boundBy: 3).tap()
+        let licences = app.buttons["Licencias"]
+        XCTAssertTrue(licences.waitForExistence(timeout: 10))
+        licences.tap()
+        let openssl = app.buttons.containing(NSPredicate(format: "label BEGINSWITH 'OpenSSL'")).firstMatch
+        XCTAssertTrue(openssl.waitForExistence(timeout: 10))
+        openssl.tap()
+        let text = app.navigationBars["OpenSSL"]
+        XCTAssertTrue(text.waitForExistence(timeout: 10))
+        sleep(2)
+        XCTAssertTrue(text.exists)
+    }
 }
