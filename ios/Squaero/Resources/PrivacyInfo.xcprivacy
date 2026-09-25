@@ -28,12 +28,13 @@
 			</array>
 		</dict>
 		<dict>
-			<!-- mach_absolute_time: timing a query and the drivers' timeouts. -->
+			<!-- statfs/fstatfs: SQLite and the drivers ask the file system
+			     about the volume a database is written to, before writing. -->
 			<key>NSPrivacyAccessedAPIType</key>
-			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
-				<string>35F9.1</string>
+				<string>E174.1</string>
 			</array>
 		</dict>
 	</array>
