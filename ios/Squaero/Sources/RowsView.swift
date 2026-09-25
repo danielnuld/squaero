@@ -149,6 +149,7 @@ struct RowsView: View {
     /// coming back, not while the form still uses the connection.
     @State private var stale = false
     @State private var exporting = false
+    @State private var askingFilter = false
 
     init(session: Session, object: ObjectRef) {
         _pager = State(initialValue: RowPager(session: session, object: object))
@@ -196,6 +197,12 @@ struct RowsView: View {
             if pager.filterable {
                 Menu {
                     Button { adding = true } label: { Label(Logic.t("ios.rows.addFilter"), systemImage: "plus") }
+                    // The on-device agent (#580), where it is and is on.
+                    if AgentSettings.active {
+                        Button { askingFilter = true } label: {
+                            Label(Logic.t("ios.agent.askFilter"), systemImage: "sparkles")
+                        }
+                    }
                     Menu {
                         ForEach(pager.names, id: \.self) { col in
                             Button(col) { pager.sort(by: col); Task { await pager.reload() } }
@@ -209,6 +216,12 @@ struct RowsView: View {
                 .disabled(pager.columns.isEmpty)
         }
         .sheet(isPresented: $exporting) { ExportSheet(source: pager) }
+        .sheet(isPresented: $askingFilter) {
+            AskFilterSheet(table: pager.object.name, columns: pager.names, types: pager.types) { conditions in
+                pager.draft.conditions += conditions
+                Task { await pager.reload() }
+            }
+        }
         .sheet(isPresented: $adding) {
             ConditionSheet(columns: pager.names) { condition in
                 pager.draft.conditions.append(condition)
@@ -297,9 +310,7 @@ private struct ConditionSheet: View {
     let columns: [String]
     let add: (Condition) -> Void
 
-    // queryBuilder.ts' OPERATORS.
-    private static let operators = ["=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN",
-                                    "IS NULL", "IS NOT NULL"]
+    private static let operators = AgentFilter.operators
 
     @Environment(\.dismiss) private var dismiss
     @State private var column = ""
@@ -340,5 +351,71 @@ private struct ConditionSheet: View {
             .onAppear { if column.isEmpty { column = columns.first ?? "" } }
         }
         .presentationDetents([.medium])
+    }
+}
+
+/// Filtering by asking (task 8.3): a request in plain words, the model's
+/// conditions checked against the columns, then the usual chips.
+private struct AskFilterSheet: View {
+    let table: String
+    let columns: [String]
+    let types: [String: String]
+    let add: ([Condition]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var request = ""
+    @State private var thinking = false
+    @State private var failure: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(Logic.t("ios.agent.askPrompt"), text: $request, axis: .vertical)
+                        .lineLimit(2...4)
+                        .submitLabel(.go)
+                        .onSubmit(ask)
+                } footer: {
+                    if let failure { Text(failure).foregroundStyle(.red) }
+                }
+                if thinking { HStack { Spacer(); ProgressView(Logic.t("ios.agent.thinking")); Spacer() } }
+            }
+            .navigationTitle(Logic.t("ios.agent.askFilter"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(Logic.t("common.cancel")) { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(Logic.t("ios.rows.apply"), action: ask)
+                        .disabled(thinking || request.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func ask() {
+        guard !thinking else { return }
+        thinking = true
+        failure = nil
+        Task {
+            defer { thinking = false }
+            #if canImport(FoundationModels)
+            if #available(iOS 26.0, *) {
+                do {
+                    let conditions = try await AgentFilter.ask(request, table: table, columns: columns, types: types)
+                    if conditions.isEmpty {
+                        failure = Logic.t("ios.agent.noFilter")
+                    } else {
+                        add(conditions)
+                        dismiss()
+                    }
+                } catch {
+                    failure = error.localizedDescription
+                }
+                return
+            }
+            #endif
+            failure = Logic.t("ios.agent.noFilter")
+        }
     }
 }

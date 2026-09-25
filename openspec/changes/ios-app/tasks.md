@@ -109,12 +109,12 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
       explicación en Ajustes
 - [x] 8.2 Herramientas de solo lectura: `buscarEsquema`, `describirTabla` y `ejecutarSelect`, que rechaza todo
       lo que no sea un `SELECT` según el clasificador de sentencias del núcleo
-- [ ] 8.3 Filtrar hablando: salida `@Generable` validada contra las columnas y convertida en etiquetas de
+- [x] 8.3 Filtrar hablando: salida `@Generable` validada contra las columnas y convertida en etiquetas de
       filtro
-- [ ] 8.4 Explicar un error y proponer el arreglo con las columnas reales
-- [ ] 8.5 Explicar una consulta o un snippet antes de ejecutarlo
-- [ ] 8.6 Pedir datos en lenguaje natural: `SELECT` en el dialecto del motor, mostrado antes de ejecutarse
-- [ ] 8.7 Un cambio propuesto abre la vista previa con Face ID y nunca se ejecuta solo. Prueba: el agente no
+- [x] 8.4 Explicar un error y proponer el arreglo con las columnas reales
+- [x] 8.5 Explicar una consulta o un snippet antes de ejecutarlo
+- [x] 8.6 Pedir datos en lenguaje natural: `SELECT` en el dialecto del motor, mostrado antes de ejecutarse
+- [x] 8.7 Un cambio propuesto abre la vista previa con Face ID y nunca se ejecuta solo. Prueba: el agente no
       puede ejecutar un `UPDATE` por ninguna vía
 - [ ] 8.8 Batería de preguntas de evaluación contra la base de demostración, con los aciertos anotados
 

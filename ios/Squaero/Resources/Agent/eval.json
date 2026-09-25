@@ -1,0 +1,23 @@
+{
+  "filters": [
+    { "table": "expedientes", "request": "solo los abiertos", "expect": [["estado", "=", "abierto"]] },
+    { "table": "expedientes", "request": "los de materia mercantil", "expect": [["materia", "=", "mercantil"]] },
+    { "table": "expedientes", "request": "los que no tienen monto", "expect": [["monto", "IS NULL", ""]] },
+    { "table": "expedientes", "request": "con un monto mayor a 50000", "expect": [["monto", ">", "50000"]] },
+    { "table": "audiencias", "request": "solo las de juicio", "expect": [["tipo", "=", "de juicio"]] },
+    { "table": "salas", "request": "las que no tienen capacidad registrada", "expect": [["capacidad", "IS NULL", ""]] }
+  ],
+  "questions": [
+    { "question": "¿Cuántos expedientes hay?", "reference": "SELECT COUNT(*) FROM expedientes" },
+    { "question": "¿Cuántos expedientes hay por estado?", "reference": "SELECT estado, COUNT(*) FROM expedientes GROUP BY estado" },
+    { "question": "¿Cuántas audiencias hay de cada tipo?", "reference": "SELECT tipo, COUNT(*) FROM audiencias GROUP BY tipo" },
+    { "question": "¿Qué juzgados hay en Hermosillo?", "reference": "SELECT nombre FROM juzgados WHERE ciudad = 'Hermosillo'" },
+    { "question": "¿Cuál es el monto total de los expedientes mercantiles?", "reference": "SELECT SUM(monto) FROM expedientes WHERE materia = 'mercantil'" },
+    { "question": "¿Cuántas salas tiene cada juzgado?", "reference": "SELECT juzgado_id, COUNT(*) FROM salas GROUP BY juzgado_id" }
+  ],
+  "errors": [
+    { "sql": "SELECT numero, estdo FROM expedientes", "column": "estado" },
+    { "sql": "SELECT nombre FROM salas WHERE capasidad > 30", "column": "capacidad" },
+    { "sql": "SELECT fecah, tipo FROM audiencias", "column": "fecha" }
+  ]
+}

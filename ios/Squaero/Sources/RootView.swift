@@ -28,7 +28,7 @@ struct RootView: View {
 struct SettingsView: View {
     /// Ajustes' screens, as values of one path: a view pushed with a closure
     /// link that then pushes values looped back, as Conexiones did.
-    enum Route: Hashable { case licenses }
+    enum Route: Hashable { case licenses, agentEval }
 
     @State private var core: String = "…"
     @State private var agent = AgentSettings.enabled
@@ -47,10 +47,13 @@ struct SettingsView: View {
                     Section {
                         Toggle(Logic.t("ios.agent.toggle"), isOn: $agent)
                             .onChange(of: agent) { _, on in AgentSettings.enabled = on }
+                        if agent {
+                            NavigationLink(Logic.t("ios.agent.eval"), value: Route.agentEval)
+                        }
                     } header: {
                         Text(Logic.t("ios.agent.title"))
                     } footer: {
-                        Text(Logic.t("ios.agent.explain"))
+                        Text(Logic.t("ios.agent.about"))
                     }
                 }
                 Section {
@@ -58,7 +61,12 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle(Logic.t("ios.tab.settings"))
-            .navigationDestination(for: Route.self) { _ in LicensesView() }
+            .navigationDestination(for: Route.self) { route in
+                switch route {
+                case .licenses: LicensesView()
+                case .agentEval: AgentEvalView()
+                }
+            }
             .navigationDestination(for: LicensedComponent.self) { LicenseTextView(component: $0) }
             .task {
                 let hello = try? await Core.shared.call("app.hello") as? [String: Any]

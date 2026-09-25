@@ -97,4 +97,105 @@ final class AgentTests: XCTestCase {
         let missing = try await tools.describeTable("nada")
         XCTAssertFalse(missing.contains("("), missing)
     }
+
+    // Task 8.3: what the model proposes becomes chips only once checked.
+    func testAProposedFilterKeepsOnlyRealColumnsAndKnownOperators() {
+        let columns = ["id", "sala_id", "fecha", "estado"]
+        let got = AgentFilter.conditions([
+            ("Estado", "=", "programada"),                                   // case of the column
+            ("fecha", "between", "2026-09-26 00:00:00...2026-09-26 23:59:59"), // case of the op, "..."
+            ("sala", "=", "2"),                                              // no such column
+            ("estado", "SOUNDS LIKE", "x"),                                  // no such operator
+            ("sala_id", "IS NULL", "ignored"),                               // nullary: no value
+            ("id", ">", "  "),                                               // a value is needed
+        ], columns: columns)
+        XCTAssertEqual(got, [
+            Condition(column: "estado", op: "=", value: "programada"),
+            Condition(column: "fecha", op: "BETWEEN", value: "2026-09-26 00:00:00…2026-09-26 23:59:59"),
+            Condition(column: "sala_id", op: "IS NULL", value: ""),
+        ])
+    }
+
+    func testThePromptCarriesTheColumnsAndToday() {
+        var parts = DateComponents()
+        parts.year = 2026; parts.month = 9; parts.day = 25
+        let today = Calendar(identifier: .gregorian).date(from: parts)!
+        let prompt = AgentFilter.prompt("solo las programadas de mañana", table: "audiencias",
+                                        columns: ["fecha", "estado"], types: ["fecha": "datetime"], today: today)
+        XCTAssertTrue(prompt.contains("audiencias"))
+        XCTAssertTrue(prompt.contains("fecha (datetime), estado (?)"), prompt)
+        XCTAssertTrue(prompt.contains("2026-09-25 Friday"), prompt)
+        XCTAssertTrue(prompt.contains("solo las programadas de mañana"))
+    }
+
+    // Tasks 8.4 and 8.6: what the model writes, cleaned and checked.
+    func testTheModelsSQLIsCleanedAndOnlyASelectReachesTheEditor() {
+        XCTAssertEqual(AgentCheck.statement("```sql\nSELECT 1;\n```"), "SELECT 1")
+        XCTAssertEqual(AgentCheck.statement("  SELECT a FROM t ;; "), "SELECT a FROM t")
+        XCTAssertNil(AgentCheck.statement("  "))
+        XCTAssertEqual(AgentCheck.select("SELECT sala_id, COUNT(*) FROM audiencias GROUP BY sala_id;"),
+                       "SELECT sala_id, COUNT(*) FROM audiencias GROUP BY sala_id")
+        XCTAssertNil(AgentCheck.select("UPDATE audiencias SET tipo = 'x'"))
+        XCTAssertNil(AgentCheck.select("SELECT 1; DELETE FROM audiencias"))
+    }
+
+    func testAProposedChangeNeverTouchesThePrimaryKey() {
+        let got = AgentCheck.changes([("TIPO", "celebrada"), ("id", "99"), ("nada", "x"), ("fecha", "null")],
+                                     columns: ["id", "tipo", "fecha"], pk: ["id"])
+        XCTAssertEqual(got.map(\.column), ["tipo", "fecha"])
+        XCTAssertEqual(got.map(\.value), ["celebrada", nil])
+    }
+
+    // Task 8.7, the rest of it: a change the agent proposes fills in the edit
+    // and opens the preview, and nothing reaches the table.
+    func testAnAgentChangeOnlyOpensThePreview() async throws {
+        _ = try await tools()
+        let url = try await DemoDatabase.ensure(in: directory)
+        let conn = DemoDatabase.connection(url)
+        let session = Session(conn: conn, connId: try XCTUnwrap(connId))
+        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "audiencias"))
+        await pager.describe()
+        await pager.reload()
+        pager.close()
+        let row = try XCTUnwrap(pager.rows.first)
+        let editor = RowEditor(session: session, ref: RowRef(object: pager.object, columns: pager.columns, row: row,
+                                                             types: pager.types, pk: pager.pk))
+        let id = try XCTUnwrap(row.first ?? nil)
+        let before = try await first("SELECT tipo FROM audiencias WHERE id = \(id)")
+
+        let changes = AgentCheck.changes([("tipo", "agente")], columns: pager.columns.map(\.name), pk: pager.pk)
+        AgentChangeSheet.fill(editor, with: changes)
+        await editor.review()
+        let preview = try XCTUnwrap(editor.preview, editor.failure ?? "no preview")
+        XCTAssertTrue(preview.joined().contains("UPDATE"), "\(preview)")
+        let after = try await first("SELECT tipo FROM audiencias WHERE id = \(id)")
+        XCTAssertEqual(before, after)
+        XCTAssertNotEqual(after, "agente")
+    }
+}
+
+// Task 8.8: the battery ships in the app, and its scoring is right.
+@MainActor
+final class AgentEvalTests: XCTestCase {
+    func testTheBatteryShipsWithFifteenCases() throws {
+        let battery = try XCTUnwrap(AgentEvalBattery.bundled())
+        XCTAssertEqual(battery.filters.count + battery.questions.count + battery.errors.count, 15)
+    }
+
+    func testAFilterHitsWhenEveryExpectedConditionIsThere() {
+        let expect = [["estado", "=", "abierto"]]
+        XCTAssertTrue(AgentEvalScore.filter(expect: expect, got: [
+            Condition(column: "materia", op: "=", value: "civil"), Condition(column: "estado", op: "=", value: "Abierto"),
+        ]))
+        XCTAssertFalse(AgentEvalScore.filter(expect: expect, got: [Condition(column: "estado", op: "LIKE", value: "abierto")]))
+    }
+
+    func testTheSameAnswerIgnoresExtraColumnsOrderAndNumberForms() {
+        let reference = ResultSet(columns: [ResultColumn(name: "n", type: "int")], rows: [["2"], ["10"]])
+        let same = ResultSet(columns: [ResultColumn(name: "nombre", type: "text"), ResultColumn(name: "total", type: "int")],
+                             rows: [["b", "10.0"], ["a", "2"]])
+        let other = ResultSet(columns: [ResultColumn(name: "total", type: "int")], rows: [["2"], ["11"]])
+        XCTAssertTrue(AgentEvalScore.sameAnswer(reference: reference, got: same))
+        XCTAssertFalse(AgentEvalScore.sameAnswer(reference: reference, got: other))
+    }
 }
