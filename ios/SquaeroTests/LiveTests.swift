@@ -3,7 +3,8 @@
 // on the Mac: PostgreSQL and MongoDB with TLS verified against a CA picked as a
 // file, and PostgreSQL through an SSH tunnel with a key held as text, as the
 // Keychain holds it. Skipped unless QUAERO_LIVE=1 (ios-app.yml sets it).
-// Informix is not here: its server only comes as a Docker image.
+// Informix is not here: its server only comes as a Docker image. Editing a
+// row (task 5.6) runs against PostgreSQL; MySQL waits for #583.
 
 import SquaeroLogic
 import XCTest
@@ -128,6 +129,94 @@ final class LiveTests: XCTestCase {
         XCTAssertNil(some.failure)
         XCTAssertEqual(some.rows.count, 11)
         some.close()
+        await close(id)
+    }
+
+    /// A row of `casos` on a fresh table, opened as the list opens it.
+    private func pgCaso(_ session: Session) async throws -> RowRef {
+        _ = try await Core.shared.call("query.run", ["connId": session.connId, "sql": """
+            DROP TABLE IF EXISTS casos;
+            CREATE TABLE casos (id int PRIMARY KEY, estado text NOT NULL, monto numeric(10,2));
+            INSERT INTO casos VALUES (1, 'abierto', 10.50), (2, 'abierto', NULL)
+            """])
+        let pager = RowPager(session: session, object: ObjectRef(db: "live", schema: "public", name: "casos"))
+        await pager.describe()
+        await pager.reload()
+        pager.close()
+        XCTAssertEqual(pager.pk, ["id"])
+        let row = try XCTUnwrap(pager.rows.first { $0.first == "1" }, pager.failure ?? "no row 1")
+        return RowRef(object: pager.object, columns: pager.columns, row: row, types: pager.types, pk: pager.pk)
+    }
+
+    private func caso(_ connId: String) async throws -> [String?] {
+        let r = try await Core.shared.resultSet("query.run", [
+            "connId": connId, "sql": "SELECT estado, monto::text FROM casos WHERE id = 1",
+        ])
+        return try XCTUnwrap(r.rows.first)
+    }
+
+    // Task 5.6: editing, confirming and discarding against a real server.
+    func testEditingAPostgresRowCommitsInATransaction() async throws {
+        let conn = postgres(["sslmode": "require"])
+        let id = try await Connector.open(conn, typed: ["password": "live"], protected: false)
+        let session = Session(conn: conn, connId: id)
+        let editor = RowEditor(session: session, ref: try await pgCaso(session))
+        XCTAssertNil(editor.readOnlyReason)
+        editor.begin()
+        editor.set("estado", "cerrado")
+        editor.set("monto", "99.90")
+        await editor.review()
+        let sql = try XCTUnwrap(editor.preview?.first, editor.failure ?? "no preview")
+        XCTAssertTrue(sql.contains("UPDATE") && sql.contains("casos"), sql)
+        let untouched = try await caso(id)
+        XCTAssertEqual(untouched, ["abierto", "10.50"])
+
+        await editor.commit()
+        XCTAssertNil(editor.failure)
+        let saved = try await caso(id)
+        XCTAssertEqual(saved, ["cerrado", "99.90"])
+        XCTAssertEqual(editor.value("estado"), "cerrado")
+        await close(id)
+    }
+
+    func testDiscardingAPostgresEditSendsNothing() async throws {
+        let conn = postgres(["sslmode": "require"])
+        let id = try await Connector.open(conn, typed: ["password": "live"], protected: false)
+        let session = Session(conn: conn, connId: id)
+        let editor = RowEditor(session: session, ref: try await pgCaso(session))
+        editor.begin()
+        editor.set("estado", "cerrado")
+        await editor.review()
+        XCTAssertNotNil(editor.preview)
+        editor.discard()
+        XCTAssertEqual(editor.value("estado"), "abierto")
+        let row = try await caso(id)
+        XCTAssertEqual(row, ["abierto", "10.50"])
+        await close(id)
+    }
+
+    func testARejectedPostgresEditIsRolledBack() async throws {
+        let conn = postgres(["sslmode": "require"])
+        let id = try await Connector.open(conn, typed: ["password": "live"], protected: false)
+        let session = Session(conn: conn, connId: id)
+        let editor = RowEditor(session: session, ref: try await pgCaso(session))
+        editor.begin()
+        editor.set("monto", "no es un número")
+        await editor.review()
+        await editor.commit()
+        XCTAssertNotNil(editor.failure)
+        XCTAssertTrue(editor.editing)
+        // PostgreSQL refuses everything in an aborted transaction until it is
+        // rolled back: reading works, so it was.
+        let row = try await caso(id)
+        XCTAssertEqual(row, ["abierto", "10.50"])
+
+        editor.set("monto", "12.00")
+        await editor.review()
+        await editor.commit()
+        XCTAssertNil(editor.failure)
+        let fixed = try await caso(id)
+        XCTAssertEqual(fixed, ["abierto", "12.00"])
         await close(id)
     }
 

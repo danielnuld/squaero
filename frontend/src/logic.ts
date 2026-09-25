@@ -21,3 +21,6 @@ export * as pagination from "./utils/pagination";
 export * as edit from "./utils/edit";
 export * as editSession from "./utils/editSession";
 export * as relatedData from "./utils/relatedData";
+export * as sqlEditor from "./utils/sqlEditor";
+export * as runScope from "./utils/runScope";
+export * as duration from "./utils/duration";

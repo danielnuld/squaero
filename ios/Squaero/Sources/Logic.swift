@@ -20,4 +20,11 @@ enum Logic {
     static func t(_ key: String, _ params: [String: String]? = nil) -> String {
         (try? shared.translate(key, locale: locale, params: params)) ?? key
     }
+
+    /// The core's message, or the text for its SQLCODE on Informix (#559).
+    static func readable(_ error: Error) -> String {
+        guard case let CoreError.rpc(_, message) = error else { return "\(error)" }
+        let text: String?? = try? shared.informixErrorText(message, locale: locale)
+        return text.flatMap { $0 } ?? message
+    }
 }

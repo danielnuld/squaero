@@ -36,6 +36,15 @@ final class Session: Hashable {
     nonisolated func hash(into h: inout Hasher) { h.combine(ObjectIdentifier(self)) }
 }
 
+/// The session Conexiones has open, for the other tabs (Consultas, #578):
+/// one open connection at a time, as the browser has it.
+@MainActor
+@Observable
+final class OpenSession {
+    static let shared = OpenSession()
+    var current: Session?
+}
+
 /// Where in the tree a screen is. The root starts at the connection's own
 /// database when it names one, as desktop picks it.
 struct TreeLevel: Hashable {

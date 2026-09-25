@@ -28,6 +28,9 @@ const MODULES = [
   "edit",
   "editSession",
   "relatedData",
+  "sqlEditor",
+  "runScope",
+  "duration",
 ];
 
 const DOM = "(?:window|document|localStorage|navigator)";
@@ -77,6 +80,7 @@ describe("squaero-logic.js without a DOM", () => {
       "connectionForm",
       "connections",
       "dataFilter",
+      "duration",
       "edit",
       "editSession",
       "exporters",
@@ -89,6 +93,8 @@ describe("squaero-logic.js without a DOM", () => {
       "quoteIdentifier",
       "relatedData",
       "routines",
+      "runScope",
+      "sqlEditor",
       "sqlVariables",
       "xlsx",
     ]);
