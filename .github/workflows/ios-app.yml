@@ -68,6 +68,15 @@ jobs:
       - name: Licenses match THIRD-PARTY.md
         run: node scripts/ios/licenses.mjs --check
 
+      # Foundation Models (the agent, #580) needs the iOS 26 SDK: the newest
+      # Xcode on the runner, so the agent's code is compiled, not skipped.
+      - name: Newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          x=$(ls -d /Applications/Xcode_2[6-9]*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$x" ]; then sudo xcode-select -s "$x"; fi
+          xcodebuild -version
+
       - name: Generate the Xcode project
         working-directory: ios
         run: |

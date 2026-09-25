@@ -1,4 +1,4 @@
-#include "stmt_class.h"
+#include "dbcore/stmt_class.h"
 
 #include <ctype.h>
 #include <stdlib.h>

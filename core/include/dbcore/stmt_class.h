@@ -1,11 +1,11 @@
-#ifndef QUAERO_MCP_STMT_CLASS_H
-#define QUAERO_MCP_STMT_CLASS_H
+#ifndef DBCORE_STMT_CLASS_H
+#define DBCORE_STMT_CLASS_H
 
 /*
- * Pure SQL statement classifier for the MCP read-only gate (issue #184).
+ * Pure SQL statement classifier: the read-only gate of the MCP server (issue
+ * #184) and of the iPhone's on-device agent (#580).
  *
- * The MCP server refuses to run anything that is not provably read-only when a
- * connection is not writable. This classifier is the security boundary, so it
+ * Both refuse to run anything that is not provably read-only. This classifier is the security boundary, so it
  * is deliberately FAIL-CLOSED: anything it cannot prove to be read-only is
  * reported as a write. It is engine-agnostic and defends against the usual
  * evasion tricks — line/block comments, quoted strings that embed keywords or
@@ -30,4 +30,4 @@ typedef enum {
  */
 stmt_class_t stmt_classify(const char *sql);
 
-#endif /* QUAERO_MCP_STMT_CLASS_H */
+#endif /* DBCORE_STMT_CLASS_H */

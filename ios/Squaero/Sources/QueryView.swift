@@ -53,25 +53,9 @@ final class QueryModel {
     /// The tables of the connection's own database (PostgreSQL's public
     /// schema), walking down while there is one container to walk into.
     func loadTables() async {
-        var db = TreeLevel.root(session.conn).db
-        var schema: String?
-        for _ in 0..<3 {
-            var p: [String: Any] = ["connId": session.connId]
-            if let db { p["db"] = db }
-            if let schema { p["schema"] = schema }
-            guard let result = try? await Core.shared.resultSet("schema.tree", p),
-                  let rows = try? Logic.shared.parseTreeRows(result, fallback: db == nil ? "database" : "schema")
-            else { return }
-            let objects = rows.filter { $0.kind == "table" || $0.kind == "view" }
-            if !objects.isEmpty {
-                self.schema.tables = objects.map(\.name)
-                level = (db, schema)
-                return
-            }
-            guard let pick = rows.first(where: { $0.name == "public" }) ?? (rows.count == 1 ? rows.first : nil)
-            else { return }
-            if db == nil { db = pick.name } else { schema = pick.name }
-        }
+        guard let found = await TreeLevel.tables(connId: session.connId, conn: session.conn) else { return }
+        schema.tables = found.tables
+        level = (found.db, found.schema)
     }
 
     /// Describes the tables the text names that are not described yet.

@@ -153,3 +153,9 @@ add_executable(tx_test query/tx_test.c)
 target_link_libraries(tx_test PRIVATE dbcore)
 quaero_set_warnings(tx_test)
 add_test(NAME tx_test COMMAND tx_test)
+
+# The fail-closed read-only classifier (MCP server, iPhone agent).
+add_executable(stmt_class_test query/stmt_class_test.c)
+target_link_libraries(stmt_class_test PRIVATE dbcore)
+quaero_set_warnings(stmt_class_test)
+add_test(NAME stmt_class_test COMMAND stmt_class_test)
