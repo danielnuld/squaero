@@ -53,7 +53,7 @@ struct SettingsView: View {
                     } header: {
                         Text(Logic.t("ios.agent.title"))
                     } footer: {
-                        Text(Logic.t("ios.agent.explain"))
+                        Text(Logic.t("ios.agent.about"))
                     }
                 }
                 Section {

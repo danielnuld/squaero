@@ -1169,7 +1169,7 @@ export const es: Record<string, string> = {
   "ios.agent.evalFooter": "Quince preguntas sobre la base de demostración: filtros, datos y errores. Tarda unos minutos; los datos no cambian.",
   "ios.agent.title": "Asistente",
   "ios.agent.toggle": "Asistente en el iPhone",
-  "ios.agent.explain": "Usa el modelo de Apple Intelligence de este iPhone: nada sale del equipo. Ve el esquema de la conexión abierta y los resultados de lo que le pidas; solo lee, y un cambio que proponga pasa por la vista previa y Face ID.",
+  "ios.agent.about": "Usa el modelo de Apple Intelligence de este iPhone: nada sale del equipo. Ve el esquema de la conexión abierta y los resultados de lo que le pidas; solo lee, y un cambio que proponga pasa por la vista previa y Face ID.",
   "ios.agent.notRead": "El asistente solo puede ejecutar consultas que leen (SELECT); esta sentencia cambiaría datos.",
   "ios.agent.noTable": "No hay ninguna tabla que se llame {name}.",
   "ios.agent.noMatch": "Ninguna tabla contiene «{text}». Tablas: {tables}",

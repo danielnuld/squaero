@@ -1154,7 +1154,7 @@ export const en: Record<string, string> = {
   "ios.agent.evalFooter": "Fifteen questions on the demo database: filters, data and errors. It takes a few minutes; no data changes.",
   "ios.agent.title": "Assistant",
   "ios.agent.toggle": "Assistant on the iPhone",
-  "ios.agent.explain": "It uses this iPhone's Apple Intelligence model: nothing leaves the device. It sees the open connection's schema and the results of what you ask; it only reads, and a change it proposes goes through the preview and Face ID.",
+  "ios.agent.about": "It uses this iPhone's Apple Intelligence model: nothing leaves the device. It sees the open connection's schema and the results of what you ask; it only reads, and a change it proposes goes through the preview and Face ID.",
   "ios.agent.notRead": "The assistant can only run queries that read (SELECT); this statement would change data.",
   "ios.agent.noTable": "There is no table called {name}.",
   "ios.agent.noMatch": "No table contains “{text}”. Tables: {tables}",
