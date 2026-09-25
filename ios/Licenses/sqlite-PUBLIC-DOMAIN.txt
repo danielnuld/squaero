@@ -1,0 +1,9 @@
+SQLite is in the public domain (https://www.sqlite.org/copyright.html).
+From the header of the amalgamation shipped in the app (3.46.1):
+
+The author disclaims copyright to this source code.  In place of
+a legal notice, here is a blessing:
+
+   May you do good and not evil.
+   May you find forgiveness for yourself and forgive others.
+   May you share freely, never taking more than you give.

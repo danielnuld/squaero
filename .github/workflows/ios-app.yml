@@ -10,6 +10,7 @@ on:
     paths:
       - "ios/**"
       - "scripts/ios/**"
+      - "THIRD-PARTY.md"
       - ".github/workflows/ios-app.yml"
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - "drivers/**"
       - "cmake/**"
       - "scripts/ios/**"
+      - "THIRD-PARTY.md"
       - ".github/workflows/ios-app.yml"
   workflow_dispatch:
 
@@ -61,6 +63,10 @@ jobs:
           pnpm build:logic
           mkdir -p ../ios/SquaeroLogic/Sources/SquaeroLogic/Resources
           cp dist-logic/squaero-logic.js ../ios/SquaeroLogic/Sources/SquaeroLogic/Resources/
+
+      # Ajustes › Licencias is generated from THIRD-PARTY.md (task 7.5).
+      - name: Licenses match THIRD-PARTY.md
+        run: node scripts/ios/licenses.mjs --check
 
       - name: Generate the Xcode project
         working-directory: ios
