@@ -540,8 +540,24 @@ const PRODUCTION_GROUP = /^(prod|producci[oó]n|production)\b/i;
  * forget to set; a false positive only adds a warning.
  */
 export function isProductionConnection(conn: Pick<Connection, "color" | "group">): boolean {
-  if ((conn.color ?? "").toLowerCase() === CONNECTION_COLORS[0]) return true;
-  return PRODUCTION_GROUP.test((conn.group ?? "").trim());
+  return hasProductionColor(conn) || PRODUCTION_GROUP.test((conn.group ?? "").trim());
+}
+
+/** Whether the connection carries the palette's red, the explicit mark. */
+export function hasProductionColor(conn: Pick<Connection, "color">): boolean {
+  return (conn.color ?? "").toLowerCase() === CONNECTION_COLORS[0];
+}
+
+/**
+ * The connection marked as production, or unmarked: the red on, or off (which
+ * leaves any other colour alone). The iPhone's form switch; desktop sees the
+ * same red. A group named for production still counts, whatever the switch.
+ */
+export function markProduction<C extends Pick<Connection, "color">>(conn: C, on: boolean): C {
+  const out = { ...conn };
+  if (on) out.color = CONNECTION_COLORS[0];
+  else if (hasProductionColor(conn)) delete out.color;
+  return out;
 }
 
 /**

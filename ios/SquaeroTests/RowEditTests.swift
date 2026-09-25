@@ -161,4 +161,67 @@ final class RowEditTests: XCTestCase {
     private func emptyRef() -> RowRef {
         RowRef(object: ObjectRef(db: nil, schema: nil, name: "t"), columns: [], row: [], types: [:])
     }
+
+    // From #611: delete, the one-row guard and the production switch.
+
+    func testDeletingARowPreviewsThenRemovesIt() async throws {
+        let editor = RowEditor(session: session, ref: try await firstRow("casos"))
+        await editor.reviewDelete()
+        let sql = try XCTUnwrap(editor.preview?.first, editor.failure ?? "no preview")
+        XCTAssertTrue(sql.hasPrefix("DELETE"), sql)
+        XCTAssertTrue(editor.deleting)
+        let still = try await estado(1)
+        XCTAssertEqual(still, "abierto")
+
+        await editor.commit()
+        XCTAssertNil(editor.failure)
+        XCTAssertTrue(editor.deleted)
+        let r = try await Core.shared.resultSet("query.run", [
+            "connId": session.connId, "sql": "SELECT COUNT(*) FROM casos",
+        ])
+        XCTAssertEqual(r.rows.first?.first ?? nil, "1")
+    }
+
+    func testCancellingADeleteKeepsTheRow() async throws {
+        let editor = RowEditor(session: session, ref: try await firstRow("casos"))
+        await editor.reviewDelete()
+        editor.cancelPreview()
+        XCTAssertFalse(editor.deleting)
+        XCTAssertFalse(editor.deleted)
+        let still = try await estado(1)
+        XCTAssertEqual(still, "abierto")
+    }
+
+    func testAChangeTouchingSeveralRowsIsRolledBack() async throws {
+        // A "key" that is not unique: both rows are 'abierto'.
+        var ref = try await firstRow("casos")
+        ref.pk = ["estado"]
+        let editor = RowEditor(session: session, ref: ref)
+        editor.begin()
+        editor.set("nota", "las dos")
+        await editor.review()
+        await editor.commit()
+        let failure = try XCTUnwrap(editor.failure)
+        XCTAssertTrue(failure.contains("2"), failure)
+        XCTAssertTrue(editor.editing)
+        let r = try await Core.shared.resultSet("query.run", [
+            "connId": session.connId, "sql": "SELECT COUNT(*) FROM casos WHERE nota = 'las dos'",
+        ])
+        XCTAssertEqual(r.rows.first?.first ?? nil, "0")
+    }
+
+    func testMySQLsUnchangedUpdateIsNotARowCountFailure() throws {
+        XCTAssertTrue(try Logic.shared.rowCountOk(engine: "mysql", kind: "update", rowsAffected: 0))
+        XCTAssertFalse(try Logic.shared.rowCountOk(engine: "postgres", kind: "update", rowsAffected: 0))
+        XCTAssertTrue(try Logic.shared.rowCountOk(engine: "sqlite", kind: "delete", rowsAffected: nil))
+    }
+
+    func testTheProductionSwitchIsDesktopsRed() throws {
+        let conn = Connection(id: "p", name: "p", driver: "sqlite")
+        let marked = try Logic.shared.markProduction(conn, true)
+        XCTAssertEqual(marked.color, "#e5484d")
+        XCTAssertTrue(try Logic.shared.hasProductionColor(marked))
+        XCTAssertTrue(RowEditor(session: Session(conn: marked, connId: "none"), ref: emptyRef()).production)
+        XCTAssertNil(try Logic.shared.markProduction(marked, false).color)
+    }
 }
