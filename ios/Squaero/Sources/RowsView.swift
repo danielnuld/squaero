@@ -25,6 +25,8 @@ struct RowRef: Hashable {
     var row: [String?]
     /// Declared type per column (schema.describe), when there was one.
     var types: [String: String]
+    /// The primary key's columns; empty means the row cannot be edited.
+    var pk: [String] = []
 }
 
 /// Loads a table's rows page by page. Kept apart from the view so the paging
@@ -45,6 +47,7 @@ final class RowPager {
     private(set) var failure: String?
     private(set) var types: [String: String] = [:]
     private(set) var names: [String] = []
+    private(set) var pk: [String] = []
 
     init(session: Session, object: ObjectRef) {
         self.session = session
@@ -63,6 +66,7 @@ final class RowPager {
         guard let d = try? await Core.shared.resultSet("schema.describe", p) else { return }
         types = (try? Logic.shared.describeColumnTypes(d)) ?? [:]
         names = (try? Logic.shared.describeColumnNames(d)) ?? []
+        pk = (try? Logic.shared.describePkColumns(d)) ?? []
     }
 
     private func sql() throws -> String {
@@ -141,6 +145,9 @@ final class RowPager {
 struct RowsView: View {
     @State private var pager: RowPager
     @State private var adding = false
+    /// A row of this table was saved from its form: read the rows again on
+    /// coming back, not while the form still uses the connection.
+    @State private var stale = false
 
     init(session: Session, object: ObjectRef) {
         _pager = State(initialValue: RowPager(session: session, object: object))
@@ -165,7 +172,7 @@ struct RowsView: View {
             }
             ForEach(pager.rows.indices, id: \.self) { i in
                 NavigationLink(value: RowRef(object: pager.object, columns: pager.columns, row: pager.rows[i],
-                                             types: pager.types)) {
+                                             types: pager.types, pk: pager.pk)) {
                     card(pager.rows[i])
                 }
                 // Opening a row leaves this screen, which closes the cursor:
@@ -208,6 +215,14 @@ struct RowsView: View {
             await pager.reload()
         }
         .refreshable { await pager.reload() }
+        .onReceive(NotificationCenter.default.publisher(for: RowEditor.saved)) { note in
+            if note.object as? ObjectRef == pager.object { stale = true }
+        }
+        .onAppear {
+            guard stale else { return }
+            stale = false
+            Task { await pager.reload() }
+        }
         .onDisappear { pager.close() }
     }
 

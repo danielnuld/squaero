@@ -3,6 +3,7 @@
 // (#310, #364): the row each of its foreign keys points at, and the rows of
 // other tables that point at it, each with its count. The keys come from the
 // engine's catalog (foreignKeys.ts), the filters from relatedData.ts.
+// Editing (tasks 5.4, 5.5) lives in RowEditor; this view only shows it.
 
 import SquaeroLogic
 import SwiftUI
@@ -79,51 +80,116 @@ final class RowRelations {
 
 struct RowDetailView: View {
     @State private var related: RowRelations
+    @State private var editor: RowEditor
 
     init(session: Session, ref: RowRef) {
         _related = State(initialValue: RowRelations(session: session, ref: ref))
+        _editor = State(initialValue: RowEditor(session: session, ref: ref))
     }
 
     private var ref: RowRef { related.ref }
 
     var body: some View {
         List {
+            if let failure = editor.failure {
+                Section {
+                    Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.footnote)
+                }
+            } else if let done = editor.done {
+                Section { Label(done, systemImage: "checkmark.circle").foregroundStyle(.green).font(.footnote) }
+            }
             Section {
-                ForEach(Array(zip(ref.columns, ref.row).enumerated()), id: \.offset) { _, pair in
-                    let (col, value) = pair
+                ForEach(ref.columns, id: \.name) { col in
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
                             Text(col.name).font(.footnote.weight(.semibold))
+                            if ref.pk.contains(col.name) {
+                                Image(systemName: "key.fill").font(.caption2).foregroundStyle(.secondary)
+                                    .accessibilityLabel(Logic.t("ios.edit.key"))
+                            }
                             Spacer()
                             Text(ref.types[col.name] ?? col.type).font(Theme.mono(11)).foregroundStyle(.secondary)
                         }
-                        Text(value ?? "NULL")
-                            .font(Theme.mono())
-                            .foregroundStyle(value == nil ? .tertiary : .primary)
-                            .textSelection(.enabled)
+                        if editor.editing {
+                            field(col.name)
+                        } else {
+                            let value = editor.value(col.name)
+                            Text(value ?? "NULL")
+                                .font(Theme.mono())
+                                .foregroundStyle(value == nil ? .tertiary : .primary)
+                                .textSelection(.enabled)
+                        }
                     }
                     .padding(.vertical, 2)
                 }
+            } footer: {
+                if let reason = editor.readOnlyReason { Text(reason) }
             }
-            if !related.parents.isEmpty {
-                Section(Logic.t("ios.row.pointsAt")) {
-                    ForEach(related.parents, id: \.self) { link($0, count: nil) }
+            if !editor.editing { relatedSections }
+        }
+        .navigationTitle(editor.row.first.flatMap { $0 } ?? ref.object.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(editor.editing)
+        .toolbar { editToolbar }
+        .sheet(isPresented: Binding(get: { editor.preview != nil }, set: { if !$0 { editor.cancelPreview() } })) {
+            EditPreviewSheet(editor: editor)
+        }
+        .task { await related.load() }
+    }
+
+    @ToolbarContentBuilder
+    private var editToolbar: some ToolbarContent {
+        if editor.readOnlyReason == nil {
+            if editor.editing {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(Logic.t("ios.edit.discard"), role: .destructive) { editor.discard() }
+                        .disabled(editor.busy)
                 }
-            }
-            if !related.children.isEmpty {
-                Section(Logic.t("ios.row.dependents")) {
-                    ForEach(related.children, id: \.self) { link($0, count: related.counts[$0]) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(Logic.t("ios.edit.review")) { Task { await editor.review() } }
+                        .disabled(editor.busy || editor.changes.isEmpty)
                 }
-            }
-            if let reason = related.reason {
-                Section(Logic.t("ios.row.related")) {
-                    Text(reason).font(.footnote).foregroundStyle(.secondary)
+            } else {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(Logic.t("ios.edit.action")) { editor.begin() }
                 }
             }
         }
-        .navigationTitle(ref.row.first.flatMap { $0 } ?? ref.object.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await related.load() }
+    }
+
+    /// A column's value as typed, with a button that makes it NULL; typing
+    /// into a NULL field gives it a value again.
+    private func field(_ column: String) -> some View {
+        let value = editor.value(column)
+        return HStack {
+            TextField("NULL", text: Binding(get: { value ?? "" }, set: { editor.set(column, $0) }), axis: .vertical)
+                .font(Theme.mono())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button(Logic.t("ios.edit.null")) { editor.set(column, nil) }
+                .font(Theme.mono(11))
+                .buttonStyle(.bordered)
+                .disabled(value == nil)
+        }
+    }
+
+    @ViewBuilder
+    private var relatedSections: some View {
+        if !related.parents.isEmpty {
+            Section(Logic.t("ios.row.pointsAt")) {
+                ForEach(related.parents, id: \.self) { link($0, count: nil) }
+            }
+        }
+        if !related.children.isEmpty {
+            Section(Logic.t("ios.row.dependents")) {
+                ForEach(related.children, id: \.self) { link($0, count: related.counts[$0]) }
+            }
+        }
+        if let reason = related.reason {
+            Section(Logic.t("ios.row.related")) {
+                Text(reason).font(.footnote).foregroundStyle(.secondary)
+            }
+        }
     }
 
     @ViewBuilder
@@ -141,5 +207,51 @@ struct RowDetailView: View {
             Text(Logic.t("ios.row.missingKey", ["table": q.relation.fromTable, "column": q.missing ?? ""]))
                 .font(.footnote).foregroundStyle(.secondary)
         }
+    }
+}
+
+/// What a change will run, before it runs: the driver's own SQL, how many rows
+/// it touches, and, on a production connection, a warning first.
+private struct EditPreviewSheet: View {
+    let editor: RowEditor
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if editor.production {
+                    Section {
+                        Label(Logic.t("ios.edit.production", ["name": editor.session.conn.name]),
+                              systemImage: "exclamationmark.octagon.fill")
+                            .foregroundStyle(.red)
+                            .font(.subheadline.weight(.semibold))
+                    }
+                }
+                Section {
+                    ForEach(Array((editor.preview ?? []).enumerated()), id: \.offset) { _, sql in
+                        Text(sql).font(Theme.mono(12)).textSelection(.enabled)
+                    }
+                } footer: {
+                    let n = editor.preview?.count ?? 0
+                    Text((n == 1 ? Logic.t("ios.edit.affectsOne") : Logic.t("ios.edit.affectsN", ["n": "\(n)"]))
+                         + " " + Logic.t("ios.edit.transaction"))
+                }
+                Section {
+                    Button {
+                        Task { await editor.confirm() }
+                    } label: {
+                        Label(Logic.t("ios.edit.confirm"), systemImage: "faceid").frame(maxWidth: .infinity)
+                    }
+                    .disabled(editor.busy)
+                }
+            }
+            .navigationTitle(Logic.t("ios.edit.previewTitle"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(Logic.t("common.cancel")) { editor.cancelPreview() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
