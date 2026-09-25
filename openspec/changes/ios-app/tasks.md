@@ -119,14 +119,16 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 ## 9. `libmywire`: cliente propio del protocolo de MySQL y MariaDB (Apache-2.0) — #583
 
-- [ ] 9.1 Repositorio propio con la estructura de libdrda (C11, CMake, CI multiplataforma, pruebas en vivo)
-- [ ] 9.2 Handshake, `mysql_native_password` y `caching_sha2_password` (con TLS o clave RSA del servidor)
-- [ ] 9.3 TLS con verificación de CA y de nombre
-- [ ] 9.4 Consultas de texto, conjuntos de resultados, filas afectadas y errores con código y SQLSTATE
-- [ ] 9.5 Lectura por filas para el cursor (sin cargar el resultado entero) y cancelar con `KILL QUERY`
-- [ ] 9.6 Pruebas en vivo contra MySQL 8.4 y MariaDB (contenedores), incluidos UTF-8 y los tipos habituales
-- [ ] 9.7 El driver `mysql` gana el backend `libmywire`; el build de iOS lo usa, y escritorio sigue con MariaDB
-      hasta igualar la cobertura
+- [x] 9.1 Repositorio propio (github.com/danielnuld/libmywire) con la estructura de libdrda (C11, CMake, CI multiplataforma, pruebas en vivo)
+- [x] 9.2 Handshake, `mysql_native_password` y `caching_sha2_password` (con TLS o clave RSA del servidor)
+- [x] 9.3 TLS con verificación de CA y de nombre
+- [x] 9.4 Consultas de texto, conjuntos de resultados, filas afectadas y errores con código y SQLSTATE
+- [x] 9.5 Lectura por filas para el cursor (sin cargar el resultado entero) y cancelar con `KILL QUERY`
+- [x] 9.6 Pruebas en vivo contra MySQL 8.4 y MariaDB (contenedores), incluidos UTF-8 y los tipos habituales
+- [x] 9.7 El driver `mysql` gana el backend `libmywire`; el build de iOS lo usa, y escritorio sigue con MariaDB
+      hasta igualar la cobertura (`QUAERO_MYWIRE`, un `mysql.h` propio en `drivers/mysql/mywire`; las pruebas de
+      integración del driver corren con los dos clientes, y `LiveTests` edita una fila de MySQL 8.4). El driver
+      guarda cada resultado entero, como con MariaDB: el protocolo no deja otra consulta con uno abierto
 
 ## 10. `libtdswire`: cliente propio de TDS para SQL Server (Apache-2.0) — #584
 

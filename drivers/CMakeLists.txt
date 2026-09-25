@@ -5,13 +5,11 @@
 #
 # iOS (#573) takes only the drivers whose client already builds for it; a
 # host library found by accident (Homebrew's libpq) would not link there.
-# MySQL and SQL Server join with their own clients (#583, #584), since the LGPL
-# ones cannot ship in the store.
+# MySQL runs there on our own client, libmywire (#583), and SQL Server will on
+# libtdswire (#584), since the LGPL ones cannot ship in the store.
 add_subdirectory(sqlite)
 add_subdirectory(postgres)
-if(NOT IOS)
-  add_subdirectory(mysql)
-endif()
+add_subdirectory(mysql)
 add_subdirectory(informix)
 add_subdirectory(mongodb)
 if(NOT IOS)
