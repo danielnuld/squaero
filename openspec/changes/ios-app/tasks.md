@@ -95,11 +95,12 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
       los componentes Apache-2.0 publica uno en la versión fijada; va `THIRD_PARTY_NOTICES` de mongo-c)
 - [x] 7.6 Chequeo de CI: ninguna dependencia LGPL o GPL ajena en el build de iOS, y el inventario coincide con
       lo que enlaza el `xcframework` (`scripts/ios/check-inventory.mjs`, en el job `ios-core`)
-- [ ] 7.7 Política de privacidad publicada en la web (ES y EN), y su URL en App Store Connect
+- [ ] 7.7 Política de privacidad publicada en la web (ES y EN), y su URL en App Store Connect (publicada
+      con #585; falta ponerla en App Store Connect)
 - [ ] 7.8 Workflow que firma y sube a TestFlight desde CI
 - [ ] 7.9 Ficha de la App Store (ES y EN), categoría Herramientas para desarrolladores, capturas de iPhone,
       notas para la revisión (cómo abrir la base de demostración)
-- [ ] 7.10 Manual y web: sección de iPhone
+- [x] 7.10 Manual y web: sección de iPhone (manual §12, y un bloque en la portada ES y EN)
 
 ## 8. Fase 2: agente de IA en el dispositivo (`ios-ai-agent`, refs #263) — #580
 
