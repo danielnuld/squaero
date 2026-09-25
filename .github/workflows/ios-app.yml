@@ -88,6 +88,10 @@ jobs:
           if grep -q "LiveTests.*skipped" xcodebuild.log; then echo "LiveTests skipped"; exit 1; fi
           grep -q "LiveTests.*passed" xcodebuild.log
 
+      # Every required-reason API the binary calls is declared (task 7.2).
+      - name: Privacy manifest matches the binary
+        run: sh scripts/ios/check-privacy.sh ios/DerivedData/Build/Products/Debug-iphonesimulator/Squaero.app
+
       - name: Screenshots of the running app
         working-directory: ios
         run: |

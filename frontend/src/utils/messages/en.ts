@@ -1118,6 +1118,7 @@ export const en: Record<string, string> = {
   "ios.import.summary": "Added {added} · updated {updated} · skipped {skipped}.",
   "ios.import.needFiles": "{n} need a file picked again (CA, SSH key or SQLite database): the other computer's files do not exist here.",
   "ios.conn.connecting": "Connecting…",
+  "ios.conn.localNetwork": "If iOS asked about the local network and you said no, allow it in Settings › Privacy & Security › Local Network › Squaero.",
   "ios.conn.failed": "Could not connect",
   "ios.conn.askSecret": "Password for {name}",
   "ios.conn.connect": "Connect",

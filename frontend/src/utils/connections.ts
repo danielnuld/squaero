@@ -544,6 +544,23 @@ export function isProductionConnection(conn: Pick<Connection, "color" | "group">
   return PRODUCTION_GROUP.test((conn.group ?? "").trim());
 }
 
+/**
+ * Whether reaching this connection goes through the local network, which iOS
+ * lets an app use only after asking (#579): the server itself, or the SSH host
+ * in front of it, at a private, link-local or `.local` address. Loopback is not
+ * the local network, and a public name cannot be told apart, so both are false.
+ */
+export function usesLocalNetwork(conn: Pick<Connection, "params">): boolean {
+  const host = (conn.params.ssh_host || conn.params.host || "").trim().toLowerCase().replace(/^\[|\]$/g, "");
+  if (host.endsWith(".local")) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+  }
+  return /^(fc|fd|fe[89ab])[0-9a-f]{0,2}:/.test(host);
+}
+
 /** Group label of a connection, normalized ("" for ungrouped). */
 function groupOf(conn: Connection): string {
   return (conn.group ?? "").trim();

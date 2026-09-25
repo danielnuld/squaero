@@ -576,6 +576,12 @@ public final class SquaeroLogic {
         try call("connections.isProductionConnection", [conn])
     }
 
+    /// Whether reaching `conn` (or its SSH host) goes through the local
+    /// network, which iOS asks the user about first.
+    public func usesLocalNetwork(_ conn: Connection) throws -> Bool {
+        try call("connections.usesLocalNetwork", [conn])
+    }
+
     /// The engine's two letters ("PG"), as desktop's badge.
     public func engineMonogram(_ driver: String) throws -> String {
         try call("connections.engineMonogram", [driver])
