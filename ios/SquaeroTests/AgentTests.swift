@@ -173,3 +173,29 @@ final class AgentTests: XCTestCase {
         XCTAssertNotEqual(after, "agente")
     }
 }
+
+// Task 8.8: the battery ships in the app, and its scoring is right.
+@MainActor
+final class AgentEvalTests: XCTestCase {
+    func testTheBatteryShipsWithFifteenCases() throws {
+        let battery = try XCTUnwrap(AgentEvalBattery.bundled())
+        XCTAssertEqual(battery.filters.count + battery.questions.count + battery.errors.count, 15)
+    }
+
+    func testAFilterHitsWhenEveryExpectedConditionIsThere() {
+        let expect = [["estado", "=", "abierto"]]
+        XCTAssertTrue(AgentEvalScore.filter(expect: expect, got: [
+            Condition(column: "materia", op: "=", value: "civil"), Condition(column: "estado", op: "=", value: "Abierto"),
+        ]))
+        XCTAssertFalse(AgentEvalScore.filter(expect: expect, got: [Condition(column: "estado", op: "LIKE", value: "abierto")]))
+    }
+
+    func testTheSameAnswerIgnoresExtraColumnsOrderAndNumberForms() {
+        let reference = ResultSet(columns: [ResultColumn(name: "n", type: "int")], rows: [["2"], ["10"]])
+        let same = ResultSet(columns: [ResultColumn(name: "nombre", type: "text"), ResultColumn(name: "total", type: "int")],
+                             rows: [["b", "10.0"], ["a", "2"]])
+        let other = ResultSet(columns: [ResultColumn(name: "total", type: "int")], rows: [["2"], ["11"]])
+        XCTAssertTrue(AgentEvalScore.sameAnswer(reference: reference, got: same))
+        XCTAssertFalse(AgentEvalScore.sameAnswer(reference: reference, got: other))
+    }
+}
