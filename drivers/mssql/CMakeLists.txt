@@ -48,6 +48,24 @@ macro(_quaero_mssql_common)
   quaero_set_warnings(mssql_driver)
 endmacro()
 
+# On libtdswire, our own Apache-2.0 TDS client (issue #584): the only choice on
+# iOS, where FreeTDS (LGPL) cannot ship. Desktop keeps FreeTDS for now.
+option(QUAERO_TDSWIRE "Build the SQL Server plugin on libtdswire instead of FreeTDS" ${IOS})
+if(QUAERO_TDSWIRE)
+  add_library(mssql_driver ${QUAERO_DRIVER_LIB_TYPE}
+    src/entry.c
+    src/tw_connection.c
+    src/tw_query.c
+    src/metadata.c
+    src/utils/identifier.c
+    src/utils/types.c
+    src/utils/options.c)
+  _quaero_mssql_common()
+  include(QuaeroLibtdswire)
+  quaero_enable_libtdswire(mssql_driver)
+  return()
+endif()
+
 # Build FreeTDS from source when asked (the x86 Windows release, where no 32-bit
 # FreeTDS ships; see cmake/QuaeroFreeTDS.cmake). Otherwise use a system FreeTDS
 # (e.g. Debian/Ubuntu's freetds-dev) when it links for this target.

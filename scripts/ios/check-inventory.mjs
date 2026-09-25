@@ -25,6 +25,7 @@ const ARCHIVES = [
   [/^lib(mongoc|bson|utf8proc)[\w.-]*\.a$/, "mongo-c-driver (libmongoc, libbson)"],
   [/^libdrda\w*\.a$/, "libdrda"],
   [/^libmywire\.a$/, "libmywire"],
+  [/^libtdswire\.a$/, "libtdswire"],
   [/^lib(ssl|crypto)\.a$/, "OpenSSL"],
   [/^libssh2\w*\.a$/, "libssh2"],
   [/^libcjson\.a$/, "cJSON"],
