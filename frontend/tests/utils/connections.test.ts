@@ -4,6 +4,7 @@ import {
   defaultConnectionName,
   engineMonogram,
   isProductionConnection,
+  usesLocalNetwork,
 } from "../../src/utils/connections";
 
 // The two pieces the connection bar's rows need (#525): a monogram that fits a
@@ -724,5 +725,28 @@ describe("isProductionConnection", () => {
     expect(isProductionConnection({ color: "#4bb45e", group: "Desarrollo" })).toBe(false);
     expect(isProductionConnection({ group: "productos" })).toBe(false);
     expect(isProductionConnection({ group: "preprod" })).toBe(false);
+  });
+});
+
+// iOS asks before an app reaches the local network (#579).
+describe("usesLocalNetwork", () => {
+  const at = (host: string, ssh_host?: string) =>
+    usesLocalNetwork({ params: ssh_host ? { host, ssh_host } : { host } });
+
+  it("takes private, link-local and .local addresses", () => {
+    for (const h of ["10.0.0.5", "172.16.0.1", "172.31.255.1", "192.168.1.20", "169.254.3.4", "nas.local", "fd12::1", "[fe80::1]"]) {
+      expect(at(h), h).toBe(true);
+    }
+  });
+
+  it("leaves loopback, public and nearby-but-public addresses out", () => {
+    for (const h of ["127.0.0.1", "localhost", "8.8.8.8", "172.32.0.1", "192.169.0.1", "db.example.com", "::1", ""]) {
+      expect(at(h), h).toBe(false);
+    }
+  });
+
+  it("looks at the SSH host when the connection goes through one", () => {
+    expect(at("127.0.0.1", "192.168.1.9")).toBe(true);
+    expect(at("10.0.0.5", "bastion.example.com")).toBe(false);
   });
 });

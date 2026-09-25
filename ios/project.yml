@@ -6,6 +6,9 @@
 name: Squaero
 options:
   bundleIdPrefix: io.github.danielnuld
+  # Spanish first, like desktop; the permission texts are in
+  # Squaero/Resources/{es,en}.lproj/InfoPlist.strings.
+  developmentLanguage: es
   deploymentTarget:
     iOS: "17.0"
 packages:
@@ -27,7 +30,13 @@ targets:
         CFBundleDisplayName: Squaero
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        UILaunchScreen: {}
+        # The brand mark on the paper colour, light and dark (task 7.1).
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchMark
+        # Plain-language purposes (task 7.1), translated in InfoPlist.strings.
+        NSFaceIDUsageDescription: Squaero usa Face ID para desbloquear las contraseñas que guardaste en el llavero.
+        NSLocalNetworkUsageDescription: Squaero se conecta a los servidores de bases de datos de tu red local que tú configures.
         UIAppFonts:
           - SchibstedGrotesk.ttf
           - MartianMono.ttf

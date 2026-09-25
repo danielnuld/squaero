@@ -1,0 +1,3 @@
+/* Permission purposes (issue #579, task 7.1). */
+"NSFaceIDUsageDescription" = "Squaero usa Face ID para desbloquear las contraseñas que guardaste en el llavero.";
+"NSLocalNetworkUsageDescription" = "Squaero se conecta a los servidores de bases de datos de tu red local que tú configures.";

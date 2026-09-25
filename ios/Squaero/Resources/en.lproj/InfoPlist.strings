@@ -1,0 +1,3 @@
+/* Permission purposes (issue #579, task 7.1). */
+"NSFaceIDUsageDescription" = "Squaero uses Face ID to unlock the passwords you saved in the Keychain.";
+"NSLocalNetworkUsageDescription" = "Squaero connects to the database servers on your local network that you set up.";

@@ -184,7 +184,12 @@ struct ConnectionsView: View {
                 }
             } catch ConnectError.cancelled {
                 failure = Logic.t("ios.faceid.cancelled")
-            } catch ConnectError.keychain(let message), ConnectError.core(let message) {
+            } catch ConnectError.core(let message) {
+                // A refused local-network permission looks like any other
+                // unreachable host: say where to allow it (task 7.1).
+                let local = (try? Logic.shared.usesLocalNetwork(conn)) ?? false
+                failure = local ? message + "\n\n" + Logic.t("ios.conn.localNetwork") : message
+            } catch ConnectError.keychain(let message) {
                 failure = message
             } catch {
                 failure = "\(error)"
