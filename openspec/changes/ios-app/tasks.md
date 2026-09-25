@@ -72,7 +72,9 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 - [x] 5.3 Fila como formulario, con tipos y datos relacionados por llaves foráneas
 - [x] 5.4 Editar, vista previa del SQL, Face ID y transacción; aviso de producción; error legible y rollback
 - [x] 5.5 MongoDB de solo lectura, sin ofrecer edición
-- [ ] 5.6 Prueba en vivo: editar, confirmar y descartar en MySQL, PostgreSQL e Informix
+- [x] 5.6 Prueba en vivo: editar, confirmar y descartar (`LiveTests`, en el job `ios-app`) en PostgreSQL,
+      incluido un rechazo del servidor que aborta la transacción y se deshace. Fuera: Informix (solo imagen
+      Docker, como en 4.7) y MySQL (espera #583)
 
 ## 6. Consultas y exportar (`ios-query-export`) — #578
 
