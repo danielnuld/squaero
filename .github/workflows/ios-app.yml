@@ -122,3 +122,21 @@ jobs:
         with:
           name: squaero-ios-screenshot
           path: squaero-ios*.png
+
+      # An unsigned build for a real iPhone. Without a paid developer account,
+      # Sideloadly (on Windows) signs it with the user's Apple ID and installs
+      # it by cable; that signature lasts seven days.
+      - name: Unsigned .ipa for a device
+        working-directory: ios
+        run: |
+          xcodebuild build -project Squaero.xcodeproj -scheme Squaero -configuration Release \
+            -destination generic/platform=iOS -derivedDataPath DerivedDevice \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -n 3
+          mkdir -p Payload
+          cp -R DerivedDevice/Build/Products/Release-iphoneos/Squaero.app Payload/
+          zip -qry ../Squaero-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: squaero-ios-ipa
+          path: Squaero-unsigned.ipa
