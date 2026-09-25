@@ -433,6 +433,26 @@ public final class SquaeroLogic {
     /// by the row's original primary key, as desktop's grid builds them
     /// (editSession.buildPlan). Empty when nothing changed or the row does
     /// not carry every key column.
+    /// The DELETE of one row, keyed by its primary key (editSession.buildPlan);
+    /// empty when the row does not carry every key column.
+    public func rowDeletePlan(table: String, db: String?, schema: String?, pk: [String],
+                              columns: [ResultColumn], row: [String?]) throws -> [PlanItem] {
+        struct Source: Encodable { let table: String; let db: String?; let schema: String?; let pk: [String] }
+        struct Pending: Encodable {
+            let edits: [String: [String: String?]] = [:]
+            let deletes = [0]
+            let inserts: [[String: String?]] = []
+        }
+        return try call("editSession.buildPlan", [Source(table: table, db: db, schema: schema, pk: pk), columns,
+                                                  [row], Pending()])
+    }
+
+    /// Whether a row.* call touched the one row it should have (edit.ts):
+    /// MySQL's unchanged UPDATE reports 0 and passes; no count cannot be checked.
+    public func rowCountOk(engine: String, kind: String, rowsAffected: Int?) throws -> Bool {
+        try call("edit.rowCountOk", [engine, kind, rowsAffected])
+    }
+
     public func rowUpdatePlan(table: String, db: String?, schema: String?, pk: [String],
                               columns: [ResultColumn], row: [String?], set: [String: String?]) throws -> [PlanItem] {
         struct Source: Encodable { let table: String; let db: String?; let schema: String?; let pk: [String] }
@@ -568,6 +588,16 @@ public final class SquaeroLogic {
     /// Where a connection points, in one line ("siaj @ 10.0.0.5:9089").
     public func connectionTarget(_ conn: Connection) throws -> String {
         try call("connections.connectionTarget", [conn])
+    }
+
+    /// Whether the connection carries desktop's red, the explicit production mark.
+    public func hasProductionColor(_ conn: Connection) throws -> Bool {
+        try call("connections.hasProductionColor", [conn])
+    }
+
+    /// `conn` with the production mark (the red) put on or taken off.
+    public func markProduction(_ conn: Connection, _ on: Bool) throws -> Connection {
+        try call("connections.markProduction", [conn, on])
     }
 
     /// Whether an edit's preview warns that this is production: the palette's
