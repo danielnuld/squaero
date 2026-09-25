@@ -48,6 +48,7 @@
       <li><a href="#entre-conexiones">Mover datos entre bases</a></li>
       <li><a href="#atajos">Atajos de teclado</a></li>
       <li><a href="#problemas">Si algo va mal</a></li>
+      <li><a href="#iphone">En el iPhone</a></li>
     </ol>
   </nav>
 
@@ -659,6 +660,68 @@
         Issues</a>. Ayuda mucho decir el motor y su versión, la versión de Squaero
         (está en <b>Acerca de</b>) y qué esperabas que pasara.</p>
     </section>
+
+    <!-- 12 ────────────────────────────────────────────────────────────── -->
+    <section id="iphone">
+      <h2>12. En el iPhone</h2>
+      <p>La app de iPhone usa el mismo núcleo y los mismos drivers que escritorio,
+        con pantallas pensadas para el teléfono. Lleva SQLite, PostgreSQL, Informix y
+        MongoDB; MySQL y SQL Server llegan cuando tengan su propio cliente, porque los
+        de ahora no se pueden distribuir en la App Store. Está en preparación: todavía
+        no se publica.</p>
+
+      <h3>Probar sin servidor</h3>
+      <p>En <b>Conexiones</b>, <b>Base de demostración</b> abre una base SQLite con
+        juzgados, salas, 1 284 expedientes y sus audiencias. Sirve para explorar,
+        editar, consultar y exportar sin configurar nada. Desliza la fila y
+        <b>Restablecer</b> la deja como venía.</p>
+
+      <h3>Conexiones</h3>
+      <ul>
+        <li><b>+</b> crea una con los mismos campos que en escritorio; el botón de
+          importar trae el archivo de conexiones exportado desde escritorio.</li>
+        <li>Las contraseñas y las claves SSH van al llavero de iOS, protegidas con
+          Face ID o el código. Si prefieres no guardarlas, se piden al conectar.</li>
+        <li>El certificado de la CA (TLS verificado) y los archivos SQLite se eligen en
+          <b>Archivos</b>.</li>
+        <li>Para un servidor de tu red local, iOS pide permiso la primera vez. Si
+          dijiste que no: <b>Ajustes › Privacidad y seguridad › Red local › Squaero</b>.</li>
+        <li>El interruptor <b>Producción</b> marca la conexión con el rojo de escritorio:
+          cada cambio lo advierte antes de pedir Face ID.</li>
+        <li>Al volver del segundo plano, iOS ya cerró la conexión: la app lo dice y
+          ofrece <b>Reconectar</b>.</li>
+      </ul>
+
+      <h3>Explorar y editar</h3>
+      <p>Tablas, vistas y rutinas con buscador. Una tabla se ve como tarjetas; el
+        filtro y el orden se aplican en el servidor y las páginas llegan del cursor al
+        bajar. Tocar una fila la abre como formulario, con sus datos relacionados en
+        los dos sentidos.</p>
+      <p><b>Editar</b> o <b>Eliminar fila</b> muestran primero la sentencia exacta y
+        cuántas filas toca; solo se ejecuta tras Face ID, dentro de una transacción, y
+        se confirma únicamente si afectó a esa fila. Si el servidor la rechaza, se
+        deshace y el cambio queda en pantalla para corregirlo. MongoDB y las tablas sin
+        clave primaria son de solo lectura.</p>
+
+      <h3>Consultas y snippets</h3>
+      <p>La pestaña <b>Consultas</b> trabaja sobre la conexión abierta: resaltado,
+        completado de tablas y columnas, y una fila de teclas SQL sobre el teclado.
+        Ejecuta la selección o todo el texto, sentencia por sentencia, y muestra la
+        última con su número de filas y su tiempo. Las variables <code>:nombre</code> y
+        <code>${nombre}</code> se piden antes de ejecutar, con los valores de la vez
+        anterior. <b>Snippets</b> guarda consultas con nombre y las ejecuta con un
+        toque.</p>
+
+      <h3>Exportar</h3>
+      <p>Desde una tabla o un resultado: CSV, JSON, XLSX, XML, HTML o SQL, con todas
+        las filas (se leen del cursor, sin volver a consultar) o solo las visibles, a
+        <b>Archivos</b> o a <b>Compartir</b>.</p>
+
+      <h3>Licencias</h3>
+      <p><b>Ajustes › Licencias</b> lista cada componente de terceros de la app con su
+        versión y el texto completo de su licencia.</p>
+    </section>
+
 
   </article>
 </main>
