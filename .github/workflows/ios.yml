@@ -16,6 +16,7 @@ on:
       - "third_party/**"
       - "CMakeLists.txt"
       - "scripts/ios/**"
+      - "THIRD-PARTY.md"
       - ".github/workflows/ios.yml"
   push:
     branches: [main]
@@ -26,6 +27,7 @@ on:
       - "third_party/**"
       - "CMakeLists.txt"
       - "scripts/ios/**"
+      - "THIRD-PARTY.md"
       - ".github/workflows/ios.yml"
   workflow_dispatch:
 
@@ -41,6 +43,14 @@ jobs:
 
       - name: Build SquaeroCore.xcframework
         run: sh scripts/ios/build-xcframework.sh build-ios
+
+      # What the xcframework links is exactly THIRD-PARTY.md's iOS inventory,
+      # with no GPL or LGPL code by another author (task 7.6).
+      - name: Licences of what is linked
+        run: >
+          node scripts/ios/check-inventory.mjs
+          build-ios/device/static_registry_test.link
+          build-ios/simulator/static_registry_test.link
 
       - name: Boot a simulator
         run: |
