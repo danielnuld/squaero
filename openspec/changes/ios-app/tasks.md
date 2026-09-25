@@ -90,7 +90,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 - [x] 7.2 `PrivacyInfo.xcprivacy` sin recogida de datos, con las razones de las API declaradas; CI compara
       las API que importa el binario con las declaradas (`scripts/ios/check-privacy.sh`)
 - [ ] 7.3 `ITSAppUsesNonExemptEncryption` y la respuesta de cumplimiento de exportación
-- [ ] 7.4 Base de demostración SQLite incluida y ofrecida en la pantalla de conexiones
+- [x] 7.4 Base de demostración SQLite incluida y ofrecida en la pantalla de conexiones
 - [ ] 7.5 Pantalla de licencias generada desde `THIRD-PARTY.md`, con los `NOTICE` de Apache-2.0
 - [ ] 7.6 Chequeo de CI: ninguna dependencia LGPL o GPL ajena en el build de iOS, y el inventario coincide con
       lo que enlaza el `xcframework`
