@@ -36,7 +36,8 @@ const ARCHIVES = [
 ];
 
 // Known copyleft clients that must never reach the iOS build.
-const COPYLEFT = /^lib(mariadb|mysqlclient|sybdb|ct|tds|freetds)\w*\.a$/;
+// FreeTDS's archives by their exact names: a prefix would catch libtdswire.
+const COPYLEFT = /^lib(mariadb\w*|mysqlclient\w*|sybdb|ct|tds|tdsutils|freetds\w*)\.a$/;
 
 // Listed in the inventory but bundled by the app, not linked by the core.
 const NOT_LINKED = new Set(["fflate", "Schibsted Grotesk", "Martian Mono"]);
