@@ -26,11 +26,14 @@ struct ConnectionsView: View {
                         ForEach(group.conns) { conn in row(conn) }
                     }
                 }
-            }
-            .overlay {
-                if store.connections.isEmpty {
-                    ContentUnavailableView(Logic.t("ios.conn.empty"), systemImage: "cylinder.split.1x2",
-                                           description: Text(Logic.t("ios.conn.emptyHint")))
+                // Always there, so the first screen has something to open
+                // with no server (task 7.4).
+                Section {
+                    demoRow
+                } header: {
+                    Text(Logic.t("ios.demo.section"))
+                } footer: {
+                    if store.connections.isEmpty { Text(Logic.t("ios.conn.emptyHint")) }
                 }
             }
             .navigationTitle(Logic.t("ios.tab.connections"))
@@ -87,6 +90,43 @@ struct ConnectionsView: View {
             .alert(Logic.t("ios.conn.failed"), isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
                 Button("OK") { failure = nil }
             } message: { Text(failure ?? "") }
+        }
+    }
+
+    private var demoRow: some View {
+        Button(action: openDemo) {
+            HStack(spacing: 12) {
+                EngineBadge(driver: "sqlite")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Logic.t("ios.demo.name")).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                    Text(Logic.t("ios.demo.detail")).font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if busy == DemoDatabase.connectionId { ProgressView() }
+            }
+        }
+        .disabled(busy != nil)
+        .swipeActions {
+            Button(Logic.t("ios.demo.reset")) {
+                do { try DemoDatabase.reset() } catch { failure = "\(error)" }
+            }
+            .tint(.orange)
+        }
+    }
+
+    /// Builds the demo database the first time, then opens it like any
+    /// SQLite connection (no secrets, so no Face ID).
+    private func openDemo() {
+        busy = DemoDatabase.connectionId
+        Task {
+            do {
+                let url = try await DemoDatabase.ensure()
+                busy = nil
+                connect(DemoDatabase.connection(url), typed: [:])
+            } catch {
+                busy = nil
+                failure = Logic.readable(error)
+            }
         }
     }
 
