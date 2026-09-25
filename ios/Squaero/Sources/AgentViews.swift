@@ -19,7 +19,7 @@ enum AgentQueryTask: Identifiable {
         }
     }
 
-    var title: String {
+    @MainActor var title: String {
         switch self {
         case .explainError: return Logic.t("ios.agent.explainError")
         case .explain: return Logic.t("ios.agent.explain")
