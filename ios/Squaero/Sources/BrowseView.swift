@@ -60,6 +60,27 @@ struct TreeLevel: Hashable {
     func child(_ name: String) -> TreeLevel {
         db == nil ? TreeLevel(db: name, schema: nil, title: name) : TreeLevel(db: db, schema: name, title: name)
     }
+
+    /// The tables and views of the connection's own database (PostgreSQL's
+    /// public schema), walking down while there is one container to walk into.
+    static func tables(connId: String, conn: Connection) async -> (db: String?, schema: String?, tables: [String])? {
+        var db = root(conn).db
+        var schema: String?
+        for _ in 0..<3 {
+            var p: [String: Any] = ["connId": connId]
+            if let db { p["db"] = db }
+            if let schema { p["schema"] = schema }
+            guard let result = try? await Core.shared.resultSet("schema.tree", p),
+                  let rows = try? Logic.shared.parseTreeRows(result, fallback: db == nil ? "database" : "schema")
+            else { return nil }
+            let objects = rows.filter { $0.kind == "table" || $0.kind == "view" }
+            if !objects.isEmpty { return (db, schema, objects.map(\.name)) }
+            guard let pick = rows.first(where: { $0.name == "public" }) ?? (rows.count == 1 ? rows.first : nil)
+            else { return nil }
+            if db == nil { db = pick.name } else { schema = pick.name }
+        }
+        return nil
+    }
 }
 
 struct RoutineRow: Hashable {

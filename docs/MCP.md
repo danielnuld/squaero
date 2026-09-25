@@ -107,7 +107,7 @@ silently skipped.
 ## Statement classifier
 
 The read-only gate never executes anything to decide; it classifies the SQL
-text with a pure, fail-closed classifier (`tools/quaero-mcp/stmt_class.c`,
+text with a pure, fail-closed classifier (`core/src/query/stmt_class.c`, shared with the iPhone's agent,
 unit-tested in `stmt_class_test`). It defends against the usual tricks:
 
 - line (`--`) and block (`/* … */`) comments,

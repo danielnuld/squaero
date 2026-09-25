@@ -27,6 +27,7 @@ struct RootView: View {
 
 struct SettingsView: View {
     @State private var core: String = "…"
+    @State private var agent = AgentSettings.enabled
 
     var body: some View {
         NavigationStack {
@@ -35,6 +36,17 @@ struct SettingsView: View {
                     LabeledContent(Logic.t("ios.settings.version")) { Text(core).font(Theme.mono()) }
                     LabeledContent(Logic.t("ios.settings.engines")) {
                         Text("\(Core.shared.driverCount)").font(Theme.mono())
+                    }
+                }
+                // Only where Apple Intelligence is (issue #580).
+                if AgentSettings.available {
+                    Section {
+                        Toggle(Logic.t("ios.agent.toggle"), isOn: $agent)
+                            .onChange(of: agent) { _, on in AgentSettings.enabled = on }
+                    } header: {
+                        Text(Logic.t("ios.agent.title"))
+                    } footer: {
+                        Text(Logic.t("ios.agent.explain"))
                     }
                 }
                 Section {
