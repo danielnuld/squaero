@@ -8,11 +8,12 @@ import UIKit
 
 enum Theme {
     /// #5b5bd6 in light, #6d6de6 in dark.
-    static let accent = Color(UIColor { traits in
+    static let accentUI = UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0x6d / 255, green: 0x6d / 255, blue: 0xe6 / 255, alpha: 1)
             : UIColor(red: 0x5b / 255, green: 0x5b / 255, blue: 0xd6 / 255, alpha: 1)
-    })
+    }
+    static let accent = Color(accentUI)
 
     /// PostScript names of the fonts in Resources/Fonts (listed in UIAppFonts).
     static let titleFontName = "SchibstedGrotesk-Regular"
@@ -24,6 +25,12 @@ enum Theme {
 
     static func mono(_ size: CGFloat = 13) -> Font {
         .custom(monoFontName, size: size, relativeTo: .body)
+    }
+
+    /// Martian Mono as a UIFont, for UIKit views (the SQL editor).
+    static func monoUI(_ size: CGFloat = 14) -> UIFont {
+        UIFontMetrics(forTextStyle: .body).scaledFont(for: UIFont(name: monoFontName, size: size)
+            ?? .monospacedSystemFont(ofSize: size, weight: .regular))
     }
 
     /// Large navigation titles in Schibsted Grotesk, as in the prototype.

@@ -173,7 +173,7 @@ struct RowsView: View {
             ForEach(pager.rows.indices, id: \.self) { i in
                 NavigationLink(value: RowRef(object: pager.object, columns: pager.columns, row: pager.rows[i],
                                              types: pager.types, pk: pager.pk)) {
-                    card(pager.rows[i])
+                    RowCard(columns: pager.columns, row: pager.rows[i])
                 }
                 // Opening a row leaves this screen, which closes the cursor:
                 // the next page then comes from an offset (RowPager.page).
@@ -260,14 +260,20 @@ struct RowsView: View {
         .buttonStyle(.plain)
         .accessibilityHint(Logic.t("ios.rows.removeFilter"))
     }
+}
 
-    /// The first column is the card's title; the next few are its lines.
-    private func card(_ row: [String?]) -> some View {
+/// A row as a card: the first column is its title, the next few its lines.
+/// Shared by a table's rows and a query's result.
+struct RowCard: View {
+    let columns: [ResultColumn]
+    let row: [String?]
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(row.first.flatMap { $0 } ?? "NULL")
                 .font(Theme.mono(14).weight(.semibold))
                 .lineLimit(1)
-            ForEach(Array(zip(pager.columns.dropFirst().prefix(3), row.dropFirst().prefix(3))), id: \.0.name) { col, value in
+            ForEach(Array(zip(columns.dropFirst().prefix(3), row.dropFirst().prefix(3))), id: \.0.name) { col, value in
                 HStack(spacing: 6) {
                     Text(col.name).foregroundStyle(.secondary)
                     Text(value ?? "NULL").foregroundStyle(value == nil ? .tertiary : .primary)

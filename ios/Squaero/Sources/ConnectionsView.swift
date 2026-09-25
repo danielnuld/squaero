@@ -72,6 +72,7 @@ struct ConnectionsView: View {
                 if let session { RowDetailView(session: session, ref: row) }
             }
             .onChange(of: session) { old, _ in
+                OpenSession.shared.current = session
                 // Back out of the browser: the session ends with it.
                 if let old, old !== session {
                     let id = old.connId

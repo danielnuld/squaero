@@ -207,6 +207,37 @@ public struct PlanItem: Codable, Equatable {
     public var setTypes: [String: String]?
 }
 
+/// A coloured run of the SQL editor (sqlEditor.ts): kind is keyword, string,
+/// number, comment, variable or ident; offsets are UTF-16, as NSString's.
+public struct HighlightSpan: Codable, Equatable {
+    public var kind: String
+    public var start: Int
+    public var end: Int
+}
+
+/// The word a completion replaces, [from, cursor), and after `t.` its table.
+public struct CompletionContext: Codable, Equatable {
+    public var from: Int
+    public var word: String
+    public var table: String?
+}
+
+/// What the editor knows of the schema: tables, and columns by table.
+public struct EditorSchema: Codable, Equatable {
+    public var tables: [String]
+    public var columns: [String: [String]]
+    public init(tables: [String] = [], columns: [String: [String]] = [:]) {
+        self.tables = tables; self.columns = columns
+    }
+}
+
+/// One top-level statement of a script (runScope.ts), UTF-16 offsets.
+public struct SqlStatement: Codable, Equatable {
+    public var from: Int
+    public var to: Int
+    public var text: String
+}
+
 public enum SquaeroLogicError: Error, Equatable {
     /// squaero-logic.js is not in the bundle (run `pnpm build:logic`).
     case scriptMissing
@@ -381,6 +412,37 @@ public final class SquaeroLogic {
     public func relatedCount(_ query: RelatedQuery, engine: String, db: String?, schema: String?) throws -> String? {
         struct Scope: Encodable { let db: String?; let schema: String? }
         return try call("relatedData.relatedCount", [query, engine, Scope(db: db, schema: schema)])
+    }
+
+    // MARK: SQL editor
+
+    public func highlightSql(_ sql: String, engine: String?) throws -> [HighlightSpan] {
+        try call("sqlEditor.highlightSql", [sql, engine])
+    }
+
+    public func completionContext(_ sql: String, cursor: Int) throws -> CompletionContext {
+        try call("sqlEditor.completionContext", [sql, cursor])
+    }
+
+    public func completionItems(_ sql: String, _ ctx: CompletionContext, schema: EditorSchema,
+                                limit: Int = 12) throws -> [String] {
+        try call("sqlEditor.completionItems", [sql, ctx, schema, limit])
+    }
+
+    /// The tables a statement names, unqualified, in first-seen order.
+    public func tablesInStatement(_ sql: String) throws -> [String] {
+        try call("sqlEditor.tablesInStatement", [sql])
+    }
+
+    /// The statements of a script, split where desktop splits them (a routine
+    /// body keeps its semicolons).
+    public func splitStatements(_ sql: String, engine: String?) throws -> [SqlStatement] {
+        try call("runScope.splitStatements", [sql, engine])
+    }
+
+    /// "834 ms", "1.2 s", "1 m 5 s".
+    public func formatDuration(ms: Double) throws -> String {
+        try call("duration.formatDuration", [ms])
     }
 
     public func routinesFor(_ engine: String, db: String?) throws -> RoutineSupport {
