@@ -25,7 +25,8 @@ final class AgentTests: XCTestCase {
         let conn = DemoDatabase.connection(url)
         let id = try await Connector.open(conn, protected: false)
         connId = id
-        return try XCTUnwrap(await AgentTools.load(connId: id, conn: conn))
+        let tools = await AgentTools.load(connId: id, conn: conn)
+        return try XCTUnwrap(tools)
     }
 
     private func first(_ sql: String) async throws -> String? {
