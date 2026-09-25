@@ -26,6 +26,7 @@ const MODULES = [
   "routines",
   "pagination",
   "edit",
+  "editSession",
   "relatedData",
 ];
 
@@ -77,6 +78,7 @@ describe("squaero-logic.js without a DOM", () => {
       "connections",
       "dataFilter",
       "edit",
+      "editSession",
       "exporters",
       "foreignKeys",
       "i18n",

@@ -531,6 +531,19 @@ export const CONNECTION_ICONS: string[] = [
   "⚠️", "🧪", "🏛️", "🏦", "📊", "🔒", "🚀", "🐢", "📁", "⭐",
 ];
 
+const PRODUCTION_GROUP = /^(prod|producci[oó]n|production)\b/i;
+
+/**
+ * Whether a connection reads as production (the iPhone's edit preview says so,
+ * #577): the palette's red, which the form offers as the "careful" marker, or a
+ * group named for it ("Producción", "prod-SIAJ"). There is no separate flag to
+ * forget to set; a false positive only adds a warning.
+ */
+export function isProductionConnection(conn: Pick<Connection, "color" | "group">): boolean {
+  if ((conn.color ?? "").toLowerCase() === CONNECTION_COLORS[0]) return true;
+  return PRODUCTION_GROUP.test((conn.group ?? "").trim());
+}
+
 /** Group label of a connection, normalized ("" for ungrouped). */
 function groupOf(conn: Connection): string {
   return (conn.group ?? "").trim();
