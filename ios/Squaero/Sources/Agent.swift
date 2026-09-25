@@ -172,6 +172,44 @@ enum AgentFilter {
     ].joined(separator: " ")
 }
 
+/// What the model writes, checked before it reaches the user (tasks 8.4-8.7).
+enum AgentCheck {
+    /// The statement of a model's answer, without the Markdown fence or the
+    /// trailing semicolon a small model likes to add; nil when empty.
+    static func statement(_ text: String) -> String? {
+        var sql = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sql.hasPrefix("```") {
+            sql = sql.split(separator: "\n", omittingEmptySubsequences: false).dropFirst()
+                .joined(separator: "\n")
+            if let end = sql.range(of: "```", options: .backwards) { sql = String(sql[..<end.lowerBound]) }
+        }
+        sql = sql.trimmingCharacters(in: .whitespacesAndNewlines)
+        while sql.hasSuffix(";") { sql = String(sql.dropLast()).trimmingCharacters(in: .whitespaces) }
+        return sql.isEmpty ? nil : sql
+    }
+
+    /// A question's SELECT (task 8.6): only a provably read-only statement
+    /// reaches the editor, and even then it waits there for the user.
+    static func select(_ text: String) -> String? {
+        guard let sql = statement(text), AgentTools.isReadOnly(sql) else { return nil }
+        return sql
+    }
+
+    /// A change the model proposes for a row (task 8.7): only columns of the
+    /// row that are not its primary key; "NULL" is SQL NULL. It fills in the
+    /// edit and opens the preview; Face ID stays the user's.
+    static func changes(_ proposed: [(column: String, value: String)], columns: [String], pk: [String])
+        -> [(column: String, value: String?)] {
+        proposed.compactMap { p in
+            guard let column = columns.first(where: { $0.caseInsensitiveCompare(p.column) == .orderedSame }),
+                  !pk.contains(column)
+            else { return nil }
+            let value = p.value.trimmingCharacters(in: .whitespaces)
+            return (column, value.uppercased() == "NULL" ? nil : value)
+        }
+    }
+}
+
 #if canImport(FoundationModels)
 @available(iOS 26.0, *)
 @Generable

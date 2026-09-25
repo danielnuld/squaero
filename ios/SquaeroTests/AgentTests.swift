@@ -127,4 +127,49 @@ final class AgentTests: XCTestCase {
         XCTAssertTrue(prompt.contains("2026-09-25 Friday"), prompt)
         XCTAssertTrue(prompt.contains("solo las programadas de mañana"))
     }
+
+    // Tasks 8.4 and 8.6: what the model writes, cleaned and checked.
+    func testTheModelsSQLIsCleanedAndOnlyASelectReachesTheEditor() {
+        XCTAssertEqual(AgentCheck.statement("```sql\nSELECT 1;\n```"), "SELECT 1")
+        XCTAssertEqual(AgentCheck.statement("  SELECT a FROM t ;; "), "SELECT a FROM t")
+        XCTAssertNil(AgentCheck.statement("  "))
+        XCTAssertEqual(AgentCheck.select("SELECT sala_id, COUNT(*) FROM audiencias GROUP BY sala_id;"),
+                       "SELECT sala_id, COUNT(*) FROM audiencias GROUP BY sala_id")
+        XCTAssertNil(AgentCheck.select("UPDATE audiencias SET tipo = 'x'"))
+        XCTAssertNil(AgentCheck.select("SELECT 1; DELETE FROM audiencias"))
+    }
+
+    func testAProposedChangeNeverTouchesThePrimaryKey() {
+        let got = AgentCheck.changes([("TIPO", "celebrada"), ("id", "99"), ("nada", "x"), ("fecha", "null")],
+                                     columns: ["id", "tipo", "fecha"], pk: ["id"])
+        XCTAssertEqual(got.map(\.column), ["tipo", "fecha"])
+        XCTAssertEqual(got.map(\.value), ["celebrada", nil])
+    }
+
+    // Task 8.7, the rest of it: a change the agent proposes fills in the edit
+    // and opens the preview, and nothing reaches the table.
+    func testAnAgentChangeOnlyOpensThePreview() async throws {
+        _ = try await tools()
+        let url = try await DemoDatabase.ensure(in: directory)
+        let conn = DemoDatabase.connection(url)
+        let session = Session(conn: conn, connId: try XCTUnwrap(connId))
+        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "audiencias"))
+        await pager.describe()
+        await pager.reload()
+        pager.close()
+        let row = try XCTUnwrap(pager.rows.first)
+        let editor = RowEditor(session: session, ref: RowRef(object: pager.object, columns: pager.columns, row: row,
+                                                             types: pager.types, pk: pager.pk))
+        let id = try XCTUnwrap(row.first ?? nil)
+        let before = try await first("SELECT tipo FROM audiencias WHERE id = \(id)")
+
+        let changes = AgentCheck.changes([("tipo", "agente")], columns: pager.columns.map(\.name), pk: pager.pk)
+        AgentChangeSheet.fill(editor, with: changes)
+        await editor.review()
+        let preview = try XCTUnwrap(editor.preview, editor.failure ?? "no preview")
+        XCTAssertTrue(preview.joined().contains("UPDATE"), "\(preview)")
+        let after = try await first("SELECT tipo FROM audiencias WHERE id = \(id)")
+        XCTAssertEqual(before, after)
+        XCTAssertNotEqual(after, "agente")
+    }
 }
