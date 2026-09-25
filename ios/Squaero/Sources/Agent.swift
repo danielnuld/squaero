@@ -119,3 +119,126 @@ struct AgentTools: Sendable {
         s.count <= Self.maxChars ? s : String(s.prefix(Self.maxChars)) + "…"
     }
 }
+
+/// Filtering by asking (task 8.3), the part that does not need the model:
+/// what the model proposes becomes filter chips only once checked against
+/// the table's real columns and the operators the filter knows.
+enum AgentFilter {
+    /// queryBuilder.ts' OPERATORS, which the filter sheet offers too.
+    static let operators = ["=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN",
+                            "IS NULL", "IS NOT NULL"]
+
+    /// The proposed conditions that name a real column (in any case) and a
+    /// known operator; the rest are dropped, never guessed at.
+    static func conditions(_ proposed: [(column: String, op: String, value: String)],
+                           columns: [String]) -> [Condition] {
+        proposed.compactMap { p in
+            guard let column = columns.first(where: { $0.caseInsensitiveCompare(p.column) == .orderedSame }),
+                  let op = operators.first(where: { $0.caseInsensitiveCompare(p.op.trimmingCharacters(in: .whitespaces)) == .orderedSame })
+            else { return nil }
+            let nullary = op == "IS NULL" || op == "IS NOT NULL"
+            var value = p.value.trimmingCharacters(in: .whitespaces)
+            if nullary { value = "" }
+            if op == "BETWEEN" { value = value.replacingOccurrences(of: "...", with: "…") }
+            if !nullary && value.isEmpty { return nil }
+            return Condition(column: column, op: op, value: value)
+        }
+    }
+
+    /// What the model is told about the table and about today, so "mañana"
+    /// becomes a date.
+    static func prompt(_ request: String, table: String, columns: [String], types: [String: String],
+                       today: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd EEEE"
+        let cols = columns.map { "\($0) (\(types[$0] ?? "?"))" }.joined(separator: ", ")
+        return """
+            Tabla: \(table)
+            Columnas: \(cols)
+            Hoy: \(f.string(from: today))
+            Petición: \(request)
+            """
+    }
+
+    static let instructions = [
+        "Conviertes una petición en condiciones de filtro sobre una tabla.",
+        "Usa solo nombres de columna de la lista, exactamente como aparecen.",
+        "Operadores: = != < > <= >= LIKE CONTAINS BETWEEN IN IS NULL IS NOT NULL.",
+        "Fechas en formato YYYY-MM-DD; para un día entero en una columna de fecha y hora usa BETWEEN",
+        "con el valor 'YYYY-MM-DD 00:00:00…YYYY-MM-DD 23:59:59'. IN lleva los valores separados por comas.",
+        "Los valores van sin comillas. Si la petición no se puede expresar con estas columnas,",
+        "no devuelvas condiciones.",
+    ].joined(separator: " ")
+}
+
+/// What the model writes, checked before it reaches the user (tasks 8.4-8.7).
+enum AgentCheck {
+    /// The statement of a model's answer, without the Markdown fence or the
+    /// trailing semicolon a small model likes to add; nil when empty.
+    static func statement(_ text: String) -> String? {
+        var sql = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sql.hasPrefix("```") {
+            sql = sql.split(separator: "\n", omittingEmptySubsequences: false).dropFirst()
+                .joined(separator: "\n")
+            if let end = sql.range(of: "```", options: .backwards) { sql = String(sql[..<end.lowerBound]) }
+        }
+        sql = sql.trimmingCharacters(in: .whitespacesAndNewlines)
+        while sql.hasSuffix(";") { sql = String(sql.dropLast()).trimmingCharacters(in: .whitespaces) }
+        return sql.isEmpty ? nil : sql
+    }
+
+    /// A question's SELECT (task 8.6): only a provably read-only statement
+    /// reaches the editor, and even then it waits there for the user.
+    static func select(_ text: String) -> String? {
+        guard let sql = statement(text), AgentTools.isReadOnly(sql) else { return nil }
+        return sql
+    }
+
+    /// A change the model proposes for a row (task 8.7): only columns of the
+    /// row that are not its primary key; "NULL" is SQL NULL. It fills in the
+    /// edit and opens the preview; Face ID stays the user's.
+    static func changes(_ proposed: [(column: String, value: String)], columns: [String], pk: [String])
+        -> [(column: String, value: String?)] {
+        proposed.compactMap { p in
+            guard let column = columns.first(where: { $0.caseInsensitiveCompare(p.column) == .orderedSame }),
+                  !pk.contains(column)
+            else { return nil }
+            let value = p.value.trimmingCharacters(in: .whitespaces)
+            return (column, value.uppercased() == "NULL" ? nil : value)
+        }
+    }
+}
+
+#if canImport(FoundationModels)
+@available(iOS 26.0, *)
+@Generable
+struct AskedFilter {
+    @Guide(description: "Las condiciones, todas deben cumplirse")
+    var conditions: [AskedCondition]
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct AskedCondition {
+    @Guide(description: "Nombre exacto de una columna de la tabla")
+    var column: String
+    @Guide(description: "Operador de comparación",
+           .anyOf(["=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN", "IS NULL", "IS NOT NULL"]))
+    var op: String
+    @Guide(description: "Valor sin comillas; vacío para IS NULL e IS NOT NULL")
+    var value: String
+}
+
+@available(iOS 26.0, *)
+extension AgentFilter {
+    /// The model's conditions for request, checked.
+    static func ask(_ request: String, table: String, columns: [String], types: [String: String]) async throws
+        -> [Condition] {
+        let session = LanguageModelSession(instructions: instructions)
+        let answer = try await session.respond(to: prompt(request, table: table, columns: columns, types: types),
+                                               generating: AskedFilter.self)
+        return conditions(answer.content.conditions.map { ($0.column, $0.op, $0.value) }, columns: columns)
+    }
+}
+#endif

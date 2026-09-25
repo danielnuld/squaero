@@ -209,6 +209,7 @@ private struct QueryScreen: View {
     @State private var name = ""
     @State private var saved: String?
     @State private var exporting = false
+    @State private var agentTask: AgentQueryTask?
 
     init(session: Session) {
         _model = State(initialValue: QueryModel(session: session))
@@ -236,7 +237,16 @@ private struct QueryScreen: View {
                 Text(model.session.conn.name)
             } footer: {
                 if let failure = model.failure {
-                    Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                        if AgentSettings.active {
+                            Button {
+                                agentTask = .explainError(sql: model.lastRunSql, error: failure)
+                            } label: {
+                                Label(Logic.t("ios.agent.explainError"), systemImage: "sparkles")
+                            }
+                        }
+                    }
                 } else if let summary = model.summary {
                     Text(summary + (model.note.map { "\n" + $0 } ?? "")).font(Theme.mono(11))
                 }
@@ -266,6 +276,17 @@ private struct QueryScreen: View {
                 }
                 .disabled(blank)
             }
+            if AgentSettings.active {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button { agentTask = .ask } label: { Label(Logic.t("ios.agent.ask"), systemImage: "sparkles") }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button { agentTask = .explain(sql: model.target(selection)) } label: {
+                        Label(Logic.t("ios.agent.explain"), systemImage: "text.magnifyingglass")
+                    }
+                    .disabled(blank)
+                }
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Button { exporting = true } label: {
                     Label(Logic.t("ios.export.action"), systemImage: "square.and.arrow.up")
@@ -274,6 +295,9 @@ private struct QueryScreen: View {
             }
         }
         .sheet(isPresented: $exporting) { ExportSheet(source: model) }
+        .sheet(item: $agentTask) { task in
+            AgentQuerySheet(task: task, session: model.session) { model.text = $0 }
+        }
         .sheet(item: $asking) { prompt in
             VariablesSheet(prompt: prompt) { values in
                 try? SnippetStore.shared.remember(values)

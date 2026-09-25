@@ -82,6 +82,7 @@ struct RowDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var related: RowRelations
     @State private var editor: RowEditor
+    @State private var askingChange = false
 
     init(session: Session, ref: RowRef) {
         _related = State(initialValue: RowRelations(session: session, ref: ref))
@@ -137,6 +138,7 @@ struct RowDetailView: View {
         .sheet(isPresented: Binding(get: { editor.preview != nil }, set: { if !$0 { editor.cancelPreview() } })) {
             EditPreviewSheet(editor: editor)
         }
+        .sheet(isPresented: $askingChange) { AgentChangeSheet(editor: editor) }
         .task { await related.load() }
     }
 
@@ -155,6 +157,13 @@ struct RowDetailView: View {
             } else if !editor.deleted {
                 ToolbarItem(placement: .primaryAction) {
                     Button(Logic.t("ios.edit.action")) { editor.begin() }
+                }
+                if AgentSettings.active {
+                    ToolbarItem(placement: .secondaryAction) {
+                        Button { askingChange = true } label: {
+                            Label(Logic.t("ios.agent.change"), systemImage: "sparkles")
+                        }
+                    }
                 }
                 ToolbarItem(placement: .secondaryAction) {
                     Button(role: .destructive) {
