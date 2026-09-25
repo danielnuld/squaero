@@ -4,7 +4,8 @@
 // file, and PostgreSQL through an SSH tunnel with a key held as text, as the
 // Keychain holds it. Skipped unless QUAERO_LIVE=1 (ios-app.yml sets it).
 // Informix is not here: its server only comes as a Docker image. Editing a
-// row (task 5.6) runs against PostgreSQL; MySQL waits for #583.
+// row (task 5.6) runs against PostgreSQL and MySQL, the latter on libmywire
+// (#583, task 9.7).
 
 import SquaeroLogic
 import XCTest
@@ -32,6 +33,12 @@ final class LiveTests: XCTestCase {
         var params = ["host": "127.0.0.1", "port": "55432", "database": "live", "user": "squaero"]
         params.merge(extra) { _, new in new }
         return Connection(id: "live-pg", name: "live", driver: "postgres", params: params)
+    }
+
+    private func mysql(_ extra: [String: String] = [:]) -> Connection {
+        var params = ["host": "127.0.0.1", "port": "53306", "database": "live", "user": "squaero"]
+        params.merge(extra) { _, new in new }
+        return Connection(id: "live-my", name: "live", driver: "mysql", params: params)
     }
 
     private func firstCell(_ connId: String, _ sql: String) async throws -> String? {
@@ -232,6 +239,52 @@ final class LiveTests: XCTestCase {
                                           protected: false)
         let one = try await firstCell(id, "SELECT 1")
         XCTAssertEqual(one, "1")
+        await close(id)
+    }
+
+    // Task 9.7: MySQL on libmywire, the client that can ship in the store.
+    func testMySQLVerifiesTheServerAgainstThePickedCA() async throws {
+        let conn = mysql(["ssl_mode": "verify_identity", "ssl_ca": ca])
+        let id = try await Connector.open(conn, typed: ["password": "live"], protected: false)
+        let r = try await Core.shared.resultSet("query.run", ["connId": id, "sql": "SHOW SESSION STATUS LIKE 'Ssl_cipher'"])
+        let cipher = try XCTUnwrap(r.rows.first?.last ?? nil)
+        XCTAssertFalse(cipher.isEmpty)
+        await close(id)
+    }
+
+    func testEditingAMySQLRowCommitsInATransaction() async throws {
+        let conn = mysql(["ssl_mode": "required"])
+        let id = try await Connector.open(conn, typed: ["password": "live"], protected: false)
+        for sql in ["DROP TABLE IF EXISTS casos",
+                    "CREATE TABLE casos (id int PRIMARY KEY, estado varchar(20) NOT NULL, monto decimal(10,2))",
+                    "INSERT INTO casos VALUES (1, 'abierto', 10.50), (2, 'abierto', NULL)"] {
+            _ = try await Core.shared.call("query.run", ["connId": id, "sql": sql])
+        }
+        let tables = try Logic.shared.parseTreeRows(
+            try await Core.shared.resultSet("schema.tree", ["connId": id, "db": "live"]), fallback: "schema")
+        XCTAssertTrue(tables.contains(TreeRow(name: "casos", kind: "table")), "\(tables)")
+
+        let session = Session(conn: conn, connId: id)
+        let pager = RowPager(session: session, object: ObjectRef(db: "live", schema: nil, name: "casos"))
+        await pager.describe()
+        await pager.reload()
+        pager.close()
+        XCTAssertEqual(pager.pk, ["id"])
+        let row = try XCTUnwrap(pager.rows.first { $0.first == "1" }, pager.failure ?? "no row 1")
+        let editor = RowEditor(session: session, ref: RowRef(object: pager.object, columns: pager.columns, row: row,
+                                                             types: pager.types, pk: pager.pk))
+        XCTAssertNil(editor.readOnlyReason)
+        editor.begin()
+        editor.set("estado", "cerrado")
+        editor.set("monto", "99.90")
+        await editor.review()
+        XCTAssertNotNil(editor.preview, editor.failure ?? "no preview")
+        await editor.commit()
+        XCTAssertNil(editor.failure)
+        let saved = try await Core.shared.resultSet("query.run", [
+            "connId": id, "sql": "SELECT estado, CAST(monto AS CHAR) FROM casos WHERE id = 1",
+        ])
+        XCTAssertEqual(saved.rows.first, ["cerrado", "99.90"])
         await close(id)
     }
 }
