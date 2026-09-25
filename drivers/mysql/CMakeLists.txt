@@ -53,13 +53,18 @@ endif()
 # -DQUAERO_MARIADB=ON fetches and statically links the connector instead
 # (cmake/QuaeroMariaDB.cmake). If neither is available the plugin is skipped
 # (green), like the Informix and MongoDB drivers.
+#
+# -DQUAERO_MYWIRE=ON builds it on libmywire, our own Apache-2.0 client, instead
+# (cmake/QuaeroLibmywire.cmake, issue #583). It is the only choice on iOS, where
+# the LGPL connector cannot ship; desktop keeps MariaDB Connector/C for now.
 option(QUAERO_MARIADB "Fetch + build MariaDB Connector/C (static) for the MySQL plugin" OFF)
+option(QUAERO_MYWIRE "Build the MySQL plugin on libmywire instead of MariaDB Connector/C" ${IOS})
 
 find_path(MYSQL_INCLUDE_DIR NAMES mysql.h
   PATH_SUFFIXES mariadb mysql)
 find_library(MYSQL_CLIENT_LIBRARY NAMES mariadb libmariadb mariadbclient mysqlclient)
 
-if(QUAERO_MARIADB OR (MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY))
+if(QUAERO_MYWIRE OR QUAERO_MARIADB OR (MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY))
   add_library(mysql_driver ${QUAERO_DRIVER_LIB_TYPE}
     src/entry.c
     src/connection.c
@@ -78,7 +83,10 @@ if(QUAERO_MARIADB OR (MYSQL_INCLUDE_DIR AND MYSQL_CLIENT_LIBRARY))
   # include dir, exactly as the SQLite driver does.
   target_link_libraries(mysql_driver PRIVATE cjson)
 
-  if(QUAERO_MARIADB)
+  if(QUAERO_MYWIRE)
+    include(QuaeroLibmywire)
+    quaero_enable_libmywire(mysql_driver)
+  elseif(QUAERO_MARIADB)
     message(STATUS "MySQL driver: fetching MariaDB Connector/C (QUAERO_MARIADB=ON)")
     include(QuaeroMariaDB)
     quaero_enable_mariadb(mysql_driver)

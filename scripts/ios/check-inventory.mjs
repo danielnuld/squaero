@@ -24,6 +24,7 @@ const ARCHIVES = [
   // utf8proc ships inside mongo-c-driver, under its THIRD_PARTY_NOTICES.
   [/^lib(mongoc|bson|utf8proc)[\w.-]*\.a$/, "mongo-c-driver (libmongoc, libbson)"],
   [/^libdrda\w*\.a$/, "libdrda"],
+  [/^libmywire\.a$/, "libmywire"],
   [/^lib(ssl|crypto)\.a$/, "OpenSSL"],
   [/^libssh2\w*\.a$/, "libssh2"],
   [/^libcjson\.a$/, "cJSON"],

@@ -98,8 +98,14 @@ jobs:
   # integration test against a real MariaDB service (Linux only — service
   # containers require a Linux runner). The core build skips the webview app
   # here, so no GTK is needed.
+  # Twice: on MariaDB Connector/C, as desktop ships, and on libmywire, our own
+  # client that the iPhone app uses (#583), through the same tests.
   mysql-integration:
-    name: mysql-integration
+    name: mysql-integration (${{ matrix.client }})
+    strategy:
+      fail-fast: false
+      matrix:
+        client: [mariadb, libmywire]
     runs-on: ubuntu-latest
     services:
       mariadb:
@@ -116,6 +122,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install MariaDB Connector/C
+        if: matrix.client == 'mariadb'
         run: |
           sudo apt-get update
           sudo apt-get install -y libmariadb-dev
@@ -124,7 +131,9 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF
+          -DQUAERO_MYWIRE=${{ matrix.client == 'libmywire' && 'ON' || 'OFF' }}
 
       - name: Build
         run: cmake --build build

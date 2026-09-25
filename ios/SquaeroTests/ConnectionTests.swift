@@ -197,7 +197,7 @@ final class ConnectionTests: XCTestCase {
         XCTAssertTrue(Core.shared.hasDriver("informix"))
         XCTAssertTrue(Core.shared.hasDriver("postgres"))
         XCTAssertTrue(Core.shared.hasDriver("mongodb"))
-        XCTAssertFalse(Core.shared.hasDriver("mysql"))
+        XCTAssertTrue(Core.shared.hasDriver("mysql")) // on libmywire (#583)
         XCTAssertFalse(Core.shared.hasDriver("mssql"))
     }
 

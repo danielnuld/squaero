@@ -7,6 +7,8 @@
 #
 # - a CA of our own and a certificate for 127.0.0.1 signed by it;
 # - PostgreSQL 16 with TLS on 55432, role squaero / live, database live;
+# - MySQL 8.4 with TLS on 53306, user squaero / live (caching_sha2_password),
+#   database live, for the driver on libmywire (#583);
 # - MongoDB with TLS required on 57017, no auth;
 # - sshd on 2222 taking one ed25519 key, for the tunnel.
 # What the tests need is appended to $GITHUB_ENV as TEST_RUNNER_* variables,
@@ -45,6 +47,12 @@ printf 'local all all trust\nhost all all 127.0.0.1/32 scram-sha-256\n' > pgdata
 "$pg/pg_ctl" -D pgdata -l pg.log -w start
 "$pg/psql" -h "$d" -p 55432 -U postgres -q \
   -c "CREATE ROLE squaero LOGIN PASSWORD 'live'" -c "CREATE DATABASE live OWNER squaero"
+
+brew install mysql@8.4 >/dev/null
+my=$(brew --prefix mysql@8.4)/bin
+"$my/mysqld" --initialize-insecure --datadir="$d/mydata" --log-error="$d/my-init.log"
+"$my/mysqld" --datadir="$d/mydata" --port=53306 --bind-address=127.0.0.1   --socket="$d/mysql.sock" --mysqlx=OFF --ssl-ca="$d/ca.pem" --ssl-cert="$d/server.pem"   --ssl-key="$d/server.key" --log-error="$d/my.log" --pid-file="$d/my.pid" --daemonize
+"$my/mysql" -uroot --socket="$d/mysql.sock"   -e "CREATE USER squaero IDENTIFIED BY 'live'; CREATE DATABASE live; GRANT ALL ON live.* TO squaero"
 
 # MongoDB's official build: Homebrew refuses formulas from its tap (untrusted).
 curl -fsSL https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz | tar xz
