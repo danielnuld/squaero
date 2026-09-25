@@ -1123,6 +1123,8 @@ export const en: Record<string, string> = {
   "ios.demo.name": "Demo database",
   "ios.demo.detail": "Courts, rooms, 1,284 case files and their hearings, in SQLite on the iPhone.",
   "ios.demo.reset": "Reset",
+  "ios.licenses.title": "Licenses",
+  "ios.licenses.footer": "Squaero is free software under the GPL-3.0. These are the third-party components in the app, with their full licenses.",
   "ios.conn.failed": "Could not connect",
   "ios.conn.askSecret": "Password for {name}",
   "ios.conn.connect": "Connect",

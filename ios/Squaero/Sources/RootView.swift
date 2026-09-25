@@ -37,6 +37,9 @@ struct SettingsView: View {
                         Text("\(Core.shared.driverCount)").font(Theme.mono())
                     }
                 }
+                Section {
+                    NavigationLink(Logic.t("ios.licenses.title")) { LicensesView() }
+                }
             }
             .navigationTitle(Logic.t("ios.tab.settings"))
             .task {

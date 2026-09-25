@@ -91,7 +91,8 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
       las API que importa el binario con las declaradas (`scripts/ios/check-privacy.sh`)
 - [ ] 7.3 `ITSAppUsesNonExemptEncryption` y la respuesta de cumplimiento de exportación
 - [x] 7.4 Base de demostración SQLite incluida y ofrecida en la pantalla de conexiones
-- [ ] 7.5 Pantalla de licencias generada desde `THIRD-PARTY.md`, con los `NOTICE` de Apache-2.0
+- [x] 7.5 Pantalla de licencias generada desde `THIRD-PARTY.md`, con los `NOTICE` de Apache-2.0 (ninguno de
+      los componentes Apache-2.0 publica uno en la versión fijada; va `THIRD_PARTY_NOTICES` de mongo-c)
 - [ ] 7.6 Chequeo de CI: ninguna dependencia LGPL o GPL ajena en el build de iOS, y el inventario coincide con
       lo que enlaza el `xcframework`
 - [ ] 7.7 Política de privacidad publicada en la web (ES y EN), y su URL en App Store Connect
