@@ -34,6 +34,7 @@ cat > "$out/include/quaero_ios.h" <<'EOF_H'
    op.cancel, which may come from another thread (docs/IPC.md). */
 #include "static_drivers.h"
 #include "dbcore/ipc.h"
+#include "dbcore/stmt_class.h" /* the agent's read-only gate (#580) */
 #endif
 EOF_H
 cat > "$out/include/module.modulemap" <<'EOF_M'

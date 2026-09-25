@@ -105,9 +105,9 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 ## 8. Fase 2: agente de IA en el dispositivo (`ios-ai-agent`, refs #263) — #580
 
-- [ ] 8.1 Disponibilidad: solo en iOS 26+ con Apple Intelligence; desactivado por defecto, con su
+- [x] 8.1 Disponibilidad: solo en iOS 26+ con Apple Intelligence; desactivado por defecto, con su
       explicación en Ajustes
-- [ ] 8.2 Herramientas de solo lectura: `buscarEsquema`, `describirTabla` y `ejecutarSelect`, que rechaza todo
+- [x] 8.2 Herramientas de solo lectura: `buscarEsquema`, `describirTabla` y `ejecutarSelect`, que rechaza todo
       lo que no sea un `SELECT` según el clasificador de sentencias del núcleo
 - [ ] 8.3 Filtrar hablando: salida `@Generable` validada contra las columnas y convertida en etiquetas de
       filtro

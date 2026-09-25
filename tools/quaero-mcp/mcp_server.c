@@ -1,6 +1,6 @@
 #include "mcp_server.h"
 
-#include "stmt_class.h"
+#include "dbcore/stmt_class.h"
 
 #include "dbcore/ipc.h"
 
