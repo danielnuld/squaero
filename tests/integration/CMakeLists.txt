@@ -44,6 +44,23 @@ if(TARGET informix_driver)
   set_tests_properties(informix_integration_test PROPERTIES TIMEOUT 120)
 endif()
 
+# SQL Server integration: queries and types, and cancel through op.cancel (an
+# ATTENTION, only on libtdswire, which is what CI builds). SKIP unless
+# QUAERO_MSSQL_DSN points at a server.
+if(TARGET mssql_driver)
+  foreach(_t mssql_integration_test mssql_cancel_integration_test)
+    add_executable(${_t} ${_t}.c)
+    target_link_libraries(${_t} PRIVATE dbcore cjson)
+    target_compile_definitions(${_t} PRIVATE MSSQL_PLUGIN_PATH="$<TARGET_FILE:mssql_driver>")
+    add_dependencies(${_t} mssql_driver)
+    quaero_set_warnings(${_t})
+    add_test(NAME ${_t} COMMAND ${_t} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  endforeach()
+  find_package(Threads REQUIRED)
+  target_link_libraries(mssql_cancel_integration_test PRIVATE Threads::Threads)
+  set_tests_properties(mssql_cancel_integration_test PROPERTIES TIMEOUT 60)
+endif()
+
 # MySQL integration runs only when the driver was built (client lib present).
 # The test itself SKIPS at runtime unless QUAERO_MYSQL_DSN points at a server,
 # so it is harmless on machines/CI jobs without one.

@@ -198,7 +198,7 @@ final class ConnectionTests: XCTestCase {
         XCTAssertTrue(Core.shared.hasDriver("postgres"))
         XCTAssertTrue(Core.shared.hasDriver("mongodb"))
         XCTAssertTrue(Core.shared.hasDriver("mysql")) // on libmywire (#583)
-        XCTAssertFalse(Core.shared.hasDriver("mssql"))
+        XCTAssertTrue(Core.shared.hasDriver("mssql")) // on libtdswire (#584)
     }
 
     func testTheCatalogSpeaksBothLanguages() throws {

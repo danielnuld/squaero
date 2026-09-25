@@ -133,14 +133,16 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 ## 10. `libtdswire`: cliente propio de TDS para SQL Server (Apache-2.0) — #584
 
-- [ ] 10.1 Repositorio propio con la estructura de libdrda
-- [ ] 10.2 PRELOGIN con TLS dentro de TDS, LOGIN7 y cifrado obligatorio u opcional, como el `encryption` del
+- [x] 10.1 Repositorio propio (github.com/danielnuld/libtdswire) con la estructura de libdrda
+- [x] 10.2 PRELOGIN con TLS dentro de TDS, LOGIN7 y cifrado obligatorio u opcional, como el `encryption` del
       driver
-- [ ] 10.3 SQL batch y los tokens COLMETADATA, ROW, NBCROW, DONE, ERROR e INFO
-- [ ] 10.4 Tipos: enteros, decimal/numeric, money, float, fechas (datetime, datetime2, date, time,
+- [x] 10.3 SQL batch y los tokens COLMETADATA, ROW, NBCROW, DONE, ERROR e INFO
+- [x] 10.4 Tipos: enteros, decimal/numeric, money, float, fechas (datetime, datetime2, date, time,
       datetimeoffset), (n)char/(n)varchar/(max), varbinary, bit y uniqueidentifier
-- [ ] 10.5 Cancelar con el mensaje ATTENTION
-- [ ] 10.6 Pruebas en vivo contra SQL Server 2022 (`quaero-mssql-test`), incluida la tabla de 16 tipos
-- [ ] 10.7 El driver `mssql` gana el backend `libtdswire`; el build de iOS lo usa, y escritorio sigue con
-      FreeTDS hasta igualar la cobertura
+- [x] 10.5 Cancelar con el mensaje ATTENTION
+- [x] 10.6 Pruebas en vivo contra SQL Server 2022 (`quaero-mssql-test`), incluida la tabla de 16 tipos
+- [x] 10.7 El driver `mssql` gana el backend `libtdswire`; el build de iOS lo usa, y escritorio sigue con
+      FreeTDS hasta igualar la cobertura (`QUAERO_TDSWIRE`: `tw_connection.c` y `tw_query.c` en lugar de los
+      de db-lib; gana cancelar con ATTENTION. Prueba en vivo en el job `mssql-integration`, no en el
+      simulador: SQL Server no corre en macOS y el runner no tiene Docker. `strict` (TDS 8) aún no)
 

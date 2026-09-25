@@ -10,6 +10,16 @@
 
 #include "dbcore/driver.h"
 
+#ifdef QUAERO_MSSQL_TDSWIRE
+/* On libtdswire, our own TDS client (issue #584): tw_connection.c and
+   tw_query.c replace connection.c and query.c. */
+#include "tdswire.h"
+
+struct dbc_conn {
+    tw_conn *tw;
+    char     err[1024];  /* the reason when there is no connection to ask */
+};
+#else
 #include <sybfront.h>
 #include <sybdb.h>
 
@@ -19,6 +29,7 @@ struct dbc_conn {
     DBPROCESS *dbproc;
     char       err[1024];  /* last error or server message on this connection */
 };
+#endif
 
 /*
  * A result, buffered whole: db-lib streams rows, but a DBPROCESS cannot run the
@@ -45,6 +56,10 @@ struct dbc_result {
 dbc_status   ms_drv_connect(const char *dsn_json, dbc_conn **out);
 void         ms_drv_disconnect(dbc_conn *c);
 const char  *ms_drv_last_error(dbc_conn *c);
+#ifdef QUAERO_MSSQL_TDSWIRE
+/* Cancel the running batch with an ATTENTION (DBC_FEAT_CANCEL), from any thread. */
+dbc_status   ms_drv_cancel(dbc_conn *c);
+#endif
 
 /* --- query.c --- */
 dbc_status   ms_drv_query(dbc_conn *c, const char *sql, dbc_result **out);

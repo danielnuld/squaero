@@ -101,12 +101,12 @@ Ajustes › Licencias muestra. La pantalla se genera desde esta tabla
 (`node scripts/ios/licenses.mjs`); el job `ios-app` falla si la tabla y
 `ios/Squaero/Resources/Licenses.json` no coinciden, y el job `ios-core` falla si el
 `xcframework` enlaza algo que la tabla no lista, deja de enlazar algo que lista, o
-lleva código GPL/LGPL de otros autores (`scripts/ios/check-inventory.mjs`). El driver `mysql`
-va en iOS sobre libmywire, nuestro cliente Apache-2.0 (#583), y `mssql` no entra hasta tener el
-suyo (#584): ni MariaDB Connector/C ni FreeTDS (LGPL) están en la app.
+lleva código GPL/LGPL de otros autores (`scripts/ios/check-inventory.mjs`). Los drivers `mysql` y
+`mssql` van en iOS sobre libmywire y libtdswire, nuestros clientes Apache-2.0 (#583, #584): ni
+MariaDB Connector/C ni FreeTDS (LGPL) están en la app.
 
 Ninguno de los componentes Apache-2.0 publica un archivo `NOTICE` en la versión
-fijada (OpenSSL 3.0.22, mongo-c-driver 1.30.1, libdrda 0.2.2, libmywire 0.1.1); mongo-c-driver sí
+fijada (OpenSSL 3.0.22, mongo-c-driver 1.30.1, libdrda 0.2.2, libmywire 0.1.1, libtdswire 0.1.0); mongo-c-driver sí
 trae `THIRD_PARTY_NOTICES`, que se muestra completo.
 
 <!-- ios-licenses:start -->
@@ -119,6 +119,7 @@ trae `THIRD_PARTY_NOTICES`, que se muestra completo.
 | mongo-c-driver (libmongoc, libbson) | 1.30.1 | Apache-2.0 | `ios/Licenses/mongo-c-COPYING.txt`, `ios/Licenses/mongo-c-THIRD_PARTY_NOTICES.txt` |
 | libdrda | 0.2.2 | Apache-2.0 | `ios/Licenses/libdrda-LICENSE.txt` |
 | libmywire | 0.1.1 | Apache-2.0 | `ios/Licenses/libmywire-LICENSE.txt` |
+| libtdswire | 0.1.0 | Apache-2.0 | `ios/Licenses/libtdswire-LICENSE.txt` |
 | OpenSSL | 3.0.22 | Apache-2.0 | `ios/Licenses/openssl-LICENSE.txt` |
 | libssh2 | 1.11.1 | BSD-3-Clause | `ios/Licenses/libssh2-COPYING.txt` |
 | fflate | 0.8.3 | MIT | `ios/Licenses/fflate-LICENSE.txt` |

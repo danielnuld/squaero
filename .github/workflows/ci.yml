@@ -146,6 +146,41 @@ jobs:
           QUAERO_MYSQL_SSL_DSN: '{"host":"127.0.0.1","port":3306,"user":"root","password":"root","database":"quaero_test","ssl_mode":"required"}'
         run: ctest --test-dir build --output-on-failure
 
+  # The SQL Server driver on libtdswire, our own client (#584), against SQL
+  # Server 2022: queries, types, and cancel through op.cancel. (FreeTDS is not
+  # tried here: Ubuntu's is too old for the driver; windows-x86 builds that.)
+  mssql-integration:
+    name: mssql-integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: SQL Server
+        run: |
+          docker run -d --name mssql -p 1433:1433 -e ACCEPT_EULA=Y             -e MSSQL_SA_PASSWORD=Quaero_test123 mcr.microsoft.com/mssql/server:2022-latest
+          for i in $(seq 60); do
+            docker exec mssql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa               -P Quaero_test123 -Q 'CREATE DATABASE quaero_test' >/dev/null 2>&1 && break
+            sleep 2
+          done
+
+      - name: Set up CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF -DQUAERO_TDSWIRE=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        env:
+          QUAERO_MSSQL_DSN: '{"host":"127.0.0.1","port":"1433","user":"sa","password":"Quaero_test123","database":"quaero_test","encryption":"require"}'
+        run: |
+          ctest --test-dir build --output-on-failure
+          # A test that skipped would pass unnoticed.
+          ./build/tests/integration/mssql_integration_test | grep -q "^OK"
+          ./build/tests/integration/mssql_cancel_integration_test | grep -q "^OK"
+
   # Builds the MongoDB driver against the mongo-c-driver and runs the gated
   # integration test against a real MongoDB service (Linux only — service
   # containers require a Linux runner). The service is pre-seeded with the
