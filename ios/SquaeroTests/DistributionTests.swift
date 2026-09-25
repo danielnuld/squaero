@@ -1,4 +1,4 @@
-// What the App Store looks at (issue #579, tasks 7.1, 7.2 and 7.5): the
+// What the App Store looks at (issue #579, tasks 7.1, 7.2, 7.3 and 7.5): the
 // permission purposes in both languages, the launch screen's assets, the
 // privacy manifest shipped in the bundle, the local-network hint and the
 // licences screen.
@@ -23,6 +23,10 @@ final class DistributionTests: XCTestCase {
                 XCTAssertFalse(strings[key]?.isEmpty ?? true, "\(language): \(key)")
             }
         }
+    }
+
+    func testTheEncryptionAnswerIsInTheApp() {
+        XCTAssertEqual(app.object(forInfoDictionaryKey: "ITSAppUsesNonExemptEncryption") as? Bool, false)
     }
 
     func testTheLaunchScreenHasItsMarkAndColour() throws {
