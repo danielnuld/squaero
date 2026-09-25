@@ -32,6 +32,8 @@ final class QueryModel {
     @ObservationIgnored private var level: (db: String?, schema: String?) = (nil, nil)
     @ObservationIgnored private var described: Set<String> = []
     @ObservationIgnored private var lastSql = ""
+    /// The statement whose result is shown.
+    var lastRunSql: String { lastSql }
 
     init(session: Session) {
         self.session = session
@@ -222,6 +224,7 @@ private struct QueryScreen: View {
     @State private var naming = false
     @State private var name = ""
     @State private var saved: String?
+    @State private var exporting = false
 
     init(session: Session) {
         _model = State(initialValue: QueryModel(session: session))
@@ -278,7 +281,14 @@ private struct QueryScreen: View {
                 }
                 .disabled(blank)
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Button { exporting = true } label: {
+                    Label(Logic.t("ios.export.action"), systemImage: "square.and.arrow.up")
+                }
+                .disabled(model.columns.isEmpty || model.running)
+            }
         }
+        .sheet(isPresented: $exporting) { ExportSheet(source: model) }
         .sheet(item: $asking) { prompt in
             VariablesSheet(prompt: prompt) { values in
                 try? SnippetStore.shared.remember(values)

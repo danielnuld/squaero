@@ -80,9 +80,9 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 
 - [x] 6.1 Editor sobre `UITextView` con resaltado, completado del esquema y fila de teclas SQL
 - [x] 6.2 Snippets y variables (`:nombre`, `${nombre}`) con los valores recordados
-- [ ] 6.3 Hoja de exportar: seis formatos, todas las filas por cursor o solo las visibles, nombre del archivo
-- [ ] 6.4 Guardar en Archivos y Compartir
-- [ ] 6.5 Prueba: exportar las 1 284 filas de una tabla a cada formato y reabrir el archivo
+- [x] 6.3 Hoja de exportar: seis formatos, todas las filas por cursor o solo las visibles, nombre del archivo
+- [x] 6.4 Guardar en Archivos y Compartir
+- [x] 6.5 Prueba: exportar las 1 284 filas de una tabla a cada formato y reabrir el archivo
 
 ## 7. Distribución — #579
 
