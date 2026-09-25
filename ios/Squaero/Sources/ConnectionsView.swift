@@ -12,6 +12,10 @@ struct ConnectionsView: View {
     @State private var asking: Connection?
     @State private var typed: [String: String] = [:]
     @State private var session: Session?
+    /// The whole stack as one path: the session, then its levels, objects and
+    /// rows. A session shown through navigationDestination(item:) is not in
+    /// the path, and pushing a table rebuilt the stack back to the tables.
+    @State private var path = NavigationPath()
     @Environment(\.scenePhase) private var phase
     @State private var busy: String?
     @State private var failure: String?
@@ -19,7 +23,7 @@ struct ConnectionsView: View {
     @State private var imported: String?
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 ForEach(store.groups, id: \.name) { group in
                     Section(group.name ?? (store.groups.count > 1 ? Logic.t("ios.conn.ungrouped") : "")) {
@@ -61,7 +65,7 @@ struct ConnectionsView: View {
                 ConnectionForm(store: store, original: conn)
             }
             .sheet(item: $asking) { conn in askSheet(conn) }
-            .navigationDestination(item: $session) { s in
+            .navigationDestination(for: Session.self) { s in
                 BrowseView(session: s, level: .root(s.conn))
             }
             // Deeper screens of the session, declared once for the whole stack.
@@ -74,6 +78,8 @@ struct ConnectionsView: View {
             .navigationDestination(for: RowRef.self) { row in
                 if let session { RowDetailView(session: session, ref: row) }
             }
+            // Back at the list: the session is over.
+            .onChange(of: path.count) { _, count in if count == 0 { session = nil } }
             .onChange(of: session) { old, _ in
                 OpenSession.shared.current = session
                 // Back out of the browser: the session ends with it.
@@ -106,6 +112,7 @@ struct ConnectionsView: View {
             }
         }
         .disabled(busy != nil)
+        .accessibilityIdentifier("demo-open")
         .swipeActions {
             Button(Logic.t("ios.demo.reset")) {
                 do { try DemoDatabase.reset() } catch { failure = "\(error)" }
@@ -221,6 +228,7 @@ struct ConnectionsView: View {
                     let s = Session(conn: conn, connId: id)
                     s.reconnect = { [weak s] in if let s { reconnect(s) } }
                     session = s
+                    path = NavigationPath([s])
                 }
             } catch ConnectError.cancelled {
                 failure = Logic.t("ios.faceid.cancelled")

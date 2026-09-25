@@ -1129,6 +1129,7 @@ export const en: Record<string, string> = {
   "ios.demo.name": "Demo database",
   "ios.demo.detail": "Courts, rooms, 1,284 case files and their hearings, in SQLite on the iPhone.",
   "ios.demo.reset": "Reset",
+  "ios.query.hideKeyboard": "Hide the keyboard",
   "ios.agent.title": "Assistant",
   "ios.agent.toggle": "Assistant on the iPhone",
   "ios.agent.explain": "It uses this iPhone's Apple Intelligence model: nothing leaves the device. It sees the open connection's schema and the results of what you ask; it only reads, and a change it proposes goes through the preview and Face ID.",

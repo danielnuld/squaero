@@ -247,6 +247,7 @@ private struct QueryScreen: View {
             }
             if model.running { HStack { Spacer(); ProgressView(); Spacer() } }
         }
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: start) {
@@ -464,6 +465,7 @@ struct SQLEditor: UIViewRepresentable {
             super.init()
             bar.onKey = { [weak self] key in self?.insert(key) }
             bar.onSuggestion = { [weak self] item in self?.complete(item) }
+            bar.onHide = { [weak self] in self?.textView?.resignFirstResponder() }
         }
 
         func textViewDidChange(_ tv: UITextView) {
@@ -542,6 +544,8 @@ final class KeyBar: UIInputView {
 
     var onKey: (String) -> Void = { _ in }
     var onSuggestion: (String) -> Void = { _ in }
+    /// The keyboard covers the tab bar: without this the editor was a dead end.
+    var onHide: () -> Void = {}
     private let stack = UIStackView()
 
     init() {
@@ -552,11 +556,20 @@ final class KeyBar: UIInputView {
         stack.axis = .horizontal
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
+        var hideConfig = UIButton.Configuration.plain()
+        hideConfig.image = UIImage(systemName: "keyboard.chevron.compact.down")
+        let hide = UIButton(configuration: hideConfig, primaryAction: UIAction { [weak self] _ in self?.onHide() })
+        hide.accessibilityLabel = Logic.t("ios.query.hideKeyboard")
+        hide.translatesAutoresizingMaskIntoConstraints = false
         addSubview(scroll)
+        addSubview(hide)
         scroll.addSubview(stack)
         NSLayoutConstraint.activate([
+            hide.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            hide.centerYAnchor.constraint(equalTo: centerYAnchor),
+            hide.widthAnchor.constraint(equalToConstant: 44),
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: hide.leadingAnchor),
             scroll.topAnchor.constraint(equalTo: topAnchor),
             scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
             stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 8),

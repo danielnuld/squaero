@@ -48,20 +48,27 @@ struct LicensesView: View {
             }
         }
         .navigationTitle(Logic.t("ios.licenses.title"))
-        .navigationDestination(for: LicensedComponent.self) { component in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    ForEach(component.texts, id: \.file) { text in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(text.file).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
-                            Text(text.text).font(Theme.mono(11)).textSelection(.enabled)
-                        }
+    }
+}
+
+/// One component's licence texts; its destination is declared at the root of
+/// Ajustes' stack, with the rest of the stack's (RootView).
+struct LicenseTextView: View {
+    let component: LicensedComponent
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ForEach(component.texts, id: \.file) { text in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(text.file).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(text.text).font(Theme.mono(11)).textSelection(.enabled)
                     }
                 }
-                .padding()
             }
-            .navigationTitle(component.name)
-            .navigationBarTitleDisplayMode(.inline)
+            .padding()
         }
+        .navigationTitle(component.name)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
