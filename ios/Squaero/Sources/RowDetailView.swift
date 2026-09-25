@@ -79,6 +79,7 @@ final class RowRelations {
 }
 
 struct RowDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var related: RowRelations
     @State private var editor: RowEditor
 
@@ -131,6 +132,8 @@ struct RowDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(editor.editing)
         .toolbar { editToolbar }
+        // A deleted row has no form left: back to its table.
+        .onChange(of: editor.deleted) { _, gone in if gone { dismiss() } }
         .sheet(isPresented: Binding(get: { editor.preview != nil }, set: { if !$0 { editor.cancelPreview() } })) {
             EditPreviewSheet(editor: editor)
         }
@@ -149,9 +152,17 @@ struct RowDetailView: View {
                     Button(Logic.t("ios.edit.review")) { Task { await editor.review() } }
                         .disabled(editor.busy || editor.changes.isEmpty)
                 }
-            } else {
+            } else if !editor.deleted {
                 ToolbarItem(placement: .primaryAction) {
                     Button(Logic.t("ios.edit.action")) { editor.begin() }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button(role: .destructive) {
+                        Task { await editor.reviewDelete() }
+                    } label: {
+                        Label(Logic.t("ios.edit.delete"), systemImage: "trash")
+                    }
+                    .disabled(editor.busy)
                 }
             }
         }
@@ -161,7 +172,19 @@ struct RowDetailView: View {
     /// into a NULL field gives it a value again.
     private func field(_ column: String) -> some View {
         let value = editor.value(column)
-        return HStack {
+        let original = ref.columns.firstIndex { $0.name == column }.flatMap { editor.row[$0] }
+        return VStack(alignment: .leading, spacing: 4) {
+            fieldEditor(column, value: value)
+            // What it held, once it is about to change.
+            if editor.changes.keys.contains(column) {
+                Text(Logic.t("ios.edit.was", ["value": original ?? "NULL"]))
+                    .font(Theme.mono(11)).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func fieldEditor(_ column: String, value: String?) -> some View {
+        HStack {
             TextField("NULL", text: Binding(get: { value ?? "" }, set: { editor.set(column, $0) }), axis: .vertical)
                 .font(Theme.mono())
                 .textInputAutocapitalization(.never)
@@ -218,6 +241,13 @@ private struct EditPreviewSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                if editor.deleting {
+                    Section {
+                        Label(Logic.t("ios.edit.delete"), systemImage: "trash")
+                            .foregroundStyle(.red)
+                            .font(.subheadline.weight(.semibold))
+                    }
+                }
                 if editor.production {
                     Section {
                         Label(Logic.t("ios.edit.production", ["name": editor.session.conn.name]),

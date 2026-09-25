@@ -28,6 +28,10 @@ final class RowEditor {
     private(set) var busy = false
     private(set) var failure: String?
     private(set) var done: String?
+    /// The reviewed plan deletes the row rather than updating it.
+    private(set) var deleting = false
+    /// The row is gone: the form has nothing left to show.
+    private(set) var deleted = false
     private var plan: [PlanItem] = []
 
     init(session: Session, ref: RowRef) {
@@ -81,12 +85,31 @@ final class RowEditor {
 
     /// The SQL each change runs, from the driver itself, without running it.
     func review() async {
+        deleting = false
+        await runPreview {
+            try Logic.shared.rowUpdatePlan(table: ref.object.name, db: ref.object.db, schema: ref.object.schema,
+                                           pk: ref.pk, columns: ref.columns, row: row, set: changes)
+        }
+    }
+
+    /// The DELETE of this row, previewed the same way; it runs, like an edit,
+    /// only after Face ID and inside a transaction.
+    func reviewDelete() async {
+        guard readOnlyReason == nil else { return }
+        deleting = true
+        await runPreview {
+            try Logic.shared.rowDeletePlan(table: ref.object.name, db: ref.object.db, schema: ref.object.schema,
+                                           pk: ref.pk, columns: ref.columns, row: row)
+        }
+    }
+
+    private func runPreview(_ makePlan: () throws -> [PlanItem]) async {
         busy = true
         defer { busy = false }
         failure = nil
+        done = nil
         do {
-            plan = try Logic.shared.rowUpdatePlan(table: ref.object.name, db: ref.object.db, schema: ref.object.schema,
-                                                  pk: ref.pk, columns: ref.columns, row: row, set: changes)
+            plan = try makePlan()
             guard !plan.isEmpty else {
                 failure = Logic.t("edit.noChanges")
                 return
@@ -102,7 +125,10 @@ final class RowEditor {
         }
     }
 
-    func cancelPreview() { preview = nil }
+    func cancelPreview() {
+        preview = nil
+        deleting = false
+    }
 
     /// Face ID (or the passcode), then `commit`. A cancelled check sends nothing.
     func confirm() async {
@@ -118,8 +144,11 @@ final class RowEditor {
         await commit()
     }
 
-    /// Runs the reviewed plan in one transaction. On failure the transaction
-    /// is rolled back and the edit kept; on success the row shows the new
+    private struct RowCountError: Error { let message: String }
+
+    /// Runs the reviewed plan in one transaction, each statement having to
+    /// touch its one row (edit.ts' rowCountOk). On failure the transaction is
+    /// rolled back and the edit kept; on success the row shows the new
     /// values. Kept apart from `confirm` so tests can run it without Face ID.
     func commit() async {
         busy = true
@@ -134,13 +163,22 @@ final class RowEditor {
             return
         }
         do {
-            for item in plan {
+            for (i, item) in plan.enumerated() {
                 let r = try await Core.shared.call("row.\(item.kind)", params(item, preview: false))
-                affected += (r as? [String: Any])?["rowsAffected"] as? Int ?? 0
+                let count = (r as? [String: Any])?["rowsAffected"] as? Int
+                // By primary key it is one row; any other count means the row
+                // moved under us or the key is not unique: do not keep it.
+                if !((try? Logic.shared.rowCountOk(engine: session.conn.driver, kind: item.kind,
+                                                   rowsAffected: count)) ?? true) {
+                    throw RowCountError(message: Logic.t("ios.edit.rowCount",
+                                                         ["n": "\(i + 1)", "count": "\(count ?? 0)"]))
+                }
+                affected += count ?? 0
             }
             _ = try await Core.shared.call("tx.commit", ["connId": session.connId])
         } catch {
-            var text = Logic.t("ios.edit.failed", ["reason": Logic.readable(error)])
+            let reason = (error as? RowCountError)?.message ?? Logic.readable(error)
+            var text = Logic.t("ios.edit.failed", ["reason": reason])
             do {
                 _ = try await Core.shared.call("tx.rollback", ["connId": session.connId])
             } catch {
@@ -156,7 +194,13 @@ final class RowEditor {
         plan = []
         editing = false
         failure = nil
-        done = Logic.t("ios.edit.done", ["n": "\(affected)"])
+        if deleting {
+            deleting = false
+            deleted = true
+            done = Logic.t("ios.edit.deleted")
+        } else {
+            done = Logic.t("ios.edit.done", ["n": "\(affected)"])
+        }
         NotificationCenter.default.post(name: Self.saved, object: ref.object)
     }
 

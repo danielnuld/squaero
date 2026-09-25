@@ -5,6 +5,7 @@
 // wrappers pair them with the transport. Contract: docs/IPC.md (row.*, tx.*).
 
 import { call } from "./transport";
+import { engineFamily } from "./engineFamily";
 import { isError, type JsonRpcResponse } from "./ipc";
 import { QueryError, type ResultColumn, type ResultSet } from "./query";
 import type { PlanItem } from "./editSession";
@@ -106,6 +107,19 @@ export function whereForRow(
     where[col] = row[idx] ?? null;
   }
   return where;
+}
+
+/**
+ * Whether a row.* call touched the rows it should have (#577): by primary key,
+ * exactly one. MySQL and MariaDB count rows CHANGED, not matched, so an UPDATE
+ * that writes the value already there (1.50 over 1.5) reports 0 and is fine. A
+ * driver that does not report the count cannot be checked and is taken as is.
+ */
+export function rowCountOk(engine: string, kind: "update" | "delete" | "insert", rowsAffected?: number): boolean {
+  if (rowsAffected === undefined || rowsAffected === null) return true;
+  if (rowsAffected === 1) return true;
+  const family = engineFamily(engine);
+  return rowsAffected === 0 && kind === "update" && family === "mysql";
 }
 
 /** Builds the params object for a row.* method, omitting undefined qualifiers. */

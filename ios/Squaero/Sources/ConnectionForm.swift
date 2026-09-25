@@ -68,6 +68,12 @@ struct ConnectionForm: View {
                         TextField("", text: Binding(
                             get: { conn.group ?? "" }, set: { conn.group = $0.isEmpty ? nil : $0 }))
                     }
+                    // Desktop's red: every edit on it says so before Face ID.
+                    Toggle(Logic.t("ios.conn.production"), isOn: Binding(
+                        get: { (try? Logic.shared.hasProductionColor(conn)) ?? false },
+                        set: { on in if let marked = try? Logic.shared.markProduction(conn, on) { conn = marked } }))
+                } footer: {
+                    Text(Logic.t("ios.conn.productionHint"))
                 }
                 ForEach(sections) { section in
                     if section.id == "ssh" {

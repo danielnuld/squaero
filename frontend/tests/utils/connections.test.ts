@@ -4,6 +4,8 @@ import {
   defaultConnectionName,
   engineMonogram,
   isProductionConnection,
+  hasProductionColor,
+  markProduction,
   usesLocalNetwork,
 } from "../../src/utils/connections";
 
@@ -748,5 +750,31 @@ describe("usesLocalNetwork", () => {
   it("looks at the SSH host when the connection goes through one", () => {
     expect(at("127.0.0.1", "192.168.1.9")).toBe(true);
     expect(at("10.0.0.5", "bastion.example.com")).toBe(false);
+  });
+});
+
+// The iPhone form's "Producción" switch (#577).
+describe("markProduction", () => {
+  it("puts the red on and takes it off", () => {
+    const on = markProduction({ color: "#4bb45e" }, true);
+    expect(on.color).toBe("#e5484d");
+    expect(hasProductionColor(on)).toBe(true);
+    expect(markProduction(on, false).color).toBeUndefined();
+  });
+
+  it("leaves another colour alone when turned off", () => {
+    expect(markProduction({ color: "#4bb45e" }, false).color).toBe("#4bb45e");
+    expect(markProduction({}, false)).toEqual({});
+  });
+
+  it("does not change the connection it is given", () => {
+    const conn = { color: "#e5484d" };
+    markProduction(conn, false);
+    expect(conn.color).toBe("#e5484d");
+  });
+
+  it("is separate from a production group, which still counts", () => {
+    expect(hasProductionColor({ group: "Producción" } as { group: string; color?: string })).toBe(false);
+    expect(isProductionConnection({ group: "Producción" })).toBe(true);
   });
 });

@@ -8,6 +8,7 @@ import {
   updateParams,
   deleteParams,
   parseRowResult,
+  rowCountOk,
 } from "../../src/utils/edit";
 import type { ResultSet, ResultColumn } from "../../src/utils/query";
 import type { JsonRpcResponse } from "../../src/utils/ipc";
@@ -190,5 +191,30 @@ describe("parseRowResult", () => {
       error: { code: -32001, message: "this engine does not support editing data" },
     };
     expect(() => parseRowResult(res)).toThrow(/editing/);
+  });
+});
+
+// The iPhone commits a row edit only if it touched that one row (#577).
+describe("rowCountOk", () => {
+  it("takes exactly one row", () => {
+    expect(rowCountOk("postgres", "update", 1)).toBe(true);
+    expect(rowCountOk("sqlite", "delete", 1)).toBe(true);
+  });
+
+  it("refuses none or several", () => {
+    expect(rowCountOk("postgres", "update", 0)).toBe(false);
+    expect(rowCountOk("sqlite", "delete", 0)).toBe(false);
+    expect(rowCountOk("informix", "update", 2)).toBe(false);
+    expect(rowCountOk("mysql", "update", 2)).toBe(false);
+  });
+
+  it("lets MySQL's unchanged UPDATE through, not its missing DELETE", () => {
+    expect(rowCountOk("mysql", "update", 0)).toBe(true);
+    expect(rowCountOk("mariadb", "update", 0)).toBe(true);
+    expect(rowCountOk("mysql", "delete", 0)).toBe(false);
+  });
+
+  it("cannot check a driver that reports no count", () => {
+    expect(rowCountOk("mongodb", "update", undefined)).toBe(true);
   });
 });
