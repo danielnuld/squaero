@@ -97,4 +97,34 @@ final class AgentTests: XCTestCase {
         let missing = try await tools.describeTable("nada")
         XCTAssertFalse(missing.contains("("), missing)
     }
+
+    // Task 8.3: what the model proposes becomes chips only once checked.
+    func testAProposedFilterKeepsOnlyRealColumnsAndKnownOperators() {
+        let columns = ["id", "sala_id", "fecha", "estado"]
+        let got = AgentFilter.conditions([
+            ("Estado", "=", "programada"),                                   // case of the column
+            ("fecha", "between", "2026-09-26 00:00:00...2026-09-26 23:59:59"), // case of the op, "..."
+            ("sala", "=", "2"),                                              // no such column
+            ("estado", "SOUNDS LIKE", "x"),                                  // no such operator
+            ("sala_id", "IS NULL", "ignored"),                               // nullary: no value
+            ("id", ">", "  "),                                               // a value is needed
+        ], columns: columns)
+        XCTAssertEqual(got, [
+            Condition(column: "estado", op: "=", value: "programada"),
+            Condition(column: "fecha", op: "BETWEEN", value: "2026-09-26 00:00:00…2026-09-26 23:59:59"),
+            Condition(column: "sala_id", op: "IS NULL", value: ""),
+        ])
+    }
+
+    func testThePromptCarriesTheColumnsAndToday() {
+        var parts = DateComponents()
+        parts.year = 2026; parts.month = 9; parts.day = 25
+        let today = Calendar(identifier: .gregorian).date(from: parts)!
+        let prompt = AgentFilter.prompt("solo las programadas de mañana", table: "audiencias",
+                                        columns: ["fecha", "estado"], types: ["fecha": "datetime"], today: today)
+        XCTAssertTrue(prompt.contains("audiencias"))
+        XCTAssertTrue(prompt.contains("fecha (datetime), estado (?)"), prompt)
+        XCTAssertTrue(prompt.contains("2026-09-25 Friday"), prompt)
+        XCTAssertTrue(prompt.contains("solo las programadas de mañana"))
+    }
 }

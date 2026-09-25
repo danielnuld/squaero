@@ -109,7 +109,7 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
       explicación en Ajustes
 - [x] 8.2 Herramientas de solo lectura: `buscarEsquema`, `describirTabla` y `ejecutarSelect`, que rechaza todo
       lo que no sea un `SELECT` según el clasificador de sentencias del núcleo
-- [ ] 8.3 Filtrar hablando: salida `@Generable` validada contra las columnas y convertida en etiquetas de
+- [x] 8.3 Filtrar hablando: salida `@Generable` validada contra las columnas y convertida en etiquetas de
       filtro
 - [ ] 8.4 Explicar un error y proponer el arreglo con las columnas reales
 - [ ] 8.5 Explicar una consulta o un snippet antes de ejecutarlo

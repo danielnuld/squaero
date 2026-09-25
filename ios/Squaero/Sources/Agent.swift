@@ -119,3 +119,88 @@ struct AgentTools: Sendable {
         s.count <= Self.maxChars ? s : String(s.prefix(Self.maxChars)) + "…"
     }
 }
+
+/// Filtering by asking (task 8.3), the part that does not need the model:
+/// what the model proposes becomes filter chips only once checked against
+/// the table's real columns and the operators the filter knows.
+enum AgentFilter {
+    /// queryBuilder.ts' OPERATORS, which the filter sheet offers too.
+    static let operators = ["=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN",
+                            "IS NULL", "IS NOT NULL"]
+
+    /// The proposed conditions that name a real column (in any case) and a
+    /// known operator; the rest are dropped, never guessed at.
+    static func conditions(_ proposed: [(column: String, op: String, value: String)],
+                           columns: [String]) -> [Condition] {
+        proposed.compactMap { p in
+            guard let column = columns.first(where: { $0.caseInsensitiveCompare(p.column) == .orderedSame }),
+                  let op = operators.first(where: { $0.caseInsensitiveCompare(p.op.trimmingCharacters(in: .whitespaces)) == .orderedSame })
+            else { return nil }
+            let nullary = op == "IS NULL" || op == "IS NOT NULL"
+            var value = p.value.trimmingCharacters(in: .whitespaces)
+            if nullary { value = "" }
+            if op == "BETWEEN" { value = value.replacingOccurrences(of: "...", with: "…") }
+            if !nullary && value.isEmpty { return nil }
+            return Condition(column: column, op: op, value: value)
+        }
+    }
+
+    /// What the model is told about the table and about today, so "mañana"
+    /// becomes a date.
+    static func prompt(_ request: String, table: String, columns: [String], types: [String: String],
+                       today: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd EEEE"
+        let cols = columns.map { "\($0) (\(types[$0] ?? "?"))" }.joined(separator: ", ")
+        return """
+            Tabla: \(table)
+            Columnas: \(cols)
+            Hoy: \(f.string(from: today))
+            Petición: \(request)
+            """
+    }
+
+    static let instructions = [
+        "Conviertes una petición en condiciones de filtro sobre una tabla.",
+        "Usa solo nombres de columna de la lista, exactamente como aparecen.",
+        "Operadores: = != < > <= >= LIKE CONTAINS BETWEEN IN IS NULL IS NOT NULL.",
+        "Fechas en formato YYYY-MM-DD; para un día entero en una columna de fecha y hora usa BETWEEN",
+        "con el valor 'YYYY-MM-DD 00:00:00…YYYY-MM-DD 23:59:59'. IN lleva los valores separados por comas.",
+        "Los valores van sin comillas. Si la petición no se puede expresar con estas columnas,",
+        "no devuelvas condiciones.",
+    ].joined(separator: " ")
+}
+
+#if canImport(FoundationModels)
+@available(iOS 26.0, *)
+@Generable
+struct AskedFilter {
+    @Guide(description: "Las condiciones, todas deben cumplirse")
+    var conditions: [AskedCondition]
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct AskedCondition {
+    @Guide(description: "Nombre exacto de una columna de la tabla")
+    var column: String
+    @Guide(description: "Operador de comparación",
+           .anyOf(["=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN", "IS NULL", "IS NOT NULL"]))
+    var op: String
+    @Guide(description: "Valor sin comillas; vacío para IS NULL e IS NOT NULL")
+    var value: String
+}
+
+@available(iOS 26.0, *)
+extension AgentFilter {
+    /// The model's conditions for request, checked.
+    static func ask(_ request: String, table: String, columns: [String], types: [String: String]) async throws
+        -> [Condition] {
+        let session = LanguageModelSession(instructions: instructions)
+        let answer = try await session.respond(to: prompt(request, table: table, columns: columns, types: types),
+                                               generating: AskedFilter.self)
+        return conditions(answer.content.conditions.map { ($0.column, $0.op, $0.value) }, columns: columns)
+    }
+}
+#endif
