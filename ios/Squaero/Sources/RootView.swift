@@ -1,6 +1,6 @@
 // The four tabs of the prototype (issue #575). Conexiones is live (#576);
-// Consultas and Snippets fill in with #578; Ajustes shows what this build of
-// the core carries.
+// Consultas runs SQL on the connection it has open (#578); Snippets fills in
+// with #578; Ajustes shows what this build of the core carries.
 
 import SwiftUI
 
@@ -9,7 +9,7 @@ struct RootView: View {
         TabView {
             ConnectionsView()
                 .tabItem { Label(Logic.t("ios.tab.connections"), systemImage: "cylinder.split.1x2") }
-            Placeholder(title: Logic.t("ios.tab.queries"), detail: "#578")
+            QueriesView()
                 .tabItem { Label(Logic.t("ios.tab.queries"), systemImage: "text.alignleft") }
             Placeholder(title: Logic.t("ios.tab.snippets"), detail: "#578")
                 .tabItem { Label(Logic.t("ios.tab.snippets"), systemImage: "curlybraces") }

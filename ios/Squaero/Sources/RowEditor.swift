@@ -98,7 +98,7 @@ final class RowEditor {
             }
             preview = sqls
         } catch {
-            failure = Self.readable(error)
+            failure = Logic.readable(error)
         }
     }
 
@@ -130,7 +130,7 @@ final class RowEditor {
             _ = try await Core.shared.call("tx.begin", ["connId": session.connId])
         } catch {
             // Nothing was opened: a driver without transactions says so (-32001).
-            failure = Logic.t("ios.edit.failed", ["reason": Self.readable(error)])
+            failure = Logic.t("ios.edit.failed", ["reason": Logic.readable(error)])
             return
         }
         do {
@@ -140,11 +140,11 @@ final class RowEditor {
             }
             _ = try await Core.shared.call("tx.commit", ["connId": session.connId])
         } catch {
-            var text = Logic.t("ios.edit.failed", ["reason": Self.readable(error)])
+            var text = Logic.t("ios.edit.failed", ["reason": Logic.readable(error)])
             do {
                 _ = try await Core.shared.call("tx.rollback", ["connId": session.connId])
             } catch {
-                text += " " + Logic.t("ios.edit.rollbackFailed", ["reason": Self.readable(error)])
+                text += " " + Logic.t("ios.edit.rollbackFailed", ["reason": Logic.readable(error)])
             }
             failure = text
             return
@@ -177,12 +177,5 @@ final class RowEditor {
         if let types = item.setTypes { p["setTypes"] = types }
         if preview { p["preview"] = true }
         return p
-    }
-
-    /// The core's message, or the text for its SQLCODE on Informix (#559).
-    static func readable(_ error: Error) -> String {
-        guard case let CoreError.rpc(_, message) = error else { return "\(error)" }
-        let text: String?? = try? Logic.shared.informixErrorText(message, locale: Logic.locale)
-        return text.flatMap { $0 } ?? message
     }
 }
