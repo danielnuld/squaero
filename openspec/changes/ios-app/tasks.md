@@ -89,7 +89,8 @@ si el resto es posible: si un cliente no compila para iOS, se sabe antes de escr
 - [x] 7.1 Icono (1024 px), pantalla de arranque, y textos de Face ID y red local en ES y EN
 - [x] 7.2 `PrivacyInfo.xcprivacy` sin recogida de datos, con las razones de las API declaradas; CI compara
       las API que importa el binario con las declaradas (`scripts/ios/check-privacy.sh`)
-- [ ] 7.3 `ITSAppUsesNonExemptEncryption` y la respuesta de cumplimiento de exportación
+- [x] 7.3 `ITSAppUsesNonExemptEncryption` y la respuesta de cumplimiento de exportación (exenta: solo TLS,
+      SSH y SCRAM estándar hacia los servidores del usuario, y el llavero)
 - [x] 7.4 Base de demostración SQLite incluida y ofrecida en la pantalla de conexiones
 - [x] 7.5 Pantalla de licencias generada desde `THIRD-PARTY.md`, con los `NOTICE` de Apache-2.0 (ninguno de
       los componentes Apache-2.0 publica uno en la versión fijada; va `THIRD_PARTY_NOTICES` de mongo-c)
