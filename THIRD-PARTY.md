@@ -93,6 +93,36 @@ Herramientas de desarrollo **no distribuidas** (dev-dependencies): Vite,
 vite-plugin-solid, vite-plugin-singlefile, Vitest, TypeScript, jsdom — todas
 MIT/ISC, usadas solo para construir y probar.
 
+### App de iPhone (App Store, issue #579)
+
+Todo lo que el build de iOS enlaza **estáticamente** en `SquaeroCore.xcframework`
+o empaqueta en la app, con el archivo del texto de licencia que la pantalla
+Ajustes › Licencias muestra. La pantalla se genera desde esta tabla
+(`node scripts/ios/licenses.mjs`); el job `ios-app` falla si la tabla y
+`ios/Squaero/Resources/Licenses.json` no coinciden. Los drivers `mysql` y `mssql`
+no entran en el build de iOS hasta tener clientes propios Apache-2.0 (#583, #584):
+ni MariaDB Connector/C ni FreeTDS (LGPL) están en la app.
+
+Ninguno de los componentes Apache-2.0 publica un archivo `NOTICE` en la versión
+fijada (OpenSSL 3.0.22, mongo-c-driver 1.30.1, libdrda 0.2.2); mongo-c-driver sí
+trae `THIRD_PARTY_NOTICES`, que se muestra completo.
+
+<!-- ios-licenses:start -->
+| Componente | Versión | Licencia | Texto |
+|---|---|---|---|
+| Squaero | — | GPL-3.0 | `LICENSE` |
+| cJSON | 1.7.18 | MIT | `ios/Licenses/cjson-LICENSE.txt` |
+| SQLite | 3.46.1 | Dominio público | `ios/Licenses/sqlite-PUBLIC-DOMAIN.txt` |
+| libpq (PostgreSQL) | 16.9 | PostgreSQL | `ios/Licenses/postgresql-COPYRIGHT.txt` |
+| mongo-c-driver (libmongoc, libbson) | 1.30.1 | Apache-2.0 | `ios/Licenses/mongo-c-COPYING.txt`, `ios/Licenses/mongo-c-THIRD_PARTY_NOTICES.txt` |
+| libdrda | 0.2.2 | Apache-2.0 | `ios/Licenses/libdrda-LICENSE.txt` |
+| OpenSSL | 3.0.22 | Apache-2.0 | `ios/Licenses/openssl-LICENSE.txt` |
+| libssh2 | 1.11.1 | BSD-3-Clause | `ios/Licenses/libssh2-COPYING.txt` |
+| fflate | 0.8.3 | MIT | `ios/Licenses/fflate-LICENSE.txt` |
+| Schibsted Grotesk | — | OFL-1.1 | `ios/Squaero/Resources/Fonts/OFL-SchibstedGrotesk.txt` |
+| Martian Mono | — | OFL-1.1 | `ios/Squaero/Resources/Fonts/OFL-MartianMono.txt` |
+<!-- ios-licenses:end -->
+
 ## Compatibilidad con GPLv3
 
 Todas las licencias del inventario son compatibles con la GPLv3:
