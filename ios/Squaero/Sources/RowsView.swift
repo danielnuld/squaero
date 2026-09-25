@@ -148,6 +148,7 @@ struct RowsView: View {
     /// A row of this table was saved from its form: read the rows again on
     /// coming back, not while the form still uses the connection.
     @State private var stale = false
+    @State private var exporting = false
 
     init(session: Session, object: ObjectRef) {
         _pager = State(initialValue: RowPager(session: session, object: object))
@@ -203,7 +204,11 @@ struct RowsView: View {
                 } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
                     .accessibilityLabel(Logic.t("ios.rows.filter"))
             }
+            Button { exporting = true } label: { Image(systemName: "square.and.arrow.up") }
+                .accessibilityLabel(Logic.t("ios.export.action"))
+                .disabled(pager.columns.isEmpty)
         }
+        .sheet(isPresented: $exporting) { ExportSheet(source: pager) }
         .sheet(isPresented: $adding) {
             ConditionSheet(columns: pager.names) { condition in
                 pager.draft.conditions.append(condition)
