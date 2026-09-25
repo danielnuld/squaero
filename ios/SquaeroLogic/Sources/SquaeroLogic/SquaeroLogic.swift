@@ -196,6 +196,17 @@ public struct ConnectionGroup: Codable, Equatable {
     public var conns: [Connection]
 }
 
+/// One row operation to apply (editSession.ts' PlanItem): kind is update,
+/// delete or insert; a nil value in `set`, `where` or `values` is SQL NULL.
+public struct PlanItem: Codable, Equatable {
+    public var kind: String
+    public var set: [String: String?]?
+    public var `where`: [String: String?]?
+    public var values: [String: String?]?
+    /// Neutral type per column set, so the driver leaves numbers unquoted.
+    public var setTypes: [String: String]?
+}
+
 public enum SquaeroLogicError: Error, Equatable {
     /// squaero-logic.js is not in the bundle (run `pnpm build:logic`).
     case scriptMissing
@@ -314,6 +325,28 @@ public final class SquaeroLogic {
         try call("edit.describeColumnNames", [describe])
     }
 
+    /// The primary key's columns; empty when the table has none, and then it
+    /// is read-only: no UPDATE that could match several rows (edit.ts).
+    public func describePkColumns(_ describe: ResultSet) throws -> [String] {
+        try call("edit.describePkColumns", [describe])
+    }
+
+    /// The operations that save `set` (column → new value) on one row, keyed
+    /// by the row's original primary key, as desktop's grid builds them
+    /// (editSession.buildPlan). Empty when nothing changed or the row does
+    /// not carry every key column.
+    public func rowUpdatePlan(table: String, db: String?, schema: String?, pk: [String],
+                              columns: [ResultColumn], row: [String?], set: [String: String?]) throws -> [PlanItem] {
+        struct Source: Encodable { let table: String; let db: String?; let schema: String?; let pk: [String] }
+        struct Pending: Encodable {
+            let edits: [String: [String: String?]]
+            let deletes: [Int] = []
+            let inserts: [[String: String?]] = []
+        }
+        return try call("editSession.buildPlan", [Source(table: table, db: db, schema: schema, pk: pk), columns,
+                                                  [row], Pending(edits: set.isEmpty ? [:] : ["0": set])])
+    }
+
     /// The catalog query for one table's foreign keys: `outbound` the keys it
     /// holds, else the keys pointing at it.
     public func foreignKeysFor(_ engine: String, db: String?, table: String, outbound: Bool) throws -> ForeignKeyQuery {
@@ -406,6 +439,12 @@ public final class SquaeroLogic {
     /// Where a connection points, in one line ("siaj @ 10.0.0.5:9089").
     public func connectionTarget(_ conn: Connection) throws -> String {
         try call("connections.connectionTarget", [conn])
+    }
+
+    /// Whether an edit's preview warns that this is production: the palette's
+    /// red or a group named for it.
+    public func isProductionConnection(_ conn: Connection) throws -> Bool {
+        try call("connections.isProductionConnection", [conn])
     }
 
     /// The engine's two letters ("PG"), as desktop's badge.

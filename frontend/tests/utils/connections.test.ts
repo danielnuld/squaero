@@ -3,6 +3,7 @@ import {
   connectionTarget,
   defaultConnectionName,
   engineMonogram,
+  isProductionConnection,
 } from "../../src/utils/connections";
 
 // The two pieces the connection bar's rows need (#525): a monogram that fits a
@@ -701,5 +702,27 @@ describe("connection groups and icons", () => {
   it("drops a blank group when parsing", () => {
     const saved = parseConnections(JSON.stringify([{ ...sqliteConn(), group: "  " }]));
     expect(saved[0].group).toBeUndefined();
+  });
+});
+
+// The iPhone's edit preview warns on a production connection (#577).
+describe("isProductionConnection", () => {
+  it("takes the palette's red as production", () => {
+    expect(isProductionConnection({ color: "#e5484d" })).toBe(true);
+    expect(isProductionConnection({ color: "#E5484D" })).toBe(true);
+  });
+
+  it("takes a group named for production, in either language", () => {
+    expect(isProductionConnection({ group: "Producción" })).toBe(true);
+    expect(isProductionConnection({ group: "produccion" })).toBe(true);
+    expect(isProductionConnection({ group: "Production" })).toBe(true);
+    expect(isProductionConnection({ group: " prod-SIAJ " })).toBe(true);
+  });
+
+  it("leaves the rest alone", () => {
+    expect(isProductionConnection({})).toBe(false);
+    expect(isProductionConnection({ color: "#4bb45e", group: "Desarrollo" })).toBe(false);
+    expect(isProductionConnection({ group: "productos" })).toBe(false);
+    expect(isProductionConnection({ group: "preprod" })).toBe(false);
   });
 });
