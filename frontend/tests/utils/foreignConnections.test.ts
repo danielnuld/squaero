@@ -57,7 +57,7 @@ const NAVICAT = `<?xml version="1.0" encoding="UTF-8"?>
               Port="5432" UserName="reader" DefaultDatabase="reportes"
               SSH_Host="bastion.example.com" SSH_Port="2222" SSH_UserName="dnl"/>
   <Connection ConnectionName="Local" ConnType="SQLite" DatabaseFileName="/home/d/n.db"/>
-  <Connection ConnectionName="Nómina" ConnType="SQL Server" Host="mssql.example.com"/>
+  <Connection ConnectionName="Nómina" ConnType="Oracle" Host="orcl.example.com"/>
 </Connections>`;
 
 describe("detectForeign", () => {
@@ -83,11 +83,12 @@ describe("driverFor", () => {
     expect(driverFor("MariaDB")).toBe("mysql");
     expect(driverFor("mongo db")).toBe("mongodb");
     expect(driverFor("SQLite")).toBe("sqlite");
+    expect(driverFor("sqlserver")).toBe("mssql"); // DBeaver's provider (#516)
+    expect(driverFor("mssql")).toBe("mssql");     // its older one
   });
 
   it("says nothing for an engine we do not ship", () => {
     expect(driverFor("oracle")).toBe("");
-    expect(driverFor("SQL Server")).toBe("");
     expect(driverFor("")).toBe("");
   });
 });
@@ -220,13 +221,70 @@ describe("parseNavicat", () => {
   });
 
   it("reports an engine it cannot map", async () => {
-    expect((await parsed()).skipped).toEqual([{ name: "Nómina", reason: "SQL Server" }]);
+    expect((await parsed()).skipped).toEqual([{ name: "Nómina", reason: "Oracle" }]);
   });
 
   it("refuses a file that is not one of Navicat's", async () => {
     expect(await parseNavicat("<Connections></Connections>")).toEqual({
       error: "El archivo de Navicat no contiene conexiones.",
     });
+  });
+});
+
+// Issue #516: SQL Server, with the provider and driver ids DBeaver's own
+// plugin.xml declares, its instance and encryption from the host or JDBC URL.
+describe("SQL Server from DBeaver", () => {
+  const one = (entry: Record<string, unknown>) => {
+    const r = parseDbeaver(JSON.stringify({ connections: { x: { name: "Nómina", ...entry } } }));
+    if ("error" in r) throw new Error(r.error);
+    return r;
+  };
+
+  it("reads the address, and the driver's encrypt property", () => {
+    const r = one({
+      provider: "sqlserver",
+      driver: "microsoft",
+      configuration: {
+        host: "mssql.example.com",
+        port: "1433",
+        database: "nomina",
+        user: "sa",
+        url: "jdbc:sqlserver://mssql.example.com:1433;databaseName=nomina",
+        properties: { encrypt: "true", trustServerCertificate: "true" },
+      },
+    });
+    expect(r.connections[0]).toEqual({
+      id: "",
+      name: "Nómina",
+      driver: "mssql",
+      params: { host: "mssql.example.com", port: "1433", database: "nomina", user: "sa", encryption: "require" },
+    });
+  });
+
+  it("takes a named instance from the host, and drops the port for the SQL Browser", () => {
+    const r = one({
+      provider: "sqlserver",
+      driver: "microsoft",
+      configuration: { host: "srv01\\SQLEXPRESS", port: "1433", url: "jdbc:sqlserver://srv01\\SQLEXPRESS;encrypt=false" },
+    });
+    expect(r.connections[0].params).toEqual({ host: "srv01", instance: "SQLEXPRESS", encryption: "off" });
+  });
+
+  it("reads jTDS's URL: database, instance and ssl", () => {
+    const r = one({
+      provider: "sqlserver",
+      driver: "jtds",
+      configuration: { url: "jdbc:jtds:sqlserver://srv02:1433/ventas;instance=PROD;ssl=request" },
+    });
+    expect(r.connections[0].params).toEqual({ host: "srv02", database: "ventas", instance: "PROD", encryption: "request" });
+  });
+
+  it("leaves Sybase alone: the old mssql provider carries its drivers too", () => {
+    const r = one({ provider: "mssql", driver: "sybase_jtds", configuration: { host: "ase", port: "5000" } });
+    expect(r.connections).toEqual([]);
+    expect(r.skipped).toEqual([{ name: "Nómina", reason: "Sybase" }]);
+    expect(one({ provider: "mssql", driver: "mssql_jdbc_ms_new", configuration: { host: "h" } }).connections[0].driver)
+      .toBe("mssql");
   });
 });
 
