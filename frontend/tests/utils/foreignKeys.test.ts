@@ -31,6 +31,19 @@ describe("foreignKeysFor — scoped to one table", () => {
       "AND t.tabname = 'pedidos'",
     );
   });
+  // #552: a table opened from another database of the server showed no
+  // relations, because its catalog was read from the connection's database.
+  it("Informix reads the catalog of the table's own database", () => {
+    const sql = foreignKeysFor("informix", "otra552", from("recursos")).bulkSql!;
+    for (const table of ["sysconstraints", "systables", "sysreferences", "sysindexes", "syscolumns"]) {
+      expect(sql).toContain(`otra552:${table} `);
+    }
+    expect(sql).not.toMatch(/(FROM|JOIN) sys/);
+    // Not a plain identifier: no qualifier rather than an injected one.
+    const odd = foreignKeysFor("informix", "x; DROP", from("recursos")).bulkSql!;
+    expect(odd).not.toContain("DROP");
+    expect(foreignKeysFor("informix", undefined, from("recursos")).bulkSql).toContain("FROM sysconstraints c ");
+  });
   it("SQLite filters by the child table", () => {
     expect(foreignKeysFor("sqlite", undefined, from("pedidos")).bulkSql).toContain(
       "AND m.name = 'pedidos'",
