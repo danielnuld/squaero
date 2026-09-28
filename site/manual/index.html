@@ -223,10 +223,10 @@
         <li><b>Navicat</b>: el archivo <code>.ncx</code>, con contraseñas.</li>
       </ul>
       <p>De cada conexión llegan motor, host, puerto, base, usuario, el túnel SSH y la
-        contraseña.</p>
+        contraseña; de una de SQL Server, además, la instancia con nombre y el cifrado.</p>
       <div class="note">
         <p><b>Lo que no puede traer, lo dice.</b> Un motor que Squaero no lleva
-          (Oracle, SQL Server) se reporta por su nombre en vez de mapearse a un driver
+          (Oracle, Sybase) se reporta por su nombre en vez de mapearse a un driver
           que se le parezca, y una contraseña que no se puede leer —un archivo de
           Navicat 11, un <code>credentials-config.json</code> que no seleccionaste— se
           cuenta y se informa. Nunca se adivina.</p>
