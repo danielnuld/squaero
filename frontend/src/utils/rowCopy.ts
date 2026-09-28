@@ -22,12 +22,17 @@ export function copyRows(
   rowIndices: number[],
   order: readonly number[],
   source: RowSource | null,
+  withHeader = false,
 ): RowClipboard {
   const columns = applyOrder(order, result.columns).map((c) => c.name);
   const rows = rowIndices
     .filter((i) => result.rows[i] !== undefined)
     .map((i) => applyOrder(order, result.rows[i]));
-  return { text: rows.map(rowToTsv).join("\n"), columns, rows, source };
+  // The header line is only for the text other programs get (a spreadsheet
+  // takes it as its first row); the in-app copy already carries the columns.
+  const lines = rows.map(rowToTsv);
+  if (withHeader) lines.unshift(columns.join("\t"));
+  return { text: lines.join("\n"), columns, rows, source };
 }
 
 /** Rows of a result as new-row value maps keyed by column name, for duplicating. */
