@@ -93,6 +93,11 @@ const ENGINES: Record<string, string> = {
   mongodb: "mongodb",
   mongo: "mongodb",
   informix: "informix",
+  // SQL Server (#516), measured from DBeaver's own plugin.xml: the provider is
+  // "sqlserver" (drivers microsoft, azure, jtds, babelfish — all TDS), and the
+  // older "mssql", which also carries Sybase drivers (see isSybase).
+  sqlserver: "mssql",
+  mssql: "mssql",
   // Navicat ConnType spellings
   mysqlconn: "mysql",
   postgresqlconn: "postgres",
@@ -104,6 +109,69 @@ const ENGINES: Record<string, string> = {
 /** The Squaero driver for a foreign engine name, or "" when we do not ship it. */
 export function driverFor(engine: string): string {
   return ENGINES[engine.trim().toLowerCase().replace(/[\s_-]/g, "")] ?? "";
+}
+
+/** DBeaver's old "mssql" provider also lists Sybase ASE drivers (sybase_jtds,
+    sybase_jconn, and a "sypase_jconn" typo), which are not SQL Server. */
+function isSybase(driverId: string): boolean {
+  return /^sy[bp]ase/i.test(driverId.trim());
+}
+
+/**
+ * SQL Server's named instance and encryption, from the host ("server\INSTANCE")
+ * and the JDBC URL — Microsoft's "jdbc:sqlserver://host\inst:port;encrypt=true"
+ * or jTDS's "jdbc:jtds:sqlserver://host:port/db;instance=X;ssl=require" — and a
+ * driver property `encrypt`. Our driver takes either a port or an instance, not
+ * both, so an instance drops the port (the SQL Browser finds it).
+ */
+export function mssqlParams(
+  params: Record<string, string>,
+  url: string,
+  props: Record<string, unknown> = {},
+): void {
+  const opts: Record<string, string> = {};
+  const m = /^jdbc:(?:jtds:)?sqlserver:\/\/([^;/:\\]*)(?:\\([^;/:]+))?(?::(\d+))?(?:\/([^;]*))?(;.*)?$/i.exec(
+    url.trim(),
+  );
+  if (m) {
+    if (!params.host && m[1]) put(params, "host", m[1]);
+    if (m[2]) opts.instancename = m[2];
+    if (!params.port && m[3]) put(params, "port", m[3]);
+    if (!params.database && m[4]) put(params, "database", m[4]);
+    for (const part of (m[5] ?? "").split(";")) {
+      const eq = part.indexOf("=");
+      if (eq > 0) opts[part.slice(0, eq).trim().toLowerCase()] = part.slice(eq + 1).trim();
+    }
+  }
+  for (const [k, v] of Object.entries(props)) {
+    if (typeof v === "string") opts[k.toLowerCase()] = v;
+  }
+  if (!params.database) put(params, "database", opts.databasename ?? opts.database ?? "");
+
+  const hostInstance = /^([^\\]+)\\(.+)$/.exec(params.host ?? "");
+  if (hostInstance) {
+    params.host = hostInstance[1];
+    opts.instancename ??= hostInstance[2];
+  }
+  const instance = opts.instancename ?? opts.instance ?? "";
+  if (instance) {
+    params.instance = instance;
+    delete params.port;
+  }
+
+  // Microsoft's encrypt=false still encrypts the login (our "off"); jTDS's ssl
+  // names the same levels as ours.
+  const encrypt = (opts.encrypt ?? "").toLowerCase();
+  const ssl = (opts.ssl ?? "").toLowerCase();
+  const level =
+    encrypt === "strict" ? "strict"
+      : encrypt === "true" || encrypt === "mandatory" ? "require"
+      : encrypt === "false" || encrypt === "optional" ? "off"
+      : ssl === "require" || ssl === "authenticate" ? "require"
+      : ssl === "request" ? "request"
+      : ssl === "off" ? "off"
+      : "";
+  if (level) params.encryption = level;
 }
 
 /** The SSH tunnel half, shared by both readers (same field names on our side). */
@@ -159,8 +227,8 @@ export function parseDbeaver(raw: string): ForeignImport | { error: string } {
 
     const engine = pick(e, ["provider", "driver"]);
     const driver = driverFor(engine);
-    if (driver === "") {
-      skipped.push({ name, reason: engine || "motor desconocido" });
+    if (driver === "" || (driver === "mssql" && isSybase(pick(e, ["driver"])))) {
+      skipped.push({ name, reason: driver === "" ? engine || "motor desconocido" : "Sybase" });
       continue;
     }
 
@@ -175,6 +243,10 @@ export function parseDbeaver(raw: string): ForeignImport | { error: string } {
       // Some versions leave the password right here in the clear; the rest keep
       // it in credentials-config.json, which applyCredentials() fills in later.
       put(params, "password", pick(cfg, ["password"]));
+    }
+    if (driver === "mssql") {
+      const props = cfg.properties && typeof cfg.properties === "object" ? cfg.properties : {};
+      mssqlParams(params, pick(cfg, ["url"]), props as Record<string, unknown>);
     }
 
     // DBeaver nests the tunnel under handlers/network-handlers in some versions
@@ -302,6 +374,8 @@ export async function parseNavicat(raw: string): Promise<ForeignImport | { error
         else put(params, "password", clear);
       }
     }
+
+    if (driver === "mssql") mssqlParams(params, "");
 
     sshParams(
       params,
