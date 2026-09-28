@@ -2,12 +2,16 @@ import { Show } from "solid-js";
 import type { PkMode } from "../utils/rowPaste";
 import { t } from "../utils/i18n";
 
-// Floating bar over the grid while new rows wait to be saved (#517). It says
+// The bar under the grid while new rows wait to be saved (#517). It says
 // how many there are and whether any is already known to collide, and holds the
 // choices a paste leaves open: generate or keep the copied key, and whether
 // empty cells of pasted text are NULL. Saving goes through the usual SQL
 // preview, so there is one "review and save" rather than a separate "see SQL".
 // Presentational: the workspace owns the rows and the session.
+//
+// Docked, not floating like the marked-rows bar: the new rows are edited at the
+// bottom of the grid, exactly where a floating bar sits, and it covered the
+// cell being typed in.
 export function PendingRowsBar(props: {
   count: number;
   /** Pending rows with a cell already known to collide. */
@@ -30,7 +34,7 @@ export function PendingRowsBar(props: {
   const blocked = () => props.conflicts > 0;
 
   return (
-    <div class="row-action-bar" role="toolbar" aria-label={t("pending.label")}>
+    <div class="row-action-bar row-action-bar-docked" role="toolbar" aria-label={t("pending.label")}>
       <span class="row-action-count">
         {props.count === 1 ? t("pending.rowsOne") : t("pending.rowsN", { n: props.count })}
       </span>
