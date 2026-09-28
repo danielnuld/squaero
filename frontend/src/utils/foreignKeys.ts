@@ -165,19 +165,24 @@ export function foreignKeysFor(engine: string, db?: string, scope?: FkScope): Fo
       const scoped = only
         ? `AND ${inbound ? "pt.tabname" : "t.tabname"} = '${lit(only)}' `
         : "";
+      // The catalog of the table's own database (#552): a connection to one
+      // database reads another's as `db:systables`, as the driver's metadata
+      // does. Unqualified, a table opened from another database of the server
+      // showed no relations. Only a plain identifier is used as a qualifier.
+      const q = /^[A-Za-z_][A-Za-z0-9_$]*$/.test(dbName) ? `${dbName}:` : "";
       const branch = (n: number) =>
         "SELECT TRIM(t.tabname) AS from_table, TRIM(fc.colname) AS from_column, " +
         "TRIM(pt.tabname) AS to_table, TRIM(pc.colname) AS to_column, " +
         `TRIM(c.constrname) AS constraint_name, ${n} AS position ` +
-        "FROM sysconstraints c " +
-        "JOIN systables t ON t.tabid = c.tabid " +
-        "JOIN sysreferences r ON r.constrid = c.constrid " +
-        "JOIN systables pt ON pt.tabid = r.ptabid " +
-        "JOIN sysindexes fi ON fi.idxname = c.idxname AND fi.tabid = c.tabid " +
-        `JOIN syscolumns fc ON fc.tabid = c.tabid AND fc.colno = ABS(fi.part${n}) ` +
-        "JOIN sysconstraints pk ON pk.constrid = r.primary " +
-        "JOIN sysindexes pi ON pi.idxname = pk.idxname AND pi.tabid = pk.tabid " +
-        `JOIN syscolumns pc ON pc.tabid = pk.tabid AND pc.colno = ABS(pi.part${n}) ` +
+        `FROM ${q}sysconstraints c ` +
+        `JOIN ${q}systables t ON t.tabid = c.tabid ` +
+        `JOIN ${q}sysreferences r ON r.constrid = c.constrid ` +
+        `JOIN ${q}systables pt ON pt.tabid = r.ptabid ` +
+        `JOIN ${q}sysindexes fi ON fi.idxname = c.idxname AND fi.tabid = c.tabid ` +
+        `JOIN ${q}syscolumns fc ON fc.tabid = c.tabid AND fc.colno = ABS(fi.part${n}) ` +
+        `JOIN ${q}sysconstraints pk ON pk.constrid = r.primary ` +
+        `JOIN ${q}sysindexes pi ON pi.idxname = pk.idxname AND pi.tabid = pk.tabid ` +
+        `JOIN ${q}syscolumns pc ON pc.tabid = pk.tabid AND pc.colno = ABS(pi.part${n}) ` +
         "WHERE c.constrtype = 'R' AND t.tabid > 99 " +
         `AND fi.part${n} <> 0 AND pi.part${n} <> 0 ` +
         scoped;
