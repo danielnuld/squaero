@@ -43,6 +43,7 @@ import { loadCellColors, saveCellColors } from "./utils/cellColorStore";
 import type { CellKind } from "./utils/format";
 import {
   addTab,
+  blankSession,
   openTool,
   GLOBAL_TOOLS,
   openSnippetTab,
@@ -427,12 +428,10 @@ export function App() {
   const [pendingRestore, setPendingRestore] = createSignal<TabState | null>(
     stored && worthRestoring(stored) ? stored : null,
   );
+  // Whether or not there is a session to offer, the app opens on a blank tab
+  // numbered from 1 again; a saved session comes back only when resumed.
   const [tabs, setTabs] = createSignal<TabState>(
-    (pendingRestore() ? null : stored) ??
-      addTab(
-        { tabs: [], activeId: 0, seq: stored?.seq ?? 0 },
-        t("toolbar.newQuery.label"),
-      ),
+    blankSession(stored, t("toolbar.newQuery.label")),
   );
   const [results, setResults] = createStore<Record<number, TabResult>>({});
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
@@ -1518,7 +1517,8 @@ export function App() {
     const saved = pendingRestore();
     setPendingRestore(null);
     if (!saved) return;
-    setTabs({ ...saved, seq: Math.max(saved.seq ?? 0, tabs().seq ?? 0) });
+    // Numbering goes on from the resumed session's titles, not the blank tab's.
+    setTabs({ ...saved, seq: Math.max(saved.seq ?? 0, tabs().seq ?? 0), num: saved.num });
     for (const defId of restoreConnIds(saved)) {
       const c = connections().find((x) => x.id === defId);
       // eslint-disable-next-line no-await-in-loop -- one open at a time by design

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   nextTabId,
   addTab,
+  blankSession,
   openTool,
   GLOBAL_TOOLS,
   type ToolTab,
@@ -544,5 +545,49 @@ describe("SQL variables travel with the tab (issue #481)", () => {
     });
     const tab = parseWorkspace(raw)?.tabs[0];
     expect(tab?.kind === "query" && tab.vars).toEqual({ ":a": { text: "ok" } });
+  });
+});
+
+// A session that starts blank numbers its tabs from 1 again, while the ids go
+// on after every id handed out before (issue #355 still holds).
+describe("the title counter of a blank session", () => {
+  const saved = parseWorkspace(
+    JSON.stringify({
+      tabs: [{ id: 47, kind: "query", title: "Consulta 47", sql: "SELECT 1" }],
+      activeId: 47,
+      seq: 47,
+    }),
+  )!;
+
+  it("starts at 1, with an id after the saved ones", () => {
+    const blank = blankSession(saved);
+    expect(blank.tabs).toHaveLength(1);
+    expect(blank.tabs[0].title).toBe("Consulta 1");
+    expect(blank.tabs[0].id).toBe(48);
+    const next = addTab(blank);
+    expect(next.tabs[1].title).toBe("Consulta 2");
+    expect(next.tabs[1].id).toBe(49);
+  });
+
+  it("starts at 1 with nothing stored either", () => {
+    expect(blankSession(null).tabs[0]).toMatchObject({ id: 1, title: "Consulta 1" });
+  });
+
+  it("keeps counting through a tool, a snippet and a closed tab", () => {
+    let st = blankSession(saved);
+    st = openTool(st, "monitor", "Monitor");
+    st = openSnippetTab(st, { id: "s1", name: "Mi snippet", body: "SELECT 2" });
+    st = closeTab(st, st.tabs[0].id);
+    st = addTab(st);
+    expect(st.tabs.map((t) => t.title)).toEqual(["Monitor", "Mi snippet", "Consulta 2"]);
+    expect(new Set(st.tabs.map((t) => t.id)).size).toBe(3);
+  });
+
+  it("a resumed session goes on from its own numbers, even one saved before the counter", () => {
+    expect(saved.num).toBe(47); // no num stored: its titles went by seq
+    expect(addTab(saved).tabs[1].title).toBe("Consulta 48");
+    const round = parseWorkspace(serializeWorkspace(addTab(blankSession(saved))))!;
+    expect(round.num).toBe(2);
+    expect(addTab(round).tabs.at(-1)!.title).toBe("Consulta 3");
   });
 });
