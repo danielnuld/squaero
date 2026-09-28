@@ -236,6 +236,37 @@ int main(void)
 
     EXPECT(run_ok(a, "DROP TABLE quaero_ifx_it"), "drop table");
 
+    /* Issue #599: a row whose DATETIME values read back with six decimals over
+       DRDA is edited with them, as the grid does; with no primary key they go
+       in the WHERE too. Informix refused that text (-1264) until the driver
+       fitted it to each column's qualifier. */
+    {
+        char s[64], m[64];
+        run_ok(a, "DROP TABLE quaero_ifx_dt");
+        EXPECT(run_ok(a, "CREATE TABLE quaero_ifx_dt (nombre VARCHAR(20), "
+                         "s DATETIME YEAR TO SECOND, m DATETIME YEAR TO MINUTE)"), "create dt");
+        EXPECT(run_ok(a, "INSERT INTO quaero_ifx_dt VALUES ('a', '2026-09-23 10:00:00', "
+                         "'2026-09-23 10:00')"), "insert dt");
+        scalar(a, "SELECT s FROM quaero_ifx_dt", s, sizeof s);
+        scalar(a, "SELECT m FROM quaero_ifx_dt", m, sizeof m);
+        cJSON *root = rpc("{\"jsonrpc\":\"2.0\",\"id\":40,\"method\":\"row.update\","
+                          "\"params\":{\"connId\":\"%s\",\"table\":\"quaero_ifx_dt\","
+                          "\"set\":{\"nombre\":\"b\",\"s\":\"%s\"},"
+                          "\"where\":{\"nombre\":\"a\",\"s\":\"%s\",\"m\":\"%s\"}}}",
+                          a, s, s, m);
+        cJSON *ra = cJSON_GetObjectItem(result_of(root), "rowsAffected");
+        if (!cJSON_IsNumber(ra) || ra->valueint != 1) {
+            char *t = cJSON_PrintUnformatted(root);
+            fprintf(stderr, "row.update with s=%s m=%s: %s\n", s, m, t ? t : "?");
+            cJSON_free(t);
+        }
+        EXPECT(cJSON_IsNumber(ra) && ra->valueint == 1, "a DATETIME row read over DRDA can be edited");
+        cJSON_Delete(root);
+        EXPECT(strcmp(scalar(a, "SELECT nombre FROM quaero_ifx_dt", buf, sizeof buf), "b") == 0,
+               "the edit is there");
+        EXPECT(run_ok(a, "DROP TABLE quaero_ifx_dt"), "drop dt");
+    }
+
     /* Cancel: the slow query stops at once. DRDA cuts the connection to do it;
        SQLI interrupts the statement and the connection goes on. */
     {

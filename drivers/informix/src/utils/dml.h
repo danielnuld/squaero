@@ -25,4 +25,23 @@
  */
 char *informix_build_dml_sql(dbc_dml_kind kind, const dbc_dml_row *row);
 
+#include <stddef.h>
+
+/*
+ * Fit the text of a DATETIME value to its column's qualifier (issue #599).
+ * Over DRDA every DATETIME YEAR TO ... reads as a DRDA TIMESTAMP, always with
+ * six decimals ("2026-09-23 10:00:00.000000"), and Informix refuses that text
+ * back in a column that ends sooner (-1264, "extra characters at the end of a
+ * datetime"). `collength` is syscolumns.collength, whose low byte encodes the
+ * qualifier (largest field * 16 + smallest; YEAR 0, MONTH 2, DAY 4, HOUR 6,
+ * MINUTE 8, SECOND 10, FRACTION(n) 10 + n). "YYYY-MM-DD HH:MM:SS[.f]",
+ * "YYYY-MM-DD" and "HH:MM:SS[.f]" are recognised; the fields the qualifier
+ * names are kept, FRACTION cut or padded to its scale.
+ *
+ * Writes the fitted text into out and returns 1; returns 0 (out untouched)
+ * when the value is not one of those forms, does not cover the qualifier's
+ * fields, or out is too small: such a value goes to the server as typed.
+ */
+int informix_fit_datetime(const char *val, int collength, char *out, size_t cap);
+
 #endif /* QUAERO_INFORMIX_DML_H */
