@@ -95,6 +95,10 @@ export interface TabState {
       previous one's grid — a table's `preview` even hid the editor behind the
       filter panel — besides letting an in-flight query land in it. */
   seq?: number;
+  /** The last number put in a generic tab's title ("Consulta 3"). Its own
+      counter, not the id: ids must keep moving forward across a restart (seq),
+      but a session that starts blank starts its titles at 1 again. */
+  num?: number;
 }
 
 /** Returns an id greater than every existing tab id AND than every id already
@@ -114,14 +118,25 @@ export function addTab(
   numbered = true,
 ): TabState {
   const id = nextTabId(state.tabs, state.seq);
+  const num = (state.num ?? state.seq ?? 0) + 1;
   const tab: QueryTab = {
     id,
     kind: "query",
-    title: numbered ? `${title} ${id}` : title,
+    title: numbered ? `${title} ${num}` : title,
     sql: "",
     connDefId,
   };
-  return { tabs: [...state.tabs, tab], activeId: id, seq: id };
+  return { ...state, tabs: [...state.tabs, tab], activeId: id, seq: id, num: numbered ? num : state.num };
+}
+
+/**
+ * The first tab of a session that starts blank: nothing to restore, or a
+ * restore the user has not taken. Its title starts at 1 again; its id still
+ * comes after every id handed out before (`seq`, issue #355), so if the user
+ * then resumes the saved tabs no id collides.
+ */
+export function blankSession(stored: TabState | null, title = "Consulta"): TabState {
+  return addTab({ tabs: [], activeId: 0, seq: stored?.seq ?? 0, num: 0 }, title);
 }
 
 /**
@@ -186,7 +201,7 @@ export function openTool(
   }
   const id = nextTabId(state.tabs, state.seq);
   const tab: ToolTab = { id, kind: "tool", title, tool, ...opts };
-  return { tabs: [...state.tabs, tab], activeId: id, seq: id };
+  return { ...state, tabs: [...state.tabs, tab], activeId: id, seq: id };
 }
 
 /**
@@ -219,7 +234,7 @@ export function openSnippetTab(
     connDefId,
     snippetId: snip.id,
   };
-  return { tabs: [...state.tabs, tab], activeId: id, seq: id };
+  return { ...state, tabs: [...state.tabs, tab], activeId: id, seq: id };
 }
 
 /**
@@ -373,6 +388,8 @@ interface StoredWorkspace {
   tabs: QueryTab[];
   activeId: number;
   seq: number;
+  /** TabState.num: where a resumed session goes on numbering its titles. */
+  num?: number;
 }
 
 /** Serializes the query tabs of `state` for storage. */
@@ -390,6 +407,7 @@ export function serializeWorkspace(state: TabState): string {
     activeId: active,
     seq: tabs.reduce((max, t) => Math.max(max, t.id), state.seq ?? 0),
   };
+  if (state.num !== undefined) stored.num = state.num;
   return JSON.stringify(stored);
 }
 
@@ -440,7 +458,10 @@ export function parseWorkspace(raw: string | null): TabState | null {
     (max, t) => Math.max(max, t.id),
     typeof w.seq === "number" && Number.isFinite(w.seq) ? w.seq : 0,
   );
-  return { tabs, activeId, seq };
+  // A workspace saved before the title counter existed goes on from seq, as
+  // its titles did, so a new tab does not repeat the number of a restored one.
+  const num = typeof w.num === "number" && Number.isFinite(w.num) ? w.num : seq;
+  return { tabs, activeId, seq, num };
 }
 
 /**
