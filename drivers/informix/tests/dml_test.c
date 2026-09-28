@@ -134,6 +134,43 @@ int main(void)
         check_null("null row", informix_build_dml_sql(DBC_DML_INSERT, NULL));
     }
 
+    /* DATETIME text fitted to the column's qualifier (issue #599). collength =
+       digits*256 + largest*16 + smallest (YEAR 0 ... SECOND 10, FRACTION(n) 10+n). */
+    {
+        static const struct {
+            const char *val;
+            int collength;
+            const char *want; /* NULL: left as it is */
+        } cases[] = {
+            {"2026-09-23 10:00:00.000000", 14 * 256 + 0 + 10, "2026-09-23 10:00:00"},     /* YEAR TO SECOND */
+            {"2026-09-23 10:00:00.000000", 12 * 256 + 0 + 8, "2026-09-23 10:00"},         /* YEAR TO MINUTE */
+            {"2026-09-23 10:00:00.123000", 17 * 256 + 0 + 13, "2026-09-23 10:00:00.123"}, /* FRACTION(3) */
+            {"2026-09-23 10:00:00", 19 * 256 + 0 + 15, "2026-09-23 10:00:00.00000"},      /* FRACTION(5) */
+            {"2026-09-23 00:00:00.000000", 8 * 256 + 0 + 4, "2026-09-23"},                /* YEAR TO DAY */
+            {"2026-09-23 00:00:00.000000", 4 * 256 + 2 * 16 + 4, "09-23"},                /* MONTH TO DAY */
+            {"10:30:15", 6 * 256 + 6 * 16 + 10, "10:30:15"},                              /* HOUR TO SECOND */
+            {"10:30:00", 4 * 256 + 6 * 16 + 8, "10:30"},                                  /* HOUR TO MINUTE */
+            {"2026-09-23 10:00", 14 * 256 + 0 + 10, NULL},  /* lacks the seconds: as typed */
+            {"10:30:15", 14 * 256 + 0 + 10, NULL},          /* no date for YEAR TO SECOND */
+            {"mañana", 14 * 256 + 0 + 10, NULL},            /* not a datetime */
+            {"2026-09-23 10:00:00x", 14 * 256 + 0 + 10, NULL},
+        };
+        for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+            char out[40] = "untouched";
+            int fitted = informix_fit_datetime(cases[i].val, cases[i].collength, out, sizeof out);
+            if (cases[i].want == NULL ? fitted : (!fitted || strcmp(out, cases[i].want) != 0)) {
+                fprintf(stderr, "FAIL: fit '%s' (%d)\n  got:  %s (%d)\n  want: %s\n", cases[i].val,
+                        cases[i].collength, out, fitted, cases[i].want ? cases[i].want : "(as typed)");
+                failures++;
+            }
+        }
+        char tiny[8];
+        if (informix_fit_datetime("2026-09-23 10:00:00.000000", 14 * 256 + 10, tiny, sizeof tiny)) {
+            fprintf(stderr, "FAIL: fit into a buffer too small\n");
+            failures++;
+        }
+    }
+
     if (failures == 0) {
         printf("OK: informix single-row DML builder (all cases)\n");
         return 0;

@@ -202,3 +202,111 @@ char *informix_build_dml_sql(dbc_dml_kind kind, const dbc_dml_row *row)
     }
     return b.data;
 }
+
+/* ---- DATETIME literals (issue #599) ------------------------------------ */
+
+/* n digits at p into f (NUL-terminated); 1 on success. */
+static int take_digits(const char **p, int n, char *f)
+{
+    for (int i = 0; i < n; i++) {
+        if ((*p)[i] < '0' || (*p)[i] > '9') {
+            return 0;
+        }
+        f[i] = (*p)[i];
+    }
+    f[n] = '\0';
+    *p += n;
+    return 1;
+}
+
+int informix_fit_datetime(const char *val, int collength, char *out, size_t cap)
+{
+    /* Fields by index: 0 year, 1 month, 2 day, 3 hour, 4 minute, 5 second,
+       6 fraction. */
+    char f[7][8] = {{0}};
+    int first, last;
+    const char *p = val;
+    if (val == NULL || out == NULL) {
+        return 0;
+    }
+    if (take_digits(&p, 4, f[0]) && *p == '-') {
+        p++;
+        if (!take_digits(&p, 2, f[1]) || *p++ != '-' || !take_digits(&p, 2, f[2])) {
+            return 0;
+        }
+        first = 0;
+        last = 2;
+        if (*p == ' ') {
+            p++;
+            if (!take_digits(&p, 2, f[3])) {
+                return 0;
+            }
+            last = 3;
+        }
+    } else {
+        p = val;
+        if (!take_digits(&p, 2, f[3])) {
+            return 0;
+        }
+        first = last = 3;
+    }
+    if (last == 3) {
+        if (*p++ != ':' || !take_digits(&p, 2, f[4]) || *p++ != ':' || !take_digits(&p, 2, f[5])) {
+            return 0;
+        }
+        last = 5;
+        if (*p == '.') {
+            int n = 0;
+            p++;
+            while (p[n] >= '0' && p[n] <= '9' && n < 7) {
+                f[6][n] = p[n];
+                n++;
+            }
+            if (n == 0) {
+                return 0;
+            }
+            f[6][n] = '\0';
+            p += n;
+            last = 6;
+        }
+    }
+    if (*p != '\0') {
+        return 0;
+    }
+
+    int largest = (collength % 256) / 16, smallest = collength % 16;
+    static const int k_index[16] = {0, -1, 1, -1, 2, -1, 3, -1, 4, -1, 5, 6, 6, 6, 6, 6};
+    int from = largest <= 15 ? k_index[largest] : -1;
+    int to = smallest <= 15 ? k_index[smallest] : -1;
+    int scale = smallest >= 11 ? smallest - 10 : 0;
+    if (from < 0 || to < 0 || from > to || from < first || (to == 6 ? 5 : to) > last) {
+        return 0; /* not a qualifier we know, or the value lacks its fields */
+    }
+
+    static const char k_sep[7] = {0, '-', '-', ' ', ':', ':', '.'};
+    size_t len = 0;
+    for (int i = from; i <= to; i++) {
+        char field[8];
+        if (i == 6) {
+            /* FRACTION(scale): the value's digits, cut or padded with zeros. */
+            size_t have = strlen(f[6]);
+            for (int k = 0; k < scale; k++) {
+                field[k] = (size_t)k < have ? f[6][k] : '0';
+            }
+            field[scale] = '\0';
+        } else {
+            memcpy(field, f[i], sizeof field);
+        }
+        size_t need = strlen(field) + (i > from ? 1 : 0);
+        if (len + need + 1 > cap) {
+            return 0;
+        }
+        if (i > from) {
+            out[len++] = k_sep[i];
+        }
+        memcpy(out + len, field, strlen(field));
+        len += strlen(field);
+    }
+    out[len] = '\0';
+    return 1;
+}
