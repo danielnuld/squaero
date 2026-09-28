@@ -62,6 +62,17 @@ describe("copyRows", () => {
     expect(clip.text).toBe("x\t3\t");
   });
 
+  it("puts the column names first when asked, in the grid's order, for a spreadsheet", () => {
+    const clip = copyRows(result, [0, 2], [2, 0, 1], null, true);
+    expect(clip.text).toBe("note\tid\tname\n\t1\tAna\nx\t3\t");
+    // The in-app copy is unchanged: its columns travel apart from the rows.
+    expect(clip.rows).toEqual([
+      [null, "1", "Ana"],
+      ["x", "3", ""],
+    ]);
+    expect(copyRows(result, [0], [], null).text).toBe("1\tAna\t"); // no header by default
+  });
+
   it("copies rows in the order asked for", () => {
     const clip = copyRows(result, [2, 0], [], null);
     expect(clip.rows.map((r) => r[0])).toEqual(["3", "1"]);

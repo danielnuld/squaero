@@ -2721,10 +2721,10 @@ export function App() {
       ? { connDefId: defId, db: src.db, schema: src.schema, table: src.table }
       : null;
   };
-  const copyRowsFromGrid = (rows: number[]) => {
+  const copyRowsFromGrid = (rows: number[], withHeader = false) => {
     const res = currentResult().result;
     if (!res || rows.length === 0) return;
-    const clip = copyRows(res, rows, columnOrder(), rowSourceOf());
+    const clip = copyRows(res, rows, columnOrder(), rowSourceOf(), withHeader);
     setRowClipboard(clip);
     copyText(clip.text);
   };
@@ -3141,6 +3141,18 @@ export function App() {
         label: n === 1 ? t("result.copyRow") : t("result.copyRowsN", { n }),
         action: () => copyRowsFromGrid(targets),
       });
+      // With the column names as the first line, for a spreadsheet: the marked
+      // rows (or the one under the pointer), or every row the grid has loaded.
+      items.push({
+        label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
+        action: () => copyRowsFromGrid(targets, true),
+      });
+      if (res.rows.length > n) {
+        items.push({
+          label: t("result.copyAllHeader", { n: res.rows.length }),
+          action: () => copyRowsFromGrid(res.rows.map((_, i) => i), true),
+        });
+      }
       items.push({
         label: n === 1 ? t("result.copyRowInsert") : t("result.copyRowsInserts", { n }),
         action: () => copyRowsAsInserts(targets),
