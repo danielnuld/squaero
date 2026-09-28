@@ -1600,6 +1600,15 @@ body {
   white-space: nowrap;
 }
 
+/* The pending-rows bar takes its own strip under the grid: the new rows are
+   typed at the bottom of the grid, where the floating bar would cover them. */
+.row-action-bar-docked {
+  position: static;
+  transform: none;
+  align-self: center;
+  margin: var(--sp-2) 0;
+}
+
 .row-action-count {
   font-size: var(--fs-base);
   font-weight: 600;
