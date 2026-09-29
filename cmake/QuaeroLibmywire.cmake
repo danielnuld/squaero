@@ -1,6 +1,6 @@
 # Fetch libmywire and build the MySQL driver on it instead of MariaDB Connector/C
 # (issue #583). libmywire is our own MySQL/MariaDB protocol client in C
-# (github.com/danielnuld/libmywire, Apache-2.0); the LGPL connector cannot ship
+# (github.com/danielnuld/libmywire, MPL-2.0); the LGPL connector cannot ship
 # in the App Store, so iOS takes this one (QUAERO_MYWIRE, ON there by default).
 # drivers/mysql/mywire/mysql.h gives the driver the slice of the client API it
 # uses, so its sources are the same on both.
@@ -11,8 +11,8 @@
 
 include(FetchContent)
 
-set(QUAERO_LIBMYWIRE_VERSION "0.1.1")
-set(QUAERO_LIBMYWIRE_SHA256 "936896b68e557523b8f86e6339dc78c4e2fc14d3cbcd500b4e1cb91e37a3a5fb")
+set(QUAERO_LIBMYWIRE_VERSION "0.2.0")
+set(QUAERO_LIBMYWIRE_SHA256 "48641e4de380afa6ba8f382a94c01f111bc8816f61de9a8817928a7f749bf553")
 
 function(quaero_enable_libmywire target)
   if(NOT TARGET mywire)

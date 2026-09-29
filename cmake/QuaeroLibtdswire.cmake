@@ -1,6 +1,6 @@
 # Fetch libtdswire and build the SQL Server driver on it instead of FreeTDS
 # (issue #584). libtdswire is our own TDS 7.4 client in C
-# (github.com/danielnuld/libtdswire, Apache-2.0); FreeTDS is LGPL and cannot ship
+# (github.com/danielnuld/libtdswire, MPL-2.0); FreeTDS is LGPL and cannot ship
 # in the App Store, so iOS takes this one (QUAERO_TDSWIRE, ON there by default).
 # The driver swaps connection.c and query.c for tw_connection.c and tw_query.c.
 #
@@ -10,8 +10,8 @@
 
 include(FetchContent)
 
-set(QUAERO_LIBTDSWIRE_VERSION "0.1.0")
-set(QUAERO_LIBTDSWIRE_SHA256 "8b7ad48b12a50020100035a489a9d18cc2c641e262340db72d1ea0c7a0d3a2f9")
+set(QUAERO_LIBTDSWIRE_VERSION "0.2.0")
+set(QUAERO_LIBTDSWIRE_SHA256 "2084d4782f332fa5650012bb5fb056819b5d2c60cb110e904739c0336e2da940")
 
 function(quaero_enable_libtdswire target)
   if(NOT TARGET tdswire)

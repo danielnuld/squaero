@@ -48,7 +48,7 @@ macro(_quaero_mssql_common)
   quaero_set_warnings(mssql_driver)
 endmacro()
 
-# On libtdswire, our own Apache-2.0 TDS client (issue #584): the only choice on
+# On libtdswire, our own MPL-2.0 TDS client (issue #584): the only choice on
 # iOS, where FreeTDS (LGPL) cannot ship. Desktop keeps FreeTDS for now.
 option(QUAERO_TDSWIRE "Build the SQL Server plugin on libtdswire instead of FreeTDS" ${IOS})
 if(QUAERO_TDSWIRE)

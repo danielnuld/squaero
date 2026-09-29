@@ -1,0 +1,26 @@
+Squaero — additional permission under GNU GPL version 3, section 7
+
+Squaero is licensed under the GNU General Public License version 3 (see
+LICENSE). As an additional permission under section 7 of that license, the
+copyright holders of Squaero grant you the following:
+
+You may convey this program, or a work based on it, in object code form
+through an application distribution service (such as Apple's App Store) whose
+terms of service or usage rules impose restrictions or conditions on the
+recipient that the GNU GPL would otherwise forbid (for example, limits on the
+number of devices on which the program may be installed, or technical measures
+tied to the service), provided that:
+
+  a) you comply with every other term of the GNU GPL version 3, and in
+     particular you make the Corresponding Source of the work you convey
+     available to every recipient, under the GNU GPL, at no charge; and
+
+  b) the restrictions or conditions come only from the distribution service,
+     not from you, and you impose no further restrictions of your own.
+
+This permission does not grant any right to use the name "Squaero" or its
+logos; see TRADEMARKS.md.
+
+If you modify Squaero, you may extend this additional permission to your
+version, but you are not obliged to do so. If you do not wish to extend it,
+delete this file from your version.
