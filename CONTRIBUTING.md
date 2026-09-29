@@ -38,4 +38,6 @@ El frontend solo habla con el núcleo vía el [protocolo IPC](docs/IPC.md). Mien
 
 ## Licencia
 
-Al contribuir aceptas que tu aporte se publique bajo [GPLv3](LICENSE).
+Al contribuir aceptas que tu aporte se publique bajo [GPLv3](LICENSE) con el
+[permiso adicional para tiendas de apps](LICENSE-EXCEPTION), para que Squaero
+pueda seguir publicándose en la App Store.
