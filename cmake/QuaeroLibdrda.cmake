@@ -16,8 +16,8 @@
 
 include(FetchContent)
 
-set(QUAERO_LIBDRDA_VERSION "0.2.2")
-set(QUAERO_LIBDRDA_SHA256 "a7d500a1c6a724ae32a4ce571e2ee66b86acda4fd490cc3bb72c9ef2e09271ee")
+set(QUAERO_LIBDRDA_VERSION "0.3.0")
+set(QUAERO_LIBDRDA_SHA256 "32ae647b50e86233297b6294b99ef1dfcf3693699ee87df4141da12bf8e3f68c")
 
 function(quaero_enable_libdrda target)
   if(NOT TARGET drda)
