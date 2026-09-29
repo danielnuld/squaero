@@ -171,6 +171,9 @@ Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## License
 
-[GPLv3](LICENSE). Proprietary-engine drivers ship as separate plugins, loaded at
-runtime, to respect their licenses. Full third-party inventory in
+[GPLv3](LICENSE), with an [additional permission](LICENSE-EXCEPTION) to ship
+through app stores such as Apple's App Store. The name and logos are covered by
+the [trademark policy](TRADEMARKS.md): forks are welcome under their own name.
+Proprietary-engine drivers ship as separate plugins, loaded at runtime, to
+respect their licenses. Full third-party inventory in
 [THIRD-PARTY.md](THIRD-PARTY.md).

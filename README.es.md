@@ -174,6 +174,9 @@ Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Licencia
 
-[GPLv3](LICENSE). Los drivers de motores propietarios se distribuyen como plugins
-separados, cargados en tiempo de ejecución, para respetar sus licencias. Inventario
-completo de terceros en [THIRD-PARTY.md](THIRD-PARTY.md).
+[GPLv3](LICENSE), con un [permiso adicional](LICENSE-EXCEPTION) para distribuirse
+por tiendas de apps como la App Store de Apple. El nombre y los logos los cubre la
+[política de marca](TRADEMARKS.md): los forks son bienvenidos con nombre propio.
+Los drivers de motores propietarios se distribuyen como plugins separados, cargados
+en tiempo de ejecución, para respetar sus licencias. Inventario completo de
+terceros en [THIRD-PARTY.md](THIRD-PARTY.md).

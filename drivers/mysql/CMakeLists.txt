@@ -54,7 +54,7 @@ endif()
 # (cmake/QuaeroMariaDB.cmake). If neither is available the plugin is skipped
 # (green), like the Informix and MongoDB drivers.
 #
-# -DQUAERO_MYWIRE=ON builds it on libmywire, our own Apache-2.0 client, instead
+# -DQUAERO_MYWIRE=ON builds it on libmywire, our own MPL-2.0 client, instead
 # (cmake/QuaeroLibmywire.cmake, issue #583). It is the only choice on iOS, where
 # the LGPL connector cannot ship; desktop keeps MariaDB Connector/C for now.
 option(QUAERO_MARIADB "Fetch + build MariaDB Connector/C (static) for the MySQL plugin" OFF)

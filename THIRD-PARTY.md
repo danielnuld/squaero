@@ -76,7 +76,7 @@ núcleo GPL.
 |---|---|---|---|
 | `mysql` | MariaDB Connector/C | LGPL-2.1 | Dinámico |
 | `mongodb` | mongo-c-driver (libmongoc/libbson) | Apache-2.0 | Dinámico |
-| `informix` | [libdrda](https://github.com/danielnuld/libdrda) (cliente DRDA) | Apache-2.0 | Estático |
+| `informix` | [libdrda](https://github.com/danielnuld/libdrda) (cliente DRDA) | MPL-2.0 | Estático |
 | `informix` | OpenSSL (TLS de libdrda) | Apache-2.0 | Estático (Windows x86) / dinámico (Linux) |
 
 ### Frontend (empaquetado en el bundle)
@@ -102,24 +102,24 @@ Ajustes › Licencias muestra. La pantalla se genera desde esta tabla
 `ios/Squaero/Resources/Licenses.json` no coinciden, y el job `ios-core` falla si el
 `xcframework` enlaza algo que la tabla no lista, deja de enlazar algo que lista, o
 lleva código GPL/LGPL de otros autores (`scripts/ios/check-inventory.mjs`). Los drivers `mysql` y
-`mssql` van en iOS sobre libmywire y libtdswire, nuestros clientes Apache-2.0 (#583, #584): ni
+`mssql` van en iOS sobre libmywire y libtdswire, nuestros clientes MPL-2.0 (#583, #584): ni
 MariaDB Connector/C ni FreeTDS (LGPL) están en la app.
 
 Ninguno de los componentes Apache-2.0 publica un archivo `NOTICE` en la versión
-fijada (OpenSSL 3.0.22, mongo-c-driver 1.30.1, libdrda 0.2.2, libmywire 0.1.1, libtdswire 0.1.0); mongo-c-driver sí
+fijada (OpenSSL 3.0.22, mongo-c-driver 1.30.1); mongo-c-driver sí
 trae `THIRD_PARTY_NOTICES`, que se muestra completo.
 
 <!-- ios-licenses:start -->
 | Componente | Versión | Licencia | Texto |
 |---|---|---|---|
-| Squaero | — | GPL-3.0 | `LICENSE` |
+| Squaero | — | GPL-3.0 con permiso para tiendas de apps | `LICENSE`, `LICENSE-EXCEPTION` |
 | cJSON | 1.7.18 | MIT | `ios/Licenses/cjson-LICENSE.txt` |
 | SQLite | 3.46.1 | Dominio público | `ios/Licenses/sqlite-PUBLIC-DOMAIN.txt` |
 | libpq (PostgreSQL) | 16.9 | PostgreSQL | `ios/Licenses/postgresql-COPYRIGHT.txt` |
 | mongo-c-driver (libmongoc, libbson) | 1.30.1 | Apache-2.0 | `ios/Licenses/mongo-c-COPYING.txt`, `ios/Licenses/mongo-c-THIRD_PARTY_NOTICES.txt` |
-| libdrda | 0.2.2 | Apache-2.0 | `ios/Licenses/libdrda-LICENSE.txt` |
-| libmywire | 0.1.1 | Apache-2.0 | `ios/Licenses/libmywire-LICENSE.txt` |
-| libtdswire | 0.1.0 | Apache-2.0 | `ios/Licenses/libtdswire-LICENSE.txt` |
+| libdrda | 0.3.0 | MPL-2.0 | `ios/Licenses/libdrda-LICENSE.txt` |
+| libmywire | 0.2.0 | MPL-2.0 | `ios/Licenses/libmywire-LICENSE.txt` |
+| libtdswire | 0.2.0 | MPL-2.0 | `ios/Licenses/libtdswire-LICENSE.txt` |
 | OpenSSL | 3.0.22 | Apache-2.0 | `ios/Licenses/openssl-LICENSE.txt` |
 | libssh2 | 1.11.1 | BSD-3-Clause | `ios/Licenses/libssh2-COPYING.txt` |
 | fflate | 0.8.3 | MIT | `ios/Licenses/fflate-LICENSE.txt` |
@@ -136,6 +136,9 @@ Todas las licencias del inventario son compatibles con la GPLv3:
 - **Apache-2.0** (mongo-c-driver, OpenSSL 3.x) — compatible con **GPLv3** (no con
   GPLv2). Exige conservar los avisos y el archivo `NOTICE` upstream si existe
   (ver abajo).
+- **MPL-2.0** (libdrda, libmywire, libtdswire — clientes propios) — compatible con
+  la GPLv3 (sección 3.3 de la MPL: se publican sin el anexo B). El copyleft es por
+  archivo: quien modifique sus archivos debe publicar esos cambios.
 - **LGPL-2.1+** (MariaDB Connector/C, unixODBC, WebKitGTK/GTK) — compatible; el
   enlace dinámico preserva la posibilidad de sustituir la librería, como pide la
   LGPL.
@@ -156,7 +159,7 @@ drivers sea de carga dinámica:
 - Cada **driver** es una biblioteca compartida independiente que el núcleo carga
   en runtime (`dlopen`/`LoadLibrary`). Un driver depende únicamente de la ABI,
   nunca del código del núcleo.
-- El driver de **Informix** habla DRDA con **libdrda** (Apache-2.0, compatible
+- El driver de **Informix** habla DRDA con **libdrda** (MPL-2.0, compatible
   con la GPLv3), enlazada estáticamente en el plugin (issue #557). DRDA es un
   protocolo abierto (especificación de The Open Group): **ningún componente de
   IBM** se enlaza, se distribuye ni se necesita en el equipo del usuario.
