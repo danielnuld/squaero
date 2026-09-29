@@ -1,6 +1,6 @@
 # Fetch libdrda and link it into a target — the Informix driver plugin (issue
 # #557). libdrda is a native DRDA client in C (github.com/danielnuld/libdrda,
-# Apache-2.0): it reaches Informix's drsoctcp/drsocssl listener directly, so no
+# MPL-2.0): it reaches Informix's drsoctcp/drsocssl listener directly, so no
 # IBM Client SDK is needed at build or run time, on any platform.
 #
 # A plain CMake project, so FetchContent (unlike FreeTDS): only its static
