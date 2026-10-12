@@ -649,6 +649,7 @@ export function App() {
 
   /** The mounted filter panel's "add a condition" (#592); one panel at a time. */
   let addFilterCondition: (() => void) | undefined;
+  let addFilterSort: (() => void) | undefined;
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
     switch (action) {
       case "new-tab":
@@ -665,6 +666,11 @@ export function App() {
         // Only a table/view tab has the panel; elsewhere the key does nothing.
         const tab = current();
         if (tab && isDataTab(tab.id)) addFilterCondition?.();
+        break;
+      }
+      case "filter-add-sort": {
+        const tab = current();
+        if (tab && isDataTab(tab.id)) addFilterSort?.();
         break;
       }
       case "next-tab":
@@ -3687,6 +3693,7 @@ export function App() {
                       }
                       onOpenSql={() => openSqlInNewTab(sqlOfTab(tab().id), tab().title)}
                       addRef={(add) => (addFilterCondition = add)}
+                      addSortRef={(add) => (addFilterSort = add)}
                     />
                   </Show>
                   <Show when={!isDataTab(tab().id)}>
