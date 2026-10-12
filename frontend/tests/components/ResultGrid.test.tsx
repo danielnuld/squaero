@@ -966,6 +966,7 @@ describe("ResultGrid row keys", () => {
   function mountKeys(over: {
     onCopyRows?: (rows: number[]) => void;
     onDuplicateRows?: (rows: number[]) => void;
+    edit?: import("../../src/components/ResultGrid").GridEdit;
   } = {}) {
     marked = [];
     host = document.createElement("div");
@@ -999,6 +1000,40 @@ describe("ResultGrid row keys", () => {
     host!
       .querySelector<HTMLElement>(".grid-scroll")!
       .dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+
+  // Issue #644: Delete stages the selection for deletion, in edit mode only.
+  const editWith = (active: boolean, onRows: (rows: number[]) => void) => ({
+    active,
+    pending: emptyPending(),
+    onEditCell: () => {},
+    onToggleDelete: () => {},
+    onToggleDeleteRows: onRows,
+    onInsertCell: () => {},
+    onRemoveInsert: () => {},
+  });
+
+  it("marks the marked rows for deletion with Delete in edit mode", () => {
+    let deleted: number[] | null = null;
+    mountKeys({ edit: editWith(true, (rows) => (deleted = rows)) });
+    // In edit mode the cells are inputs: rows are marked by their checkbox,
+    // which then holds the focus the key comes from.
+    const boxes = host!.querySelectorAll<HTMLInputElement>(".grid-row input[type=checkbox]");
+    boxes[2].click();
+    boxes[0].click();
+    const fired = boxes[0].dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true }),
+    );
+    expect(fired).toBe(false);
+    expect(deleted).toEqual([0, 2]);
+  });
+
+  it("ignores Delete outside edit mode", () => {
+    let calls = 0;
+    mountKeys({ edit: editWith(false, () => calls++) });
+    click(1);
+    expect(key({ key: "Delete" })).toBe(true);
+    expect(calls).toBe(0);
+  });
 
   it("copies the marked rows in view order with ctrl + C", () => {
     let copied: number[] | null = null;

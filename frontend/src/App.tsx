@@ -184,6 +184,7 @@ import {
   emptyPending,
   setCell,
   toggleDelete,
+  toggleDeleteRows,
   addInsert,
   addInserts,
   insertBatchOf,
@@ -2128,6 +2129,10 @@ export function App() {
     const t = current();
     if (t) mutatePending(t.id, (p) => toggleDelete(p, rowIndex));
   };
+  const onToggleDeleteRows = (rows: number[]) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => toggleDeleteRows(p, rows));
+  };
   const onInsertCell = (insertIndex: number, column: string, value: string | null) => {
     const t = current();
     if (t) mutatePending(t.id, (p) => setInsertCell(p, insertIndex, column, value));
@@ -3174,6 +3179,32 @@ export function App() {
         action: () => openTransfer(targets),
         disabled: !currentResult().source,
       });
+      // Deleting the rows (#644): staged into the pending changes, so nothing
+      // runs before the SQL preview. Always listed, with its reason when it
+      // cannot run — the same rule as "Set NULL" below.
+      const deleteBlocked = () =>
+        !currentEditable()
+          ? t("result.deleteRowsReadOnly")
+          : !currentEdit().editing
+            ? t("result.deleteRowsNeedsEdit")
+            : null;
+      const allDeleted = () => targets.every((r) => currentEdit().pending.deletes.includes(r));
+      items.push({
+        get label() {
+          return (
+            deleteBlocked() ??
+            (allDeleted()
+              ? t("grid.undoDelete")
+              : n === 1
+                ? t("grid.deleteRow")
+                : t("result.deleteRowsN", { n }))
+          );
+        },
+        get disabled() {
+          return deleteBlocked() !== null;
+        },
+        action: () => onToggleDeleteRows(targets),
+      });
       items.push({ separator: true });
       const cell = row[colIndex];
       items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
@@ -3985,6 +4016,7 @@ export function App() {
                                 pending: currentEdit().pending,
                                 onEditCell,
                                 onToggleDelete,
+                                onToggleDeleteRows,
                                 onInsertCell,
                                 onRemoveInsert,
                                 pkColumns: currentResult().source?.pk ?? [],
