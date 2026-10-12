@@ -16,6 +16,7 @@ desincroniza del comportamiento).
 | Pestaña anterior | Ctrl+AvPág (PageUp) |
 | Refrescar datos y árbol | F5 |
 | Abrir el filtro de una tabla con una condición nueva | `Mod`+Shift+L |
+| Abrir el filtro de una tabla con un orden nuevo | `Mod`+Shift+O |
 | Cambiar tema claro/oscuro | `Mod`+Alt+L |
 | Mostrar/ocultar esta ayuda | F1 |
 
