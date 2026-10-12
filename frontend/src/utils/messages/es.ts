@@ -313,7 +313,7 @@ export const es: Record<string, string> = {
   "filter.to": "Hasta",
   "filter.listHint": "688, 714",
   "filter.enabled": "Usar la condición sobre {column}",
-  "filter.joinLabel": "Cómo se combinan las condiciones",
+  "filter.joinLabel": "Alternar y/o con la condición siguiente",
   "filter.join.AND": "y",
   "filter.join.OR": "o",
   "filter.sortBy": "Ordenar por",

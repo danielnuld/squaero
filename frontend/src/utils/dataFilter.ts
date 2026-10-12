@@ -22,9 +22,14 @@ import {
 } from "./queryBuilder";
 
 export interface FilterState {
+  /** Each condition carries its own AND/OR to the previous one (issue #646). */
   conditions: Condition[];
-  /** How the conditions combine. One connector for the list; no nesting yet. */
-  conjunction: "AND" | "OR";
+  /**
+   * The connector for conditions that carry no `join` of their own. The panel
+   * no longer sets it; kept for callers that still send one list-wide value
+   * (the iOS facade).
+   */
+  conjunction?: "AND" | "OR";
   order: OrderBy[];
   /**
    * The filter the rows on screen were actually fetched with, or null when they
@@ -43,7 +48,7 @@ export interface FilterState {
 }
 
 export function emptyFilter(): FilterState {
-  return { conditions: [], conjunction: "AND", order: [], applied: null, collapsed: true };
+  return { conditions: [], order: [], applied: null, collapsed: true };
 }
 
 /**
