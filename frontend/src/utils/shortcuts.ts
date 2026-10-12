@@ -10,6 +10,7 @@ export type ActionId =
   | "run-query"
   | "format-sql"
   | "editor-find"
+  | "filter-add-sort"
   | "object-palette"
   | "new-tab"
   | "close-tab"
@@ -71,6 +72,8 @@ export const SHORTCUTS: Shortcut[] = [
   // From anywhere in a table/view tab — the grid included — straight into a new
   // filter condition (issue #592). App ignores it on any other tab.
   { id: "filter-add-condition", keys: "Mod+Shift+L", description: "sc.filter-add-condition", global: true },
+  // Its sibling for the ORDER BY (issue #645).
+  { id: "filter-add-sort", keys: "Mod+Shift+O", description: "sc.filter-add-sort", global: true },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */
@@ -120,6 +123,7 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
   if (mod(e) && !e.altKey && !e.shiftKey && k === "s") return "save-edits";
   if (mod(e) && !e.altKey && !e.shiftKey && k === "f") return "editor-find";
   if (mod(e) && !e.altKey && e.shiftKey && k === "l") return "filter-add-condition";
+  if (mod(e) && !e.altKey && e.shiftKey && k === "o") return "filter-add-sort";
 
   // Ctrl+PageUp/PageDown cycle tabs (matches common editor/browser convention).
   if (e.ctrlKey && !e.altKey && !e.shiftKey) {

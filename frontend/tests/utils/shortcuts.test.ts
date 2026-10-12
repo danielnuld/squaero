@@ -66,6 +66,14 @@ describe("matchShortcut — filter (#592)", () => {
     expect(matchShortcut(ev({ key: "l", metaKey: true, shiftKey: true }))).toBe("filter-add-condition");
     expect(matchShortcut(ev({ key: "l", ctrlKey: true }))).toBeNull();
   });
+
+  // Issue #645: the ORDER BY sibling of Mod+Shift+L.
+  it("maps Mod+Shift+O to filter-add-sort, and not without Shift", () => {
+    expect(matchShortcut(ev({ key: "O", ctrlKey: true, shiftKey: true }))).toBe("filter-add-sort");
+    expect(matchShortcut(ev({ key: "o", metaKey: true, shiftKey: true }))).toBe("filter-add-sort");
+    expect(matchShortcut(ev({ key: "o", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "o", ctrlKey: true, shiftKey: true, altKey: true }))).toBeNull();
+  });
 });
 
 describe("matchShortcut — non-matches", () => {

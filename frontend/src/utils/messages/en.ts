@@ -822,6 +822,7 @@ export const en: Record<string, string> = {
   "sc.unmark-rows": "Unmark the rows",
   "sc.add-condition": "Add another condition to the filter",
   "sc.filter-add-condition": "Open the table's filter with a new condition",
+  "sc.filter-add-sort": "Open the table's filter with a new sort column",
 
   // command palette (CommandPalette.tsx)
   "cmdk.title": "Command palette",

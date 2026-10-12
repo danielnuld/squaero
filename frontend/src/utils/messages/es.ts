@@ -825,6 +825,7 @@ export const es: Record<string, string> = {
   "sc.unmark-rows": "Desmarcar las filas",
   "sc.add-condition": "Añadir otra condición al filtro",
   "sc.filter-add-condition": "Abrir el filtro de la tabla con una condición nueva",
+  "sc.filter-add-sort": "Abrir el filtro de la tabla con un orden nuevo",
 
   // command palette (CommandPalette.tsx)
   "cmdk.title": "Paleta de comandos",

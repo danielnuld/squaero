@@ -41,6 +41,8 @@ export function DataFilterBar(props: {
   /** Hands App the panel's "add a condition" so a global shortcut can reach it
       from the grid (issue #592). */
   addRef?: (add: () => void) => void;
+  /** Same for "add a sort" (issue #645). */
+  addSortRef?: (add: () => void) => void;
 }) {
   const opLabel = (op: Operator) => t(`filter.op.${op}`);
 
@@ -84,6 +86,17 @@ export function DataFilterBar(props: {
     });
   };
   props.addRef?.(addCond);
+
+  /** Add a sort column and focus its picker, like addCond (issue #645). */
+  const addSort = () => {
+    if (props.columns.length === 0) return;
+    unfoldAnd(props.onAddSort);
+    queueMicrotask(() => {
+      const cols = root.querySelectorAll<HTMLSelectElement>(".filter-sort-pill select");
+      cols[cols.length - 1]?.focus();
+    });
+  };
+  props.addSortRef?.(addSort);
 
   return (
     <section
@@ -138,7 +151,8 @@ export function DataFilterBar(props: {
         </button>
         <button
           class="status-btn"
-          onClick={() => unfoldAnd(props.onAddSort)}
+          onClick={addSort}
+          title={t("sc.filter-add-sort")}
           disabled={props.columns.length === 0}
         >
           {t("filter.addSort")}
