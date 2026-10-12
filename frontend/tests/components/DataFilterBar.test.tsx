@@ -38,7 +38,6 @@ const mount = (addRef?: (add: () => void) => void) => {
           onChange={() => {}}
           onAdd={() => added++}
           onRemove={() => {}}
-          onConjunction={() => {}}
           onSort={() => {}}
           onAddSort={() => {}}
           onRemoveSort={() => {}}
@@ -121,5 +120,54 @@ describe("DataFilterBar addRef (#592)", () => {
     expect(added()).toBe(1);
     await Promise.resolve();
     expect(document.activeElement?.classList.contains("filter-col")).toBe(true);
+  });
+});
+
+// Issue #646: the connector belongs to a pair of rows, not to the whole list.
+describe("DataFilterBar join toggle", () => {
+  it("flips only the next condition's connector", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const calls: [number, unknown][] = [];
+    const state = {
+      ...emptyFilter(),
+      collapsed: false,
+      conditions: [
+        { column: "nombre", op: "=" as const, value: "a" },
+        { column: "edad", op: "=" as const, value: "1" },
+        { column: "edad", op: "=" as const, value: "2", join: "OR" as const },
+      ],
+    };
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <DataFilterBar
+            state={state}
+            columns={["nombre", "edad"]}
+            dirty={false}
+            onChange={(i, patch) => calls.push([i, patch])}
+            onAdd={() => {}}
+            onRemove={() => {}}
+            onSort={() => {}}
+            onAddSort={() => {}}
+            onRemoveSort={() => {}}
+            onApply={() => {}}
+            onClear={() => {}}
+            onToggleCollapsed={() => {}}
+            onOpenSql={() => {}}
+          />
+        ),
+        host!,
+      );
+    });
+    const joins = host.querySelectorAll<HTMLButtonElement>("button.filter-join");
+    expect(joins.length).toBe(2);
+    joins[0].click();
+    joins[1].click();
+    expect(calls).toEqual([
+      [1, { join: "OR" }],
+      [2, { join: "AND" }],
+    ]);
   });
 });

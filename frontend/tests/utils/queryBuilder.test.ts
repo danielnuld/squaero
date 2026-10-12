@@ -119,6 +119,38 @@ describe("renderWhere", () => {
     expect(renderWhere("postgres", [c({}), c({ column: "IdErp" })], "OR")).toContain(" OR ");
   });
 
+  // Issue #646: one OR used to turn every condition into OR.
+  it("lets each condition pick its own connector, AND binding tighter", () => {
+    const a = c({ column: "a" }), b = c({ column: "b", join: "AND" });
+    const cc = c({ column: "c", join: "OR" }), d = c({ column: "d", join: "AND" });
+    expect(renderWhere("postgres", [a, b, cc, d])).toBe(
+      `("a" = '235' AND "b" = '235') OR ("c" = '235' AND "d" = '235')`,
+    );
+    expect(renderWhere("postgres", [a, b, cc])).toBe(`("a" = '235' AND "b" = '235') OR "c" = '235'`);
+  });
+
+  it("needs no parentheses when every connector is the same", () => {
+    const a = c({ column: "a" }), b = c({ column: "b", join: "OR" }), d = c({ column: "d", join: "OR" });
+    expect(renderWhere("postgres", [a, b, d])).toBe(`"a" = '235' OR "b" = '235' OR "d" = '235'`);
+    expect(renderWhere("postgres", [a, c({ column: "b" })])).toBe(`"a" = '235' AND "b" = '235'`);
+  });
+
+  it("ignores the first condition's connector and falls back to the list-wide one", () => {
+    expect(renderWhere("postgres", [c({ join: "OR" })])).toBe(`"IdUnidad" = '235'`);
+    expect(renderWhere("postgres", [c({}), c({ column: "b" }), c({ column: "d", join: "AND" })], "OR")).toBe(
+      `"IdUnidad" = '235' OR ("b" = '235' AND "d" = '235')`,
+    );
+  });
+
+  it("joins across an unchecked row with the next active row's connector", () => {
+    const where = renderWhere("postgres", [
+      c({ column: "a" }),
+      c({ column: "b", join: "OR", enabled: false }),
+      c({ column: "d", join: "OR" }),
+    ]);
+    expect(where).toBe(`"a" = '235' OR "d" = '235'`);
+  });
+
   it("leaves an unchecked condition out without losing the rest", () => {
     const where = renderWhere("postgres", [
       c({ enabled: false }),
