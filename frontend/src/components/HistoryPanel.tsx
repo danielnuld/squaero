@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { autoFocus } from "../utils/autoFocus";
-import { searchHistory, type HistoryEntry } from "../utils/history";
+import { historyEngines, searchHistory, type HistoryEntry } from "../utils/history";
 import { formatDuration, isSlow } from "../utils/duration";
 
 // Query-history panel (issue #128): search executed queries and re-run one in a
@@ -15,14 +15,22 @@ export function HistoryPanel(props: {
   entries: HistoryEntry[];
   /** Slow-query threshold in ms (from settings); marks + filters slow runs. */
   slowThresholdMs: number;
+  /** The focused connection's driver: the engine filter starts on it (#642). */
+  engine?: string;
   onRun: (sql: string) => void;
   onClear: () => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = createSignal("");
   const [onlySlow, setOnlySlow] = createSignal(false);
+  const engines = createMemo(() => historyEngines(props.entries));
+  // Start on the focused connection's engine when the history has any of it;
+  // "" is every engine, legacy entries without one included.
+  const [engine, setEngine] = createSignal(
+    props.engine && engines().includes(props.engine) ? props.engine : "",
+  );
   const results = createMemo(() => {
-    const matched = searchHistory(props.entries, query());
+    const matched = searchHistory(props.entries, query(), undefined, engine() || undefined);
     return onlySlow() ? matched.filter((e) => isSlow(e.durationMs, props.slowThresholdMs)) : matched;
   });
 
@@ -44,6 +52,17 @@ export function HistoryPanel(props: {
           onInput={(e) => setQuery(e.currentTarget.value)}
           ref={autoFocus}
         />
+        <Show when={engines().length > 0}>
+          <select
+            class="history-engine"
+            aria-label={t("hist.engineLabel")}
+            value={engine()}
+            onChange={(e) => setEngine(e.currentTarget.value)}
+          >
+            <option value="">{t("hist.allEngines")}</option>
+            <For each={engines()}>{(en) => <option value={en}>{en}</option>}</For>
+          </select>
+        </Show>
         <label class="history-only-slow" title={t("hist.onlySlowTitle")}>
           <input
             type="checkbox"
@@ -77,7 +96,8 @@ export function HistoryPanel(props: {
                   >
                     <span class="history-sql">{e.sql}</span>
                     <span class="history-meta">
-                      {e.connName || t("hist.noConnection")} · {new Date(e.ts).toLocaleString()}
+                      {e.connName || t("hist.noConnection")}
+                      <Show when={e.engine}> ({e.engine})</Show> · {new Date(e.ts).toLocaleString()}
                       <Show when={e.durationMs !== undefined}>
                         {" · "}
                         <span class={`history-duration ${slow() ? "slow" : ""}`}>

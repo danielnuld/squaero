@@ -121,7 +121,14 @@ import {
 } from "./utils/connections";
 import { loadConnections, saveConnections } from "./utils/connectionStore";
 import { exportConnections, importConnections, summaryText } from "./utils/connectionsIO";
-import { addHistory, clampLimit, type HistoryEntry } from "./utils/history";
+import {
+  addHistory,
+  clampLimit,
+  oneLine,
+  recentForEngine,
+  timeAgo,
+  type HistoryEntry,
+} from "./utils/history";
 import { formatClock, formatDuration } from "./utils/duration";
 import {
   loadHistory,
@@ -242,7 +249,7 @@ import { UpdateModal } from "./components/UpdateModal";
 import { TOOL_CATALOG } from "./utils/toolCatalog";
 import { sourceLabel } from "./utils/resultFacts";
 import { IconSearch } from "./components/icons";
-import { t } from "./utils/i18n";
+import { locale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
 import {
   checkForUpdate,
@@ -1130,6 +1137,26 @@ export function App() {
     void run(sql);
   };
 
+  // The editor's quick recall (issue #642): the latest distinct queries run on
+  // this tab's ENGINE, from any connection of it, as a menu under the button.
+  // Picking one inserts it at the caret like a snippet, so nothing written is
+  // lost. The full text is the tooltip; the label is cut to one line.
+  const openRecentHistory = (e: MouseEvent, tab: Tab) => {
+    const engine = tabConn(tab)?.driver;
+    const recent = engine ? recentForEngine(history(), engine) : [];
+    const now = Date.now();
+    const items: MenuItem[] =
+      recent.length === 0
+        ? [{ label: t(engine ? "hist.recentNone" : "hist.recentNoConn"), disabled: true }]
+        : recent.map((h) => ({
+            label: oneLine(h.sql),
+            hint: timeAgo(h.ts, now, locale()),
+            title: h.sql,
+            action: () => insertSnippet({ id: "", name: oneLine(h.sql, 30), body: h.sql }),
+          }));
+    openContextMenu(e, items);
+  };
+
   // Open SQL in a fresh tab WITHOUT running it (e.g. a routine's CREATE DDL,
   // which would error if executed against an object that already exists).
   // `name` (when the caller knows the object) titles the tab instead of "Consulta N".
@@ -1628,6 +1655,7 @@ export function App() {
       ts: Date.now(),
       connId: activeDefId() ?? "",
       connName: conn.name,
+      engine: conn.driver,
       durationMs,
     };
     setHistory((list) => {
@@ -3820,6 +3848,14 @@ export function App() {
                     </button>
                     <button
                       class="status-btn"
+                      title={t("hist.recentTitle")}
+                      aria-label={t("hist.recentTitle")}
+                      onClick={(e) => openRecentHistory(e, tab())}
+                    >
+                      ▾
+                    </button>
+                    <button
+                      class="status-btn"
                       title={t("editor.saveSnippetTitle")}
                       onClick={requestSaveSnippet}
                     >
@@ -4290,6 +4326,7 @@ export function App() {
                   <HistoryPanel
                     entries={history()}
                     slowThresholdMs={settings().slowThresholdMs}
+                    engine={active()?.driver}
                     onRun={runFromHistory}
                     onClear={clearHistory}
                     onClose={() => closeTool(tt().id)}
