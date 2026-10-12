@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   addHistory,
   searchHistory,
+  historyEngines,
+  recentForEngine,
+  oneLine,
+  timeAgo,
   serializeHistory,
   parseHistory,
   clampLimit,
@@ -113,5 +117,64 @@ describe("serializeHistory / parseHistory", () => {
     // A non-finite/absent duration simply isn't carried (entry stays valid).
     const badDur = JSON.stringify([{ sql: "SELECT 2", ts: 2, connId: "c1", connName: "Demo", durationMs: "slow" }]);
     expect(parseHistory(badDur)).toEqual([entry("SELECT 2", 2)]);
+  });
+});
+
+// Issue #642: queries kept per engine, so MySQL, Informix and Mongo don't mix.
+describe("history per engine", () => {
+  const on = (sql: string, ts: number, engine?: string): HistoryEntry => ({
+    ...entry(sql, ts),
+    ...(engine ? { engine } : {}),
+  });
+  const list = [
+    on("SELECT 1", 50, "mysql"),
+    on("db.c.find({})", 40, "mongodb"),
+    on("SELECT 1", 30, "mysql"),
+    on("SELECT FIRST 1 *", 20, "informix"),
+    on("SELECT 2", 10, "mysql"),
+    on("SELECT legacy", 5),
+  ];
+
+  it("filters the search by engine, leaving legacy entries to 'all'", () => {
+    expect(searchHistory(list, "", undefined, "informix").map((e) => e.sql)).toEqual(["SELECT FIRST 1 *"]);
+    expect(searchHistory(list, "select", undefined, "mysql")).toHaveLength(3);
+    expect(searchHistory(list, "")).toHaveLength(6);
+  });
+
+  it("lists the distinct engines present, sorted", () => {
+    expect(historyEngines(list)).toEqual(["informix", "mongodb", "mysql"]);
+    expect(historyEngines([])).toEqual([]);
+  });
+
+  it("recalls the latest distinct queries of one engine only", () => {
+    expect(recentForEngine(list, "mysql").map((e) => e.sql)).toEqual(["SELECT 1", "SELECT 2"]);
+    expect(recentForEngine(list, "mysql")[0].ts).toBe(50);
+    expect(recentForEngine(list, "mysql", 1)).toHaveLength(1);
+    expect(recentForEngine(list, "postgres")).toEqual([]);
+  });
+
+  it("round-trips the engine and still parses entries without one", () => {
+    const back = parseHistory(serializeHistory(list));
+    expect(back[0].engine).toBe("mysql");
+    expect(back[5].engine).toBeUndefined();
+    expect(parseHistory(JSON.stringify([{ ...entry("x", 1), engine: 7 }]))[0].engine).toBeUndefined();
+  });
+});
+
+describe("oneLine", () => {
+  it("collapses whitespace and cuts long text with an ellipsis", () => {
+    expect(oneLine("SELECT *\n  FROM t\tWHERE a = 1")).toBe("SELECT * FROM t WHERE a = 1");
+    expect(oneLine("abcdefghij", 5)).toBe("abcd…");
+    expect(oneLine("abcde", 5)).toBe("abcde");
+  });
+});
+
+describe("timeAgo", () => {
+  const now = 1_000_000_000_000;
+  it("says it in the largest unit that fits", () => {
+    expect(timeAgo(now - 3 * 3_600_000, now, "en")).toBe("3 hours ago");
+    expect(timeAgo(now - 5 * 60_000, now, "en")).toBe("5 minutes ago");
+    expect(timeAgo(now - 2 * 86_400_000, now, "es")).toBe("anteayer");
+    expect(timeAgo(now, now, "en")).toBe("now");
   });
 });

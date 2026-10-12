@@ -103,6 +103,7 @@ export function ContextMenu() {
                   role="menuitem"
                   class={`context-menu-item ${item.danger ? "danger" : ""}`}
                   disabled={item.disabled}
+                  title={item.title}
                   onClick={() => activate(item)}
                 >
                   <Show when={item.Icon}>
@@ -113,6 +114,9 @@ export function ContextMenu() {
                     )}
                   </Show>
                   {item.label}
+                  <Show when={item.hint}>
+                    <span class="context-menu-hint">{item.hint}</span>
+                  </Show>
                 </button>
               </Show>
             )}

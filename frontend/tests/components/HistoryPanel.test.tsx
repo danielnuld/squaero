@@ -99,3 +99,32 @@ describe("HistoryPanel", () => {
     expect(rows[0].textContent).toContain("SELECT * FROM orders");
   });
 });
+
+// Issue #642: the panel filters by engine, starting on the focused one.
+describe("HistoryPanel engine filter", () => {
+  const mixed: HistoryEntry[] = [
+    { sql: "SELECT 1", ts: 3, connId: "a", connName: "My", engine: "mysql" },
+    { sql: "SELECT FIRST 1 *", ts: 2, connId: "b", connName: "Ifx", engine: "informix" },
+    { sql: "SELECT old", ts: 1, connId: "a", connName: "My" },
+  ];
+
+  it("starts on the focused connection's engine", () => {
+    mount({ entries: mixed, engine: "informix" });
+    const items = host!.querySelectorAll(".history-run");
+    expect(items).toHaveLength(1);
+    expect(items[0].textContent).toContain("SELECT FIRST 1 *");
+  });
+
+  it("shows every engine when switched to all", () => {
+    mount({ entries: mixed, engine: "informix" });
+    const sel = host!.querySelector(".history-engine") as HTMLSelectElement;
+    sel.value = "";
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(host!.querySelectorAll(".history-run")).toHaveLength(3);
+  });
+
+  it("shows everything when the focused engine has no history", () => {
+    mount({ entries: mixed, engine: "postgres" });
+    expect(host!.querySelectorAll(".history-run")).toHaveLength(3);
+  });
+});

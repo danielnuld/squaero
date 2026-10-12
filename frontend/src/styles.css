@@ -1988,6 +1988,14 @@ body {
   gap: 1px;
 }
 
+.context-menu-hint {
+  margin-left: auto;
+  padding-left: var(--sp-4);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
 .context-menu-item {
   display: flex;
   align-items: center;
@@ -3066,6 +3074,15 @@ button.primary:hover:not(:disabled) {
   align-items: center;
   gap: var(--sp-4);
   margin-bottom: var(--sp-3);
+}
+
+.history-engine {
+  background: var(--bg-elev2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+  font: inherit;
 }
 
 .history-search {

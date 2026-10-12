@@ -27,6 +27,10 @@ export interface MenuItem {
   separator?: boolean;
   /** Styles the item as a destructive action. */
   danger?: boolean;
+  /** Dim text after the label, e.g. "3 hours ago" (issue #642). */
+  hint?: string;
+  /** Hover tooltip: the full text when the label is cut short. */
+  title?: string;
 }
 
 export interface MenuState {
