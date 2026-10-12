@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 import { themeIcon, type ThemePref } from "../utils/theme";
 import { type RunScope } from "../utils/runScope";
-import { formatDuration } from "../utils/duration";
+import { formatClock, formatDuration } from "../utils/duration";
 import { t } from "../utils/i18n";
 
 // Bottom status bar: active connection, the object the rows came from, the
@@ -19,6 +19,8 @@ export function StatusBar(props: {
   /** Rows marked in the grid (issue #382); 0 hides the indicator. */
   markedCount?: number;
   elapsedMs: number | null;
+  /** When the last run started, epoch ms (issue #643); named in the tooltip. */
+  ranAt?: number;
   /** What the last run executed, for the run-scope indicator (issue #130). */
   ranScope?: RunScope | null;
   /** Qualified name of the object the rows came from; null for a free query. */
@@ -105,7 +107,14 @@ export function StatusBar(props: {
         </span>
       </Show>
       <Show when={props.elapsedMs !== null}>
-        <span class="status-item" title={t("status.durationTitle")}>
+        <span
+          class="status-item"
+          title={
+            props.ranAt === undefined
+              ? t("status.durationTitle")
+              : t("status.durationTitleAt", { time: formatClock(props.ranAt) })
+          }
+        >
           {formatDuration(props.elapsedMs!)}
         </span>
       </Show>
