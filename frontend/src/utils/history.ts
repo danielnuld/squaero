@@ -13,6 +13,12 @@ export interface HistoryEntry {
   connId: string;
   /** Connection display name at run time, for the panel. */
   connName: string;
+  /**
+   * Driver id it ran on ("mysql", "informix", "mongodb"…), issue #642. Lets a
+   * query be found again on any connection of the same engine. Absent on
+   * entries recorded before it existed.
+   */
+  engine?: string;
   /** Wall-clock duration of the run in ms (issue #179), when measured. */
   durationMs?: number;
 }
@@ -54,20 +60,75 @@ export function addHistory(
 
 /**
  * Case-insensitive substring search over the SQL text, newest-first order
- * preserved. An optional `connId` restricts results to one connection. A blank
- * query returns everything (optionally filtered by connection).
+ * preserved. An optional `connId` restricts results to one connection, and an
+ * optional `engine` to one driver (issue #642). A blank query returns
+ * everything (optionally filtered).
  */
 export function searchHistory(
   list: HistoryEntry[],
   query: string,
   connId?: string,
+  engine?: string,
 ): HistoryEntry[] {
   const q = query.trim().toLowerCase();
   return list.filter(
     (e) =>
       (connId === undefined || e.connId === connId) &&
+      (engine === undefined || e.engine === engine) &&
       (q === "" || e.sql.toLowerCase().includes(q)),
   );
+}
+
+/** The distinct engines the history holds, sorted, for the panel's filter. */
+export function historyEngines(list: HistoryEntry[]): string[] {
+  return [...new Set(list.map((e) => e.engine).filter((e): e is string => !!e))].sort();
+}
+
+/**
+ * The latest `limit` distinct queries run on `engine`, newest first (issue
+ * #642): the editor's quick recall. A query run many times shows once, at its
+ * latest run, so the list holds that many different things to pick.
+ */
+export function recentForEngine(
+  list: HistoryEntry[],
+  engine: string,
+  limit = 10,
+): HistoryEntry[] {
+  const seen = new Set<string>();
+  const out: HistoryEntry[] = [];
+  for (const e of list) {
+    if (e.engine !== engine || seen.has(e.sql)) continue;
+    seen.add(e.sql);
+    out.push(e);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** A query on one line, whitespace collapsed, cut at `max` with an ellipsis. */
+export function oneLine(sql: string, max = 60): string {
+  const flat = sql.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+/**
+ * How long ago `ts` was, in words ("3 hours ago", "hace 3 horas") via the
+ * platform's Intl.RelativeTimeFormat, in the largest unit that fits.
+ */
+export function timeAgo(ts: number, now: number, locale: string): string {
+  const fmt = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const s = Math.round((ts - now) / 1000);
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["year", 31_536_000],
+    ["month", 2_592_000],
+    ["day", 86_400],
+    ["hour", 3_600],
+    ["minute", 60],
+  ];
+  for (const [unit, secs] of units) {
+    if (Math.abs(s) >= secs) return fmt.format(Math.round(s / secs), unit);
+  }
+  return fmt.format(s, "second");
 }
 
 /** Serialize for storage. */
@@ -98,6 +159,7 @@ export function parseHistory(raw: string | null): HistoryEntry[] {
       if (typeof e.durationMs === "number" && Number.isFinite(e.durationMs)) {
         entry.durationMs = e.durationMs;
       }
+      if (typeof e.engine === "string" && e.engine) entry.engine = e.engine;
       out.push(entry);
     }
   }
