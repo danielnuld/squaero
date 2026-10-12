@@ -438,6 +438,9 @@ export const en: Record<string, string> = {
   "result.copyRowJson": "Copy row as JSON",
   // set NULL from the grid (#398): clearing the box leaves "", a different value
   "result.setNull": "Set NULL",
+  "result.deleteRowsN": "Delete {n} rows",
+  "result.deleteRowsNeedsEdit": "Delete row: enter edit mode first",
+  "result.deleteRowsReadOnly": "Delete row: the table has no primary key",
   "result.setNullNeedsEdit": "Set NULL: enter edit mode first",
   "result.setNullReadOnly": "Set NULL: the table has no primary key",
   "result.copyRowsN": "Copy {n} selected rows",
@@ -818,6 +821,7 @@ export const en: Record<string, string> = {
   "sc.select-rows": "Select the grid's rows",
   "sc.copy-rows": "Copy the marked rows",
   "sc.duplicate-rows": "Duplicate the marked rows as new rows",
+  "sc.delete-rows": "Mark the selected rows for deletion (edit mode)",
   "sc.paste-rows": "Paste rows as new rows",
   "sc.unmark-rows": "Unmark the rows",
   "sc.add-condition": "Add another condition to the filter",

@@ -29,6 +29,7 @@ En la **rejilla de resultados** (cuando el foco está en ella):
 | Duplicar las filas marcadas como filas nuevas | `Mod`+D |
 | Pegar filas como filas nuevas | `Mod`+V |
 | Desmarcar | Esc |
+| Marcar para borrar las filas seleccionadas (en modo edición) | Supr (Delete) |
 | Revisar y guardar los cambios | `Mod`+S |
 
 Notas:

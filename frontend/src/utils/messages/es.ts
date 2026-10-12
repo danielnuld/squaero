@@ -441,6 +441,9 @@ export const es: Record<string, string> = {
   "result.copyRowJson": "Copiar fila como JSON",
   // poner NULL desde la rejilla (#398): vaciar la celda deja "", que es otro valor
   "result.setNull": "Poner NULL",
+  "result.deleteRowsN": "Borrar {n} filas",
+  "result.deleteRowsNeedsEdit": "Borrar fila: primero entra en modo edición",
+  "result.deleteRowsReadOnly": "Borrar fila: la tabla no tiene clave primaria",
   "result.setNullNeedsEdit": "Poner NULL: primero entra en modo edición",
   "result.setNullReadOnly": "Poner NULL: la tabla no tiene clave primaria",
   "result.copyRowsN": "Copiar {n} filas seleccionadas",
@@ -821,6 +824,7 @@ export const es: Record<string, string> = {
   "sc.select-rows": "Seleccionar las filas de la rejilla",
   "sc.copy-rows": "Copiar las filas marcadas",
   "sc.duplicate-rows": "Duplicar las filas marcadas como filas nuevas",
+  "sc.delete-rows": "Marcar para borrar las filas seleccionadas (modo edición)",
   "sc.paste-rows": "Pegar filas como filas nuevas",
   "sc.unmark-rows": "Desmarcar las filas",
   "sc.add-condition": "Añadir otra condición al filtro",
