@@ -89,6 +89,22 @@ function batchesOf(state: PendingChanges): (number | null)[] {
   return state.inserts.map((_, i) => state.insertBatch?.[i] ?? null);
 }
 
+/**
+ * Mark every row in `rows` for deletion, or, when every one already is, unmark
+ * them all (issue #644): the Delete key and the menu entry act on a selection,
+ * so a mixed one becomes all-deleted instead of flipping row by row. Immutable.
+ */
+export function toggleDeleteRows(state: PendingChanges, rows: number[]): PendingChanges {
+  if (rows.length === 0) return state;
+  const all = rows.every((r) => state.deletes.includes(r));
+  return {
+    ...state,
+    deletes: all
+      ? state.deletes.filter((i) => !rows.includes(i))
+      : [...state.deletes, ...rows.filter((r) => !state.deletes.includes(r))],
+  };
+}
+
 /** Append a blank inserted row. Immutable. */
 export function addInsert(state: PendingChanges): PendingChanges {
   return {

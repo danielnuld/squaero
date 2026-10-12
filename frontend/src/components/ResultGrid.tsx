@@ -42,6 +42,8 @@ export interface GridEdit {
   /** `null` is a SQL NULL, distinct from "" (issue #398). */
   onEditCell: (rowIndex: number, column: string, value: string | null) => void;
   onToggleDelete: (rowIndex: number) => void;
+  /** Delete key on the grid: the marked rows, or the selected cell's row (#644). */
+  onToggleDeleteRows?: (rows: number[]) => void;
   onInsertCell: (insertIndex: number, column: string, value: string | null) => void;
   onRemoveInsert: (insertIndex: number) => void;
   /** The table's primary key, so a new row whose key is generated shows it as
@@ -512,9 +514,13 @@ export function ResultGrid(props: {
 
   const onGridKeyDown = (e: KeyboardEvent) => {
     // Only act when focus is on the grid surface itself: inputs (edit cells,
-    // filter boxes) and the focusable sort-header cells own their own keys.
+    // filter boxes) and the focusable sort-header cells own their own keys. A
+    // row's mark checkbox is not a text box: in edit mode it is how rows get
+    // marked, and the row keys (Delete, #644) must still reach the grid.
     const target = e.target as HTMLElement | null;
-    if (target && (target.tagName === "INPUT" || target.closest(".grid-head-sort"))) return;
+    const textInput =
+      target?.tagName === "INPUT" && (target as HTMLInputElement).type !== "checkbox";
+    if (target && (textInput || target.closest(".grid-head-sort"))) return;
     if (e.key === "Enter") {
       const s = sel();
       if (s) {
@@ -532,6 +538,16 @@ export function ResultGrid(props: {
       if (handler && targets.length > 0) {
         e.preventDefault();
         handler(targets);
+      }
+      return;
+    }
+    if (e.key === "Delete" && !mod && !e.shiftKey && !e.altKey) {
+      // Staged, not run: it lands in the pending changes like the 🗑 button,
+      // and only in edit mode (#644).
+      const targets = rowTargets();
+      if (editing() && props.edit?.onToggleDeleteRows && targets.length > 0) {
+        e.preventDefault();
+        props.edit.onToggleDeleteRows(targets);
       }
       return;
     }

@@ -3,6 +3,7 @@ import {
   emptyPending,
   setCell,
   toggleDelete,
+  toggleDeleteRows,
   addInsert,
   addInserts,
   insertBatchOf,
@@ -46,6 +47,24 @@ describe("pending change accumulation", () => {
     expect(s.deletes).toEqual([2]);
     s = toggleDelete(s, 2);
     expect(s.deletes).toEqual([]);
+  });
+
+  // Issue #644: Delete key / menu on a selection.
+  it("marks a selection for deletion, a mixed one becoming all-deleted", () => {
+    let s = toggleDeleteRows(emptyPending(), [1, 3]);
+    expect(s.deletes).toEqual([1, 3]);
+    s = toggleDeleteRows(toggleDelete(emptyPending(), 3), [1, 3]);
+    expect(s.deletes).toEqual([3, 1]);
+  });
+
+  it("unmarks a selection that is already all deleted, keeping the others", () => {
+    const s = toggleDeleteRows({ ...emptyPending(), deletes: [0, 1, 3] }, [1, 3]);
+    expect(s.deletes).toEqual([0]);
+  });
+
+  it("leaves the state alone for an empty selection", () => {
+    const s0 = toggleDelete(emptyPending(), 2);
+    expect(toggleDeleteRows(s0, [])).toBe(s0);
   });
 
   it("adds, edits and removes inserted rows", () => {
