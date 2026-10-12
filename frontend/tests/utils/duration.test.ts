@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, isSlow } from "../../src/utils/duration";
+import { formatClock, formatDuration, isSlow } from "../../src/utils/duration";
 
 describe("formatDuration", () => {
   it("shows whole ms below a second", () => {
@@ -35,5 +35,17 @@ describe("isSlow", () => {
   it("treats missing/invalid duration as not slow", () => {
     expect(isSlow(undefined, 1000)).toBe(false);
     expect(isSlow(NaN, 1000)).toBe(false);
+  });
+});
+
+// Issue #643: when a query ran, in the run toast and the status bar.
+describe("formatClock", () => {
+  it("renders local time as zero-padded HH:MM:SS, 24-hour", () => {
+    expect(formatClock(new Date(2026, 9, 12, 14, 3, 5).getTime())).toBe("14:03:05");
+    expect(formatClock(new Date(2026, 0, 1, 0, 0, 0).getTime())).toBe("00:00:00");
+    expect(formatClock(new Date(2026, 0, 1, 23, 59, 59).getTime())).toBe("23:59:59");
+  });
+  it("renders a dash for an invalid timestamp", () => {
+    expect(formatClock(NaN)).toBe("—");
   });
 });
