@@ -26,3 +26,15 @@ export function isSlow(durationMs: number | undefined, thresholdMs: number): boo
   if (durationMs === undefined || !Number.isFinite(durationMs)) return false;
   return durationMs >= thresholdMs;
 }
+
+/**
+ * Local wall-clock time of `ts` (epoch ms) as `HH:MM:SS`, 24-hour (issue #643):
+ * when a query ran, for the run toast and the status bar. Padded by hand so it
+ * reads the same in every locale; NaN renders as "—".
+ */
+export function formatClock(ts: number): string {
+  if (!Number.isFinite(ts)) return "—";
+  const d = new Date(ts);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}

@@ -122,6 +122,7 @@ import {
 import { loadConnections, saveConnections } from "./utils/connectionStore";
 import { exportConnections, importConnections, summaryText } from "./utils/connectionsIO";
 import { addHistory, clampLimit, type HistoryEntry } from "./utils/history";
+import { formatClock, formatDuration } from "./utils/duration";
 import {
   loadHistory,
   saveHistory,
@@ -298,6 +299,8 @@ interface TabResult {
   error: string | null;
   result: ResultSet | null;
   elapsedMs: number | null;
+  /** When the last editor run started, epoch ms (issue #643). */
+  ranAt?: number;
   /** What the last run executed — selection / statement / document (issue #130). */
   ranScope?: RunScope | null;
   /** The table this result was read from + its PK, when opened from the tree.
@@ -390,6 +393,7 @@ const emptyResult = (): TabResult => ({
   error: null,
   result: null,
   elapsedMs: null,
+  ranAt: undefined,
   // Explicitly cleared, not merely absent: setResults MERGES, so a tab that ran
   // a script and then a single statement would otherwise keep the old strip.
   sets: undefined,
@@ -1601,6 +1605,16 @@ export function App() {
 
   // Record an executed query in the client-side history (issue #128), collapsing
   // immediate repeats and purging past the configured limit, then persist.
+  // When the run happened and how long it took (issue #643), said once and gone:
+  // the status bar keeps the same two facts for after the toast has left.
+  const [runToast, setRunToast] = createSignal<{ text: string; error: boolean } | null>(null);
+  let runToastTimer: ReturnType<typeof setTimeout> | undefined;
+  const showRunToast = (ranAt: number, elapsedMs: number, failed: boolean) => {
+    clearTimeout(runToastTimer);
+    const args = { time: formatClock(ranAt), duration: formatDuration(elapsedMs) };
+    setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
+    runToastTimer = setTimeout(() => setRunToast(null), 4000);
+  };
   const recordHistory = (sql: string, conn: ActiveConnection, durationMs?: number) => {
     const entry: HistoryEntry = {
       sql,
@@ -1689,6 +1703,7 @@ export function App() {
       dropUniqueSets(id); // and so do its unique indexes
     }
     const started = performance.now();
+    const ranAt = Date.now();
     // Several statements in one run go to the engine one by one: no engine takes
     // a whole script in a single call (MySQL answers `PREPARE …; EXECUTE …;`
     // with a syntax error). A script is not pageable — turning the page would
@@ -1726,6 +1741,7 @@ export function App() {
         error: shown?.error ?? null,
         result,
         elapsedMs,
+        ranAt,
         ranScope: scope,
         pageSql: script ? undefined : trimmed,
         offset,
@@ -1738,7 +1754,10 @@ export function App() {
       });
       // Record after the run so the entry carries its duration (issue #179);
       // page turns (offset > 0) are not logged.
-      if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
+      if (offset === 0) {
+        recordHistory(trimmed, conn, elapsedMs);
+        showRunToast(ranAt, elapsedMs, !!shown?.error);
+      }
       // A page turn keeps the source it already had; a fresh query derives it.
       // A statement that failed has no result to derive one from.
       if (!keepSource && result) void attachQuerySource(id, trimmed, conn, result);
@@ -1752,11 +1771,15 @@ export function App() {
         error: errorText(err),
         result: null,
         elapsedMs,
+        ranAt,
         ranScope: scope,
         sets: undefined,
         activeSet: 0,
       });
-      if (offset === 0) recordHistory(trimmed, conn, elapsedMs);
+      if (offset === 0) {
+        recordHistory(trimmed, conn, elapsedMs);
+        showRunToast(ranAt, elapsedMs, true);
+      }
     }
   };
 
@@ -4456,6 +4479,25 @@ export function App() {
         )}
       </Show>
 
+      <Show when={runToast()}>
+        {(toast) => (
+          <div
+            class={`app-toast app-toast-run${toast().error ? " app-toast-error" : ""}`}
+            role="status"
+          >
+            <span class="app-toast-text">{toast().text}</span>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setRunToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </Show>
+
       <Show when={connError()}>
         <div class="app-toast app-toast-error" role="alert">
           <span class="app-toast-text">{connError()}</span>
@@ -4485,6 +4527,7 @@ export function App() {
         markedCount={markedRows().length}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
+        ranAt={currentResult().ranAt}
         ranScope={currentResult().ranScope ?? null}
         object={sourceLabel(currentResult().source)}
         columnCount={currentResult().result?.columns.length ?? null}
