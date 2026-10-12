@@ -3660,7 +3660,6 @@ export function App() {
                           conditions: f.conditions.filter((_, n) => n !== i),
                         }))
                       }
-                      onConjunction={(value) => setFilters(tab().id, "conjunction", value)}
                       onSort={(i, patch) => setFilters(tab().id, "order", i, patch)}
                       onAddSort={() =>
                         withFilter(tab().id, (f) => ({

@@ -310,7 +310,7 @@ export const en: Record<string, string> = {
   "filter.to": "To",
   "filter.listHint": "688, 714",
   "filter.enabled": "Use the condition on {column}",
-  "filter.joinLabel": "How the conditions combine",
+  "filter.joinLabel": "Toggle and/or with the next condition",
   "filter.join.AND": "and",
   "filter.join.OR": "or",
   "filter.sortBy": "Sort by",

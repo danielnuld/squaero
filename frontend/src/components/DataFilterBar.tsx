@@ -30,7 +30,6 @@ export function DataFilterBar(props: {
   onChange: (index: number, patch: Partial<Condition>) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
-  onConjunction: (value: "AND" | "OR") => void;
   onSort: (index: number, patch: Partial<OrderBy>) => void;
   onAddSort: () => void;
   onRemoveSort: (index: number) => void;
@@ -233,8 +232,19 @@ export function DataFilterBar(props: {
                       ×
                     </button>
 
+                    {/* Each gap toggles how the next row joins this one (#646). */}
                     <Show when={i() < props.state.conditions.length - 1}>
-                      <span class="filter-join">{t(`filter.join.${props.state.conjunction}`)}</span>
+                      <button
+                        class="filter-join"
+                        aria-label={t("filter.joinLabel")}
+                        title={t("filter.joinLabel")}
+                        onClick={() => {
+                          const next = props.state.conditions[i() + 1];
+                          props.onChange(i() + 1, { join: (next.join ?? "AND") === "AND" ? "OR" : "AND" });
+                        }}
+                      >
+                        {t(`filter.join.${props.state.conditions[i() + 1]?.join ?? "AND"}`)}
+                      </button>
                     </Show>
                   </li>
                 )}
@@ -250,19 +260,6 @@ export function DataFilterBar(props: {
             <button class="status-btn" onClick={addCond} title={t("filter.addCondHint")}>
               {t("filter.addCond")}
             </button>
-            <Show when={props.state.conditions.length > 1}>
-              <select
-                class="filter-conj"
-                aria-label={t("filter.joinLabel")}
-                value={props.state.conjunction}
-                onChange={(e) =>
-                  props.onConjunction(e.currentTarget.value as "AND" | "OR")
-                }
-              >
-                <option value="AND">{t("filter.join.AND")}</option>
-                <option value="OR">{t("filter.join.OR")}</option>
-              </select>
-            </Show>
           </div>
 
           <div class="filter-sort">

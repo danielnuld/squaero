@@ -6738,7 +6738,6 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .filter-col,
 .filter-op,
-.filter-conj,
 .filter-sort-pill select {
   background-color: var(--bg-elev2);
   color: var(--text);
@@ -6764,7 +6763,16 @@ button.grid-action.danger:hover:not(:disabled) {
 .filter-val.range { flex: 0 1 9rem; min-width: 5rem; }
 .filter-sep { color: var(--text-dim); }
 
-.filter-join { color: var(--text-dim); }
+.filter-join {
+  background: none;
+  color: var(--text-dim);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2);
+  font: inherit;
+  cursor: pointer;
+}
+.filter-join:hover { color: var(--text); border-color: var(--text-dim); }
 .filter-drop { font-size: var(--fs-md); line-height: 1; }
 
 .filter-actions,

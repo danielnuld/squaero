@@ -54,6 +54,11 @@ export interface Condition {
    * this does not have to set it.
    */
   enabled?: boolean;
+  /**
+   * How this condition joins the one before it (issue #646). Undefined falls
+   * back to the caller's list-wide conjunction; ignored on the first condition.
+   */
+  join?: "AND" | "OR";
 }
 
 export interface OrderBy {
@@ -132,6 +137,11 @@ function renderCondition(engine: string, c: Condition, types?: ColumnTypes): str
  * The WHERE body (no keyword) for `conditions`, or "" when none of them says
  * anything. Unchecked rows and rows that render to nothing are dropped, which is
  * what lets the panel hold an unfinished criterion without breaking the query.
+ *
+ * Each condition joins the previous one with its own `join`, or `conjunction`
+ * when it has none (issue #646). AND binds tighter than OR, as in SQL, and each
+ * AND-run is parenthesised when ORs are mixed in, so the text says what the
+ * panel shows: `a AND b OR c` renders `(a AND b) OR c`.
  */
 export function renderWhere(
   engine: string,
@@ -139,11 +149,18 @@ export function renderWhere(
   conjunction: "AND" | "OR" = "AND",
   types?: ColumnTypes,
 ): string {
-  return conditions
-    .filter((c) => c.enabled !== false)
-    .map((c) => renderCondition(engine, c, types))
-    .filter((s) => s.length > 0)
-    .join(` ${conjunction} `);
+  const groups: string[][] = [];
+  for (const c of conditions) {
+    if (c.enabled === false) continue;
+    const sql = renderCondition(engine, c, types);
+    if (!sql) continue;
+    if (groups.length === 0 || (c.join ?? conjunction) === "OR") groups.push([sql]);
+    else groups[groups.length - 1].push(sql);
+  }
+  if (groups.length === 1) return groups[0].join(" AND ");
+  return groups
+    .map((g) => (g.length > 1 ? `(${g.join(" AND ")})` : g[0]))
+    .join(" OR ");
 }
 
 /** The ORDER BY body (no keyword) for `order`, or "" when it says nothing. */
