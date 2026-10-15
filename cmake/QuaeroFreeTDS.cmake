@@ -60,6 +60,10 @@ function(quaero_enable_freetds target)
         list(APPEND _toolchain "-D${_root}=${${_root}}")
       endif()
     endforeach()
+    # A separate configure: the launcher (ccache in CI) does not carry over.
+    if(CMAKE_C_COMPILER_LAUNCHER)
+      list(APPEND _toolchain "-DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}")
+    endif()
     ExternalProject_Add(quaero_freetds_build
       URL "https://www.freetds.org/files/stable/freetds-${QUAERO_FREETDS_VERSION}.tar.gz"
       URL_HASH SHA256=${QUAERO_FREETDS_SHA256}
