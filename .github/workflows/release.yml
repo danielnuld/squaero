@@ -103,6 +103,20 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
+      # Restore-only: CI on main fills both caches; a tag run reads them but
+      # never writes, so the release only reuses what main built.
+      - name: Restore OpenSSL
+        uses: actions/cache/restore@v4
+        with:
+          path: build-x64/_deps/openssl/install
+          key: openssl-x64-gcc13.2.0-r8-${{ hashFiles('cmake/QuaeroOpenSSL.cmake', 'cmake/openssl-build.sh', 'cmake/toolchain-x86_64-mingw.cmake') }}
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.23
+        with:
+          key: windows-x64-mingw
+          save: false
+
       # Full x64 build with the app ON. The from-source deps (MariaDB Connector/C,
       # mongo-c-driver, libssh2, libpq, FreeTDS, OpenSSL) build in 64-bit;
       # CMAKE_POLICY_VERSION_MINIMUM lets CMake 4.x configure the ones whose
@@ -112,6 +126,7 @@ jobs:
         run: >
           cmake -S . -B build-x64 -G Ninja
           -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-x86_64-mingw.cmake
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DQUAERO_BUILD_APP=ON
