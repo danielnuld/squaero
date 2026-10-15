@@ -10,7 +10,7 @@
 
 import type { ResultSet } from "./query";
 import { quoteIdentifier } from "./schema";
-import { splitStatements } from "./runScope";
+import { runnableStatements } from "./runScope";
 import { engineFamily } from "./engineFamily";
 
 /** One object to dump, as the object tree lists it. */
@@ -110,16 +110,9 @@ export async function* dumpChunks(
   if (mysql) yield "\nSET FOREIGN_KEY_CHECKS=1;\n";
 }
 
-/** True when a piece of SQL is nothing but comments and whitespace. */
-function onlyComments(sql: string): boolean {
-  return sql.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, "").trim() === "";
-}
-
 /** The statements of a script to restore, in order, without empty pieces. */
 export function restoreStatements(sql: string, engine: string): string[] {
-  return splitStatements(sql, engine)
-    .map((s) => s.text.trim())
-    .filter((s) => !onlyComments(s));
+  return runnableStatements(sql, engine);
 }
 
 export interface RestoreReport {

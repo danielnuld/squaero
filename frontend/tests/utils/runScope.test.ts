@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { splitStatements, pickRunTarget } from "../../src/utils/runScope";
+import {
+  splitStatements,
+  pickRunTarget,
+  isCommentOnly,
+  runnableStatements,
+} from "../../src/utils/runScope";
 
 describe("splitStatements", () => {
   it("splits on top-level semicolons and covers the whole source", () => {
@@ -191,5 +196,64 @@ describe("splitStatements keeps a routine body whole", () => {
     expect(splitStatements("BEGIN; UPDATE t SET a = 1; COMMIT;").map((s) => s.text.trim())).toEqual(
       ["BEGIN", "UPDATE t SET a = 1", "COMMIT", ""],
     );
+  });
+});
+
+describe("isCommentOnly (issue #653)", () => {
+  it("is true for -- and /* */ comments with whitespace, on every engine", () => {
+    for (const engine of [undefined, "sqlite", "postgres", "mysql", "informix", "sqlserver"]) {
+      expect(isCommentOnly("   -- 2", engine)).toBe(true);
+      expect(isCommentOnly("/* a\nb */\n-- c\n", engine)).toBe(true);
+      expect(isCommentOnly("", engine)).toBe(true);
+    }
+  });
+
+  it("is false when a statement is there, even with comments around it", () => {
+    expect(isCommentOnly("-- x\nSELECT 1 /* y */")).toBe(false);
+    expect(isCommentOnly("SELECT '--'")).toBe(false);
+  });
+
+  it("knows # on MySQL/MariaDB only", () => {
+    expect(isCommentOnly("# note", "mysql")).toBe(true);
+    expect(isCommentOnly("# note", "mariadb")).toBe(true);
+    expect(isCommentOnly("# note", "postgres")).toBe(false);
+  });
+
+  it("knows { } on Informix only", () => {
+    expect(isCommentOnly("{ note }", "informix")).toBe(true);
+    expect(isCommentOnly("{ note }", "postgres")).toBe(false);
+  });
+});
+
+describe("runnableStatements (issue #653)", () => {
+  it("drops a trailing comment after ';' instead of running it", () => {
+    expect(runnableStatements("SELECT 1; -- x", "informix")).toEqual(["SELECT 1"]);
+  });
+
+  it("runs only the real statements of a commented script, on every engine", () => {
+    const sql = [
+      "-- 1) parent",
+      "DELETE FROM a WHERE id IN (1, 2);   -- 2",
+      "DELETE FROM b WHERE id = 1;   /* 1 */",
+      "",
+      "-- 2) children",
+      "DELETE FROM c WHERE id = 1;   -- 1",
+    ].join("\n");
+    for (const engine of ["sqlite", "postgres", "mysql", "informix", "sqlserver", "oracle"]) {
+      expect(runnableStatements(sql, engine)).toEqual([
+        "-- 1) parent\nDELETE FROM a WHERE id IN (1, 2)",
+        "-- 2\nDELETE FROM b WHERE id = 1",
+        "/* 1 */\n\n-- 2) children\nDELETE FROM c WHERE id = 1",
+      ]);
+    }
+  });
+
+  it("keeps an inner comment inside a statement as is", () => {
+    expect(runnableStatements("SELECT 1 -- x;y\n; SELECT 2")).toEqual(["SELECT 1 -- x;y", "SELECT 2"]);
+  });
+
+  it("drops engine-specific trailing comments", () => {
+    expect(runnableStatements("SELECT 1; # x", "mysql")).toEqual(["SELECT 1"]);
+    expect(runnableStatements("SELECT 1; { x }", "informix")).toEqual(["SELECT 1"]);
   });
 });

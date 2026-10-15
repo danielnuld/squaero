@@ -191,6 +191,30 @@ export function splitStatements(sql: string, engine?: string): Statement[] {
 }
 
 /**
+ * True when a piece of SQL is nothing but comments and whitespace (issue #653).
+ * `--` and `/* *​/` everywhere, plus `#` on MySQL/MariaDB and `{ }` on Informix.
+ * Engines reject such a piece (Informix: syntax error, MySQL: "Query was
+ * empty"), and it is what a comment after a statement's `;` splits into.
+ */
+export function isCommentOnly(sql: string, engine?: string): boolean {
+  const family = engineFamily(engine ?? "");
+  const comment =
+    family === "mysql"
+      ? /--[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\//g
+      : family === "informix"
+        ? /--[^\n]*|\{[^}]*\}|\/\*[\s\S]*?\*\//g
+        : /--[^\n]*|\/\*[\s\S]*?\*\//g;
+  return sql.replace(comment, "").trim() === "";
+}
+
+/** The statements of a script worth sending, trimmed, in order. */
+export function runnableStatements(sql: string, engine?: string): string[] {
+  return splitStatements(sql, engine)
+    .map((s) => s.text.trim())
+    .filter((s) => !isCommentOnly(s, engine));
+}
+
+/**
  * Choose the SQL to execute given the document and the selection range. Ranges
  * are character offsets; `selFrom === selTo` means no selection.
  *

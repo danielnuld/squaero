@@ -80,7 +80,7 @@ import {
 } from "./utils/dataFilter";
 import { emptyCondition, type ColumnTypes } from "./utils/queryBuilder";
 import { autoFocus } from "./utils/autoFocus";
-import { splitStatements, type RunScope } from "./utils/runScope";
+import { runnableStatements, type RunScope } from "./utils/runScope";
 import { copyRows, rowToJson, rowsAsInserts, copyText } from "./utils/rowCopy";
 import {
   loadTheme,
@@ -1743,9 +1743,7 @@ export function App() {
     // a whole script in a single call (MySQL answers `PREPARE …; EXECUTE …;`
     // with a syntax error). A script is not pageable — turning the page would
     // re-run its DDL — so it gets no pageSql.
-    const stmts = splitStatements(trimmed, conn.driver)
-      .map((s) => s.text.trim())
-      .filter((s) => s !== "");
+    const stmts = runnableStatements(trimmed, conn.driver);
     const script = stmts.length > 1;
     try {
       // A script keeps one entry per statement (issue #450) and opens one of
