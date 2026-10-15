@@ -3,7 +3,7 @@ import { createStore } from "solid-js/store";
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { runScript, type ResultSet } from "../utils/query";
-import { splitStatements } from "../utils/runScope";
+import { runnableStatements } from "../utils/runScope";
 import { errorText } from "../utils/errors";
 import { changesCatalog } from "../utils/sqlEffects";
 import { renderMarkdown } from "../utils/markdown";
@@ -143,7 +143,7 @@ export function Notebook(props: {
       // engines take a single statement per call.
       const result = await runScript(
         props.connId,
-        splitStatements(sql, props.engine).map((s) => s.text.trim()).filter((s) => s !== ""),
+        runnableStatements(sql, props.engine),
       );
       setResults(cell.id, { loading: false, error: null, result });
       // A cell can create or drop objects too — the tree must hear about it
