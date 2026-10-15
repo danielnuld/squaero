@@ -7,6 +7,7 @@
 // All pure and unit-tested; the component just runs the SQL these return.
 
 import { engineFamily as family } from "./engineFamily";
+import { quoteIdentifier } from "./schema";
 
 /** What user administration is available for an engine. */
 export interface UserAdminSupport {
@@ -63,6 +64,47 @@ export const MYSQL_PRIVILEGES = [
   "REFERENCES", "CREATE VIEW", "SHOW VIEW", "TRIGGER", "EXECUTE", "GRANT OPTION",
   "ALL PRIVILEGES",
 ];
+
+/**
+ * What a grant applies to (issue #657): the whole server, one database, one
+ * table, or a hand-typed ON target for what the pickers cannot express (a
+ * wildcard such as `app\_%`.*).
+ */
+export type GrantTarget =
+  | { level: "server" }
+  | { level: "database"; db: string }
+  | { level: "table"; db: string; table: string }
+  | { level: "custom"; text: string };
+
+export type GrantLevel = GrantTarget["level"];
+
+/**
+ * The ON clause for a target, names quoted as identifiers; null while the
+ * target is incomplete (no database or table picked, blank custom text), so the
+ * form shows no statement rather than a wrong one.
+ */
+export function grantScope(target: GrantTarget): string | null {
+  const id = (name: string) => quoteIdentifier(name, "mysql");
+  switch (target.level) {
+    case "server":
+      return "*.*";
+    case "database":
+      return target.db ? `${id(target.db)}.*` : null;
+    case "table":
+      return target.db && target.table ? `${id(target.db)}.${id(target.table)}` : null;
+    case "custom":
+      return target.text.trim() || null;
+  }
+}
+
+/**
+ * The privileges the form offers at a level. EXECUTE is a routine privilege
+ * that MySQL rejects ON a table; every other one in the list is valid at all
+ * levels. A custom target is not inspected, so it keeps the full list.
+ */
+export function privilegesFor(level: GrantLevel): string[] {
+  return level === "table" ? MYSQL_PRIVILEGES.filter((p) => p !== "EXECUTE") : MYSQL_PRIVILEGES;
+}
 
 /** User-administration capabilities for an engine. */
 export function userAdminFor(engine: string): UserAdminSupport {

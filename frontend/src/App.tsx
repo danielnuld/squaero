@@ -4211,6 +4211,7 @@ export function App() {
                   <UserManager
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
+                    db={activeDb() ?? undefined}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>

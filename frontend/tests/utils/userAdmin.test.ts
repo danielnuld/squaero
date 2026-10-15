@@ -11,6 +11,8 @@ import {
   searchUsers,
   isSystemUser,
   MYSQL_PRIVILEGES,
+  grantScope,
+  privilegesFor,
   type UserRow,
 } from "../../src/utils/userAdmin";
 
@@ -239,5 +241,53 @@ describe("unsupportedReason", () => {
     expect(unsupportedReason("informix")).toContain("Informix");
     expect(unsupportedReason("postgres")).toContain("PostgreSQL");
     expect(unsupportedReason("mongodb")).toContain("MongoDB");
+  });
+});
+
+describe("grantScope", () => {
+  it("is *.* only for the server level", () => {
+    expect(grantScope({ level: "server" })).toBe("*.*");
+  });
+
+  it("quotes the database and table", () => {
+    expect(grantScope({ level: "database", db: "sello" })).toBe("`sello`.*");
+    expect(grantScope({ level: "table", db: "sello", table: "docs" })).toBe("`sello`.`docs`");
+  });
+
+  it("escapes backticks and keeps dots inside a name", () => {
+    expect(grantScope({ level: "database", db: "we`ird.db" })).toBe("`we``ird.db`.*");
+  });
+
+  it("is null while the target is incomplete", () => {
+    expect(grantScope({ level: "database", db: "" })).toBeNull();
+    expect(grantScope({ level: "table", db: "sello", table: "" })).toBeNull();
+    expect(grantScope({ level: "table", db: "", table: "docs" })).toBeNull();
+    expect(grantScope({ level: "custom", text: "   " })).toBeNull();
+  });
+
+  it("passes a custom target through, trimmed, for wildcards", () => {
+    expect(grantScope({ level: "custom", text: "  `app\_%`.* " })).toBe("`app\_%`.*");
+  });
+
+  it("feeds buildGrantSql a database-level grant", () => {
+    const scope = grantScope({ level: "database", db: "sello" })!;
+    expect(buildGrantSql("mysql", { privileges: ["SELECT"], scope, user: "ari", host: "%" })).toBe(
+      "GRANT SELECT ON `sello`.* TO 'ari'@'%'",
+    );
+  });
+});
+
+describe("privilegesFor", () => {
+  it("offers the full list at server, database and custom level", () => {
+    for (const l of ["server", "database", "custom"] as const) {
+      expect(privilegesFor(l)).toEqual(MYSQL_PRIVILEGES);
+    }
+  });
+
+  it("drops EXECUTE, a routine privilege, at table level", () => {
+    const t = privilegesFor("table");
+    expect(t).not.toContain("EXECUTE");
+    expect(t).toContain("SELECT");
+    expect(t.length).toBe(MYSQL_PRIVILEGES.length - 1);
   });
 });

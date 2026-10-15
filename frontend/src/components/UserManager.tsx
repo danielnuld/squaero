@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 import { runQuery } from "../utils/query";
 import { errorText } from "../utils/errors";
@@ -12,10 +12,14 @@ import {
   unsupportedReason,
   parseUserRows,
   searchUsers,
-  MYSQL_PRIVILEGES,
+  grantScope,
+  privilegesFor,
+  type GrantLevel,
   type GrantOptions,
+  type GrantTarget,
   type UserRow,
 } from "../utils/userAdmin";
+import { parseTreeRows, schemaTree } from "../utils/schema";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
@@ -31,6 +35,8 @@ import { paneSize, savePaneSize } from "../utils/paneSizes";
 export function UserManager(props: {
   connId: string;
   engine: string;
+  /** The connection's active database: the default target of a grant. */
+  db?: string;
   onClose: () => void;
 }) {
   const support = userAdminFor(props.engine);
@@ -79,7 +85,27 @@ export function UserManager(props: {
 
   // Grant/revoke form.
   const [privs, setPrivs] = createStore<Record<string, boolean>>({});
-  const [scope, setScope] = createSignal("*.*");
+  // What the grant applies to (issue #657). It starts on the active database,
+  // never on *.*: server-wide has to be picked on purpose.
+  const [level, setLevel] = createSignal<GrantLevel>("database");
+  const [scopeDb, setScopeDb] = createSignal(props.db ?? "");
+  const [scopeTable, setScopeTable] = createSignal("");
+  const [customScope, setCustomScope] = createSignal("");
+  const [databases, setDatabases] = createSignal<string[]>([]);
+  const [tables, setTables] = createSignal<string[]>([]);
+  const target = (): GrantTarget => {
+    switch (level()) {
+      case "server":
+        return { level: "server" };
+      case "table":
+        return { level: "table", db: scopeDb(), table: scopeTable() };
+      case "custom":
+        return { level: "custom", text: customScope() };
+      default:
+        return { level: "database", db: scopeDb() };
+    }
+  };
+  const offered = createMemo(() => privilegesFor(level()));
   // Editable host: seeded from the selected user but changeable, so GRANT/REVOKE
   // can target a specific host (user@host).
   const [hostInput, setHostInput] = createSignal("%");
@@ -117,9 +143,34 @@ export function UserManager(props: {
     }
   };
 
+  const loadDatabases = async () => {
+    try {
+      setDatabases(parseTreeRows(await schemaTree(props.connId), "database").map((r) => r.name));
+    } catch (err) {
+      setError(errorText(err));
+    }
+  };
+
+  // The table list is only needed at table level, and follows the database.
+  createEffect(() => {
+    const db = scopeDb();
+    setScopeTable("");
+    setTables([]);
+    if (level() !== "table" || !db) return;
+    schemaTree(props.connId, db)
+      .then((res) => {
+        if (scopeDb() === db) setTables(parseTreeRows(res, "schema").map((r) => r.name));
+      })
+      .catch((err) => setError(errorText(err)));
+  });
+
   const grantOpts = (): GrantOptions => ({
-    privileges: Object.entries(privs).filter(([, on]) => on).map(([p]) => p),
-    scope: scope(),
+    // Only what the level offers: a box ticked before switching to table level
+    // (EXECUTE) is not sent there.
+    privileges: Object.entries(privs)
+      .filter(([p, on]) => on && offered().includes(p))
+      .map(([p]) => p),
+    scope: grantScope(target()) ?? "",
     user: selected()?.name ?? "",
     host: hostInput(),
   });
@@ -208,7 +259,10 @@ export function UserManager(props: {
     }
   };
 
-  onMount(loadUsers);
+  onMount(() => {
+    void loadUsers();
+    if (support.supported) void loadDatabases();
+  });
 
   return (
     <Panel
@@ -373,7 +427,7 @@ export function UserManager(props: {
                 {t("users.grantRevoke")}
               </div>
               <div class="um-privs">
-                <For each={MYSQL_PRIVILEGES}>
+                <For each={offered()}>
                   {(p) => (
                     <label class="um-priv">
                       <input
@@ -396,16 +450,56 @@ export function UserManager(props: {
                     placeholder="%  |  localhost  |  10.0.0.5"
                   />
                 </label>
-                <label class="field um-scope">
+                <label class="field">
                   <span>{t("users.scope")}</span>
-                  <input
-                    type="text"
-                    value={scope()}
-                    onInput={(e) => setScope(e.currentTarget.value)}
-                    placeholder={t("users.scopePlaceholder")}
-                  />
+                  <select
+                    value={level()}
+                    onChange={(e) => setLevel(e.currentTarget.value as GrantLevel)}
+                  >
+                    <option value="database">{t("users.scopeDatabase")}</option>
+                    <option value="table">{t("users.scopeTable")}</option>
+                    <option value="server">{t("users.scopeServer")}</option>
+                    <option value="custom">{t("users.scopeCustom")}</option>
+                  </select>
                 </label>
+                <Show when={level() === "database" || level() === "table"}>
+                  <label class="field um-scope">
+                    <span>{t("users.database")}</span>
+                    <select value={scopeDb()} onChange={(e) => setScopeDb(e.currentTarget.value)}>
+                      <option value="">—</option>
+                      <For each={databases()}>{(d) => <option value={d}>{d}</option>}</For>
+                    </select>
+                  </label>
+                </Show>
+                <Show when={level() === "table"}>
+                  <label class="field um-scope">
+                    <span>{t("users.table")}</span>
+                    <select
+                      value={scopeTable()}
+                      disabled={!scopeDb()}
+                      onChange={(e) => setScopeTable(e.currentTarget.value)}
+                    >
+                      <option value="">—</option>
+                      <For each={tables()}>{(n) => <option value={n}>{n}</option>}</For>
+                    </select>
+                  </label>
+                </Show>
+                <Show when={level() === "custom"}>
+                  <label class="field um-scope">
+                    <span>ON</span>
+                    <input
+                      type="text"
+                      value={customScope()}
+                      onInput={(e) => setCustomScope(e.currentTarget.value)}
+                      placeholder={t("users.scopePlaceholder")}
+                    />
+                  </label>
+                </Show>
               </div>
+
+              <Show when={level() === "server"}>
+                <p class="related-warn um-scope">{t("users.serverWide")}</p>
+              </Show>
 
               <pre class="ddl-text um-preview">
                 {grantPreview()
