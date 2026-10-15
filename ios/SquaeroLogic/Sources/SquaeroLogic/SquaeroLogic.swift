@@ -527,6 +527,11 @@ public final class SquaeroLogic {
         try call("runScope.splitStatements", [sql, engine])
     }
 
+    /// The statements worth sending, trimmed: comment-only pieces dropped.
+    public func runnableStatements(_ sql: String, engine: String?) throws -> [String] {
+        try call("runScope.runnableStatements", [sql, engine])
+    }
+
     /// "834 ms", "1.2 s", "1 m 5 s".
     public func formatDuration(ms: Double) throws -> String {
         try call("duration.formatDuration", [ms])

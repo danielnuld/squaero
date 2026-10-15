@@ -108,9 +108,7 @@ final class QueryModel {
                 return
             }
         }
-        let statements = ((try? Logic.shared.splitStatements(target, engine: engine)) ?? [])
-            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let statements = (try? Logic.shared.runnableStatements(target, engine: engine)) ?? []
         guard !statements.isEmpty else { return }
         close()
         await describeMentioned()
