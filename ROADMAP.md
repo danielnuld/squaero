@@ -109,3 +109,41 @@ Motor **documental**: pone a prueba la abstracción, hoy tabular.
 - Driver PostgreSQL con `libpq` + mapeo de tipos.
 - Driver SQL Server (FreeTDS).
 - Driver Oracle (OCI).
+
+## M13 — Robustez nivel IDE
+
+Llevar Squaero a la robustez de un IDE de bases de datos. Inspirado
+funcionalmente en IDEs como DataGrip bajo **regla de sala limpia**: solo se
+toman ideas funcionales genéricas; no se copian textos, nombres de acciones,
+iconos, layouts ni atajos de otros productos.
+
+- **Inteligencia del editor:** resolución semántica (alias, CTE, subconsultas),
+  autocompletado contextual, diagnósticos, ir a definición / buscar usos,
+  renombrar en el script, multicursor y plantillas.
+- **Seguridad de ejecución:** modo seguro por conexión, transacción manual /
+  auto-commit, cancelación uniforme en todos los drivers.
+- **Resultados:** fijar y comparar resultados, vista transpuesta y resumen de
+  la selección, búsqueda de texto en los datos.
+- **Esquema y flujo:** diff de esquemas con script de migración revisable,
+  volcado del DDL a carpeta, historial local de scripts.
+- **Núcleo:** caché de introspección con refresco incremental, reconexión
+  automática y keep-alive.
+
+## M14 — Refresh de identidad e interfaz
+
+Renovar la imagen de Squaero y quitarle todo lo que la hace parecer un
+navegador. El estilo concreto se decide en la fase 0; el resto es agnóstico del
+estilo. Referencias de escritorio: Navicat y DataGrip, bajo regla de sala limpia.
+
+- **Fase 0 — Definición:** comparativa pantalla a pantalla, dirección de
+  estilo, nueva identidad (logo, wordmark, paleta).
+- **Fase 1 — Fundaciones:** sistema de temas por tokens, tipografía
+  personalizable y zoom de UI, densidad global, set de iconos propio,
+  rediseño de Settings.
+- **Fase 2 — Quitar lo de navegador:** shell nativo (atajos del navegador,
+  barra de título, título dinámico), barra de menús en Windows/Linux,
+  comportamiento de escritorio en controles.
+- **Fase 3 — Pantalla a pantalla:** layout, árbol, grid, editor, diálogos,
+  barra de estado, bienvenida y textos.
+- **Fase 4 — Cierre:** propagar la imagen (iconos, landing, README, media) y
+  regresión visual.
