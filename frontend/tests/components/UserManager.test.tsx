@@ -68,17 +68,28 @@ function installBridge() {
       // GRANT / REVOKE apply
       return { jsonrpc: "2.0", id: req.id, result: { columns: [], rows: [], truncated: false, rowsAffected: 0 } };
     }
+    // schema.tree (issue #657): databases at the root, a database's tables below.
+    if (req.method === "schema.tree") {
+      const db = (req.params as { db?: string }).db;
+      const result = db
+        ? {
+            columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+            rows: [["orders", "table"], ["recent", "view"]],
+          }
+        : { columns: [{ name: "name", type: "text" }], rows: [["shop"], ["sello"]] };
+      return { jsonrpc: "2.0", id: req.id, result: { ...result, truncated: false, rowsAffected: 0 } };
+    }
     return { jsonrpc: "2.0", id: req.id, result: {} };
   };
   return calls;
 }
 
-function mount(engine: string) {
+function mount(engine: string, db?: string) {
   host = document.createElement("div");
   document.body.appendChild(host);
   createRoot((d) => {
     dispose = d;
-    render(() => <UserManager connId="c1" engine={engine} onClose={vi.fn()} />, host!);
+    render(() => <UserManager connId="c1" engine={engine} db={db} onClose={vi.fn()} />, host!);
   });
 }
 
@@ -170,7 +181,7 @@ describe("UserManager", () => {
 
   it("builds and applies a GRANT from the form", async () => {
     const calls = installBridge();
-    mount("mysql");
+    mount("mysql", "shop");
     await flush();
     // select app@%
     [...host!.querySelectorAll<HTMLElement>(".um-user")]
@@ -188,9 +199,9 @@ describe("UserManager", () => {
     byLabel("INSERT").click();
     expect(boxes.length).toBeGreaterThan(0);
 
-    // scope defaults to *.* -> preview shows both statements
+    // The scope defaults to the active database, not *.* (issue #657).
     expect(host!.querySelector(".um-preview")!.textContent).toContain(
-      "GRANT SELECT, INSERT ON *.* TO 'app'@'%'",
+      "GRANT SELECT, INSERT ON `shop`.* TO 'app'@'%'",
     );
 
     const grantBtn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
@@ -202,7 +213,7 @@ describe("UserManager", () => {
     const applied = calls.find(
       (c) => c.method === "query.run" && (c.params.sql ?? "").startsWith("GRANT"),
     );
-    expect(applied!.params.sql).toBe("GRANT SELECT, INSERT ON *.* TO 'app'@'%'");
+    expect(applied!.params.sql).toBe("GRANT SELECT, INSERT ON `shop`.* TO 'app'@'%'");
     // Grants were refreshed after apply (a second SHOW GRANTS).
     expect(
       calls.filter((c) => (c.params.sql ?? "").startsWith("SHOW GRANTS")).length,
@@ -211,7 +222,7 @@ describe("UserManager", () => {
 
   it("targets an edited host in the GRANT/REVOKE", async () => {
     installBridge();
-    mount("mysql");
+    mount("mysql", "shop");
     await flush();
     [...host!.querySelectorAll<HTMLElement>(".um-user")]
       .find((el) => el.textContent?.includes("app"))!
@@ -229,8 +240,84 @@ describe("UserManager", () => {
     hostInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(host!.querySelector(".um-preview")!.textContent).toContain(
-      "GRANT SELECT ON *.* TO 'app'@'localhost'",
+      "GRANT SELECT ON `shop`.* TO 'app'@'localhost'",
     );
+  });
+
+  // Issue #657: what the grant applies to is picked, not typed.
+  const selectApp = async () => {
+    [...host!.querySelectorAll<HTMLElement>(".um-user")]
+      .find((el) => el.textContent?.includes("app"))!
+      .click();
+    await flush();
+  };
+  const tick = (name: string) =>
+    [...host!.querySelectorAll<HTMLLabelElement>(".um-priv")]
+      .find((l) => l.textContent?.trim() === name)!
+      .querySelector("input")!
+      .click();
+  const selects = () => [...host!.querySelectorAll<HTMLSelectElement>(".um-form-row select")];
+  const choose = (sel: HTMLSelectElement, value: string) => {
+    sel.value = value;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const preview = () => host!.querySelector(".um-detail .um-preview")!.textContent!;
+
+  it("builds no statement until a database is picked when none is active", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    await selectApp();
+    tick("SELECT");
+    expect(preview()).not.toContain("GRANT");
+    const [, db] = selects();
+    expect([...db.options].map((o) => o.value)).toEqual(["", "shop", "sello"]);
+    choose(db, "sello");
+    expect(preview()).toContain("GRANT SELECT ON `sello`.* TO 'app'@'%'");
+  });
+
+  it("warns when the grant applies to the whole server", async () => {
+    installBridge();
+    mount("mysql", "shop");
+    await flush();
+    await selectApp();
+    tick("SELECT");
+    expect(host!.querySelector(".related-warn")).toBeNull();
+    choose(selects()[0], "server");
+    expect(preview()).toContain("GRANT SELECT ON *.* TO 'app'@'%'");
+    expect(host!.querySelector(".related-warn")!.textContent).toContain("todas las bases de datos");
+  });
+
+  it("grants on one table and hides EXECUTE there", async () => {
+    installBridge();
+    mount("mysql", "shop");
+    await flush();
+    await selectApp();
+    tick("EXECUTE");
+    tick("SELECT");
+    choose(selects()[0], "table");
+    await flush();
+    const privNames = () =>
+      [...host!.querySelectorAll(".um-priv")].map((l) => l.textContent!.trim());
+    expect(privNames()).not.toContain("EXECUTE");
+    const table = selects()[2];
+    expect([...table.options].map((o) => o.value)).toEqual(["", "orders", "recent"]);
+    choose(table, "orders");
+    // EXECUTE was ticked before switching: it is not sent ON a table.
+    expect(preview()).toContain("GRANT SELECT ON `shop`.`orders` TO 'app'@'%'");
+  });
+
+  it("keeps a typed target for wildcards", async () => {
+    installBridge();
+    mount("mysql", "shop");
+    await flush();
+    await selectApp();
+    tick("SELECT");
+    choose(selects()[0], "custom");
+    const input = host!.querySelector<HTMLInputElement>(".um-scope input")!;
+    input.value = "`app\_%`.*";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(preview()).toContain("GRANT SELECT ON `app\_%`.* TO 'app'@'%'");
   });
 
   it("creates a new user from the form (CREATE USER)", async () => {
