@@ -346,6 +346,7 @@ export const es: Record<string, string> = {
   "filter.op.>=": "≥",
   "filter.op.LIKE": "como",
   "filter.op.CONTAINS": "contiene",
+  "filter.op.STARTS_WITH": "inicia con",
   "filter.op.BETWEEN": "entre",
   "filter.op.IN": "está en la lista",
   "filter.op.IS NULL": "es nulo",
