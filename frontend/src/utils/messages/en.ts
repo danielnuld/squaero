@@ -343,6 +343,7 @@ export const en: Record<string, string> = {
   "filter.op.>=": "≥",
   "filter.op.LIKE": "like",
   "filter.op.CONTAINS": "contains",
+  "filter.op.STARTS_WITH": "starts with",
   "filter.op.BETWEEN": "between",
   "filter.op.IN": "is in list",
   "filter.op.IS NULL": "is null",

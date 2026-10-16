@@ -201,6 +201,12 @@ describe("renderWhere", () => {
     );
   });
 
+  it("anchors STARTS_WITH at the start of the text", () => {
+    const cond = c({ column: "Nombre", op: "STARTS_WITH", value: "O'Ne" });
+    expect(renderWhere("postgres", [cond])).toBe(`"Nombre" LIKE 'O''Ne%'`);
+    expect(renderWhere("postgres", [c({ column: "Nombre", op: "STARTS_WITH", value: " " })])).toBe("");
+  });
+
   it("needs both bounds for BETWEEN, and drops the row without them", () => {
     const between = (value: string) => c({ column: "Fecha", op: "BETWEEN", value });
     expect(renderWhere("postgres", [between("2026-01-01 … 2026-06-30")])).toBe(
