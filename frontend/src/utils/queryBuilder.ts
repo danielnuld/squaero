@@ -20,13 +20,14 @@ export type Operator =
   | ">="
   | "LIKE"
   | "CONTAINS"
+  | "STARTS_WITH"
   | "BETWEEN"
   | "IN"
   | "IS NULL"
   | "IS NOT NULL";
 
 export const OPERATORS: Operator[] = [
-  "=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "BETWEEN", "IN",
+  "=", "!=", "<", ">", "<=", ">=", "LIKE", "CONTAINS", "STARTS_WITH", "BETWEEN", "IN",
   "IS NULL", "IS NOT NULL",
 ];
 
@@ -120,10 +121,11 @@ function renderCondition(engine: string, c: Condition, types?: ColumnTypes): str
     if (items.length === 0) return "";
     return `${col} IN (${items.join(", ")})`;
   }
-  if (c.op === "CONTAINS") {
+  if (c.op === "CONTAINS" || c.op === "STARTS_WITH") {
     // Always a string comparison: the pattern is text even over a number column.
     if (!c.value.trim()) return "";
-    return `${col} LIKE ${sqlLiteral(`%${c.value}%`)}`;
+    const lead = c.op === "CONTAINS" ? "%" : "";
+    return `${col} LIKE ${sqlLiteral(`${lead}${c.value}%`)}`;
   }
   if (c.op === "BETWEEN") {
     const [from, to] = c.value.split(RANGE_SEPARATOR).map((s) => s.trim());
