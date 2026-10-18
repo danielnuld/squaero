@@ -17,3 +17,7 @@ The frontend is the web UI rendered in the OS webview.
 5. **Tooling:** pnpm + Vite. Assets are bundled and embedded in the binary.
 6. **Tests:** vitest, in a parallel `tests/` tree mirroring `src/` — see
    `testing.md`. Every exported util has tests.
+7. **User-facing text lives in the catalog** (`src/utils/messages/es.ts` +
+   `en.ts`, same keys) and follows the terms and tone in
+   [`docs/GLOSSARY.md`](../docs/GLOSSARY.md); `tests/utils/messages.test.ts`
+   enforces the mechanical part.

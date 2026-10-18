@@ -89,7 +89,7 @@ describe("Panel", () => {
     expect(refresh()!.disabled).toBe(false);
     setBusy(true);
     expect(refresh()!.disabled).toBe(true);
-    expect(refresh()!.getAttribute("aria-label")).toBe("Actualizando…");
+    expect(refresh()!.getAttribute("aria-label")).toBe("Refrescando…");
   });
 
   it("closes on Escape", () => {

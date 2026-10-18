@@ -105,7 +105,7 @@ describe("ObjectToolbar", () => {
     btn("Sincronizar")!.click();
     let menu = contextMenu();
     expect(menu?.items.map((i) => i.label)).toEqual([
-      "Estructura (esquema)…",
+      "Estructura…",
       "Datos…",
     ]);
     // Invoking the items calls the right callbacks.
@@ -119,7 +119,7 @@ describe("ObjectToolbar", () => {
     mount({ editable: false });
     btn("Sincronizar")!.click();
     expect(contextMenu()?.items.map((i) => i.label)).toEqual([
-      "Estructura (esquema)…",
+      "Estructura…",
     ]);
   });
 

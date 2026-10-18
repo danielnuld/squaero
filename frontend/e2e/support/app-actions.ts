@@ -25,7 +25,7 @@ export async function connect(app: App): Promise<void> {
   const { page, engine } = app;
   // The + in the connection bar opens the SEARCH over the saved connections
   // (issue #525); the bar itself is now the list of what is already open.
-  await page.getByRole("button", { name: "Conectar a una base…" }).click();
+  await page.getByRole("button", { name: "Conectar a una base de datos…" }).click();
   // Wait for the search itself, not for time: the hits render inside it. Scoped
   // to the dialog, so the engine name cannot match a row of the bar behind it.
   const search = page.getByRole("dialog", { name: "Buscar una conexión" });

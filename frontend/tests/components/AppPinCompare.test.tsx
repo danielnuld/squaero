@@ -131,7 +131,7 @@ describe("App — pinning and comparing results (issue #669)", () => {
     expect(host!.querySelectorAll(".pin-tab").length).toBe(1);
 
     click(button("Comparar con…"));
-    click(menuItem("📌"));
+    click(menuItem("Fijado"));
     await settle();
     const rows = [...host!.querySelectorAll(".grid-rows .grid-row")].map((r) =>
       [...r.querySelectorAll("[data-cell]")].map((c) => c.textContent),
