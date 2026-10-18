@@ -335,6 +335,7 @@ import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
 import { BackupPanel } from "./components/BackupPanel";
+import { DataSearchPanel } from "./components/DataSearchPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { SnippetsPanel } from "./components/SnippetsPanel";
 import { RowDetail } from "./components/RowDetail";
@@ -2938,6 +2939,18 @@ export function App() {
     void run(sql);
   };
 
+  // A data-search hit (issue #671): the table's matches in a fresh query tab on
+  // the search's own connection, run straight away like the related-data jump.
+  const openSearchMatches = (sql: string, table: string, connDefId?: string) => {
+    let newId = 0;
+    setTabs((s) => {
+      const added = addTab(s, table, connDefId ?? focusedDefId() ?? undefined, false);
+      newId = added.activeId;
+      return updateTabSql(added, newId, sql);
+    });
+    void run(sql);
+  };
+
   const beginEdit = async () => {
     const t = current();
     const conn = tabConn(t);
@@ -5063,6 +5076,14 @@ export function App() {
                     engine={activeDialect()}
                     db={activeDb()}
                     onCatalogChanged={refreshTreeInPlace}
+                  />
+                </Match>
+                <Match when={tt().tool === "dataSearch"}>
+                  <DataSearchPanel
+                    connId={toolConn()?.connId ?? ""}
+                    engine={activeDialect()}
+                    db={activeDb()}
+                    onOpen={(sql, table) => openSearchMatches(sql, table, tt().connDefId)}
                   />
                 </Match>
                 <Match when={tt().tool === "connections"}>
