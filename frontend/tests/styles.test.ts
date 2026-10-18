@@ -213,3 +213,26 @@ describe("motion", () => {
     expect(CSS).toContain("@media (prefers-reduced-motion: reduce)");
   });
 });
+
+// Issue #687: the interface behaves like a desktop application, not a web page.
+describe("styles.css desktop behaviour", () => {
+  it("shows the arrow over controls and the hand only over real hyperlinks", () => {
+    const pointers = Array.from(
+      stripComments(RULES).matchAll(/([^{}]+)\{[^{}]*cursor:\s*pointer;/g),
+      (m) => m[1].trim(),
+    );
+    expect(pointers).toEqual(["a[href]"]);
+  });
+
+  it("makes the chrome unselectable and re-enables selection where text is data", () => {
+    expect(RULES).toMatch(/body \{[^}]*user-select: none;/);
+    const selectable = RULES.match(/\n([^{}]*\.grid-cell,[^{}]*)\{[^}]*user-select: text;/);
+    expect(selectable?.[1]).toContain("input,");
+    expect(selectable?.[1]).toContain(".cm-editor,");
+  });
+
+  it("themes the scrollbars from the tokens", () => {
+    expect(RULES).toMatch(/::-webkit-scrollbar-thumb \{\s+background: var\(--border\);/);
+    expect(RULES).toContain("scrollbar-color: var(--border) transparent;");
+  });
+});

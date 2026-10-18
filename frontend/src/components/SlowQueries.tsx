@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
@@ -10,6 +10,7 @@ import {
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
+import { Dropdown } from "./Dropdown";
 
 // "Consultas lentas" tool (issue #180): lists the slowest statements the SERVER
 // recorded, via query.run over performance_schema (MySQL) / pg_stat_statements
@@ -147,9 +148,11 @@ export function SlowQueries(props: {
           </button>
           <label class="sq-order">
             {t("slow.orderBy")}
-            <select value={order()} onChange={(e) => setOrder(e.currentTarget.value as SlowOrder)}>
-              <For each={ORDER_OPTS}>{(o) => <option value={o.value}>{t(o.label)}</option>}</For>
-            </select>
+            <Dropdown
+              value={order()}
+              options={ORDER_OPTS.map((o) => ({ value: o.value, label: t(o.label) }))}
+              onChange={(v) => setOrder(v as SlowOrder)}
+            />
           </label>
           <Show when={support().resetSql}>
             <button class="edit-btn" disabled={resetting()} onClick={reset} title={t("slow.resetTitle")}>

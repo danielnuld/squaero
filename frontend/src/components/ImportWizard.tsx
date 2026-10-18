@@ -19,6 +19,7 @@ import {
   type ParsedTable,
 } from "../utils/importers";
 import { openWorkbook, isXlsxName, type XlsxWorkbook } from "../utils/xlsxRead";
+import { Dropdown } from "./Dropdown";
 
 const PREVIEW_ROWS = 5;
 const OMIT = ""; // select value meaning "leave this column unset"
@@ -298,15 +299,12 @@ export function ImportWizard(props: {
             <div class="import-field">
               <label>
                 {t("imp.sheet")}{" "}
-                <select
-                  class="map-select"
+                <Dropdown
                   value={sheetName()}
-                  onChange={(e) => selectSheet(e.currentTarget.value)}
-                >
-                  <For each={workbook()!.sheets}>
-                    {(s) => <option value={s.name}>{s.name}</option>}
-                  </For>
-                </select>
+                  options={workbook()!.sheets.map((s) => ({ value: s.name, label: s.name }))}
+                  onChange={(v) => selectSheet(v)}
+                  class="map-select"
+                />
               </label>
             </div>
           </Show>
@@ -356,16 +354,12 @@ export function ImportWizard(props: {
                       <div class="map-row">
                         <span class="map-target">{col}</span>
                         <span class="map-arrow">←</span>
-                        <select
-                          class="map-select"
+                        <Dropdown
                           value={mapping()[col] ?? OMIT}
-                          onChange={(e) => setColumn(col, e.currentTarget.value)}
-                        >
-                          <option value={OMIT}>{t("imp.omit")}</option>
-                          <For each={table().headers}>
-                            {(h) => <option value={h}>{h}</option>}
-                          </For>
-                        </select>
+                          options={[{ value: OMIT, label: t("imp.omit") }, ...table().headers.map((h) => ({ value: h, label: h }))]}
+                          onChange={(v) => setColumn(col, v)}
+                          class="map-select"
+                        />
                       </div>
                     )}
                   </For>

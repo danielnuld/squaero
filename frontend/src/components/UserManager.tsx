@@ -25,6 +25,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
 import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
+import { Dropdown } from "./Dropdown";
 
 // User / privilege management (issue #140): list the server's users, view a
 // selected user's grants, and grant/revoke privileges from a form with a live SQL
@@ -452,36 +453,31 @@ export function UserManager(props: {
                 </label>
                 <label class="field">
                   <span>{t("users.scope")}</span>
-                  <select
+                  <Dropdown
                     value={level()}
-                    onChange={(e) => setLevel(e.currentTarget.value as GrantLevel)}
-                  >
-                    <option value="database">{t("users.scopeDatabase")}</option>
-                    <option value="table">{t("users.scopeTable")}</option>
-                    <option value="server">{t("users.scopeServer")}</option>
-                    <option value="custom">{t("users.scopeCustom")}</option>
-                  </select>
+                    options={[{ value: "database", label: t("users.scopeDatabase") }, { value: "table", label: t("users.scopeTable") }, { value: "server", label: t("users.scopeServer") }, { value: "custom", label: t("users.scopeCustom") }]}
+                    onChange={(v) => setLevel(v as GrantLevel)}
+                  />
                 </label>
                 <Show when={level() === "database" || level() === "table"}>
                   <label class="field um-scope">
                     <span>{t("users.database")}</span>
-                    <select value={scopeDb()} onChange={(e) => setScopeDb(e.currentTarget.value)}>
-                      <option value="">—</option>
-                      <For each={databases()}>{(d) => <option value={d}>{d}</option>}</For>
-                    </select>
+                    <Dropdown
+                      value={scopeDb()}
+                      options={[{ value: "", label: "—" }, ...databases().map((d) => ({ value: d, label: d }))]}
+                      onChange={(v) => setScopeDb(v)}
+                    />
                   </label>
                 </Show>
                 <Show when={level() === "table"}>
                   <label class="field um-scope">
                     <span>{t("users.table")}</span>
-                    <select
+                    <Dropdown
                       value={scopeTable()}
+                      options={[{ value: "", label: "—" }, ...tables().map((n) => ({ value: n, label: n }))]}
+                      onChange={(v) => setScopeTable(v)}
                       disabled={!scopeDb()}
-                      onChange={(e) => setScopeTable(e.currentTarget.value)}
-                    >
-                      <option value="">—</option>
-                      <For each={tables()}>{(n) => <option value={n}>{n}</option>}</For>
-                    </select>
+                    />
                   </label>
                 </Show>
                 <Show when={level() === "custom"}>

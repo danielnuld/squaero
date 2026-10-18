@@ -10,6 +10,7 @@ import {
   type OrderBy,
 } from "../utils/queryBuilder";
 import { summaryParts, type FilterState } from "../utils/dataFilter";
+import { Dropdown } from "./Dropdown";
 
 // The filter and sort panel of a table tab (issue #347). It takes the place of
 // the SQL editor: a tab opened from the tree is for browsing a table, and the
@@ -145,11 +146,11 @@ export function DataFilterBar(props: {
           </span>
         </Show>
         <span class="filterbar-spacer" />
-        <button class="status-btn" onClick={addCond}>
+        <button class="status-btn tool" onClick={addCond}>
           {t("filter.addCond")}
         </button>
         <button
-          class="status-btn"
+          class="status-btn tool"
           onClick={addSort}
           title={t("sc.filter-add-sort")}
           disabled={props.columns.length === 0}
@@ -182,26 +183,21 @@ export function DataFilterBar(props: {
                       />
                     </label>
 
-                    <select
+                    <Dropdown
+                      value={c.column}
+                      options={[{ value: "", label: t("filter.pickColumn") }, ...props.columns.map((col) => ({ value: col, label: col }))]}
+                      onChange={(v) => props.onChange(i(), { column: v })}
                       class="filter-col"
                       aria-label={t("filter.column")}
-                      value={c.column}
-                      onChange={(e) => props.onChange(i(), { column: e.currentTarget.value })}
-                    >
-                      <option value="">{t("filter.pickColumn")}</option>
-                      <For each={props.columns}>{(col) => <option value={col}>{col}</option>}</For>
-                    </select>
+                    />
 
-                    <select
+                    <Dropdown
+                      value={c.op}
+                      options={OPERATORS.map((op) => ({ value: op, label: opLabel(op) }))}
+                      onChange={(v) => props.onChange(i(), { op: v as Operator })}
                       class="filter-op"
                       aria-label={t("filter.operator")}
-                      value={c.op}
-                      onChange={(e) =>
-                        props.onChange(i(), { op: e.currentTarget.value as Operator })
-                      }
-                    >
-                      <For each={OPERATORS}>{(op) => <option value={op}>{opLabel(op)}</option>}</For>
-                    </select>
+                    />
 
                     <Show when={!isNullaryOp(c.op)}>
                       <Show
@@ -271,7 +267,7 @@ export function DataFilterBar(props: {
               reach for folded, this one is where the eye already is once the
               list is long (issue #462). */}
           <div class="filter-actions">
-            <button class="status-btn" onClick={addCond} title={t("filter.addCondHint")}>
+            <button class="status-btn tool" onClick={addCond} title={t("filter.addCondHint")}>
               {t("filter.addCond")}
             </button>
           </div>
@@ -281,13 +277,12 @@ export function DataFilterBar(props: {
             <For each={props.state.order}>
               {(o, i) => (
                 <span class="filter-sort-pill">
-                  <select
-                    aria-label={t("filter.sortColumn")}
+                  <Dropdown
                     value={o.column}
-                    onChange={(e) => props.onSort(i(), { column: e.currentTarget.value })}
-                  >
-                    <For each={props.columns}>{(col) => <option value={col}>{col}</option>}</For>
-                  </select>
+                    options={props.columns.map((col) => ({ value: col, label: col }))}
+                    onChange={(v) => props.onSort(i(), { column: v })}
+                    aria-label={t("filter.sortColumn")}
+                  />
                   <button
                     class="status-btn"
                     aria-label={t(o.dir === "ASC" ? "filter.asc" : "filter.desc")}

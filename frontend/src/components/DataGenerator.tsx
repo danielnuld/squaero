@@ -15,6 +15,7 @@ import {
 } from "../utils/dataGen";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { Dropdown } from "./Dropdown";
 
 const PREVIEW_ROWS = 5;
 const PREVIEW_SEED = 0x9e3779b9; // stable preview independent of the real run
@@ -165,15 +166,12 @@ export function DataGenerator(props: {
                     <td>{g.column}</td>
                     <td class="col-type">{g.type}</td>
                     <td>
-                      <select
-                        class="map-select"
+                      <Dropdown
                         value={g.kind}
-                        onChange={(e) => patch(i(), "kind", e.currentTarget.value as GenKind)}
-                      >
-                        <For each={GEN_KINDS}>
-                          {(k) => <option value={k.kind}>{t(k.label)}</option>}
-                        </For>
-                      </select>
+                        options={GEN_KINDS.map((k) => ({ value: k.kind, label: t(k.label) }))}
+                        onChange={(v) => patch(i(), "kind", v as GenKind)}
+                        class="map-select"
+                      />
                     </td>
                     <td>
                       <Show when={g.kind === "sequence"}>

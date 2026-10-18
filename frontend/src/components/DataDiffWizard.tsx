@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup } from "solid-js";
+import { Show, createSignal, onCleanup } from "solid-js";
 import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
 import { runQuery, QueryError, type ResultSet } from "../utils/query";
@@ -9,6 +9,7 @@ import { diffData, dataDiffEmpty, diffToPlan } from "../utils/dataDiff";
 import type { Connection } from "../utils/connections";
 import { t } from "../utils/i18n";
 import type { PlanItem } from "../utils/editSession";
+import { Dropdown } from "./Dropdown";
 
 /**
  * Data diff / sync wizard (#35). Compares the current table's rows (source) with
@@ -130,14 +131,11 @@ export function DataDiffWizard(props: {
         <div class="import-field">
           <label>
             {t("ssync.target")}{" "}
-            <select
+            <Dropdown
               value={targetDefId()}
-              onChange={(e) => setTargetDefId(e.currentTarget.value)}
-            >
-              <For each={props.connections}>
-                {(c) => <option value={c.id}>{c.name}</option>}
-              </For>
-            </select>
+              options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+              onChange={(v) => setTargetDefId(v)}
+            />
           </label>{" "}
           <label>
             {t("ssync.db")}{" "}
