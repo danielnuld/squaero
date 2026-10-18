@@ -7,8 +7,9 @@
 // only question that matters: does this statement read exactly ONE table, whole
 // rows, with no reshaping? If yes it returns that table (qualified as written);
 // if anything makes a result row stop being a table row — a join, a comma list,
-// a subquery, DISTINCT, GROUP BY, a set operation, several statements — it
-// returns null and the grid stays read-only.
+// a subquery, DISTINCT, GROUP BY, a set operation, several statements — it says
+// so (EditBlock), and the toolbar shows that reason on a disabled Editar
+// instead of hiding the edit functions in silence (issue #718).
 //
 // Projecting only some columns is fine: the caller still refuses to edit unless
 // the table's primary key came back in the result (see utils/edit.ts#whereForRow),
@@ -19,6 +20,8 @@
 // utils/schema.ts#qualifiedName, the mirror of this parser).
 
 import { engineFamily } from "./engineFamily";
+import { describePkColumns } from "./edit";
+import type { ResultColumn, ResultSet } from "./query";
 
 /** The table a query reads from, in the parts schema.describe expects. */
 export interface QueryTarget {
@@ -47,7 +50,8 @@ export function scrub(sql: string): string {
     .trim();
 }
 
-/** Split a dotted reference on the dots that are NOT inside a quoted part. */
+/** Split a dotted reference on the dots that are NOT inside a quoted part. The
+    parts keep their delimiters: whether a name was quoted decides its case. */
 function splitParts(ref: string): string[] {
   const parts: string[] = [];
   let cur = "";
@@ -67,37 +71,44 @@ function splitParts(ref: string): string[] {
     }
   }
   parts.push(cur);
-  return parts.map(unquote).filter((p) => p !== "");
+  return parts.map((p) => p.trim()).filter((p) => p !== "");
 }
 
-/** Drop the delimiters of a quoted identifier (`x`, "x", [x]), undoubling. */
-function unquote(id: string): string {
+/** Drop the delimiters of a quoted identifier (`x`, "x", [x]), undoubling. An
+    unquoted one is folded the way the engine folds it: PostgreSQL and Informix
+    store `Clientes` as `clientes`, so describing it as typed finds nothing. */
+function ident(id: string, fold: boolean): string {
   const s = id.trim();
   if (s.length >= 2) {
     if (s[0] === '"' && s.endsWith('"')) return s.slice(1, -1).replace(/""/g, '"');
     if (s[0] === "`" && s.endsWith("`")) return s.slice(1, -1).replace(/``/g, "`");
     if (s[0] === "[" && s.endsWith("]")) return s.slice(1, -1);
   }
-  return s;
+  return fold ? s.toLowerCase() : s;
 }
 
 /** A single table reference (`db.schema.t`, `db:owner.t`, `t`) → its parts. */
 function refParts(ref: string, engine: string): QueryTarget | null {
   const fam = engineFamily(engine);
+  const fold = fam === "postgres" || fam === "informix";
   let db: string | undefined;
   let rest = ref;
   // Informix separates the database with a colon: `stores:informix.customer`.
   const colon = ref.indexOf(":");
   if (colon !== -1) {
-    db = unquote(ref.slice(0, colon));
+    db = ident(ref.slice(0, colon), fold);
     rest = ref.slice(colon + 1);
   }
-  const parts = splitParts(rest);
+  const parts = splitParts(rest).map((p) => ident(p, fold));
   if (parts.length === 0 || parts.length > 3) return null;
   const table = parts[parts.length - 1];
   if (!table) return null;
   const out: QueryTarget = { table };
   if (db) out.db = db;
+  // Informix: the owner is dropped, as utils/schema.ts#qualifiedName drops it.
+  // The core reads a `schema` as the DATABASE there, so `informix.customer` would
+  // otherwise be looked up (and edited) in a database called "informix".
+  if (fam === "informix") return out;
   if (parts.length === 3) {
     out.db = parts[0];
     out.schema = parts[1];
@@ -110,31 +121,105 @@ function refParts(ref: string, engine: string): QueryTarget | null {
 }
 
 /**
- * The single table `sql` reads whole rows from, or null when the statement is
- * anything but a plain single-table SELECT (see the module comment). `engine`
- * decides how a two-part name is read and rules MongoDB out — its `db.coll.find()`
- * surface is not SQL and is never parsed here.
+ * Why a result cannot be edited (issue #718), for the toolbar to say instead of
+ * hiding the edit functions:
+ * - `statement`: not one SELECT (DML, DDL, a script);
+ * - `multiTable`: a join, a subquery, DISTINCT, GROUP BY, a set operation —
+ *   result rows are no longer rows of one table;
+ * - `engine`: the driver cannot write rows (no DBC_FEAT_DML);
+ * - `noTable`: the table's structure could not be read;
+ * - `noPk`: the table has no primary key (a view never has one);
+ * - `pkNotProjected`: the key is not among the result's columns.
  */
-export function queryEditTarget(sql: string, engine = ""): QueryTarget | null {
-  if (engineFamily(engine) === "mongodb") return null;
+export type EditBlock =
+  | "statement"
+  | "multiTable"
+  | "engine"
+  | "noTable"
+  | "noPk"
+  | "pkNotProjected";
+
+/** Engines whose driver implements row.insert/update/delete (DBC_FEAT_DML).
+    ponytail: mirrored by hand — the core does not report features to the UI yet;
+    read them from conn.open once it does. */
+const DML_ENGINES = new Set(["sqlite", "postgres", "mysql", "informix"]);
+
+/** Whether the engine's driver can write rows at all. */
+export function engineEdits(engine: string): boolean {
+  return DML_ENGINES.has(engineFamily(engine));
+}
+
+/** Parse `sql` down to its one table, or say why it has none (engine aside). */
+function parseTarget(sql: string, engine: string): { target: QueryTarget } | { block: EditBlock } {
   let s = scrub(sql);
   // One statement only: a trailing `;` is fine, an inner one is not.
   s = s.replace(/;\s*$/, "");
-  if (s.includes(";")) return null;
-  if (!/^select\b/i.test(s)) return null;
-  if (RESHAPING.test(s)) return null;
+  if (s.includes(";")) return { block: "statement" };
+  if (!/^select\b/i.test(s)) return { block: "statement" };
+  if (RESHAPING.test(s)) return { block: "multiTable" };
 
   const from = /\bfrom\b/i.exec(s);
-  if (!from) return null;
+  if (!from) return { block: "multiTable" };
   const after = s.slice(from.index + from[0].length);
   const end = FROM_END.exec(after);
   const body = (end ? after.slice(0, end.index) : after).trim();
   // A comma list is a join; parentheses are a subquery or a table function.
-  if (!body || body.includes(",") || body.includes("(")) return null;
+  if (!body || body.includes(",") || body.includes("(")) return { block: "multiTable" };
 
   // `table`, `table alias` or `table AS alias` — the alias is irrelevant here.
   const tokens = body.split(" ").filter(Boolean);
-  if (tokens.length > 3) return null;
-  if (tokens.length === 3 && tokens[1].toLowerCase() !== "as") return null;
-  return refParts(tokens[0], engine);
+  if (tokens.length > 3) return { block: "multiTable" };
+  if (tokens.length === 3 && tokens[1].toLowerCase() !== "as") return { block: "multiTable" };
+  const target = refParts(tokens[0], engine);
+  return target ? { target } : { block: "multiTable" };
+}
+
+/**
+ * The single table `sql` reads whole rows from, or why its result cannot be
+ * edited (see the module comment). `engine` decides how a two-part name is read,
+ * how unquoted names are folded, and whether rows can be written at all.
+ */
+export function queryEditCheck(
+  sql: string,
+  engine = "",
+): { target: QueryTarget } | { block: EditBlock } {
+  return engineEdits(engine) ? parseTarget(sql, engine) : { block: "engine" };
+}
+
+/**
+ * The single table `sql` reads whole rows from, or null when the statement is
+ * anything but a plain single-table SELECT. Unlike queryEditCheck it does not
+ * ask whether the engine can edit (a snippet name needs only the table), but
+ * MongoDB's `db.coll.find()` surface is not SQL and is never parsed here.
+ */
+export function queryEditTarget(sql: string, engine = ""): QueryTarget | null {
+  if (engineFamily(engine) === "mongodb") return null;
+  const check = parseTarget(sql, engine);
+  return "target" in check ? check.target : null;
+}
+
+/**
+ * The primary key to edit `columns` by, from the table's describe — each key
+ * column spelled as the RESULT spells it — or why there is none. A result keeps
+ * the select list's spelling on MySQL and SQL Server (`SELECT ID` comes back as
+ * `ID` while the catalog says `id`), and those engines match column names
+ * case-insensitively, so a case-only difference still addresses the same column.
+ * An exact match wins, for the engines where `"Id"` and `id` are two columns.
+ */
+export function editablePk(
+  describe: ResultSet,
+  columns: ResultColumn[],
+): { pk: string[] } | { block: EditBlock } {
+  if (describe.rows.length === 0) return { block: "noTable" };
+  const keys = describePkColumns(describe);
+  if (keys.length === 0) return { block: "noPk" };
+  const pk: string[] = [];
+  for (const key of keys) {
+    const col =
+      columns.find((c) => c.name === key) ??
+      columns.find((c) => c.name.toLowerCase() === key.toLowerCase());
+    if (!col) return { block: "pkNotProjected" };
+    pk.push(col.name);
+  }
+  return { pk };
 }
