@@ -146,12 +146,17 @@ jobs:
           QUAERO_MYSQL_SSL_DSN: '{"host":"127.0.0.1","port":3306,"user":"root","password":"root","database":"quaero_test","ssl_mode":"required"}'
         run: ctest --test-dir build --output-on-failure
 
-  # The SQL Server driver on libtdswire, our own client (#584), against SQL
-  # Server 2022: queries, types, and cancel through op.cancel. (FreeTDS is not
-  # tried here: Ubuntu's is too old for the driver; windows-x86 builds that.)
+  # The SQL Server driver against SQL Server 2022: queries, types, and cancel
+  # through op.cancel, on both clients — libtdswire, our own (#584), and FreeTDS
+  # db-lib built from source (Ubuntu's is too old for the driver), whose cancel
+  # goes through the interrupt handler (#668).
   mssql-integration:
-    name: mssql-integration
+    name: mssql-integration (${{ matrix.client }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        client: [tdswire, freetds]
     steps:
       - uses: actions/checkout@v7
 
@@ -163,11 +168,20 @@ jobs:
             sleep 2
           done
 
+      - name: Install OpenSSL headers
+        if: matrix.client == 'freetds'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF -DQUAERO_TDSWIRE=ON
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF
+          -DQUAERO_TDSWIRE=${{ matrix.client == 'tdswire' && 'ON' || 'OFF' }}
+          -DQUAERO_FREETDS=${{ matrix.client == 'freetds' && 'ON' || 'OFF' }}
 
       - name: Build
         run: cmake --build build

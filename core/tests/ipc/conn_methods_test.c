@@ -58,6 +58,9 @@ static dbc_status unsup_connect(const char *dsn, dbc_conn **out)
     return DBC_ERR_UNSUPPORTED;
 }
 
+static dbc_status s_cancel(dbc_conn *c) { (void)c; return DBC_OK; }
+static dbc_status s_tx(dbc_conn *c) { (void)c; return DBC_OK; }
+
 static dbc_driver_t base(const char *name)
 {
     dbc_driver_t d = {0};
@@ -111,9 +114,77 @@ static void test_id_helpers(void)
     EXPECT(ipc_conn_id_parse("c99999999999", &v) == 0, "reject overflowing id");
 }
 
+static int feature(const cJSON *features, const char *key)
+{
+    return cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(features, key));
+}
+
+/* The features object: a capability is true only when flagged AND backed. */
+static void test_features_json(void)
+{
+    dbc_driver_t d = base("f");
+    cJSON *f = ipc_driver_features_json(&d);
+    EXPECT(f != NULL && cJSON_GetArraySize(f) == 6, "features has the six keys");
+    EXPECT(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(f, "cancel")),
+           "no flags -> cancel:false (present, not omitted)");
+    EXPECT(!feature(f, "transactions") && !feature(f, "ddl") && !feature(f, "dml") &&
+           !feature(f, "schemas") && !feature(f, "introspection"),
+           "no flags -> every capability false");
+    cJSON_Delete(f);
+
+    /* Flag advertised but no member behind it: the core would not route it. */
+    d.features = DBC_FEAT_CANCEL | DBC_FEAT_TRANSACTIONS;
+    f = ipc_driver_features_json(&d);
+    EXPECT(!feature(f, "cancel"), "cancel flag without member -> false");
+    EXPECT(!feature(f, "transactions"), "tx flag without members -> false");
+    cJSON_Delete(f);
+
+    d.cancel = s_cancel;
+    d.begin = d.commit = d.rollback = s_tx;
+    d.features = DBC_FEAT_CANCEL | DBC_FEAT_TRANSACTIONS | DBC_FEAT_SCHEMAS |
+                 DBC_FEAT_INTROSPECTION;
+    f = ipc_driver_features_json(&d);
+    EXPECT(feature(f, "cancel") && feature(f, "transactions") &&
+           feature(f, "schemas") && feature(f, "introspection"),
+           "flagged and backed -> true");
+    EXPECT(!feature(f, "ddl") && !feature(f, "dml"), "unflagged stay false");
+    cJSON_Delete(f);
+
+    /* Member present but flag absent: not advertised, so not reported. */
+    d.features = 0;
+    f = ipc_driver_features_json(&d);
+    EXPECT(!feature(f, "cancel"), "cancel member without flag -> false");
+    cJSON_Delete(f);
+}
+
+/* conn.open's result carries the driver's features for that connection. */
+static int open_reports_cancel(const char *driver, int *has_features)
+{
+    char req[160];
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"conn.open\","
+             "\"params\":{\"driver\":\"%s\",\"dsn\":{}}}", driver);
+    cJSON *root = call(req);
+    cJSON *result = cJSON_GetObjectItemCaseSensitive(root, "result");
+    cJSON *features = cJSON_GetObjectItemCaseSensitive(result, "features");
+    *has_features = cJSON_IsObject(features);
+    int cancel = feature(features, "cancel");
+    cJSON *id = cJSON_GetObjectItemCaseSensitive(result, "connId");
+    if (cJSON_IsString(id)) {
+        char close[128];
+        snprintf(close, sizeof close,
+                 "{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"conn.close\","
+                 "\"params\":{\"connId\":\"%s\"}}", id->valuestring);
+        cJSON_Delete(call(close));
+    }
+    cJSON_Delete(root);
+    return cancel;
+}
+
 int main(void)
 {
     test_id_helpers();
+    test_features_json();
 
     dbcore_runtime_reset();
     dbc_driver_t stub = base("stub");
@@ -126,6 +197,10 @@ int main(void)
     dbcore_runtime_register_driver(dbcore_runtime_get(), &stub);
     dbcore_runtime_register_driver(dbcore_runtime_get(), &boom);
     dbcore_runtime_register_driver(dbcore_runtime_get(), &unsup);
+    dbc_driver_t cancelable = base("cancelable");
+    cancelable.cancel = s_cancel;
+    cancelable.features = DBC_FEAT_CANCEL;
+    dbcore_runtime_register_driver(dbcore_runtime_get(), &cancelable);
 
     /* Open a connection through the dispatcher. */
     {
@@ -136,6 +211,15 @@ int main(void)
         EXPECT(cJSON_IsString(connId) && strcmp(connId->valuestring, "c1") == 0,
                "conn.open returns connId c1");
         cJSON_Delete(root);
+    }
+
+    /* features: advertised by a cancel-capable driver, false for the stub. */
+    {
+        int has = 0;
+        EXPECT(open_reports_cancel("cancelable", &has) == 1 && has,
+               "conn.open on a cancel driver -> features.cancel:true");
+        EXPECT(open_reports_cancel("stub", &has) == 0 && has,
+               "conn.open on a non-cancel driver -> features.cancel:false");
     }
 
     /* Unknown driver -> NOT_FOUND. */

@@ -555,6 +555,7 @@ export const es: Record<string, string> = {
   "grid.truncated": "Mostrando las primeras {n} filas (resultado truncado). El orden y los filtros se aplican solo sobre las filas cargadas, no con ORDER BY/WHERE en el servidor.",
   "grid.runToSee": "Ejecuta una consulta para ver resultados.",
   "grid.running": "Ejecutando…",
+  "grid.cancelUnsupported": "Este motor no puede cancelar una consulta en curso; seguirá hasta terminar.",
 
   // chart panel (ChartView.tsx)
   "chart.type": "Tipo",

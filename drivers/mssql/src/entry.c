@@ -11,10 +11,13 @@
  * `encryption` field, DBC_FEAT_SSL). SQL Server has schemas within a database,
  * so DBC_FEAT_SCHEMAS is advertised.
  *
+ * Cancellation (DBC_FEAT_CANCEL) on both clients. libtdswire sends the
+ * ATTENTION from the calling thread. Over db-lib, whose dbcancel is not safe to
+ * call from another thread while dbsqlexec runs, the cancel hook only raises a
+ * flag and the query thread sends the ATTENTION (connection.c, issue #668).
+ *
  * Honestly absent for now (members NULL, flags unset): DDL reconstruction and
- * single-row editing. Cancellation only on libtdswire (QUAERO_MSSQL_TDSWIRE):
- * db-lib's dbcancel is not safe to call from another thread while dbsqlexec
- * runs, which is what the core would do; an ATTENTION message is.
+ * single-row editing.
  */
 static const dbc_driver_t k_mssql_driver = {
     .abi_version   = DBC_ABI_VERSION,
@@ -44,14 +47,9 @@ static const dbc_driver_t k_mssql_driver = {
     .commit        = ms_drv_commit,
     .rollback      = ms_drv_rollback,
 
-#ifdef QUAERO_MSSQL_TDSWIRE
     .cancel        = ms_drv_cancel,
     .features      = DBC_FEAT_SSL | DBC_FEAT_SCHEMAS | DBC_FEAT_INTROSPECTION |
                      DBC_FEAT_TRANSACTIONS | DBC_FEAT_CANCEL,
-#else
-    .features      = DBC_FEAT_SSL | DBC_FEAT_SCHEMAS | DBC_FEAT_INTROSPECTION |
-                     DBC_FEAT_TRANSACTIONS,
-#endif
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)

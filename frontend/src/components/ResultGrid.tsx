@@ -93,6 +93,9 @@ export function ResultGrid(props: {
   /** Cancel the running query (op.cancel). When present, a Cancelar button shows
       alongside the "Ejecutando…" state; absent → no cancel affordance. */
   onCancel?: () => void;
+  /** Why the engine cannot cancel (#668). When set, the Cancelar button stays
+      visible but disabled, with this as its tooltip. */
+  cancelDisabledReason?: string;
   /** Foreign-key pickers, by column name: an editable FK cell then suggests the
       referenced table's rows instead of demanding a remembered id. Absent → the
       cells are plain free-text inputs, exactly as before. */
@@ -1152,6 +1155,8 @@ export function ResultGrid(props: {
             <button
               class="grid-cancel"
               type="button"
+              disabled={!!props.cancelDisabledReason}
+              title={props.cancelDisabledReason}
               onClick={() => props.onCancel?.()}
             >
               {t("common.cancel")}
