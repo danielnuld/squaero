@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { queryEditTarget } from "../../src/utils/queryTarget";
+import {
+  editablePk,
+  engineEdits,
+  queryEditCheck,
+  queryEditTarget,
+} from "../../src/utils/queryTarget";
+import type { ResultSet } from "../../src/utils/query";
 
 describe("queryEditTarget — single-table SELECTs", () => {
   it("reads a bare table", () => {
@@ -44,10 +50,14 @@ describe("queryEditTarget — qualified names", () => {
       table: "clientes",
     });
   });
-  it("reads the Informix db:owner.table form", () => {
+  it("reads the Informix db:owner.table form, dropping the owner", () => {
+    // The core reads a `schema` as the DATABASE on Informix: keeping the owner
+    // there described (and would have edited) a database called "informix".
     expect(queryEditTarget("SELECT * FROM stores:informix.customer", "informix")).toEqual({
       db: "stores",
-      schema: "informix",
+      table: "customer",
+    });
+    expect(queryEditTarget("SELECT * FROM informix.customer", "informix")).toEqual({
       table: "customer",
     });
     expect(queryEditTarget("SELECT * FROM stores:customer", "informix")).toEqual({
@@ -96,5 +106,117 @@ describe("queryEditTarget — refuses anything that is not one table's rows", ()
   it("refuses empty input", () => {
     expect(queryEditTarget("", "mysql")).toBeNull();
     expect(queryEditTarget("   ", "mysql")).toBeNull();
+  });
+});
+
+describe("queryEditTarget — name case", () => {
+  it("folds unquoted names the way PostgreSQL and Informix store them", () => {
+    expect(queryEditTarget("SELECT * FROM Public.Clientes", "postgres")).toEqual({
+      schema: "public",
+      table: "clientes",
+    });
+    expect(queryEditTarget("SELECT FIRST 10 * FROM STORES:CUSTOMER", "informix")).toEqual({
+      db: "stores",
+      table: "customer",
+    });
+  });
+  it("keeps a quoted name exactly as written", () => {
+    expect(queryEditTarget('SELECT * FROM "Clientes"', "postgres")).toEqual({ table: "Clientes" });
+  });
+  it("leaves the case alone where the engine does not fold it", () => {
+    expect(queryEditTarget("SELECT * FROM Clientes", "mysql")).toEqual({ table: "Clientes" });
+    expect(queryEditTarget("SELECT TOP 10 * FROM dbo.Clientes", "sqlserver")).toEqual({
+      schema: "dbo",
+      table: "Clientes",
+    });
+  });
+});
+
+describe("queryEditCheck — the reason a result is not editable", () => {
+  it("returns the target for a plain single-table SELECT", () => {
+    expect(queryEditCheck("SELECT * FROM clientes WHERE id = 1;", "sqlite")).toEqual({
+      target: { table: "clientes" },
+    });
+  });
+  it("says statement for anything but one SELECT", () => {
+    expect(queryEditCheck("UPDATE clientes SET a = 1", "sqlite")).toEqual({ block: "statement" });
+    expect(queryEditCheck("SELECT * FROM a; SELECT * FROM b", "sqlite")).toEqual({
+      block: "statement",
+    });
+    expect(queryEditCheck("", "sqlite")).toEqual({ block: "statement" });
+  });
+  it("says multiTable for a join, a subquery or a reshaping", () => {
+    for (const sql of [
+      "SELECT * FROM a JOIN b ON a.id = b.id",
+      "SELECT * FROM a, b",
+      "SELECT * FROM (SELECT 1) x",
+      "SELECT DISTINCT n FROM a",
+      "SELECT 1",
+    ]) {
+      expect(queryEditCheck(sql, "postgres")).toEqual({ block: "multiTable" });
+    }
+  });
+  it("says engine where the driver cannot write rows", () => {
+    expect(queryEditCheck("SELECT * FROM clientes", "mssql")).toEqual({ block: "engine" });
+    expect(queryEditCheck("db.clientes.find({})", "mongodb")).toEqual({ block: "engine" });
+  });
+});
+
+describe("engineEdits", () => {
+  it("is true for the engines whose driver implements row.*", () => {
+    for (const e of ["sqlite", "postgres", "postgresql", "mysql", "mariadb", "informix"]) {
+      expect(engineEdits(e)).toBe(true);
+    }
+  });
+  it("is false for the rest, and for no engine", () => {
+    for (const e of ["mssql", "sqlserver", "mongodb", ""]) expect(engineEdits(e)).toBe(false);
+  });
+  it("follows the features conn.open reported over the known list", () => {
+    expect(engineEdits("mongodb", true)).toBe(true);
+    expect(engineEdits("sqlite", false)).toBe(false);
+    expect(queryEditCheck("SELECT * FROM clientes", "mssql", true)).toHaveProperty("target");
+    expect(queryEditCheck("SELECT * FROM clientes", "sqlite", false)).toEqual({ block: "engine" });
+  });
+});
+
+describe("editablePk", () => {
+  const describe_ = (rows: [string, string][]): ResultSet => ({
+    columns: [
+      { name: "name", type: "text" },
+      { name: "pk", type: "int" },
+    ],
+    rows,
+    truncated: false,
+    rowsAffected: 0,
+  });
+  const cols = (...names: string[]) => names.map((name) => ({ name, type: "text" }));
+
+  it("returns the key spelled as the result spells it", () => {
+    const d = describe_([["id", "1"], ["nombre", "0"]]);
+    expect(editablePk(d, cols("id", "nombre"))).toEqual({ pk: ["id"] });
+    // MySQL keeps the select list's case: `SELECT ID` comes back as `ID`.
+    expect(editablePk(d, cols("ID", "Nombre"))).toEqual({ pk: ["ID"] });
+  });
+  it("prefers an exact match over a case-insensitive one", () => {
+    const d = describe_([["Id", "1"]]);
+    expect(editablePk(d, cols("id", "Id"))).toEqual({ pk: ["Id"] });
+  });
+  it("needs every column of a composite key", () => {
+    const d = describe_([["a", "1"], ["b", "2"], ["c", "0"]]);
+    expect(editablePk(d, cols("b", "a"))).toEqual({ pk: ["a", "b"] });
+    expect(editablePk(d, cols("a", "c"))).toEqual({ block: "pkNotProjected" });
+  });
+  it("says pkNotProjected when the key is missing or aliased away", () => {
+    expect(editablePk(describe_([["id", "1"]]), cols("clave", "nombre"))).toEqual({
+      block: "pkNotProjected",
+    });
+  });
+  it("says noPk for a keyless table or a view", () => {
+    expect(editablePk(describe_([["id", "0"], ["n", "0"]]), cols("id", "n"))).toEqual({
+      block: "noPk",
+    });
+  });
+  it("says noTable when the describe found nothing", () => {
+    expect(editablePk(describe_([]), cols("id"))).toEqual({ block: "noTable" });
   });
 });
