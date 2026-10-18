@@ -161,6 +161,7 @@ export const es: Record<string, string> = {
   "editor.historyTitle": "Historial de consultas",
   "editor.snippets": "Snippets",
   "editor.snippetsTitle": "Favoritos y snippets",
+  "editor.template": "plantilla",
   // abrir y guardar el SQL del editor como archivo (#553)
   "editor.openFile": "Abrir .sql",
   "editor.openFileTitle": "Abrir un archivo .sql en una pestaña nueva",
@@ -199,6 +200,9 @@ export const es: Record<string, string> = {
   "snip.importTitle": "Importar un set (JSON)",
   "snip.export": "Exportar",
   "snip.exportTitle": "Exportar el set (JSON)",
+  "snip.abbrLabel": "Abreviatura",
+  "snip.abbrPlaceholder": "p. ej. sel",
+  "snip.abbrHint": "Escríbela en el editor y pulsa Tab para expandirla. Una palabra; vacía la quita.",
 
   // paleta de snippets (Ctrl/Cmd+J)
   "snip.palettePlaceholder": "Buscar entre tus snippets…",
@@ -867,6 +871,10 @@ export const es: Record<string, string> = {
   "sc.add-condition": "Añadir otra condición al filtro",
   "sc.filter-add-condition": "Abrir el filtro de la tabla con una condición nueva",
   "sc.filter-add-sort": "Abrir el filtro de la tabla con un orden nuevo",
+  "sc.select-next-occurrence": "Editor: añadir la siguiente coincidencia de la selección",
+  "sc.select-all-occurrences": "Editor: seleccionar todas las coincidencias de la selección",
+  "sc.add-cursor": "Editor: añadir un cursor arriba/abajo (también Ctrl/⌘+clic, Alt+arrastrar)",
+  "sc.expand-template": "Editor: expandir una abreviatura de plantilla / siguiente marcador",
 
   // command palette (CommandPalette.tsx)
   "cmdk.title": "Paleta de comandos",
@@ -1058,6 +1066,7 @@ export const es: Record<string, string> = {
   "error.importNoConns": "No se pudo importar: ningún archivo contiene conexiones.",
   "settings.lowContrast": "Contraste bajo sobre el fondo",
   "settings.editorDiagnostics": "Marcar problemas en el editor SQL",
+  "settings.builtinTemplates": "Plantillas integradas del editor (sel, ins, upd, del, cte)",
   "settings.resetColor": "Volver al color del tema para {kind}",
   "kind.text": "Texto",
   "kind.number": "Números",

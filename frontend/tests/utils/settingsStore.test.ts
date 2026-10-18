@@ -30,6 +30,7 @@ describe("settingsStore", () => {
       toolStrip: false,
       colorTypes: false,
       editorDiagnostics: false,
+      builtinTemplates: false,
     };
     saveSettings(s);
     expect(localStorage.getItem(KEY)).toBeTruthy();

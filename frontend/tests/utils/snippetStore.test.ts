@@ -36,6 +36,16 @@ describe("snippetStore", () => {
     expect(mod.loadSnippets()).toEqual([]);
   });
 
+  // Issue #665: the abbreviation is an optional field, so a store written by an
+  // older version loads unchanged and a new one keeps it.
+  it("loads an older store without abbreviations and round-trips one with them", async () => {
+    localStorage.setItem(KEY, JSON.stringify([snip]));
+    const mod = await freshModule();
+    expect(mod.loadSnippets()).toEqual([snip]);
+    mod.saveSnippets([{ ...snip, abbr: "ord" }]);
+    expect(mod.loadSnippets()).toEqual([{ ...snip, abbr: "ord" }]);
+  });
+
   it("does not throw when saving to a full/blocked store", async () => {
     const mod = await freshModule();
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {

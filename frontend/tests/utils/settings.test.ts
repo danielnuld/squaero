@@ -86,6 +86,7 @@ describe("parseSettings", () => {
       toolStrip: false,
       colorTypes: false,
       editorDiagnostics: false,
+      builtinTemplates: false,
     };
     expect(parseSettings(serializeSettings(s))).toEqual(s);
   });
@@ -100,6 +101,8 @@ describe("parseSettings", () => {
     expect(out.toolStrip).toBe(true);
     // Diagnostics (#662) start on for a blob saved before they existed.
     expect(out.editorDiagnostics).toBe(true);
+    // Settings saved before templates existed (#665) offer the built-ins.
+    expect(out.builtinTemplates).toBe(true);
   });
 
   it("rejects ill-typed fields, clamping/falling back", () => {

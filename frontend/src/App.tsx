@@ -144,12 +144,14 @@ import {
   renameSnippet,
   updateSnippetBody,
   removeSnippet,
+  setSnippetAbbr,
   mergeSnippets,
   parseSnippets,
   serializeSnippets,
   type Snippet,
 } from "./utils/snippets";
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
+import { BUILTIN_TEMPLATES, resolveTemplates } from "./utils/sqlTemplates";
 import { rowHeightFor, type Settings } from "./utils/settings";
 import { applyPlan } from "./utils/editApply";
 
@@ -1255,6 +1257,13 @@ export function App() {
   const renameSnip = (id: string, name: string) =>
     persistSnippets(renameSnippet(snippets(), id, name));
   const removeSnip = (id: string) => persistSnippets(removeSnippet(snippets(), id));
+  const setSnipAbbr = (id: string, abbr: string) =>
+    persistSnippets(setSnippetAbbr(snippets(), id, abbr));
+  // Editor templates (issue #665): snippets with an abbreviation, then the
+  // built-ins they do not override, unless the user turned those off.
+  const editorTemplates = createMemo(() =>
+    resolveTemplates(snippets(), settings().builtinTemplates ? BUILTIN_TEMPLATES : []),
+  );
   // A copy to take somewhere else, under the first free "name (N)" so duplicating
   // twice does not silently make one of them unfindable.
   const duplicateSnip = (s: Snippet) => {
@@ -3880,6 +3889,7 @@ export function App() {
                     missingTables={missingTables()}
                     diagnostics={settings().editorDiagnostics}
                     onGoToObject={(target) => void goToObject(target)}
+                    templates={editorTemplates()}
                   />
                   </Show>
                   {/* The editor's own bar. A data tab has no editor: its
@@ -4424,6 +4434,7 @@ export function App() {
                     onOpen={openSnippet}
                     onInsert={insertSnippet}
                     onRename={renameSnip}
+                    onSetAbbr={setSnipAbbr}
                     onDuplicate={duplicateSnip}
                     onRemove={removeSnip}
                     onExport={exportSnippets}
