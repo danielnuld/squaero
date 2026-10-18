@@ -718,6 +718,17 @@ describe("connection groups and icons", () => {
     const saved = parseConnections(JSON.stringify([{ ...sqliteConn(), group: "  " }]));
     expect(saved[0].group).toBeUndefined();
   });
+
+  // Safe mode (issue #666) is stored with the connection, and so exported.
+  it("round-trips the safe mode, dropping an unknown one", () => {
+    const saved = parseConnections(
+      serializeConnections([sqliteConn({ safeMode: "readOnly" }), sqliteConn({ safeMode: "confirm" })]),
+    );
+    expect(saved.map((c) => c.safeMode)).toEqual(["readOnly", "confirm"]);
+    const bad = parseConnections(JSON.stringify([{ ...sqliteConn(), safeMode: "yolo" }]));
+    expect(bad[0].safeMode).toBeUndefined();
+    expect("safeMode" in bad[0]).toBe(false);
+  });
 });
 
 // The iPhone's edit preview warns on a production connection (#577).

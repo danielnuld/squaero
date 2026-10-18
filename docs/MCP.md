@@ -115,7 +115,14 @@ unit-tested in `stmt_class_test`). It defends against the usual tricks:
   **both** quote-escape conventions (`''` doubling and `\'` backslash-escaping —
   it classifies under each and combines them fail-closed),
 - data-modifying CTEs (`WITH d AS (DELETE … RETURNING *) SELECT * FROM d`),
-- multi-statement payloads (`SELECT 1; DROP TABLE t`).
+- multi-statement payloads (`SELECT 1; DROP TABLE t`),
+- statements that only look like reads: `EXPLAIN ANALYZE DELETE …` (it executes
+  the DELETE — any `EXPLAIN` naming a write keyword is refused) and
+  `SELECT … INTO` (it creates a table or writes a file).
+
+`USE <db>` reads (it only switches the session's database); `SET` is a write.
+The desktop app's per-connection safe mode (issue #666) mirrors these rules in
+`frontend/src/utils/safeMode.ts`, tested against the same cases.
 
 Anything it cannot prove read-only is treated as a write and refused on a
 read-only connection.

@@ -1,11 +1,12 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
+import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
 import { schemaTree, schemaDescribe } from "../utils/schema";
 import { parseStructure, buildSchemaSync, isExecutable, type SchemaEndpoint } from "../utils/schemaDiff";
-import { openConnection, closeConnection } from "../utils/conn";
+import { openSaved, closeConnection } from "../utils/conn";
 import { runQuery, QueryError } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
-import { buildDsn, type Connection } from "../utils/connections";
+import type { Connection } from "../utils/connections";
 import { t } from "../utils/i18n";
 
 /**
@@ -64,7 +65,7 @@ export function SchemaSyncWizard(props: {
     setApplied(null);
     try {
       closeTarget();
-      targetConnId = await openConnection(def.driver, buildDsn(def));
+      targetConnId = await openSaved(def);
       const source = endpoint(props.sourceConnId, props.sourceDb);
       const target = endpoint(targetConnId, targetDb() || undefined);
       const { statements: sql } = await buildSchemaSync(source, target);
@@ -84,20 +85,23 @@ export function SchemaSyncWizard(props: {
       setError(t("ssync.nothingExecutable"));
       return;
     }
+    const connId = targetConnId;
     setBusy(true);
     setError(null);
     try {
-      await txBegin(targetConnId);
-      try {
-        for (const stmt of executable) {
-          await runQuery(targetConnId, stmt);
+      await withWriteConsent(connId, executable, async () => {
+        await txBegin(connId);
+        try {
+          for (const stmt of executable) {
+            await runQuery(connId, stmt);
+          }
+          await txCommit(connId);
+          setApplied(t("ssync.applied", { n: executable.length }));
+        } catch (err) {
+          await txRollback(connId).catch(() => {});
+          throw err;
         }
-        await txCommit(targetConnId);
-        setApplied(t("ssync.applied", { n: executable.length }));
-      } catch (err) {
-        await txRollback(targetConnId).catch(() => {});
-        throw err;
-      }
+      });
     } catch (err) {
       setError(t("ssync.applyError", { reason: errMsg(err) }));
     } finally {

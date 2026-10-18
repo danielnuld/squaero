@@ -6998,3 +6998,21 @@ button.grid-action.danger:hover:not(:disabled) {
   font-size: var(--fs-micro);
   margin-left: var(--sp-2);
 }
+
+/* Safe mode (issue #666). The badge rides beside a protected connection's name
+   in the bar and on its tabs; the workspace strip is striped and taller, so a
+   protected server reads differently from a merely coloured one. */
+.safe-badge {
+  flex-shrink: 0;
+  margin-left: var(--sp-1);
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+.workspace-accent.is-protected {
+  height: 6px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.35) 0 6px,
+    transparent 6px 12px
+  );
+}

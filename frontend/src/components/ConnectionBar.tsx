@@ -2,6 +2,7 @@ import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { engineMonogram, type Connection } from "../utils/connections";
 import { ConnectionSearch } from "./ConnectionSearch";
 import { t } from "../utils/i18n";
+import type { SafeMode } from "../utils/safeMode";
 
 /** One open connection, as the bar draws it. */
 export interface OpenConnRow {
@@ -19,6 +20,8 @@ export interface OpenConnRow {
   txStatements?: number;
   /** Engine label plus where it points — the second line of the row. */
   sub: string;
+  /** The connection is protected (issue #666): said on its row, beside the name. */
+  safeMode?: SafeMode;
 }
 
 // The sidebar's connection bar (issue #525). It used to be ONE row — the focused
@@ -143,7 +146,10 @@ export function ConnectionBar(props: {
                       {engineMonogram(row.driver)}
                     </span>
                     <span class="connbar-text">
-                      <span class="connbar-name">{row.name}</span>
+                      <span class="connbar-name">
+                        {row.name}
+                        <SafeBadge mode={row.safeMode} />
+                      </span>
                       <span class="connbar-sub">{row.sub}</span>
                     </span>
                   </button>
@@ -229,5 +235,21 @@ export function ConnectionBar(props: {
         </div>
       </Show>
     </div>
+  );
+}
+
+/** The protected-connection marker (issue #666), shared by the bar and the tabs. */
+export function SafeBadge(props: { mode?: SafeMode }) {
+  return (
+    <Show when={props.mode}>
+      {(mode) => {
+        const label = () => t(mode() === "readOnly" ? "safe.badgeReadOnly" : "safe.badgeConfirm");
+        return (
+          <span class={`safe-badge safe-${mode()}`} title={label()} aria-label={label()}>
+            {mode() === "readOnly" ? "🔒" : "⚠"}
+          </span>
+        );
+      }}
+    </Show>
   );
 }

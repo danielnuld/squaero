@@ -625,6 +625,35 @@ export function ConnectionForm(props: {
               </div>
             </div>
 
+            {/* Safe mode (issue #666): stored with the connection, enforced by the
+                transport guard on every call to it. */}
+            <div class="cf-field">
+              <span class="cf-label">{t("cform.safeMode")}</span>
+              <div class="cf-seg" role="radiogroup" aria-label={t("cform.safeMode")}>
+                <For
+                  each={[
+                    { value: undefined, label: "cform.safeOff" },
+                    { value: "confirm", label: "cform.safeConfirm" },
+                    { value: "readOnly", label: "cform.safeReadOnly" },
+                  ] as const}
+                >
+                  {(opt) => (
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={draft.safeMode === opt.value}
+                      class="cf-seg-btn"
+                      classList={{ "is-on": draft.safeMode === opt.value }}
+                      onClick={() => setDraft("safeMode", opt.value)}
+                    >
+                      {t(opt.label)}
+                    </button>
+                  )}
+                </For>
+              </div>
+              <p class="cf-hint">{t("cform.safeHelp")}</p>
+            </div>
+
             {/* A group is just this label: typing a new name creates it, clearing it
                 from the last connection removes it. The datalist suggests the ones
                 already in use. */}

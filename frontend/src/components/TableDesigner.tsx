@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { withWriteConsent } from "../utils/transport";
 import { createStore, produce, reconcile } from "solid-js/store";
 import { runQuery } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
@@ -165,20 +166,22 @@ export function TableDesigner(props: {
     setBusy(true);
     setError(null);
     try {
-      await txBegin(props.connId);
-      try {
-        for (const sql of statements) {
-          await runQuery(props.connId, sql);
-        }
-        await txCommit(props.connId);
-      } catch (err) {
+      await withWriteConsent(props.connId, statements, async () => {
+        await txBegin(props.connId);
         try {
-          await txRollback(props.connId);
-        } catch {
-          /* best-effort rollback */
+          for (const sql of statements) {
+            await runQuery(props.connId, sql);
+          }
+          await txCommit(props.connId);
+        } catch (err) {
+          try {
+            await txRollback(props.connId);
+          } catch {
+            /* best-effort rollback */
+          }
+          throw err;
         }
-        throw err;
-      }
+      });
       props.onApplied?.();
       props.onClose();
     } catch (err) {

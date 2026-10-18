@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onMount } from "solid-js";
+import { withWriteConsent } from "../utils/transport";
 import { schemaDescribe, schemaDdl, qualifiedName } from "../utils/schema";
 import { runQuery, type ResultSet } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
@@ -124,20 +125,22 @@ export function StructureView(props: {
     setBusy(true);
     setApplyError(null);
     try {
-      await txBegin(props.connId);
-      try {
-        for (const sql of plan.statements) {
-          await runQuery(props.connId, sql);
-        }
-        await txCommit(props.connId);
-      } catch (err) {
+      await withWriteConsent(props.connId, plan.statements, async () => {
+        await txBegin(props.connId);
         try {
-          await txRollback(props.connId);
-        } catch {
-          /* best-effort rollback */
+          for (const sql of plan.statements) {
+            await runQuery(props.connId, sql);
+          }
+          await txCommit(props.connId);
+        } catch (err) {
+          try {
+            await txRollback(props.connId);
+          } catch {
+            /* best-effort rollback */
+          }
+          throw err;
         }
-        throw err;
-      }
+      });
       await loadDdl();
       setEditing(false);
       setApplied(true);

@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onMount } from "solid-js";
+import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { schemaDescribe } from "../utils/schema";
@@ -173,7 +174,11 @@ export function ImportWizard(props: {
       },
     };
     try {
-      const result = await runImport(table, mapping(), policy(), ops);
+      const result = await withWriteConsent(
+        props.connId,
+        [`INSERT INTO ${props.target.table} … (${table.rows.length})`],
+        () => runImport(table, mapping(), policy(), ops),
+      );
       setSummary(result);
       if (result.inserted > 0) {
         props.onImported?.();
