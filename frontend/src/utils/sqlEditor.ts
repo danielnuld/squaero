@@ -95,6 +95,18 @@ export interface EditorSchema {
   columns: Record<string, string[]>;
 }
 
+/**
+ * The desktop editor's table -> columns map as an EditorSchema. A table listed
+ * with no columns has simply not been described yet, so it carries no column
+ * entry: an empty list would read as "this table has no columns" and every
+ * column of it would look unknown (#662).
+ */
+export function editorSchema(map: Record<string, string[]>): EditorSchema {
+  const columns: Record<string, string[]> = {};
+  for (const [table, cols] of Object.entries(map)) if (cols.length > 0) columns[table] = cols;
+  return { tables: Object.keys(map), columns };
+}
+
 function columnsOf(schema: EditorSchema, table: string): string[] {
   const key = Object.keys(schema.columns).find((k) => k.toLowerCase() === table.toLowerCase());
   return key ? schema.columns[key] : [];
