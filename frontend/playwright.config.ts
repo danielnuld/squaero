@@ -8,8 +8,9 @@ export default defineConfig({
   testDir: "./e2e",
   // The media capture lives under e2e/media with its own config: it is a release
   // chore that needs the demo database, and the suite should neither run it nor
-  // report it as skipped.
-  testIgnore: ["**/media/**"],
+  // report it as skipped. The visual regression (playwright.visual.config.ts) is
+  // its own run too: Linux pixels, compared in their own CI job.
+  testIgnore: ["**/media/**", "**/visual/**"],
   globalSetup: "./e2e/global-setup.ts",
 
   // ponytail: serial. The engines share one fixture table, so two workers mutating
