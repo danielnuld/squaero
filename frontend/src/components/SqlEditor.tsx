@@ -192,6 +192,8 @@ export function SqlEditor(props: {
   /** Templates in force (issue #665): an abbreviation + Tab, or picking it from
       the completion list, expands it with Tab-navigable placeholders. */
   templates?: SqlTemplate[];
+  /** Opens this tab's local history (issue #674); the menu offers it when given. */
+  onLocalHistory?: () => void;
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
@@ -572,6 +574,9 @@ export function SqlEditor(props: {
       { label: t("editor.selectAll"), action: selectAll, disabled: !hasText },
       { label: t("editor.copy"), action: copy, disabled: !hasText },
       ...navMenu(e),
+      ...(props.onLocalHistory
+        ? [{ separator: true }, { label: t("lhist.menu"), action: props.onLocalHistory }]
+        : []),
     ];
   };
 
