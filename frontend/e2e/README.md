@@ -130,6 +130,105 @@ start from identical data however much the previous one inserted or deleted.
   CP1252 while PostgreSQL's is true ISO 8859-1. One shared expectation would be
   asserting a bug.
 
+## Visual regression
+
+`e2e/visual/screens.spec.ts` photographs the main screens — welcome, connection
+search and form, object tree with a table grid, the SQL editor with a result (its
+toast and the status bar in the frame), settings, and the DROP confirm dialog — in
+light and dark, and compares each capture with the baseline committed under
+`e2e/visual/__screenshots__/`. It has its own config,
+`playwright.visual.config.ts`, and its own CI job (`.github/workflows/visual.yml`),
+for the same reason the media capture has: the suite above asks "does it work?",
+this asks "does it still look the same?", and the answer to that depends on the
+machine.
+
+```bash
+pnpm visual          # compare (skips with a reason off Linux)
+pnpm visual:update   # rewrite the baselines — Linux only, see below
+```
+
+Locally it needs what the suite needs: the core built (`QUAERO_RPC`,
+`QUAERO_DRIVERS` point it at a build; SQLite is the only engine it uses) and
+Chromium installed.
+
+### What makes a capture repeatable
+
+- **Geometry**: 1280×800 at `deviceScaleFactor: 1`, in the config.
+- **Data**: the same SQLite fixture every e2e test reseeds.
+- **Time**: `page.clock` freezes `Date`, timers and `performance.now`, so the run
+  toast reads "Ejecutada a las 10:30:00 · 0 ms", stays on screen instead of timing
+  out, and the status bar's duration never varies. The time zone and locale are
+  pinned in the config for the same reason.
+- **Motion**: `reducedMotion: "reduce"` (which `styles.css` honours by zeroing every
+  transition), `animations: "disabled"` and `caret: "hide"` on the comparison.
+- **Theme**: written to `quaero.theme` before the page loads, never toggled — the
+  button cycles system → light → dark and would land wherever the last run left it.
+  The test asserts the theme that was *painted* (`html[data-theme]`).
+- **Platform**: one. `--font-ui` resolves to Segoe UI on Windows and to
+  DejaVu/Liberation in the CI container, so the same screen never matches across
+  operating systems. Baselines are made and compared in
+  `mcr.microsoft.com/playwright:<version>-jammy` only, and the spec skips
+  elsewhere. `QUAERO_VISUAL_ANY_OS=1` overrides the skip to prove the walk works on
+  a laptop; what that writes must not be committed.
+
+### Tolerance
+
+`threshold: 0.2` is the per-pixel colour distance (YIQ, 0–1) under which two pixels
+count as equal; it absorbs anti-aliasing and sub-pixel text noise, while a changed
+colour token moves every pixel of a surface by far more. `maxDiffPixelRatio: 0.01`
+is the share of pixels allowed to differ: 1% of 1280×800 is about 10k pixels, room
+for a relabelled control or two, not for a shifted panel, a missing border or a
+reflowed grid. Both live in `playwright.visual.config.ts`.
+
+### When to update the baselines
+
+- A **deliberate** change of appearance: a new token, a redesigned panel, a
+  relabelled screen, a new element in one of the photographed views. The diff is
+  the review: look at it and say so in the PR.
+- The **Playwright version** changes (the container tag in `visual.yml` moves with
+  `@playwright/test` in `package.json`): a browser one version off can render text
+  differently.
+
+Not when a test fails and nobody knows why. An unexplained diff is a regression or a
+non-deterministic capture, and either gets fixed, not re-baselined.
+
+### How to update them
+
+The baselines are Linux pixels, so they come from the container, never from a
+laptop. Two routes to the same bytes:
+
+1. **In CI** (the normal route): Actions → *Visual baselines* → *Run workflow*,
+   pick your branch, leave *update* on. The job builds the core, rewrites the
+   PNGs, uploads them as the `visual-baselines` artifact and commits them to the
+   branch as you (`test(frontend): update visual baselines (refs #697)`). Pull,
+   look at the diff — GitHub renders PNG diffs side by side — and the PR carries
+   the new look.
+2. **In Docker**, when you want to iterate before pushing: from the repository root,
+
+   ```bash
+   docker run --rm -it -v "$PWD":/work -w /work mcr.microsoft.com/playwright:v1.62.1-jammy bash
+   apt-get update && apt-get install -y --no-install-recommends build-essential cmake ninja-build
+   cmake -S . -B build-visual -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF
+   cmake --build build-visual --target quaero-rpc sqlite_driver
+   cd frontend && npm i -g pnpm@11 && pnpm install --frozen-lockfile
+   QUAERO_RPC=/work/build-visual/tools/quaero-rpc QUAERO_DRIVERS=/work/build-visual/drivers/sqlite pnpm visual:update
+   ```
+
+   Keep the image tag equal to the one in `visual.yml`.
+
+### Reviewing a failure
+
+The job uploads `visual-diff`: for every failed screen, `*-expected.png`,
+`*-actual.png` and `*-diff.png` (changed pixels in red) under `test-results/`,
+plus the HTML report, which shows the three side by side with a slider. If the
+change is what the PR meant to do, update as above; if not, it found something.
+
+**No baselines yet.** While `__screenshots__/` holds no PNG the job fails with a
+message that says to run the update workflow. On purpose: a comparison against
+nothing is not a pass, and generating the first set is one click away. The first
+set is provisional — M14's redesign (#678) is still landing, and each phase that
+changes the look re-baselines as part of its PR.
+
 ## What this does NOT cover
 
 The **native shell**: the window, menus, file dialogs, `localStorage`
