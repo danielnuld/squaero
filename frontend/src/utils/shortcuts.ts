@@ -33,7 +33,11 @@ export type ActionId =
   | "unmark-rows"
   | "delete-rows"
   | "add-condition"
-  | "filter-add-condition";
+  | "filter-add-condition"
+  | "select-next-occurrence"
+  | "select-all-occurrences"
+  | "add-cursor"
+  | "expand-template";
 
 export interface Shortcut {
   id: ActionId;
@@ -83,6 +87,14 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "filter-add-condition", keys: "Mod+Shift+L", description: "sc.filter-add-condition", global: true },
   // Its sibling for the ORDER BY (issue #645).
   { id: "filter-add-sort", keys: "Mod+Shift+O", description: "sc.filter-add-sort", global: true },
+  // The SQL editor's multicursor and templates (issue #665): CodeMirror's own
+  // keymaps, documented here, never matched globally. Mod+D is the grid's too
+  // (each acts where it has focus), and Mod+Shift+L the filter's, which only
+  // acts on a table tab — one with no editor.
+  { id: "select-next-occurrence", keys: "Mod+D", description: "sc.select-next-occurrence", global: false },
+  { id: "select-all-occurrences", keys: "Mod+Shift+L", description: "sc.select-all-occurrences", global: false },
+  { id: "add-cursor", keys: "Mod+Alt+↑/↓", description: "sc.add-cursor", global: false },
+  { id: "expand-template", keys: "Tab", description: "sc.expand-template", global: false },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */

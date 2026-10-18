@@ -10,6 +10,8 @@ import {
   highlightActiveLine,
   highlightActiveLineGutter,
   drawSelection,
+  rectangularSelection,
+  crosshairCursor,
 } from "@codemirror/view";
 import {
   defaultKeymap,
@@ -35,6 +37,8 @@ import {
   type CompletionContext,
   type CompletionResult,
   type CompletionSource,
+  snippet,
+  snippetCompletion,
 } from "@codemirror/autocomplete";
 import { search, searchKeymap, openSearchPanel, highlightSelectionMatches } from "@codemirror/search";
 import { formatSql } from "../utils/sqlFormat";
@@ -48,6 +52,7 @@ import { sqlCompletions, type Completions } from "../utils/sqlComplete";
 import { sqlDiagnostics, type SqlDiagnostic } from "../utils/sqlDiagnostics";
 import type { ForeignKeyRelation } from "../utils/foreignKeys";
 import { sqlNavigation, type ObjectTarget } from "./editorNavigation";
+import { templateAt, templateToSnippet, type SqlTemplate } from "../utils/sqlTemplates";
 
 /**
  * SQL colouring in the app's own palette (issue #473).
@@ -184,6 +189,9 @@ export function SqlEditor(props: {
   diagnostics?: boolean;
   /** Go to definition on a table/view or routine (issue #663): show it. */
   onGoToObject?: (target: ObjectTarget) => void;
+  /** Templates in force (issue #665): an abbreviation + Tab, or picking it from
+      the completion list, expands it with Tab-navigable placeholders. */
+  templates?: SqlTemplate[];
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
@@ -278,8 +286,45 @@ export function SqlEditor(props: {
     props.onChange(loaded, out);
   };
 
+  // Templates (issue #665). Both read props.templates when called, so edits to
+  // the snippet list or the settings apply without reconfiguring the editor.
+  // Tab expands the abbreviation just typed at the main cursor.
+  const expandTemplate = (v: EditorView): boolean => {
+    const { main } = v.state.selection;
+    if (!main.empty) return false;
+    const line = v.state.doc.lineAt(main.head);
+    const hit = templateAt(props.templates ?? [], line.text, main.head - line.from);
+    if (!hit) return false;
+    snippet(templateToSnippet(hit.template.body))(v, null, line.from + hit.from, main.head);
+    return true;
+  };
+  // The completion list offers every template; one whose abbreviation is the
+  // word typed in full is boosted to the top, so Tab on an open list expands it
+  // rather than accepting a keyword that merely starts the same.
+  const templateSource = (ctx: CompletionContext): CompletionResult | null => {
+    const word = ctx.matchBefore(/[A-Za-z_][A-Za-z0-9_]*/);
+    const list = props.templates ?? [];
+    if (!list.length || (!word && !ctx.explicit)) return null;
+    if (word && ctx.state.sliceDoc(word.from - 1, word.from) === ".") return null;
+    const typed = word?.text.toLowerCase();
+    return {
+      from: word?.from ?? ctx.pos,
+      options: list.map((tpl) =>
+        snippetCompletion(templateToSnippet(tpl.body), {
+          label: tpl.abbr,
+          detail: `${t("editor.template")} · ${tpl.name}`,
+          info: tpl.body,
+          type: "text",
+          boost: tpl.abbr === typed ? 99 : 0,
+        }),
+      ),
+    };
+  };
+
   // Run what the user means: the selection, else everything in the editor
-  // (issue #130). Pure choice lives in runScope.ts.
+  // (issue #130). Pure choice lives in runScope.ts. With several selections
+  // (multicursor, issue #665) it is the MAIN one that runs, saves or is copied
+  // — the last added — never a concatenation of them.
   const runFromView = () => {
     if (!view) return;
     const { doc, selection } = view.state;
@@ -299,12 +344,19 @@ export function SqlEditor(props: {
           highlightActiveLineGutter(),
           highlightActiveLine(),
           drawSelection(),
+          // Multicursor (issue #665): Ctrl/Cmd+click adds a cursor, Alt+drag
+          // selects a rectangle (the crosshair shows while Alt is held). The
+          // keys come with the keymaps below: Mod-d / Mod-Shift-l (searchKeymap)
+          // and Mod-Alt-ArrowUp/Down (defaultKeymap). Escape collapses to one.
+          EditorState.allowMultipleSelections.of(true),
+          rectangularSelection(),
+          crosshairCursor(),
           history(),
           bracketMatching(),
           closeBrackets(),
           indentOnInput(),
           // lang-sql registers two sources: schema names, then keywords.
-          autocompletion({ override: [semanticSource, fallbackSource(0), fallbackSource(1)] }),
+          autocompletion({ override: [semanticSource, fallbackSource(0), fallbackSource(1), templateSource] }),
           diagnosticsField,
           diagnosticHover,
           // In-editor find/replace (Ctrl/Cmd+F). The panel sits at the top and
@@ -340,9 +392,12 @@ export function SqlEditor(props: {
               },
             },
             // Tab accepts the open suggestion, as every code editor does.
-            // acceptCompletion returns false when no list is open, so Tab still
-            // falls through to indentWithTab the rest of the time.
+            // acceptCompletion returns false when no list is open; Tab then
+            // expands a template abbreviation, else falls through to
+            // indentWithTab. Inside an expanded template, Tab/Shift-Tab move
+            // between its placeholders (snippet keymap, highest precedence).
             { key: "Tab", run: acceptCompletion },
+            { key: "Tab", run: expandTemplate },
             indentWithTab,
             ...searchKeymap,
             ...completionKeymap,

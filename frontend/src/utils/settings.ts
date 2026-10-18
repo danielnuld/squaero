@@ -52,6 +52,9 @@ export interface Settings {
   /** Mark problems (unknown names, UPDATE without WHERE…) in the SQL editor
       before running it (issue #662). Never blocks a run; on by default. */
   editorDiagnostics: boolean;
+  /** Offer the shipped editor templates (`sel`, `ins`, `upd`, `del`, `cte`;
+      issue #665). The user's own, from snippets with an abbreviation, stay. */
+  builtinTemplates: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -62,6 +65,7 @@ export const DEFAULT_SETTINGS: Settings = {
   toolStrip: true,
   colorTypes: true,
   editorDiagnostics: true,
+  builtinTemplates: true,
 };
 
 /** Bounds for the slow-query threshold (ms): 0 (off) up to one hour. */
@@ -133,6 +137,10 @@ export function parseSettings(raw: string | null | undefined): Settings {
       typeof obj.editorDiagnostics === "boolean"
         ? obj.editorDiagnostics
         : DEFAULT_SETTINGS.editorDiagnostics,
+    builtinTemplates:
+      typeof obj.builtinTemplates === "boolean"
+        ? obj.builtinTemplates
+        : DEFAULT_SETTINGS.builtinTemplates,
   };
 }
 

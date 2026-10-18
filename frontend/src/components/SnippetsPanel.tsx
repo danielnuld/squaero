@@ -4,6 +4,7 @@ import { searchSnippets, type Snippet } from "../utils/snippets";
 import { openContextMenu } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
 import { autoFocus } from "../utils/autoFocus";
+import { normalizeAbbr } from "../utils/sqlTemplates";
 
 // The snippet library (issues #129, #338): find a saved query among many, look at
 // it, and act on it. Master-detail — a filterable list beside the full body — in
@@ -20,6 +21,9 @@ export function SnippetsPanel(props: {
   onOpen: (s: Snippet) => void;
   onInsert: (s: Snippet) => void;
   onRename: (id: string, name: string) => void;
+  /** Set (or, blank, clear) the abbreviation that expands it as a template in
+      the editor (issue #665). */
+  onSetAbbr: (id: string, abbr: string) => void;
   onDuplicate: (s: Snippet) => void;
   onRemove: (id: string) => void;
   onExport: () => void;
@@ -146,7 +150,13 @@ export function SnippetsPanel(props: {
                         onDblClick={() => props.onOpen(s)}
                         onContextMenu={(e) => menu(e, s)}
                       >
-                        <span class="snippet-row-name">{s.name}</span>
+                        <span class="snippet-row-name">
+                          {s.name}
+                          <Show when={s.abbr}>
+                            {" "}
+                            <kbd title={t("snip.abbrLabel")}>{s.abbr}</kbd>
+                          </Show>
+                        </span>
                         {/* What it does, which is how a saved query is recognised. */}
                         <span class="snippet-row-hint">{firstLine(s.body)}</span>
                       </button>
@@ -194,6 +204,28 @@ export function SnippetsPanel(props: {
                     ⋯
                   </button>
                 </div>
+                {/* A snippet with an abbreviation is also an editor template:
+                    type it and press Tab. Committed on Enter/blur; anything
+                    that is not one word is refused and the field reverts. */}
+                <label class="snippet-abbr-row">
+                  <span>{t("snip.abbrLabel")}</span>
+                  <input
+                    class="snippet-rename"
+                    value={s().abbr ?? ""}
+                    placeholder={t("snip.abbrPlaceholder")}
+                    title={t("snip.abbrHint")}
+                    spellcheck={false}
+                    onChange={(e) => {
+                      const raw = e.currentTarget.value;
+                      if (raw.trim() && !normalizeAbbr(raw)) {
+                        e.currentTarget.value = s().abbr ?? "";
+                        return;
+                      }
+                      props.onSetAbbr(s().id, raw);
+                    }}
+                  />
+                  <span class="snippet-abbr-hint">{t("snip.abbrHint")}</span>
+                </label>
                 <pre class="snippet-body">{s().body}</pre>
               </div>
             )}
