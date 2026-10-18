@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { DataGenerator } from "../../src/components/DataGenerator";
+import { dropdownValue } from "./dropdownHarness";
 
 // Drives the real DataGenerator in jsdom against a mocked bridge: it fetches the
 // target columns (schema.describe), assigns per-type strategies, previews, and
@@ -96,12 +97,12 @@ describe("DataGenerator", () => {
     mount();
     await flush();
     expect(host!.textContent).toContain("Generar datos");
-    const selects = host!.querySelectorAll<HTMLSelectElement>(".map-select");
+    const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(3); // id, name, created
     // id is the PK int -> sequence; name -> text; created datetime -> date.
-    expect(selects[0].value).toBe("sequence");
-    expect(selects[1].value).toBe("text");
-    expect(selects[2].value).toBe("date");
+    expect(dropdownValue(selects[0])).toBe("sequence");
+    expect(dropdownValue(selects[1])).toBe("text");
+    expect(dropdownValue(selects[2])).toBe("date");
   });
 
   it("shows a deterministic preview of the requested size (capped at 5)", async () => {

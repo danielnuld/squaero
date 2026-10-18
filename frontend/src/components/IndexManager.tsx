@@ -17,6 +17,7 @@ import {
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { Dropdown } from "./Dropdown";
 
 // Index / constraint manager (issue #139): view a table's indexes and constraints
 // (today only visible inside the CREATE TABLE DDL) and create/drop them by form.
@@ -337,11 +338,11 @@ export function IndexManager(props: {
         <div class="im-form">
           <strong>{t("im.newConstraint")}</strong>
           <div class="im-fields">
-            <select value={conKind()} onChange={(e) => setConKind(e.currentTarget.value as ConstraintKind)}>
-              <option value="unique">UNIQUE</option>
-              <option value="check">CHECK</option>
-              <option value="foreignKey">FOREIGN KEY</option>
-            </select>
+            <Dropdown
+              value={conKind()}
+              options={[{ value: "unique", label: "UNIQUE" }, { value: "check", label: "CHECK" }, { value: "foreignKey", label: "FOREIGN KEY" }]}
+              onChange={(v) => setConKind(v as ConstraintKind)}
+            />
             <input
               class="td-in"
               placeholder={t("im.constraintNamePlaceholder")}

@@ -31,6 +31,7 @@ import { keepAliveProbe, normalizeKeepAlive } from "../utils/reconnect";
 import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { Dropdown } from "./Dropdown";
 
 type TestState =
   | { kind: "idle" }
@@ -312,14 +313,11 @@ export function ConnectionForm(props: {
             />
           }
         >
-          <select
+          <Dropdown
             value={draft.params[f.key] ?? ""}
-            onChange={(e) => setDraft("params", f.key, e.currentTarget.value)}
-          >
-            <For each={f.options ?? []}>
-              {(opt) => <option value={opt.value}>{t(opt.label)}</option>}
-            </For>
-          </select>
+            options={(f.options ?? []).map((opt) => ({ value: opt.value, label: t(opt.label) }))}
+            onChange={(v) => setDraft("params", f.key, v)}
+          />
         </Show>
         <Show when={f.type === "file" && canPickFile()}>
           <button
@@ -351,14 +349,12 @@ export function ConnectionForm(props: {
       </div>
       <Show when={f.fetch === "databases" && dbList()}>
         {(list) => (
-          <select
-            class="db-picker-select"
+          <Dropdown
             value={draft.params[f.key] ?? ""}
-            onChange={(e) => setDraft("params", f.key, e.currentTarget.value)}
-          >
-            <option value="">{list().length > 0 ? t("cform.pickDb") : t("cform.noDbs")}</option>
-            <For each={list()}>{(db) => <option value={db}>{db}</option>}</For>
-          </select>
+            options={[{ value: "", label: list().length > 0 ? t("cform.pickDb") : t("cform.noDbs") }, ...list().map((db) => ({ value: db, label: db }))]}
+            onChange={(v) => setDraft("params", f.key, v)}
+            class="db-picker-select"
+          />
         )}
       </Show>
       <Show when={f.fetch === "databases" && dbError()}>

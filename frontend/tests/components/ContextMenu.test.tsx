@@ -114,3 +114,63 @@ describe("ContextMenu placement (issue #318)", () => {
     }
   });
 });
+
+// Issue #687: the menu is a keyboard citizen — opened from the Menu key on the
+// focused element, walked with the arrows, and it gives the focus back.
+describe("ContextMenu from the keyboard", () => {
+  const tick = () => new Promise<void>((r) => queueMicrotask(r));
+  const key = (k: string) =>
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+  const rows = () => [...host!.querySelectorAll<HTMLButtonElement>(".context-menu-item")];
+
+  it("opens on the Menu key at the focused element and focuses the first enabled item", async () => {
+    mount();
+    const opener = document.createElement("button");
+    opener.textContent = "fila";
+    opener.addEventListener("contextmenu", (e) =>
+      openContextMenu(e, [
+        { label: "Apagado", disabled: true },
+        { label: "Uno", action: () => {} },
+        { label: "Dos", action: () => {} },
+      ]),
+    );
+    document.body.appendChild(opener);
+    opener.focus();
+    opener.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ContextMenu", bubbles: true, cancelable: true }),
+    );
+    await tick();
+    expect(host!.querySelector(".context-menu")).not.toBeNull();
+    expect(document.activeElement).toBe(rows()[1]);
+
+    key("ArrowDown");
+    expect(document.activeElement).toBe(rows()[2]);
+    key("ArrowDown"); // wraps past the disabled first row
+    expect(document.activeElement).toBe(rows()[1]);
+    key("End");
+    expect(document.activeElement).toBe(rows()[2]);
+    key("Home");
+    expect(document.activeElement).toBe(rows()[1]);
+
+    key("Escape");
+    expect(host!.querySelector(".context-menu")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it("activates the focused item with Enter and hands the focus back", async () => {
+    mount();
+    const opener = document.createElement("button");
+    document.body.appendChild(opener);
+    opener.focus();
+    const action = vi.fn();
+    openContextMenu(evAt(5, 5), [{ label: "Uno", action }]);
+    await tick();
+    const row = rows()[0];
+    expect(document.activeElement).toBe(row);
+    row.click(); // what Enter does on a focused <button>
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+});

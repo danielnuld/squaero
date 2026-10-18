@@ -4,6 +4,7 @@ import { render } from "solid-js/web";
 import { ImportWizard } from "../../src/components/ImportWizard";
 import { buildXlsx } from "../../src/utils/xlsx";
 import type { ResultSet } from "../../src/utils/query";
+import { dropdownValue } from "./dropdownHarness";
 
 // Drives the real ImportWizard in jsdom against a mocked core bridge: it fetches
 // the target columns (schema.describe), parses a chosen CSV file, maps columns,
@@ -124,11 +125,11 @@ describe("ImportWizard", () => {
 
     // Preview + a mapping row per target column appear.
     expect(host!.textContent).toContain("people.csv");
-    const selects = host!.querySelectorAll<HTMLSelectElement>(".map-select");
+    const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2); // id, name
     // auto-mapped by name (case-insensitive): id->id, name->name.
-    expect(selects[0].value).toBe("id");
-    expect(selects[1].value).toBe("name");
+    expect(dropdownValue(selects[0])).toBe("id");
+    expect(dropdownValue(selects[1])).toBe("name");
 
     // Run the import.
     const runBtn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
@@ -175,10 +176,10 @@ describe("ImportWizard", () => {
 
     // Headers read from the workbook drive the auto-mapping.
     expect(host!.textContent).toContain("people.xlsx");
-    const selects = host!.querySelectorAll<HTMLSelectElement>(".map-select");
+    const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2);
-    expect(selects[0].value).toBe("id");
-    expect(selects[1].value).toBe("name");
+    expect(dropdownValue(selects[0])).toBe("id");
+    expect(dropdownValue(selects[1])).toBe("name");
 
     const runBtn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
       (b) => b.textContent === "Importar",
@@ -211,11 +212,11 @@ describe("ImportWizard — pasted rows", () => {
 
     expect(host!.querySelector<HTMLTextAreaElement>(".import-paste")!.value).toBe(TSV);
     expect(host!.textContent).toContain("Vista previa de lo pegado");
-    const selects = host!.querySelectorAll<HTMLSelectElement>(".map-select");
+    const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2);
     // Mapped even though the text arrived before schema.describe answered.
-    expect(selects[0].value).toBe("id");
-    expect(selects[1].value).toBe("name");
+    expect(dropdownValue(selects[0])).toBe("id");
+    expect(dropdownValue(selects[1])).toBe("name");
   });
 
   it("imports the pasted rows in one transaction, empty cells as NULL", async () => {

@@ -12,6 +12,7 @@ import { buildDumpZip, FOLDERS, planDdlDump, readDdl, type DdlJob, type SkippedO
 import { objectFolders, objectLeaves, readDefinitionText } from "../utils/treeObjects";
 import { definitionFor as routineDefinitionFor } from "../utils/routines";
 import { definitionFor as objectDefinitionFor } from "../utils/triggers";
+import { Dropdown } from "./Dropdown";
 
 /** Rows per page while reading a table for the dump. */
 const PAGE = 5000;
@@ -260,10 +261,11 @@ export function BackupPanel(props: {
           <Show when={schemas().length > 0}>
             <label>
               {t("bk.schema")}{" "}
-              <select value={schema()} onChange={(e) => setSchema(e.currentTarget.value)}>
-                <option value="" />
-                <For each={schemas()}>{(s) => <option value={s}>{s}</option>}</For>
-              </select>
+              <Dropdown
+                value={schema()}
+                options={[{ value: "", label: "" }, ...schemas().map((s) => ({ value: s, label: s }))]}
+                onChange={(v) => setSchema(v)}
+              />
             </label>{" "}
           </Show>
           <label>

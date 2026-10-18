@@ -4,6 +4,7 @@ import { t } from "../utils/i18n";
 import { autoFocus } from "../utils/autoFocus";
 import { historyEngines, searchHistory, type HistoryEntry } from "../utils/history";
 import { formatDuration, isSlow } from "../utils/duration";
+import { Dropdown } from "./Dropdown";
 
 // Query-history panel (issue #128): search executed queries and re-run one in a
 // new tab. Filtering is pure (searchHistory); the clear action is lifted to the
@@ -53,15 +54,13 @@ export function HistoryPanel(props: {
           ref={autoFocus}
         />
         <Show when={engines().length > 0}>
-          <select
+          <Dropdown
+            value={engine()}
+            options={[{ value: "", label: t("hist.allEngines") }, ...engines().map((en) => ({ value: en, label: en }))]}
+            onChange={(v) => setEngine(v)}
             class="history-engine"
             aria-label={t("hist.engineLabel")}
-            value={engine()}
-            onChange={(e) => setEngine(e.currentTarget.value)}
-          >
-            <option value="">{t("hist.allEngines")}</option>
-            <For each={engines()}>{(en) => <option value={en}>{en}</option>}</For>
-          </select>
+          />
         </Show>
         <label class="history-only-slow" title={t("hist.onlySlowTitle")}>
           <input

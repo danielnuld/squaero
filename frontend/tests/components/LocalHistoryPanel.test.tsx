@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { LocalHistoryPanel } from "../../src/components/LocalHistoryPanel";
+import { dropdownLabels } from "./dropdownHarness";
 import type { TabHistory } from "../../src/utils/localHistory";
 
 let dispose: (() => void) | null = null;
@@ -77,7 +78,7 @@ describe("LocalHistoryPanel", () => {
   it("a closed tab cannot be restored in place, but opens in a new tab", () => {
     const onOpenCopy = vi.fn();
     mount({ tabId: 7, onOpenCopy });
-    expect(host!.querySelector("select")!.textContent).toContain("Vieja (cerrada)");
+    expect(dropdownLabels(host!.querySelector("[role=combobox]")!)).toContain("Vieja (cerrada)");
     expect(buttonByText("Restaurar").disabled).toBe(true);
     buttonByText("Abrir en una pestaña nueva").click();
     expect(onOpenCopy).toHaveBeenCalledWith("Vieja", "SELECT 7");

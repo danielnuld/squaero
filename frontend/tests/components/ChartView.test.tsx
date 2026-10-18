@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { ChartView } from "../../src/components/ChartView";
 import type { ResultSet } from "../../src/utils/query";
+import { pickOption } from "./dropdownHarness";
 
 // Drives the real ChartView in jsdom: it picks default columns, renders bars, and
 // switches chart type + value columns to re-render as lines / pie.
@@ -42,11 +43,8 @@ function mount(r: ResultSet = result) {
   return host!;
 }
 
-const setType = (v: string) => {
-  const sel = host!.querySelector<HTMLSelectElement>(".chart-controls select")!;
-  sel.value = v;
-  sel.dispatchEvent(new Event("change", { bubbles: true }));
-};
+const setType = (v: string) =>
+  pickOption(host!.querySelector(".chart-controls .dropdown")!, v);
 
 describe("ChartView", () => {
   it("defaults to a bar chart over the first text label + first numeric value", () => {

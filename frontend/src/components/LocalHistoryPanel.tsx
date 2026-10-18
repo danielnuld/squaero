@@ -1,3 +1,4 @@
+import { Dropdown } from "./Dropdown";
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -49,25 +50,22 @@ export function LocalHistoryPanel(props: {
         fallback={<p class="history-empty">{t("lhist.none")}</p>}
       >
         <div class="history-controls">
-          <select
+          <Dropdown
             class="history-engine"
             aria-label={t("lhist.docLabel")}
-            value={docId()}
-            onChange={(e) => pickDoc(Number(e.currentTarget.value))}
-          >
-            <Show when={!doc()}>
-              <option value={docId()}>{t("lhist.thisTab")}</option>
-            </Show>
-            <For each={props.docs}>
-              {(d) => (
-                <option value={d.tabId}>
-                  {props.currentSql(d.tabId) === undefined
+            value={String(docId())}
+            options={[
+              ...(doc() ? [] : [{ value: String(docId()), label: t("lhist.thisTab") }]),
+              ...props.docs.map((d) => ({
+                value: String(d.tabId),
+                label:
+                  props.currentSql(d.tabId) === undefined
                     ? t("lhist.closedDoc", { title: d.title })
-                    : d.title}
-                </option>
-              )}
-            </For>
-          </select>
+                    : d.title,
+              })),
+            ]}
+            onChange={(v) => pickDoc(Number(v))}
+          />
         </div>
         <Show
           when={doc()}

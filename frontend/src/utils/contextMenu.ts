@@ -8,6 +8,7 @@
 // and it saves prop-drilling a menu opener through every component.
 
 import { createSignal, type JSX } from "solid-js";
+import { isContextMenuKey } from "./listNav";
 
 export interface MenuItem {
   /** Visible label. Omit for a separator. */
@@ -63,6 +64,56 @@ export function openContextMenu(e: MouseEvent, items: MenuItem[]): void {
 /** Closes any open context menu. */
 export function closeContextMenu(): void {
   setMenu(null);
+}
+
+/**
+ * Where a menu opened from the keyboard goes (issue #687): just inside the
+ * focused element's bottom-left corner, as Windows places it — and never past
+ * the window's edge when the element is taller than the screen (the grid, the
+ * editor). Pure — the caller measures.
+ */
+export function keyboardMenuPoint(
+  rect: { left: number; top: number; width: number; height: number },
+  viewport: { width: number; height: number },
+  inset = 8,
+): { x: number; y: number } {
+  const x = Math.max(0, Math.min(rect.left + inset, viewport.width - inset));
+  const y = Math.max(rect.top, Math.min(rect.top + rect.height - inset, viewport.height - inset));
+  return { x, y: Math.max(0, y) };
+}
+
+/**
+ * Makes the Menu key and Shift+F10 open the same menu a right-click would, on
+ * whatever has the focus (issue #687). Instead of teaching every surface a
+ * second entry point, the key becomes a synthetic `contextmenu` event dispatched
+ * on the focused element at `keyboardMenuPoint` — it bubbles through the very
+ * `onContextMenu` handlers the mouse uses, items and all. The key event is
+ * default-prevented so the browser does not also raise the native menu.
+ * Returns the uninstaller.
+ */
+export function installContextMenuKey(doc: Document = document): () => void {
+  const onKey = (e: KeyboardEvent) => {
+    if (!isContextMenuKey(e) || e.defaultPrevented) return;
+    const el = doc.activeElement;
+    if (!(el instanceof HTMLElement) || el === doc.body) return;
+    e.preventDefault();
+    const win = doc.defaultView ?? window;
+    const p = keyboardMenuPoint(el.getBoundingClientRect(), {
+      width: win.innerWidth,
+      height: win.innerHeight,
+    });
+    el.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: p.x,
+        clientY: p.y,
+        button: 2,
+      }),
+    );
+  };
+  doc.addEventListener("keydown", onKey);
+  return () => doc.removeEventListener("keydown", onKey);
 }
 
 /** A menu box to place: where it was asked for, how big it is, and the window. */

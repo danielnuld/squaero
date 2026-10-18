@@ -4,6 +4,7 @@ import { render } from "solid-js/web";
 import { TransferWizard } from "../../src/components/TransferWizard";
 import type { ResultSet } from "../../src/utils/query";
 import type { Connection } from "../../src/utils/connections";
+import { dropdownValue } from "./dropdownHarness";
 
 // Drives the real transfer wizard against a mocked bridge: open the destination,
 // read its columns (schema.describe), auto-map, and copy the source rows in a
@@ -118,10 +119,10 @@ describe("TransferWizard", () => {
     await flush();
 
     // Destination columns fetched + auto-mapped.
-    const selects = host!.querySelectorAll<HTMLSelectElement>(".map-select");
+    const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2);
-    expect(selects[0].value).toBe("id");
-    expect(selects[1].value).toBe("name");
+    expect(dropdownValue(selects[0])).toBe("id");
+    expect(dropdownValue(selects[1])).toBe("name");
 
     clickButton("Transferir");
     await flush();

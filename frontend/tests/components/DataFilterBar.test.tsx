@@ -67,7 +67,7 @@ describe("DataFilterBar Enter applies", () => {
 
   it("applies on Ctrl+Enter", () => {
     const { applied } = mount();
-    press(host!.querySelector("select")!, { ctrlKey: true });
+    press(host!.querySelector(".dropdown")!, { ctrlKey: true });
     expect(applied()).toBe(1);
   });
 
@@ -79,7 +79,7 @@ describe("DataFilterBar Enter applies", () => {
 
   it("ignores other keys", () => {
     const { applied } = mount();
-    press(host!.querySelector("select")!, { key: "a" });
+    press(host!.querySelector(".dropdown")!, { key: "a" });
     expect(applied()).toBe(0);
   });
 });
@@ -96,7 +96,7 @@ describe("DataFilterBar adds a condition", () => {
 
   it("still applies on Ctrl+Shift+Enter", () => {
     const { applied, added } = mount();
-    press(host!.querySelector("select")!, { ctrlKey: true, shiftKey: true });
+    press(host!.querySelector(".dropdown")!, { ctrlKey: true, shiftKey: true });
     expect(applied()).toBe(1);
     expect(added()).toBe(0);
   });
