@@ -85,6 +85,7 @@ describe("parseSettings", () => {
       checkUpdatesOnStart: false,
       toolStrip: false,
       colorTypes: false,
+      editorDiagnostics: false,
     };
     expect(parseSettings(serializeSettings(s))).toEqual(s);
   });
@@ -97,6 +98,8 @@ describe("parseSettings", () => {
     // A blob written before the tool strip existed gets it shown, not hidden:
     // the strip is how someone finds out the tools are there (issue #386).
     expect(out.toolStrip).toBe(true);
+    // Diagnostics (#662) start on for a blob saved before they existed.
+    expect(out.editorDiagnostics).toBe(true);
   });
 
   it("rejects ill-typed fields, clamping/falling back", () => {

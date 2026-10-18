@@ -1514,6 +1514,42 @@ body {
   margin-left: var(--sp-3);
 }
 
+/* Editor diagnostics (issue #662): a squiggle under the problem, the message on
+   hover. Errors in the theme's error colour, warnings in its amber (--null). */
+.cm-diag {
+  text-decoration: underline wavy;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+.cm-diag-error {
+  text-decoration-color: var(--error);
+}
+
+.cm-diag-warning {
+  text-decoration-color: var(--null);
+}
+
+.cm-tooltip.cm-tooltip-hover:has(.cm-diag-tooltip) {
+  background: var(--bg-elev2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+.cm-diag-tooltip {
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.cm-diag-message {
+  padding-left: var(--sp-2);
+  border-left: 3px solid var(--error);
+}
+
+.cm-diag-message.cm-diag-warning {
+  border-left-color: var(--null);
+}
+
 /* The info panel shown beside a highlighted completion. */
 .cm-tooltip.cm-completionInfo {
   background: var(--bg-elev2) !important;
