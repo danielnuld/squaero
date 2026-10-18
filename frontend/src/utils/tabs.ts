@@ -30,6 +30,7 @@ export type ToolKind =
   | "objectList"
   | "notebook"
   | "backup"
+  | "dataSearch"
   | "settings"
   | "help";
 
