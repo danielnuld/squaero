@@ -22,18 +22,24 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(webview)
 
 # --- App executable --------------------------------------------------------
-add_executable(quaero src/main.cc)
+add_executable(quaero src/main.cc src/window_state.c src/menu_model.c)
 # The CMake target keeps the old name — it is plumbing, like quaero_set_warnings
 # and the QUAERO_* options — while the FILE people launch is squaero.exe (#466).
 set_target_properties(quaero PROPERTIES OUTPUT_NAME squaero)
+target_include_directories(quaero PRIVATE include)
 target_link_libraries(quaero PRIVATE dbcore frontend_assets cjson webview::core)
 
+# Developer tools (F12 / inspector) only in Debug builds (issue #685): the
+# release the user installs has nothing of a browser to open.
+target_compile_definitions(quaero PRIVATE $<$<CONFIG:Debug>:QUAERO_DEV_TOOLS=1>)
+
 # macOS: the AppKit calls (Application Support folder, open panel, browser)
-# live in an Objective-C++ file of their own (issue #40).
+# live in an Objective-C++ file of their own (issue #40). WebKit for the
+# navigation delegate that keeps a dropped file from replacing the UI (#685).
 if(APPLE)
   enable_language(OBJCXX)
   target_sources(quaero PRIVATE src/macos.mm)
-  target_link_libraries(quaero PRIVATE "-framework AppKit")
+  target_link_libraries(quaero PRIVATE "-framework AppKit" "-framework WebKit")
 endif()
 
 # Windows: embed a VERSIONINFO resource so Explorer/taskbar show the product
@@ -67,8 +73,9 @@ if(WIN32)
   target_include_directories(quaero PRIVATE
     "${CMAKE_BINARY_DIR}/_deps/microsoft_web_webview2-src/build/native/include")
   # shell32/ole32: ShellExecute + COM; urlmon: URLDownloadToFile (in-app updater);
-  # comdlg32: GetOpenFileName (the connection form's file picker).
-  target_link_libraries(quaero PRIVATE shell32 ole32 urlmon comdlg32)
+  # comdlg32: GetOpenFileName (the connection form's file picker); dwmapi: the
+  # title bar following the theme (issue #685).
+  target_link_libraries(quaero PRIVATE shell32 ole32 urlmon comdlg32 dwmapi)
 endif()
 # Note: strict warnings are intentionally not applied here — this target
 # includes the third-party C++ webview header.

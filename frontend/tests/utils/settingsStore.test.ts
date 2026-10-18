@@ -33,6 +33,7 @@ describe("settingsStore", () => {
       builtinTemplates: false,
       localHistoryVersions: 3,
       localHistoryDays: 10,
+      nativeMenu: false,
     };
     saveSettings(s);
     expect(localStorage.getItem(KEY)).toBeTruthy();

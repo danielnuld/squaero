@@ -26,6 +26,7 @@ import {
 } from "../utils/cellColors";
 import type { CellKind } from "../utils/format";
 import { locale, setLocale, LOCALES, t } from "../utils/i18n";
+import { hasShellMenu } from "../utils/nativeMenu";
 
 // Settings + About panel (issue #181), opened as a tool tab. Fully controlled:
 // the workspace (App) owns every preference signal and passes current values +
@@ -296,6 +297,17 @@ export function SettingsPanel(props: {
             />
             <span class="settings-label">{t("settings.editorDiagnostics")}</span>
           </label>
+          {/* Only where the shell draws one (Windows, Linux — issue #686). */}
+          <Show when={hasShellMenu()}>
+            <label class="settings-row settings-check">
+              <input
+                type="checkbox"
+                checked={props.settings.nativeMenu}
+                onChange={(e) => props.onSetSettings({ nativeMenu: e.currentTarget.checked })}
+              />
+              <span class="settings-label">{t("settings.nativeMenu")}</span>
+            </label>
+          </Show>
           {/* Encima de la densidad: primero cómo se lee, después cuánto cabe. */}
           <div class="settings-row">
             <span class="settings-label">Estilo de rejilla</span>

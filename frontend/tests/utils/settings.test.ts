@@ -93,6 +93,7 @@ describe("parseSettings", () => {
       builtinTemplates: false,
       localHistoryVersions: 7,
       localHistoryDays: 0,
+      nativeMenu: false,
     };
     expect(parseSettings(serializeSettings(s))).toEqual(s);
   });
@@ -130,6 +131,8 @@ describe("parseSettings", () => {
     expect(out.editorDiagnostics).toBe(true);
     // Settings saved before templates existed (#665) offer the built-ins.
     expect(out.builtinTemplates).toBe(true);
+    // Likewise the native menu bar (issue #686): shown until switched off.
+    expect(out.nativeMenu).toBe(true);
   });
 
   it("rejects ill-typed fields, clamping/falling back", () => {
