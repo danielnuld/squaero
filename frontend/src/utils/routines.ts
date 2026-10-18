@@ -10,6 +10,9 @@
 
 import { quoteIdentifier } from "./schema";
 import { engineFamily as family } from "./engineFamily";
+// routines.ts ships in the DOM-free logic bundle (src/logic.ts), so it takes
+// the locale as a parameter instead of reading the reactive one from i18n.ts.
+import { translate, type Locale } from "./translate";
 
 /** A routine (stored procedure or function) as listed from the catalog. */
 export type RoutineType = "PROCEDURE" | "FUNCTION" | "AGGREGATE" | "WINDOW";
@@ -170,11 +173,11 @@ export function definitionFor(engine: string, ref: RoutineRef): DefinitionQuery 
 }
 
 /** A short reason routine exploration is unavailable on an engine. */
-export function unsupportedReason(engine: string): string {
+export function unsupportedReason(engine: string, lang: Locale = "es"): string {
   const f = family(engine);
-  if (f === "sqlite")
-    return "SQLite no tiene procedimientos ni funciones almacenadas: es una base de datos embebida.";
-  if (f === "mongodb")
-    return "MongoDB no expone procedimientos almacenados en catálogos SQL.";
-  return `La exploración de procedimientos no está disponible para el motor "${engine || "desconocido"}".`;
+  if (f === "sqlite") return translate(lang, "routines.unsupported.sqlite");
+  if (f === "mongodb") return translate(lang, "routines.unsupported.mongodb");
+  return translate(lang, "routines.unsupported.other", {
+    engine: engine || translate(lang, "engine.unknown"),
+  });
 }

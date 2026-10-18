@@ -145,7 +145,7 @@ describe("SnippetsPanel", () => {
 
   it("tells nothing-saved apart from nothing-matching", () => {
     mount({ entries: [] });
-    expect(host!.querySelector(".snippet-empty")?.textContent).toContain("no has guardado");
+    expect(host!.querySelector(".snippet-empty")?.textContent).toContain("Aún no hay snippets guardados");
 
     dispose?.();
     host?.remove();
@@ -194,7 +194,7 @@ describe("SnippetsPanel", () => {
     menuItem("Duplicar").click();
     expect(onDuplicate).toHaveBeenCalledWith(entries[0]);
 
-    menuItem("Borrar").click();
+    menuItem("Eliminar").click();
     expect(onRemove).toHaveBeenCalledWith("snip-1");
   });
 

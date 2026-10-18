@@ -753,7 +753,7 @@
         "params": {
           "field": "Host"
         },
-        "expected": "El campo \"Host\" es obligatorio."
+        "expected": "El campo «Host» es obligatorio."
       },
       {
         "locale": "en",

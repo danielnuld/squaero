@@ -53,7 +53,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     // Row 1 already holds id 1; a pasted text keeps its key.
     await paste(page, "1\tRepetida");
     const bar = page.getByRole("toolbar", { name: "Filas nuevas sin guardar" });
-    await expect(bar.getByText("1 choca con un valor que ya existe")).toBeVisible({
+    await expect(bar.getByText("1 duplica un valor que ya existe")).toBeVisible({
       timeout: 15_000,
     });
     const save = bar.getByRole("button", { name: /Revisar y guardar/ });
@@ -100,7 +100,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
       // The pending row is still there to fix.
       await expect(nombre).toHaveValue("Nogales");
     } else {
-      await expect(bar.getByText("1 choca con un valor que ya existe")).toBeVisible({
+      await expect(bar.getByText("1 duplica un valor que ya existe")).toBeVisible({
         timeout: 15_000,
       });
       await expect(nombre).toHaveAttribute("aria-invalid", "true");

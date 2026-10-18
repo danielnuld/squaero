@@ -6,9 +6,8 @@
 // information, the raw detail from the core.
 
 import { QueryError } from "./query";
-import { locale, type Locale } from "./i18n";
+import { locale, translate, type Locale } from "./i18n";
 import { informixErrorText } from "./informixErrors";
-import { translate } from "./translate";
 import { NOT_RETRIED_KEY, type NotRetried } from "./reconnect";
 
 export interface FriendlyError {
@@ -18,25 +17,24 @@ export interface FriendlyError {
   detail?: string;
 }
 
-// JSON-RPC domain codes (see docs/IPC.md "Códigos de error").
-const DOMAIN: Record<number, string> = {
-  [-32000]: "No se pudo conectar. Revisa el host, el puerto y las credenciales.",
-  [-32001]: "Operación no soportada por este motor.",
-  [-32002]: "Conexión o recurso no encontrado. Vuelve a abrir la conexión.",
-  [-32003]: "La consulta falló al ejecutarse.",
-};
-
-// Standard JSON-RPC codes — these signal a client/core mismatch, not user error.
-const STANDARD: Record<number, string> = {
-  [-32700]: "Respuesta inválida del núcleo.",
-  [-32600]: "Petición inválida.",
-  [-32601]: "Método no disponible (versión del núcleo incompatible).",
-  [-32602]: "Parámetros inválidos.",
-  [-32603]: "Error interno del núcleo.",
+// JSON-RPC codes (see docs/IPC.md "Códigos de error") → catalog key. The
+// domain codes (-3200x) describe user-facing failures; the standard ones
+// (-326xx/-32700) signal a client/core mismatch, not user error.
+const CODES: Record<number, string> = {
+  [-32000]: "error.rpc.connect",
+  [-32001]: "error.rpc.unsupported",
+  [-32002]: "error.rpc.notFound",
+  [-32003]: "error.rpc.queryFailed",
+  [-32700]: "error.rpc.parse",
+  [-32600]: "error.rpc.invalidRequest",
+  [-32601]: "error.rpc.noMethod",
+  [-32602]: "error.rpc.invalidParams",
+  [-32603]: "error.rpc.internal",
 };
 
 /** Map any error into a friendly {title, detail}. */
 export function describeError(err: unknown, lang: Locale = locale()): FriendlyError {
+  const unknown = translate(lang, "error.unknown");
   if (err instanceof QueryError) {
     // A dead session the transport did not retry says why (issue #676): the
     // generic -32000 title ("check the host…") is wrong for a connection that
@@ -49,15 +47,16 @@ export function describeError(err: unknown, lang: Locale = locale()): FriendlyEr
     // raw code, SQLSTATE and tokens stay as detail, to search or report.
     const ifx = informixErrorText(err.message, lang);
     if (ifx) return { title: ifx, detail: err.message };
-    const known = DOMAIN[err.code] ?? STANDARD[err.code];
-    if (known) {
+    const key = CODES[err.code];
+    if (key) {
+      const known = translate(lang, key);
       // Keep the core's own message as detail when it says more than the title.
       const detail = err.message && err.message !== known ? err.message : undefined;
       return { title: known, detail };
     }
-    return { title: err.message || "Error desconocido." };
+    return { title: err.message || unknown };
   }
-  if (err instanceof Error) return { title: err.message || "Error desconocido." };
+  if (err instanceof Error) return { title: err.message || unknown };
   return { title: String(err) };
 }
 

@@ -86,10 +86,10 @@ describe("LocalHistoryPanel", () => {
 
   it("says so when the tab has no versions yet, or nothing has any", () => {
     mount({ tabId: 99 });
-    expect(host!.textContent).toContain("todavía no tiene versiones");
+    expect(host!.textContent).toContain("aún no tiene versiones");
     dispose?.();
     host?.remove();
     mount({ docs: [] });
-    expect(host!.textContent).toContain("Todavía no hay versiones");
+    expect(host!.textContent).toContain("Aún no hay versiones");
   });
 });

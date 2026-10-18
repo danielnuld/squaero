@@ -11,6 +11,7 @@
 
 import { engineFamily as family } from "./engineFamily";
 import { mongoStatementFromProfile } from "./mongoStatements";
+import { t } from "./i18n";
 
 /** How to order the slowest-first listing. */
 export type SlowOrder = "avg" | "total" | "count";
@@ -172,9 +173,7 @@ export function buildSlowQuerySql(
 /** A short, human label for why the tool is unavailable on an engine. */
 export function unsupportedReason(engine: string): string {
   const f = family(engine);
-  if (f === "sqlite")
-    return "SQLite no mantiene un catálogo de consultas lentas del servidor.";
-  if (f === "informix")
-    return "Informix no expone estadísticas de consultas lentas vía SQL estándar.";
-  return `Las consultas lentas del servidor no están disponibles para el motor "${engine || "desconocido"}".`;
+  if (f === "sqlite") return t("slow.unsupported.sqlite");
+  if (f === "informix") return t("slow.unsupported.informix");
+  return t("slow.unsupported.other", { engine: engine || t("engine.unknown") });
 }

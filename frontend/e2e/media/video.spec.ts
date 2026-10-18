@@ -65,7 +65,7 @@ const T = EN
     }
   : {
       notConnected: "Sin conexión",
-      connect: "Conectar a una base…",
+      connect: "Conectar a una base de datos…",
       newConnection: /Nueva conexión/,
       disconnect: /^Desconectar Ventas/,
       tables: "Tablas",
@@ -84,7 +84,7 @@ const T = EN
       cStructure: "Columnas, tipos y el DDL de la tabla",
       cQuery: "Escribe SQL con autocompletado por esquema",
       cResults: "Resultados tipados, editables y paginados",
-      cEr: "Diagrama ER con las llaves foráneas reales",
+      cEr: "Diagrama ER con las claves foráneas reales",
       cBuilder: "Y un constructor visual, para armar la consulta sin escribirla",
     };
 

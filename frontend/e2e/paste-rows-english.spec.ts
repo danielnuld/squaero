@@ -79,7 +79,7 @@ describeEngine("sqlite", () => {
 
     await paste(page, "1\tRepeated");
     const bar = page.getByRole("toolbar", { name: "New unsaved rows" });
-    await expect(bar.getByText("1 collides with an existing value")).toBeVisible({
+    await expect(bar.getByText("1 duplicates an existing value")).toBeVisible({
       timeout: 15_000,
     });
     await expect(bar.getByRole("button", { name: /Review and save/ })).toBeDisabled();

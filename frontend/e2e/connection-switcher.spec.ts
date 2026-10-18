@@ -58,7 +58,7 @@ describeEngine("sqlite", () => {
     const bar = page.getByRole("list", { name: "Conexiones abiertas" });
     const search = page.getByRole("dialog", { name: "Buscar una conexión" });
     const openOne = async (name: string) => {
-      await page.getByRole("button", { name: "Conectar a una base…" }).click();
+      await page.getByRole("button", { name: "Conectar a una base de datos…" }).click();
       await search.getByRole("button", { name: new RegExp(name) }).click();
       await rowIn(bar, name).waitFor();
     };
@@ -107,11 +107,11 @@ describeEngine("sqlite", () => {
       name: "Buscar por nombre, motor o servidor",
     });
 
-    await page.getByRole("button", { name: "Conectar a una base…" }).click();
+    await page.getByRole("button", { name: "Conectar a una base de datos…" }).click();
     await search.getByRole("button", { name: /Ventas/ }).click();
     await rowIn(bar, "Ventas").waitFor();
 
-    await page.getByRole("button", { name: "Conectar a una base…" }).click();
+    await page.getByRole("button", { name: "Conectar a una base de datos…" }).click();
     // Both saved connections, under the group they share.
     await expect(search.getByRole("listitem")).toHaveCount(2);
     await expect(search.getByText("Producción")).toBeVisible();

@@ -203,14 +203,14 @@ describe("CommandPalette — snippet mode (issue #320)", () => {
   });
 
   it("says the set is empty rather than showing 'no results'", () => {
-    mount({ commands: [], emptySetLabel: "Todavía no has guardado ningún snippet." });
+    mount({ commands: [], emptySetLabel: "Aún no hay snippets guardados." });
     expect(host!.querySelector(".cmdk-empty")?.textContent).toBe(
-      "Todavía no has guardado ningún snippet.",
+      "Aún no hay snippets guardados.",
     );
   });
 
   it("still says 'no results' when the set has snippets but none match", () => {
-    mount({ commands: snippets(), emptySetLabel: "Todavía no has guardado ningún snippet." });
+    mount({ commands: snippets(), emptySetLabel: "Aún no hay snippets guardados." });
     input().value = "zzz";
     input().dispatchEvent(new Event("input", { bubbles: true }));
     expect(host!.querySelector(".cmdk-empty")?.textContent).toBe("Sin resultados");

@@ -7,6 +7,7 @@
 // All pure and unit-tested; the component just runs the SQL these return.
 
 import { engineFamily as family } from "./engineFamily";
+import { t } from "./i18n";
 import { quoteIdentifier } from "./schema";
 
 /** What user administration is available for an engine. */
@@ -257,10 +258,9 @@ export function buildDropUserSql(engine: string, user: string, host = "%"): stri
 /** A short reason the feature is unavailable on an engine. */
 export function unsupportedReason(engine: string): string {
   const f = family(engine);
-  if (f === "sqlite") return "SQLite no tiene usuarios ni permisos: es una base de datos embebida.";
-  if (f === "informix") return "La gestión de usuarios de Informix aún no está disponible aquí.";
-  if (f === "postgres")
-    return "La gestión de usuarios de PostgreSQL aún no está disponible aquí.";
-  if (f === "mongodb") return "La gestión de usuarios de MongoDB aún no está disponible aquí.";
-  return `La gestión de usuarios no está disponible para el motor "${engine || "desconocido"}".`;
+  if (f === "sqlite") return t("users.unsupported.sqlite");
+  if (f === "informix") return t("users.unsupported.informix");
+  if (f === "postgres") return t("users.unsupported.postgres");
+  if (f === "mongodb") return t("users.unsupported.mongodb");
+  return t("users.unsupported.other", { engine: engine || t("engine.unknown") });
 }

@@ -124,7 +124,7 @@ describe("App — acting on the marked rows (issue #382)", () => {
     host!
       .querySelector('[data-cell="0-0"]')!
       .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
-    click(menuItem("Copiar 2 filas seleccionadas"));
+    click(menuItem("Copiar 2 filas marcadas"));
     // NULL copies as an empty cell, and the rows come out top-to-bottom.
     expect(copied).toEqual(["1\tana\n3\t"]);
   });
@@ -147,7 +147,7 @@ describe("App — acting on the marked rows (issue #382)", () => {
     host!
       .querySelector('[data-cell="1-0"]')!
       .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
-    expect(menuItem("filas seleccionadas")).toBeUndefined();
+    expect(menuItem("filas marcadas")).toBeUndefined();
     expect(menuItem("Copiar fila")).toBeDefined();
   });
 
@@ -155,6 +155,6 @@ describe("App — acting on the marked rows (issue #382)", () => {
     await openWithRows();
     markRow(0);
     markRow(1);
-    expect(host!.querySelector(".statusbar")!.textContent).toContain("2 seleccionadas");
+    expect(host!.querySelector(".statusbar")!.textContent).toContain("2 marcadas");
   });
 });

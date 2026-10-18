@@ -151,7 +151,7 @@ describe("RowDetail", () => {
   it("toggles delete while editing", () => {
     let toggled = 0;
     const el = mount({ editing: true, onToggleDelete: () => (toggled += 1) });
-    const btn = [...el.querySelectorAll("button")].find((b) => b.textContent === "Borrar fila");
+    const btn = [...el.querySelectorAll("button")].find((b) => b.textContent === "Eliminar fila");
     btn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(toggled).toBe(1);
   });
@@ -161,7 +161,7 @@ describe("RowDetail", () => {
     expect(el.querySelectorAll(".rd-input").length).toBe(0);
     expect(el.querySelector(".rd-deleted-banner")).toBeTruthy();
     const undo = [...el.querySelectorAll("button")].find(
-      (b) => b.textContent === "Deshacer borrado",
+      (b) => b.textContent === "Deshacer eliminación",
     );
     expect(undo).toBeTruthy();
   });

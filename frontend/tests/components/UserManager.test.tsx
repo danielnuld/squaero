@@ -162,9 +162,9 @@ describe("UserManager", () => {
     filter("Ocultar cuentas del sistema").click();
     expect(names()).toEqual(["root", "app"]);
 
-    filter("Sólo superusuarios").click();
+    filter("Solo superusuarios").click();
     expect(names()).toEqual(["root"]);
-    expect(filter("Sólo superusuarios").getAttribute("aria-pressed")).toBe("true");
+    expect(filter("Solo superusuarios").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows a user's grants on selection", async () => {
