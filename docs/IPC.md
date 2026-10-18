@@ -439,6 +439,18 @@ bloque (edición segura, issue #28). Requieren que el driver anuncie
 en lugar de fingir éxito. Los motores SQL (SQLite, MySQL/MariaDB) los soportan;
 MongoDB no los anuncia.
 
+El núcleo recuerda, por conexión, si `tx.begin` abrió una transacción que ningún
+`tx.commit`/`tx.rollback` cerró todavía (#667): un segundo `tx.begin` sobre la misma
+conexión se rechaza con `-32003` («a transaction is already open…») **sin llegar al
+motor** — MySQL confirmaría en silencio la primera con su `START TRANSACTION`, y
+una edición de la rejilla iniciada dentro de la transacción manual del usuario se
+la llevaría al confirmar. Un `tx.commit` que falla la deja abierta (para revertirla);
+`tx.rollback` la da por cerrada siempre. Las sentencias que el usuario ejecuta con
+`query.run` no se inspeccionan: el editor envía un `BEGIN`/`COMMIT`/`ROLLBACK`
+escrito a mano como `tx.*` para que el indicador y el núcleo no diverjan. Es un
+error nuevo en un caso que antes llegaba al motor, no un cambio de forma: sin
+cambio de versión de protocolo.
+
 ### Edición de datos (M7)
 
 **`row.insert`** / **`row.update`** / **`row.delete`** — modifican una sola fila.
@@ -486,6 +498,29 @@ Dominio (rango reservado por el servidor `-32000..-32099`):
 
 El `id` de la petición se refleja en la respuesta (o `null` si no venía).
 
+**Conexión perdida (#676).** Un `-32000` de cualquier método que corre sobre una
+conexión ya abierta (todos menos `conn.open`) significa que la sesión murió bajo la
+llamada (el driver devolvió `DBC_ERR_CONN`: PostgreSQL `CONNECTION_BAD`, MySQL
+`CR_SERVER_GONE_ERROR`/`CR_SERVER_LOST`, FreeTDS `dbdead`, Informix…). Lleva
+`error.data`:
+
+```json
+{ "code": -32000, "message": "server closed the connection",
+  "data": { "connLost": true, "inTx": false, "retrySafe": true } }
+```
+
+- `inTx` — había una transacción abierta por `tx.begin` cuando se hizo la llamada;
+  el servidor la revirtió con la sesión.
+- `retrySafe` — reenviar la misma llamada en una sesión nueva no puede repetir un
+  cambio: solo un `query.run` fuera de transacción cuyo SQL el clasificador
+  fail-closed (`dbcore/stmt_class.h`) demuestra de solo lectura. Escrituras,
+  `tx.*`, `row.*` y `query.next` (el cursor murió con la sesión) dan `false`.
+
+El núcleo no guarda el DSN, así que reconectar es cosa del frontend (`conn.open`
+de nuevo con la conexión guardada); el núcleo solo dice si es seguro reintentar.
+Es un campo `data` opcional nuevo, no un cambio de código ni de forma: sin cambio
+de versión de protocolo.
+
 ## Reglas
 
 1. **Paginación siempre.** `query.run` devuelve como máximo `limit` filas y marca `truncated`. La UI pide más bajo demanda. Nunca se vuelca un dataset completo de golpe.
@@ -519,6 +554,8 @@ incompatible que debe discutirse en un issue antes, porque rompe a todo cliente)
   (así se agregaron `ssl_*` y `ssh_*` sin tocar la versión);
 - agregar un campo opcional a un `result` que los clientes viejos ignoran
   (así se agregó `features` al resultado de `conn.open`, #668).
+- agregar un campo opcional a `error.data` que los clientes viejos ignoran
+  (así se agregó `connLost`/`inTx`/`retrySafe` al `-32000`, #676).
 
 **Historial:**
 

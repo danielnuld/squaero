@@ -43,4 +43,9 @@ char *ipc_response_success(const cJSON *id, cJSON *result);
  */
 char *ipc_response_error(const cJSON *id, int code, const char *message);
 
+/* As ipc_response_error, plus an optional "data" member inside "error".
+   `data` is consumed (freed on failure too); NULL omits the member. */
+char *ipc_response_error_data(const cJSON *id, int code, const char *message,
+                              cJSON *data);
+
 #endif /* DBCORE_IPC_RPC_H */

@@ -27,6 +27,7 @@ import {
   type SectionStatus,
 } from "../utils/connectionFormSections";
 import { errorText } from "../utils/errors";
+import { keepAliveProbe, normalizeKeepAlive } from "../utils/reconnect";
 import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -643,6 +644,27 @@ export function ConnectionForm(props: {
                 <For each={props.groups ?? []}>{(g) => <option value={g} />}</For>
               </datalist>
             </label>
+
+            {/* Keep-alive (#676): only for engines whose session can drop and
+                that have a probe (not SQLite's local file, not MongoDB, whose
+                client already monitors itself). */}
+            <Show when={keepAliveProbe(draft.driver) !== null}>
+              <label class="cf-field">
+                <span class="cf-label">
+                  {t("cform.keepAlive")}
+                  <span class="cf-optional">{t("cform.optional")}</span>
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={draft.keepAlive ?? ""}
+                  placeholder="0"
+                  onInput={(e) => setDraft("keepAlive", normalizeKeepAlive(e.currentTarget.value))}
+                />
+                <p class="cf-hint">{t("cform.keepAliveHint")}</p>
+              </label>
+            </Show>
 
             <div class="cf-field">
               <span class="cf-label">{t("cform.icon")}</span>

@@ -34,6 +34,11 @@ describe("matchShortcut — global actions", () => {
     expect(matchShortcut(ev({ key: "PageDown", ctrlKey: true }))).toBe("next-tab");
     expect(matchShortcut(ev({ key: "PageUp", ctrlKey: true }))).toBe("prev-tab");
   });
+  it("Ctrl+Alt+C / R commit and roll back the open transaction (#667)", () => {
+    expect(matchShortcut(ev({ key: "c", ctrlKey: true, altKey: true }))).toBe("tx-commit");
+    expect(matchShortcut(ev({ key: "r", ctrlKey: true, altKey: true }))).toBe("tx-rollback");
+    expect(matchShortcut(ev({ key: "c", ctrlKey: true }))).toBeNull();
+  });
   it("F5 refreshes", () => {
     expect(matchShortcut(ev({ key: "F5" }))).toBe("refresh");
   });

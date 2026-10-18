@@ -51,3 +51,29 @@ describe("errorText", () => {
     );
   });
 });
+
+// A dead session the transport did not retry says why (issue #676).
+describe("describeError — lost connection, not retried", () => {
+  const lost = (notRetried: string) =>
+    new QueryError("server closed the connection", -32000, {
+      connLost: true,
+      inTx: notRetried === "tx",
+      retrySafe: false,
+      notRetried,
+    });
+  it("names the transaction the server rolled back", () => {
+    const f = describeError(lost("tx"), "en");
+    expect(f.title).toMatch(/transaction open/);
+    expect(f.detail).toBe("server closed the connection");
+    expect(describeError(lost("tx"), "es").title).toMatch(/transacción abierta/);
+  });
+  it("says a restored session did not re-run the statement", () => {
+    expect(describeError(lost("unsafe"), "en").title).toMatch(/re-established.*may or may not have run/);
+  });
+  it("says the connection is still down", () => {
+    expect(describeError(lost("down"), "en").title).toMatch(/was lost.*not retried/);
+  });
+  it("an unknown reason falls back to the generic connection title", () => {
+    expect(describeError(lost("bogus"), "es").title).toMatch(/No se pudo conectar/);
+  });
+});

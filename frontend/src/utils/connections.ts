@@ -8,6 +8,8 @@
 // only adds a schema entry. The dsn object built here is what conn.open expects
 // (see docs/IPC.md).
 
+import { normalizeKeepAlive } from "./reconnect";
+
 export type FieldType = "text" | "number" | "password" | "file" | "select";
 
 export interface FieldOption {
@@ -59,6 +61,9 @@ export interface Connection {
   group?: string;
   /** Optional per-connection emoji, overriding the engine's icon. */
   icon?: string;
+  /** Keep-alive interval in seconds (issue #676); absent = off. Not part of the
+      DSN: the frontend probes the idle session and reconnects a dropped one. */
+  keepAlive?: number;
 }
 
 /** Curated accent palette for connections (config + sidebar). Chosen to stay
@@ -780,6 +785,10 @@ export function coerceConnection(item: unknown): Connection | null {
   }
   if (typeof c.icon === "string" && c.icon) {
     conn.icon = c.icon;
+  }
+  const keepAlive = normalizeKeepAlive(c.keepAlive);
+  if (keepAlive !== undefined) {
+    conn.keepAlive = keepAlive;
   }
   // Stored and imported connections alike come through here (issue #557).
   return migrateInformixConnection(conn);

@@ -142,6 +142,19 @@ target_link_libraries(op_cancel_test PRIVATE dbcore cjson)
 quaero_set_warnings(op_cancel_test)
 add_test(NAME op_cancel_test COMMAND op_cancel_test)
 
+# tx.* IPC methods and the per-connection open-transaction flag (#667).
+add_executable(tx_methods_test ipc/tx_methods_test.c)
+target_link_libraries(tx_methods_test PRIVATE dbcore cjson)
+quaero_set_warnings(tx_methods_test)
+add_test(NAME tx_methods_test COMMAND tx_methods_test)
+
+# Lost-connection classification of -32000 errors (#676), with a fake driver.
+add_executable(conn_lost_test ipc/conn_lost_test.c)
+target_link_libraries(conn_lost_test PRIVATE dbcore cjson)
+target_include_directories(conn_lost_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src/ipc)
+quaero_set_warnings(conn_lost_test)
+add_test(NAME conn_lost_test COMMAND conn_lost_test)
+
 # Schema introspection layer (routing + unsupported + param validation).
 add_executable(schema_test query/schema_test.c)
 target_link_libraries(schema_test PRIVATE dbcore)

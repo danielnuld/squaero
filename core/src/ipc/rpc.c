@@ -67,18 +67,27 @@ char *ipc_response_success(const cJSON *id, cJSON *result)
 
 char *ipc_response_error(const cJSON *id, int code, const char *message)
 {
+    return ipc_response_error_data(id, code, message, NULL);
+}
+
+char *ipc_response_error_data(const cJSON *id, int code, const char *message,
+                              cJSON *data)
+{
     cJSON *envelope = cJSON_CreateObject();
     if (envelope == NULL) {
+        cJSON_Delete(data);
         return NULL;
     }
 
     if (add_envelope_head(envelope, id) != 0) {
+        cJSON_Delete(data);
         cJSON_Delete(envelope);
         return NULL;
     }
 
     cJSON *error = cJSON_CreateObject();
     if (error == NULL) {
+        cJSON_Delete(data);
         cJSON_Delete(envelope);
         return NULL;
     }
@@ -87,6 +96,13 @@ char *ipc_response_error(const cJSON *id, int code, const char *message)
        database engine reporting a localized message in a legacy code set used to
        corrupt the frame, so the error never reached the user at all. */
     if (ipc_utf8_add_string(error, "message", message) == NULL) {
+        cJSON_Delete(data);
+        cJSON_Delete(error);
+        cJSON_Delete(envelope);
+        return NULL;
+    }
+    if (data != NULL && !cJSON_AddItemToObject(error, "data", data)) {
+        cJSON_Delete(data);
         cJSON_Delete(error);
         cJSON_Delete(envelope);
         return NULL;
