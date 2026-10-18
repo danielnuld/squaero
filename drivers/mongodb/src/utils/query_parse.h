@@ -25,6 +25,12 @@
  *     db.<coll>.getIndexes()                   db.<coll>.drop()
  *     db.createCollection(<name>, <opts?>)     db.runCommand(<doc|"name">)
  *     db.createView(<name>, <source>, <pipeline>, <opts?>)
+ *     db.<coll>.renameCollection(<new name>, <dropTarget?>)
+ *   plans, operations and the profiler
+ *     db.<coll>.find(...)[...].explain(<verbosity?>)   db.<coll>.aggregate([...]).explain(...)
+ *     db.currentOp(<filter?>)                  db.killOp(<opid>)
+ *     db.setProfilingLevel(<0|1|2>, <slowms | opts?>)   db.getProfilingStatus()
+ *     db.getCollectionInfos(<filter?>, <opts?>)
  *     db.getCollection("<name>").<method>(...)  (any collection name)
  *
  * This module is the PURE front half: it validates the command shape and slices
@@ -56,7 +62,13 @@ typedef enum {
     MONGO_OP_DROP,            /* db.<coll>.drop() */
     MONGO_OP_CREATE_COLLECTION, /* db.createCollection(...): no collection */
     MONGO_OP_CREATE_VIEW,       /* db.createView(...): no collection */
-    MONGO_OP_RUN_COMMAND        /* db.runCommand(...): no collection */
+    MONGO_OP_RUN_COMMAND,       /* db.runCommand(...): no collection */
+    MONGO_OP_RENAME,            /* db.<coll>.renameCollection(...) */
+    MONGO_OP_CURRENT_OP,        /* db.currentOp(...): no collection */
+    MONGO_OP_KILL_OP,           /* db.killOp(...): no collection */
+    MONGO_OP_SET_PROFILING,     /* db.setProfilingLevel(...): no collection */
+    MONGO_OP_GET_PROFILING,     /* db.getProfilingStatus(): no collection */
+    MONGO_OP_COLLECTION_INFOS   /* db.getCollectionInfos(...): no collection */
 } mongo_op;
 
 /* Return codes of mongo_query_parse (0 = success). */
@@ -75,6 +87,8 @@ typedef struct {
                           Unused by the other ops (see args). */
     char *projection;  /* owned or NULL. find only. */
     char *sort;        /* owned or NULL. find only. */
+    char *explain;     /* owned or NULL. find/aggregate with a trailing .explain():
+                          the verbosity ("queryPlanner" when none is given). */
     long  limit;       /* -1 when unset */
     long  skip;        /* -1 when unset */
     /* Every op other than find/aggregate: the raw, trimmed argument texts in call

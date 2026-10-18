@@ -361,6 +361,111 @@ int main(void)
                "createView on a collection is refused");
     }
 
+    /* --- explain: a trailing call on find / aggregate --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.users.find({a: 1}).sort({a: -1}).limit(5).explain()", &q,
+                                   err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_FIND && streq(q.explain, "queryPlanner"),
+               "find().explain() defaults to queryPlanner");
+        EXPECT(streq(q.sort, "{a: -1}") && q.limit == 5, "explain keeps the earlier modifiers");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.find().explain('executionStats');", &q, err, sizeof(err));
+        EXPECT(rc == 0 && streq(q.explain, "executionStats"), "explain takes a verbosity");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.aggregate([{$match: {a: 1}}]).explain(\"allPlansExecution\")",
+                               &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_AGGREGATE && streq(q.explain, "allPlansExecution") &&
+                   streq(q.filter, "[{$match: {a: 1}}]"),
+               "aggregate().explain()");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.find()", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.explain == NULL, "no explain unless asked");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.users.find().explain('verbose')", &q, err, sizeof(err)) != 0 &&
+                   strstr(err, "queryPlanner") != NULL,
+               "an unknown verbosity is refused");
+        EXPECT(mongo_query_parse("db.users.find().explain().limit(1)", &q, err, sizeof(err)) != 0 &&
+                   strstr(err, "last call") != NULL,
+               "explain must be last");
+        EXPECT(mongo_query_parse("db.users.aggregate([]).limit(1)", &q, err, sizeof(err)) != 0 &&
+                   strstr(err, "explain") != NULL,
+               "aggregate takes no modifiers other than explain");
+        EXPECT(mongo_query_parse("db.users.findOne({}).explain()", &q, err, sizeof(err)) != 0,
+               "findOne has no explain");
+    }
+
+    /* --- operations, profiler and collection management --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.currentOp()", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_CURRENT_OP && q.collection == NULL && q.nargs == 0,
+               "currentOp() parses");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.currentOp({active: true, secs_running: {$gt: 3}})", &q, err,
+                               sizeof(err));
+        EXPECT(rc == 0 && q.nargs == 1 && streq(q.args[0], "{active: true, secs_running: {$gt: 3}}"),
+               "currentOp takes a filter document");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.currentOp(true)", &q, err, sizeof(err)) != 0,
+               "currentOp(true) is refused (a filter document only)");
+        EXPECT(mongo_query_parse("db.coll.currentOp()", &q, err, sizeof(err)) != 0 &&
+                   strstr(err, "database") != NULL,
+               "currentOp runs on the database");
+
+        rc = mongo_query_parse("db.killOp(12345)", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_KILL_OP && streq(q.args[0], "12345"), "killOp(number)");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.killOp('shard01:99')", &q, err, sizeof(err));
+        EXPECT(rc == 0 && streq(q.args[0], "'shard01:99'"), "killOp(string opid of a cluster)");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.killOp()", &q, err, sizeof(err)) != 0, "killOp needs an opid");
+        EXPECT(mongo_query_parse("db.killOp({})", &q, err, sizeof(err)) != 0,
+               "killOp takes a number or a string");
+
+        rc = mongo_query_parse("db.setProfilingLevel(1, 50)", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_SET_PROFILING && q.nargs == 2 && streq(q.args[1], "50"),
+               "setProfilingLevel(level, slowms)");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.setProfilingLevel(2, {slowms: 10, sampleRate: 0.5})", &q, err,
+                               sizeof(err));
+        EXPECT(rc == 0 && q.nargs == 2, "setProfilingLevel(level, options)");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.setProfilingLevel(0)", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.nargs == 1, "setProfilingLevel(0)");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.setProfilingLevel('all')", &q, err, sizeof(err)) != 0,
+               "the profiling level is a number");
+        rc = mongo_query_parse("db.getProfilingStatus()", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_GET_PROFILING, "getProfilingStatus()");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.getCollectionInfos({type: 'view'})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_COLLECTION_INFOS && q.nargs == 1,
+               "getCollectionInfos(filter)");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.getCollectionInfos()", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.nargs == 0, "getCollectionInfos()");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.orders.renameCollection('orders_old')", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_RENAME && streq(q.collection, "orders") &&
+                   streq(q.args[0], "'orders_old'") && q.nargs == 1,
+               "renameCollection(new)");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.getCollection('a-b').renameCollection(\"c\", true)", &q, err,
+                               sizeof(err));
+        EXPECT(rc == 0 && streq(q.collection, "a-b") && q.nargs == 2 && streq(q.args[1], "true"),
+               "renameCollection(new, dropTarget) on a quoted name");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.orders.renameCollection()", &q, err, sizeof(err)) != 0,
+               "renameCollection needs the new name");
+        EXPECT(mongo_query_parse("db.orders.renameCollection('x', 1)", &q, err, sizeof(err)) != 0,
+               "dropTarget is true or false");
+        EXPECT(mongo_query_parse("db.renameCollection('x')", &q, err, sizeof(err)) != 0,
+               "renameCollection runs on a collection");
+    }
+
     /* --- error cases --- */
     {
         mongo_query q;

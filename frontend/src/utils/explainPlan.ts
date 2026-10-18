@@ -5,10 +5,13 @@
 //   - PostgreSQL: EXPLAIN (FORMAT JSON) -> a nested Plan tree (canonical).
 //   - MySQL/MariaDB: EXPLAIN FORMAT=JSON -> a query_block tree (irregular).
 //   - SQLite: EXPLAIN QUERY PLAN -> flat rows linked by parent id.
-// Anything else (Informix file-based plan, MongoDB) has no structured format and
-// the caller falls back to the plain tabular EXPLAIN.
+//   - MongoDB: the explain command (the driver runs `<find|aggregate>.explain()`)
+//     -> one row whose queryPlanner / executionStats cells hold the stage tree.
+// Anything else (Informix file-based plan) has no structured format and the
+// caller falls back to the plain tabular EXPLAIN.
 
 import { engineFamily as family } from "./engineFamily";
+import { mongoExplainStatement } from "./mongoStatements";
 
 /** A normalized plan node. `weight` is the value used to find the costliest path
     (cost when the engine reports one, else estimated rows). */
@@ -27,7 +30,7 @@ export interface PlanNode {
   children: PlanNode[];
 }
 
-export type ExplainKind = "pg-json" | "mysql-json" | "sqlite-qp";
+export type ExplainKind = "pg-json" | "mysql-json" | "sqlite-qp" | "mongo-explain";
 
 /** Which structured EXPLAIN an engine supports, or null when none. */
 export function explainKind(engine: string): ExplainKind | null {
@@ -38,6 +41,8 @@ export function explainKind(engine: string): ExplainKind | null {
       return "mysql-json";
     case "sqlite":
       return "sqlite-qp";
+    case "mongodb":
+      return "mongo-explain";
     default:
       return null;
   }
@@ -51,6 +56,8 @@ export function buildStructuredExplain(engine: string, sql: string): string | nu
   const q = sql.trim().replace(TRAILING_SEMI, "");
   if (!q) return null;
   switch (explainKind(engine)) {
+    case "mongo-explain":
+      return mongoExplainStatement(q);
     case "pg-json":
       return `EXPLAIN (FORMAT JSON) ${q}`;
     case "mysql-json":
@@ -207,6 +214,108 @@ function parseSqlitePlan(columns: string[], rows: (string | null)[][]): PlanNode
   return root.children.length === 1 ? root.children[0] : root;
 }
 
+// ---- MongoDB: the explain command ------------------------------------------
+// The driver returns one row; `queryPlanner` (and `executionStats`, when the
+// statement asked for it) are JSON cells. A stage is {stage, inputStage |
+// inputStages, indexName, filter, ...}; a sharded cluster nests each shard's plan
+// under `shards`; an aggregation that is not fully pushed down returns `stages`
+// instead, the $cursor stage holding the query plan.
+type Json = Record<string, unknown>;
+const isObj = (v: unknown): v is Json => !!v && typeof v === "object" && !Array.isArray(v);
+
+function parseMongoPlan(columns: string[], rows: (string | null)[][]): PlanNode | null {
+  const row = rows[0];
+  if (!row) return null;
+  const cell = (name: string): unknown => {
+    const i = columns.findIndex((c) => c.toLowerCase() === name.toLowerCase());
+    const raw = i >= 0 ? row[i] : null;
+    if (typeof raw !== "string") return undefined;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  };
+  const nextId = makeIds();
+
+  // The collection a leaf scan reads: the namespace without its database.
+  const collOf = (ns: unknown) => (typeof ns === "string" && ns.includes(".") ? ns.slice(ns.indexOf(".") + 1) : undefined);
+
+  const walkStage = (s: Json, coll: string | undefined): PlanNode => {
+    const kids: PlanNode[] = [];
+    if (isObj(s.inputStage)) kids.push(walkStage(s.inputStage, coll));
+    if (Array.isArray(s.inputStages)) {
+      for (const k of s.inputStages) if (isObj(k)) kids.push(walkStage(k, coll));
+    }
+    if (Array.isArray(s.shards)) {
+      for (const sh of s.shards) {
+        if (!isObj(sh)) continue;
+        const inner = isObj(sh.executionStages) ? sh.executionStages : isObj(sh.winningPlan) ? sh.winningPlan : null;
+        kids.push({
+          id: nextId(),
+          op: `Shard ${String(sh.shardName ?? "")}`.trim(),
+          children: inner ? [walkStage(inner, coll)] : [],
+        });
+      }
+    }
+    const details: string[] = [];
+    if (s.indexName) details.push(`índice ${String(s.indexName)}`);
+    if (s.direction === "backward") details.push("descendente");
+    if (isObj(s.filter)) details.push(`filtro ${JSON.stringify(s.filter)}`);
+    if (isObj(s.indexBounds)) details.push(`límites ${JSON.stringify(s.indexBounds)}`);
+    return {
+      id: nextId(),
+      op: String(s.stage ?? "STAGE"),
+      table: kids.length === 0 ? coll : undefined,
+      rows: num(s.nReturned),
+      cost: num(s.executionTimeMillisEstimate),
+      detail: details.length ? details.join(" · ") : undefined,
+      children: kids,
+    };
+  };
+
+  // The plan tree of one queryPlanner block (or its executionStats twin, which
+  // carries the same stages plus nReturned / time per stage).
+  const planOf = (qp: unknown, stats: unknown): PlanNode | null => {
+    if (!isObj(qp)) return null;
+    const coll = collOf(qp.namespace);
+    const fromStats = isObj(stats) && isObj(stats.executionStages) ? stats.executionStages : null;
+    let stage = fromStats ?? (isObj(qp.winningPlan) ? qp.winningPlan : null);
+    // The slot-based engine wraps the classic stage tree in `queryPlan`.
+    if (stage && !stage.stage && isObj(stage.queryPlan)) stage = stage.queryPlan;
+    if (!stage) return null;
+    const node = walkStage(stage, coll);
+    const rejected = Array.isArray(qp.rejectedPlans) ? qp.rejectedPlans.length : 0;
+    if (rejected > 0) {
+      node.detail = [node.detail, `${rejected} plan(es) descartado(s)`].filter(Boolean).join(" · ");
+    }
+    return node;
+  };
+
+  const qp = cell("queryPlanner");
+  if (qp !== undefined) return planOf(qp, cell("executionStats"));
+
+  // Aggregation explained stage by stage: each stage feeds the next, so the tree
+  // is a chain with the last stage on top and the $cursor (the query) at the bottom.
+  const stages = cell("stages");
+  if (!Array.isArray(stages) || stages.length === 0) return null;
+  let below: PlanNode | null = null;
+  for (const st of stages) {
+    if (!isObj(st)) continue;
+    const key = Object.keys(st)[0];
+    if (!key) continue;
+    const body = st[key];
+    let node: PlanNode | null = null;
+    if (key === "$cursor" && isObj(body)) node = planOf(body.queryPlanner, body.executionStats);
+    if (!node) {
+      node = { id: nextId(), op: key, children: [] };
+    }
+    if (below) node.children = [below];
+    below = node;
+  }
+  return below;
+}
+
 /**
  * Parse a structured-EXPLAIN result into a normalized plan tree, or null when it
  * can't be parsed (caller falls back to the plain tabular EXPLAIN). `cell` is the
@@ -218,6 +327,7 @@ export function parsePlan(
   rows: (string | null)[][],
 ): PlanNode | null {
   if (kind === "sqlite-qp") return parseSqlitePlan(columns, rows);
+  if (kind === "mongo-explain") return parseMongoPlan(columns, rows);
   const cell = rows[0]?.[0];
   if (typeof cell !== "string") return null;
   return kind === "pg-json" ? parsePgPlan(cell) : parseMysqlPlan(cell);

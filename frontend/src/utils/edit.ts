@@ -272,8 +272,9 @@ export async function txRollback(connId: string): Promise<void> {
 }
 
 // An edit session wraps its changes in a transaction, but not every engine has
-// one: MongoDB's driver does not advertise DBC_FEAT_TRANSACTIONS, and tx.begin
-// answers "unsupported". Such a connection edits without one: each change is
+// one: a MongoDB server that is not a replica set or a sharded cluster has no
+// multi-document transactions (the driver refuses tx.begin on it, naming why), and
+// tx.begin answers "unsupported". Such a connection edits without one: each change is
 // applied the moment it runs, and there is nothing to commit or roll back. The
 // set remembers which connections answered that way.
 const withoutTransactions = new Set<string>();

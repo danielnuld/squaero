@@ -85,6 +85,20 @@ if(BUILD_TESTING)
   target_include_directories(mongodb_ddl_test PRIVATE src/utils)
   quaero_set_warnings(mongodb_ddl_test)
   add_test(NAME mongodb_ddl_test COMMAND mongodb_ddl_test)
+
+  add_executable(mongodb_cancel_tag_test
+    tests/cancel_tag_test.c
+    src/utils/cancel_tag.c)
+  target_include_directories(mongodb_cancel_tag_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_cancel_tag_test)
+  add_test(NAME mongodb_cancel_tag_test COMMAND mongodb_cancel_tag_test)
+
+  add_executable(mongodb_tx_support_test
+    tests/tx_support_test.c
+    src/utils/tx_support.c)
+  target_include_directories(mongodb_tx_support_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_tx_support_test)
+  add_test(NAME mongodb_tx_support_test COMMAND mongodb_tx_support_test)
 endif()
 
 # --- driver plugin (when the mongo-c-driver is available) ------------------
@@ -113,7 +127,11 @@ if(MONGOC_FOUND OR QUAERO_MONGOC)
     src/metadata.c
     src/ddl.c
     src/edit.c
+    src/admin.c
+    src/txn.c
+    src/cancel.c
     src/utils/bson_types.c
+    src/utils/cancel_tag.c
     src/utils/columns.c
     src/utils/ddl.c
     src/utils/dml.c
@@ -122,6 +140,7 @@ if(MONGOC_FOUND OR QUAERO_MONGOC)
     src/utils/query_parse.c
     src/utils/result.c
     src/utils/strutil.c
+    src/utils/tx_support.c
     src/utils/value_fmt.c)
   target_include_directories(mongodb_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)

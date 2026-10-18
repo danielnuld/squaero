@@ -337,6 +337,7 @@ export const es: Record<string, string> = {
   "slow.openTitle": "Abrir en el editor",
   "slow.explainTitle": "EXPLAIN de la consulta",
   "slow.count": "{n} consulta(s)",
+  "slow.emptyMongo": "MongoDB solo registra operaciones mientras su profiler está activo. Actívalo en el editor, por ejemplo db.setProfilingLevel(1, 100) para guardar las de más de 100 ms, y vuelve a ejecutar las consultas.",
   "slow.noRecords": "Sin registros de consultas lentas.",
 
   // panel de filtros de una pestaña de datos (#347)
@@ -438,6 +439,16 @@ export const es: Record<string, string> = {
   "tree.dropTitle": "Eliminar «{name}»",
   "tree.dropMessage": "Se eliminará {name} del servidor. Esta acción no se puede deshacer.",
   "tree.dropConfirm": "Eliminar",
+  "tree.emptyCollection": "Vaciar colección…",
+  "tree.emptyTitle": "Vaciar «{name}»",
+  "tree.emptyMessage": "Se borrarán todos los documentos de {name}. La colección y sus índices se conservan. Esta acción no se puede deshacer.",
+  "tree.emptyConfirm": "Vaciar",
+  "tree.renameCollection": "Renombrar colección…",
+  "tree.renameTitle": "Renombrar «{name}»",
+  "tree.renameMessage": "Elige el nuevo nombre de {name}. Ninguna otra colección puede llamarse así.",
+  "tree.renameLabel": "Nuevo nombre",
+  "tree.renameConfirm": "Renombrar",
+  "tree.renameInvalid": "Ese nombre no se puede usar: está vacío, no cambia, contiene «$» o empieza por «system.».",
   // folder labels (data keys, translated at the tree consumer)
   "tree.tables": "Tablas",
   "tree.views": "Vistas",
@@ -695,7 +706,6 @@ export const es: Record<string, string> = {
   "objlist.colRows": "Filas",
   "objlist.colSize": "Tamaño",
   "objlist.colComment": "Comentario",
-  "objlist.reasonMongo": "MongoDB expone colecciones, no tablas de catálogo SQL: usa el árbol de objetos.",
   "objlist.reasonUnavailable": "La lista de objetos no está disponible para este motor.",
 
   // row detail dock (RowDetail.tsx)

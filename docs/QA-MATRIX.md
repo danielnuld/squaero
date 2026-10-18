@@ -17,7 +17,7 @@ cambiando ⏳ → ✅/⚠️/❌ a medida que se prueba en vivo. El smoke automa
 | ⏳ | Sin verificar todavía |
 
 **Motores:** SQLite (embebido), MySQL/MariaDB (motor de referencia), Informix
-(ODBC, build x86), MongoDB (find/aggregate, escrituras mongosh, edición por `_id`; sin transacciones). **PostgreSQL** (libpq)
+(ODBC, build x86), MongoDB (find/aggregate, escrituras mongosh, edición por `_id`, transacciones en replica set, explain, monitor, consultas lentas, cancel). **PostgreSQL** (libpq)
 ya se distribuye (#22/#23, PR #275); su camino núcleo + funciones específicas del
 motor están verificados en vivo por `scripts/smoke/postgres-features.mjs` (10/10
 vs `postgres:16`, ver [QA-SMOKE](./QA-SMOKE.md)). Aún no tiene columna propia en
@@ -50,7 +50,7 @@ pudo verificar: el contenedor de 2022 sin configurar corta la conexión.
 | Generación de datos | ⏳ | ⏳ | ⏳ | ➖ 6 |
 | Sort / filtro de grid | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
 | Historial / snippets / ejecutar selección | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
-| Monitor de servidor + kill | ➖ 9 | ✅ 33 | ➖ 10 | ➖ 11 |
+| Monitor de servidor + kill | ➖ 9 | ✅ 33 | ➖ 10 | ⚠️ 11 |
 | Usuarios / permisos (crear/eliminar/grant/revoke) | ➖ 12 | ✅ 33 | ➖ 13 | ➖ 14 |
 | Procedimientos / funciones | ➖ 15 | ✅ 33 | ✅ 30 | ➖ 16 |
 | Triggers | ✅ | ✅ 33 | ✅ 31 | ➖ 17 |
@@ -60,11 +60,11 @@ pudo verificar: el contenedor de 2022 sin configurar corta la conexión.
 | Charts / gráficos | ⏳ 8 | ⏳ 8 | ⏳ 8 | ⏳ 8 |
 | Diseñador de tablas (CREATE) | ✅ | ⏳ | ⏳ | ➖ 6 |
 | Diseñador de tablas (ALTER) | ⚠️ 22 | ⏳ | ⏳ | ➖ 6 |
-| Índices | ✅ | ⏳ | ⏳ | ➖ 23 |
+| Índices | ✅ | ⏳ | ⏳ | ⚠️ 23 |
 | Constraints | ➖ 24 | ⏳ | ⏳ | ➖ 23 |
 | Sincronización de esquema / datos | ⏳ | ⏳ | ⏳ | ➖ 6 |
 | Transferencia de datos | ⏳ | ⏳ | ⏳ | ⚠️ 25 |
-| EXPLAIN (plan visual) | ✅ | ⏳ | ➖ 26 | ➖ 27 |
+| EXPLAIN (plan visual) | ✅ | ⏳ | ➖ 26 | ⚠️ 27 |
 
 ## Notas (razones de ⚠️ y ➖)
 
@@ -73,7 +73,11 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 1. **SQLite — carpetas por tipo:** solo se ofrece la carpeta de *Triggers*; SQLite
    no tiene procedimientos/funciones/eventos.
 2. **Informix — carpetas por tipo:** Procedimientos/Funciones/Triggers; sin eventos.
-3. **MongoDB — árbol:** colecciones en lugar de tablas; sin carpetas de rutinas.
+3. **MongoDB — árbol:** colecciones y vistas (con su tipo) en lugar de tablas; sin carpetas de
+   rutinas. Menú de la colección de la base de la conexión: vaciar (`deleteMany({})`),
+   renombrar (`renameCollection`) y eliminar (`drop()`), cada uno con el enunciado exacto en
+   la confirmación; en otra base del servidor no se ofrecen (el enunciado no puede nombrarla).
+   La vista de objetos lista nombre y tipo (`db.getCollectionInfos()`).
 4. **MongoDB — describe:** los tipos/columnas se infieren muestreando ~200 documentos.
 5. **MongoDB — consulta:** sintaxis mongosh (`db.coll.find({...}).sort().limit()`),
    `find`/`findOne`/`aggregate`, escrituras (`insertOne/Many`, `updateOne/Many`,
@@ -81,15 +85,23 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
    `createCollection`/`createView`/`drop` y `runCommand`, con `rowsAffected` real; un
    método desconocido es un error «no soportado» explícito (#719).
 6. **MongoDB — edición:** la cuadrícula edita documentos por `_id` (`build_dml`
-   genera `insertOne`/`updateOne`/`deleteOne`). **Sin transacciones:** cada cambio se
-   aplica al momento y un fallo a medias conserva los anteriores (se avisa). Import,
-   generación, diseñador y sync siguen sin aplicar.
+   genera `insertOne`/`updateOne`/`deleteOne`). **Transacciones solo en replica set o
+   clúster con shards** (⚠️): ahí la sesión de edición confirma o revierte en bloque; en un
+   `mongod` standalone `tx.begin` responde «no soportado» («transactions need a replica
+   set…») y cada cambio se aplica al momento, un fallo a medias conserva los anteriores
+   (se avisa). Import, generación, diseñador y sync siguen sin aplicar.
 7. **MongoDB — detalle de fila:** disponible; edita por `_id` como la cuadrícula.
 8. **Engine-agnóstico:** funciona sobre el conjunto de resultados/cliente, igual en
    todos los motores; ⏳ hasta confirmarlo en vivo o por el smoke.
 9. **SQLite — monitor:** «SQLite es una base de datos embebida: no tiene procesos de servidor.»
 10. **Informix — monitor:** «Informix administra sesiones por CLI (onmode), no por SQL.»
-11. **MongoDB — monitor:** «El monitor de procesos aún no está disponible para MongoDB.»
+11. **MongoDB — monitor:** `db.currentOp()` (operaciones de todos los usuarios) y *Matar* con
+    `db.killOp(opid)`. Sin los privilegios `inprog`/`killop` el servidor responde «not
+    authorized…» y el panel lo muestra tal cual (con `db.currentOp({$ownOps: true})` en el
+    editor se listan las propias). Consultas lentas: salen del profiler (`system.profile`),
+    agrupadas por colección, operación y forma; con el profiler apagado el panel dice cómo
+    encenderlo (`db.setProfilingLevel(1, 100)`). Sin botón de reinicio (no hay un único
+    comando que vacíe `system.profile`).
 12. **SQLite — usuarios:** «SQLite no tiene usuarios ni permisos: es una base de datos embebida.»
 13. **Informix — usuarios:** «La gestión de usuarios de Informix aún no está disponible aquí.»
 14. **MongoDB — usuarios:** «La gestión de usuarios de MongoDB aún no está disponible aquí.»
@@ -107,13 +119,18 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 21. **MongoDB — constructor visual:** genera SQL `SELECT`; MongoDB usa mongosh.
 22. **SQLite — ALTER:** solo add/drop/rename de columnas; el cambio de tipo in-place
     da error honesto (SQLite no soporta `MODIFY COLUMN`).
-23. **MongoDB — índices/constraints:** «MongoDB gestiona índices por comandos, no por
-    catálogos SQL.» / «MongoDB no expone constraints en catálogos SQL.»
+23. **MongoDB — índices/constraints:** el gestor de índices lista `getIndexes()` y crea/elimina
+    con `createIndex` (claves ascendentes y *unique*) / `dropIndex` sin transacción; las
+    constraints no existen («la validación vive en la definición de la colección,
+    `$jsonSchema`»).
 24. **SQLite — constraints:** el listado por catálogo no está disponible (viven en el
     texto del `CREATE TABLE`).
 25. **MongoDB — transferencia:** válido como **origen** (lectura); no como destino (escritura).
 26. **Informix — EXPLAIN:** Informix escribe el plan a archivo (`SET EXPLAIN`), no vía SQL.
-27. **MongoDB — EXPLAIN:** usa la superficie `.explain()`, no `EXPLAIN` SQL.
+27. **MongoDB — EXPLAIN:** el plan visual ejecuta `<find|aggregate>.explain("queryPlanner")`
+    (no ejecuta la consulta) y dibuja las etapas del plan ganador (COLLSCAN, IXSCAN, FETCH,
+    SORT…, por shard en un clúster); sin filas ni coste salvo que se escriba
+    `.explain("executionStats")`. Solo `find`/`findOne`/`aggregate`.
 28. **Informix — verificado en vivo (2026-07-08)** contra un servidor Informix
     real (IBM Informix Dynamic Server 11.70.FC7, ~400 objetos) vía el `quaero-rpc`
     x86 (el driver ODBC de Informix es 32-bit; ver [[quaero-x86-unified-build]]).

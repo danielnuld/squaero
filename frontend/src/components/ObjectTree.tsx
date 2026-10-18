@@ -19,6 +19,8 @@ import { definitionFor as routineDefinitionFor, type RoutineType } from "../util
 import { definitionFor as objectDefinitionFor } from "../utils/triggers";
 import { runnableRoutineDdl } from "../utils/routineDdl";
 import { dropObjectSql, type DropKind } from "../utils/dropObject";
+import { mongoEmptySql, mongoRenameSql } from "../utils/mongoStatements";
+import { engineFamily } from "../utils/engineFamily";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
@@ -108,6 +110,10 @@ export function ObjectTree(props: {
   onSelectDatabase?: (name: string) => void;
   /** Name of the current working database; its tree node is highlighted. */
   activeDb?: string;
+  /** MongoDB: the database the connection is bound to. Its statements run there
+      and nowhere else, so dropping, emptying or renaming a collection is only
+      offered for that database's own (#719). */
+  connDatabase?: string;
   /** Section title. With several connections open the sidebar stacks one tree
       per connection (issue #444) and the header becomes the connection's name;
       alone, it stays the generic "Objetos". */
@@ -441,6 +447,17 @@ export function ObjectTree(props: {
   const [pendingDrop, setPendingDrop] = createSignal<{ name: string; sql: string } | null>(null);
   const [dropping, setDropping] = createSignal(false);
   const [dropError, setDropError] = createSignal<string | null>(null);
+  // MongoDB collection management besides the drop: emptying (deleteMany({})) and
+  // renaming, each confirmed with the exact statement shown. A rename also asks
+  // for the new name.
+  const [pendingColl, setPendingColl] = createSignal<{ kind: "empty" | "rename"; name: string } | null>(null);
+  const [renameTo, setRenameTo] = createSignal("");
+  const collSql = (): string | null => {
+    const p = pendingColl();
+    if (!p) return null;
+    return p.kind === "empty" ? mongoEmptySql(p.name) : mongoRenameSql(p.name, renameTo());
+  };
+  const closeColl = () => setPendingColl(null);
 
   const runDrop = async (sql: string) => {
     const connId = props.connId;
@@ -450,6 +467,7 @@ export function ObjectTree(props: {
     try {
       await runQuery(connId, sql);
       setPendingDrop(null);
+      setPendingColl(null);
       props.onRefresh?.();
     } catch (err) {
       setDropError(err instanceof Error ? err.message : String(err));
@@ -487,6 +505,23 @@ export function ObjectTree(props: {
       if (node.kind === "table" && props.onManageIndexes) {
         items.push({ label: t("tree.indexes"), action: () => props.onManageIndexes!(node) });
       }
+      if (node.kind === "table" && ownMongoCollection(node)) {
+        items.push({
+          label: t("tree.emptyCollection"),
+          action: () => {
+            setDropError(null);
+            setPendingColl({ kind: "empty", name: node.label });
+          },
+        });
+        items.push({
+          label: t("tree.renameCollection"),
+          action: () => {
+            setDropError(null);
+            setRenameTo(node.label);
+            setPendingColl({ kind: "rename", name: node.label });
+          },
+        });
+      }
       if (props.onImport) {
         items.push({ label: t("tree.importData"), action: () => props.onImport!(node) });
       }
@@ -503,6 +538,14 @@ export function ObjectTree(props: {
     pushDrop(items, node);
     return items;
   };
+
+  /** A collection of the database a MongoDB connection is bound to — the only
+      ones its statements can reach. */
+  const ownMongoCollection = (node: TreeNode) =>
+    engineFamily(props.engine ?? "") === "mongodb" &&
+    !!props.connId &&
+    !!props.connDatabase &&
+    node.db === props.connDatabase;
 
   /** Which DROP a node is, if any: a routine leaf refines to procedure/function. */
   const dropKind = (node: TreeNode): DropKind | null => {
@@ -522,6 +565,7 @@ export function ObjectTree(props: {
       db: node.db,
       schema: node.schema,
       table: node.objTable,
+      connDb: props.connDatabase,
     });
     if (!sql) return;
     items.push({ separator: true });
@@ -850,6 +894,40 @@ export function ObjectTree(props: {
             onConfirm={() => void runDrop(p().sql)}
             onCancel={() => setPendingDrop(null)}
           />
+        )}
+      </Show>
+
+      <Show when={pendingColl()}>
+        {(p) => (
+          <ConfirmDialog
+            title={t(p().kind === "empty" ? "tree.emptyTitle" : "tree.renameTitle", { name: p().name })}
+            message={t(p().kind === "empty" ? "tree.emptyMessage" : "tree.renameMessage", {
+              name: p().name,
+            })}
+            sql={collSql() ?? undefined}
+            confirmLabel={t(p().kind === "empty" ? "tree.emptyConfirm" : "tree.renameConfirm")}
+            busy={dropping()}
+            error={
+              dropError() ??
+              (p().kind === "rename" && !collSql() ? t("tree.renameInvalid") : null)
+            }
+            onConfirm={() => {
+              const sql = collSql();
+              if (sql) void runDrop(sql);
+            }}
+            onCancel={closeColl}
+          >
+            <Show when={p().kind === "rename"}>
+              <label class="confirm-field">
+                {t("tree.renameLabel")}
+                <input
+                  class="td-in"
+                  value={renameTo()}
+                  onInput={(e) => setRenameTo(e.currentTarget.value)}
+                />
+              </label>
+            </Show>
+          </ConfirmDialog>
         )}
       </Show>
     </div>

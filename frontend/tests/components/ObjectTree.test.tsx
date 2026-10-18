@@ -802,3 +802,157 @@ describe("ObjectTree delete", () => {
     expect(refreshed).toBe(0);
   });
 });
+
+// Issue #719: MongoDB collections can be emptied, renamed and dropped from the
+// tree — each confirmed with the exact mongosh statement, and only in the
+// database the connection is bound to (a statement cannot name another one).
+describe("ObjectTree MongoDB collection management", () => {
+  const bridge = () => {
+    const calls: { method: string; params: any }[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      calls.push({ method: req.method, params: req.params });
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (req.method !== "schema.tree") {
+        return ok({ columns: [], rows: [], truncated: false, rowsAffected: 1 });
+      }
+      if (!req.params.db) {
+        return ok({
+          columns: [{ name: "name", type: "text" }],
+          rows: [["shop"], ["other"]],
+          truncated: false,
+          rowsAffected: 0,
+        });
+      }
+      return ok({
+        columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+        rows: [["orders", "table"], ["open-orders", "view"]],
+        truncated: false,
+        rowsAffected: 0,
+      });
+    };
+    return calls;
+  };
+
+  const openCollections = async (database: string, refreshed: () => void) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            engine="mongodb"
+            connDatabase="shop"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            onRefresh={refreshed}
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement;
+    rowByText(database).click();
+    await flush();
+    rowByText("Tablas").click();
+    await flush();
+    return rowByText;
+  };
+
+  const menuItem = (label: string) => contextMenu()?.items.find((i) => i.label === label);
+  const openMenu = (row: HTMLElement) =>
+    row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+
+  it("empties a collection after showing deleteMany({})", async () => {
+    const calls = bridge();
+    let refreshed = 0;
+    const rowByText = await openCollections("shop", () => refreshed++);
+    openMenu(rowByText("orders"));
+    menuItem("Vaciar colección…")!.action!();
+    await flush();
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    expect(dialog.querySelector("pre.ddl-text")!.textContent).toBe("db.orders.deleteMany({})");
+    (dialog.querySelector("button.danger") as HTMLButtonElement).click();
+    await flush();
+    expect(calls.find((c) => c.method === "query.run")!.params.sql).toBe("db.orders.deleteMany({})");
+    expect(refreshed).toBe(1);
+    expect(host!.querySelector(".confirm-dialog")).toBeFalsy();
+  });
+
+  it("renames with the typed name, quoting it in the shown statement", async () => {
+    const calls = bridge();
+    const rowByText = await openCollections("shop", () => {});
+    openMenu(rowByText("orders"));
+    menuItem("Renombrar colección…")!.action!();
+    await flush();
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    const input = dialog.querySelector("input") as HTMLInputElement;
+    expect(input.value).toBe("orders");
+    // Unchanged name: nothing to run, and the dialog says why.
+    expect(dialog.querySelector("pre.ddl-text")).toBeFalsy();
+    expect(dialog.textContent).toContain("no se puede usar");
+
+    input.value = "orders_old";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+    expect(dialog.querySelector("pre.ddl-text")!.textContent).toBe(
+      'db.orders.renameCollection("orders_old")',
+    );
+    (dialog.querySelector("button.danger") as HTMLButtonElement).click();
+    await flush();
+    expect(calls.find((c) => c.method === "query.run")!.params.sql).toBe(
+      'db.orders.renameCollection("orders_old")',
+    );
+  });
+
+  it("does not run a rename whose name is invalid", async () => {
+    const calls = bridge();
+    const rowByText = await openCollections("shop", () => {});
+    openMenu(rowByText("orders"));
+    menuItem("Renombrar colección…")!.action!();
+    await flush();
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    const input = dialog.querySelector("input") as HTMLInputElement;
+    input.value = "a$b";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+    (dialog.querySelector("button.danger") as HTMLButtonElement).click();
+    await flush();
+    expect(calls.some((c) => c.method === "query.run")).toBe(false);
+  });
+
+  it("drops a collection and a view with the mongosh drop()", async () => {
+    bridge();
+    const rowByText = await openCollections("shop", () => {});
+    openMenu(rowByText("orders"));
+    menuItem("Eliminar…")!.action!();
+    await flush();
+    expect(host!.querySelector(".confirm-dialog pre.ddl-text")!.textContent).toBe("db.orders.drop()");
+  });
+
+  it("offers none of it for a view's emptying or renaming, only the drop", async () => {
+    bridge();
+    const rowByText = await openCollections("shop", () => {});
+    await flush();
+    const views = rowByText("Vistas");
+    views.click();
+    await flush();
+    openMenu(rowByText("open-orders"));
+    expect(menuItem("Vaciar colección…")).toBeUndefined();
+    expect(menuItem("Renombrar colección…")).toBeUndefined();
+    expect(menuItem("Eliminar…")).toBeTruthy();
+  });
+
+  it("offers nothing destructive for another database's collections", async () => {
+    bridge();
+    const rowByText = await openCollections("other", () => {});
+    openMenu(rowByText("orders"));
+    expect(menuItem("Vaciar colección…")).toBeUndefined();
+    expect(menuItem("Renombrar colección…")).toBeUndefined();
+    expect(menuItem("Eliminar…")).toBeUndefined();
+  });
+});

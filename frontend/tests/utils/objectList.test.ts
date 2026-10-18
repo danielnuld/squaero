@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { objectListFor, formatBytes } from "../../src/utils/objectList";
-import { translate } from "../../src/utils/i18n";
 
 describe("objectListFor", () => {
   it("MySQL: information_schema.TABLES scoped to the db, full metadata", () => {
@@ -41,12 +40,17 @@ describe("objectListFor", () => {
     expect(r.sql).toContain("n.nspname = 'public'");
   });
 
-  it("MongoDB: honest unsupported with a reason, no SQL", () => {
+  it("MongoDB: lists the collections and views the server reports", () => {
     const r = objectListFor("mongodb", "x");
-    expect(r.supported).toBe(false);
-    expect(r.sql).toBeNull();
-    // reason is now an i18n key; resolve through the es catalog to assert the text.
-    expect(translate("es", r.reason!)).toMatch(/colecciones/i);
+    expect(r.supported).toBe(true);
+    expect(r.sql).toBe("db.getCollectionInfos()");
+    expect(r.reason).toBeNull();
+    // Its own result columns, not the SQL engines' nombre / tipo aliases.
+    expect(r.nameKey).toBe("name");
+    expect(r.typeKey).toBe("type");
+    expect(r.columns.map((c) => c.key)).toEqual(["name", "type"]);
+    // Only what the server gives: no invented row count or size.
+    expect(r.columns.map((c) => c.key)).not.toContain("filas");
   });
 
   it("unknown engine: unsupported", () => {

@@ -13,6 +13,12 @@
  * reported as UNSUPPORTED rather than faked. Those use a scratch collection
  * (quaero_w) that the test creates and drops itself.
  *
+ * It then covers the explain plan, the operations monitor (currentOp / killOp),
+ * the profiler, views and collection rename, and multi-document transactions: on
+ * a standalone server begin must refuse explicitly (UNSUPPORTED, naming the
+ * replica set); with QUAERO_MONGODB_RS_DSN pointing at a replica set the real
+ * transaction behaviour (join, isolation, commit, rollback) is checked too.
+ *
  * Requires a reachable server, PRE-SEEDED with a `quaero_it` collection holding:
  *   { _id: 1, name: "alice" }
  *   { _id: 2, name: "bob", extra: { k: 1 } }
@@ -401,6 +407,343 @@ static void write_section(const char *conn_id)
     expect_cmd(conn_id, "db.quaero_w.drop()", 0, "dropped", "quaero_w");
 }
 
+/* Open a second connection on `dsn`; returns 1 and fills conn_id on success. */
+static int open_conn(const char *dsn, char *conn_id, size_t cap)
+{
+    char req[1024];
+    snprintf(req, sizeof req,
+             "{\"jsonrpc\":\"2.0\",\"id\":%d,\"method\":\"conn.open\","
+             "\"params\":{\"driver\":\"mongodb\",\"dsn\":%s}}",
+             g_rpc_id++, dsn);
+    cJSON *root = call(req);
+    cJSON *cid = cJSON_GetObjectItem(result_of(root), "connId");
+    int ok = cJSON_IsString(cid);
+    if (ok) {
+        snprintf(conn_id, cap, "%s", cid->valuestring);
+    }
+    cJSON_Delete(root);
+    return ok;
+}
+
+static void close_conn(const char *conn_id)
+{
+    cJSON_Delete(rpc("conn.close", params_for(conn_id)));
+}
+
+/* The JSON-RPC error code of a response, or 0. */
+static int error_code(cJSON *root)
+{
+    cJSON *c = cJSON_GetObjectItem(cJSON_GetObjectItem(root, "error"), "code");
+    return cJSON_IsNumber(c) ? (int)c->valuedouble : 0;
+}
+
+/* Run `sql` and require `want` rows. */
+static void expect_rows(const char *conn_id, const char *sql, int want)
+{
+    cJSON *root = run(conn_id, sql);
+    char msg[400];
+    snprintf(msg, sizeof msg, "%s returns %d row(s) (got %d%s%s)", sql, want, row_count(root),
+             is_error(root) ? ": " : "", is_error(root) ? error_text(root) : "");
+    EXPECT(!is_error(root) && row_count(root) == want, msg);
+    cJSON_Delete(root);
+}
+
+/*
+ * Execution plans, the operations monitor, the profiler, rename and collection
+ * management (the commands behind the plan view, the server monitor, the
+ * slow-queries tool and the tree). `db_name` is the connection's database.
+ */
+static void ops_section(const char *conn_id, const char *db_name)
+{
+    cJSON *root;
+    char msg[400];
+
+    cJSON_Delete(run(conn_id, "db.quaero_w.drop()"));
+    expect_cmd(conn_id, "db.createCollection('quaero_w')", 0, "created", "quaero_w");
+    expect_cmd(conn_id, "db.quaero_w.insertMany([{_id: 1, n: 5}, {_id: 2, n: 15}, {_id: 3, n: 25}])",
+               3, "insertedCount", "3");
+    expect_cmd(conn_id, "db.quaero_w.createIndex({n: 1})", 0, "name", "n_1");
+
+    /* --- explain: the winning plan, as a result row ------------------------ */
+    root = run(conn_id, "db.quaero_w.find({n: {$gt: 10}}).sort({n: 1}).limit(5).explain()");
+    EXPECT(!is_error(root), "find().explain() succeeds");
+    EXPECT(strstr(first_cell(root, "queryPlanner"), "winningPlan") != NULL,
+           "explain returns the queryPlanner with its winningPlan");
+    EXPECT(strstr(first_cell(root, "queryPlanner"), "IXSCAN") != NULL,
+           "the plan uses the n_1 index");
+    EXPECT(strcmp(first_cell(root, "executionStats"), "") == 0,
+           "queryPlanner verbosity does not run the query (no executionStats)");
+    cJSON_Delete(root);
+    root = run(conn_id, "db.quaero_w.find({n: {$gt: 10}}).explain('executionStats')");
+    EXPECT(strstr(first_cell(root, "executionStats"), "nReturned") != NULL,
+           "executionStats verbosity adds the execution statistics");
+    cJSON_Delete(root);
+    root = run(conn_id, "db.quaero_w.aggregate([{$match: {n: {$gt: 10}}}, {$count: 'k'}]).explain()");
+    EXPECT(!is_error(root) && (strstr(first_cell(root, "queryPlanner"), "winningPlan") != NULL ||
+                               strstr(first_cell(root, "stages"), "$cursor") != NULL),
+           "aggregate().explain() returns a plan");
+    cJSON_Delete(root);
+    expect_cmd_error(conn_id, "db.quaero_w.find({n: {$bad: 1}}).explain()", 0, "");
+    expect_cmd_error(conn_id, "db.quaero_w.find().explain('chatty')", 0, "queryPlanner");
+    expect_cmd_error(conn_id, "db.quaero_w.insertOne({a: 1}).explain()", 0, "");
+    expect_rows(conn_id, "db.quaero_w.find({n: {$gt: 10}})", 2); /* a plain find still runs */
+
+    /* --- the operations monitor -------------------------------------------- */
+    root = run(conn_id, "db.currentOp()");
+    snprintf(msg, sizeof msg, "currentOp succeeds (%s)", is_error(root) ? error_text(root) : "ok");
+    EXPECT(!is_error(root), msg);
+    EXPECT(result_of(root) != NULL && col_index(result_of(root), "opid") >= 0,
+           "currentOp lists operations with their opid");
+    cJSON_Delete(root);
+    root = run(conn_id, "db.currentOp({$ownOps: true})");
+    EXPECT(!is_error(root), "currentOp({$ownOps: true}) succeeds");
+    cJSON_Delete(root);
+    expect_rows(conn_id, "db.currentOp({ns: 'no.such.namespace'})", 0);
+    expect_cmd_error(conn_id, "db.killOp('not a number')", 0, "");
+    expect_cmd_error(conn_id, "db.killOp(-1)", 0, "operation id");
+
+    /* --- the profiler: slow-query data ------------------------------------- */
+    expect_cmd(conn_id, "db.setProfilingLevel(0)", 0, "was", "0");
+    expect_cmd(conn_id, "db.getProfilingStatus()", 0, "was", "0");
+    cJSON_Delete(run(conn_id, "db.system.profile.drop()"));
+    expect_cmd(conn_id, "db.setProfilingLevel(2, 0)", 0, "was", "0");
+    expect_cmd(conn_id, "db.getProfilingStatus()", 0, "was", "2");
+    expect_rows(conn_id, "db.quaero_w.find({n: 5})", 1);
+    root = run(conn_id, "db.system.profile.find({op: 'query'}).sort({millis: -1}).limit(5)");
+    EXPECT(!is_error(root) && row_count(root) >= 1 && col_index(result_of(root), "millis") >= 0,
+           "db.system.profile.find() lists the recorded operations with their millis");
+    cJSON_Delete(root);
+    /* The slow-queries tool's grouped listing (frontend/src/utils/slowQueries.ts). */
+    root = run(conn_id,
+               "db.system.profile.aggregate([{$match: {ns: {$not: {$regex: '\\\\.system\\\\.'}}}}, "
+               "{$sort: {millis: -1}}, {$group: {_id: {ns: '$ns', op: "
+               "'$op', qh: '$queryHash'}, query: {$first: '$command'}, ejecuciones: {$sum: 1}, "
+               "avg_ms: {$avg: '$millis'}, total_ms: {$sum: '$millis'}, max_ms: {$max: '$millis'}}}, "
+               "{$sort: {total_ms: -1}}, {$limit: 50}, {$project: {_id: 0, ns: '$_id.ns', op: "
+               "'$_id.op', query: 1, ejecuciones: 1, avg_ms: {$round: ['$avg_ms', 2]}, total_ms: 1, "
+               "max_ms: 1}}])");
+    snprintf(msg, sizeof msg, "the grouped profile listing runs (%s)",
+             is_error(root) ? error_text(root) : "ok");
+    EXPECT(!is_error(root) && row_count(root) >= 1 && col_index(result_of(root), "query") >= 0 &&
+               col_index(result_of(root), "ejecuciones") >= 0,
+           msg);
+    cJSON_Delete(root);
+    expect_cmd(conn_id, "db.setProfilingLevel(0)", 0, "was", "2");
+    expect_cmd_error(conn_id, "db.setProfilingLevel(3)", 0, "level");
+    cJSON_Delete(run(conn_id, "db.system.profile.drop()"));
+
+    /* --- collection management: infos, a view, rename, drop ----------------- */
+    cJSON_Delete(run(conn_id, "db.quaero_wv.drop()"));
+    expect_cmd(conn_id, "db.createView('quaero_wv', 'quaero_w', [{$match: {n: {$gt: 5}}}])", 0,
+               "created", "quaero_wv");
+    root = run(conn_id, "db.getCollectionInfos({name: 'quaero_wv'})");
+    EXPECT(!is_error(root) && row_count(root) == 1 && strcmp(first_cell(root, "type"), "view") == 0,
+           "getCollectionInfos reports the view with type view");
+    cJSON_Delete(root);
+    root = run(conn_id, "db.getCollectionInfos({type: 'collection', name: 'quaero_w'})");
+    EXPECT(!is_error(root) && row_count(root) == 1, "getCollectionInfos filters by type and name");
+    cJSON_Delete(root);
+
+    /* The tree lists the view as a view and the collection as a collection. */
+    {
+        cJSON *p = params_for(conn_id);
+        cJSON_AddStringToObject(p, "db", db_name);
+        root = rpc("schema.tree", p);
+        cJSON *res = result_of(root);
+        int ni = res ? col_index(res, "name") : -1, ti = res ? col_index(res, "type") : -1;
+        int saw_view = 0, saw_coll = 0;
+        for (int r = 0; ni >= 0 && ti >= 0 && r < row_count(root); r++) {
+            cJSON *nm = cell(res, r, ni), *ty = cell(res, r, ti);
+            if (cJSON_IsString(nm) && cJSON_IsString(ty)) {
+                saw_view |= strcmp(nm->valuestring, "quaero_wv") == 0 &&
+                            strcmp(ty->valuestring, "view") == 0;
+                saw_coll |= strcmp(nm->valuestring, "quaero_w") == 0 &&
+                            strcmp(ty->valuestring, "collection") == 0;
+            }
+        }
+        EXPECT(saw_view, "schema.tree lists the view with type view");
+        EXPECT(saw_coll, "schema.tree lists the collection with type collection");
+        cJSON_Delete(root);
+    }
+    expect_cmd(conn_id, "db.quaero_wv.drop()", 0, "dropped", "quaero_wv");
+
+    cJSON_Delete(run(conn_id, "db.quaero_r1.drop()"));
+    cJSON_Delete(run(conn_id, "db.quaero_r2.drop()"));
+    expect_cmd(conn_id, "db.quaero_r1.insertOne({_id: 1, v: 'one'})", 1, NULL, NULL);
+    expect_cmd(conn_id, "db.quaero_r2.insertOne({_id: 2, v: 'two'})", 1, NULL, NULL);
+    expect_cmd_error(conn_id, "db.quaero_r1.renameCollection('quaero_r2')", 0, "exists");
+    expect_cmd(conn_id, "db.quaero_r1.renameCollection('quaero_r3')", 0, "to", "quaero_r3");
+    expect_rows(conn_id, "db.quaero_r3.find({v: 'one'})", 1);
+    expect_cmd_error(conn_id, "db.quaero_r1.renameCollection('quaero_r4')", 0, "");
+    expect_cmd(conn_id, "db.quaero_r3.renameCollection('quaero_r2', true)", 0, "renamed", "quaero_r3");
+    expect_rows(conn_id, "db.quaero_r2.find()", 1);
+    expect_rows(conn_id, "db.getCollection('quaero_r2').find({v: 'one'})", 1);
+    /* Emptying a collection from the tree is deleteMany({}); dropping is drop(). */
+    expect_cmd(conn_id, "db.quaero_r2.deleteMany({})", 1, "deletedCount", "1");
+    expect_cmd(conn_id, "db.quaero_r2.drop()", 0, "dropped", "quaero_r2");
+
+    /* --- index management as the index manager drives it -------------------- */
+    root = run(conn_id, "db.quaero_w.getIndexes()");
+    EXPECT(!is_error(root) && row_count(root) == 2 && col_index(result_of(root), "name") >= 0 &&
+               col_index(result_of(root), "key") >= 0,
+           "getIndexes lists name and key (the index manager's columns)");
+    cJSON_Delete(root);
+    expect_cmd(conn_id, "db.quaero_w.createIndex({\"n\": 1, \"_id\": 1}, {\"name\": \"by_n_id\", \"unique\": true})",
+               0, "name", "by_n_id");
+    root = run(conn_id, "db.quaero_w.getIndexes()");
+    EXPECT(row_count(root) == 3, "the new index is listed");
+    cJSON_Delete(root);
+    expect_cmd(conn_id, "db.quaero_w.dropIndex(\"by_n_id\")", 0, "ok", "1");
+
+    expect_cmd(conn_id, "db.quaero_w.drop()", 0, "dropped", "quaero_w");
+}
+
+/*
+ * Multi-document transactions. A standalone server has none, and the driver says
+ * so: tx.begin fails with the UNSUPPORTED code and a message naming the replica
+ * set (the frontend's edit session keys on exactly that to apply changes as it
+ * goes). On a replica set the full behaviour is checked: operations join the
+ * transaction, other connections see nothing until commit, rollback discards, and
+ * a failed operation leaves a transaction that can still be rolled back.
+ */
+static void tx_section(const char *dsn, const char *conn_id)
+{
+    cJSON *root;
+    char msg[400];
+
+    /* Outside a transaction, commit and rollback are errors, not silent successes. */
+    root = rpc("tx.commit", params_for(conn_id));
+    EXPECT(is_error(root), "tx.commit with no transaction is an error");
+    cJSON_Delete(root);
+    root = rpc("tx.rollback", params_for(conn_id));
+    EXPECT(is_error(root), "tx.rollback with no transaction is an error");
+    cJSON_Delete(root);
+
+    cJSON_Delete(run(conn_id, "db.quaero_tx.drop()"));
+    expect_cmd(conn_id, "db.createCollection('quaero_tx')", 0, "created", "quaero_tx");
+
+    root = rpc("tx.begin", params_for(conn_id));
+    if (is_error(root)) {
+        snprintf(msg, sizeof msg, "tx.begin on a server without transactions is UNSUPPORTED (code %d)",
+                 error_code(root));
+        EXPECT(error_code(root) == -32001, msg);
+        snprintf(msg, sizeof msg, "the message says why (got '%s')", error_text(root));
+        EXPECT(strstr(error_text(root), "replica set") != NULL, msg);
+        cJSON_Delete(root);
+        /* Nothing was opened: statements still run directly. */
+        expect_cmd(conn_id, "db.quaero_tx.insertOne({_id: 1})", 1, NULL, NULL);
+        printf("NOTE: standalone server: transactions reported unsupported (the replica-set "
+               "checks need QUAERO_MONGODB_RS_DSN)\n");
+        expect_cmd(conn_id, "db.quaero_tx.drop()", 0, "dropped", "quaero_tx");
+        return;
+    }
+    cJSON_Delete(root);
+
+    char other[32] = "";
+    EXPECT(open_conn(dsn, other, sizeof other), "a second connection opens");
+
+    /* Operations join the transaction; another connection sees nothing yet. */
+    expect_cmd(conn_id, "db.quaero_tx.insertOne({_id: 1, v: 'in-tx'})", 1, NULL, NULL);
+    expect_cmd(conn_id, "db.quaero_tx.insertMany([{_id: 2, v: 'b'}, {_id: 3, v: 'c'}])", 2, NULL, NULL);
+    expect_cmd(conn_id, "db.quaero_tx.countDocuments({})", 0, "count", "3");
+    expect_rows(conn_id, "db.quaero_tx.find({v: 'b'})", 1);
+    expect_cmd(conn_id, "db.quaero_tx.updateMany({_id: {$gt: 1}}, {$set: {w: 1}})", 2, "modifiedCount", "2");
+    expect_cmd(conn_id, "db.quaero_tx.replaceOne({_id: 3}, {v: 'cc'})", 1, "matchedCount", "1");
+    expect_rows(conn_id, "db.quaero_tx.aggregate([{$match: {_id: {$gte: 2}}}])", 2);
+    expect_cmd(conn_id, "db.quaero_tx.deleteOne({_id: 3})", 1, "deletedCount", "1");
+    root = run(conn_id, "db.quaero_tx.distinct('v')");
+    EXPECT(!is_error(root) && row_count(root) == 2, "distinct runs in the transaction");
+    cJSON_Delete(root);
+    root = run(conn_id, "db.quaero_tx.getIndexes()");
+    EXPECT(!is_error(root) && row_count(root) == 1,
+           "getIndexes works while a transaction is open (it stays outside it)");
+    cJSON_Delete(root);
+    expect_cmd(conn_id, "db.runCommand({find: 'quaero_tx', filter: {_id: 1}})", 0, "ok", "1");
+    expect_cmd(other, "db.quaero_tx.countDocuments({})", 0, "count", "0");
+
+    /* Opening a second transaction on the same connection is refused. */
+    root = rpc("tx.begin", params_for(conn_id));
+    EXPECT(is_error(root) && strstr(error_text(root), "already") != NULL,
+           "tx.begin inside a transaction is refused");
+    cJSON_Delete(root);
+
+    root = rpc("tx.commit", params_for(conn_id));
+    snprintf(msg, sizeof msg, "tx.commit succeeds (%s)", is_error(root) ? error_text(root) : "ok");
+    EXPECT(!is_error(root), msg);
+    cJSON_Delete(root);
+    expect_cmd(other, "db.quaero_tx.countDocuments({})", 0, "count", "2");
+
+    /* Statements after the commit are not in a transaction any more. */
+    expect_cmd(conn_id, "db.quaero_tx.insertOne({_id: 10})", 1, NULL, NULL);
+    expect_cmd(other, "db.quaero_tx.countDocuments({})", 0, "count", "3");
+
+    /* A rollback discards everything since begin. */
+    EXPECT(!is_error(root = rpc("tx.begin", params_for(conn_id))), "tx.begin again");
+    cJSON_Delete(root);
+    expect_cmd(conn_id, "db.quaero_tx.deleteMany({})", 3, "deletedCount", "3");
+    expect_cmd(conn_id, "db.quaero_tx.insertOne({_id: 20})", 1, NULL, NULL);
+    root = rpc("tx.rollback", params_for(conn_id));
+    EXPECT(!is_error(root), "tx.rollback succeeds");
+    cJSON_Delete(root);
+    expect_cmd(other, "db.quaero_tx.countDocuments({})", 0, "count", "3");
+    expect_cmd(conn_id, "db.quaero_tx.countDocuments({})", 0, "count", "3");
+
+    /* A failing operation (duplicate key) aborts the server-side transaction; the
+       rollback that follows still succeeds and leaves the data as it was. */
+    EXPECT(!is_error(root = rpc("tx.begin", params_for(conn_id))), "tx.begin after a rollback");
+    cJSON_Delete(root);
+    expect_cmd(conn_id, "db.quaero_tx.insertOne({_id: 30})", 1, NULL, NULL);
+    expect_cmd_error(conn_id, "db.quaero_tx.insertOne({_id: 10})", 0, "duplicate key");
+    root = rpc("tx.rollback", params_for(conn_id));
+    snprintf(msg, sizeof msg, "tx.rollback after a failed operation succeeds (%s)",
+             is_error(root) ? error_text(root) : "ok");
+    EXPECT(!is_error(root), msg);
+    cJSON_Delete(root);
+    expect_cmd(conn_id, "db.quaero_tx.countDocuments({})", 0, "count", "3");
+
+    /* Closing the connection with a transaction open abandons it. */
+    {
+        char third[32] = "";
+        EXPECT(open_conn(dsn, third, sizeof third), "a third connection opens");
+        EXPECT(!is_error(root = rpc("tx.begin", params_for(third))), "tx.begin on the third");
+        cJSON_Delete(root);
+        expect_cmd(third, "db.quaero_tx.insertOne({_id: 40})", 1, NULL, NULL);
+        close_conn(third);
+        expect_cmd(other, "db.quaero_tx.countDocuments({})", 0, "count", "3");
+    }
+
+    close_conn(other);
+    expect_cmd(conn_id, "db.quaero_tx.drop()", 0, "dropped", "quaero_tx");
+}
+
+/*
+ * A user with only the read role: the monitor, profiler and rename commands must
+ * fail with the SERVER's own message (never an empty list or a fake success),
+ * while the user's own operations and plans stay available. Optional: runs when
+ * QUAERO_MONGODB_RO_DSN names such a user on a server with access control (the
+ * CI service has none, so it is skipped there).
+ */
+static void privilege_section(const char *ro_dsn)
+{
+    char ro[32] = "";
+    EXPECT(open_conn(ro_dsn, ro, sizeof ro), "the read-only connection opens");
+    if (ro[0] == '\0') {
+        return;
+    }
+    expect_cmd_error(ro, "db.currentOp()", 0, "not authorized");
+    cJSON *root = run(ro, "db.currentOp({$ownOps: true})");
+    EXPECT(!is_error(root), "currentOp({$ownOps: true}) works without the inprog privilege");
+    cJSON_Delete(root);
+    expect_cmd_error(ro, "db.setProfilingLevel(1)", 0, "not authorized");
+    expect_cmd_error(ro, "db.quaero_it.renameCollection('quaero_it_x')", 0, "not authorized");
+    expect_cmd_error(ro, "db.quaero_it.insertOne({_id: 99})", 0, "not authorized");
+    root = run(ro, "db.quaero_it.find().explain()");
+    EXPECT(!is_error(root) && strstr(first_cell(root, "queryPlanner"), "winningPlan") != NULL,
+           "a read-only user can still explain a find");
+    cJSON_Delete(root);
+    close_conn(ro);
+}
+
 int main(void)
 {
     const char *dsn = getenv("QUAERO_MONGODB_DSN");
@@ -554,6 +897,45 @@ int main(void)
 
     write_section(conn_id);
 
+    /* The connection's database, for the calls that name it. */
+    char db_name[128] = "test";
+    {
+        cJSON *d = cJSON_Parse(dsn);
+        cJSON *name = d != NULL ? cJSON_GetObjectItem(d, "database") : NULL;
+        if (cJSON_IsString(name) && name->valuestring[0] != '\0') {
+            snprintf(db_name, sizeof db_name, "%s", name->valuestring);
+        }
+        cJSON_Delete(d);
+    }
+    ops_section(conn_id, db_name);
+    tx_section(dsn, conn_id);
+
+    /* The replica-set half of the transaction checks, when a replica set is
+       provided (CI starts one); otherwise they are skipped with a note, and the
+       standalone half above has already checked the explicit refusal. */
+    const char *rs_dsn = getenv("QUAERO_MONGODB_RS_DSN");
+    if (rs_dsn != NULL && rs_dsn[0] != '\0') {
+        char rs_conn[32] = "";
+        EXPECT(open_conn(rs_dsn, rs_conn, sizeof rs_conn), "the replica-set connection opens");
+        if (rs_conn[0] != '\0') {
+            cJSON *probe = rpc("tx.begin", params_for(rs_conn));
+            EXPECT(!is_error(probe), "QUAERO_MONGODB_RS_DSN points at a server with transactions");
+            if (!is_error(probe)) {
+                cJSON_Delete(rpc("tx.rollback", params_for(rs_conn)));
+                tx_section(rs_dsn, rs_conn);
+            }
+            cJSON_Delete(probe);
+            close_conn(rs_conn);
+        }
+    } else {
+        printf("NOTE: QUAERO_MONGODB_RS_DSN not set; replica-set transaction checks skipped\n");
+    }
+
+    const char *ro_dsn = getenv("QUAERO_MONGODB_RO_DSN");
+    if (ro_dsn != NULL && ro_dsn[0] != '\0') {
+        privilege_section(ro_dsn);
+    }
+
     /* conn.close. */
     snprintf(req, sizeof req,
              "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"conn.close\","
@@ -569,7 +951,7 @@ int main(void)
     dbc_plugin_unload(plugin);
 
     if (failures == 0) {
-        printf("OK: MongoDB integration (conn + query + writes + DML + DDL over IPC)\n");
+        printf("OK: MongoDB integration (conn + query + writes + DML + DDL + plans + ops + tx over IPC)\n");
         return 0;
     }
     fprintf(stderr, "%d assertion(s) failed\n", failures);

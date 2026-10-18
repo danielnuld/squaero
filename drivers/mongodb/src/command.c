@@ -23,20 +23,20 @@
  * query error carrying the server's message.
  */
 
-static dbc_status fail_bson(dbc_conn *c, const char *ctx, const bson_error_t *berr)
+dbc_status mongo_fail_bson(dbc_conn *c, const char *ctx, const bson_error_t *berr)
 {
     mongo_stash_bson_error(c, ctx, berr);
     return DBC_ERR_QUERY;
 }
 
-static dbc_status fail_msg(dbc_conn *c, dbc_status st, const char *msg)
+dbc_status mongo_fail_msg(dbc_conn *c, dbc_status st, const char *msg)
 {
     mongo_set_err(c, msg);
     return st;
 }
 
 /* An integer-ish field of a server reply (int32/int64/double), else 0. */
-static long long reply_int(const bson_t *reply, const char *key)
+long long mongo_reply_int(const bson_t *reply, const char *key)
 {
     bson_iter_t it;
     if (reply != NULL && bson_iter_init_find(&it, reply, key)) {
@@ -55,7 +55,7 @@ static long long reply_int(const bson_t *reply, const char *key)
 
 /* Copy a server reply's useful fields into `ack` (session / cluster-time
    plumbing is dropped). */
-static void append_reply(bson_t *ack, const bson_t *reply, int keep_ok)
+void mongo_append_reply(bson_t *ack, const bson_t *reply, int keep_ok)
 {
     static const char *const skip[] = {"operationTime", "lastCommittedOpTime", "electionId",
                                        "opTime", "$clusterTime", "$gleStats", "$configTime",
@@ -77,7 +77,7 @@ static void append_reply(bson_t *ack, const bson_t *reply, int keep_ok)
 }
 
 /* Flatten `ack` (one row) and stamp rows_affected. */
-static dbc_status finish(dbc_conn *c, bson_t *ack, long long affected, dbc_result **out)
+dbc_status mongo_finish_ack(dbc_conn *c, bson_t *ack, long long affected, dbc_result **out)
 {
     bson_t *docs[1] = {ack};
     dbc_status st = mongo_result_from_docs(c, docs, 1, out);
@@ -89,7 +89,7 @@ static dbc_status finish(dbc_conn *c, bson_t *ack, long long affected, dbc_resul
 
 /* The optional options document at args[idx]: *opts stays NULL when absent.
    Returns DBC_OK, or an error status with the message stored. */
-static dbc_status parse_opts(dbc_conn *c, const mongo_query *q, int idx, bson_t **opts)
+dbc_status mongo_parse_opts(dbc_conn *c, const mongo_query *q, int idx, bson_t **opts)
 {
     *opts = NULL;
     if (q->nargs <= idx) {
@@ -98,9 +98,58 @@ static dbc_status parse_opts(dbc_conn *c, const mongo_query *q, int idx, bson_t 
     bson_error_t berr;
     *opts = mongo_bson_from_relaxed(q->args[idx], &berr);
     if (*opts == NULL) {
-        return fail_bson(c, "invalid options", &berr);
+        return mongo_fail_bson(c, "invalid options", &berr);
     }
     return DBC_OK;
+}
+
+dbc_status mongo_attach_session(dbc_conn *c, bson_t **opts)
+{
+    if (c->session == NULL) {
+        return DBC_OK;
+    }
+    if (*opts == NULL) {
+        *opts = bson_new();
+    }
+    bson_error_t berr;
+    if (!mongoc_client_session_append(c->session, *opts, &berr)) {
+        return mongo_fail_bson(c, "could not join the open transaction", &berr);
+    }
+    return DBC_OK;
+}
+
+/* mongo_parse_opts plus the open transaction's session: the options handed to
+   the mongoc call itself (not the ones that become part of a command body). On
+   error *opts is released, so callers need not. */
+static dbc_status parse_tx_opts(dbc_conn *c, const mongo_query *q, int idx, bson_t **opts)
+{
+    dbc_status st = mongo_parse_opts(c, q, idx, opts);
+    if (st == DBC_OK) {
+        st = mongo_attach_session(c, opts);
+    }
+    if (st != DBC_OK && *opts != NULL) {
+        bson_destroy(*opts);
+        *opts = NULL;
+    }
+    return st;
+}
+
+dbc_status mongo_run_admin_command(dbc_conn *c, const char *dbname, const bson_t *cmd,
+                                   const char *ctx, dbc_result **out)
+{
+    bson_t reply;
+    bson_error_t berr;
+    dbc_status st;
+    if (!mongoc_client_command_with_opts(c->client, dbname, cmd, NULL, NULL, &reply, &berr)) {
+        st = mongo_fail_bson(c, ctx, &berr);
+    } else {
+        bson_t ack = BSON_INITIALIZER;
+        mongo_append_reply(&ack, &reply, 1);
+        st = mongo_finish_ack(c, &ack, 0, out);
+        bson_destroy(&ack);
+    }
+    bson_destroy(&reply);
+    return st;
 }
 
 /* Prepend a generated ObjectId _id when `doc` has none (so insertedId can be
@@ -124,10 +173,10 @@ static dbc_status op_insert_one(dbc_conn *c, const mongo_query *q, mongoc_collec
     bson_error_t berr;
     bson_t *doc = mongo_bson_from_relaxed(q->args[0], &berr);
     if (doc == NULL) {
-        return fail_bson(c, "invalid document", &berr);
+        return mongo_fail_bson(c, "invalid document", &berr);
     }
     bson_t *opts = NULL;
-    dbc_status st = parse_opts(c, q, 1, &opts);
+    dbc_status st = parse_tx_opts(c, q, 1, &opts);
     if (st != DBC_OK) {
         bson_destroy(doc);
         return st;
@@ -137,7 +186,7 @@ static dbc_status op_insert_one(dbc_conn *c, const mongo_query *q, mongoc_collec
     bson_t reply;
     bool ok = mongoc_collection_insert_one(coll, full, opts, &reply, &berr);
     if (!ok) {
-        st = fail_bson(c, "insertOne failed", &berr);
+        st = mongo_fail_bson(c, "insertOne failed", &berr);
     } else {
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_BOOL(&ack, "acknowledged", true);
@@ -145,7 +194,7 @@ static dbc_status op_insert_one(dbc_conn *c, const mongo_query *q, mongoc_collec
         if (bson_iter_init_find(&it, full, "_id")) {
             bson_append_value(&ack, "insertedId", -1, bson_iter_value(&it));
         }
-        st = finish(c, &ack, 1, out);
+        st = mongo_finish_ack(c, &ack, 1, out);
         bson_destroy(&ack);
     }
     bson_destroy(&reply);
@@ -163,10 +212,10 @@ static dbc_status op_insert_many(dbc_conn *c, const mongo_query *q, mongoc_colle
     bson_error_t berr;
     bson_t *wrap = mongo_bson_wrap_relaxed("v", q->args[0], &berr);
     if (wrap == NULL) {
-        return fail_bson(c, "invalid documents array", &berr);
+        return mongo_fail_bson(c, "invalid documents array", &berr);
     }
     bson_t *opts = NULL;
-    dbc_status st = parse_opts(c, q, 1, &opts);
+    dbc_status st = parse_tx_opts(c, q, 1, &opts);
     if (st != DBC_OK) {
         bson_destroy(wrap);
         return st;
@@ -177,20 +226,20 @@ static dbc_status op_insert_many(dbc_conn *c, const mongo_query *q, mongoc_colle
     bson_iter_t it, arr;
     if (!bson_iter_init_find(&it, wrap, "v") || !BSON_ITER_HOLDS_ARRAY(&it) ||
         !bson_iter_recurse(&it, &arr)) {
-        st = fail_msg(c, DBC_ERR_QUERY, "insertMany() takes an array of documents");
+        st = mongo_fail_msg(c, DBC_ERR_QUERY, "insertMany() takes an array of documents");
         goto done;
     }
     size_t cap = 0;
     while (bson_iter_next(&arr)) {
         if (!BSON_ITER_HOLDS_DOCUMENT(&arr)) {
-            st = fail_msg(c, DBC_ERR_QUERY, "insertMany() documents must be objects");
+            st = mongo_fail_msg(c, DBC_ERR_QUERY, "insertMany() documents must be objects");
             goto done;
         }
         if (n >= cap) {
             size_t nc = cap == 0 ? 16 : cap * 2;
             bson_t **grown = realloc(docs, nc * sizeof *grown);
             if (grown == NULL) {
-                st = fail_msg(c, DBC_ERR_NOMEM, "out of memory");
+                st = mongo_fail_msg(c, DBC_ERR_NOMEM, "out of memory");
                 goto done;
             }
             docs = grown;
@@ -201,27 +250,27 @@ static dbc_status op_insert_many(dbc_conn *c, const mongo_query *q, mongoc_colle
         bson_iter_document(&arr, &len, &data);
         bson_t sub;
         if (!bson_init_static(&sub, data, len)) {
-            st = fail_msg(c, DBC_ERR_QUERY, "insertMany() got a malformed document");
+            st = mongo_fail_msg(c, DBC_ERR_QUERY, "insertMany() got a malformed document");
             goto done;
         }
         docs[n] = with_id(&sub);
         if (docs[n] == NULL) {
-            st = fail_msg(c, DBC_ERR_NOMEM, "out of memory");
+            st = mongo_fail_msg(c, DBC_ERR_NOMEM, "out of memory");
             goto done;
         }
         n++;
     }
     if (n == 0) {
-        st = fail_msg(c, DBC_ERR_QUERY, "insertMany() needs at least one document");
+        st = mongo_fail_msg(c, DBC_ERR_QUERY, "insertMany() needs at least one document");
         goto done;
     }
 
     bson_t reply;
     bool ok = mongoc_collection_insert_many(coll, (const bson_t **)docs, n, opts, &reply, &berr);
     if (!ok) {
-        st = fail_bson(c, "insertMany failed", &berr);
+        st = mongo_fail_bson(c, "insertMany failed", &berr);
     } else {
-        long long inserted = reply_int(&reply, "insertedCount");
+        long long inserted = mongo_reply_int(&reply, "insertedCount");
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_BOOL(&ack, "acknowledged", true);
         BSON_APPEND_INT64(&ack, "insertedCount", inserted);
@@ -237,7 +286,7 @@ static dbc_status op_insert_many(dbc_conn *c, const mongo_query *q, mongoc_colle
             }
         }
         bson_append_array_end(&ack, &ids);
-        st = finish(c, &ack, inserted, out);
+        st = mongo_finish_ack(c, &ack, inserted, out);
         bson_destroy(&ack);
     }
     bson_destroy(&reply);
@@ -261,13 +310,13 @@ static dbc_status op_update(dbc_conn *c, const mongo_query *q, mongoc_collection
     bson_error_t berr;
     bson_t *selector = mongo_bson_from_relaxed(q->args[0], &berr);
     if (selector == NULL) {
-        return fail_bson(c, "invalid filter", &berr);
+        return mongo_fail_bson(c, "invalid filter", &berr);
     }
     bson_t *opts = NULL;
     bson_t *upd_owner = NULL;   /* the parsed document, or the {v: [pipeline]} wrapper */
     bson_t pipeline;            /* static view of the pipeline array (when used) */
     const bson_t *update = NULL;
-    dbc_status st = parse_opts(c, q, 2, &opts);
+    dbc_status st = parse_tx_opts(c, q, 2, &opts);
     if (st != DBC_OK) {
         goto done;
     }
@@ -284,14 +333,14 @@ static dbc_status op_update(dbc_conn *c, const mongo_query *q, mongoc_collection
             }
         }
         if (update == NULL) {
-            st = fail_bson(c, "invalid update pipeline", &berr);
+            st = mongo_fail_bson(c, "invalid update pipeline", &berr);
             goto done;
         }
     } else {
         upd_owner = mongo_bson_from_relaxed(q->args[1], &berr);
         update = upd_owner;
         if (update == NULL) {
-            st = fail_bson(c, q->op == MONGO_OP_REPLACE_ONE ? "invalid replacement" : "invalid update",
+            st = mongo_fail_bson(c, q->op == MONGO_OP_REPLACE_ONE ? "invalid replacement" : "invalid update",
                            &berr);
             goto done;
         }
@@ -311,20 +360,20 @@ static dbc_status op_update(dbc_conn *c, const mongo_query *q, mongoc_collection
         what = "replaceOne failed";
     }
     if (!ok) {
-        st = fail_bson(c, what, &berr);
+        st = mongo_fail_bson(c, what, &berr);
     } else {
-        long long matched = reply_int(&reply, "matchedCount");
-        long long upserted = reply_int(&reply, "upsertedCount");
+        long long matched = mongo_reply_int(&reply, "matchedCount");
+        long long upserted = mongo_reply_int(&reply, "upsertedCount");
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_BOOL(&ack, "acknowledged", true);
         BSON_APPEND_INT64(&ack, "matchedCount", matched);
-        BSON_APPEND_INT64(&ack, "modifiedCount", reply_int(&reply, "modifiedCount"));
+        BSON_APPEND_INT64(&ack, "modifiedCount", mongo_reply_int(&reply, "modifiedCount"));
         BSON_APPEND_INT64(&ack, "upsertedCount", upserted);
         bson_iter_t it;
         if (bson_iter_init_find(&it, &reply, "upsertedId")) {
             bson_append_value(&ack, "upsertedId", -1, bson_iter_value(&it));
         }
-        st = finish(c, &ack, matched + upserted, out);
+        st = mongo_finish_ack(c, &ack, matched + upserted, out);
         bson_destroy(&ack);
     }
     bson_destroy(&reply);
@@ -347,10 +396,10 @@ static dbc_status op_delete(dbc_conn *c, const mongo_query *q, mongoc_collection
     bson_error_t berr;
     bson_t *selector = mongo_bson_from_relaxed(q->args[0], &berr);
     if (selector == NULL) {
-        return fail_bson(c, "invalid filter", &berr);
+        return mongo_fail_bson(c, "invalid filter", &berr);
     }
     bson_t *opts = NULL;
-    dbc_status st = parse_opts(c, q, 1, &opts);
+    dbc_status st = parse_tx_opts(c, q, 1, &opts);
     if (st != DBC_OK) {
         bson_destroy(selector);
         return st;
@@ -360,13 +409,13 @@ static dbc_status op_delete(dbc_conn *c, const mongo_query *q, mongoc_collection
                   ? mongoc_collection_delete_one(coll, selector, opts, &reply, &berr)
                   : mongoc_collection_delete_many(coll, selector, opts, &reply, &berr);
     if (!ok) {
-        st = fail_bson(c, "delete failed", &berr);
+        st = mongo_fail_bson(c, "delete failed", &berr);
     } else {
-        long long deleted = reply_int(&reply, "deletedCount");
+        long long deleted = mongo_reply_int(&reply, "deletedCount");
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_BOOL(&ack, "acknowledged", true);
         BSON_APPEND_INT64(&ack, "deletedCount", deleted);
-        st = finish(c, &ack, deleted, out);
+        st = mongo_finish_ack(c, &ack, deleted, out);
         bson_destroy(&ack);
     }
     bson_destroy(&reply);
@@ -383,18 +432,18 @@ static dbc_status op_count(dbc_conn *c, const mongo_query *q, mongoc_collection_
     bson_error_t berr;
     bson_t *filter = mongo_bson_from_relaxed(q->nargs > 0 ? q->args[0] : "{}", &berr);
     if (filter == NULL) {
-        return fail_bson(c, "invalid filter", &berr);
+        return mongo_fail_bson(c, "invalid filter", &berr);
     }
     bson_t *opts = NULL;
-    dbc_status st = parse_opts(c, q, 1, &opts);
+    dbc_status st = parse_tx_opts(c, q, 1, &opts);
     if (st == DBC_OK) {
         int64_t n = mongoc_collection_count_documents(coll, filter, opts, NULL, NULL, &berr);
         if (n < 0) {
-            st = fail_bson(c, "countDocuments failed", &berr);
+            st = mongo_fail_bson(c, "countDocuments failed", &berr);
         } else {
             bson_t ack = BSON_INITIALIZER;
             BSON_APPEND_INT64(&ack, "count", n);
-            st = finish(c, &ack, 0, out);
+            st = mongo_finish_ack(c, &ack, 0, out);
             bson_destroy(&ack);
         }
     }
@@ -412,7 +461,7 @@ static dbc_status op_distinct(dbc_conn *c, const mongo_query *q, mongoc_collecti
     char *field = mongo_unquote(q->args[0]);
     if (field == NULL || field[0] == '\0') {
         free(field);
-        return fail_msg(c, DBC_ERR_QUERY, "distinct() field must be a non-empty string");
+        return mongo_fail_msg(c, DBC_ERR_QUERY, "distinct() field must be a non-empty string");
     }
     bson_error_t berr;
     bson_t *filter = NULL;
@@ -421,11 +470,11 @@ static dbc_status op_distinct(dbc_conn *c, const mongo_query *q, mongoc_collecti
     if (q->nargs > 1) {
         filter = mongo_bson_from_relaxed(q->args[1], &berr);
         if (filter == NULL) {
-            st = fail_bson(c, "invalid filter", &berr);
+            st = mongo_fail_bson(c, "invalid filter", &berr);
             goto done;
         }
     }
-    st = parse_opts(c, q, 2, &opts);
+    st = parse_tx_opts(c, q, 2, &opts);
     if (st != DBC_OK) {
         goto done;
     }
@@ -440,13 +489,13 @@ static dbc_status op_distinct(dbc_conn *c, const mongo_query *q, mongoc_collecti
     bool ok = mongoc_collection_read_command_with_opts(coll, &cmd, NULL, opts, &reply, &berr);
     st = DBC_ERR_QUERY;
     if (!ok) {
-        st = fail_bson(c, "distinct failed", &berr);
+        st = mongo_fail_bson(c, "distinct failed", &berr);
     } else {
         dbc_result *r = mongo_result_new();
         bson_iter_t it, vals;
         if (r == NULL || mongo_result_add_column(r, "value", DBC_TYPE_NULL) != 0) {
             mongo_free_result(r);
-            st = fail_msg(c, DBC_ERR_NOMEM, "out of memory");
+            st = mongo_fail_msg(c, DBC_ERR_NOMEM, "out of memory");
         } else {
             st = DBC_OK;
             if (bson_iter_init_find(&it, &reply, "values") && BSON_ITER_HOLDS_ARRAY(&it) &&
@@ -460,14 +509,14 @@ static dbc_status op_distinct(dbc_conn *c, const mongo_query *q, mongoc_collecti
                     if ((!is_null && txt == NULL) || cells == NULL) {
                         free(txt);
                         free(cells);
-                        st = fail_msg(c, DBC_ERR_NOMEM, "out of memory");
+                        st = mongo_fail_msg(c, DBC_ERR_NOMEM, "out of memory");
                         break;
                     }
                     cells[0] = txt;
                     if (mongo_result_add_row(r, cells) != 0) {
                         free(txt);
                         free(cells);
-                        st = fail_msg(c, DBC_ERR_NOMEM, "out of memory");
+                        st = mongo_fail_msg(c, DBC_ERR_NOMEM, "out of memory");
                         break;
                     }
                     if (!is_null && mongo_col_type(r, 0) == DBC_TYPE_NULL) {
@@ -497,16 +546,49 @@ done:
     return st;
 }
 
+/* The command options joining the open transaction (*topts stays NULL outside
+   one). False, with `berr` filled, when the session cannot be attached. */
+static bool tx_opts(dbc_conn *c, bson_t **topts, bson_error_t *berr)
+{
+    *topts = NULL;
+    if (mongo_attach_session(c, topts) == DBC_OK) {
+        return true;
+    }
+    if (*topts != NULL) {
+        bson_destroy(*topts);
+        *topts = NULL;
+    }
+    bson_set_error(berr, MONGOC_ERROR_COMMAND, MONGOC_ERROR_COMMAND_INVALID_ARG, "%s", c->err);
+    return false;
+}
+
+/* mongoc_collection_write_command_with_opts, inside the open transaction if any.
+   `reply` is always initialized. */
+static bool write_cmd(dbc_conn *c, mongoc_collection_t *coll, const bson_t *cmd,
+                      bson_t *reply, bson_error_t *berr)
+{
+    bson_t *topts;
+    if (!tx_opts(c, &topts, berr)) {
+        bson_init(reply);
+        return false;
+    }
+    bool ok = mongoc_collection_write_command_with_opts(coll, cmd, topts, reply, berr);
+    if (topts != NULL) {
+        bson_destroy(topts);
+    }
+    return ok;
+}
+
 static dbc_status op_create_index(dbc_conn *c, const mongo_query *q, mongoc_collection_t *coll,
                                   dbc_result **out)
 {
     bson_error_t berr;
     bson_t *keys = mongo_bson_from_relaxed(q->args[0], &berr);
     if (keys == NULL) {
-        return fail_bson(c, "invalid index keys", &berr);
+        return mongo_fail_bson(c, "invalid index keys", &berr);
     }
     bson_t *opts = NULL;
-    dbc_status st = parse_opts(c, q, 1, &opts);
+    dbc_status st = mongo_parse_opts(c, q, 1, &opts);
     if (st != DBC_OK) {
         bson_destroy(keys);
         return st;
@@ -516,7 +598,7 @@ static dbc_status op_create_index(dbc_conn *c, const mongo_query *q, mongoc_coll
         if (opts != NULL) {
             bson_destroy(opts);
         }
-        return fail_msg(c, DBC_ERR_QUERY, "createIndex() needs at least one key");
+        return mongo_fail_msg(c, DBC_ERR_QUERY, "createIndex() needs at least one key");
     }
 
     /* The index name: the explicit "name" option, else the conventional
@@ -546,13 +628,13 @@ static dbc_status op_create_index(dbc_conn *c, const mongo_query *q, mongoc_coll
     bson_append_array_end(&cmd, &indexes);
 
     bson_t reply;
-    if (!mongoc_collection_write_command_with_opts(coll, &cmd, NULL, &reply, &berr)) {
-        st = fail_bson(c, "createIndex failed", &berr);
+    if (!write_cmd(c, coll, &cmd, &reply, &berr)) {
+        st = mongo_fail_bson(c, "createIndex failed", &berr);
     } else {
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_UTF8(&ack, "name", name);
-        append_reply(&ack, &reply, 0);
-        st = finish(c, &ack, 0, out);
+        mongo_append_reply(&ack, &reply, 0);
+        st = mongo_finish_ack(c, &ack, 0, out);
         bson_destroy(&ack);
     }
     bson_destroy(&reply);
@@ -574,7 +656,7 @@ static dbc_status op_drop_index(dbc_conn *c, const mongo_query *q, mongoc_collec
     if (q->args[0][0] == '{') {
         bson_t *keys = mongo_bson_from_relaxed(q->args[0], &berr);
         if (keys == NULL) {
-            return fail_bson(c, "invalid index keys", &berr);
+            return mongo_fail_bson(c, "invalid index keys", &berr);
         }
         generated = mongoc_collection_keys_to_index_string(keys);
         bson_destroy(keys);
@@ -582,7 +664,7 @@ static dbc_status op_drop_index(dbc_conn *c, const mongo_query *q, mongoc_collec
         name = mongo_unquote(q->args[0]);
         if (name == NULL || name[0] == '\0') {
             free(name);
-            return fail_msg(c, DBC_ERR_QUERY, "dropIndex() takes an index name or its key pattern");
+            return mongo_fail_msg(c, DBC_ERR_QUERY, "dropIndex() takes an index name or its key pattern");
         }
     }
 
@@ -590,12 +672,12 @@ static dbc_status op_drop_index(dbc_conn *c, const mongo_query *q, mongoc_collec
     BSON_APPEND_UTF8(&cmd, "dropIndexes", q->collection);
     BSON_APPEND_UTF8(&cmd, "index", name != NULL ? name : generated);
     dbc_status st;
-    if (!mongoc_collection_write_command_with_opts(coll, &cmd, NULL, &reply, &berr)) {
-        st = fail_bson(c, "dropIndex failed", &berr);
+    if (!write_cmd(c, coll, &cmd, &reply, &berr)) {
+        st = mongo_fail_bson(c, "dropIndex failed", &berr);
     } else {
         bson_t ack = BSON_INITIALIZER;
-        append_reply(&ack, &reply, 1);
-        st = finish(c, &ack, 0, out);
+        mongo_append_reply(&ack, &reply, 1);
+        st = mongo_finish_ack(c, &ack, 0, out);
         bson_destroy(&ack);
     }
     bson_destroy(&reply);
@@ -607,9 +689,11 @@ static dbc_status op_drop_index(dbc_conn *c, const mongo_query *q, mongoc_collec
 
 static dbc_status op_get_indexes(dbc_conn *c, mongoc_collection_t *coll, dbc_result **out)
 {
+    /* listIndexes is not allowed inside a transaction (the server would abort
+       it), so this read stays outside the open one. */
     mongoc_cursor_t *cursor = mongoc_collection_find_indexes_with_opts(coll, NULL);
     if (cursor == NULL) {
-        return fail_msg(c, DBC_ERR_QUERY, "could not list indexes");
+        return mongo_fail_msg(c, DBC_ERR_QUERY, "could not list indexes");
     }
     dbc_status st = mongo_result_from_cursor(c, cursor, "getIndexes failed", out);
     mongoc_cursor_destroy(cursor);
@@ -620,18 +704,18 @@ static dbc_status op_drop(dbc_conn *c, const mongo_query *q, mongoc_collection_t
                           dbc_result **out)
 {
     bson_t *opts = NULL;
-    dbc_status st = parse_opts(c, q, 0, &opts);
+    dbc_status st = parse_tx_opts(c, q, 0, &opts);
     if (st != DBC_OK) {
         return st;
     }
     bson_error_t berr;
     if (!mongoc_collection_drop_with_opts(coll, opts, &berr)) {
-        st = fail_bson(c, "drop failed", &berr);
+        st = mongo_fail_bson(c, "drop failed", &berr);
     } else {
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_BOOL(&ack, "acknowledged", true);
         BSON_APPEND_UTF8(&ack, "dropped", q->collection);
-        st = finish(c, &ack, 0, out);
+        st = mongo_finish_ack(c, &ack, 0, out);
         bson_destroy(&ack);
     }
     if (opts != NULL) {
@@ -645,10 +729,10 @@ static dbc_status op_create_collection(dbc_conn *c, const mongo_query *q, dbc_re
     char *name = mongo_unquote(q->args[0]);
     if (name == NULL || name[0] == '\0') {
         free(name);
-        return fail_msg(c, DBC_ERR_QUERY, "createCollection() takes a non-empty collection name");
+        return mongo_fail_msg(c, DBC_ERR_QUERY, "createCollection() takes a non-empty collection name");
     }
     bson_t *opts = NULL;
-    dbc_status st = parse_opts(c, q, 1, &opts);
+    dbc_status st = parse_tx_opts(c, q, 1, &opts);
     if (st != DBC_OK) {
         free(name);
         return st;
@@ -657,13 +741,13 @@ static dbc_status op_create_collection(dbc_conn *c, const mongo_query *q, dbc_re
     bson_error_t berr;
     mongoc_collection_t *created = mongoc_database_create_collection(database, name, opts, &berr);
     if (created == NULL) {
-        st = fail_bson(c, "createCollection failed", &berr);
+        st = mongo_fail_bson(c, "createCollection failed", &berr);
     } else {
         mongoc_collection_destroy(created);
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_INT32(&ack, "ok", 1);
         BSON_APPEND_UTF8(&ack, "created", name);
-        st = finish(c, &ack, 0, out);
+        st = mongo_finish_ack(c, &ack, 0, out);
         bson_destroy(&ack);
     }
     mongoc_database_destroy(database);
@@ -684,7 +768,7 @@ static dbc_status op_create_view(dbc_conn *c, const mongo_query *q, dbc_result *
     dbc_status st = DBC_ERR_QUERY;
     int have_pipeline = 0;
     if (name == NULL || name[0] == '\0' || source == NULL || source[0] == '\0') {
-        st = fail_msg(c, DBC_ERR_QUERY, "createView() takes the view name and its source collection");
+        st = mongo_fail_msg(c, DBC_ERR_QUERY, "createView() takes the view name and its source collection");
         goto done;
     }
     wrap = mongo_bson_wrap_relaxed("v", q->args[2], &berr);
@@ -696,10 +780,10 @@ static dbc_status op_create_view(dbc_conn *c, const mongo_query *q, dbc_result *
         have_pipeline = bson_init_static(&pipeline, data, len);
     }
     if (!have_pipeline) {
-        st = fail_bson(c, "invalid view pipeline", &berr);
+        st = mongo_fail_bson(c, "invalid view pipeline", &berr);
         goto done;
     }
-    st = parse_opts(c, q, 3, &opts);
+    st = mongo_parse_opts(c, q, 3, &opts);
     if (st != DBC_OK) {
         goto done;
     }
@@ -714,13 +798,23 @@ static dbc_status op_create_view(dbc_conn *c, const mongo_query *q, dbc_result *
         }
     }
     mongoc_database_t *database = mongoc_client_get_database(c->client, c->db);
-    if (!mongoc_database_write_command_with_opts(database, &cmd, NULL, &reply, &berr)) {
-        st = fail_bson(c, "createView failed", &berr);
+    bson_t *topts = NULL;
+    bool sent = false;
+    if (tx_opts(c, &topts, &berr)) {
+        sent = mongoc_database_write_command_with_opts(database, &cmd, topts, &reply, &berr);
+    } else {
+        bson_init(&reply);
+    }
+    if (topts != NULL) {
+        bson_destroy(topts);
+    }
+    if (!sent) {
+        st = mongo_fail_bson(c, "createView failed", &berr);
     } else {
         bson_t ack = BSON_INITIALIZER;
         BSON_APPEND_INT32(&ack, "ok", 1);
         BSON_APPEND_UTF8(&ack, "created", name);
-        st = finish(c, &ack, 0, out);
+        st = mongo_finish_ack(c, &ack, 0, out);
         bson_destroy(&ack);
     }
     bson_destroy(&reply);
@@ -742,21 +836,21 @@ done:
 static dbc_status op_run_command(dbc_conn *c, const mongo_query *q, dbc_result **out)
 {
     if (q->nargs > 1) {
-        return fail_msg(c, DBC_ERR_UNSUPPORTED, "runCommand() options are not supported");
+        return mongo_fail_msg(c, DBC_ERR_UNSUPPORTED, "runCommand() options are not supported");
     }
     bson_error_t berr;
     bson_t *cmd = NULL;
     if (q->args[0][0] == '{') {
         cmd = mongo_bson_from_relaxed(q->args[0], &berr);
         if (cmd == NULL) {
-            return fail_bson(c, "invalid command", &berr);
+            return mongo_fail_bson(c, "invalid command", &berr);
         }
     } else {
         /* runCommand("ping") is shorthand for runCommand({ping: 1}). */
         char *name = mongo_unquote(q->args[0]);
         if (name == NULL || name[0] == '\0') {
             free(name);
-            return fail_msg(c, DBC_ERR_QUERY, "runCommand() takes a command document or a name");
+            return mongo_fail_msg(c, DBC_ERR_QUERY, "runCommand() takes a command document or a name");
         }
         cmd = bson_new();
         BSON_APPEND_INT32(cmd, name, 1);
@@ -764,18 +858,28 @@ static dbc_status op_run_command(dbc_conn *c, const mongo_query *q, dbc_result *
     }
     if (bson_empty(cmd)) {
         bson_destroy(cmd);
-        return fail_msg(c, DBC_ERR_QUERY, "runCommand() needs a non-empty command document");
+        return mongo_fail_msg(c, DBC_ERR_QUERY, "runCommand() needs a non-empty command document");
     }
 
     bson_t reply;
     dbc_status st;
-    if (!mongoc_client_command_with_opts(c->client, c->db, cmd, NULL, NULL, &reply, &berr)) {
-        st = fail_bson(c, "command failed", &berr);
+    bson_t *topts = NULL;
+    bool sent = false;
+    if (tx_opts(c, &topts, &berr)) {
+        sent = mongoc_client_command_with_opts(c->client, c->db, cmd, NULL, topts, &reply, &berr);
+    } else {
+        bson_init(&reply);
+    }
+    if (topts != NULL) {
+        bson_destroy(topts);
+    }
+    if (!sent) {
+        st = mongo_fail_bson(c, "command failed", &berr);
     } else {
         bson_t *docs[1] = {&reply};
         st = mongo_result_from_docs(c, docs, 1, out);
         if (st == DBC_OK && *out != NULL) {
-            mongo_result_set_affected(*out, reply_int(&reply, "n"));
+            mongo_result_set_affected(*out, mongo_reply_int(&reply, "n"));
         }
     }
     bson_destroy(&reply);
@@ -795,10 +899,15 @@ dbc_status mongo_command_exec(dbc_conn *c, const mongo_query *q, dbc_result **ou
     if (q->op == MONGO_OP_CREATE_VIEW) {
         return op_create_view(c, q, out);
     }
+    if (q->op == MONGO_OP_RENAME || q->op == MONGO_OP_CURRENT_OP || q->op == MONGO_OP_KILL_OP ||
+        q->op == MONGO_OP_SET_PROFILING || q->op == MONGO_OP_GET_PROFILING ||
+        q->op == MONGO_OP_COLLECTION_INFOS) {
+        return mongo_admin_exec(c, q, out);
+    }
 
     mongoc_collection_t *coll = mongoc_client_get_collection(c->client, c->db, q->collection);
     if (coll == NULL) {
-        return fail_msg(c, DBC_ERR_QUERY, "could not open collection");
+        return mongo_fail_msg(c, DBC_ERR_QUERY, "could not open collection");
     }
     dbc_status st;
     switch (q->op) {
@@ -816,7 +925,7 @@ dbc_status mongo_command_exec(dbc_conn *c, const mongo_query *q, dbc_result **ou
     case MONGO_OP_GET_INDEXES:  st = op_get_indexes(c, coll, out); break;
     case MONGO_OP_DROP:         st = op_drop(c, q, coll, out); break;
     default:
-        st = fail_msg(c, DBC_ERR_UNSUPPORTED, "unsupported operation");
+        st = mongo_fail_msg(c, DBC_ERR_UNSUPPORTED, "unsupported operation");
         break;
     }
     mongoc_collection_destroy(coll);

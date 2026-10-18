@@ -24,6 +24,10 @@ export interface ObjectListSupport {
   sql: string | null;
   /** Columns present in the result, in display order. */
   columns: ObjectListColumn[];
+  /** Result columns holding the object's name and type, when they are not the
+      `nombre` / `tipo` aliases the SQL engines produce (MongoDB's own). */
+  nameKey?: string;
+  typeKey?: string;
   /** i18n message key for the honest reason shown when unsupported (t() at the view). */
   reason: string | null;
 }
@@ -101,11 +105,19 @@ export function objectListFor(engine: string, db: string): ObjectListSupport {
         reason: null,
       };
     case "mongodb":
+      // The collections and views of the connected database, as the server lists
+      // them (name, type, options). No row count or size: the server has none
+      // without a collStats per collection, and we only advertise what we get.
       return {
-        supported: false,
-        sql: null,
-        columns: [],
-        reason: "objlist.reasonMongo",
+        supported: true,
+        sql: "db.getCollectionInfos()",
+        columns: [
+          { key: "name", label: "objlist.colName" },
+          { key: "type", label: "objlist.colType" },
+        ],
+        nameKey: "name",
+        typeKey: "type",
+        reason: null,
       };
     default:
       return {

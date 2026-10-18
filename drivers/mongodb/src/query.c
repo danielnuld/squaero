@@ -15,6 +15,17 @@
  * DBC_ERR_UNSUPPORTED -- never a fake success.
  */
 
+/* The options every read carries: the open transaction's session, and the
+   connection's cancel tag as the operation's `comment`, which is how cancel finds
+   the operation on the server (cancel.c). */
+static bool attach_read_opts(dbc_conn *c, bson_t *opts, bson_error_t *berr)
+{
+    if (c->cancel_tag[0] != '\0') {
+        BSON_APPEND_UTF8(opts, "comment", c->cancel_tag);
+    }
+    return c->session == NULL || mongoc_client_session_append(c->session, opts, berr);
+}
+
 /* find / findOne / aggregate over `q`. */
 static dbc_status run_read(dbc_conn *c, const mongo_query *q, dbc_result **out)
 {
@@ -61,6 +72,10 @@ static dbc_status run_read(dbc_conn *c, const mongo_query *q, dbc_result **out)
         if (q->skip >= 0) {
             bson_append_int64(&opts, "skip", -1, q->skip);
         }
+        if (!attach_read_opts(c, &opts, &berr)) {
+            mongo_stash_bson_error(c, "query failed", &berr);
+            goto done;
+        }
         cursor = mongoc_collection_find_with_opts(coll, filter, &opts, NULL);
     } else {
         /* aggregate: wrap the pipeline array so bson_new_from_json (which needs a
@@ -70,7 +85,11 @@ static dbc_status run_read(dbc_conn *c, const mongo_query *q, dbc_result **out)
             mongo_stash_bson_error(c, "invalid pipeline", &berr);
             goto done;
         }
-        cursor = mongoc_collection_aggregate(coll, MONGOC_QUERY_NONE, filter, NULL, NULL);
+        if (!attach_read_opts(c, &opts, &berr)) {
+            mongo_stash_bson_error(c, "query failed", &berr);
+            goto done;
+        }
+        cursor = mongoc_collection_aggregate(coll, MONGOC_QUERY_NONE, filter, &opts, NULL);
     }
 
     if (cursor == NULL) {
@@ -112,9 +131,12 @@ dbc_status mongo_query_exec(dbc_conn *c, const char *sql, dbc_result **out)
         return prc == MONGO_PARSE_UNSUPPORTED ? DBC_ERR_UNSUPPORTED : DBC_ERR_QUERY;
     }
 
-    dbc_status status = (q.op == MONGO_OP_FIND || q.op == MONGO_OP_AGGREGATE)
-                            ? run_read(c, &q, out)
-                            : mongo_command_exec(c, &q, out);
+    dbc_status status;
+    if (q.op == MONGO_OP_FIND || q.op == MONGO_OP_AGGREGATE) {
+        status = (q.explain != NULL) ? mongo_explain_exec(c, &q, out) : run_read(c, &q, out);
+    } else {
+        status = mongo_command_exec(c, &q, out);
+    }
     mongo_query_free(&q);
     return status;
 }
