@@ -6,6 +6,7 @@ import {
   buildDropIndex,
   buildAddConstraint,
   buildDropConstraint,
+  indexDdlInTransaction,
 } from "../../src/utils/indexes";
 
 describe("indexListFor", () => {
@@ -44,9 +45,18 @@ describe("indexListFor", () => {
     expect(indexListFor("mysql", "o'brien").sql).toContain("TABLE_NAME = 'o''brien'");
   });
 
-  it("unsupported for MongoDB and when no table", () => {
-    expect(indexListFor("mongodb", "t").supported).toBe(false);
+  it("MongoDB reads getIndexes() with the name and key columns", () => {
+    const l = indexListFor("mongodb", "orders");
+    expect(l.supported).toBe(true);
+    expect(l.sql).toBe("db.orders.getIndexes()");
+    expect(l.nameCol).toBe("name");
+    expect(l.detailCols.map((d) => d.col)).toEqual(["key", "unique"]);
+    expect(indexListFor("mongodb", "my-coll").sql).toBe('db.getCollection("my-coll").getIndexes()');
+  });
+
+  it("unsupported when no table", () => {
     expect(indexListFor("mysql", "  ").supported).toBe(false);
+    expect(indexListFor("mongodb", "  ").supported).toBe(false);
   });
 });
 
@@ -101,8 +111,21 @@ describe("buildCreateIndex", () => {
     expect(buildCreateIndex("mysql", { name: "i", table: "t", columns: [" "], unique: false }).ok).toBe(false);
   });
 
-  it("MongoDB is honestly rejected", () => {
-    expect(buildCreateIndex("mongodb", { name: "i", table: "t", columns: ["a"], unique: false }).ok).toBe(false);
+  it("MongoDB builds a createIndex on ascending keys", () => {
+    expect(buildCreateIndex("mongodb", { name: "i", table: "t", columns: ["a", " b "], unique: true })).toEqual({
+      ok: true,
+      sql: 'db.t.createIndex({"a": 1, "b": 1}, {"name": "i", "unique": true})',
+    });
+    expect(buildCreateIndex("mongodb", { name: "i", table: "t", columns: ["a"], unique: false })).toEqual({
+      ok: true,
+      sql: 'db.t.createIndex({"a": 1}, {"name": "i"})',
+    });
+  });
+
+  it("MongoDB still validates the name, the collection and the keys", () => {
+    expect(buildCreateIndex("mongodb", { name: "", table: "t", columns: ["a"], unique: false }).ok).toBe(false);
+    expect(buildCreateIndex("mongodb", { name: "i", table: "", columns: ["a"], unique: false }).ok).toBe(false);
+    expect(buildCreateIndex("mongodb", { name: "i", table: "t", columns: [], unique: false }).ok).toBe(false);
   });
 });
 
@@ -127,8 +150,19 @@ describe("buildDropIndex", () => {
     expect(buildDropIndex("informix", { name: "idx", table: "t" })).toEqual({ ok: true, sql: "DROP INDEX idx" });
   });
 
-  it("MongoDB is honestly rejected", () => {
-    expect(buildDropIndex("mongodb", { name: "idx", table: "t" }).ok).toBe(false);
+  it("MongoDB drops by name on the collection", () => {
+    expect(buildDropIndex("mongodb", { name: "idx", table: "t" })).toEqual({
+      ok: true,
+      sql: 'db.t.dropIndex("idx")',
+    });
+    expect(buildDropIndex("mongodb", { name: "", table: "t" }).ok).toBe(false);
+    expect(buildDropIndex("mongodb", { name: "idx", table: "" }).ok).toBe(false);
+  });
+
+  it("index DDL runs in a transaction except on MongoDB", () => {
+    expect(indexDdlInTransaction("mysql")).toBe(true);
+    expect(indexDdlInTransaction("postgres")).toBe(true);
+    expect(indexDdlInTransaction("mongodb")).toBe(false);
   });
 });
 

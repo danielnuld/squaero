@@ -59,6 +59,11 @@ db.<collection>.createIndex(<keys>, <opts?>)    db.<collection>.dropIndex(<name 
 db.<collection>.getIndexes()                    db.<collection>.drop()
 db.createCollection("<name>", <opts?>)          db.createView("<name>", "<source>", <pipeline>, <opts?>)
 db.runCommand(<doc | "name">)
+db.<collection>.renameCollection("<new>", <dropTarget?>)
+db.<collection>.find(...)[...].explain(<verbosity?>)      db.<collection>.aggregate([...]).explain(<verbosity?>)
+db.currentOp(<filter?>)                         db.killOp(<opid>)
+db.setProfilingLevel(<0|1|2>, <slowms | opts?>)  db.getProfilingStatus()
+db.getCollectionInfos(<filter?>, <opts?>)
 db.getCollection("<name>").<method>(...)        (addresses any collection name)
 ```
 
@@ -127,8 +132,9 @@ db.users.deleteOne({"$or": [{"_id": 7}, {"_id": "7"}]})
 - A collection name that is not a plain identifier goes through
   `db.getCollection("...")`. Statements run against the connected database, so
   editing another database's collection is refused (`DBC_ERR_UNSUPPORTED`).
-- **No transactions.** The driver does not advertise `DBC_FEAT_TRANSACTIONS`, so
-  `tx.begin` answers unsupported and the frontend's edit session applies each
+- **Transactions depend on the server.** On a replica set or a sharded cluster the
+  edit session runs inside a multi-document transaction (below). On a standalone
+  `mongod` `tx.begin` answers unsupported and the frontend's edit session applies each
   change as it runs (nothing to commit or roll back). If one fails midway, the ones
   before it stay applied and the session ends with a message saying so.
 - Limitations: an ObjectId-valued field *other than* `_id` is shown as text and is
@@ -154,6 +160,94 @@ db.orders.createIndex({ "sku" : 1 }, { "name": "sku_1", "unique" : true });
 
 The script runs in Squaero's own editor as well as in mongosh. A text index is
 rebuilt from its `weights` (`{ "t" : "text" }`).
+
+## Transactions (`DBC_FEAT_TRANSACTIONS`)
+
+`tx.begin` / `tx.commit` / `tx.rollback` are multi-document transactions over a mongoc
+client session (`txn.c`). The capability flag is static but the capability is the
+server's, so `begin` checks the topology it is really connected to
+(`utils/tx_support.c`): a replica-set primary (4.0+) or a mongos (4.2+) can; a
+standalone `mongod`, a secondary or an older server cannot, and `begin` fails with
+`DBC_ERR_UNSUPPORTED` (JSON-RPC `-32001`) and the reason, e.g. *"transactions need a
+replica set or a sharded cluster: this MongoDB server is standalone"*. The frontend's
+edit session (`txBeginIfSupported`) treats that exactly like an engine without
+transactions and applies each change as it runs.
+
+While a transaction is open every operation joins it (the session is passed in the
+options of `find`, `aggregate`, the writes, `countDocuments`, `distinct`,
+`createIndex`/`dropIndex`, `drop`, `createCollection`/`createView` and `runCommand`);
+`getIndexes`, `explain` and the server commands of the monitor/profiler run outside it
+because the server does not allow them inside. Other connections see nothing until
+`commit`; `rollback` discards. A second `begin` inside a transaction, or a
+`commit`/`rollback` with none open, is an error. A failed operation aborts the
+transaction on the server; the following `rollback` still succeeds (mongoc logs a
+harmless *"Error in abortTransaction ... has been aborted"* warning to stderr).
+Disconnecting with a transaction open abandons it. The index manager does not use a
+transaction on MongoDB (an index cannot be built inside one).
+
+## Execution plan
+
+`db.coll.find(...).sort(...).limit(n).explain()` and `db.coll.aggregate([...]).explain()`
+run the `explain` command and return its reply as one row (`queryPlanner`,
+`executionStats` when asked for, `serverInfo`... as JSON cells). The verbosity is
+`"queryPlanner"` (default; does not run the query), `"executionStats"` or
+`"allPlansExecution"`. `.explain()` must be the last call; `findOne` has none. The
+frontend's visual plan (`Plan` button, slow-queries *EXPLAIN*) appends
+`.explain("queryPlanner")` to the statement and draws the stage tree of the winning
+plan (`FETCH` over `IXSCAN`, `OR` with several inputs, one branch per shard, the
+slot-based engine's `queryPlan`, an aggregation as a chain ending in the `$cursor`);
+with `executionStats` the nodes carry rows returned and time.
+
+## Operations monitor and slow queries
+
+- `db.currentOp(filter?)` runs `$currentOp` on `admin` and returns one row per
+  operation (`opid`, `op`, `ns`, `secs_running`, `command` as JSON...). The filter
+  document is a `$match` on those rows; `{$ownOps: true}` limits the list to the
+  caller's operations (the form a user without the `inprog` privilege may run) and
+  `{$all: true}` adds idle connections. `db.killOp(opid)` kills one (an integer, or the
+  `"<shard>:<n>"` string of a sharded cluster). The server monitor lists
+  `db.currentOp()` and kills the selected row with `db.killOp(<opid>)`.
+- The **server's own refusal is the answer**: without `inprog`/`killop` the user sees
+  *"not authorized on admin..."*, never an empty list.
+- Slow queries come from the profiler: `db.setProfilingLevel(level, slowms | opts)`
+  (`0` off, `1` slow operations, `2` all) and `db.getProfilingStatus()` set and read it,
+  and `db.system.profile.find(...)` reads what it recorded. The slow-queries tool runs
+  an aggregation over `system.profile` that groups by collection, operation and query
+  shape (`queryHash`) with executions, average, total and maximum milliseconds, and
+  rebuilds a `find`/`aggregate`/`count`/`distinct` statement from the profiled command so
+  *Open* and *EXPLAIN* work on it (writes are listed but not reopened). With the
+  profiler off the list is empty and the panel says how to turn it on. There is no reset
+  button: `system.profile` can only be dropped once profiling is off, which is two
+  commands.
+
+## Collections, views and indexes from the tree
+
+`list_tables` tells views from collections (`listCollections`), so the tree shows a view
+as a view. `db.getCollectionInfos(filter?)` lists name/type/options (the object-list
+view). For a collection of the database the connection is bound to the tree offers
+*Empty collection* (`db.coll.deleteMany({})`), *Rename collection*
+(`db.coll.renameCollection("new")`) and *Delete* (`db.coll.drop()`), each confirmed with
+the exact statement shown. The statements can only name the connected database, so for
+another database of the same server nothing destructive is offered. The index manager
+lists `db.coll.getIndexes()` (name, key, unique) and creates (`createIndex` on
+ascending keys, with a name and the unique flag) and drops (`dropIndex("name")`) indexes
+without a transaction; unique indexes feed the duplicate-value warning when adding
+rows. There are no constraints (validation is the collection's `$jsonSchema`).
+
+## Cancelling a query (`DBC_FEAT_CANCEL`)
+
+`op.cancel` works through `killOp`. A `mongoc_client_t` cannot be touched from a second
+thread while an operation runs on it, so `cancel` (`cancel.c`) reads only state that is
+immutable after connect: the DSN, and a per-connection tag (`quaero-cancel-<ObjectId>`,
+`utils/cancel_tag.c`) that every `find`/`aggregate` carries as its `comment`. It opens a
+short-lived side client from the DSN, lists the operations whose `command.comment` (or
+`originatingCommand.comment`, for a `getMore`) is the tag with `$currentOp` and kills
+each with `killOp`. The interrupted query fails with *"operation was interrupted"*. It
+retries for about 0.75 s when the server has not registered the operation yet. A user
+with only the `read` role can cancel their own queries; with no operation killed (finished
+already, or no permission to list/kill) the core reports `canceled: false`. Limits:
+writes and the utility commands carry no tag and run to completion, and the side client
+needs the server to be reachable with the same credentials.
 
 Arrays in result cells are rendered as JSON arrays (`[ 1, 2 ]`), so a JSON cell
 edited in the grid round-trips.

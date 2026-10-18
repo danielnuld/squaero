@@ -19,6 +19,11 @@
 
 import { quoteIdentifier } from "./schema";
 import { engineFamily as family } from "./engineFamily";
+import {
+  mongoCreateIndexSql,
+  mongoDropIndexSql,
+  mongoIndexListSql,
+} from "./mongoStatements";
 
 /** Escape a single-quoted SQL string literal. Escape backslashes first (MySQL's
     default sql_mode treats `\` as an escape char) then double embedded quotes. */
@@ -148,7 +153,19 @@ export function indexListFor(
         detailCols: [{ label: "Único", col: "unico" }],
       };
     case "mongodb":
-      return unsupported("MongoDB gestiona índices por comandos, no por catálogos SQL.");
+      // getIndexes() returns one row per index: name, key (JSON), and, when the
+      // index has them, unique / sparse / expireAfterSeconds / ...
+      return {
+        supported: true,
+        reason: null,
+        sql: mongoIndexListSql(t),
+        nameCol: "name",
+        typeCol: null,
+        detailCols: [
+          { label: "Claves", col: "key" },
+          { label: "Único", col: "unique" },
+        ],
+      };
     default:
       return unsupported(`Los índices no están disponibles para el motor "${engine || "desconocido"}".`);
   }
@@ -183,6 +200,28 @@ export function uniqueSetsFrom(
     for (const row of rows) {
       if (row[ui] !== "Sí" || !row[ci]) continue;
       sets.push(row[ci]!.split(",").map((s) => s.trim()).filter(Boolean));
+    }
+  } else if (f === "mongodb") {
+    // getIndexes(): `key` is the index's key document (JSON), `unique` is "true"
+    // on a unique index. Sparse and partial indexes do not constrain every
+    // document, and text / hashed / geo keys are not plain values: all skipped.
+    const ki = at("key");
+    const ui = at("unique");
+    const si = at("sparse");
+    const pi = at("partialfilterexpression");
+    if (ki < 0 || ui < 0) return [];
+    for (const row of rows) {
+      if (row[ui] !== "true" || (si >= 0 && row[si] === "true") || (pi >= 0 && row[pi])) continue;
+      try {
+        const key: unknown = JSON.parse(row[ki] ?? "");
+        if (!key || typeof key !== "object") continue;
+        const entries = Object.entries(key as Record<string, unknown>);
+        if (entries.length > 0 && entries.every(([, dir]) => dir === 1 || dir === -1)) {
+          sets.push(entries.map(([field]) => field));
+        }
+      } catch {
+        /* not JSON: skip */
+      }
     }
   } else if (f === "postgres") {
     const di = at("definicion");
@@ -266,13 +305,22 @@ export function constraintListFor(
         "SQLite no cataloga constraints por separado; se definen en el CREATE TABLE. Usa la vista de estructura para verlas.",
       );
     case "mongodb":
-      return unsupported("MongoDB no expone constraints en catálogos SQL.");
+      return unsupported(
+        "MongoDB no tiene constraints SQL; la validación de documentos vive en la definición de la colección ($jsonSchema).",
+      );
     default:
       return unsupported(`Las constraints no están disponibles para el motor "${engine || "desconocido"}".`);
   }
 }
 
 // ─── DDL builders ─────────────────────────────────────────────────────────
+
+/** Whether index DDL should run inside a transaction. MongoDB builds indexes
+    outside one (a createIndex in a multi-document transaction fails on an
+    existing collection), and its single statement needs no rollback. */
+export function indexDdlInTransaction(engine: string): boolean {
+  return family(engine) !== "mongodb";
+}
 
 export type BuildResult = { ok: true; sql: string } | { ok: false; error: string };
 const err = (error: string): BuildResult => ({ ok: false, error });
@@ -287,14 +335,15 @@ export interface CreateIndexSpec {
 }
 
 export function buildCreateIndex(engine: string, spec: CreateIndexSpec): BuildResult {
-  if (family(engine) === "mongodb")
-    return err("MongoDB gestiona índices por comandos, no por DDL SQL.");
   const name = spec.name.trim();
   const table = spec.table.trim();
   const cols = spec.columns.map((c) => c.trim()).filter((c) => c.length > 0);
   if (!name) return err("El índice necesita un nombre.");
   if (!table) return err("Falta la tabla.");
   if (cols.length === 0) return err("Selecciona al menos una columna.");
+  // MongoDB: createIndex on ascending keys, the "table" being the collection.
+  if (family(engine) === "mongodb")
+    return { ok: true, sql: mongoCreateIndexSql(table, name, cols, spec.unique) };
   const unique = spec.unique ? "UNIQUE " : "";
   const qname = quoteId(engine, name);
   const qtable = qualifiedTable(engine, table, spec.container);
@@ -310,10 +359,13 @@ export interface DropIndexSpec {
 }
 
 export function buildDropIndex(engine: string, spec: DropIndexSpec): BuildResult {
-  if (family(engine) === "mongodb")
-    return err("MongoDB gestiona índices por comandos, no por DDL SQL.");
   const name = spec.name.trim();
   if (!name) return err("Falta el nombre del índice.");
+  if (family(engine) === "mongodb") {
+    const table = spec.table.trim();
+    if (!table) return err("Falta la colección.");
+    return { ok: true, sql: mongoDropIndexSql(table, name) };
+  }
   const qname = quoteId(engine, name);
   const f = family(engine);
   if (f === "mysql") {

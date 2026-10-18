@@ -306,3 +306,48 @@ describe("edit sessions on an engine without transactions", () => {
     expect(hasTransactions("c-err")).toBe(true);
   });
 });
+
+// Issue #719: the MongoDB driver advertises transactions but refuses begin on a
+// standalone server, with the same UNSUPPORTED code and a message naming the
+// replica set. The session must fall back exactly as for an engine with none.
+describe("edit session on a MongoDB server without a replica set", () => {
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).quaeroRpc;
+  });
+
+  it("falls back to applying each change when the driver says transactions need a replica set", async () => {
+    const sent: string[] = [];
+    (globalThis as Record<string, unknown>).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      sent.push(req.method);
+      if (req.method === "tx.begin") {
+        return {
+          jsonrpc: "2.0",
+          id: req.id,
+          error: {
+            code: -32001,
+            message: "transactions need a replica set or a sharded cluster: this MongoDB server is standalone",
+          },
+        };
+      }
+      return { jsonrpc: "2.0", id: req.id, result: {} };
+    };
+    expect(await txBeginIfSupported("c-standalone")).toBe(false);
+    expect(hasTransactions("c-standalone")).toBe(false);
+    await txCommitIfOpen("c-standalone");
+    await txRollbackIfOpen("c-standalone");
+    expect(sent).toEqual(["tx.begin"]);
+  });
+
+  it("uses the transaction when the same driver is on a replica set", async () => {
+    const sent: string[] = [];
+    (globalThis as Record<string, unknown>).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      sent.push(req.method);
+      return { jsonrpc: "2.0", id: req.id, result: { ok: true } };
+    };
+    expect(await txBeginIfSupported("c-rs")).toBe(true);
+    await txCommitIfOpen("c-rs");
+    expect(sent).toEqual(["tx.begin", "tx.commit"]);
+  });
+});

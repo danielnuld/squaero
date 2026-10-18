@@ -8,6 +8,7 @@
 // verbatim before it runs (the confirmation dialog prints exactly this text).
 
 import { engineFamily } from "./engineFamily";
+import { mongoDropSql } from "./mongoStatements";
 import { qualifiedName, quoteIdentifier } from "./schema";
 
 /** What is being dropped. Maps 1:1 to the DROP keyword. */
@@ -20,6 +21,10 @@ export interface DropTarget {
   schema?: string;
   /** The table a trigger hangs off; PostgreSQL cannot drop one without it. */
   table?: string;
+  /** MongoDB only: the database the connection is bound to. A statement runs
+      there and nowhere else, so an object of another database cannot be dropped
+      from here, and without this it is not offered at all. */
+  connDb?: string;
 }
 
 /**
@@ -37,9 +42,15 @@ export interface DropTarget {
 export function dropObjectSql(engine: string, target: DropTarget): string | null {
   const family = engineFamily(engine);
   const { kind } = target;
-  // MongoDB has no SQL DDL at all; SQLite has no routines; only MySQL/MariaDB
-  // has scheduled events.
-  if (family === "mongodb") return null;
+  // MongoDB drops a collection or a view with a mongosh statement, but only in
+  // the connection's own database (the statement cannot name another); it has no
+  // routines, triggers or events. SQLite has no routines; only MySQL/MariaDB has
+  // scheduled events.
+  if (family === "mongodb") {
+    if (kind !== "table" && kind !== "view") return null;
+    if (!target.connDb || target.db !== target.connDb) return null;
+    return mongoDropSql(target.name);
+  }
   if (family === "sqlite" && (kind === "procedure" || kind === "function")) return null;
   if (kind === "event" && family !== "mysql") return null;
 

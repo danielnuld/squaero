@@ -25,6 +25,23 @@ if(TARGET mongodb_driver)
   quaero_set_warnings(mongodb_integration_test)
   add_test(NAME mongodb_integration_test COMMAND mongodb_integration_test
            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+  # Cancel: a background thread runs a slow find (a $where that sleeps) while the
+  # main thread issues op.cancel, which reaches the driver's killOp-by-tag from a
+  # side client. SKIPS unless QUAERO_MONGODB_DSN is set; needs a threads library.
+  add_executable(mongodb_cancel_integration_test mongodb_cancel_integration_test.c)
+  target_link_libraries(mongodb_cancel_integration_test PRIVATE dbcore cjson)
+  find_package(Threads REQUIRED)
+  target_link_libraries(mongodb_cancel_integration_test PRIVATE Threads::Threads)
+  target_compile_definitions(mongodb_cancel_integration_test PRIVATE
+    MONGODB_PLUGIN_PATH="$<TARGET_FILE:mongodb_driver>")
+  add_dependencies(mongodb_cancel_integration_test mongodb_driver)
+  quaero_set_warnings(mongodb_cancel_integration_test)
+  add_test(NAME mongodb_cancel_integration_test COMMAND mongodb_cancel_integration_test
+           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  # A cancel that silently does nothing would let the slow find run its full
+  # sleep; fail fast rather than stall the suite.
+  set_tests_properties(mongodb_cancel_integration_test PROPERTIES TIMEOUT 60)
 endif()
 
 # Informix over DRDA (issue #557): the driver always builds (libdrda needs no

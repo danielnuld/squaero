@@ -197,7 +197,9 @@ import {
   describeColumnNames,
   runPlanItem,
   hasTransactions,
+  txBegin,
   txBeginIfSupported,
+  txCommit,
   txCommitIfOpen,
   txRollback,
   txRollbackIfOpen,
@@ -3887,6 +3889,7 @@ export function App() {
                         }
                         onSelectDatabase={inConn(conn.defId, syncWorkingDb)}
                         activeDb={focused() ? (activeDb() ?? undefined) : undefined}
+                        connDatabase={connections().find((c) => c.id === conn.defId)?.params.database}
                         onImport={inConn(conn.defId, (node: TreeNode) =>
                           showTool("import", t("tab.import", { name: node.label }), {
                             key: `import:${node.label}`,

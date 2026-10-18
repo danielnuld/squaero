@@ -10,6 +10,7 @@ import {
   buildDropIndex,
   buildAddConstraint,
   buildDropConstraint,
+  indexDdlInTransaction,
   type ConstraintKind,
   type CatalogList,
 } from "../utils/indexes";
@@ -148,22 +149,28 @@ export function IndexManager(props: {
     };
   });
 
-  // Run one statement in a transaction, then reload the lists.
+  // Run one statement in a transaction, then reload the lists. MongoDB's single
+  // createIndex / dropIndex runs on its own: an index cannot be built inside a
+  // multi-document transaction.
   const applySql = async (sql: string) => {
     setBusy(true);
     setError(null);
     try {
-      await txBegin(props.connId);
-      try {
+      if (!indexDdlInTransaction(props.engine)) {
         await runQuery(props.connId, sql);
-        await txCommit(props.connId);
-      } catch (e) {
+      } else {
+        await txBegin(props.connId);
         try {
-          await txRollback(props.connId);
-        } catch {
-          /* best-effort rollback */
+          await runQuery(props.connId, sql);
+          await txCommit(props.connId);
+        } catch (e) {
+          try {
+            await txRollback(props.connId);
+          } catch {
+            /* best-effort rollback */
+          }
+          throw e;
         }
-        throw e;
       }
       setPending(null);
       props.onChanged?.();

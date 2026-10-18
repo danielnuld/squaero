@@ -49,7 +49,27 @@ describe("dropObjectSql", () => {
   it("offers nothing where the engine has no such object", () => {
     expect(dropObjectSql("sqlite", { kind: "procedure", name: "p" })).toBeNull();
     expect(dropObjectSql("postgres", { kind: "event", name: "e" })).toBeNull();
+  });
+
+  it("MongoDB: drops a collection or a view of the connection's own database", () => {
+    const own = { db: "shop", connDb: "shop" };
+    expect(dropObjectSql("mongodb", { kind: "table", name: "orders", ...own })).toBe("db.orders.drop()");
+    expect(dropObjectSql("mongodb", { kind: "view", name: "open-orders", ...own })).toBe(
+      'db.getCollection("open-orders").drop()',
+    );
+  });
+
+  it("MongoDB: never drops in a database the statement cannot reach", () => {
+    // `db.x.drop()` would hit the connected database's x, not the one in the tree.
+    expect(dropObjectSql("mongodb", { kind: "table", name: "x", db: "other", connDb: "shop" })).toBeNull();
+    expect(dropObjectSql("mongodb", { kind: "table", name: "x", db: "shop" })).toBeNull();
     expect(dropObjectSql("mongodb", { kind: "table", name: "c" })).toBeNull();
+  });
+
+  it("MongoDB has no routines, triggers or events to drop", () => {
+    for (const kind of ["procedure", "function", "trigger", "event"] as const) {
+      expect(dropObjectSql("mongodb", { kind, name: "x", db: "shop", connDb: "shop" })).toBeNull();
+    }
   });
 
   it("drops a SQLite table and trigger, which it does have", () => {

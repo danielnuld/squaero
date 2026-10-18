@@ -127,3 +127,57 @@ function killButton(): HTMLButtonElement {
     b.textContent?.includes("Matar"),
   )!;
 }
+
+// Issue #719: MongoDB lists db.currentOp() and kills with db.killOp(opid); a
+// refusal from the server (no privileges) is shown as the server worded it.
+describe("ServerMonitor on MongoDB", () => {
+  function mongoBridge(failList?: string) {
+    const sqls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: { sql?: string } };
+      const sql = req.params.sql ?? "";
+      sqls.push(sql);
+      if (failList && sql === "db.currentOp()") {
+        return { jsonrpc: "2.0", id: req.id, error: { code: -32003, message: failList } };
+      }
+      if (sql.startsWith("db.killOp")) {
+        return { jsonrpc: "2.0", id: req.id, result: { columns: [], rows: [], truncated: false, rowsAffected: 0 } };
+      }
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: {
+          columns: [
+            { name: "opid", type: "int" },
+            { name: "op", type: "text" },
+            { name: "ns", type: "text" },
+          ],
+          rows: [["4711", "query", "shop.orders"]],
+          truncated: false,
+          rowsAffected: 0,
+        },
+      };
+    };
+    return sqls;
+  }
+
+  it("lists the operations and kills the selected one with db.killOp", async () => {
+    const sqls = mongoBridge();
+    mount("mongodb");
+    await flush();
+    expect(sqls[0]).toBe("db.currentOp()");
+    host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
+    await flush();
+    killButton().click();
+    await flush();
+    expect(sqls).toContain("db.killOp(4711)");
+    expect(sqls.filter((s) => s === "db.currentOp()").length).toBe(2); // reloaded after the kill
+  });
+
+  it("shows the server's own message when the user lacks the privilege", async () => {
+    mongoBridge("currentOp failed: not authorized on admin to execute command");
+    mount("mongodb");
+    await flush();
+    expect(host!.querySelector("[role='alert']")!.textContent).toContain("not authorized");
+  });
+});

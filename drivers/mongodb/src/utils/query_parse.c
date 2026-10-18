@@ -184,14 +184,52 @@ static int split_args(const char *body, const char *body_end,
     return n;
 }
 
-/* Parse a chained .sort()/.skip()/.limit() suffix (find only). p points just
-   past the operation's closing ')'. Returns 0 on success, non-zero on error. */
-static int parse_chain(const char *p, mongo_query *out, char *errbuf, size_t errlen)
+/* The verbosities explain() accepts. */
+static int explain_verbosity_ok(const char *v)
+{
+    return strcmp(v, "queryPlanner") == 0 || strcmp(v, "executionStats") == 0 ||
+           strcmp(v, "allPlansExecution") == 0;
+}
+
+/* Record a chained .explain(<verbosity?>): `arg` is the trimmed argument text.
+   Returns 0, or non-zero with the message set. */
+static int set_explain(const char *arg, mongo_query *out, char *errbuf, size_t errlen)
+{
+    char *verbosity = NULL;
+    if (arg[0] == '\0') {
+        verbosity = dup_cstr("queryPlanner");
+    } else {
+        verbosity = mongo_unquote(arg);
+        if (verbosity == NULL || !explain_verbosity_ok(verbosity)) {
+            free(verbosity);
+            set_err(errbuf, errlen,
+                    "explain() takes \"queryPlanner\", \"executionStats\" or \"allPlansExecution\"");
+            return 1;
+        }
+    }
+    if (verbosity == NULL) {
+        set_err(errbuf, errlen, "out of memory");
+        return 1;
+    }
+    free(out->explain);
+    out->explain = verbosity;
+    return 0;
+}
+
+/* Parse a chained .sort()/.skip()/.limit()/.explain() suffix (find) or a lone
+   .explain() (aggregate: explain_only). p points just past the operation's
+   closing ')'. explain() must be the last call. Returns 0 on success. */
+static int parse_chain(const char *p, mongo_query *out, int explain_only,
+                       char *errbuf, size_t errlen)
 {
     for (;;) {
         p = skip_ws(p);
         if (*p == '\0' || *p == ';') {
             return 0;
+        }
+        if (out->explain != NULL) {
+            set_err(errbuf, errlen, "explain() must be the last call of the query");
+            return 1;
         }
         if (*p != '.') {
             set_err(errbuf, errlen, "unexpected trailing characters after the query");
@@ -220,7 +258,17 @@ static int parse_chain(const char *p, mongo_query *out, char *errbuf, size_t err
         }
         char *arg = trim(raw);
 
-        if (namelen == 4 && strncmp(name, "sort", 4) == 0) {
+        if (namelen == 7 && strncmp(name, "explain", 7) == 0) {
+            int bad = set_explain(arg, out, errbuf, errlen);
+            free(raw);
+            if (bad) {
+                return 1;
+            }
+        } else if (explain_only) {
+            free(raw);
+            set_err(errbuf, errlen, "aggregate() accepts only a trailing .explain()");
+            return 1;
+        } else if (namelen == 4 && strncmp(name, "sort", 4) == 0) {
             free(out->sort);
             out->sort = dup_cstr(arg);
             if (out->sort == NULL) {
@@ -249,7 +297,7 @@ static int parse_chain(const char *p, mongo_query *out, char *errbuf, size_t err
         } else {
             free(raw);
             set_err(errbuf, errlen,
-                    "unsupported chained method (only sort/skip/limit)");
+                    "unsupported chained method (only sort/skip/limit/explain)");
             return 1;
         }
         p = close + 1;
@@ -265,7 +313,8 @@ void mongo_query_free(mongo_query *q)
     free(q->filter);
     free(q->projection);
     free(q->sort);
-    q->collection = q->filter = q->projection = q->sort = NULL;
+    free(q->explain);
+    q->collection = q->filter = q->projection = q->sort = q->explain = NULL;
     for (int i = 0; i < MONGO_MAX_ARGS; i++) {
         free(q->args[i]);
         q->args[i] = NULL;
@@ -383,7 +432,9 @@ char *mongo_unquote(const char *lit)
  * The methods the driver runs besides find/findOne/aggregate. `shapes` gives the
  * expected first character of each argument: 'd' a document {..}, 'a' an array
  * [..], 'u' an update (document or pipeline array), 's' a string literal, 'x' a
- * document or a string. min_args..strlen(shapes) is the accepted arity.
+ * document or a string, 'n' a number, 'o' a number or a string (an opid), 'q' a
+ * number or a document, 'b' true/false. min_args..strlen(shapes) is the accepted
+ * arity.
  */
 typedef struct {
     const char *name;
@@ -410,6 +461,12 @@ static const method_def k_methods[] = {
     {"createCollection", MONGO_OP_CREATE_COLLECTION, 0, 1, "sd"},
     {"runCommand",       MONGO_OP_RUN_COMMAND,       0, 1, "xd"},
     {"createView",       MONGO_OP_CREATE_VIEW,       0, 3, "ssad"},
+    {"renameCollection", MONGO_OP_RENAME,            1, 1, "sb"},
+    {"currentOp",        MONGO_OP_CURRENT_OP,        0, 0, "d"},
+    {"killOp",           MONGO_OP_KILL_OP,           0, 1, "o"},
+    {"setProfilingLevel", MONGO_OP_SET_PROFILING,    0, 1, "nq"},
+    {"getProfilingStatus", MONGO_OP_GET_PROFILING,   0, 0, ""},
+    {"getCollectionInfos", MONGO_OP_COLLECTION_INFOS, 0, 0, "dd"},
 };
 
 static const method_def *find_method(const char *name, size_t len)
@@ -423,10 +480,29 @@ static const method_def *find_method(const char *name, size_t len)
     return NULL;
 }
 
+static int is_number_text(const char *text)
+{
+    const char *p = text;
+    if (*p == '-') {
+        p++;
+    }
+    if (!isdigit((unsigned char)*p)) {
+        return 0;
+    }
+    while (isdigit((unsigned char)*p) || *p == '.') {
+        p++;
+    }
+    return *p == '\0';
+}
+
 static int shape_ok(char shape, const char *text)
 {
     char ch = text[0];
     switch (shape) {
+    case 'n': return is_number_text(text);
+    case 'o': return is_number_text(text) || ch == '"' || ch == '\'';
+    case 'q': return is_number_text(text) || ch == '{';
+    case 'b': return strcmp(text, "true") == 0 || strcmp(text, "false") == 0;
     case 'd': return ch == '{';
     case 'a': return ch == '[';
     case 'u': return ch == '{' || ch == '[';
@@ -442,6 +518,10 @@ static const char *shape_name(char shape)
     case 'a': return "an array";
     case 'u': return "an update document or pipeline";
     case 's': return "a string";
+    case 'n': return "a number";
+    case 'o': return "a number or a string";
+    case 'q': return "a number or a document";
+    case 'b': return "true or false";
     default:  return "a document or a string";
     }
 }
@@ -579,12 +659,14 @@ int mongo_query_parse(const char *input, mongo_query *out, char *errbuf, size_t 
     } else {
         def = find_method(method, method_len);
         if (def == NULL) {
-            char msg[256];
+            char msg[512];
             snprintf(msg, sizeof msg,
                      "unsupported operation '%.*s' (supported: find, findOne, aggregate, "
                      "countDocuments, distinct, insertOne/Many, updateOne/Many, replaceOne, "
                      "deleteOne/Many, createIndex, dropIndex, getIndexes, drop, "
-                     "createCollection, createView, runCommand)",
+                     "renameCollection, createCollection, createView, runCommand, "
+                     "currentOp, killOp, setProfilingLevel, getProfilingStatus, "
+                     "getCollectionInfos)",
                      (int)method_len, method);
             free(named);
             set_err(errbuf, errlen, msg);
@@ -646,10 +728,9 @@ int mongo_query_parse(const char *input, mongo_query *out, char *errbuf, size_t 
             set_err(errbuf, errlen, "out of memory");
             goto fail;
         }
-        /* No chained modifiers on aggregate (they would be pipeline stages). */
-        const char *rest = skip_ws(close + 1);
-        if (*rest != '\0' && *rest != ';') {
-            set_err(errbuf, errlen, "unexpected characters after aggregate()");
+        /* No chained modifiers on aggregate (they would be pipeline stages),
+           only a trailing .explain(). */
+        if (parse_chain(close + 1, out, 1, errbuf, errlen) != 0) {
             goto fail;
         }
         return MONGO_PARSE_OK;
@@ -693,7 +774,7 @@ int mongo_query_parse(const char *input, mongo_query *out, char *errbuf, size_t 
         }
         return MONGO_PARSE_OK;
     }
-    if (parse_chain(close + 1, out, errbuf, errlen) != 0) {
+    if (parse_chain(close + 1, out, 0, errbuf, errlen) != 0) {
         goto fail;
     }
     return MONGO_PARSE_OK;

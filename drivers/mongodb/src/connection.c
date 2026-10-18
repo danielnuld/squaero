@@ -1,5 +1,7 @@
 #include "internal.h"
 
+#include "utils/cancel_tag.h"
+
 #include "cJSON.h"
 
 #include <stdlib.h>
@@ -254,6 +256,17 @@ dbc_status mongo_connect(const char *dsn_json, dbc_conn **out)
         return DBC_ERR_PARAM;
     }
 
+    /* What cancel needs from another thread, fixed from here on: the DSN to open
+       a side client with, and the tag this connection's reads carry. */
+    c->dsn = dup_cstr(dsn_json);
+    bson_oid_t oid;
+    char oid_hex[25];
+    bson_oid_init(&oid, NULL);
+    bson_oid_to_string(&oid, oid_hex);
+    if (mongo_cancel_tag(c->cancel_tag, sizeof c->cancel_tag, oid_hex) < 0) {
+        c->cancel_tag[0] = '\0'; /* no tag: reads go untagged and cancel is unsupported */
+    }
+
     mongoc_uri_t *uri = build_uri(c, root, &c->db);
     cJSON_Delete(root);
     if (uri == NULL) {
@@ -291,15 +304,54 @@ dbc_status mongo_connect(const char *dsn_json, dbc_conn **out)
     return DBC_OK;
 }
 
+mongoc_client_t *mongo_side_client(const dbc_conn *c)
+{
+    if (c == NULL || c->dsn == NULL) {
+        return NULL;
+    }
+    cJSON *root = cJSON_Parse(c->dsn);
+    if (root == NULL) {
+        return NULL;
+    }
+    /* build_uri reports into a dbc_conn; use a scratch one so the live
+       connection's error text (owned by the thread running the query) is never
+       written from here. */
+    dbc_conn scratch;
+    memset(&scratch, 0, sizeof scratch);
+    char *db = NULL;
+    mongoc_uri_t *uri = build_uri(&scratch, root, &db);
+    cJSON_Delete(root);
+    free(db);
+    if (uri == NULL) {
+        return NULL;
+    }
+    /* Cancel must return promptly: do not wait out the default 30 s selection. */
+    mongoc_uri_set_option_as_int32(uri, MONGOC_URI_SERVERSELECTIONTIMEOUTMS, 3000);
+    mongoc_uri_set_option_as_int32(uri, MONGOC_URI_CONNECTTIMEOUTMS, 3000);
+    mongoc_client_t *side = NULL;
+    if (!refuse_store_writing_options(&scratch, uri)) {
+        side = mongoc_client_new_from_uri(uri);
+    }
+    mongoc_uri_destroy(uri);
+    if (side != NULL) {
+        mongoc_client_set_appname(side, "quaero-cancel");
+    }
+    return side;
+}
+
 void mongo_disconnect(dbc_conn *c)
 {
     if (c == NULL) {
         return;
     }
+    if (c->session != NULL) {
+        mongoc_client_session_destroy(c->session); /* aborts an open transaction */
+    }
     if (c->client != NULL) {
         mongoc_client_destroy(c->client);
     }
     free(c->db);
+    free(c->dsn);
     free(c);
 }
 

@@ -25,6 +25,15 @@ struct dbc_conn {
     mongoc_client_t *client;
     char            *db;        /* default database name (owned) */
     char             err[1024];
+    /* The open multi-document transaction's session, or NULL (txn.c). Touched
+       only by the thread running the connection's operations. */
+    mongoc_client_session_t *session;
+    /* Set once at connect and never written again, so cancel (which runs on
+       another thread while a query is in flight) may read them without a lock:
+       the DSN to open a side client with, and the tag every read carries as its
+       `comment` for cancel to find it by (cancel.c, utils/cancel_tag.c). */
+    char            *dsn;
+    char             cancel_tag[64];
 };
 
 /* Safety cap on how many documents an unbounded find buffers, so a query with
@@ -76,10 +85,47 @@ dbc_status  mongo_result_from_cursor(dbc_conn *c, mongoc_cursor_t *cursor,
 dbc_status  mongo_text_result(dbc_conn *c, const char *column, const char *text,
                               dbc_result **out);
 
+/* A fresh client built from the DSN stored at connect, with short timeouts, for
+   the cancel side channel. Uses no state of `c` but the immutable `dsn`. NULL on
+   failure. */
+mongoc_client_t *mongo_side_client(const dbc_conn *c);
+
 /* --- query.c / command.c --- */
 dbc_status  mongo_query_exec(dbc_conn *c, const char *sql, dbc_result **out);
 /* Everything but find/aggregate: the write and utility commands. */
 dbc_status  mongo_command_exec(dbc_conn *c, const mongo_query *q, dbc_result **out);
+
+/* Helpers shared by the command implementations (command.c). */
+dbc_status  mongo_fail_bson(dbc_conn *c, const char *ctx, const bson_error_t *berr);
+dbc_status  mongo_fail_msg(dbc_conn *c, dbc_status st, const char *msg);
+long long   mongo_reply_int(const bson_t *reply, const char *key);
+/* Copy a reply's useful fields into `ack` (session / cluster-time plumbing is
+   dropped; `ok` only when keep_ok). */
+void        mongo_append_reply(bson_t *ack, const bson_t *reply, int keep_ok);
+/* Flatten `ack` (one row) and stamp rows_affected. */
+dbc_status  mongo_finish_ack(dbc_conn *c, bson_t *ack, long long affected, dbc_result **out);
+/* The optional options document at q->args[idx] (*opts stays NULL when absent). */
+dbc_status  mongo_parse_opts(dbc_conn *c, const mongo_query *q, int idx, bson_t **opts);
+/* Add the open transaction's session to *opts (created when NULL); a no-op
+   outside a transaction. Error status with the message stored on failure. */
+dbc_status  mongo_attach_session(dbc_conn *c, bson_t **opts);
+/* Run `cmd` on database `dbname`, outside any transaction, and flatten the reply
+   (minus the plumbing) into a one-row result. */
+dbc_status  mongo_run_admin_command(dbc_conn *c, const char *dbname, const bson_t *cmd,
+                                    const char *ctx, dbc_result **out);
+
+/* --- admin.c: plans, operations, profiler, rename, collection infos --- */
+dbc_status  mongo_admin_exec(dbc_conn *c, const mongo_query *q, dbc_result **out);
+/* find / aggregate with a trailing .explain(): the server's plan as a result. */
+dbc_status  mongo_explain_exec(dbc_conn *c, const mongo_query *q, dbc_result **out);
+
+/* --- txn.c: multi-document transactions (replica set / sharded only) --- */
+dbc_status  mongo_begin(dbc_conn *c);
+dbc_status  mongo_commit(dbc_conn *c);
+dbc_status  mongo_rollback(dbc_conn *c);
+
+/* --- cancel.c: killOp from a side client (thread-safe) --- */
+dbc_status  mongo_cancel(dbc_conn *c);
 
 /* --- ddl.c / edit.c --- */
 dbc_status  mongo_get_ddl(dbc_conn *c, const char *schema, const char *object,
