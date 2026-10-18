@@ -88,6 +88,7 @@ núcleo GPL.
 | [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) | MIT |
 | [fflate](https://github.com/101arrowz/fflate) | MIT |
 | [Lucide](https://lucide.dev) — iconos de la barra de acciones, trazados en `src/components/icons.tsx` (no se enlaza el paquete) | ISC |
+| [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) — tipografía monoespaciada opcional para el editor y la rejilla (Regular y Bold, subconjuntos Latin y Latin Extended en woff2, incrustados en el bundle; licencia en `frontend/src/assets/fonts/JetBrainsMono-OFL.txt`) | OFL-1.1 |
 
 Herramientas de desarrollo **no distribuidas** (dev-dependencies): Vite,
 vite-plugin-solid, vite-plugin-singlefile, Vitest, TypeScript, jsdom — todas

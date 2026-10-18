@@ -23,12 +23,14 @@ export function EmptyState(props: {
   history: HistoryEntry[];
   snippets: Snippet[];
   isMac: boolean;
+  /** The effective table (rebound keys applied, #684); the defaults when omitted. */
+  shortcuts?: readonly Shortcut[];
   onOpenTable: (node: TreeNode) => void;
   onRunHistory: (sql: string) => void;
   onInsertSnippet: (s: Snippet) => void;
 }) {
   const shortcuts = () =>
-    KEY_SHORTCUTS.map((id) => SHORTCUTS.find((s) => s.id === id)).filter(
+    KEY_SHORTCUTS.map((id) => (props.shortcuts ?? SHORTCUTS).find((s) => s.id === id)).filter(
       (s): s is Shortcut => !!s,
     );
 

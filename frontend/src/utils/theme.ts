@@ -1,10 +1,11 @@
-// Light/dark theme selection (issue #42). Pure logic here; the CSS lives in
-// styles.css keyed on the `data-theme` attribute, and App wires the toggle +
-// applies the resolved theme to the document root.
+// Light/dark MODE selection (issue #42). Pure logic here; App wires the toggle,
+// stamps the resolved mode on the document root as `data-theme`, and feeds it to
+// the theme's tokens (themeSchema.ts / themeStore.ts, issue #680) — which theme
+// is in use is a separate choice, and every theme has both variants.
 //
 // The user picks one of three preferences; "system" follows the OS setting and
 // keeps tracking it live. The preference persists in localStorage; the resolved
-// theme (never "system") is what gets stamped on the root.
+// mode (never "system") is what gets stamped on the root.
 
 export type ThemePref = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
@@ -21,20 +22,8 @@ export function nextTheme(pref: ThemePref): ThemePref {
   return ORDER[(i + 1) % ORDER.length];
 }
 
-/**
- * Resolve a preference to the concrete theme to apply.
- *
- * `forceDark` is the colour theme having the last word (issue #473): Ciruela,
- * Pizarra and Terminal bring their own dark surfaces, so while one is active
- * there is no light version to switch to. The PREFERENCE is untouched — it is
- * what comes back when the user returns to an accent skin.
- */
-export function resolveTheme(
-  pref: ThemePref,
-  systemPrefersDark: boolean,
-  forceDark = false,
-): ResolvedTheme {
-  if (forceDark) return "dark";
+/** Resolve a preference to the concrete mode to apply. */
+export function resolveTheme(pref: ThemePref, systemPrefersDark: boolean): ResolvedTheme {
   if (pref === "system") return systemPrefersDark ? "dark" : "light";
   return pref;
 }
@@ -94,9 +83,8 @@ export function applyTheme(
   pref: ThemePref,
   root: Pick<HTMLElement, "setAttribute">,
   systemPrefersDark: boolean,
-  forceDark = false,
 ): ResolvedTheme {
-  const resolved = resolveTheme(pref, systemPrefersDark, forceDark);
+  const resolved = resolveTheme(pref, systemPrefersDark);
   root.setAttribute("data-theme", resolved);
   return resolved;
 }
