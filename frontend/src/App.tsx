@@ -236,6 +236,11 @@ import {
 import { buildXlsx, XLSX_MAX_ROWS, XLSX_MIME } from "./utils/xlsx";
 import { saveText, pickSaveTarget, sqlFileName } from "./utils/download";
 import type { TreeNode } from "./utils/tree";
+import { objectNodeFor } from "./utils/sqlNavigation";
+import { definitionFor as routineDefinitionFor } from "./utils/routines";
+import { readDefinitionText } from "./utils/treeObjects";
+import { runnableRoutineDdl } from "./utils/routineDdl";
+import type { ObjectTarget } from "./components/editorNavigation";
 import { SqlEditor } from "./components/SqlEditor";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
@@ -3364,6 +3369,49 @@ export function App() {
     }
   };
 
+  // Go to definition from the editor (issue #663): a table or view opens its
+  // structure (columns + DDL) when the tree has loaded it; a routine opens its
+  // definition in a new tab, as the tree does. Either way, a miss is said.
+  const goToObject = async (target: ObjectTarget) => {
+    const say = (text: string) => {
+      clearTimeout(runToastTimer);
+      setRunToast({ text, error: true });
+      runToastTimer = setTimeout(() => setRunToast(null), 4000);
+    };
+    if (target.kind === "table") {
+      const node = objectNodeFor(focusedObjects(), target.name);
+      if (node) openStructure(node);
+      else say(t("editor.nav.notFound", { name: target.name }));
+      return;
+    }
+    const conn = active();
+    if (!conn) return;
+    // A call does not say whether it is a function or a procedure, and MySQL
+    // asks for one or the other.
+    for (const type of ["FUNCTION", "PROCEDURE"] as const) {
+      const query = routineDefinitionFor(conn.driver, { name: target.name, type, schema: target.schema });
+      if (!query) {
+        say(t("editor.nav.unsupported"));
+        return;
+      }
+      try {
+        const res = await runQuery(conn.connId, query.sql);
+        const text = readDefinitionText(res.columns.map((c) => c.name), res.rows, query.column, query.concatRows);
+        if (text) {
+          openSqlInNewTab(runnableRoutineDdl(conn.driver, text, target.name), target.name, {
+            schema: target.schema,
+            name: target.name,
+            kind: "def:routine",
+          });
+          return;
+        }
+      } catch {
+        // Not this kind of routine; try the other, then say it was not found.
+      }
+    }
+    say(t("editor.nav.routineNotFound", { name: target.name }));
+  };
+
   // Open the table designer for a db/schema container as a tool tab (create).
   const openTableDesigner = (container?: string) =>
     showTool("tableDesigner", t("toolbar.newTable.title"), { key: "tableDesigner", params: { container } });
@@ -3831,6 +3879,7 @@ export function App() {
                     foreignKeys={sqlForeignKeys()}
                     missingTables={missingTables()}
                     diagnostics={settings().editorDiagnostics}
+                    onGoToObject={(target) => void goToObject(target)}
                   />
                   </Show>
                   {/* The editor's own bar. A data tab has no editor: its

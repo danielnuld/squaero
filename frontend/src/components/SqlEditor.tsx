@@ -47,6 +47,7 @@ import { editorSchema } from "../utils/sqlEditor";
 import { sqlCompletions, type Completions } from "../utils/sqlComplete";
 import { sqlDiagnostics, type SqlDiagnostic } from "../utils/sqlDiagnostics";
 import type { ForeignKeyRelation } from "../utils/foreignKeys";
+import { sqlNavigation, type ObjectTarget } from "./editorNavigation";
 
 /**
  * SQL colouring in the app's own palette (issue #473).
@@ -181,6 +182,8 @@ export function SqlEditor(props: {
   missingTables?: string[];
   /** Mark problems in the SQL (issue #662). On unless false. */
   diagnostics?: boolean;
+  /** Go to definition on a table/view or routine (issue #663): show it. */
+  onGoToObject?: (target: ObjectTarget) => void;
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
@@ -200,6 +203,12 @@ export function SqlEditor(props: {
   // doc actually loaded into the view.
   let loaded = props.activeId;
   let swapping = false;
+  // Go to definition, find usages and rename (issues #663, #664).
+  const nav = sqlNavigation({
+    engine: () => props.dialect,
+    schema: () => props.schema,
+    onObject: (target) => props.onGoToObject?.(target),
+  });
 
   const schemaNow = createMemo(() => editorSchema(props.schema ?? {}));
 
@@ -304,6 +313,7 @@ export function SqlEditor(props: {
           highlightSelectionMatches(),
           syntaxHighlighting(sqlHighlight, { fallback: true }),
           sqlConf.of(sqlExt()),
+          nav.extension,
           keymap.of([
             {
               key: "Mod-Enter",
@@ -481,7 +491,7 @@ export function SqlEditor(props: {
   // Right-click menu: format / run / select-all / copy, all operating on the
   // live editor. Copy uses the current selection, or the whole document when
   // nothing is selected.
-  const editorMenu = (): MenuItem[] => {
+  const editorMenu = (e: MouseEvent): MenuItem[] => {
     const v = view;
     const hasText = (v?.state.doc.length ?? 0) > 0;
     const hasSelection = v ? !v.state.selection.main.empty : false;
@@ -506,10 +516,25 @@ export function SqlEditor(props: {
       { separator: true },
       { label: t("editor.selectAll"), action: selectAll, disabled: !hasText },
       { label: t("editor.copy"), action: copy, disabled: !hasText },
+      ...navMenu(e),
+    ];
+  };
+
+  // Navigation entries act on the identifier under the right-click.
+  const navMenu = (e: MouseEvent): MenuItem[] => {
+    const v = view;
+    if (!v) return [];
+    const pos = v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head;
+    const can = nav.available(v, pos);
+    return [
+      { separator: true },
+      { label: t("editor.goToDefinition"), action: () => nav.goToDefinition(v, pos), disabled: !can.definition },
+      { label: t("editor.findUsages"), action: () => nav.findUsages(v, pos), disabled: !can.symbol },
+      { label: t("editor.renameSymbol"), action: () => nav.rename(v, pos), disabled: !can.symbol },
     ];
   };
 
   return (
-    <div class="editor" ref={host} onContextMenu={(e) => openContextMenu(e, editorMenu())} />
+    <div class="editor" ref={host} onContextMenu={(e) => openContextMenu(e, editorMenu(e))} />
   );
 }
