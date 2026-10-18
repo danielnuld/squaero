@@ -6,6 +6,7 @@ import {
   queryNext,
   drainQuery,
   runScript,
+  runStatements,
 } from "../../src/utils/query";
 import type { JsonRpcResponse } from "../../src/utils/ipc";
 
@@ -354,5 +355,26 @@ describe("queryNext", () => {
     };
     expect(sent.method).toBe("query.next");
     expect(sent.params).toEqual({ connId: "c1", limit: 500 });
+  });
+});
+
+describe("runStatements — exec (#667)", () => {
+  it("passes every statement through exec, which decides whether it runs", async () => {
+    const sent: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string; params: { sql: string } };
+      sent.push(req.params.sql);
+      return { jsonrpc: "2.0", id: req.id, result: { columns: [], rows: [], rowsAffected: 1 } };
+    };
+    const seen: string[] = [];
+    const runs = await runStatements("c1", ["BEGIN", "UPDATE t SET a = 1"], 10, (sql, run) => {
+      seen.push(sql);
+      return sql === "BEGIN"
+        ? Promise.resolve({ columns: [], rows: [], truncated: false, rowsAffected: 0 })
+        : run();
+    });
+    expect(seen).toEqual(["BEGIN", "UPDATE t SET a = 1"]);
+    expect(sent).toEqual(["UPDATE t SET a = 1"]);
+    expect(runs.map((r) => r.result?.rowsAffected)).toEqual([0, 1]);
   });
 });

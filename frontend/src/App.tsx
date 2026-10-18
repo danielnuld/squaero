@@ -19,7 +19,8 @@ import {
   type ResultSet,
 } from "./utils/query";
 import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
-import { cancelQuery, onConnectionLost } from "./utils/transport";
+import { cancelQuery, connActivity, onConnectionLost } from "./utils/transport";
+import { keepAliveDue, keepAliveProbe, lostInfo, mayReconnect } from "./utils/reconnect";
 import { errorText, describeError } from "./utils/errors";
 import {
   openSession,
@@ -160,6 +161,9 @@ import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { BUILTIN_TEMPLATES, resolveTemplates } from "./utils/sqlTemplates";
 import { rowHeightFor, type Settings } from "./utils/settings";
 import { applyPlan } from "./utils/editApply";
+import { idleTx, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
+import { TxControls } from "./components/TxControls";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 
 /** Rows to read from a table's index catalog; one per index, so plenty. */
 const UNIQUE_CATALOG_LIMIT = 500;
@@ -394,6 +398,10 @@ interface ActiveConnection {
       than dropped: the tabs bound to it, and what the user was writing in them,
       have to survive a server that went away. Cleared by reconnecting. */
   lost?: boolean;
+  /** A fresh session is being opened in its place by itself (issue #676). */
+  reconnecting?: boolean;
+  /** It just was: said in the bar for a few seconds. */
+  reconnected?: boolean;
 }
 
 // Page size, owned by the UI (sent explicitly, not the core default). Table
@@ -744,6 +752,12 @@ export function App() {
       }
       case "editor-find":
         setFindTick((t) => t + 1);
+        break;
+      case "tx-commit":
+        void endTabTx("commit");
+        break;
+      case "tx-rollback":
+        void endTabTx("rollback");
         break;
     }
   };
@@ -1527,11 +1541,17 @@ export function App() {
 
   // Close one open connection (the focused one when no id is given). Other open
   // connections stay up; focus falls to another, or none.
-  const disconnect = async (defId?: string) => {
+  // An open transaction is asked about first (issue #667): closing the session
+  // would roll it back without a word. `txSettled` = the user already chose.
+  const disconnect = async (defId?: string, txSettled = false) => {
     const target = defId ?? focusedDefId();
     if (target == null) return;
     const o = openConns().find((x) => x.defId === target);
     if (!o) return;
+    if (!txSettled && txOpenCount(o) !== null) {
+      setTxPrompt(o);
+      return;
+    }
     try {
       await closeConnection(o.connId);
     } catch {
@@ -1629,18 +1649,113 @@ export function App() {
   //
   // Registered on the transport, so it fires for a query, a commit, a row write
   // or a catalog read alike — every method goes through the same call().
-  onMount(() => {
-    onConnectionLost((connId) => {
-      const conn = openConns().find((o) => o.connId === connId);
-      // Already known, or not ours (a session closed and replaced meanwhile).
-      if (!conn || conn.lost) return;
+  //
+  // Automatic reconnection (issue #676): when no transaction dies with the
+  // session, a fresh one replaces it by itself, and the transport re-sends the
+  // failed call once if the core proved it a read. Otherwise it is marked lost as
+  // before and the failed call says why it was not retried.
+  const markLost = (connId: string) => {
+    const conn = openConns().find((o) => o.connId === connId);
+    if (!conn) return;
+    setOpenConns((list) =>
+      list.map((o) => (o.connId === connId ? { ...o, lost: true, reconnecting: false } : o)),
+    );
+    // Said once: a keep-alive probe on a session already marked lost is no news.
+    if (!conn.lost) setConnError(t("conn.lost", { name: conn.name }));
+  };
+  /** Open a fresh session in place of `conn`'s dead one; its new connId, or
+      null (and marked lost) when that fails. Tabs follow by defId. */
+  const replaceSession = async (conn: ActiveConnection): Promise<string | null> => {
+    const saved = connections().find((c) => c.id === conn.defId);
+    if (!saved) {
+      markLost(conn.connId);
+      return null;
+    }
+    setOpenConns((list) =>
+      list.map((o) => (o.connId === conn.connId ? { ...o, reconnecting: true } : o)),
+    );
+    try {
+      const { connId, features } = await openSession(saved.driver, buildDsn(saved));
+      // Closed or reconnected by hand meanwhile: this session is nobody's.
+      if (!openConns().some((o) => o.connId === conn.connId)) {
+        void closeConnection(connId).catch(() => {});
+        return null;
+      }
+      const manual = txOf(conn).manual;
       setOpenConns((list) =>
-        list.map((o) => (o.connId === connId ? { ...o, lost: true } : o)),
+        list.map((o) =>
+          o.connId === conn.connId
+            ? { ...o, connId, features, lost: false, reconnecting: false, reconnected: true }
+            : o,
+        ),
       );
-      setConnError(t("conn.lost", { name: conn.name }));
+      setTimeout(
+        () =>
+          setOpenConns((list) =>
+            list.map((o) => (o.connId === connId ? { ...o, reconnected: false } : o)),
+          ),
+        5000,
+      );
+      // The mode is the user's choice and outlives the session; the
+      // transaction did not (there was none, or this would not run).
+      if (manual) setTxs(connId, idleTx(true));
+      void closeConnection(conn.connId).catch(() => {});
+      setConnError(null);
+      return connId;
+    } catch {
+      markLost(conn.connId);
+      return null;
+    }
+  };
+  // By the DEAD connId: every call that met the same dead session waits on one
+  // reconnect, including those answering after it finished (they still name the
+  // old id). A failed attempt is forgotten so the next call can try again.
+  const replacing = new Map<string, Promise<string | null>>();
+  onMount(() => {
+    onConnectionLost(async (connId, data) => {
+      const pending = replacing.get(connId);
+      if (pending) return { reconnectedTo: await pending, txLost: false };
+      const conn = openConns().find((o) => o.connId === connId);
+      if (!conn) return; // not ours (a session closed meanwhile)
+      const info = lostInfo(data);
+      const uiTx = txOf(conn).open;
+      if (!mayReconnect(info, uiTx)) {
+        markLost(connId);
+        return { reconnectedTo: null, txLost: uiTx || info?.inTx === true };
+      }
+      const p = replaceSession(conn);
+      replacing.set(connId, p);
+      const to = await p;
+      if (to === null) replacing.delete(connId);
+      return { reconnectedTo: to, txLost: false };
     });
   });
   onCleanup(() => onConnectionLost(null));
+
+  // Keep-alive (issue #676): a session with an interval set gets a cheap probe
+  // once it has been quiet that long, and never while a call is in flight on it
+  // (the shell runs one call at a time, so a query sent during a probe waits for
+  // that one SELECT). Failing probes back off. A probe that finds the session
+  // dead takes the path above.
+  const keepAliveFailures = new Map<string, number>();
+  onMount(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      for (const o of openConns()) {
+        const probe = keepAliveProbe(o.driver);
+        const sec = connections().find((c) => c.id === o.defId)?.keepAlive ?? 0;
+        const failures = keepAliveFailures.get(o.defId) ?? 0;
+        if (!probe || o.reconnecting || !keepAliveDue(now, sec, connActivity(o.connId), failures)) {
+          continue;
+        }
+        runQuery(o.connId, probe, 1).then(
+          () => keepAliveFailures.delete(o.defId),
+          () => keepAliveFailures.set(o.defId, failures + 1),
+        );
+      }
+    }, 1000);
+    onCleanup(() => clearInterval(timer));
+  });
 
   // Reconnect the active connection (fresh session) — recovers after the server
   // dropped or the process was killed.
@@ -1707,6 +1822,92 @@ export function App() {
     setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
     runToastTimer = setTimeout(() => setRunToast(null), 4000);
   };
+  const showErrorToast = (text: string) => {
+    clearTimeout(runToastTimer);
+    setRunToast({ text, error: true });
+    runToastTimer = setTimeout(() => setRunToast(null), 6000);
+  };
+
+  // --- Manual transactions (issue #667) -----------------------------------
+  // Per CORE connection (connId): every tab bound to it shares the session, and
+  // a reconnect — a new connId — starts clean, as the transaction died with the
+  // old session. The policy is pure and tested in utils/txMode.ts.
+  const [txs, setTxs] = createStore<Record<string, TxSession>>({});
+  const txOf = (conn: ActiveConnection | null | undefined): TxSession =>
+    (conn && txs[conn.connId]) || idleTx();
+  /** The open transaction's statement count, or null when none is open (or the
+      session is lost, which took the transaction with it). */
+  const txOpenCount = (conn: ActiveConnection | null | undefined): number | null =>
+    conn && !conn.lost && txOf(conn).open ? txOf(conn).statements : null;
+  const [txBusy, setTxBusy] = createSignal(false);
+  /** The connection whose disconnect waits on Commit / Rollback / Cancel. */
+  const [txPrompt, setTxPrompt] = createSignal<ActiveConnection | null>(null);
+  const [txPromptError, setTxPromptError] = createSignal<string | null>(null);
+  const settleTxPrompt = async (verb: "commit" | "rollback") => {
+    const conn = txPrompt();
+    if (!conn) return;
+    const err = await endTx(conn, verb);
+    setTxPromptError(err);
+    if (err) return; // the prompt stays, saying why
+    setTxPrompt(null);
+    void disconnect(conn.defId, true);
+  };
+  const closeTxPrompt = () => {
+    setTxPrompt(null);
+    setTxPromptError(null);
+  };
+  const txCall = (connId: string, verb: TxVerb) =>
+    verb === "begin" ? txBegin(connId) : verb === "commit" ? txCommit(connId) : txRollback(connId);
+  /** Run `sql` (one statement) through the connection's transaction state. */
+  const runTx = (
+    conn: ActiveConnection,
+    sql: string,
+    query: () => Promise<ResultSet>,
+    onImplicitCommit?: () => void,
+  ) =>
+    runInTx(sql, conn.driver, {
+      get: () => txOf(conn),
+      set: (s) => setTxs(conn.connId, s),
+      query,
+      tx: (verb) => txCall(conn.connId, verb),
+      empty: () => ({ columns: [], rows: [], truncated: false, rowsAffected: 0 }),
+      onImplicitCommit,
+    });
+  /** Commit or roll back the connection's open transaction (toolbar, shortcut,
+      disconnect prompt). Resolves with the error text, or null once it ended.
+      Through runInTx, so the state follows the same rules as a typed COMMIT. */
+  const endTx = async (
+    conn: ActiveConnection | null,
+    verb: "commit" | "rollback",
+  ): Promise<string | null> => {
+    if (!conn || !txOf(conn).open) return null;
+    setTxBusy(true);
+    try {
+      await runTx(conn, verb.toUpperCase(), () => Promise.reject(new Error("unreachable")));
+      return null;
+    } catch (err) {
+      return errorText(err);
+    } finally {
+      setTxBusy(false);
+    }
+  };
+  /** The toolbar's and the shortcuts' Commit / Rollback, on the tab's connection. */
+  const endTabTx = async (verb: "commit" | "rollback") => {
+    const err = await endTx(tabConn(current()), verb);
+    if (err) showErrorToast(err);
+  };
+  const toggleTxMode = (conn: ActiveConnection | null) => {
+    if (!conn || txOf(conn).open) return;
+    setTxs(conn.connId, idleTx(!txOf(conn).manual));
+  };
+  /** Why the tab's connection cannot use manual mode, or null. */
+  const txUnsupported = (conn: ActiveConnection | null): string | null =>
+    conn?.features?.transactions === false ? t("tx.unsupported") : null;
+  /** Grid editing brackets its changes in its own transaction: never inside the
+      user's, whose commit it would otherwise take over. The core refuses the
+      nested tx.begin as well; this says why in the user's words. */
+  const txEditBlocked = (conn: ActiveConnection | null): string | null =>
+    txOpenCount(conn) !== null ? t("tx.editBlocked") : null;
   const recordHistory = (sql: string, conn: ActiveConnection, durationMs?: number) => {
     const entry: HistoryEntry = {
       sql,
@@ -1803,12 +2004,17 @@ export function App() {
     // re-run its DDL — so it gets no pageSql.
     const stmts = runnableStatements(trimmed, conn.driver);
     const script = stmts.length > 1;
+    // Every statement of a fresh run goes through the connection's transaction
+    // state (issue #667); a page turn re-reads what already ran and does not.
+    let implicitCommit = false;
+    const exec = (stmt: string, query: () => Promise<ResultSet>) =>
+      offset === 0 ? runTx(conn, stmt, query, () => (implicitCommit = true)) : query();
     try {
       // A script keeps one entry per statement (issue #450) and opens one of
       // them; the mirrored fields below are that entry, so nothing downstream
       // has to know a script ran.
       const sets = script
-        ? scriptSets(await runStatements(conn.connId, stmts, PAGE_LIMIT), activeDialect())
+        ? scriptSets(await runStatements(conn.connId, stmts, PAGE_LIMIT, exec), activeDialect())
         : undefined;
       const activeSet = sets ? pickActiveSet(sets) : 0;
       const shown = sets ? sets[activeSet] : undefined;
@@ -1818,7 +2024,7 @@ export function App() {
       // lost), and re-runs with an offset as it always did.
       const result = sets
         ? (shown?.result ?? null)
-        : await runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0);
+        : await exec(trimmed, () => runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0));
       const elapsedMs = performance.now() - started;
       // The page cache starts here and grows only through the cursor: pages of
       // ONE execution are a consistent snapshot, while pages stitched from
@@ -1849,6 +2055,7 @@ export function App() {
         recordHistory(trimmed, conn, elapsedMs);
         showRunToast(ranAt, elapsedMs, !!shown?.error);
       }
+      if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
       // A page turn keeps the source it already had; a fresh query derives it.
       // A statement that failed has no result to derive one from.
       if (!keepSource && result) void attachQuerySource(id, trimmed, conn, result);
@@ -1871,6 +2078,7 @@ export function App() {
         recordHistory(trimmed, conn, elapsedMs);
         showRunToast(ranAt, elapsedMs, true);
       }
+      if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
     }
   };
 
@@ -2638,6 +2846,11 @@ export function App() {
     const t = current();
     const conn = tabConn(t);
     if (!t || !conn || !currentEditable()) return;
+    const blocked = txEditBlocked(conn);
+    if (blocked) {
+      patchEdit(t.id, { error: blocked });
+      return;
+    }
     patchEdit(t.id, { busy: true, error: null });
     try {
       await txBegin(conn.connId);
@@ -3575,6 +3788,9 @@ export function App() {
                 driver: o.driver,
                 color: o.color,
                 lost: o.lost,
+                reconnecting: o.reconnecting,
+                reconnected: o.reconnected,
+                txStatements: txOpenCount(o) ?? undefined,
                 sub: target ? `${label} · ${target}` : label,
               };
             })}
@@ -3918,6 +4134,18 @@ export function App() {
                     >
                       {hasEditorSelection() ? t("editor.runSelection") : t("editor.run")}
                     </button>
+                    <Show when={tabConn(tab())}>
+                      {(conn) => (
+                        <TxControls
+                          session={{ ...txOf(conn()), open: txOpenCount(conn()) !== null }}
+                          unsupportedReason={txUnsupported(conn())}
+                          busy={txBusy()}
+                          onToggle={() => toggleTxMode(conn())}
+                          onCommit={() => void endTabTx("commit")}
+                          onRollback={() => void endTabTx("rollback")}
+                        />
+                      )}
+                    </Show>
                     <button
                       class="status-btn"
                       title={t("editor.formatTitle")}
@@ -4707,10 +4935,27 @@ export function App() {
         </div>
       </Show>
 
+      <Show when={txPrompt()}>
+        {(conn) => (
+          <ConfirmDialog
+            title={t("tx.closeTitle")}
+            message={t("tx.closeMessage", { name: conn().name, n: txOf(conn()).statements })}
+            confirmLabel={t("tx.rollback")}
+            altLabel={t("tx.commit")}
+            busy={txBusy()}
+            error={txPromptError()}
+            onConfirm={() => void settleTxPrompt("rollback")}
+            onAlt={() => void settleTxPrompt("commit")}
+            onCancel={closeTxPrompt}
+          />
+        )}
+      </Show>
+
       <StatusBar
         connection={active()?.name ?? null}
         rowCount={currentResult().result?.rows.length ?? null}
         markedCount={markedRows().length}
+        txStatements={txOpenCount(tabConn(current()))}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
         ranAt={currentResult().ranAt}

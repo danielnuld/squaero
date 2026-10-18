@@ -11,6 +11,12 @@ export interface OpenConnRow {
   color?: string;
   /** The core said the session is gone (issue #407). */
   lost?: boolean;
+  /** A fresh session is being opened in its place by itself (issue #676). */
+  reconnecting?: boolean;
+  /** ...and just was (shown for a few seconds). */
+  reconnected?: boolean;
+  /** Statements in its open transaction (issue #667); absent = none open. */
+  txStatements?: number;
   /** Engine label plus where it points — the second line of the row. */
   sub: string;
 }
@@ -142,12 +148,30 @@ export function ConnectionBar(props: {
                     </span>
                   </button>
                   <div class="connbar-actions">
+                    <Show when={row.txStatements !== undefined}>
+                      <span class="conn-tx" title={t("tx.openTitle", { n: row.txStatements! })}>
+                        {t("tx.connMark")}
+                      </span>
+                    </Show>
                     <Show
-                      when={row.lost}
+                      when={row.lost && !row.reconnecting}
                       fallback={
-                        <span class="conn-live" title={t("conn.connectedDot")} aria-hidden="true">
-                          ●
-                        </span>
+                        <Show
+                          when={row.reconnecting || row.reconnected}
+                          fallback={
+                            <span class="conn-live" title={t("conn.connectedDot")} aria-hidden="true">
+                              ●
+                            </span>
+                          }
+                        >
+                          <span
+                            class="connbar-reconnecting"
+                            role="status"
+                            title={row.reconnected ? t("conn.reconnected", { name: row.name }) : undefined}
+                          >
+                            {t(row.reconnecting ? "conn.reconnecting" : "conn.statusReconnected")}
+                          </span>
+                        </Show>
                       }
                     >
                       <span class="connbar-lost">{t("conn.statusLost")}</span>
