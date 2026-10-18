@@ -166,6 +166,9 @@ export function ResultGrid(props: {
    * its row. Undefined → the column's type, as everywhere else.
    */
   cellType?: (rowIndex: number, colIndex: number) => string | undefined;
+  /** Extra classes for one read-only cell (issue #669: a comparison's added,
+      removed and changed cells). Undefined → none. */
+  cellClass?: (rowIndex: number, colIndex: number) => string | undefined;
   /** Bumped by the workspace to clear the marks (the row bar's ✕). */
   clearMarksTick?: number;
 }) {
@@ -917,7 +920,7 @@ export function ResultGrid(props: {
                                         !!props.onRelated && isReferenced(col.name);
                                       return (
                                         <div
-                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${related() ? "cell-related" : ""}`}
+                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${related() ? "cell-related" : ""} ${props.cellClass?.(rowIndex(), ci()) ?? ""}`}
                                           role="gridcell"
                                           aria-colindex={di() + 1 + colOffset()}
                                           aria-selected={isSelected(viewPos(), ci())}

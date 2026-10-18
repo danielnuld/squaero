@@ -217,4 +217,29 @@ describe("ObjectToolbar", () => {
     mount();
     expect(btn("Transponer")).toBeUndefined();
   });
+
+  // Issue #669: pin the result, and compare it with another.
+  it("pins the result, or says why it cannot", () => {
+    const onPin = vi.fn();
+    mount({ onPin });
+    btn("Fijar resultado")!.click();
+    expect(onPin).toHaveBeenCalledTimes(1);
+    dispose?.();
+    host?.remove();
+    mount({ onPin, pinBlocked: "lleno" });
+    expect(btn("Fijar resultado")!.disabled).toBe(true);
+    expect(btn("Fijar resultado")!.title).toBe("lleno");
+  });
+
+  it("opens the compare menu, and shows neither button without handlers", () => {
+    const onCompare = vi.fn();
+    mount({ onCompare });
+    btn("Comparar con…")!.click();
+    expect(onCompare).toHaveBeenCalledTimes(1);
+    dispose?.();
+    host?.remove();
+    mount();
+    expect(btn("Comparar con…")).toBeUndefined();
+    expect(btn("Fijar resultado")).toBeUndefined();
+  });
 });
