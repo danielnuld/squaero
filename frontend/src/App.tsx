@@ -1309,6 +1309,7 @@ export function App() {
     sql: string,
     name?: string,
     object?: { db?: string; schema?: string; name: string; kind: string },
+    connDefId?: string,
   ) => {
     // When the SQL is an object's definition, the tab belongs to that object and
     // reopening it goes back there rather than stacking a copy (issue #414).
@@ -1326,9 +1327,10 @@ export function App() {
     }
     let newId = 0;
     setTabs((s) => {
-      const added = name
-        ? addTab(s, name, focusedDefId() ?? undefined, false)
-        : addTab(s, newQueryTitle(), focusedDefId() ?? undefined);
+      // An explicit connection (a migration script meant for the target, #672)
+      // wins over whichever one is focused.
+      const defId = connDefId ?? focusedDefId() ?? undefined;
+      const added = name ? addTab(s, name, defId, false) : addTab(s, newQueryTitle(), defId);
       newId = added.activeId;
       const withSql = updateTabSql(added, newId, sql);
       return key !== null ? setObjectKey(withSql, newId, key) : withSql;
@@ -3149,7 +3151,7 @@ export function App() {
   const openSchemaSync = () =>
     showTool("schemaSync", t("tab.schemaSync"), {
       key: "schemaSync",
-      params: { sourceDb: currentResult().source?.db },
+      params: { sourceDb: currentResult().source?.db, sourceSchema: currentResult().source?.schema },
     });
   const openDataSync = () => {
     const res = currentResult();
@@ -5048,8 +5050,11 @@ export function App() {
                 <Match when={tt().tool === "schemaSync"}>
                   <SchemaSyncWizard
                     sourceConnId={toolConn()?.connId ?? ""}
+                    sourceEngine={toolConn()?.driver ?? activeDialect()}
                     sourceDb={(tt().params as { sourceDb?: string }).sourceDb}
+                    sourceSchema={(tt().params as { sourceSchema?: string }).sourceSchema}
                     connections={connections()}
+                    onOpenSql={(sql, defId) => openSqlInNewTab(sql, undefined, undefined, defId)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>

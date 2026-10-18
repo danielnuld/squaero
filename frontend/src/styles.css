@@ -4536,6 +4536,29 @@ button.grid-action.danger:hover:not(:disabled) {
   font-size: var(--fs-base);
 }
 
+/* Schema diff (issue #672): categorized differences, notes, script preview. */
+.ssync-diff,
+.ssync-notes {
+  max-height: 220px;
+  overflow: auto;
+  font-size: var(--fs-base);
+  margin: var(--sp-2) 0;
+  padding-left: var(--sp-5);
+}
+
+.ssync-notes {
+  color: var(--fg-dim);
+}
+
+.ssync-diff code {
+  font-family: var(--font-mono);
+}
+
+.ssync-script {
+  max-height: 320px;
+  overflow: auto;
+}
+
 /* Row form / detail view (issue #133) */
 .rd-head {
   display: flex;
