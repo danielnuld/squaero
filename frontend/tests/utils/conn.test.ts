@@ -1,6 +1,8 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   parseConnId,
+  parseConnFeatures,
+  openSession,
   openConnection,
   closeConnection,
   testConnection,
@@ -35,6 +37,70 @@ describe("parseConnId", () => {
   it("throws when connId is missing", () => {
     const res: JsonRpcResponse = { jsonrpc: "2.0", id: 1, result: {} };
     expect(() => parseConnId(res)).toThrow(/connId/);
+  });
+});
+
+describe("parseConnFeatures", () => {
+  const ok = (result: unknown): JsonRpcResponse => ({ jsonrpc: "2.0", id: 1, result });
+
+  it("reads every capability the core reports", () => {
+    const features = {
+      cancel: true,
+      transactions: true,
+      ddl: false,
+      dml: true,
+      schemas: false,
+      introspection: true,
+    };
+    expect(parseConnFeatures(ok({ connId: "c1", features }))).toEqual(features);
+  });
+
+  it("is null when the core reports none (older core: nothing known)", () => {
+    expect(parseConnFeatures(ok({ connId: "c1" }))).toBeNull();
+    expect(parseConnFeatures(ok({ connId: "c1", features: null }))).toBeNull();
+    expect(parseConnFeatures(ok({ connId: "c1", features: "all" }))).toBeNull();
+  });
+
+  it("reads a missing or non-boolean key as unsupported", () => {
+    const f = parseConnFeatures(ok({ connId: "c1", features: { cancel: "yes", dml: true } }));
+    expect(f?.cancel).toBe(false);
+    expect(f?.dml).toBe(true);
+    expect(f?.transactions).toBe(false);
+  });
+
+  it("is null for an error response", () => {
+    const res: JsonRpcResponse = {
+      jsonrpc: "2.0",
+      id: 1,
+      error: { code: -32000, message: "no" },
+    };
+    expect(parseConnFeatures(res)).toBeNull();
+  });
+});
+
+describe("openSession", () => {
+  it("resolves with the connId and the engine's features", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string };
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: {
+          connId: "c3",
+          features: {
+            cancel: false,
+            transactions: true,
+            ddl: true,
+            dml: true,
+            schemas: false,
+            introspection: true,
+          },
+        },
+      };
+    };
+    const s = await openSession("mongodb", { host: "h" });
+    expect(s.connId).toBe("c3");
+    expect(s.features?.cancel).toBe(false);
   });
 });
 

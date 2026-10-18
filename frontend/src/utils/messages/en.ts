@@ -552,6 +552,7 @@ export const en: Record<string, string> = {
   "grid.truncated": "Showing the first {n} rows (result truncated). Sorting and filters apply only to the loaded rows, not with ORDER BY/WHERE on the server.",
   "grid.runToSee": "Run a query to see results.",
   "grid.running": "Running…",
+  "grid.cancelUnsupported": "This engine cannot cancel a running query; it will run until it finishes.",
 
   // chart panel (ChartView.tsx)
   "chart.type": "Type",

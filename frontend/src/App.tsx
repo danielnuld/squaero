@@ -21,7 +21,13 @@ import {
 import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
 import { cancelQuery, onConnectionLost } from "./utils/transport";
 import { errorText, describeError } from "./utils/errors";
-import { openConnection, closeConnection, testConnection, listDatabases } from "./utils/conn";
+import {
+  openSession,
+  closeConnection,
+  testConnection,
+  listDatabases,
+  type ConnFeatures,
+} from "./utils/conn";
 import {
   findVariables,
   applyVariables,
@@ -381,6 +387,9 @@ interface ActiveConnection {
   driver: string;
   /** Accent color carried from the saved connection, for the bar/tabs. */
   color?: string;
+  /** What the engine can do, from conn.open (#668); null = an older core that
+      does not say, so nothing is disabled on its account. */
+  features?: ConnFeatures | null;
   /** The core said this session is gone (issue #407). The entry is KEPT rather
       than dropped: the tabs bound to it, and what the user was writing in them,
       have to survive a server that went away. Cleared by reconnecting. */
@@ -1573,10 +1582,10 @@ export function App() {
         }
         setOpenConns((list) => list.filter((o) => o.defId !== c.id));
       }
-      const connId = await openConnection(c.driver, buildDsn(c));
+      const { connId, features } = await openSession(c.driver, buildDsn(c));
       setOpenConns((list) => [
         ...list,
-        { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color },
+        { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color, features },
       ]);
       setFocusedDefId(c.id);
       // Closing the dead session above fails with the very error that raises the
@@ -4165,6 +4174,11 @@ export function App() {
                           isDataTab(tab().id) ? (filterOf(tab().id).order[0] ?? null) : null
                         }
                         onCancel={cancelActive}
+                        cancelDisabledReason={
+                          tabConn(tab())?.features?.cancel === false
+                            ? t("grid.cancelUnsupported")
+                            : undefined
+                        }
                         onRequestEdit={
                           currentEditable() && !currentEdit().editing ? beginEdit : undefined
                         }

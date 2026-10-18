@@ -386,7 +386,9 @@ el manejador de interrupciones, en menos de un segundo, y la conexión sigue viv
 #668) e **Informix** (DRDA no puede
 interrumpir una consulta en la propia conexión, así que la corta: la conexión queda
 perdida y la app ofrece reconectar, como tras una caída, #407); MongoDB aún no lo anuncia
-(para él la UI no se congela, pero la consulta sigue hasta terminar). A diferencia
+(para él la UI no se congela, pero la consulta sigue hasta terminar, y el botón
+Cancelar aparece deshabilitado, con el motivo, porque `conn.open` reporta
+`features.cancel: false`). A diferencia
 del resto de los métodos, el
 shell nativo despacha `op.cancel` **sin** encolarlo detrás de la consulta que
 interrumpe, y el hook `cancel` del driver corre en otro hilo mientras `query.run`
