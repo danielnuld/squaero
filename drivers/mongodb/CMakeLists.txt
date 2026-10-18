@@ -77,6 +77,14 @@ if(BUILD_TESTING)
     src/utils ${CMAKE_SOURCE_DIR}/core/include)
   quaero_set_warnings(mongodb_dml_test)
   add_test(NAME mongodb_dml_test COMMAND mongodb_dml_test)
+
+  add_executable(mongodb_ddl_test
+    tests/ddl_test.c
+    src/utils/ddl.c
+    src/utils/strutil.c)
+  target_include_directories(mongodb_ddl_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_ddl_test)
+  add_test(NAME mongodb_ddl_test COMMAND mongodb_ddl_test)
 endif()
 
 # --- driver plugin (when the mongo-c-driver is available) ------------------
@@ -103,9 +111,11 @@ if(MONGOC_FOUND OR QUAERO_MONGOC)
     src/command.c
     src/docs.c
     src/metadata.c
+    src/ddl.c
     src/edit.c
     src/utils/bson_types.c
     src/utils/columns.c
+    src/utils/ddl.c
     src/utils/dml.c
     src/utils/json_check.c
     src/utils/json_relax.c
