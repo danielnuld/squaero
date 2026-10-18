@@ -25,7 +25,23 @@
  * exists they find the owning dbc_conn via dbsetuserdata; before that (a failed
  * login) there is no DBPROCESS, so the reason is kept per thread and copied into
  * the handle connect hands back.
+ *
+ * Cancel (issue #668): db-lib's dbcancel must not be called from another thread
+ * while dbsqlexec runs, so ms_drv_cancel only raises an atomic flag
+ * (utils/cancel.h). The query thread acts on it:
+ *   - while it waits on the server, through db-lib's interrupt handler. FreeTDS
+ *     polls the socket in one-second slices when a handler is installed (always
+ *     the case for db-lib) and asks chkintr between slices; when it says yes,
+ *     hndlintr answers INT_CANCEL, the wait ends as a timeout, and err_handler
+ *     gets SYBETIME. Answering INT_TIMEOUT there makes FreeTDS send the ATTENTION
+ *     and keep reading until the server acknowledges it: the query fails, the
+ *     connection lives (INT_CANCEL would close the socket instead).
+ *   - while rows or results keep arriving (no wait, so no interrupt), through
+ *     ms_cancel_claimed in query.c, which then dbcancels on its own thread.
+ * So a cancel lands within about a second.
  */
+
+static const char k_canceled[] = "query canceled";
 
 static _Thread_local char g_login_err[1024];
 
@@ -49,7 +65,15 @@ static int err_handler(DBPROCESS *dbproc, int severity, int dberr, int oserr,
                        char *dberrstr, char *oserrstr)
 {
     (void)severity;
-    (void)dberr;
+    /* The only timeout this driver can see is the one its interrupt handler
+       forces on a cancel (no query timeout is set): send the ATTENTION and keep
+       the connection. Anything else keeps the old answer, cancel. */
+    if (dberr == SYBETIME && dbproc != NULL) {
+        dbc_conn *c = (dbc_conn *)dbgetuserdata(dbproc);
+        if (c != NULL && ms_cancel_claimed(c)) {
+            return INT_TIMEOUT;
+        }
+    }
     char *target = err_target(dbproc);
     /* A server message recorded just before (e.g. "Login failed for user")
        explains the failure better than db-lib's generic follow-up. */
@@ -77,6 +101,37 @@ static int msg_handler(DBPROCESS *dbproc, DBINT msgno, int msgstate, int severit
         copy_err(err_target(dbproc), sizeof g_login_err, msgtext);
     }
     return 0;
+}
+
+/* db-lib's interrupt pair, asked between the one-second waits on the server. */
+static int chk_interrupt(void *dbproc)
+{
+    dbc_conn *c = (dbc_conn *)dbgetuserdata((DBPROCESS *)dbproc);
+    return c != NULL && mssql_cancel_pending(&c->cancel);
+}
+
+static int handle_interrupt(void *dbproc)
+{
+    (void)dbproc;
+    return INT_CANCEL; /* end the wait; err_handler then sends the ATTENTION */
+}
+
+int ms_cancel_claimed(dbc_conn *c)
+{
+    if (!mssql_cancel_claim(&c->cancel)) {
+        return 0;
+    }
+    copy_err(c->err, sizeof c->err, k_canceled);
+    return 1;
+}
+
+dbc_status ms_drv_cancel(dbc_conn *c)
+{
+    if (c == NULL) {
+        return DBC_ERR_PARAM;
+    }
+    mssql_cancel_request(&c->cancel);
+    return DBC_OK;
 }
 
 /* dbinit and the handlers are process-wide; install them once.
@@ -183,6 +238,7 @@ static dbc_status open_connection(dbc_conn *c, const cJSON *root)
         return DBC_ERR_CONN;
     }
     dbsetuserdata(c->dbproc, (BYTE *)c);
+    dbsetinterrupt(c->dbproc, chk_interrupt, handle_interrupt);
     return DBC_OK;
 }
 

@@ -28,7 +28,8 @@ implementados para PG y slow-queries requiere la extensión `pg_stat_statements`
 tipos, introspección, transacciones y cifrado, verificados en vivo en el build
 x86 contra SQL Server 2022 (`encrypt_option = TRUE` con el cifrado por defecto,
 16 tipos con su texto correcto, árbol, describe, rollback y paginación por
-cursor). DDL, edición de filas y cancelación aún no están (`DBC_ERR_UNSUPPORTED`),
+cursor). La cancelación (#668) se implementó después y falta verificarla en vivo.
+DDL y edición de filas aún no están (`DBC_ERR_UNSUPPORTED`),
 el cifrado no verifica el certificado del servidor, y `strict` (TDS 8) no se
 pudo verificar: el contenedor de 2022 sin configurar corta la conexión.
 

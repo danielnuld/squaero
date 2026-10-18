@@ -28,6 +28,13 @@ if(BUILD_TESTING)
   target_include_directories(mssql_options_test PRIVATE src/utils)
   quaero_set_warnings(mssql_options_test)
   add_test(NAME mssql_options_test COMMAND mssql_options_test)
+
+  add_executable(mssql_cancel_test
+    tests/cancel_test.c
+    src/utils/cancel.c)
+  target_include_directories(mssql_cancel_test PRIVATE src/utils)
+  quaero_set_warnings(mssql_cancel_test)
+  add_test(NAME mssql_cancel_test COMMAND mssql_cancel_test)
 endif()
 
 # --- driver plugin --------------------------------------------------------
@@ -38,7 +45,8 @@ set(MSSQL_DRIVER_SRC
   src/metadata.c
   src/utils/identifier.c
   src/utils/types.c
-  src/utils/options.c)
+  src/utils/options.c
+  src/utils/cancel.c)
 
 macro(_quaero_mssql_common)
   target_include_directories(mssql_driver PRIVATE

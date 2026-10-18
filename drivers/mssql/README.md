@@ -29,7 +29,7 @@ as UTF-8 and N-prefixed literals keep non-ASCII data intact.
 | transactions | supported — `BEGIN/COMMIT/ROLLBACK TRANSACTION` |
 | encrypted transport | supported — but the server certificate is **not verified** (db-lib cannot take a CA file) |
 | DDL reconstruction, row editing | not yet — `DBC_ERR_UNSUPPORTED` |
-| cancel | not advertised — db-lib's `dbcancel` is not safe from another thread |
+| cancel | supported — db-lib's `dbcancel` is not safe from another thread, so the hook only raises a flag; the query thread sends the ATTENTION from db-lib's interrupt handler (or between rows) within about a second, and the connection stays usable |
 
 Result sets are buffered whole in memory.
 
