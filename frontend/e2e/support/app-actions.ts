@@ -6,9 +6,19 @@
 // here and recorded as accessibility work in the change's tasks.md rather than
 // papered over.
 
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 import type { App } from "./fixtures";
+
+/**
+ * Picks an option in one of the app's own dropdowns (#687): a combobox button
+ * that opens a listbox, so Playwright's `selectOption` (native <select> only)
+ * does not apply. Pass the option's visible label.
+ */
+export async function pick(combo: Locator, label: string): Promise<void> {
+  await combo.click();
+  await combo.page().getByRole("listbox").getByRole("option", { name: label, exact: true }).click();
+}
 
 /** Opens the saved connection through the sidebar, as a user would. */
 export async function connect(app: App): Promise<void> {

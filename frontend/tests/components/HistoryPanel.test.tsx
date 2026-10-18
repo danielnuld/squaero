@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { HistoryPanel } from "../../src/components/HistoryPanel";
 import type { HistoryEntry } from "../../src/utils/history";
+import { pickOption } from "./dropdownHarness";
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -117,9 +118,7 @@ describe("HistoryPanel engine filter", () => {
 
   it("shows every engine when switched to all", () => {
     mount({ entries: mixed, engine: "informix" });
-    const sel = host!.querySelector(".history-engine") as HTMLSelectElement;
-    sel.value = "";
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    pickOption(host!.querySelector(".history-engine")!, "");
     expect(host!.querySelectorAll(".history-run")).toHaveLength(3);
   });
 

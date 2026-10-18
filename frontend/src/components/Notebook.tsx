@@ -30,6 +30,7 @@ import {
   type CellKind,
 } from "../utils/notebook";
 import { t } from "../utils/i18n";
+import { Dropdown } from "./Dropdown";
 
 interface CellResult {
   loading: boolean;
@@ -201,14 +202,13 @@ export function Notebook(props: {
           onInput={(e) => mutate((nb) => ({ ...nb, name: e.currentTarget.value }))}
           aria-label={t("nb.nameAria")}
         />
-        <select
+        <Dropdown
+          value={currentId()}
+          options={list().map((n) => ({ value: n.id, label: n.name }))}
+          onChange={(v) => setCurrentId(v)}
           class="nb-open"
           title={t("nb.open")}
-          value={currentId()}
-          onChange={(e) => setCurrentId(e.currentTarget.value)}
-        >
-          <For each={list()}>{(n) => <option value={n.id}>{n.name}</option>}</For>
-        </select>
+        />
         <button class="status-btn" title={t("nb.newTitle")} onClick={createNotebook}>
           {t("nb.new")}
         </button>

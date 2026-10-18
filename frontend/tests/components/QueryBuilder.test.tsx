@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { QueryBuilder } from "../../src/components/QueryBuilder";
+import { dropdownLabels, pickOption } from "./dropdownHarness";
 
 interface BridgeHost {
   quaeroRpc?: (requestJson: string) => Promise<unknown>;
@@ -106,11 +107,9 @@ describe("QueryBuilder", () => {
     // Add a condition age > 18.
     [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.includes("Condición"))!.click();
     const cond = host!.querySelector(".qb-cond")!;
-    const selects = cond.querySelectorAll<HTMLSelectElement>("select");
-    selects[0].value = "age";
-    selects[0].dispatchEvent(new Event("change", { bubbles: true }));
-    selects[1].value = ">";
-    selects[1].dispatchEvent(new Event("change", { bubbles: true }));
+    const selects = cond.querySelectorAll(".dropdown");
+    pickOption(selects[0], "age");
+    pickOption(selects[1], ">");
     const val = cond.querySelector<HTMLInputElement>(".td-in")!;
     val.value = "18";
     val.dispatchEvent(new Event("input", { bubbles: true }));
@@ -122,7 +121,7 @@ describe("QueryBuilder", () => {
     installBigBridge(300);
     mount();
     await flush();
-    const opts = [...host!.querySelectorAll<HTMLOptionElement>("select option")].map((o) => o.textContent);
+    const opts = dropdownLabels(host!.querySelector(".dropdown")!);
     expect(opts).toContain("testdb.t299");
     expect(opts).toContain("testdb.v_last");
     expect(host!.textContent).not.toContain("Mostrando los primeros");

@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { SlowQueries } from "../../src/components/SlowQueries";
+import { pickOption } from "./dropdownHarness";
 
 interface BridgeHost {
   quaeroRpc?: (requestJson: string) => Promise<unknown>;
@@ -85,9 +86,7 @@ describe("SlowQueries", () => {
     const calls = installBridge();
     mount();
     await flush();
-    const select = host!.querySelector("select") as HTMLSelectElement;
-    select.value = "total";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
+    pickOption(host!.querySelector(".dropdown")!, "total");
     await flush();
     expect(calls.some((s) => s.includes("ORDER BY SUM_TIMER_WAIT DESC"))).toBe(true);
   });

@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { UserManager } from "../../src/components/UserManager";
 import { paneSize } from "../../src/utils/paneSizes";
+import { dropdownValues, pickOption } from "./dropdownHarness";
 
 // Drives the real UserManager in jsdom against a mocked bridge: it lists users,
 // shows a selected user's grants, builds a GRANT from the form and applies it,
@@ -256,11 +257,8 @@ describe("UserManager", () => {
       .find((l) => l.textContent?.trim() === name)!
       .querySelector("input")!
       .click();
-  const selects = () => [...host!.querySelectorAll<HTMLSelectElement>(".um-form-row select")];
-  const choose = (sel: HTMLSelectElement, value: string) => {
-    sel.value = value;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-  };
+  const selects = () => [...host!.querySelectorAll<HTMLElement>(".um-form-row .dropdown")];
+  const choose = (sel: HTMLElement, value: string) => pickOption(sel, value);
   const preview = () => host!.querySelector(".um-detail .um-preview")!.textContent!;
 
   it("builds no statement until a database is picked when none is active", async () => {
@@ -271,7 +269,7 @@ describe("UserManager", () => {
     tick("SELECT");
     expect(preview()).not.toContain("GRANT");
     const [, db] = selects();
-    expect([...db.options].map((o) => o.value)).toEqual(["", "shop", "sello"]);
+    expect(dropdownValues(db)).toEqual(["", "shop", "sello"]);
     choose(db, "sello");
     expect(preview()).toContain("GRANT SELECT ON `sello`.* TO 'app'@'%'");
   });
@@ -301,7 +299,7 @@ describe("UserManager", () => {
       [...host!.querySelectorAll(".um-priv")].map((l) => l.textContent!.trim());
     expect(privNames()).not.toContain("EXECUTE");
     const table = selects()[2];
-    expect([...table.options].map((o) => o.value)).toEqual(["", "orders", "recent"]);
+    expect(dropdownValues(table)).toEqual(["", "orders", "recent"]);
     choose(table, "orders");
     // EXECUTE was ticked before switching: it is not sent ON a table.
     expect(preview()).toContain("GRANT SELECT ON `shop`.`orders` TO 'app'@'%'");

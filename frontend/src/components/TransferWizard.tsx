@@ -18,6 +18,7 @@ import {
   type ParsedTable,
 } from "../utils/importers";
 import type { Connection } from "../utils/connections";
+import { Dropdown } from "./Dropdown";
 
 const OMIT = "";
 
@@ -171,14 +172,11 @@ export function TransferWizard(props: {
           <div class="import-field">
             <label>
               {t("ssync.target")}{" "}
-              <select
+              <Dropdown
                 value={destDefId()}
-                onChange={(e) => setDestDefId(e.currentTarget.value)}
-              >
-                <For each={props.connections}>
-                  {(c) => <option value={c.id}>{c.name}</option>}
-                </For>
-              </select>
+                options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+                onChange={(v) => setDestDefId(v)}
+              />
             </label>{" "}
             <label>
               {t("ssync.db")}{" "}
@@ -210,16 +208,12 @@ export function TransferWizard(props: {
                   <div class="map-row">
                     <span class="map-target">{col}</span>
                     <span class="map-arrow">←</span>
-                    <select
-                      class="map-select"
+                    <Dropdown
                       value={mapping()[col] ?? OMIT}
-                      onChange={(e) => setColumn(col, e.currentTarget.value)}
-                    >
-                      <option value={OMIT}>{t("imp.omit")}</option>
-                      <For each={sourceHeaders()}>
-                        {(h) => <option value={h}>{h}</option>}
-                      </For>
-                    </select>
+                      options={[{ value: OMIT, label: t("imp.omit") }, ...sourceHeaders().map((h) => ({ value: h, label: h }))]}
+                      onChange={(v) => setColumn(col, v)}
+                      class="map-select"
+                    />
                   </div>
                 )}
               </For>

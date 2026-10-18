@@ -1,3 +1,4 @@
+import { Dropdown } from "./Dropdown";
 import { For, Show, createEffect, createSignal } from "solid-js";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
@@ -135,10 +136,12 @@ export function DataSearchPanel(props: {
           <Show when={schemas().length > 0}>
             <label>
               {t("bk.schema")}{" "}
-              <select value={schema()} disabled={busy()} onChange={(e) => setSchema(e.currentTarget.value)}>
-                <option value="" />
-                <For each={schemas()}>{(s) => <option value={s}>{s}</option>}</For>
-              </select>
+              <Dropdown
+                value={schema()}
+                disabled={busy()}
+                options={[{ value: "", label: "" }, ...schemas().map((s) => ({ value: s, label: s }))]}
+                onChange={setSchema}
+              />
             </label>
           </Show>
         </div>
@@ -154,11 +157,15 @@ export function DataSearchPanel(props: {
           </label>{" "}
           <label>
             {t("ds.mode")}{" "}
-            <select value={mode()} onChange={(e) => setMode(e.currentTarget.value as MatchMode)}>
-              <option value="contains">{t("ds.mode.contains")}</option>
-              <option value="startsWith">{t("ds.mode.startsWith")}</option>
-              <option value="exact">{t("ds.mode.exact")}</option>
-            </select>
+            <Dropdown
+              value={mode()}
+              options={[
+                { value: "contains", label: t("ds.mode.contains") },
+                { value: "startsWith", label: t("ds.mode.startsWith") },
+                { value: "exact", label: t("ds.mode.exact") },
+              ]}
+              onChange={(v) => setMode(v as MatchMode)}
+            />
           </label>{" "}
           <label title={t("ds.ignoreCaseHint")}>
             <input type="checkbox" checked={ignoreCase()} onChange={(e) => setIgnoreCase(e.currentTarget.checked)} />{" "}
