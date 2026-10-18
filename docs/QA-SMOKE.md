@@ -11,8 +11,9 @@ ejecuta la secuencia paso a paso reportando ✅/❌.
 árbol → edición transaccional (begin/insert/update/delete/commit) → rollback →
 export CSV → desconectar`.
 
-En MongoDB (solo lectura) el camino se reduce a: conectar → árbol → find
-paginado → desconectar.
+En MongoDB el camino de este smoke se reduce a: conectar → árbol → find
+paginado → desconectar (las escrituras, la edición por `_id` y el DDL los cubre
+`tests/integration/mongodb_integration_test.c`, en el job `mongodb-integration` de CI).
 
 ## Requisitos
 

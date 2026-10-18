@@ -58,6 +58,47 @@ if(BUILD_TESTING)
   target_include_directories(mongodb_json_relax_test PRIVATE src/utils)
   quaero_set_warnings(mongodb_json_relax_test)
   add_test(NAME mongodb_json_relax_test COMMAND mongodb_json_relax_test)
+
+  add_executable(mongodb_strutil_test
+    tests/strutil_test.c
+    src/utils/strutil.c
+    src/utils/json_check.c)
+  target_include_directories(mongodb_strutil_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_strutil_test)
+  add_test(NAME mongodb_strutil_test COMMAND mongodb_strutil_test)
+
+  add_executable(mongodb_dml_test
+    tests/dml_test.c
+    src/utils/dml.c
+    src/utils/strutil.c
+    src/utils/json_check.c
+    src/utils/json_relax.c)
+  target_include_directories(mongodb_dml_test PRIVATE
+    src/utils ${CMAKE_SOURCE_DIR}/core/include)
+  quaero_set_warnings(mongodb_dml_test)
+  add_test(NAME mongodb_dml_test COMMAND mongodb_dml_test)
+
+  add_executable(mongodb_ddl_test
+    tests/ddl_test.c
+    src/utils/ddl.c
+    src/utils/strutil.c)
+  target_include_directories(mongodb_ddl_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_ddl_test)
+  add_test(NAME mongodb_ddl_test COMMAND mongodb_ddl_test)
+
+  add_executable(mongodb_cancel_tag_test
+    tests/cancel_tag_test.c
+    src/utils/cancel_tag.c)
+  target_include_directories(mongodb_cancel_tag_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_cancel_tag_test)
+  add_test(NAME mongodb_cancel_tag_test COMMAND mongodb_cancel_tag_test)
+
+  add_executable(mongodb_tx_support_test
+    tests/tx_support_test.c
+    src/utils/tx_support.c)
+  target_include_directories(mongodb_tx_support_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_tx_support_test)
+  add_test(NAME mongodb_tx_support_test COMMAND mongodb_tx_support_test)
 endif()
 
 # --- driver plugin (when the mongo-c-driver is available) ------------------
@@ -81,12 +122,25 @@ if(MONGOC_FOUND OR QUAERO_MONGOC)
     src/entry.c
     src/connection.c
     src/query.c
+    src/command.c
+    src/docs.c
     src/metadata.c
+    src/ddl.c
+    src/edit.c
+    src/admin.c
+    src/txn.c
+    src/cancel.c
     src/utils/bson_types.c
+    src/utils/cancel_tag.c
     src/utils/columns.c
+    src/utils/ddl.c
+    src/utils/dml.c
+    src/utils/json_check.c
     src/utils/json_relax.c
     src/utils/query_parse.c
     src/utils/result.c
+    src/utils/strutil.c
+    src/utils/tx_support.c
     src/utils/value_fmt.c)
   target_include_directories(mongodb_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)

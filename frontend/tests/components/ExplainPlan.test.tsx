@@ -126,3 +126,40 @@ describe("ExplainPlan", () => {
     expect(host!.textContent).toContain("orders");
   });
 });
+
+describe("ExplainPlan on MongoDB", () => {
+  const mongoResult = (qp: unknown) => ({
+    columns: [
+      { name: "queryPlanner", type: "json" },
+      { name: "ok", type: "int" },
+    ],
+    rows: [[JSON.stringify(qp), "1"]],
+    truncated: false,
+    rowsAffected: 0,
+  });
+
+  it("asks the driver for the plan and draws the winning plan's stages", async () => {
+    const calls = installBridge(() =>
+      mongoResult({
+        namespace: "shop.orders",
+        winningPlan: { stage: "FETCH", inputStage: { stage: "IXSCAN", indexName: "total_1" } },
+      }),
+    );
+    mount({ engine: "mongodb", sql: "db.orders.find({total: {$gt: 5}})" });
+    await flush();
+    expect(calls[0]).toBe('db.orders.find({total: {$gt: 5}}).explain("queryPlanner")');
+    const ops = [...host!.querySelectorAll(".ep-op")].map((e) => e.textContent);
+    expect(ops).toEqual(expect.arrayContaining(["FETCH", "IXSCAN"]));
+    expect(host!.querySelector(".ep-table")!.textContent).toBe("orders");
+  });
+
+  it("shows the driver's error as is (e.g. an insert has no plan)", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number };
+      return { jsonrpc: "2.0", id: req.id, error: { code: -32003, message: "unexpected characters after the call" } };
+    };
+    mount({ engine: "mongodb", sql: "db.orders.insertOne({a: 1})" });
+    await flush();
+    expect(host!.querySelector("[role='alert']")!.textContent).toContain("unexpected characters");
+  });
+});

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
 import {
   describePkColumns,
   describeColumnNames,
@@ -9,6 +9,10 @@ import {
   deleteParams,
   parseRowResult,
   rowCountOk,
+  hasTransactions,
+  txBeginIfSupported,
+  txCommitIfOpen,
+  txRollbackIfOpen,
 } from "../../src/utils/edit";
 import type { ResultSet, ResultColumn } from "../../src/utils/query";
 import type { JsonRpcResponse } from "../../src/utils/ipc";
@@ -226,5 +230,124 @@ describe("rowCountOk", () => {
 
   it("cannot check a driver that reports no count", () => {
     expect(rowCountOk("mongodb", "update", undefined)).toBe(true);
+  });
+});
+
+describe("rowCountOk for MongoDB", () => {
+  it("wants exactly one document, as for SQL: matched, not changed", () => {
+    expect(rowCountOk("mongodb", "update", 1)).toBe(true);
+    expect(rowCountOk("mongodb", "delete", 1)).toBe(true);
+    expect(rowCountOk("mongodb", "update", 0)).toBe(false);
+    expect(rowCountOk("mongodb", "delete", 0)).toBe(false);
+    expect(rowCountOk("mongodb", "update", 2)).toBe(false);
+  });
+});
+
+describe("edit sessions on an engine without transactions", () => {
+  const sent: string[] = [];
+  let unsupported: Set<string>;
+
+  beforeEach(() => {
+    sent.length = 0;
+    unsupported = new Set();
+    (globalThis as Record<string, unknown>).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string; params: { connId: string } };
+      sent.push(`${req.method}:${req.params.connId}`);
+      if (req.method === "tx.begin" && unsupported.has(req.params.connId)) {
+        return {
+          jsonrpc: "2.0",
+          id: req.id,
+          error: { code: -32001, message: "this engine does not support transactions" },
+        };
+      }
+      return { jsonrpc: "2.0", id: req.id, result: {} };
+    };
+  });
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).quaeroRpc;
+  });
+
+  it("a transactional engine begins, commits and rolls back for real", async () => {
+    expect(await txBeginIfSupported("c-sql")).toBe(true);
+    expect(hasTransactions("c-sql")).toBe(true);
+    await txCommitIfOpen("c-sql");
+    await txRollbackIfOpen("c-sql");
+    expect(sent).toEqual(["tx.begin:c-sql", "tx.commit:c-sql", "tx.rollback:c-sql"]);
+  });
+
+  it("an UNSUPPORTED tx.begin turns the session transaction-less: no commit or rollback is sent", async () => {
+    unsupported.add("c-mongo");
+    expect(await txBeginIfSupported("c-mongo")).toBe(false);
+    expect(hasTransactions("c-mongo")).toBe(false);
+    await txCommitIfOpen("c-mongo");
+    await txRollbackIfOpen("c-mongo");
+    expect(sent).toEqual(["tx.begin:c-mongo"]);
+  });
+
+  it("is per connection, and re-evaluated at each begin", async () => {
+    unsupported.add("c-a");
+    await txBeginIfSupported("c-a");
+    await txBeginIfSupported("c-b");
+    expect(hasTransactions("c-a")).toBe(false);
+    expect(hasTransactions("c-b")).toBe(true);
+    // the engine gains transactions (a replica set later): the next begin notices
+    unsupported.delete("c-a");
+    expect(await txBeginIfSupported("c-a")).toBe(true);
+    expect(hasTransactions("c-a")).toBe(true);
+  });
+
+  it("any other tx.begin error keeps the session transactional (the failure surfaces at commit)", async () => {
+    (globalThis as Record<string, unknown>).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number };
+      return { jsonrpc: "2.0", id: req.id, error: { code: -32003, message: "boom" } };
+    };
+    expect(await txBeginIfSupported("c-err")).toBe(true);
+    expect(hasTransactions("c-err")).toBe(true);
+  });
+});
+
+// Issue #719: the MongoDB driver advertises transactions but refuses begin on a
+// standalone server, with the same UNSUPPORTED code and a message naming the
+// replica set. The session must fall back exactly as for an engine with none.
+describe("edit session on a MongoDB server without a replica set", () => {
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).quaeroRpc;
+  });
+
+  it("falls back to applying each change when the driver says transactions need a replica set", async () => {
+    const sent: string[] = [];
+    (globalThis as Record<string, unknown>).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      sent.push(req.method);
+      if (req.method === "tx.begin") {
+        return {
+          jsonrpc: "2.0",
+          id: req.id,
+          error: {
+            code: -32001,
+            message: "transactions need a replica set or a sharded cluster: this MongoDB server is standalone",
+          },
+        };
+      }
+      return { jsonrpc: "2.0", id: req.id, result: {} };
+    };
+    expect(await txBeginIfSupported("c-standalone")).toBe(false);
+    expect(hasTransactions("c-standalone")).toBe(false);
+    await txCommitIfOpen("c-standalone");
+    await txRollbackIfOpen("c-standalone");
+    expect(sent).toEqual(["tx.begin"]);
+  });
+
+  it("uses the transaction when the same driver is on a replica set", async () => {
+    const sent: string[] = [];
+    (globalThis as Record<string, unknown>).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      sent.push(req.method);
+      return { jsonrpc: "2.0", id: req.id, result: { ok: true } };
+    };
+    expect(await txBeginIfSupported("c-rs")).toBe(true);
+    await txCommitIfOpen("c-rs");
+    expect(sent).toEqual(["tx.begin", "tx.commit"]);
   });
 });

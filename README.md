@@ -30,7 +30,7 @@ each database's client libraries.
 | **PostgreSQL** | ✅ Via libpq — SSL/TLS, SCRAM |
 | **MySQL / MariaDB** | ✅ Complete (verified) — SSL/TLS, SSH tunnel |
 | **Informix** | ✅ Over DRDA, no IBM client needed |
-| **MongoDB** | ✅ Read (find/aggregate, mongosh syntax) |
+| **MongoDB** | ✅ mongosh syntax — find/aggregate, writes (insert/update/replace/delete), indexes, `runCommand`; edit documents in the grid by `_id`; a collection's definition as a script; execution plan (`.explain()`), operations monitor (`currentOp`/`killOp`), profiler-backed slow queries, collection/view/index management from the tree, cancel (`killOp`), and transactions on a replica set or sharded cluster (a standalone server says so) |
 | **SQL Server** | ✅ Via FreeTDS — queries, types, schema, transactions, encryption, named instances. Not yet: editing rows in the grid, DDL, cancelling a query |
 | Oracle | ⏳ Planned (M12) |
 

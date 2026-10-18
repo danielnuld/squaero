@@ -110,8 +110,14 @@ export function SlowQueries(props: {
   const selectedQuery = createMemo(() => {
     const r = selectedRow();
     if (r === null) return null;
-    const row = result()?.rows[r];
-    return row ? queryText(row) : null;
+    const res = result();
+    const row = res?.rows[r];
+    if (!res || !row) return null;
+    // MongoDB's query cell is the profiled command (JSON): the statement to open
+    // or explain is rebuilt from it and the namespace. Null when it cannot be.
+    const toStatement = support().statementOf;
+    if (!toStatement) return queryText(row);
+    return toStatement(Object.fromEntries(res.columns.map((c, i) => [c.name.toLowerCase(), row[i]])));
   });
 
   return (
@@ -173,6 +179,11 @@ export function SlowQueries(props: {
           emptyState={<p class="grid-empty">{t("slow.noRecords")}</p>}
           onSelectedRowChange={setSelectedRow}
         />
+        {/* An empty answer can mean the catalog is switched off (MongoDB's
+            profiler), not that nothing was slow: say how to turn it on. */}
+        <Show when={support().emptyHint && result() && rows().length === 0 && !loading() && !error()}>
+          <p class="grid-empty">{t(support().emptyHint!)}</p>
+        </Show>
       </Show>
     </Panel>
   );

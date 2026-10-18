@@ -95,6 +95,16 @@ dbc_status mongo_list_databases(dbc_conn *c, dbc_result **out)
     return DBC_OK;
 }
 
+typedef struct {
+    char *name;
+    int   is_view;
+} coll_entry;
+
+static int cmp_entries(const void *a, const void *b)
+{
+    return strcmp(((const coll_entry *)a)->name, ((const coll_entry *)b)->name);
+}
+
 dbc_status mongo_list_tables(dbc_conn *c, const char *schema, dbc_result **out)
 {
     *out = NULL;
@@ -112,38 +122,93 @@ dbc_status mongo_list_tables(dbc_conn *c, const char *schema, dbc_result **out)
         mongo_set_err(c, "could not open database");
         return DBC_ERR_QUERY;
     }
+    /* listCollections with nameOnly returns each entry's name and type, which is
+       what tells a view (shown as one in the tree) from a collection. */
     bson_error_t berr;
-    char **names = mongoc_database_get_collection_names_with_opts(database, NULL,
-                                                                  &berr);
+    bson_t opts = BSON_INITIALIZER;
+    BSON_APPEND_BOOL(&opts, "nameOnly", true);
+    mongoc_cursor_t *cursor = mongoc_database_find_collections_with_opts(database, &opts);
+    bson_destroy(&opts);
     mongoc_database_destroy(database);
-    if (names == NULL) {
-        mongo_stash_bson_error(c, "list collections failed", &berr);
+    if (cursor == NULL) {
+        mongo_set_err(c, "could not list collections");
         return DBC_ERR_QUERY;
     }
 
-    dbc_result *r = mongo_result_new();
-    if (r == NULL ||
-        mongo_result_add_column(r, "name", DBC_TYPE_TEXT) != 0 ||
-        mongo_result_add_column(r, "type", DBC_TYPE_TEXT) != 0) {
-        mongo_free_result(r);
-        bson_strfreev(names);
-        return DBC_ERR_NOMEM;
+    coll_entry *entries = NULL;
+    size_t n = 0, cap = 0;
+    const bson_t *doc = NULL;
+    dbc_status st = DBC_OK;
+    while (mongoc_cursor_next(cursor, &doc)) {
+        bson_iter_t it;
+        if (!bson_iter_init_find(&it, doc, "name") || !BSON_ITER_HOLDS_UTF8(&it)) {
+            continue;
+        }
+        if (n == cap) {
+            size_t nc = cap == 0 ? 32 : cap * 2;
+            coll_entry *grown = realloc(entries, nc * sizeof *grown);
+            if (grown == NULL) {
+                st = DBC_ERR_NOMEM;
+                break;
+            }
+            entries = grown;
+            cap = nc;
+        }
+        uint32_t len = 0;
+        const char *nm = bson_iter_utf8(&it, &len);
+        entries[n].name = dup_n(nm, len);
+        entries[n].is_view = bson_iter_init_find(&it, doc, "type") && BSON_ITER_HOLDS_UTF8(&it) &&
+                             strcmp(bson_iter_utf8(&it, NULL), "view") == 0;
+        if (entries[n].name == NULL) {
+            st = DBC_ERR_NOMEM;
+            break;
+        }
+        n++;
     }
-    for (int i = 0; names[i] != NULL; i++) {
+    if (st == DBC_OK && mongoc_cursor_error(cursor, &berr)) {
+        mongo_stash_bson_error(c, "list collections failed", &berr);
+        st = DBC_ERR_QUERY;
+    }
+    mongoc_cursor_destroy(cursor);
+    if (st == DBC_OK) {
+        qsort(entries, n, sizeof *entries, cmp_entries);
+    }
+
+    dbc_result *r = NULL;
+    if (st == DBC_OK) {
+        r = mongo_result_new();
+        if (r == NULL || mongo_result_add_column(r, "name", DBC_TYPE_TEXT) != 0 ||
+            mongo_result_add_column(r, "type", DBC_TYPE_TEXT) != 0) {
+            st = DBC_ERR_NOMEM;
+        }
+    }
+    for (size_t i = 0; st == DBC_OK && i < n; i++) {
         char **cells = calloc(2, sizeof *cells);
         if (cells != NULL) {
-            cells[0] = dup_n(names[i], strlen(names[i]));
-            cells[1] = dup_n("collection", 10);
+            cells[0] = entries[i].name;   /* the row takes ownership on success */
+            cells[1] = entries[i].is_view ? dup_n("view", 4) : dup_n("collection", 10);
         }
-        if (cells == NULL || cells[0] == NULL || cells[1] == NULL ||
-            mongo_result_add_row(r, cells) != 0) {
-            free_cells(cells, 2);
-            mongo_free_result(r);
-            bson_strfreev(names);
-            return DBC_ERR_NOMEM;
+        if (cells == NULL || cells[1] == NULL || mongo_result_add_row(r, cells) != 0) {
+            if (cells != NULL) {
+                free(cells[1]);
+                free(cells);
+            }
+            st = DBC_ERR_NOMEM;
+            break;
         }
+        entries[i].name = NULL;
     }
-    bson_strfreev(names);
+    for (size_t i = 0; i < n; i++) {
+        free(entries[i].name);
+    }
+    free(entries);
+    if (st != DBC_OK) {
+        mongo_free_result(r);
+        if (st == DBC_ERR_NOMEM) {
+            mongo_set_err(c, "out of memory");
+        }
+        return st;
+    }
     *out = r;
     return DBC_OK;
 }

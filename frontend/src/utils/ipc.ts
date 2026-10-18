@@ -57,6 +57,8 @@ export function parseResponse(raw: string): JsonRpcResponse {
 /** Domain code the core returns when a connection could not be opened or used
     (see docs/IPC.md "Códigos de error"). */
 export const IPC_ERR_CONN = -32000;
+/** The driver does not support the operation (core IPC_ERR_UNSUPPORTED). */
+export const IPC_ERR_UNSUPPORTED = -32001;
 
 /**
  * The connection a request was about, or null when it was not about one.

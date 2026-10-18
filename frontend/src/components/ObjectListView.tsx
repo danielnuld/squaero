@@ -56,15 +56,20 @@ export function ObjectListView(props: {
   // fixed-width CHAR pad the value ('view ' on Informix), and an exact match
   // would leave the Vistas filter and count empty (issue #315). Defaults to
   // "table" when the listing has no type column.
+  const nameKey = () => support().nameKey ?? "nombre";
+  const typeKey = () => support().typeKey ?? "tipo";
+  // Anything that is not a view is listed as a table (a MongoDB collection says
+  // "collection", a time-series one "timeseries").
   const typeAt = (row: (string | null)[]): string => {
-    const ti = colIndex("tipo");
-    return ti >= 0 ? String(row[ti] ?? "").trim() : "table";
+    const ti = colIndex(typeKey());
+    if (ti < 0) return "table";
+    return String(row[ti] ?? "").trim() === "view" ? "view" : "table";
   };
 
   // Row indices (into result.rows) matching the active type filter.
   const view = createMemo<number[]>(() => {
     const rows = result()?.rows ?? [];
-    const ti = colIndex("tipo");
+    const ti = colIndex(typeKey());
     const f = filter();
     const out: number[] = [];
     rows.forEach((row, i) => {
@@ -92,7 +97,7 @@ export function ObjectListView(props: {
   };
 
   const open = (rowIdx: number) => {
-    const ni = colIndex("nombre");
+    const ni = colIndex(nameKey());
     if (ni < 0) return;
     const name = String(result()!.rows[rowIdx][ni]).trim();
     props.onOpenData(name, typeAt(result()!.rows[rowIdx]));

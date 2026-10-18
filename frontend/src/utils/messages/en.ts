@@ -334,6 +334,7 @@ export const en: Record<string, string> = {
   "slow.openTitle": "Open in the editor",
   "slow.explainTitle": "EXPLAIN the query",
   "slow.count": "{n} queries",
+  "slow.emptyMongo": "MongoDB records operations only while its profiler is on. Turn it on in the editor, for example db.setProfilingLevel(1, 100) to keep those slower than 100 ms, then run the queries again.",
   "slow.noRecords": "No slow-query records.",
 
   // filter panel of a data tab (#347)
@@ -435,6 +436,16 @@ export const en: Record<string, string> = {
   "tree.dropTitle": "Delete “{name}”",
   "tree.dropMessage": "{name} will be deleted from the server. This cannot be undone.",
   "tree.dropConfirm": "Delete",
+  "tree.emptyCollection": "Empty collection…",
+  "tree.emptyTitle": "Empty “{name}”",
+  "tree.emptyMessage": "Every document in {name} will be deleted. The collection and its indexes stay. This cannot be undone.",
+  "tree.emptyConfirm": "Empty",
+  "tree.renameCollection": "Rename collection…",
+  "tree.renameTitle": "Rename “{name}”",
+  "tree.renameMessage": "Choose the new name of {name}. No other collection may have it.",
+  "tree.renameLabel": "New name",
+  "tree.renameConfirm": "Rename",
+  "tree.renameInvalid": "That name cannot be used: it is empty, unchanged, contains “$” or starts with “system.”.",
   // folder labels (data keys, translated at the tree consumer)
   "tree.tables": "Tables",
   "tree.views": "Views",
@@ -692,7 +703,6 @@ export const en: Record<string, string> = {
   "objlist.colRows": "Rows",
   "objlist.colSize": "Size",
   "objlist.colComment": "Comment",
-  "objlist.reasonMongo": "MongoDB exposes collections, not SQL catalog tables: use the object tree.",
   "objlist.reasonUnavailable": "The object list is not available for this engine.",
 
   // row detail dock (RowDetail.tsx)
@@ -789,6 +799,7 @@ export const en: Record<string, string> = {
   "ssync.nothingExecutable": "No executable statements (notes only).",
   "ssync.applied": "{n} statement(s) applied on the target.",
   "ssync.applyError": "Could not apply: {reason}",
+  "edit.partialNoTx": "{n} change(s) were saved, then one failed: {reason}. This engine has no transactions, so the saved ones stay; the grid shows what is stored now.",
   "ssync.migrationSql": "Migration SQL ({n} executable)",
   "ssync.alreadyMatch": "The structures already match.",
   "ssync.apply": "Apply on target",

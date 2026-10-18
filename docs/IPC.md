@@ -385,10 +385,11 @@ ATTENTION de TDS; sobre FreeTDS db-lib lo envía el propio hilo de la consulta d
 el manejador de interrupciones, en menos de un segundo, y la conexión sigue viva,
 #668) e **Informix** (DRDA no puede
 interrumpir una consulta en la propia conexión, así que la corta: la conexión queda
-perdida y la app ofrece reconectar, como tras una caída, #407); MongoDB aún no lo anuncia
-(para él la UI no se congela, pero la consulta sigue hasta terminar, y el botón
-Cancelar aparece deshabilitado, con el motivo, porque `conn.open` reporta
-`features.cancel: false`). A diferencia
+perdida y la app ofrece reconectar, como tras una caída, #407) y **MongoDB** (`killOp`
+desde un cliente lateral: cada `find`/`aggregate` lleva una etiqueta por conexión como
+`comment` y el cancel localiza y mata las operaciones con esa etiqueta; las escrituras y
+los comandos de utilidad no llevan etiqueta y corren hasta terminar; sin permiso para
+listar o matar las propias operaciones devuelve `canceled: false`). A diferencia
 del resto de los métodos, el
 shell nativo despacha `op.cancel` **sin** encolarlo detrás de la consulta que
 interrumpe, y el hook `cancel` del driver corre en otro hilo mientras `query.run`
@@ -436,8 +437,14 @@ sobre la conexión activa. `params: { connId }`; resultado `{ ok: true }`. Sirve
 para agrupar una tanda de ediciones (`row.*`) y confirmarlas o descartarlas en
 bloque (edición segura, issue #28). Requieren que el driver anuncie
 `DBC_FEAT_TRANSACTIONS`; un motor sin soporte devuelve `-32001` (no soportado)
-en lugar de fingir éxito. Los motores SQL (SQLite, MySQL/MariaDB) los soportan;
-MongoDB no los anuncia.
+en lugar de fingir éxito. Los motores SQL (SQLite, MySQL/MariaDB) los soportan.
+MongoDB los anuncia, pero la capacidad depende del servidor: `tx.begin` comprueba la
+topología y, en un `mongod` standalone (o un secundario, o un servidor anterior a 4.0),
+responde `-32001` con «transactions need a replica set…»; una sesión de edición lo lee y
+aplica cada cambio en el momento, sin nada que confirmar ni revertir. En un replica set o
+un clúster con shards usa una sesión de cliente de mongoc y todas las operaciones
+(`find`, `aggregate`, escrituras, `countDocuments`, `distinct`…) se unen a la transacción;
+`getIndexes` y las consultas de metadatos quedan fuera (el servidor no las admite dentro).
 
 El núcleo recuerda, por conexión, si `tx.begin` abrió una transacción que ningún
 `tx.commit`/`tx.rollback` cerró todavía (#667): un segundo `tx.begin` sobre la misma
@@ -472,8 +479,12 @@ Resultado `{ sql: string, rowsAffected?: number }`. Con `preview: true` solo se
 sin `preview` se genera y además se ejecuta. El driver construye el SQL literal
 (`build_dml`), así que el `sql` del preview es exactamente el que se ejecuta al
 confirmar (issue #29). El núcleo rechaza un `UPDATE`/`DELETE` sin `where` (jamás
-afecta todas las filas). Requiere `DBC_FEAT_DML`; MongoDB no lo anuncia (solo
-lectura). La edición segura se agrupa con `tx.begin`/`tx.commit`/`tx.rollback`.
+afecta todas las filas). Requiere `DBC_FEAT_DML`. MongoDB lo anuncia: `build_dml`
+renderiza un `insertOne`/`updateOne`/`deleteOne` de la superficie mongosh que
+identifica el documento por su `_id` (la clave que `schema.describe` marca como pk),
+y `rowsAffected` es el número de documentos *encontrados* por el filtro (para un
+`updateOne` con el mismo valor, 1 aunque no cambie nada). La edición segura se agrupa con
+`tx.begin`/`tx.commit`/`tx.rollback` en los motores que los anuncian.
 
 ### Códigos de error
 

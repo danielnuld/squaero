@@ -16,7 +16,7 @@ describe("explainKind / buildStructuredExplain", () => {
     expect(explainKind("mariadb")).toBe("mysql-json");
     expect(explainKind("sqlite")).toBe("sqlite-qp");
     expect(explainKind("informix")).toBeNull();
-    expect(explainKind("mongodb")).toBeNull();
+    expect(explainKind("mongodb")).toBe("mongo-explain");
   });
 
   it("builds the right EXPLAIN and strips the trailing semicolon", () => {
@@ -25,6 +25,16 @@ describe("explainKind / buildStructuredExplain", () => {
     expect(buildStructuredExplain("sqlite", "SELECT 1")).toBe("EXPLAIN QUERY PLAN SELECT 1");
     expect(buildStructuredExplain("informix", "SELECT 1")).toBeNull();
     expect(buildStructuredExplain("postgres", "  ")).toBeNull();
+  });
+
+  it("MongoDB: asks the driver for the plan of the statement, without running it", () => {
+    expect(buildStructuredExplain("mongodb", "db.users.find({a: 1});")).toBe(
+      'db.users.find({a: 1}).explain("queryPlanner")',
+    );
+    expect(buildStructuredExplain("mongodb", "db.users.aggregate([])")).toBe(
+      'db.users.aggregate([]).explain("queryPlanner")',
+    );
+    expect(buildStructuredExplain("mongodb", "SELECT 1")).toBeNull();
   });
 });
 
@@ -170,5 +180,171 @@ describe("layoutPlan", () => {
     expect(edges).toHaveLength(2);
     expect(width).toBeGreaterThan(0);
     expect(height).toBe(130); // two rows: 50 + 30 + 50
+  });
+});
+
+describe("parsePlan — MongoDB explain", () => {
+  const cols = ["explainVersion", "queryPlanner", "executionStats", "serverInfo", "ok"];
+  const row = (qp: unknown, stats?: unknown): (string | null)[][] => [
+    ["1", JSON.stringify(qp), stats === undefined ? null : JSON.stringify(stats), "{}", "1"],
+  ];
+
+  it("turns the winning plan into a tree: FETCH over IXSCAN", () => {
+    const plan = parsePlan(
+      "mongo-explain",
+      cols,
+      row({
+        namespace: "shop.orders",
+        winningPlan: {
+          stage: "LIMIT",
+          inputStage: {
+            stage: "FETCH",
+            filter: { status: { $eq: "open" } },
+            inputStage: { stage: "IXSCAN", indexName: "total_1", direction: "forward" },
+          },
+        },
+        rejectedPlans: [{ stage: "COLLSCAN" }],
+      }),
+    )!;
+    expect(plan.op).toBe("LIMIT");
+    expect(plan.detail).toContain("1 plan(es) descartado(s)");
+    const fetch = plan.children[0];
+    expect(fetch.op).toBe("FETCH");
+    expect(fetch.detail).toContain("filtro");
+    const scan = fetch.children[0];
+    expect(scan.op).toBe("IXSCAN");
+    expect(scan.table).toBe("orders");
+    expect(scan.detail).toBe("índice total_1");
+    expect(scan.children).toEqual([]);
+  });
+
+  it("a collection scan names the collection", () => {
+    const plan = parsePlan(
+      "mongo-explain",
+      cols,
+      row({ namespace: "d.my.coll", winningPlan: { stage: "COLLSCAN", direction: "backward" } }),
+    )!;
+    expect(plan.op).toBe("COLLSCAN");
+    expect(plan.table).toBe("my.coll");
+    expect(plan.detail).toBe("descendente");
+  });
+
+  it("an index intersection or OR has several inputs", () => {
+    const plan = parsePlan(
+      "mongo-explain",
+      cols,
+      row({
+        namespace: "d.c",
+        winningPlan: {
+          stage: "OR",
+          inputStages: [
+            { stage: "IXSCAN", indexName: "a_1" },
+            { stage: "IXSCAN", indexName: "b_1" },
+          ],
+        },
+      }),
+    )!;
+    expect(plan.children.map((c) => c.detail)).toEqual(["índice a_1", "índice b_1"]);
+  });
+
+  it("a sharded cluster nests each shard's plan", () => {
+    const plan = parsePlan(
+      "mongo-explain",
+      cols,
+      row({
+        namespace: "d.c",
+        winningPlan: {
+          stage: "SHARD_MERGE",
+          shards: [
+            { shardName: "s1", winningPlan: { stage: "COLLSCAN" } },
+            { shardName: "s2", winningPlan: { stage: "IXSCAN", indexName: "x" } },
+          ],
+        },
+      }),
+    )!;
+    expect(plan.op).toBe("SHARD_MERGE");
+    expect(plan.children.map((c) => c.op)).toEqual(["Shard s1", "Shard s2"]);
+    expect(plan.children[1].children[0].op).toBe("IXSCAN");
+  });
+
+  it("the slot-based engine's queryPlan is unwrapped", () => {
+    const plan = parsePlan(
+      "mongo-explain",
+      cols,
+      row({
+        namespace: "d.c",
+        winningPlan: { queryPlan: { stage: "GROUP", inputStage: { stage: "COLLSCAN" } }, slotBasedPlan: {} },
+      }),
+    )!;
+    expect(plan.op).toBe("GROUP");
+    expect(plan.children[0].op).toBe("COLLSCAN");
+  });
+
+  it("with executionStats the tree carries rows and time per stage", () => {
+    const plan = parsePlan(
+      "mongo-explain",
+      cols,
+      row(
+        { namespace: "d.c", winningPlan: { stage: "COLLSCAN" } },
+        {
+          executionStages: {
+            stage: "FETCH",
+            nReturned: 7,
+            executionTimeMillisEstimate: 3,
+            inputStage: { stage: "IXSCAN", nReturned: 7, executionTimeMillisEstimate: 1, indexName: "i" },
+          },
+        },
+      ),
+    )!;
+    expect(plan.op).toBe("FETCH");
+    expect(plan.rows).toBe(7);
+    expect(plan.cost).toBe(3);
+    expect(plan.children[0].cost).toBe(1);
+    expect(nodeWeight(plan)).toBe(3);
+  });
+
+  it("an aggregation explained stage by stage is a chain ending in the $cursor's plan", () => {
+    const stages = [
+      { $cursor: { queryPlanner: { namespace: "d.c", winningPlan: { stage: "COLLSCAN" } } } },
+      { $group: { _id: "$a" } },
+      { $sort: { _id: 1 } },
+    ];
+    const plan = parsePlan("mongo-explain", ["stages", "ok"], [[JSON.stringify(stages), "1"]])!;
+    expect(plan.op).toBe("$sort");
+    expect(plan.children[0].op).toBe("$group");
+    const cursor = plan.children[0].children[0];
+    expect(cursor.op).toBe("COLLSCAN");
+    expect(cursor.table).toBe("c");
+  });
+
+  it("returns null when there is nothing it can read (the caller shows the raw text)", () => {
+    expect(parsePlan("mongo-explain", cols, [])).toBeNull();
+    expect(parsePlan("mongo-explain", cols, [["1", "not json", null, "{}", "1"]])).toBeNull();
+    expect(parsePlan("mongo-explain", ["ok"], [["1"]])).toBeNull();
+    expect(parsePlan("mongo-explain", cols, row({ namespace: "d.c" }))).toBeNull();
+    expect(parsePlan("mongo-explain", ["stages"], [["[]"]])).toBeNull();
+  });
+
+  it("the costliest path follows the stage with the most time", () => {
+    const plan = parsePlan(
+      "mongo-explain",
+      cols,
+      row(
+        { namespace: "d.c", winningPlan: { stage: "OR" } },
+        {
+          executionStages: {
+            stage: "OR",
+            executionTimeMillisEstimate: 10,
+            inputStages: [
+              { stage: "IXSCAN", executionTimeMillisEstimate: 1 },
+              { stage: "COLLSCAN", executionTimeMillisEstimate: 9 },
+            ],
+          },
+        },
+      ),
+    )!;
+    const hot = expensivePath(plan);
+    expect(hot.has(plan.children[1].id)).toBe(true);
+    expect(hot.has(plan.children[0].id)).toBe(false);
   });
 });

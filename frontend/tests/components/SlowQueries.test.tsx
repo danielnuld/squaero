@@ -204,3 +204,65 @@ describe("SlowQueries", () => {
     expect(host!.querySelector(".grid-error")!.textContent).toContain("performance_schema");
   });
 });
+
+// Issue #719: MongoDB's slow operations come from the profiler. The query cell
+// is the profiled command; "Abrir" and EXPLAIN act on the mongosh statement
+// rebuilt from it, and a hint says how to switch the profiler on.
+describe("SlowQueries on MongoDB", () => {
+  function mongoBridge(rows: (string | null)[][]) {
+    const calls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string; params: any };
+      calls.push(req.params?.sql ?? "");
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: {
+          // An empty aggregate has no documents, hence no columns.
+          columns: rows.length === 0 ? [] : ["ns", "op", "query", "ejecuciones", "avg_ms", "total_ms", "max_ms"].map((name) => ({ name, type: "text" })),
+          rows,
+          truncated: false,
+          rowsAffected: 0,
+        },
+      };
+    };
+    return calls;
+  }
+  const barButton = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === label)!;
+
+  it("reads system.profile and opens the rebuilt statement", async () => {
+    const calls = mongoBridge([
+      ["shop.orders", "query", JSON.stringify({ find: "orders", filter: { total: { $gt: 5 } } }), "3", "12", "36", "20"],
+    ]);
+    const onOpenSql = vi.fn();
+    const onExplain = vi.fn();
+    mount({ engine: "mongodb", onOpenSql, onExplain });
+    await flush();
+    expect(calls[0].startsWith("db.system.profile.aggregate(")).toBe(true);
+    host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
+    await flush();
+    barButton("Abrir").click();
+    expect(onOpenSql).toHaveBeenCalledWith('db.orders.find({"total":{"$gt":5}})');
+    barButton("EXPLAIN").click();
+    expect(onExplain).toHaveBeenCalledWith('db.orders.find({"total":{"$gt":5}})');
+  });
+
+  it("offers nothing to open for a profiled write", async () => {
+    mongoBridge([["shop.orders", "update", JSON.stringify({ update: "orders" }), "1", "1", "1", "1"]]);
+    mount({ engine: "mongodb" });
+    await flush();
+    host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
+    await flush();
+    expect(barButton("Abrir").disabled).toBe(true);
+    expect(barButton("EXPLAIN").disabled).toBe(true);
+  });
+
+  it("tells how to switch the profiler on when nothing was recorded, and has no reset button", async () => {
+    mongoBridge([]);
+    mount({ engine: "mongodb" });
+    await flush();
+    expect(host!.textContent).toContain("db.setProfilingLevel");
+    expect([...host!.querySelectorAll("button")].some((b) => b.textContent?.includes("Reiniciar"))).toBe(false);
+  });
+});
