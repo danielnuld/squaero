@@ -3713,6 +3713,14 @@ button.primary:hover:not(:disabled) {
   background: var(--bg-elev2);
 }
 
+/* Cached metadata on screen, not yet re-read from the server (issue #675). */
+.objtree-cached {
+  padding: var(--sp-1) var(--sp-4);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-style: italic;
+}
+
 .objtree-error {
   padding: var(--sp-3) var(--sp-4);
   color: var(--error);
