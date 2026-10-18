@@ -180,3 +180,58 @@ describe("IndexManager", () => {
     expect(host!.textContent).toMatch(/SQLite no cataloga constraints/i);
   });
 });
+
+// Issue #719: the same manager runs on MongoDB, fed with mongosh statements. An
+// index cannot be built inside a multi-document transaction, so no tx.* call is
+// made, and the statement goes straight to query.run.
+describe("IndexManager on MongoDB", () => {
+  function mongoBridge() {
+    const calls: { method: string; sql?: string }[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      calls.push({ method: req.method, sql: req.params?.sql });
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      const rs = (columns: string[], rows: (string | null)[][]) =>
+        ok({ columns: columns.map((name) => ({ name, type: "text" })), rows, truncated: false, rowsAffected: 0 });
+      if (req.method === "schema.describe") return rs(["name", "type", "notnull", "dflt_value", "pk"], [["sku", "text", "0", null, "0"]]);
+      if (req.method === "query.run" && req.params.sql.endsWith(".getIndexes()")) {
+        return rs(["v", "key", "name", "unique"], [["2", '{ "_id" : 1 }', "_id_", null], ["2", '{ "sku" : 1 }', "sku_1", "true"]]);
+      }
+      if (req.method === "query.run") return rs([], []);
+      return ok({ ok: true });
+    };
+    return calls;
+  }
+
+  it("lists the indexes from getIndexes() and says constraints are not a thing here", async () => {
+    const calls = mongoBridge();
+    mount(() => <IndexManager connId="c1" engine="mongodb" table="orders" db="shop" onClose={() => {}} />);
+    await flush();
+    const text = host!.textContent ?? "";
+    expect(calls.some((c) => c.sql === "db.orders.getIndexes()")).toBe(true);
+    expect(text).toContain("sku_1");
+    expect(text).toContain('"sku"');
+    expect(text).toContain("$jsonSchema");
+  });
+
+  it("creates an index with createIndex, outside any transaction", async () => {
+    const calls = mongoBridge();
+    const onChanged = vi.fn();
+    mount(() => (
+      <IndexManager connId="c1" engine="mongodb" table="orders" db="shop" onChanged={onChanged} onClose={() => {}} />
+    ));
+    await flush();
+    const inputs = host!.querySelectorAll<HTMLInputElement>(".im-fields input.td-in");
+    setInput(inputs[0], "by_sku");
+    setInput(inputs[1], "sku");
+    await flush();
+    expect(host!.querySelector(".im-form pre.ddl-text")!.textContent).toBe(
+      'db.orders.createIndex({"sku": 1}, {"name": "by_sku"})',
+    );
+    clickText("Crear");
+    await flush();
+    expect(calls.some((c) => c.sql === 'db.orders.createIndex({"sku": 1}, {"name": "by_sku"})')).toBe(true);
+    expect(calls.some((c) => c.method.startsWith("tx."))).toBe(false);
+    expect(onChanged).toHaveBeenCalled();
+  });
+});

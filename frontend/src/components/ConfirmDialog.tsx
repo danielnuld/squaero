@@ -1,4 +1,4 @@
-import { Show, onCleanup, onMount } from "solid-js";
+import { Show, onCleanup, onMount, type JSX } from "solid-js";
 import { t } from "../utils/i18n";
 
 // Reusable destructive-confirmation dialog (issue #177): a single themed overlay
@@ -29,6 +29,8 @@ export function ConfirmDialog(props: {
       button (e.g. Commit beside Rollback, issue #667). */
   altLabel?: string;
   onAlt?: () => void;
+  /** Extra content between the message and the SQL (e.g. a field to fill in). */
+  children?: JSX.Element;
 }) {
   let cancelBtn: HTMLButtonElement | undefined;
   let dialogEl: HTMLDivElement | undefined;
@@ -87,6 +89,7 @@ export function ConfirmDialog(props: {
       >
         <h2 id="confirm-dialog-title">{props.title ?? t("confirm.title")}</h2>
         <p class="confirm-message">{props.message}</p>
+        {props.children}
         <Show when={props.sql}>
           <pre class="ddl-text">{props.sql}</pre>
         </Show>

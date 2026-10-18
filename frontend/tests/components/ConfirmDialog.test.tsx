@@ -135,3 +135,17 @@ describe("ConfirmDialog", () => {
     expect(host!.querySelector("pre.ddl-text")).toBeNull();
   });
 });
+
+describe("ConfirmDialog extra content", () => {
+  it("renders the children between the message and the SQL", () => {
+    mount(() => (
+      <ConfirmDialog message="Elige el nombre." sql="db.a.renameCollection('b')" onConfirm={() => {}} onCancel={() => {}}>
+        <input id="extra-field" />
+      </ConfirmDialog>
+    ));
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    const kids = [...dialog.children].map((c) => c.tagName + (c.id ? "#" + c.id : ""));
+    expect(kids.indexOf("INPUT#extra-field")).toBeGreaterThan(kids.indexOf("P"));
+    expect(kids.indexOf("INPUT#extra-field")).toBeLessThan(kids.indexOf("PRE"));
+  });
+});

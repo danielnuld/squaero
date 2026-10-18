@@ -48,24 +48,209 @@ writes a **mongosh-style** expression:
 
 ```
 db.<collection>.find(<filter?>, <projection?>)[.sort(<doc>)][.skip(<n>)][.limit(<n>)]
+db.<collection>.findOne(<filter?>, <projection?>)
 db.<collection>.aggregate(<pipeline-array>)
+db.<collection>.countDocuments(<filter?>)       db.<collection>.distinct("<field>", <filter?>)
+db.<collection>.insertOne(<doc>)                db.<collection>.insertMany(<docs-array>)
+db.<collection>.updateOne(<filter>, <update>, <opts?>)   (updateMany: same; <update> may be a pipeline)
+db.<collection>.replaceOne(<filter>, <doc>, <opts?>)
+db.<collection>.deleteOne(<filter>)             db.<collection>.deleteMany(<filter>)
+db.<collection>.createIndex(<keys>, <opts?>)    db.<collection>.dropIndex(<name | keys>)
+db.<collection>.getIndexes()                    db.<collection>.drop()
+db.createCollection("<name>", <opts?>)          db.createView("<name>", "<source>", <pipeline>, <opts?>)
+db.runCommand(<doc | "name">)
+db.<collection>.renameCollection("<new>", <dropTarget?>)
+db.<collection>.find(...)[...].explain(<verbosity?>)      db.<collection>.aggregate([...]).explain(<verbosity?>)
+db.currentOp(<filter?>)                         db.killOp(<opid>)
+db.setProfilingLevel(<0|1|2>, <slowms | opts?>)  db.getProfilingStatus()
+db.getCollectionInfos(<filter?>, <opts?>)
+db.getCollection("<name>").<method>(...)        (addresses any collection name)
 ```
 
 - `find` runs `mongoc_collection_find_with_opts`; the optional second argument is
-  a projection, and `.sort()`/`.skip()`/`.limit()` chain onto it.
+  a projection, and `.sort()`/`.skip()`/`.limit()` chain onto it. `findOne` is a
+  `find` of one document (no chaining).
 - `aggregate` runs `mongoc_collection_aggregate` over the pipeline array.
+- **Writes and utility commands** return a result set shaped like mongosh's
+  acknowledgement, flattened by the same code as find results: `insertOne` ->
+  `acknowledged`, `insertedId`; `insertMany` -> `acknowledged`, `insertedCount`,
+  `insertedIds`; `updateOne`/`updateMany`/`replaceOne` -> `acknowledged`,
+  `matchedCount`, `modifiedCount`, `upsertedCount`[, `upsertedId`]; `deleteOne`/
+  `deleteMany` -> `acknowledged`, `deletedCount`; `countDocuments` -> `count`;
+  `distinct` -> one `value` row per distinct value; `createIndex` -> `name` (+ the
+  server's counts); `runCommand` -> the reply document. **`rows_affected`** is the
+  real server count: inserted documents, the documents *matched* by an update or
+  replace (plus an upserted one; `modifiedCount` tells how many actually changed,
+  the "changed" of MySQL), deleted documents, and the reply's `n` for
+  `runCommand`. Commands that change no documents report 0. A server error
+  (duplicate key, validation failure, a bad update operator) is a query error
+  carrying the server's message.
 - An unbounded `find` (no `.limit()`) is capped at a safety bound
   (`MONGO_SCAN_CAP`, 10000) so it cannot exhaust memory; the core's own row cap
   and truncation flag apply on top.
 
 The argument documents accept the **relaxed** JavaScript-object form the mongo
-shell uses — bare (unquoted) keys and single-quoted strings, e.g.
+shell uses — bare (unquoted) keys, single-quoted strings and the value
+constructors `ObjectId("...")`, `ISODate("...")` / `new Date("...")`,
+`NumberLong(...)`, `NumberInt(...)` and `NumberDecimal("...")`, e.g.
 `db.users.find({ age: { $gt: 25 } })`. A pure normalizer
-(`utils/json_relax.c`) rewrites them to strict JSON before handing them to
+(`utils/json_relax.c`) rewrites them to strict Extended JSON before handing them to
 libbson; already-valid JSON passes through unchanged. The command *shape* is
 parsed by a pure module (`utils/query_parse.c`); neither depends on libbson, so
-both are unit-tested without a MongoDB client. Unsupported operations (insert,
-update, remove, …) are rejected with an explicit error rather than faked.
+both are unit-tested without a MongoDB client. An unknown method (`bulkWrite`,
+`findOneAndUpdate`, `remove`, ...) is rejected as **unsupported**
+(`DBC_ERR_UNSUPPORTED`, JSON-RPC `-32001`) with a message naming it, rather than
+faked; a malformed command is an ordinary query error. Not covered yet:
+`bulkWrite`, `findOneAndUpdate/Replace/Delete`, `estimatedDocumentCount`, cursor
+modifiers other than `sort/skip/limit`, `runCommand` options, JavaScript
+expressions and variables.
+
+## Editing documents from the grid (`DBC_FEAT_DML`)
+
+`describe_table` reports `_id` as the primary key, so a collection opened from the
+tree is editable. `build_dml` (`utils/dml.c`, pure) renders the grid's change as a
+mongosh statement that the driver runs through the same command path:
+
+```
+db.users.insertOne({"name": "ana", "age": 30})
+db.users.updateOne({"$or": [{"_id": {"$oid": "..."}}, {"_id": "..."}]}, {"$set": {"age": 31}})
+db.users.deleteOne({"$or": [{"_id": 7}, {"_id": "7"}]})
+```
+
+- The cell text does not say which BSON type `_id` has, so the filter matches every
+  type the text can stand for (24 hex digits -> ObjectId or string, an integer ->
+  number or string, an ISO date -> date or string; each branch uses the `_id`
+  index).
+- Values are typed from the neutral column type: INT/FLOAT/BOOL unquoted (a value
+  that does not fit its type is kept as a string — the collection is schemaless),
+  JSON cells parsed and validated (an invalid one is refused; it can never break
+  out of the statement), DATE/TIMESTAMP as `{"$date": ...}`, everything else a
+  string. With no types the value is inferred conservatively (number,
+  `true`/`false`, JSON document/array, else string). A NULL is `null` in an update;
+  in an insert a NULL cell (or an empty `_id`) is left out so the server applies its
+  defaults. `_id` is never `$set`.
+- A collection name that is not a plain identifier goes through
+  `db.getCollection("...")`. Statements run against the connected database, so
+  editing another database's collection is refused (`DBC_ERR_UNSUPPORTED`).
+- **Transactions depend on the server.** On a replica set or a sharded cluster the
+  edit session runs inside a multi-document transaction (below). On a standalone
+  `mongod` `tx.begin` answers unsupported and the frontend's edit session applies each
+  change as it runs (nothing to commit or roll back). If one fails midway, the ones
+  before it stay applied and the session ends with a message saying so.
+- Limitations: an ObjectId-valued field *other than* `_id` is shown as text and is
+  written back as a string if the user edits it (use `ObjectId("...")` in the
+  editor for that); binary cells are not editable as binary; int32/int64 and
+  double/decimal128 are not told apart on edit beyond "an integer-looking value of
+  a float column stays a double".
+
+## Collection definition (`DBC_FEAT_DDL`)
+
+`get_ddl` returns a reproducible mongosh script as the usual one-column `sql`
+result: the `createCollection` options (capped, validator, collation, timeseries,
+...) from `listCollections` and one `createIndex` per secondary index from
+`listIndexes`, sorted by index name so the output is deterministic; the default
+`_id_` index is left out (the server creates it). A view is a single
+`db.createView(...)`. The pure assembly is `utils/ddl.c`; fetching the pieces is
+`src/ddl.c`.
+
+```
+db.createCollection("orders", { "validator" : { "$jsonSchema" : { "required" : [ "sku" ] } }, "validationLevel" : "moderate" });
+db.orders.createIndex({ "sku" : 1 }, { "name": "sku_1", "unique" : true });
+```
+
+The script runs in Squaero's own editor as well as in mongosh. A text index is
+rebuilt from its `weights` (`{ "t" : "text" }`).
+
+## Transactions (`DBC_FEAT_TRANSACTIONS`)
+
+`tx.begin` / `tx.commit` / `tx.rollback` are multi-document transactions over a mongoc
+client session (`txn.c`). The capability flag is static but the capability is the
+server's, so `begin` checks the topology it is really connected to
+(`utils/tx_support.c`): a replica-set primary (4.0+) or a mongos (4.2+) can; a
+standalone `mongod`, a secondary or an older server cannot, and `begin` fails with
+`DBC_ERR_UNSUPPORTED` (JSON-RPC `-32001`) and the reason, e.g. *"transactions need a
+replica set or a sharded cluster: this MongoDB server is standalone"*. The frontend's
+edit session (`txBeginIfSupported`) treats that exactly like an engine without
+transactions and applies each change as it runs.
+
+While a transaction is open every operation joins it (the session is passed in the
+options of `find`, `aggregate`, the writes, `countDocuments`, `distinct`,
+`createIndex`/`dropIndex`, `drop`, `createCollection`/`createView` and `runCommand`);
+`getIndexes`, `explain` and the server commands of the monitor/profiler run outside it
+because the server does not allow them inside. Other connections see nothing until
+`commit`; `rollback` discards. A second `begin` inside a transaction, or a
+`commit`/`rollback` with none open, is an error. A failed operation aborts the
+transaction on the server; the following `rollback` still succeeds (mongoc logs a
+harmless *"Error in abortTransaction ... has been aborted"* warning to stderr).
+Disconnecting with a transaction open abandons it. The index manager does not use a
+transaction on MongoDB (an index cannot be built inside one).
+
+## Execution plan
+
+`db.coll.find(...).sort(...).limit(n).explain()` and `db.coll.aggregate([...]).explain()`
+run the `explain` command and return its reply as one row (`queryPlanner`,
+`executionStats` when asked for, `serverInfo`... as JSON cells). The verbosity is
+`"queryPlanner"` (default; does not run the query), `"executionStats"` or
+`"allPlansExecution"`. `.explain()` must be the last call; `findOne` has none. The
+frontend's visual plan (`Plan` button, slow-queries *EXPLAIN*) appends
+`.explain("queryPlanner")` to the statement and draws the stage tree of the winning
+plan (`FETCH` over `IXSCAN`, `OR` with several inputs, one branch per shard, the
+slot-based engine's `queryPlan`, an aggregation as a chain ending in the `$cursor`);
+with `executionStats` the nodes carry rows returned and time.
+
+## Operations monitor and slow queries
+
+- `db.currentOp(filter?)` runs `$currentOp` on `admin` and returns one row per
+  operation (`opid`, `op`, `ns`, `secs_running`, `command` as JSON...). The filter
+  document is a `$match` on those rows; `{$ownOps: true}` limits the list to the
+  caller's operations (the form a user without the `inprog` privilege may run) and
+  `{$all: true}` adds idle connections. `db.killOp(opid)` kills one (an integer, or the
+  `"<shard>:<n>"` string of a sharded cluster). The server monitor lists
+  `db.currentOp()` and kills the selected row with `db.killOp(<opid>)`.
+- The **server's own refusal is the answer**: without `inprog`/`killop` the user sees
+  *"not authorized on admin..."*, never an empty list.
+- Slow queries come from the profiler: `db.setProfilingLevel(level, slowms | opts)`
+  (`0` off, `1` slow operations, `2` all) and `db.getProfilingStatus()` set and read it,
+  and `db.system.profile.find(...)` reads what it recorded. The slow-queries tool runs
+  an aggregation over `system.profile` that groups by collection, operation and query
+  shape (`queryHash`) with executions, average, total and maximum milliseconds, and
+  rebuilds a `find`/`aggregate`/`count`/`distinct` statement from the profiled command so
+  *Open* and *EXPLAIN* work on it (writes are listed but not reopened). With the
+  profiler off the list is empty and the panel says how to turn it on. There is no reset
+  button: `system.profile` can only be dropped once profiling is off, which is two
+  commands.
+
+## Collections, views and indexes from the tree
+
+`list_tables` tells views from collections (`listCollections`), so the tree shows a view
+as a view. `db.getCollectionInfos(filter?)` lists name/type/options (the object-list
+view). For a collection of the database the connection is bound to the tree offers
+*Empty collection* (`db.coll.deleteMany({})`), *Rename collection*
+(`db.coll.renameCollection("new")`) and *Delete* (`db.coll.drop()`), each confirmed with
+the exact statement shown. The statements can only name the connected database, so for
+another database of the same server nothing destructive is offered. The index manager
+lists `db.coll.getIndexes()` (name, key, unique) and creates (`createIndex` on
+ascending keys, with a name and the unique flag) and drops (`dropIndex("name")`) indexes
+without a transaction; unique indexes feed the duplicate-value warning when adding
+rows. There are no constraints (validation is the collection's `$jsonSchema`).
+
+## Cancelling a query (`DBC_FEAT_CANCEL`)
+
+`op.cancel` works through `killOp`. A `mongoc_client_t` cannot be touched from a second
+thread while an operation runs on it, so `cancel` (`cancel.c`) reads only state that is
+immutable after connect: the DSN, and a per-connection tag (`quaero-cancel-<ObjectId>`,
+`utils/cancel_tag.c`) that every `find`/`aggregate` carries as its `comment`. It opens a
+short-lived side client from the DSN, lists the operations whose `command.comment` (or
+`originatingCommand.comment`, for a `getMore`) is the tag with `$currentOp` and kills
+each with `killOp`. The interrupted query fails with *"operation was interrupted"*. It
+retries for about 0.75 s when the server has not registered the operation yet. A user
+with only the `read` role can cancel their own queries; with no operation killed (finished
+already, or no permission to list/kill) the core reports `canceled: false`. Limits:
+writes and the utility commands carry no tag and run to completion, and the side client
+needs the server to be reachable with the same credentials.
+
+Arrays in result cells are rendered as JSON arrays (`[ 1, 2 ]`), so a JSON cell
+edited in the grid round-trips.
 
 ## Introspection
 

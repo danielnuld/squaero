@@ -24,8 +24,16 @@ describe("monitorFor", () => {
     expect(m.canKill).toBe(true);
   });
 
-  it("is unsupported for sqlite / informix / mongodb / unknown", () => {
-    for (const e of ["sqlite", "informix", "mongodb", "weirddb"]) {
+  it("supports MongoDB via db.currentOp() + killOp on the opid column", () => {
+    const m = monitorFor("mongodb");
+    expect(m.supported).toBe(true);
+    expect(m.listSql).toBe("db.currentOp()");
+    expect(m.idColumn).toBe("opid");
+    expect(m.canKill).toBe(true);
+  });
+
+  it("is unsupported for sqlite / informix / unknown", () => {
+    for (const e of ["sqlite", "informix", "weirddb"]) {
       const m = monitorFor(e);
       expect(m.supported).toBe(false);
       expect(m.listSql).toBeNull();
@@ -50,7 +58,18 @@ describe("buildKillSql", () => {
   it("returns null for engines that cannot kill via SQL", () => {
     expect(buildKillSql("sqlite", "1")).toBeNull();
     expect(buildKillSql("informix", "1")).toBeNull();
-    expect(buildKillSql("mongodb", "1")).toBeNull();
+  });
+
+  it("MongoDB: killOp with the integer opid, or the string id of a sharded cluster", () => {
+    expect(buildKillSql("mongodb", "12345")).toBe("db.killOp(12345)");
+    expect(buildKillSql("mongodb", " 7 ")).toBe("db.killOp(7)");
+    expect(buildKillSql("mongodb", "shard01:99")).toBe('db.killOp("shard01:99")');
+  });
+
+  it("MongoDB: refuses anything that is not an operation id (injection guard)", () => {
+    for (const bad of ["", "abc", "1); db.dropDatabase(", '1"); x("', "-1", "1.5", "a:b", "shard:1;x"]) {
+      expect(buildKillSql("mongodb", bad)).toBeNull();
+    }
   });
 });
 
@@ -58,7 +77,7 @@ describe("unsupportedReason", () => {
   it("explains why per engine", () => {
     expect(unsupportedReason("sqlite")).toContain("embebida");
     expect(unsupportedReason("informix")).toContain("onmode");
-    expect(unsupportedReason("mongodb")).toContain("MongoDB");
+    expect(unsupportedReason("mongodb")).toContain("mongodb");
     expect(unsupportedReason("")).toContain("desconocido");
   });
 });

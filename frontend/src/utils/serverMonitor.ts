@@ -2,11 +2,14 @@
 // panel lists the server's active sessions/queries and, where the engine allows,
 // kills one — all client-side via query.run, no core change. Each engine differs:
 // MySQL/MariaDB expose SHOW PROCESSLIST + KILL <id>; PostgreSQL exposes
-// pg_stat_activity + pg_terminate_backend(pid). SQLite (no server), Informix
-// (kill is an admin CLI, not SQL) and MongoDB are honestly "not supported" here.
+// pg_stat_activity + pg_terminate_backend(pid); MongoDB exposes db.currentOp() +
+// db.killOp(opid) (the driver runs both, #719). SQLite (no server) and Informix
+// (kill is an admin CLI, not SQL) are honestly "not supported" here. Without the
+// privileges the server answers "not authorized" and the panel shows that as is.
 // All pure and unit-tested; the component just runs the SQL these return.
 
 import { engineFamily as family } from "./engineFamily";
+import { mongoKillSql } from "./mongoStatements";
 
 /** What the monitor can do for a given engine. */
 export interface MonitorSupport {
@@ -32,6 +35,10 @@ export function monitorFor(engine: string): MonitorSupport {
       return { supported: true, listSql: "SHOW FULL PROCESSLIST", idColumn: "Id", canKill: true };
     case "postgres":
       return { supported: true, listSql: PG_LIST, idColumn: "pid", canKill: true };
+    case "mongodb":
+      // The running (non-idle) operations of every user; `{$ownOps: true}` would
+      // limit them to the caller's, which needs no special privilege.
+      return { supported: true, listSql: "db.currentOp()", idColumn: "opid", canKill: true };
     default:
       return { supported: false, listSql: null, idColumn: null, canKill: false };
   }
@@ -43,6 +50,7 @@ export function monitorFor(engine: string): MonitorSupport {
  * against injection — process ids are always numeric).
  */
 export function buildKillSql(engine: string, id: string): string | null {
+  if (family(engine) === "mongodb") return mongoKillSql(id);
   if (!/^\d+$/.test(id.trim())) return null;
   const n = id.trim();
   switch (family(engine)) {
@@ -60,6 +68,5 @@ export function unsupportedReason(engine: string): string {
   const f = family(engine);
   if (f === "sqlite") return "SQLite es una base de datos embebida: no tiene procesos de servidor.";
   if (f === "informix") return "Informix administra sesiones por CLI (onmode), no por SQL.";
-  if (f === "mongodb") return "El monitor de procesos aún no está disponible para MongoDB.";
   return `El monitor de procesos no está disponible para el motor "${engine || "desconocido"}".`;
 }

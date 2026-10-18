@@ -196,9 +196,13 @@ jobs:
           ./build/tests/integration/mssql_cancel_integration_test | grep -q "^OK"
 
   # Builds the MongoDB driver against the mongo-c-driver and runs the gated
-  # integration test against a real MongoDB service (Linux only — service
+  # integration tests against a real MongoDB service (Linux only — service
   # containers require a Linux runner). The service is pre-seeded with the
-  # quaero_it collection via a throwaway mongosh container.
+  # quaero_it collection via a throwaway mongosh container. The service is a
+  # standalone mongod, where the tests check that transactions are refused
+  # explicitly; a single-node replica set is started next to it (a plain
+  # container: a service cannot take command arguments) for the real
+  # multi-document transaction checks.
   mongodb-integration:
     name: mongodb-integration
     runs-on: ubuntu-latest
@@ -228,6 +232,21 @@ jobs:
           --eval 'db.quaero_it.deleteMany({});
           db.quaero_it.insertMany([{_id:1,name:"alice"},{_id:2,name:"bob",extra:{k:1}}])'
 
+      - name: Start a single-node replica set
+        run: |
+          docker run -d --name mongo-rs --network host mongo:7 \
+            mongod --replSet rs0 --port 27018 --bind_ip_all
+          for i in $(seq 1 30); do
+            docker exec mongo-rs mongosh --quiet --port 27018 --eval 'db.adminCommand({ping:1})' && break
+            sleep 2
+          done
+          docker exec mongo-rs mongosh --quiet --port 27018 --eval \
+            'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27018"}]})'
+          for i in $(seq 1 30); do
+            docker exec mongo-rs mongosh --quiet --port 27018 --eval 'db.hello().isWritablePrimary' | grep -q true && break
+            sleep 2
+          done
+
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQUAERO_BUILD_APP=OFF
 
@@ -237,6 +256,7 @@ jobs:
       - name: Test
         env:
           QUAERO_MONGODB_DSN: '{"host":"127.0.0.1","port":27017,"database":"quaero_test"}'
+          QUAERO_MONGODB_RS_DSN: '{"host":"127.0.0.1","port":27018,"database":"quaero_test"}'
         run: ctest --test-dir build --output-on-failure
 
   # Builds the core with SSH-tunnel support (QUAERO_SSH=ON fetches libssh2) and

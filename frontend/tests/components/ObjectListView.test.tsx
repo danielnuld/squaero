@@ -120,3 +120,55 @@ describe("ObjectListView", () => {
     expect(onOpenData).toHaveBeenCalledWith("v_ventas", "view");
   });
 });
+
+// Issue #719: MongoDB lists its collections and views through getCollectionInfos
+// (its own name / type columns), types other than "view" counting as tables.
+describe("ObjectListView on MongoDB", () => {
+  it("lists collections and views from db.getCollectionInfos()", async () => {
+    const sqls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; params: { sql: string } };
+      sqls.push(req.params.sql);
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: {
+          columns: [
+            { name: "name", type: "text" },
+            { name: "type", type: "text" },
+            { name: "options", type: "json" },
+          ],
+          rows: [
+            ["orders", "collection", "{}"],
+            ["metrics", "timeseries", "{}"],
+            ["open_orders", "view", "{}"],
+          ],
+          truncated: false,
+          rowsAffected: 0,
+        },
+      };
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const onOpenData = vi.fn();
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <ObjectListView connId="c1" engine="mongodb" db="shop" onOpenData={onOpenData} onClose={() => {}} />,
+        host!,
+      );
+    });
+    await flush();
+    expect(sqls).toEqual(["db.getCollectionInfos()"]);
+    expect(rows().length).toBe(3);
+    expect(rowText(0)).toContain("orders");
+    // Collections and time-series are tables, a view is a view.
+    const viewsTab = [...host!.querySelectorAll(".otab")].find((t) => t.textContent?.includes("Vistas")) as HTMLButtonElement;
+    expect(viewsTab.textContent).toContain("1");
+    viewsTab.click();
+    await flush();
+    expect(rows().length).toBe(1);
+    rows()[0].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(onOpenData).toHaveBeenCalledWith("open_orders", "view");
+  });
+});

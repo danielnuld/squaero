@@ -4836,6 +4836,14 @@ button.grid-action.danger:hover:not(:disabled) {
   margin-bottom: var(--sp-3);
 }
 
+/* A field the confirmation asks for before it applies (renaming a collection). */
+.confirm-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+}
+
 /* User / privilege management (issue #140) */
 /* Three tracks: the list, the divider that drags it (issue #491), the detail.
    The columns are set inline from the dragged width; this is the fallback for

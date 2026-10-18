@@ -27,6 +27,25 @@ describe("uniqueSetsFrom", () => {
     expect(uniqueSetsFrom("mysql", listed, rows, ["a", "b"])).toEqual([]);
   });
 
+  it("reads MongoDB's unique indexes from getIndexes(), skipping sparse, partial and non-plain keys", () => {
+    const cols = ["v", "key", "name", "unique", "sparse", "partialFilterExpression"];
+    const rows = [
+      ["2", '{ "_id" : 1 }', "_id_", null, null, null],
+      ["2", '{ "email" : 1 }', "email_1", "true", null, null],
+      ["2", '{ "a" : 1, "b" : -1 }', "a_b", "true", null, null],
+      ["2", '{ "city" : 1 }', "city_1", null, null, null],
+      ["2", '{ "s" : 1 }', "s_1", "true", "true", null],
+      ["2", '{ "p" : 1 }', "p_1", "true", null, '{ "x" : 1 }'],
+      ["2", '{ "t" : "text" }', "t_text", "true", null, null],
+      ["2", "not json", "bad", "true", null, null],
+    ];
+    expect(uniqueSetsFrom("mongodb", cols, rows, ["_id"])).toEqual([["email"], ["a", "b"]]);
+  });
+
+  it("MongoDB without the key / unique columns yields nothing", () => {
+    expect(uniqueSetsFrom("mongodb", ["name"], [["x"]], ["_id"])).toEqual([]);
+  });
+
   it("skips a unique row with no columns", () => {
     expect(uniqueSetsFrom("mysql", listed, [["x", null, "Sí"]], [])).toEqual([]);
   });
