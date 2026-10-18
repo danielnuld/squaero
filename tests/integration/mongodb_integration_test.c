@@ -8,9 +8,10 @@
  * It also covers the write and utility commands (insert/update/replace/delete,
  * countDocuments, distinct, indexes, createCollection, drop, runCommand) with
  * their real rows_affected, document editing from the grid (row.insert /
- * row.update / row.delete -> build_dml -> the same commands), and that an unknown
- * method is reported as UNSUPPORTED rather than faked. Those use a scratch
- * collection (quaero_w) that the test creates and drops itself.
+ * row.update / row.delete -> build_dml -> the same commands), the collection's
+ * definition as a mongosh script (schema.ddl), and that an unknown method is
+ * reported as UNSUPPORTED rather than faked. Those use a scratch collection
+ * (quaero_w) that the test creates and drops itself.
  *
  * Requires a reachable server, PRE-SEEDED with a `quaero_it` collection holding:
  *   { _id: 1, name: "alice" }
@@ -223,8 +224,8 @@ static void expect_row(cJSON *root, double affected, const char *what)
 }
 
 /*
- * Write and utility commands and document editing (build_dml), against a scratch
- * collection.
+ * Write and utility commands, document editing (build_dml) and the collection
+ * definition (get_ddl), against a scratch collection.
  */
 static void write_section(const char *conn_id)
 {
@@ -277,9 +278,51 @@ static void write_section(const char *conn_id)
     EXPECT(row_count(root) == 3, "getIndexes lists _id_, name_1 and by_n");
     cJSON_Delete(root);
 
+    /* --- DDL: a reproducible mongosh script ---------------------------------- */
+    {
+        cJSON *p = params_for(conn_id);
+        cJSON_AddStringToObject(p, "object", "quaero_w");
+        root = rpc("schema.ddl", p);
+        const char *ddl = first_cell(root, "sql");
+        EXPECT(!is_error(root), "schema.ddl succeeds");
+        EXPECT(strstr(ddl, "db.createCollection(\"quaero_w\");") != NULL,
+               "ddl creates the collection");
+        EXPECT(strstr(ddl, "db.quaero_w.createIndex({ \"n\" : -1, \"name\" : 1 }, "
+                           "{ \"name\": \"by_n\" });") != NULL,
+               "ddl recreates the compound index by name");
+        EXPECT(strstr(ddl, "{ \"name\": \"name_1\", \"unique\" : true }") != NULL,
+               "ddl keeps the unique option");
+        EXPECT(strstr(ddl, "_id_") == NULL, "ddl leaves out the default _id_ index");
+        cJSON_Delete(root);
+
+        p = params_for(conn_id);
+        cJSON_AddStringToObject(p, "object", "no_such_collection_xyz");
+        root = rpc("schema.ddl", p);
+        EXPECT(is_error(root) && strstr(error_text(root), "not found") != NULL,
+               "ddl of a missing collection is an error");
+        cJSON_Delete(root);
+    }
+
     expect_cmd(conn_id, "db.quaero_w.dropIndex('by_n')", 0, "nIndexesWas", "3");
     expect_cmd(conn_id, "db.quaero_w.dropIndex({name: 1})", 0, "nIndexesWas", "2");
     expect_cmd_error(conn_id, "db.quaero_w.dropIndex('nope')", 0, "");
+
+    /* --- a view: created, and its definition round-trips through get_ddl --- */
+    cJSON_Delete(run(conn_id, "db.quaero_wv.drop()"));
+    expect_cmd(conn_id,
+               "db.createView('quaero_wv', 'quaero_w', [{$match: {n: {$gt: 5}}}])", 0, "created",
+               "quaero_wv");
+    {
+        cJSON *p = params_for(conn_id);
+        cJSON_AddStringToObject(p, "object", "quaero_wv");
+        root = rpc("schema.ddl", p);
+        EXPECT(strstr(first_cell(root, "sql"),
+                      "db.createView(\"quaero_wv\", \"quaero_w\", [ { \"$match\" : { \"n\" : { \"$gt\" : 5 } } } ]);") !=
+                   NULL,
+               "ddl of a view is a createView call");
+        cJSON_Delete(root);
+    }
+    expect_cmd(conn_id, "db.quaero_wv.drop()", 0, "dropped", "quaero_wv");
 
     /* --- runCommand ------------------------------------------------------- */
     expect_cmd(conn_id, "db.runCommand({ping: 1})", 0, "ok", "1");
@@ -526,7 +569,7 @@ int main(void)
     dbc_plugin_unload(plugin);
 
     if (failures == 0) {
-        printf("OK: MongoDB integration (conn + query + writes + DML over IPC)\n");
+        printf("OK: MongoDB integration (conn + query + writes + DML + DDL over IPC)\n");
         return 0;
     }
     fprintf(stderr, "%d assertion(s) failed\n", failures);
