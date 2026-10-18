@@ -1,10 +1,11 @@
 import { For, Show, createSignal, onCleanup } from "solid-js";
+import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import type { ResultSet } from "../utils/query";
 import { QueryError } from "../utils/query";
 import { schemaDescribe } from "../utils/schema";
-import { openConnection, closeConnection } from "../utils/conn";
+import { openSaved, closeConnection } from "../utils/conn";
 import { rowInsert, txBegin, txCommit, txRollback } from "../utils/edit";
 import {
   autoMap,
@@ -16,7 +17,7 @@ import {
   type ImportSummary,
   type ParsedTable,
 } from "../utils/importers";
-import { buildDsn, type Connection } from "../utils/connections";
+import type { Connection } from "../utils/connections";
 
 const OMIT = "";
 
@@ -74,7 +75,7 @@ export function TransferWizard(props: {
     setDestCols(null);
     try {
       closeDest();
-      destConnId = await openConnection(def.driver, buildDsn(def));
+      destConnId = await openSaved(def);
       const desc = await schemaDescribe(
         destConnId,
         destTable().trim(),
@@ -119,7 +120,12 @@ export function TransferWizard(props: {
       },
     };
     try {
-      setSummary(await runImport(sourceTableData(), mapping(), policy(), ops));
+      const data = sourceTableData();
+      setSummary(
+        await withWriteConsent(connId, [`INSERT INTO ${target.table} … (${data.rows.length})`], () =>
+          runImport(data, mapping(), policy(), ops),
+        ),
+      );
     } catch (err) {
       setError(errMsg(err));
     } finally {

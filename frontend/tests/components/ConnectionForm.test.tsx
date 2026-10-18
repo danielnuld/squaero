@@ -535,3 +535,17 @@ describe("ConnectionForm keep-alive", () => {
     expect(keepAliveInput()).toBeNull();
   });
 });
+
+// Safe mode (issue #666) is chosen in the form and saved with the connection.
+describe("ConnectionForm protection", () => {
+  it("saves the chosen safe mode, and None clears it", () => {
+    const onSave = vi.fn();
+    mount({ initial: mysql({ host: "h", user: "u" }), onSave });
+    clickText("Solo lectura");
+    clickText("Guardar");
+    expect(onSave.mock.calls[0][0].safeMode).toBe("readOnly");
+    clickText("Ninguna");
+    clickText("Guardar");
+    expect(onSave.mock.calls[1][0].safeMode).toBeUndefined();
+  });
+});

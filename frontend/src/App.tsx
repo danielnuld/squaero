@@ -19,8 +19,16 @@ import {
   type ResultSet,
 } from "./utils/query";
 import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
-import { cancelQuery, connActivity, onConnectionLost } from "./utils/transport";
+import {
+  cancelQuery,
+  connActivity,
+  onConnectionLost,
+  setSafeModeUi,
+  setConnGuard,
+  withWriteConsent,
+} from "./utils/transport";
 import { keepAliveDue, keepAliveProbe, lostInfo, mayReconnect } from "./utils/reconnect";
+import { confirmListing, guardFor, type SafeModeGuard } from "./utils/safeMode";
 import { errorText, describeError } from "./utils/errors";
 import {
   openSession,
@@ -283,7 +291,7 @@ import {
 } from "./utils/update";
 import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
-import { ConnectionBar } from "./components/ConnectionBar";
+import { ConnectionBar, SafeBadge } from "./components/ConnectionBar";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar } from "./components/ObjectToolbar";
 import { ResultTabs } from "./components/ResultTabs";
@@ -540,6 +548,41 @@ export function App() {
     tab.connDefId
       ? connections().find((c) => c.id === tab.connDefId)?.color
       : undefined;
+  // Safe mode (issue #666), read live from the SAVED connection so editing its
+  // protection takes effect on the open session too (the effect below).
+  const safeModeOf = (defId?: string | null) =>
+    defId ? connections().find((c) => c.id === defId)?.safeMode : undefined;
+  const tabSafeMode = (tab: Tab | undefined) => safeModeOf(tabConn(tab)?.defId);
+  createEffect(() => {
+    for (const o of openConns()) {
+      const c = connections().find((x) => x.id === o.defId);
+      if (c) setConnGuard(o.connId, guardFor(c));
+    }
+  });
+  // The confirmation a protected connection asks before writing. One at a
+  // time: a second request while one is open is declined rather than queued —
+  // two write actions racing on protected connections is not a flow to support.
+  const [writeConfirm, setWriteConfirm] = createSignal<{
+    guard: SafeModeGuard;
+    writes: string[];
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  onMount(() =>
+    setSafeModeUi({
+      confirm: (guard, writes) =>
+        new Promise<boolean>((resolve) => {
+          if (writeConfirm()) resolve(false);
+          else setWriteConfirm({ guard, writes, resolve });
+        }),
+      blocked: (name) => t("safe.blocked", { name }),
+      declined: () => t("safe.declined"),
+    }),
+  );
+  onCleanup(() => setSafeModeUi(null));
+  const answerWriteConfirm = (ok: boolean) => {
+    writeConfirm()?.resolve(ok);
+    setWriteConfirm(null);
+  };
   // Working database context: the databases available on the active connection
   // and the one selected. Scopes the ER diagram / query builder and (on engines
   // that allow it) sets the editor's default database via USE.
@@ -1149,23 +1192,30 @@ export function App() {
     const t = current();
     return (t && edits[t.id]) || emptyEdit();
   });
+  // A read-only connection (issue #666) edits nothing, whatever its keys.
+  const currentReadOnly = createMemo(() => tabSafeMode(current()) === "readOnly");
   // A tab is editable when it was opened from a table whose primary key is known
   // and projected — otherwise a row cannot be identified unambiguously — on an
   // engine whose driver can write rows at all.
   const currentEditable = createMemo<boolean>(() => {
     const src = currentResult().source;
-    return !!src && src.pk.length > 0 && engineEdits(tabConn(current())?.driver ?? "", tabConn(current())?.features?.dml);
+    return !!src && src.pk.length > 0 && !currentReadOnly() && engineEdits(tabConn(current())?.driver ?? "", tabConn(current())?.features?.dml);
   });
   // Why it is not (issue #718), translated, or null when it is or when there is
   // nothing to say (a result still loading, a statement that returned no rows).
   const currentReadOnlyReason = createMemo<string | null>(() => {
     if (currentEditable()) return null;
     const r = currentResult();
+    // A read-only connection (#666) is the reason wherever there is a grid to edit.
+    if (currentReadOnly() && (r.source || r.editBlock)) return t("safe.readOnlyHint");
     const block: EditBlock | null | undefined = r.source
       ? engineEdits(tabConn(current())?.driver ?? "", tabConn(current())?.features?.dml) ? "noPk" : "engine"
       : r.editBlock;
     return block ? t(`objbar.readOnly.${block}`) : null;
   });
+  // Why a grid action that writes is unavailable: the protection, else `noPk`.
+  const readOnlyReason = (noPk: string) =>
+    currentReadOnly() ? t("safe.readOnlyHint") : t(noPk);
   // The FK pickers of the active tab (empty until an edit session loads them).
   const currentFk = createMemo<Record<string, FkLookup>>(() => {
     const t = current();
@@ -1632,6 +1682,7 @@ export function App() {
         setOpenConns((list) => list.filter((o) => o.defId !== c.id));
       }
       const { connId, features } = await openSession(c.driver, buildDsn(c));
+      setConnGuard(connId, guardFor(c));
       setOpenConns((list) => [
         ...list,
         { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color, features },
@@ -1705,6 +1756,7 @@ export function App() {
     );
     try {
       const { connId, features } = await openSession(saved.driver, buildDsn(saved));
+      setConnGuard(connId, guardFor(saved));
       // Closed or reconnected by hand meanwhile: this session is nobody's.
       if (!openConns().some((o) => o.connId === conn.connId)) {
         void closeConnection(connId).catch(() => {});
@@ -2047,7 +2099,12 @@ export function App() {
       // them; the mirrored fields below are that entry, so nothing downstream
       // has to know a script ran.
       const sets = script
-        ? scriptSets(await runStatements(conn.connId, stmts, PAGE_LIMIT, exec), activeDialect())
+        ? scriptSets(
+            await withWriteConsent(conn.connId, stmts, () =>
+              runStatements(conn.connId, stmts, PAGE_LIMIT, exec),
+            ),
+            activeDialect(),
+          )
         : undefined;
       const activeSet = sets ? pickActiveSet(sets) : 0;
       const shown = sets ? sets[activeSet] : undefined;
@@ -2057,7 +2114,9 @@ export function App() {
       // lost), and re-runs with an offset as it always did.
       const result = sets
         ? (shown?.result ?? null)
-        : await exec(trimmed, () => runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0));
+        : await withWriteConsent(conn.connId, [trimmed], () =>
+            exec(trimmed, () => runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0)),
+          );
       const elapsedMs = performance.now() - started;
       // The page cache starts here and grows only through the cursor: pages of
       // ONE execution are a consistent snapshot, while pages stitched from
@@ -2992,14 +3051,23 @@ export function App() {
                            currentEdit().pending);
     const target = { table: res.source.table, db: res.source.db, schema: res.source.schema };
     patchEdit(tab.id, { busy: true, error: null, failedInsert: null });
-    const outcome = await applyPlan(plan, {
-      run: (item) => runPlanItem(conn.connId, target, item, false),
-      commit: () => txCommitIfOpen(conn.connId),
-      rollback: () => txRollbackIfOpen(conn.connId),
-      begin: async () => {
-        await txBeginIfSupported(conn.connId);
-      },
-    });
+    // On a protected connection the SQL just previewed is what is confirmed.
+    let outcome: Awaited<ReturnType<typeof applyPlan>>;
+    try {
+      outcome = await withWriteConsent(conn.connId, currentEdit().preview ?? [], () =>
+        applyPlan(plan, {
+          run: (item) => runPlanItem(conn.connId, target, item, false),
+          commit: () => txCommitIfOpen(conn.connId),
+          rollback: () => txRollbackIfOpen(conn.connId),
+          begin: async () => {
+            await txBeginIfSupported(conn.connId);
+          },
+        }),
+      );
+    } catch (err) {
+      patchEdit(tab.id, { busy: false, error: errMsg(err) });
+      return;
+    }
     if (outcome.ok) {
       setEdits(tab.id, emptyEdit());
       reloadCurrent(tab.id);
@@ -3314,7 +3382,7 @@ export function App() {
   };
   /** Why this grid cannot take new rows, or null. */
   const addRowsBlocked = (): string | null =>
-    currentEditable() ? null : t("result.duplicateReadOnly");
+    currentEditable() ? null : readOnlyReason("result.duplicateReadOnly");
   // The last rows added as a batch, so its bar can switch the key mode and the
   // empty cells, or hand the paste to the wizard. Bound to its tab.
   const [lastPaste, setLastPaste] = createSignal<{
@@ -3757,7 +3825,7 @@ export function App() {
       // cannot run — the same rule as "Set NULL" below.
       const deleteBlocked = () =>
         !currentEditable()
-          ? t("result.deleteRowsReadOnly")
+          ? readOnlyReason("result.deleteRowsReadOnly")
           : !currentEdit().editing
             ? t("result.deleteRowsNeedsEdit")
             : null;
@@ -3797,7 +3865,7 @@ export function App() {
       // nothing else), so a NOT NULL is rejected by the engine, with its error.
       const nullBlocked = () =>
         !currentEditable()
-          ? t("result.setNullReadOnly")
+          ? readOnlyReason("result.setNullReadOnly")
           : !currentEdit().editing
             ? t("result.setNullNeedsEdit")
             : null;
@@ -4039,6 +4107,7 @@ export function App() {
                 reconnected: o.reconnected,
                 txStatements: txOpenCount(o) ?? undefined,
                 sub: target ? `${label} · ${target}` : label,
+                safeMode: saved?.safeMode,
               };
             })}
             focusedDefId={focusedDefId()}
@@ -4140,11 +4209,18 @@ export function App() {
         <div class="resizer" onMouseDown={startResize} />
 
         <section class="workspace">
-          <Show when={tabConn(current())?.color}>
+          {/* A protected connection (issue #666) keeps the strip even without a
+              colour, and stripes it: the "careful" cue the colour alone gave. */}
+          <Show when={tabConn(current())?.color || tabSafeMode(current())}>
             <div
               class="workspace-accent"
-              style={{ background: tabConn(current())!.color }}
-              title={t("tab.connTitle")}
+              classList={{ "is-protected": !!tabSafeMode(current()) }}
+              style={{ background: tabConn(current())!.color ?? "var(--error)" }}
+              title={
+                tabSafeMode(current())
+                  ? t(tabSafeMode(current()) === "readOnly" ? "safe.badgeReadOnly" : "safe.badgeConfirm")
+                  : t("tab.connTitle")
+              }
             />
           </Show>
           {/* One navigation band instead of two (issue #386). The ribbon of 12
@@ -4213,6 +4289,7 @@ export function App() {
                     <Show when={tabColor(tab)}>
                       <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
                     </Show>
+                    <SafeBadge mode={safeModeOf(tab.connDefId)} />
                     <span class="tab-title">{tab.title}</span>
                     <Show when={isUnsaved(tab)}>
                       <span class="tab-unsaved" aria-hidden="true">
@@ -4577,6 +4654,7 @@ export function App() {
                       editing={currentEdit().editing}
                       editable={currentEditable()}
                       readOnlyReason={currentReadOnlyReason()}
+                      readOnly={currentReadOnly()}
                       busy={currentEdit().busy}
                       error={currentEdit().error}
                       changeCount={changeCount(currentEdit().pending)}
@@ -5390,6 +5468,19 @@ export function App() {
               .filter((n): n is string => !!n)}
             onResume={() => void resumeSession()}
             onBlank={() => setPendingRestore(null)}
+          />
+        )}
+      </Show>
+
+      <Show when={writeConfirm()}>
+        {(w) => (
+          <ConfirmDialog
+            title={t("safe.confirmTitle", { name: w().guard.name })}
+            message={t("safe.confirmMessage", { name: w().guard.name, n: w().writes.length })}
+            sql={confirmListing(w().writes)}
+            confirmLabel={t("safe.confirmRun")}
+            onConfirm={() => answerWriteConfirm(true)}
+            onCancel={() => answerWriteConfirm(false)}
           />
         )}
       </Show>

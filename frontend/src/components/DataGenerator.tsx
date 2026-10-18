@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { withWriteConsent } from "../utils/transport";
 import { createStore } from "solid-js/store";
 import { schemaDescribe } from "../utils/schema";
 import { rowInsert, txBegin, txCommit, txRollback } from "../utils/edit";
@@ -86,20 +87,22 @@ export function DataGenerator(props: {
     setBusy(true);
     setError(null);
     try {
-      await txBegin(props.connId);
-      try {
-        for (const values of rows) {
-          await rowInsert(props.connId, props.target, values, false);
-        }
-        await txCommit(props.connId);
-      } catch (err) {
+      await withWriteConsent(props.connId, [`INSERT INTO ${props.target.table} … (${rows.length})`], async () => {
+        await txBegin(props.connId);
         try {
-          await txRollback(props.connId);
-        } catch {
-          /* best-effort rollback */
+          for (const values of rows) {
+            await rowInsert(props.connId, props.target, values, false);
+          }
+          await txCommit(props.connId);
+        } catch (err) {
+          try {
+            await txRollback(props.connId);
+          } catch {
+            /* best-effort rollback */
+          }
+          throw err;
         }
-        throw err;
-      }
+      });
       setSummary(rows.length);
       props.onGenerated?.();
     } catch (err) {
