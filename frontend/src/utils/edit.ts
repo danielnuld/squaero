@@ -6,7 +6,7 @@
 
 import { call } from "./transport";
 import { engineFamily } from "./engineFamily";
-import { isError, type JsonRpcResponse } from "./ipc";
+import { IPC_ERR_UNSUPPORTED, isError, type JsonRpcResponse } from "./ipc";
 import { QueryError, type ResultColumn, type ResultSet } from "./query";
 import type { PlanItem } from "./editSession";
 
@@ -269,4 +269,40 @@ export async function txCommit(connId: string): Promise<void> {
 /** Roll back the open transaction, abandoning the pending edits. */
 export async function txRollback(connId: string): Promise<void> {
   await call("tx.rollback", { connId });
+}
+
+// An edit session wraps its changes in a transaction, but not every engine has
+// one: MongoDB's driver does not advertise DBC_FEAT_TRANSACTIONS, and tx.begin
+// answers "unsupported". Such a connection edits without one: each change is
+// applied the moment it runs, and there is nothing to commit or roll back. The
+// set remembers which connections answered that way.
+const withoutTransactions = new Set<string>();
+
+/** Whether the connection's engine has transactions (assumed until tx.begin says no). */
+export function hasTransactions(connId: string): boolean {
+  return !withoutTransactions.has(connId);
+}
+
+/**
+ * tx.begin for an edit session. Resolves true when a transaction is open, false
+ * when the engine has none (the session then applies changes directly).
+ */
+export async function txBeginIfSupported(connId: string): Promise<boolean> {
+  const res = await call("tx.begin", { connId });
+  if (isError(res) && res.error.code === IPC_ERR_UNSUPPORTED) {
+    withoutTransactions.add(connId);
+    return false;
+  }
+  withoutTransactions.delete(connId);
+  return true;
+}
+
+/** tx.commit, or nothing when the session has no transaction. */
+export async function txCommitIfOpen(connId: string): Promise<void> {
+  if (hasTransactions(connId)) await txCommit(connId);
+}
+
+/** tx.rollback, or nothing when the session has no transaction. */
+export async function txRollbackIfOpen(connId: string): Promise<void> {
+  if (hasTransactions(connId)) await txRollback(connId);
 }

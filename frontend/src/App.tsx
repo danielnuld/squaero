@@ -196,9 +196,11 @@ import {
   describeColumnTypes,
   describeColumnNames,
   runPlanItem,
-  txBegin,
-  txCommit,
+  hasTransactions,
+  txBeginIfSupported,
+  txCommitIfOpen,
   txRollback,
+  txRollbackIfOpen,
 } from "./utils/edit";
 import {
   emptyPending,
@@ -2876,7 +2878,7 @@ export function App() {
     }
     patchEdit(t.id, { busy: true, error: null });
     try {
-      await txBegin(conn.connId);
+      await txBeginIfSupported(conn.connId);
       patchEdit(t.id, { editing: true, pending: emptyPending(), busy: false });
       // Fill the pickers while the user starts typing; they appear as they land.
       void loadFkLookups(t.id, conn);
@@ -2980,12 +2982,27 @@ export function App() {
     patchEdit(tab.id, { busy: true, error: null, failedInsert: null });
     const outcome = await applyPlan(plan, {
       run: (item) => runPlanItem(conn.connId, target, item, false),
-      commit: () => txCommit(conn.connId),
-      rollback: () => txRollback(conn.connId),
-      begin: () => txBegin(conn.connId),
+      commit: () => txCommitIfOpen(conn.connId),
+      rollback: () => txRollbackIfOpen(conn.connId),
+      begin: async () => {
+        await txBeginIfSupported(conn.connId);
+      },
     });
     if (outcome.ok) {
       setEdits(tab.id, emptyEdit());
+      reloadCurrent(tab.id);
+      return;
+    }
+    // No transaction (MongoDB): the changes before the failing one are already
+    // in the database and cannot be rolled back. Keeping them in the session
+    // would apply them again on a retry, so the session ends and the grid shows
+    // what is really stored.
+    const applied = !hasTransactions(conn.connId) && outcome.failedIndex !== null ? outcome.failedIndex : 0;
+    if (applied > 0) {
+      setEdits(tab.id, {
+        ...emptyEdit(),
+        error: t("edit.partialNoTx", { n: applied, reason: errMsg(outcome.error) }),
+      });
       reloadCurrent(tab.id);
       return;
     }

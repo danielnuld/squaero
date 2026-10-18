@@ -792,6 +792,7 @@ export const es: Record<string, string> = {
   "ssync.nothingExecutable": "No hay sentencias ejecutables (solo notas).",
   "ssync.applied": "{n} sentencia(s) aplicada(s) en el destino.",
   "ssync.applyError": "Error al aplicar: {reason}",
+  "edit.partialNoTx": "Se guardaron {n} cambio(s) y luego uno falló: {reason}. Este motor no tiene transacciones, así que los guardados se conservan; la cuadrícula muestra lo que hay ahora.",
   "ssync.migrationSql": "SQL de migración ({n} ejecutable(s))",
   "ssync.alreadyMatch": "Las estructuras ya coinciden.",
   "ssync.apply": "Aplicar en destino",
