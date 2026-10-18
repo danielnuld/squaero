@@ -5,20 +5,24 @@
 #include <string.h>
 
 /* Leading keywords that begin a provably read-only statement. Anything else is
-   treated as a write (fail-closed). `WITH` is handled separately because a CTE
-   can wrap a data-modifying statement. */
+   treated as a write (fail-closed). `WITH` and `EXPLAIN` are handled separately
+   (a CTE can wrap a data-modifying statement; `EXPLAIN ANALYZE` executes the one
+   it explains), and so is `SELECT` (`SELECT ... INTO` creates a table or writes
+   a file). `USE` only switches the session's database. The frontend's safe mode
+   mirrors these rules (frontend/src/utils/safeMode.ts, issue #666). */
 static const char *const READ_LEADERS[] = {
-    "SELECT", "EXPLAIN", "SHOW", "DESCRIBE", "DESC", "VALUES", "TABLE",
+    "SHOW", "DESCRIBE", "DESC", "VALUES", "TABLE", "USE",
 };
 
-/* Whole-word tokens that, if present anywhere in a `WITH` statement, mark it as
-   a write (PostgreSQL allows data-modifying CTEs). Fail-closed: a superset. */
+/* Whole-word tokens that, if present anywhere in a `WITH` or `EXPLAIN`
+   statement, mark it as a write (PostgreSQL allows data-modifying CTEs). `INTO`
+   catches `SELECT ... INTO` inside either. Fail-closed: a superset. */
 static const char *const WRITE_TOKENS[] = {
     "INSERT",  "UPDATE",  "DELETE",   "MERGE",    "CREATE",   "DROP",
     "ALTER",   "TRUNCATE","REPLACE",  "GRANT",    "REVOKE",   "CALL",
     "EXEC",    "EXECUTE", "SET",      "LOCK",     "UNLOCK",   "RENAME",
     "COMMENT", "ATTACH",  "DETACH",   "VACUUM",   "REINDEX",  "COPY",
-    "LOAD",    "PRAGMA",  "UPSERT",   "IMPORT",
+    "LOAD",    "PRAGMA",  "UPSERT",   "IMPORT",   "INTO",
 };
 
 static int iequal(const char *a, const char *b, size_t n)
@@ -109,6 +113,28 @@ static void normalize(const char *sql, char *out, int backslash_escapes)
     out[o] = '\0';
 }
 
+/* True when any whole word of [s, s+len) is one of `words`. */
+static int has_word(const char *s, size_t len, const char *const *words,
+                    size_t nwords)
+{
+    for (size_t j = 0; j < len;) {
+        if (isalpha((unsigned char)s[j]) || s[j] == '_') {
+            size_t ts = j;
+            while (j < len && (isalpha((unsigned char)s[j]) || s[j] == '_')) {
+                j++;
+            }
+            for (size_t k = 0; k < nwords; k++) {
+                if (word_is(s + ts, j - ts, words[k])) {
+                    return 1;
+                }
+            }
+        } else {
+            j++;
+        }
+    }
+    return 0;
+}
+
 /* Classify one already-normalized statement (no comments, blanked strings). */
 static stmt_class_t classify_statement(const char *s, size_t len)
 {
@@ -131,25 +157,17 @@ static stmt_class_t classify_statement(const char *s, size_t len)
     }
     const char *tok = s + start;
 
-    if (word_is(tok, wlen, "WITH")) {
-        /* A CTE is read-only only if it contains no write token anywhere. */
-        for (size_t j = 0; j < len;) {
-            if (isalpha((unsigned char)s[j]) || s[j] == '_') {
-                size_t ts = j;
-                while (j < len && (isalpha((unsigned char)s[j]) || s[j] == '_')) {
-                    j++;
-                }
-                for (size_t k = 0; k < sizeof WRITE_TOKENS / sizeof *WRITE_TOKENS;
-                     k++) {
-                    if (word_is(s + ts, j - ts, WRITE_TOKENS[k])) {
-                        return STMT_WRITE;
-                    }
-                }
-            } else {
-                j++;
-            }
-        }
-        return STMT_READ;
+    if (word_is(tok, wlen, "WITH") || word_is(tok, wlen, "EXPLAIN")) {
+        /* A CTE (or what EXPLAIN explains) is read-only only if it contains no
+           write token anywhere. */
+        return has_word(s, len, WRITE_TOKENS,
+                        sizeof WRITE_TOKENS / sizeof *WRITE_TOKENS)
+                   ? STMT_WRITE
+                   : STMT_READ;
+    }
+    if (word_is(tok, wlen, "SELECT")) {
+        static const char *const INTO[] = {"INTO"};
+        return has_word(s, len, INTO, 1) ? STMT_WRITE : STMT_READ;
     }
 
     for (size_t k = 0; k < sizeof READ_LEADERS / sizeof *READ_LEADERS; k++) {

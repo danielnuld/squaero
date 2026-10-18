@@ -74,6 +74,21 @@ const button = (name: RegExp | string) =>
   })!;
 
 describe("ConnectionBar rows", () => {
+  // Safe mode (issue #666): a protected connection says so on its row.
+  it("marks a protected connection beside its name, and only that one", () => {
+    mount({
+      open: [
+        row({ defId: "a", name: "Prod", safeMode: "readOnly" }),
+        row({ defId: "b", name: "Stage", safeMode: "confirm" }),
+        row({ defId: "c", name: "Local" }),
+      ],
+    });
+    const badge = (i: number) => rows()[i].querySelector(".safe-badge");
+    expect(badge(0)?.getAttribute("aria-label")).toBe("Solo lectura");
+    expect(badge(1)?.getAttribute("aria-label")).toBe("Confirma escrituras");
+    expect(badge(2)).toBeNull();
+  });
+
   it("draws one row per open connection, with its engine and target", () => {
     mount({ open: [row({ defId: "a", name: "Prod" }), row({ defId: "b", name: "Local", driver: "sqlite", sub: "SQLite · C:/datos/notas.db" })] });
     expect(rows()).toHaveLength(2);

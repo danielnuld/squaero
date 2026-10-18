@@ -23,6 +23,18 @@ export interface JsonRpcError {
 
 export type JsonRpcResponse = JsonRpcSuccess | JsonRpcError;
 
+/** Error carrying the JSON-RPC domain code so the UI can react to it. */
+export class QueryError extends Error {
+  code: number;
+  data?: unknown;
+  constructor(message: string, code: number, data?: unknown) {
+    super(message);
+    this.name = "QueryError";
+    this.code = code;
+    this.data = data;
+  }
+}
+
 let idCounter = 0;
 
 /** Monotonically increasing request id for correlating responses. */

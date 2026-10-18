@@ -2,7 +2,9 @@
 // The response parser is pure and unit-tested; the wrappers pair it with the
 // transport. Contract: docs/IPC.md (conn.open / conn.close).
 
-import { call } from "./transport";
+import { call, setConnGuard } from "./transport";
+import { buildDsn, type Connection } from "./connections";
+import { guardFor } from "./safeMode";
 import { isError, type JsonRpcResponse } from "./ipc";
 import { QueryError } from "./query";
 import { schemaTree, parseTreeRows } from "./schema";
@@ -67,8 +69,20 @@ export async function openConnection(
   return (await openSession(driver, dsn)).connId;
 }
 
+/**
+ * Opens a SAVED connection, carrying its safe mode (issue #666) onto the new
+ * session: every later call on it goes through the transport guard. Use this,
+ * not openConnection, for anything the user picked from their connections.
+ */
+export async function openSaved(c: Connection): Promise<string> {
+  const connId = await openConnection(c.driver, buildDsn(c));
+  setConnGuard(connId, guardFor(c));
+  return connId;
+}
+
 /** Closes an active connection. Resolves even if the core reports it was absent. */
 export async function closeConnection(connId: string): Promise<void> {
+  setConnGuard(connId, null);
   await call("conn.close", { connId });
 }
 

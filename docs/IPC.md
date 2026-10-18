@@ -123,6 +123,22 @@ retiene credenciales ni definiciones. Las contraseñas no se persisten: se piden
 en el momento de conectar. Si en el futuro se decide centralizar la persistencia
 en el núcleo, será un cambio con su propio issue y se reflejará aquí.
 
+### Modo seguro por conexión — sin cambio de protocolo (issue #666)
+
+Una conexión guardada puede llevar `safeMode`: `"readOnly"` (solo lectura) o
+`"confirm"` (confirmar escrituras). Es estado del frontend, como el resto de la
+definición, y **no viaja en `conn.open`**: el DSN no cambia y el protocolo
+tampoco. Lo aplica un único guardia en el cliente IPC (`frontend/src/utils/transport.ts`,
+`call()`), por el que pasa toda llamada: un `query.run` cuyo SQL no se puede
+probar de solo lectura (clasificador de `frontend/src/utils/safeMode.ts`, espejo
+de `stmt_classify` del núcleo) y todo `row.insert`/`row.update`/`row.delete` sin
+`preview` cuentan como escritura. En solo lectura se rechazan **sin enviarse**,
+con un error `-32010` generado en el propio frontend (no es un código del
+núcleo); en confirmar, se pide confirmación una vez por acción del usuario.
+`USE` se considera lectura y `SET`, escritura. No sustituye a un usuario de base
+de datos sin permisos de escritura: una función con efectos llamada desde un
+`SELECT` no se puede detectar por el texto.
+
 ## Referencia de métodos
 
 **`app.hello`** — handshake. Negocia la versión del protocolo.

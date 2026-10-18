@@ -7,7 +7,9 @@ import {
   closeConnection,
   testConnection,
   listDatabases,
+  openSaved,
 } from "../../src/utils/conn";
+import { connGuard } from "../../src/utils/transport";
 import { QueryError } from "../../src/utils/query";
 import type { JsonRpcResponse } from "../../src/utils/ipc";
 
@@ -221,5 +223,30 @@ describe("listDatabases", () => {
     };
     await expect(listDatabases("mongodb", {})).rejects.toThrow();
     expect(calls).toContain("conn.close");
+  });
+});
+
+// Safe mode (issue #666): a saved connection's protection rides on its session.
+describe("openSaved", () => {
+  const bridge = () =>
+    vi.fn(async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      return { jsonrpc: "2.0", id: req.id, result: req.method === "conn.open" ? { connId: "s9" } : {} };
+    });
+
+  it("guards the new session with the connection's mode until it closes", async () => {
+    (globalThis as BridgeHost).quaeroRpc = bridge();
+    const connId = await openSaved({
+      id: "p", name: "Prod", driver: "postgres", params: { host: "h" }, safeMode: "readOnly",
+    });
+    expect(connGuard(connId)).toEqual({ mode: "readOnly", engine: "postgres", name: "Prod" });
+    await closeConnection(connId);
+    expect(connGuard(connId)).toBeNull();
+  });
+
+  it("leaves an unprotected connection unguarded", async () => {
+    (globalThis as BridgeHost).quaeroRpc = bridge();
+    const connId = await openSaved({ id: "d", name: "Dev", driver: "sqlite", params: { path: ":memory:" } });
+    expect(connGuard(connId)).toBeNull();
   });
 });

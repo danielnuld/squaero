@@ -80,6 +80,18 @@ int main(void)
        and `; DROP TABLE t` becomes live SQL => must be WRITE. */
     CHECK("SELECT 'a\\'; DROP TABLE t; -- '", STMT_WRITE);
 
+    /* --- statements that read in appearance only (issue #666) --- */
+    CHECK("EXPLAIN ANALYZE SELECT * FROM t", STMT_READ);
+    CHECK("EXPLAIN ANALYZE DELETE FROM t", STMT_WRITE); /* executes the DELETE */
+    CHECK("EXPLAIN (ANALYZE) UPDATE t SET x = 1", STMT_WRITE);
+    CHECK("SELECT * INTO copy FROM t", STMT_WRITE);
+    CHECK("SELECT a INTO OUTFILE '/tmp/x' FROM t", STMT_WRITE);
+    CHECK("SELECT 'into' AS word FROM t", STMT_READ);
+    CHECK("WITH x AS (SELECT 1) SELECT * INTO y FROM x", STMT_WRITE);
+    CHECK("USE ventas", STMT_READ);
+    CHECK("EXEC sp_who", STMT_WRITE);
+    CHECK("ANALYZE t", STMT_WRITE);
+
     /* --- leading noise --- */
     CHECK("   \n  SELECT 1", STMT_READ);
     CHECK("\t/* c */\n  UPDATE t SET x=1", STMT_WRITE);

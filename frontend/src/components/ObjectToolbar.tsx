@@ -39,6 +39,8 @@ export interface ObjectToolbarProps {
    * too, where hiding it left the user guessing. Null/absent: nothing to say.
    */
   readOnlyReason?: string | null;
+  /** The connection is read-only (issue #666): nothing that writes is offered. */
+  readOnly?: boolean;
   /** An edit operation is in flight (disables mutating buttons). */
   busy: boolean;
   /** Current edit-session error, if any. */
@@ -141,7 +143,8 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                       <span class="eb-ic" aria-hidden="true">✎</span> {t("common.edit")}
                     </button>
                     <span id={reasonId} class="edit-hint-ro">
-                      {props.readOnlyReason ?? t("objbar.readOnly.noPk")}
+                      {props.readOnlyReason ??
+                        t(props.readOnly ? "safe.readOnlyHint" : "objbar.readOnly.noPk")}
                     </span>
                   </>
                 }
@@ -155,12 +158,15 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                 </button>
               </Show>
               <Show when={props.isTable}>
-                <button class="edit-btn" onClick={props.onImport}>
-                  <span class="eb-ic" aria-hidden="true">↧</span> {t("objbar.import")}
-                </button>
-                <button class="edit-btn" onClick={props.onGenerate}>
-                  <span class="eb-ic" aria-hidden="true">✦</span> {t("objbar.generate")}
-                </button>
+                {/* Import and generate write into this table. */}
+                <Show when={!props.readOnly}>
+                  <button class="edit-btn" onClick={props.onImport}>
+                    <span class="eb-ic" aria-hidden="true">↧</span> {t("objbar.import")}
+                  </button>
+                  <button class="edit-btn" onClick={props.onGenerate}>
+                    <span class="eb-ic" aria-hidden="true">✦</span> {t("objbar.generate")}
+                  </button>
+                </Show>
                 <button
                   class="edit-btn edit-btn-menu"
                   aria-haspopup="menu"

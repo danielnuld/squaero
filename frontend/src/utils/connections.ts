@@ -9,6 +9,7 @@
 // (see docs/IPC.md).
 
 import { normalizeKeepAlive } from "./reconnect";
+import { parseSafeMode, type SafeMode } from "./safeMode";
 
 export type FieldType = "text" | "number" | "password" | "file" | "select";
 
@@ -64,6 +65,9 @@ export interface Connection {
   /** Keep-alive interval in seconds (issue #676); absent = off. Not part of the
       DSN: the frontend probes the idle session and reconnects a dropped one. */
   keepAlive?: number;
+  /** Safe mode (issue #666): refuse every write, or confirm before one.
+      Absent means unprotected. Enforced by the transport guard. */
+  safeMode?: SafeMode;
 }
 
 /** Curated accent palette for connections (config + sidebar). Chosen to stay
@@ -790,6 +794,8 @@ export function coerceConnection(item: unknown): Connection | null {
   if (keepAlive !== undefined) {
     conn.keepAlive = keepAlive;
   }
+  const safeMode = parseSafeMode(c.safeMode);
+  if (safeMode) conn.safeMode = safeMode;
   // Stored and imported connections alike come through here (issue #557).
   return migrateInformixConnection(conn);
 }

@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createSignal } from "solid-js";
+import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { errorText } from "../utils/errors";
@@ -127,10 +128,12 @@ export function BackupPanel(props: {
     setBusy(true);
     setStatus({ text: t("bk.restoring", { done: 0, total }) });
     try {
-      const report = await runRestore(
-        s.stmts,
-        (sql) => runQuery(connId, sql),
-        (done) => setStatus({ text: t("bk.restoring", { done, total }) }),
+      const report = await withWriteConsent(connId, s.stmts, () =>
+        runRestore(
+          s.stmts,
+          (sql) => runQuery(connId, sql),
+          (done) => setStatus({ text: t("bk.restoring", { done, total }) }),
+        ),
       );
       setStatus(
         report.failed
