@@ -1132,6 +1132,13 @@ export const en: Record<string, string> = {
   "run.failed": "Failed at {time} · {duration}",
   "status.marked": "{n} selected",
   "status.markedTitle": "Rows marked in the grid (ctrl or shift click; ctrl+A for all)",
+  "status.summaryTitle": "The selected cell's column over the marked rows (ctrl or shift click)",
+  "status.cells": "{n} cells",
+  "status.nulls": "{n} NULL",
+  "status.sum": "Sum {v}",
+  "status.avg": "Avg {v}",
+  "status.min": "Min {v}",
+  "status.max": "Max {v}",
   "status.shortcuts": "Keyboard shortcuts",
 
   // run scope indicator

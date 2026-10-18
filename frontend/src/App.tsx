@@ -269,6 +269,7 @@ import { ExplainPlan } from "./components/ExplainPlan";
 import { UpdateModal } from "./components/UpdateModal";
 import { TOOL_CATALOG } from "./utils/toolCatalog";
 import { sourceLabel } from "./utils/resultFacts";
+import { summarizeCells } from "./utils/cellSummary";
 import { IconSearch } from "./components/icons";
 import { locale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
@@ -3076,6 +3077,22 @@ export function App() {
   // result's rows. The grid publishes them; the copy / transfer actions below
   // narrow the result to exactly those rows and reuse the existing paths.
   const [markedRows, setMarkedRows] = createSignal<number[]>([]);
+  // The cells the grid's selection covers (issue #670), summarized in the
+  // status bar. One cell is not summarized: it is already on screen.
+  const [selectedCells, setSelectedCells] = createSignal<{ column: number; rows: number[] } | null>(null);
+  const cellSummary = createMemo(() => {
+    const cells = selectedCells();
+    const res = currentResult().result;
+    const col = cells && res?.columns[cells.column];
+    if (!cells || !res || !col || cells.rows.length < 2) return null;
+    // What the grid shows: a pending edit, else the value the core sent.
+    const edits = currentEdit().pending.edits;
+    const values = cells.rows.map((r) => {
+      const e = edits[r];
+      return e && col.name in e ? e[col.name] : (res.rows[r]?.[cells.column] ?? null);
+    });
+    return summarizeCells(values, col.type);
+  });
   // How the grid is currently drawing its columns (issue #446), as original
   // indices in display order. Copying from the grid follows what the user sees;
   // generating SQL (inserts, transfer) keeps the table's own order, which is
@@ -4431,6 +4448,7 @@ export function App() {
                         }
                         onCellContext={onCellContext}
                         onMarkedRowsChange={setMarkedRows}
+                        onSelectedCellsChange={setSelectedCells}
                         onColumnOrderChange={setColumnOrder}
                         onCopyRows={copyRowsFromGrid}
                         onDuplicateRows={currentEditable() ? duplicateRows : undefined}
@@ -5000,6 +5018,7 @@ export function App() {
         rowCount={currentResult().result?.rows.length ?? null}
         markedCount={markedRows().length}
         txStatements={txOpenCount(tabConn(current()))}
+        summary={cellSummary()}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
         ranAt={currentResult().ranAt}

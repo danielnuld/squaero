@@ -1147,6 +1147,13 @@ export const es: Record<string, string> = {
   "run.failed": "Falló a las {time} · {duration}",
   "status.marked": "{n} seleccionadas",
   "status.markedTitle": "Filas marcadas en la rejilla (clic con Ctrl o Mayús; Ctrl+A todas)",
+  "status.summaryTitle": "La columna de la celda seleccionada en las filas marcadas (clic con Ctrl o Mayús)",
+  "status.cells": "{n} celdas",
+  "status.nulls": "{n} NULL",
+  "status.sum": "Suma {v}",
+  "status.avg": "Media {v}",
+  "status.min": "Mín {v}",
+  "status.max": "Máx {v}",
   "status.shortcuts": "Atajos de teclado",
 
   // run scope indicator (issue #130)
