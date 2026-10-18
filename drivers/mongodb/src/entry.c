@@ -9,15 +9,18 @@
  * Capabilities: connect + query (the mongosh surface: find/findOne/aggregate,
  * the write commands insertOne/Many, updateOne/Many, replaceOne, deleteOne/Many,
  * and countDocuments, distinct, createIndex/dropIndex/getIndexes, drop,
- * createCollection, createView, runCommand) + result-set reading (required) and
- * introspection (list_databases / list_tables / describe_table). MongoDB has no
- * schema layer between database and collection, so list_schemas is NULL and
- * DBC_FEAT_SCHEMAS is not advertised. DDL generation, data modification and
- * multi-document transactions are honestly absent for now (their members are NULL
- * and their flags unset). TLS (DBC_FEAT_SSL) is the DSN's `tls` field or a `uri`
- * with tls=true; the server certificate is verified against the system's trusted
- * CAs. On Windows a URI's tlsCAFile is refused, because the Secure Channel backend
- * would install that CA machine-wide (see connection.c).
+ * createCollection, createView, runCommand) + result-set reading (required),
+ * introspection (list_databases / list_tables / describe_table) and data
+ * modification (DBC_FEAT_DML: build_dml renders insertOne/updateOne/deleteOne keyed
+ * by `_id`, which describe_table reports as the primary key). MongoDB has no schema
+ * layer between database and collection, so list_schemas is NULL and
+ * DBC_FEAT_SCHEMAS is not advertised. DDL generation and multi-document
+ * transactions are honestly absent for now (their members are NULL and their flags
+ * unset): an editing session over MongoDB applies each change as it is made. TLS
+ * (DBC_FEAT_SSL) is the DSN's `tls` field or a `uri` with tls=true; the server
+ * certificate is verified against the system's trusted CAs. On Windows a URI's
+ * tlsCAFile is refused, because the Secure Channel backend would install that CA
+ * machine-wide (see connection.c).
  *
  * Query cancellation (DBC_FEAT_CANCEL) is intentionally NOT advertised. Unlike
  * SQLite (sqlite3_interrupt), MySQL (KILL QUERY) and Informix (SQLCancel), the
@@ -52,7 +55,9 @@ static const dbc_driver_t k_mongodb_driver = {
     .list_tables    = mongo_list_tables,
     .describe_table = mongo_describe_table,
 
-    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_SSL,
+    .build_dml     = mongo_build_dml_result,
+
+    .features      = DBC_FEAT_INTROSPECTION | DBC_FEAT_SSL | DBC_FEAT_DML,
 };
 
 DBC_DRIVER_EXPORT const dbc_driver_t *dbc_driver_entry(void)

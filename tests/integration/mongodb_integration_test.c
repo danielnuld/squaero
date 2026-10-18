@@ -7,9 +7,10 @@
  *
  * It also covers the write and utility commands (insert/update/replace/delete,
  * countDocuments, distinct, indexes, createCollection, drop, runCommand) with
- * their real rows_affected, and that an unknown method is reported as UNSUPPORTED
- * rather than faked. Those use a scratch collection (quaero_w) that the test
- * creates and drops itself.
+ * their real rows_affected, document editing from the grid (row.insert /
+ * row.update / row.delete -> build_dml -> the same commands), and that an unknown
+ * method is reported as UNSUPPORTED rather than faked. Those use a scratch
+ * collection (quaero_w) that the test creates and drops itself.
  *
  * Requires a reachable server, PRE-SEEDED with a `quaero_it` collection holding:
  *   { _id: 1, name: "alice" }
@@ -182,7 +183,49 @@ static void expect_cmd_error(const char *conn_id, const char *sql, int code, con
     cJSON_Delete(root);
 }
 
-/* Write and utility commands, against a scratch collection. */
+/* A row.insert / row.update / row.delete call on quaero_w. `map` is the
+   values / set object, `where` the key, `types` the setTypes; all owned. */
+static cJSON *row_call(const char *method, const char *conn_id, int preview, cJSON *map,
+                       cJSON *where, cJSON *types)
+{
+    cJSON *p = params_for(conn_id);
+    cJSON_AddStringToObject(p, "table", "quaero_w");
+    if (preview) {
+        cJSON_AddTrueToObject(p, "preview");
+    }
+    if (map) {
+        cJSON_AddItemToObject(p, strcmp(method, "row.insert") == 0 ? "values" : "set", map);
+    }
+    if (where) {
+        cJSON_AddItemToObject(p, "where", where);
+    }
+    if (types) {
+        cJSON_AddItemToObject(p, "setTypes", types);
+    }
+    return rpc(method, p);
+}
+
+static cJSON *obj1(const char *k, const char *v)
+{
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, k, v);
+    return o;
+}
+
+/* Require a row.* response with the given rowsAffected. */
+static void expect_row(cJSON *root, double affected, const char *what)
+{
+    EXPECT(!is_error(root) && rows_affected(root) == affected, what);
+    if (is_error(root)) {
+        fprintf(stderr, "  (%s: %s)\n", what, error_text(root));
+    }
+    cJSON_Delete(root);
+}
+
+/*
+ * Write and utility commands and document editing (build_dml), against a scratch
+ * collection.
+ */
 static void write_section(const char *conn_id)
 {
     cJSON *root;
@@ -244,6 +287,61 @@ static void write_section(const char *conn_id)
     expect_cmd(conn_id, "db.runCommand({delete: 'quaero_w', deletes: [{q: {_id: 99}, limit: 1}]})",
                1, "n", "1");
     expect_cmd_error(conn_id, "db.runCommand({noSuchCommandXyz: 1})", 0, "");
+
+    /* --- document editing from the grid (build_dml, run through the commands) --- */
+    {
+        cJSON *vals = cJSON_CreateObject(), *types = cJSON_CreateObject();
+        cJSON_AddStringToObject(vals, "_id", "10");
+        cJSON_AddStringToObject(vals, "name", "grid");
+        cJSON_AddStringToObject(vals, "n", "7");
+        cJSON_AddStringToObject(types, "_id", "int");
+        cJSON_AddStringToObject(types, "name", "text");
+        cJSON_AddStringToObject(types, "n", "int");
+        root = row_call("row.insert", conn_id, 1, cJSON_Duplicate(vals, 1), NULL,
+                        cJSON_Duplicate(types, 1));
+        cJSON *sql = cJSON_GetObjectItem(result_of(root), "sql");
+        EXPECT(cJSON_IsString(sql) &&
+                   strcmp(sql->valuestring,
+                          "db.quaero_w.insertOne({\"_id\": 10, \"name\": \"grid\", \"n\": 7})") == 0,
+               "row.insert preview renders insertOne");
+        cJSON_Delete(root);
+        expect_row(row_call("row.insert", conn_id, 0, vals, NULL, types), 1,
+                   "row.insert inserts one document");
+    }
+    {
+        cJSON *set = cJSON_CreateObject(), *types = cJSON_CreateObject();
+        cJSON_AddStringToObject(set, "name", "edited");
+        cJSON_AddStringToObject(set, "n", "8");
+        cJSON_AddStringToObject(types, "name", "text");
+        cJSON_AddStringToObject(types, "n", "int");
+        expect_row(row_call("row.update", conn_id, 0, set, obj1("_id", "10"), types), 1,
+                   "row.update by _id changes exactly one document");
+        root = run(conn_id, "db.quaero_w.findOne({_id: 10})");
+        EXPECT(strcmp(first_cell(root, "name"), "edited") == 0 &&
+                   strcmp(first_cell(root, "n"), "8") == 0,
+               "the edit is visible (and n stays a number)");
+        cJSON_Delete(root);
+    }
+
+    /* A document with an ObjectId _id: the grid sends its hex text. */
+    expect_cmd(conn_id, "db.quaero_w.insertOne({name: 'oid-doc'})", 1, NULL, NULL);
+    {
+        root = run(conn_id, "db.quaero_w.findOne({name: 'oid-doc'})");
+        char hex[40] = "";
+        snprintf(hex, sizeof hex, "%s", first_cell(root, "_id"));
+        EXPECT(strlen(hex) == 24, "the generated _id is an ObjectId (24 hex digits)");
+        cJSON_Delete(root);
+
+        expect_row(row_call("row.update", conn_id, 0, obj1("name", "oid-edited"), obj1("_id", hex),
+                            obj1("name", "text")),
+                   1, "row.update finds an ObjectId _id from its hex text");
+        expect_row(row_call("row.delete", conn_id, 0, NULL, obj1("_id", hex), NULL), 1,
+                   "row.delete removes the ObjectId document");
+    }
+    expect_row(row_call("row.delete", conn_id, 0, NULL, obj1("_id", "10"), NULL), 1,
+               "row.delete removes the edited document");
+    expect_row(row_call("row.delete", conn_id, 0, NULL, obj1("_id", "10"), NULL), 0,
+               "row.delete of a missing document affects 0 (the UI flags it)");
 
     /* --- deletes ------------------------------------------------------------ */
     expect_cmd(conn_id, "db.quaero_w.deleteOne({_id: 3})", 1, "deletedCount", "1");
@@ -428,7 +526,7 @@ int main(void)
     dbc_plugin_unload(plugin);
 
     if (failures == 0) {
-        printf("OK: MongoDB integration (conn + query + writes over IPC)\n");
+        printf("OK: MongoDB integration (conn + query + writes + DML over IPC)\n");
         return 0;
     }
     fprintf(stderr, "%d assertion(s) failed\n", failures);

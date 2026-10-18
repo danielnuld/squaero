@@ -81,6 +81,10 @@ dbc_status  mongo_query_exec(dbc_conn *c, const char *sql, dbc_result **out);
 /* Everything but find/aggregate: the write and utility commands. */
 dbc_status  mongo_command_exec(dbc_conn *c, const mongo_query *q, dbc_result **out);
 
+/* --- edit.c --- */
+dbc_status  mongo_build_dml_result(dbc_conn *c, dbc_dml_kind kind,
+                                   const dbc_dml_row *row, dbc_result **out);
+
 /* --- metadata.c --- */
 dbc_status  mongo_list_databases(dbc_conn *c, dbc_result **out);
 dbc_status  mongo_list_tables(dbc_conn *c, const char *schema, dbc_result **out);
