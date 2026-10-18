@@ -794,7 +794,7 @@ describe("ResultGrid column marks", () => {
     // header claims something only sighted users can read.
     const mark = header("id").querySelector(".col-key-mark")!;
     expect(mark.getAttribute("aria-hidden")).toBeNull();
-    expect(mark.textContent).toContain("Llave primaria");
+    expect(mark.textContent).toContain("Clave primaria");
   });
 
   it("matches the column name case-insensitively, like the catalog", () => {

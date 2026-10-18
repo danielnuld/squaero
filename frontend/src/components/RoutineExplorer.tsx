@@ -12,7 +12,7 @@ import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
 import { runnableRoutineDdl } from "../utils/routineDdl";
 import { objectBadge, routineKind } from "../utils/objectIcons";
 import { Panel } from "./Panel";
-import { t } from "../utils/i18n";
+import { locale, t } from "../utils/i18n";
 
 // Stored procedures / functions explorer (issue #137): lists the routines of the
 // active database and shows each one's definition (DDL) — all via query.run using
@@ -169,7 +169,7 @@ export function RoutineExplorer(props: {
 
       <Show
         when={support().supported}
-        fallback={<p class="grid-empty">{unsupportedReason(props.engine)}</p>}
+        fallback={<p class="grid-empty">{unsupportedReason(props.engine, locale())}</p>}
       >
         <div class="routine-body">
           <div class="routine-list">

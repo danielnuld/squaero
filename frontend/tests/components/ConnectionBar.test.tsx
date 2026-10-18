@@ -194,7 +194,7 @@ describe("ConnectionBar with nothing open", () => {
     );
     expect(
       [...host!.querySelectorAll("button")].filter(
-        (b) => (b.getAttribute("aria-label") ?? b.textContent) === "Conectar a una base…",
+        (b) => (b.getAttribute("aria-label") ?? b.textContent) === "Conectar a una base de datos…",
       ),
     ).toHaveLength(1);
     // The search is not rendered until asked for.
@@ -211,7 +211,7 @@ describe("ConnectionBar with nothing open", () => {
 describe("ConnectionBar search", () => {
   it("toggles the search on the + button", () => {
     mount({ open: [row({ defId: "a", name: "Prod" })] });
-    const add = button("Conectar a una base…");
+    const add = button("Conectar a una base de datos…");
     add.click();
     const drop = host!.querySelector(".connbar-drop")!;
     expect(drop.querySelector(".connsearch")).not.toBeNull();
@@ -223,7 +223,7 @@ describe("ConnectionBar search", () => {
 
   it("opens the picked connection and closes the search", () => {
     const { onPick } = mount({ open: [] });
-    button("Conectar a una base…").click();
+    button("Conectar a una base de datos…").click();
     host!.querySelector<HTMLButtonElement>(".connsearch-hit")!.click();
     expect(onPick).toHaveBeenCalledOnce();
     expect(host!.querySelector(".connbar-drop")).toBeNull();
@@ -235,7 +235,7 @@ describe("ConnectionBar search", () => {
   // off the viewport and has to be told where the bar is.
   it("hangs as a balloon positioned against the viewport, not inside the sidebar", () => {
     mount({ open: [row({ defId: "a", name: "Prod" })] });
-    button("Conectar a una base…").click();
+    button("Conectar a una base de datos…").click();
     const drop = host!.querySelector<HTMLElement>(".connbar-drop")!;
     expect(drop.style.top).not.toBe("");
     expect(drop.style.left).not.toBe("");
@@ -243,7 +243,7 @@ describe("ConnectionBar search", () => {
 
   it("says which of the saved ones are already open", () => {
     mount({ open: [row({ defId: "a", name: "Prod" })] });
-    button("Conectar a una base…").click();
+    button("Conectar a una base de datos…").click();
     const open = host!.querySelectorAll(".connsearch-open");
     expect(open).toHaveLength(1);
     expect(host!.querySelectorAll(".connsearch-hit")[0].textContent).toContain("Abierta");
@@ -251,12 +251,12 @@ describe("ConnectionBar search", () => {
 
   it("sends the footer's actions out and closes behind them", () => {
     const { onNew, onManage } = mount({ open: [] });
-    button("Conectar a una base…").click();
+    button("Conectar a una base de datos…").click();
     host!.querySelector<HTMLButtonElement>(".connsearch-foot button")!.click();
     expect(onNew).toHaveBeenCalledOnce();
     expect(host!.querySelector(".connbar-drop")).toBeNull();
 
-    button("Conectar a una base…").click();
+    button("Conectar a una base de datos…").click();
     [...host!.querySelectorAll<HTMLButtonElement>(".connsearch-foot button")].at(-1)!.click();
     expect(onManage).toHaveBeenCalledOnce();
     expect(host!.querySelector(".connbar-drop")).toBeNull();
@@ -290,7 +290,7 @@ describe("ConnectionBar search", () => {
         host!,
       );
     });
-    button("Conectar a una base…").click();
+    button("Conectar a una base de datos…").click();
     expect(host!.querySelector(".connbar-drop")!.textContent).toContain("Prod");
     expect(host!.querySelector(".connbar-drop")!.textContent).not.toContain("Reportes");
     setList([conns[0], { id: "c", name: "Reportes", driver: "postgres", params: {} }]);

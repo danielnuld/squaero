@@ -578,8 +578,8 @@ describe("Informix schema", () => {
     const errors = validateConnection({
       id: "c", name: "ifx", driver: "informix", params: {},
     }, es);
-    expect(errors).toContain('El campo "Host" es obligatorio.');
-    expect(errors).toContain('El campo "Usuario" es obligatorio.');
+    expect(errors).toContain('El campo «Host» es obligatorio.');
+    expect(errors).toContain('El campo «Usuario» es obligatorio.');
     expect(errors.some((e) => e.includes("Puerto"))).toBe(false);
   });
 
@@ -630,8 +630,8 @@ describe("MongoDB schema", () => {
     const errors = validateConnection({
       id: "c", name: "mongo", driver: "mongodb", params: {},
     }, es);
-    expect(errors).toContain('El campo "Host" es obligatorio.');
-    expect(errors).toContain('El campo "Base de datos" es obligatorio.');
+    expect(errors).toContain('El campo «Host» es obligatorio.');
+    expect(errors).toContain('El campo «Base de datos» es obligatorio.');
   });
 
   it("treats the password as a secret stripped from storage", () => {

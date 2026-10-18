@@ -10,6 +10,7 @@
 
 import { engineFamily as family } from "./engineFamily";
 import { mongoKillSql } from "./mongoStatements";
+import { t } from "./i18n";
 
 /** What the monitor can do for a given engine. */
 export interface MonitorSupport {
@@ -66,7 +67,7 @@ export function buildKillSql(engine: string, id: string): string | null {
 /** A short, human label for why the monitor is unavailable on an engine. */
 export function unsupportedReason(engine: string): string {
   const f = family(engine);
-  if (f === "sqlite") return "SQLite es una base de datos embebida: no tiene procesos de servidor.";
-  if (f === "informix") return "Informix administra sesiones por CLI (onmode), no por SQL.";
-  return `El monitor de procesos no está disponible para el motor "${engine || "desconocido"}".`;
+  if (f === "sqlite") return t("monitor.unsupported.sqlite");
+  if (f === "informix") return t("monitor.unsupported.informix");
+  return t("monitor.unsupported.other", { engine: engine || t("engine.unknown") });
 }

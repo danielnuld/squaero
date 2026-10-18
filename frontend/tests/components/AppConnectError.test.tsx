@@ -94,7 +94,7 @@ describe("App — connect failures are visible (toast)", () => {
     await connect();
     const toast = host!.querySelector(".app-toast-error");
     expect(toast, "a failed connect must show the error toast").not.toBeNull();
-    expect(toast!.textContent).toContain('"local"');
+    expect(toast!.textContent).toContain('«local»');
     expect(toast!.textContent).toContain("Access denied for user 'root'@'localhost'");
     // And the connection bar does not claim to be connected.
     expect(host!.querySelector(".connbar-status")).toBeNull();

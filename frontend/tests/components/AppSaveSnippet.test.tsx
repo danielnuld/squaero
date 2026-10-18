@@ -177,7 +177,7 @@ describe("The snippet palette (Ctrl+J)", () => {
   it("says the set is empty instead of showing an empty list", () => {
     mount();
     ctrlJ();
-    expect(host!.querySelector(".cmdk-empty")?.textContent).toContain("no has guardado");
+    expect(host!.querySelector(".cmdk-empty")?.textContent).toContain("Aún no hay snippets guardados");
   });
 
   it("opens the snippet in its own tab on Enter, leaving the query alone", () => {

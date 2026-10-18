@@ -69,7 +69,7 @@ describe("PendingRowsBar", () => {
 
   it("blocks saving with the reason while rows collide", () => {
     const { button } = mount({ conflicts: 1 });
-    expect(host!.textContent).toContain("1 choca con un valor que ya existe");
+    expect(host!.textContent).toContain("1 duplica un valor que ya existe");
     const save = button(/Revisar y guardar/)!;
     expect(save.disabled).toBe(true);
     expect(save.title).toBe("Corrige las celdas marcadas en rojo antes de guardar");
@@ -77,7 +77,7 @@ describe("PendingRowsBar", () => {
 
   it("counts several collisions", () => {
     mount({ conflicts: 3 });
-    expect(host!.textContent).toContain("3 chocan con valores que ya existen");
+    expect(host!.textContent).toContain("3 duplican valores que ya existen");
   });
 
   it("offers no key or empty-cell choice for rows added by hand", () => {
@@ -89,7 +89,7 @@ describe("PendingRowsBar", () => {
 
   it("switches the key mode of a paste", () => {
     const { handlers, button } = mount({ pkMode: "generate" });
-    const key = button(/^Clave: la genera la base$/)!;
+    const key = button(/^Clave: la genera la base de datos$/)!;
     expect(key.getAttribute("aria-pressed")).toBe("false");
     key.click();
     expect(handlers.onTogglePk).toHaveBeenCalledOnce();
