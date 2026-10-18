@@ -133,8 +133,9 @@ static void clear_rows(dbc_result *r)
 }
 
 /* Replace r's result set with the columns and rows of the current db-lib result. */
-static dbc_status capture(DBPROCESS *dbproc, dbc_result *r)
+static dbc_status capture(dbc_conn *c, dbc_result *r)
 {
+    DBPROCESS *dbproc = c->dbproc;
     clear_rows(r);
     int ncols = dbnumcols(dbproc);
     r->names = calloc((size_t)ncols, sizeof *r->names);
@@ -158,6 +159,9 @@ static dbc_status capture(DBPROCESS *dbproc, dbc_result *r)
         }
         if (status != REG_ROW) {
             continue; /* compute rows (COMPUTE BY) are not part of the grid */
+        }
+        if (ms_cancel_claimed(c)) {
+            return DBC_ERR_QUERY; /* rows keep coming: no wait to interrupt */
         }
         if (r->nrows == r->cap_rows) {
             long long cap = r->cap_rows != 0 ? r->cap_rows * 2 : 64;
@@ -187,6 +191,7 @@ dbc_status ms_drv_query(dbc_conn *c, const char *sql, dbc_result **out)
         return DBC_ERR_PARAM;
     }
     c->err[0] = '\0';
+    mssql_cancel_reset(&c->cancel);
     dbc_result *r = calloc(1, sizeof *r);
     if (r == NULL) {
         return DBC_ERR_NOMEM;
@@ -202,12 +207,12 @@ dbc_status ms_drv_query(dbc_conn *c, const char *sql, dbc_result **out)
     dbc_status st = DBC_OK;
     RETCODE rc;
     while ((rc = dbresults(c->dbproc)) != NO_MORE_RESULTS) {
-        if (rc == FAIL) {
+        if (rc == FAIL || ms_cancel_claimed(c)) {
             st = DBC_ERR_QUERY;
             break;
         }
         if (dbnumcols(c->dbproc) > 0) {
-            st = capture(c->dbproc, r);
+            st = capture(c, r);
             if (st != DBC_OK) {
                 break;
             }

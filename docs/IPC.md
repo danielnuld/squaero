@@ -146,12 +146,22 @@ en el núcleo, será un cambio con su propio issue y se reflejará aquí.
 `params.driver` es el `name` del driver; `params.dsn` es el DSN como objeto JSON
 (o como cadena JSON ya codificada). El DSN —y cualquier credencial que
 contenga— se usa solo durante `connect` y **nunca** se persiste ni se retiene en
-el núcleo. Devuelve un `connId` con forma `"c<N>"`.
+el núcleo. Devuelve un `connId` con forma `"c<N>"` y, desde #668, `features`:
+lo que el driver detrás de esa conexión puede hacer, como booleanos (`cancel`,
+`transactions`, `ddl`, `dml`, `schemas`, `introspection`). Cada uno es `true`
+solo si el driver anuncia el `DBC_FEAT_*` correspondiente **y** tiene el miembro
+que lo respalda — la misma prueba con la que el núcleo enruta `op.cancel`,
+`tx.*`, `schema.ddl` y `row.*`. La UI lo usa para deshabilitar (con su motivo)
+lo que el motor no puede hacer en vez de fallar al pulsar; un cliente que no lo
+conozca lo ignora, y un núcleo anterior no lo envía (la UI asume entonces el
+comportamiento previo).
 
 ```jsonc
 { "jsonrpc": "2.0", "id": 1, "method": "conn.open",
   "params": { "driver": "sqlite", "dsn": { "path": "/tmp/app.db" } } }
-// -> result: { "connId": "c1" }
+// -> result: { "connId": "c1",
+//              "features": { "cancel": true, "transactions": true, "ddl": true,
+//                            "dml": true, "schemas": false, "introspection": true } }
 ```
 
 **`conn.close`** — cierra una conexión activa por `connId`.
@@ -370,10 +380,15 @@ falla luego con un error de consulta (`-32003`), que llega como el error normal 
 La cancelación real requiere que el driver anuncie `DBC_FEAT_CANCEL`; un motor sin
 soporte devuelve `canceled: false` en vez de fingir. Hoy lo respaldan **SQLite**
 (`sqlite3_interrupt`), **MySQL/MariaDB** (`KILL QUERY` sobre una conexión lateral),
-**PostgreSQL** (`PQcancel` de libpq desde otro hilo) e **Informix** (DRDA no puede
+**PostgreSQL** (`PQcancel` de libpq desde otro hilo), **SQL Server** (un mensaje
+ATTENTION de TDS; sobre FreeTDS db-lib lo envía el propio hilo de la consulta desde
+el manejador de interrupciones, en menos de un segundo, y la conexión sigue viva,
+#668) e **Informix** (DRDA no puede
 interrumpir una consulta en la propia conexión, así que la corta: la conexión queda
 perdida y la app ofrece reconectar, como tras una caída, #407); MongoDB aún no lo anuncia
-(para él la UI no se congela, pero la consulta sigue hasta terminar). A diferencia
+(para él la UI no se congela, pero la consulta sigue hasta terminar, y el botón
+Cancelar aparece deshabilitado, con el motivo, porque `conn.open` reporta
+`features.cancel: false`). A diferencia
 del resto de los métodos, el
 shell nativo despacha `op.cancel` **sin** encolarlo detrás de la consulta que
 interrumpe, y el hook `cancel` del driver corre en otro hilo mientras `query.run`
@@ -502,7 +517,8 @@ incompatible que debe discutirse en un issue antes, porque rompe a todo cliente)
 
 - interpretar campos nuevos y opcionales dentro del `dsn` opaco de `conn.open`
   (así se agregaron `ssl_*` y `ssh_*` sin tocar la versión);
-- agregar un campo opcional a un `result` que los clientes viejos ignoran.
+- agregar un campo opcional a un `result` que los clientes viejos ignoran
+  (así se agregó `features` al resultado de `conn.open`, #668).
 
 **Historial:**
 

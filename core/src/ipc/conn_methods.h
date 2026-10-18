@@ -2,6 +2,7 @@
 #define DBCORE_IPC_CONN_METHODS_H
 
 #include "cJSON.h"
+#include "dbcore/driver.h"
 
 #include <stddef.h>
 
@@ -14,11 +15,19 @@
  */
 
 /* conn.open — params {driver: string, dsn: object|string}.
-   result {connId: "c<N>"}. */
+   result {connId: "c<N>", features: {...}} (see ipc_driver_features_json). */
 cJSON *ipc_method_conn_open(const cJSON *params, int *code, const char **message);
 
 /* conn.close — params {connId: "c<N>"}. result {closed: true}. */
 cJSON *ipc_method_conn_close(const cJSON *params, int *code, const char **message);
+
+/*
+ * The `features` object conn.open returns: what the driver behind the
+ * connection can do, as booleans (cancel, transactions, ddl, dml, schemas,
+ * introspection), so the UI can disable what the engine cannot do instead of
+ * failing on click. Returns a new object the caller owns, or NULL on OOM.
+ */
+cJSON *ipc_driver_features_json(const dbc_driver_t *drv);
 
 /*
  * Connection-id string helpers, exposed for unit testing. The wire id is
