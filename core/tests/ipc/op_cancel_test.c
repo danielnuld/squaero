@@ -100,6 +100,34 @@ int main(void)
         dbcore_op_end(5);
     }
 
+    /* A running query on an engine that cannot cancel: an honest canceled:false
+       — a result, not an error, and nothing pretends to reach the driver. */
+    {
+        dbc_driver_t drv = cancel_driver();
+        drv.name     = "stubborn";
+        drv.features = 0;          /* member present, capability not advertised */
+        struct dbc_conn conn = { 6 };
+        int before = g_cancel_calls;
+        dbcore_op_begin(6, &drv, &conn);
+
+        cJSON *root = call("{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"op.cancel\","
+                           "\"params\":{\"connId\":\"c6\"}}");
+        EXPECT(cJSON_GetObjectItemCaseSensitive(root, "result") != NULL &&
+               error_code(root) == 0, "non-cancel driver -> a result, not an error");
+        EXPECT(!canceled_flag(root), "non-cancel driver -> canceled:false");
+        EXPECT(g_cancel_calls == before, "unadvertised cancel is never invoked");
+        cJSON_Delete(root);
+
+        drv.cancel = NULL;         /* and with no member at all */
+        root = call("{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"op.cancel\","
+                    "\"params\":{\"connId\":\"c6\"}}");
+        EXPECT(!canceled_flag(root) && error_code(root) == 0,
+               "no cancel member -> canceled:false");
+        cJSON_Delete(root);
+
+        dbcore_op_end(6);
+    }
+
     dbcore_op_registry_reset();
 
     if (failures == 0) {
