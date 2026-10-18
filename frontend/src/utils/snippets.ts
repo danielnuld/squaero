@@ -5,6 +5,7 @@
 // only, like saved connections and query history.
 
 import { queryEditTarget } from "./queryTarget";
+import { normalizeAbbr } from "./sqlTemplates";
 
 export interface Snippet {
   /** Stable id of the form "snip-N". */
@@ -13,6 +14,9 @@ export interface Snippet {
   name: string;
   /** The SQL text inserted at the cursor / loaded into the editor. */
   body: string;
+  /** Abbreviation that expands the body as a template in the editor (issue
+      #665). Optional: snippets saved before it, and most since, have none. */
+  abbr?: string;
 }
 
 /**
@@ -96,6 +100,24 @@ export function renameSnippet(list: Snippet[], id: string, name: string): Snippe
   return list.map((s) => (s.id === id ? { ...s, name: n } : s));
 }
 
+/**
+ * Set a snippet's template abbreviation (issue #665), normalized to a lower-case
+ * word; a blank one removes it. Anything that is not a single word is ignored.
+ * Returns a new array.
+ */
+export function setSnippetAbbr(list: Snippet[], id: string, raw: string): Snippet[] {
+  if (!raw.trim()) {
+    return list.map((s) => {
+      if (s.id !== id) return s;
+      const { abbr: _, ...rest } = s;
+      return rest;
+    });
+  }
+  const abbr = normalizeAbbr(raw);
+  if (!abbr) return list;
+  return list.map((s) => (s.id === id ? { ...s, abbr } : s));
+}
+
 /** Remove a snippet by id. Returns a new array. */
 export function removeSnippet(list: Snippet[], id: string): Snippet[] {
   return list.filter((s) => s.id !== id);
@@ -112,7 +134,7 @@ export function mergeSnippets(current: Snippet[], incoming: Snippet[]): Snippet[
     const name = s.name?.trim();
     if (!name || typeof s.body !== "string" || !s.body.trim()) continue;
     if (out.some((e) => e.name === name && e.body === s.body)) continue;
-    out.push({ id: nextSnippetId(out), name, body: s.body });
+    out.push(withAbbr({ id: nextSnippetId(out), name, body: s.body }, s.abbr));
   }
   return out;
 }
@@ -152,8 +174,15 @@ export function parseSnippets(raw: string | null): Snippet[] {
   for (const item of data) {
     const s = item as Partial<Snippet>;
     if (typeof s?.id === "string" && typeof s?.name === "string" && typeof s?.body === "string") {
-      out.push({ id: s.id, name: s.name, body: s.body });
+      out.push(withAbbr({ id: s.id, name: s.name, body: s.body }, s.abbr));
     }
   }
   return out;
+}
+
+/** `s` with `abbr` when it is a valid abbreviation; a bad one is dropped, not
+    the snippet. */
+function withAbbr(s: Snippet, abbr: unknown): Snippet {
+  const a = typeof abbr === "string" ? normalizeAbbr(abbr) : null;
+  return a ? { ...s, abbr: a } : s;
 }

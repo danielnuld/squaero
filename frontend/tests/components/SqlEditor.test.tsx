@@ -2,9 +2,11 @@ import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { EditorView } from "@codemirror/view";
-import { completionStatus, currentCompletions, startCompletion } from "@codemirror/autocomplete";
+import { EditorSelection } from "@codemirror/state";
+import { completionStatus, currentCompletions, selectedCompletion, startCompletion } from "@codemirror/autocomplete";
 import { SqlEditor } from "../../src/components/SqlEditor";
 import type { RunScope } from "../../src/utils/runScope";
+import { BUILTIN_TEMPLATES, type SqlTemplate } from "../../src/utils/sqlTemplates";
 
 // Drives the real CodeMirror-backed editor in jsdom to check the format wiring
 // (issue #106): bumping formatTick reformats the current document and persists
@@ -518,5 +520,109 @@ describe("SqlEditor navigation and rename (issues #663, #664)", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(view.state.doc.toString()).toBe(doc);
     expect(view.dom.querySelector(".cm-rename")?.textContent).toMatch(/vac[ií]o|empty/);
+  });
+});
+
+describe("SqlEditor multicursor and templates (issue #665)", () => {
+  const mount = (
+    doc: string,
+    opts: { templates?: SqlTemplate[]; onRun?: (sql: string, scope?: RunScope) => void } = {},
+  ) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => doc}
+            onChange={() => {}}
+            onRun={opts.onRun ?? (() => {})}
+            dialect="sqlite"
+            templates={opts.templates}
+          />
+        ),
+        host!,
+      );
+    });
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    return view;
+  };
+
+  const key = (view: EditorView, init: KeyboardEventInit) =>
+    view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
+  const selected = (view: EditorView) =>
+    view.state.selection.ranges.map((r) => view.state.sliceDoc(r.from, r.to));
+  const builtins = [...BUILTIN_TEMPLATES];
+
+  it("Mod-d selects the word, then adds its next occurrence as another selection", () => {
+    const view = mount("a = 1 OR a = 2 OR b = a");
+    view.dispatch({ selection: { anchor: 0 } });
+    key(view, { key: "d", ctrlKey: true });
+    expect(selected(view)).toEqual(["a"]);
+    key(view, { key: "d", ctrlKey: true });
+    expect(view.state.selection.ranges.map((r) => r.from)).toEqual([0, 9]);
+    // Typing then edits every occurrence at once.
+    view.dispatch(view.state.replaceSelection("x"));
+    expect(view.state.doc.toString()).toBe("x = 1 OR x = 2 OR b = a");
+  });
+
+  it("runs the main selection when there are several", () => {
+    let ran = "";
+    const view = mount("SELECT 1; SELECT 2;", { onRun: (sql) => (ran = sql) });
+    view.dispatch({
+      selection: EditorSelection.create(
+        [EditorSelection.range(0, 8), EditorSelection.range(10, 18)],
+        1,
+      ),
+    });
+    expect(view.state.selection.ranges).toHaveLength(2);
+    key(view, { key: "Enter", ctrlKey: true });
+    expect(ran).toBe("SELECT 2");
+  });
+
+  it("expands an abbreviation on Tab and moves between its placeholders", () => {
+    const view = mount("SEL", { templates: builtins });
+    key(view, { key: "Tab" });
+    expect(view.state.doc.toString()).toBe("SELECT columns FROM table WHERE condition");
+    expect(selected(view)).toEqual(["columns"]);
+    key(view, { key: "Tab" });
+    expect(selected(view)).toEqual(["table"]);
+    key(view, { key: "Tab", shiftKey: true });
+    expect(selected(view)).toEqual(["columns"]);
+    key(view, { key: "Tab" });
+    key(view, { key: "Tab" });
+    // The last placeholder ends the template: Tab is plain Tab again.
+    expect(selected(view)).toEqual(["condition"]);
+  });
+
+  it("edits a repeated placeholder in every place at once", () => {
+    const view = mount("cte", { templates: builtins });
+    key(view, { key: "Tab" });
+    expect(selected(view)).toEqual(["name", "name"]);
+    view.dispatch(view.state.replaceSelection("t"));
+    expect(view.state.doc.toString()).toBe("WITH t AS (\n  query\n)\nSELECT * FROM t");
+  });
+
+  it("does not expand a word that is not an abbreviation; Tab indents instead", () => {
+    const view = mount("selx", { templates: builtins });
+    key(view, { key: "Tab" });
+    expect(view.state.doc.toString()).toContain("selx");
+    expect(view.state.doc.toString()).not.toContain("SELECT");
+  });
+
+  it("offers a template in the completion list, on top when typed in full", async () => {
+    const view = mount("del", { templates: builtins });
+    startCompletion(view);
+    for (let i = 0; i < 200 && completionStatus(view.state) !== "active"; i++) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(selectedCompletion(view.state)?.label).toBe("del");
+    await new Promise((r) => setTimeout(r, 120)); // CodeMirror's interactionDelay
+    key(view, { key: "Tab" });
+    expect(view.state.doc.toString()).toBe("DELETE FROM table WHERE condition");
+    expect(selected(view)).toEqual(["table"]);
   });
 });

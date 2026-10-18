@@ -358,6 +358,14 @@ export function SettingsPanel(props: {
               onChange={(e) => props.onSetHistoryLimit(clampLimit(Number(e.currentTarget.value)))}
             />
           </label>
+          <label class="settings-row settings-check">
+            <input
+              type="checkbox"
+              checked={props.settings.builtinTemplates}
+              onChange={(e) => props.onSetSettings({ builtinTemplates: e.currentTarget.checked })}
+            />
+            <span class="settings-label">{t("settings.builtinTemplates")}</span>
+          </label>
         </section>
 
         <section class="settings-section">

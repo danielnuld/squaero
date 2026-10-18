@@ -158,6 +158,7 @@ export const en: Record<string, string> = {
   "editor.historyTitle": "Query history",
   "editor.snippets": "Snippets",
   "editor.snippetsTitle": "Favorites and snippets",
+  "editor.template": "template",
   // open and save the editor SQL as a file (#553)
   "editor.openFile": "Open .sql",
   "editor.openFileTitle": "Open a .sql file in a new tab",
@@ -196,6 +197,9 @@ export const en: Record<string, string> = {
   "snip.importTitle": "Import a set (JSON)",
   "snip.export": "Export",
   "snip.exportTitle": "Export the set (JSON)",
+  "snip.abbrLabel": "Abbreviation",
+  "snip.abbrPlaceholder": "e.g. sel",
+  "snip.abbrHint": "Type it in the editor and press Tab to expand it. One word; blank removes it.",
 
   // snippet palette (Ctrl/Cmd+J)
   "snip.palettePlaceholder": "Search your snippets…",
@@ -864,6 +868,10 @@ export const en: Record<string, string> = {
   "sc.add-condition": "Add another condition to the filter",
   "sc.filter-add-condition": "Open the table's filter with a new condition",
   "sc.filter-add-sort": "Open the table's filter with a new sort column",
+  "sc.select-next-occurrence": "Editor: add the next occurrence of the selection",
+  "sc.select-all-occurrences": "Editor: select every occurrence of the selection",
+  "sc.add-cursor": "Editor: add a cursor above/below (also Ctrl/⌘+click, Alt+drag)",
+  "sc.expand-template": "Editor: expand a template abbreviation / next placeholder",
 
   // command palette (CommandPalette.tsx)
   "cmdk.title": "Command palette",
@@ -1043,6 +1051,7 @@ export const en: Record<string, string> = {
   "error.importNoConns": "Could not import: no file holds any connections.",
   "settings.lowContrast": "Low contrast against the background",
   "settings.editorDiagnostics": "Mark problems in the SQL editor",
+  "settings.builtinTemplates": "Built-in editor templates (sel, ins, upd, del, cte)",
   "settings.resetColor": "Back to the theme colour for {kind}",
   "kind.text": "Text",
   "kind.number": "Numbers",

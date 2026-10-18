@@ -3351,6 +3351,26 @@ button.primary:hover:not(:disabled) {
   line-height: 1;
 }
 
+/* The template abbreviation (issue #665), under the snippet's name. */
+.snippet-abbr-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.snippet-abbr-row input {
+  width: 12ch;
+  font-family: var(--font-mono);
+}
+
+.snippet-abbr-hint {
+  font-size: var(--fs-sm);
+}
+
 .snippet-body {
   margin: 0;
   padding: var(--sp-3);
