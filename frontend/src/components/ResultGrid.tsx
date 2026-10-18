@@ -121,6 +121,12 @@ export function ResultGrid(props: {
    */
   onSelectedRowChange?: (rowIndex: number | null) => void;
   /**
+   * The cells the selection covers (issue #670), for the status-bar summary:
+   * the selected cell's column (ORIGINAL index) over the marked rows, or over
+   * its own row when none are marked. Null when no cell is selected.
+   */
+  onSelectedCellsChange?: (cells: { column: number; rows: number[] } | null) => void;
+  /**
    * Sort at the SERVER instead of in the browser (issue #347). Given, a header
    * click hands the column name up rather than reordering the rows already
    * fetched — which over a truncated result reordered an arbitrary sample. The
@@ -154,6 +160,12 @@ export function ResultGrid(props: {
   onCopyRows?: (rows: number[]) => void;
   /** Ctrl+D: the same rows, to add again as new pending rows. Absent → no-op. */
   onDuplicateRows?: (rows: number[]) => void;
+  /**
+   * The neutral type of one cell when it is not its column's (issue #670): in
+   * the transposed view each ROW is a source column, so a cell is formatted by
+   * its row. Undefined → the column's type, as everywhere else.
+   */
+  cellType?: (rowIndex: number, colIndex: number) => string | undefined;
   /** Bumped by the workspace to clear the marks (the row bar's ✕). */
   clearMarksTick?: number;
 }) {
@@ -231,6 +243,8 @@ export function ResultGrid(props: {
   const rows = () => props.result?.rows ?? [];
   const style = () => props.gridStyle ?? "registro";
   const editing = () => props.edit?.active ?? false;
+  const typeOf = (rowIndex: number, ci: number, columnType: string) =>
+    props.cellType?.(rowIndex, ci) ?? columnType;
 
   /**
    * The rows as they will be SHOWN, for measuring column widths only.
@@ -252,8 +266,11 @@ export function ResultGrid(props: {
   const shownRows = () => {
     if (style() !== "informe") return rows();
     const columns = cols();
-    return rows().map((row) =>
-      row.map((value, ci) => displayText(value, columns[ci]?.type ?? "text", "informe", t).text),
+    return rows().map((row, ri) =>
+      row.map(
+        (value, ci) =>
+          displayText(value, typeOf(ri, ci, columns[ci]?.type ?? "text"), "informe", t).text,
+      ),
     );
   };
 
@@ -612,6 +629,11 @@ export function ResultGrid(props: {
     props.onSelectedRowChange?.(s === null ? null : (view()[s.r] ?? null));
   });
 
+  createEffect(() => {
+    const s = sel();
+    props.onSelectedCellsChange?.(s === null ? null : { column: s.c, rows: rowTargets() });
+  });
+
   return (
     <div class="grid">
       <Show when={props.error}>
@@ -887,7 +909,7 @@ export function ResultGrid(props: {
                                       // `props.result.rows`, never this.
                                       const cell = displayText(
                                         original(),
-                                        col.type,
+                                        typeOf(rowIndex(), ci(), col.type),
                                         props.gridStyle ?? "registro",
                                         t,
                                       );

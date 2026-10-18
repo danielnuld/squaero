@@ -269,6 +269,8 @@ import { ExplainPlan } from "./components/ExplainPlan";
 import { UpdateModal } from "./components/UpdateModal";
 import { TOOL_CATALOG } from "./utils/toolCatalog";
 import { sourceLabel } from "./utils/resultFacts";
+import { summarizeCells } from "./utils/cellSummary";
+import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { IconSearch } from "./components/icons";
 import { locale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
@@ -3076,6 +3078,56 @@ export function App() {
   // result's rows. The grid publishes them; the copy / transfer actions below
   // narrow the result to exactly those rows and reuse the existing paths.
   const [markedRows, setMarkedRows] = createSignal<number[]>([]);
+  // The cells the grid's selection covers (issue #670), summarized in the
+  // status bar. One cell is not summarized: it is already on screen.
+  const [selectedCells, setSelectedCells] = createSignal<{ column: number; rows: number[] } | null>(null);
+  const cellSummary = createMemo(() => {
+    const cells = selectedCells();
+    const res = currentResult().result;
+    const col = cells && res?.columns[cells.column];
+    if (!cells || !res || !col || cells.rows.length < 2) return null;
+    // What the grid shows: a pending edit, else the value the core sent.
+    const edits = currentEdit().pending.edits;
+    const values = cells.rows.map((r) => {
+      const e = edits[r];
+      return e && col.name in e ? e[col.name] : (res.rows[r]?.[cells.column] ?? null);
+    });
+    return summarizeCells(values, col.type);
+  });
+  // Columns as rows (issue #670), held for the result it was turned on over: a
+  // new run, another page or another tab shows the plain grid again, and so
+  // does editing — the transposed view is read-only.
+  const [transposed, setTransposed] = createSignal<{
+    source: ResultSet;
+    rows: number[];
+    offset: number;
+  } | null>(null);
+  const transposedOn = createMemo(() => {
+    const tr = transposed();
+    return tr && tr.source === currentResult().result && !currentEdit().editing ? tr : null;
+  });
+  const transposedView = createMemo(() => {
+    const tr = transposedOn();
+    if (!tr) return null;
+    return transposeResult(tr.source, tr.rows, {
+      column: t("transpose.column"),
+      type: t("transpose.type"),
+      row: (r) => t("transpose.row", { n: tr.offset + r + 1 }),
+    });
+  });
+  const toggleTranspose = () => {
+    const res = currentResult().result;
+    if (transposedOn() || !res) {
+      setTransposed(null);
+      return;
+    }
+    // The marked rows, else the selected cell's row, else (none) the page.
+    const rows = markedRows().length > 0 ? markedRows() : (selectedCells()?.rows ?? []);
+    // The plain grid unmounts without publishing an empty selection.
+    setMarkedRows([]);
+    setSelectedCells(null);
+    setTransposed({ source: res, rows, offset: currentResult().offset ?? 0 });
+  };
   // How the grid is currently drawing its columns (issue #446), as original
   // indices in display order. Copying from the grid follows what the user sees;
   // generating SQL (inserts, transfer) keeps the table's own order, which is
@@ -4358,6 +4410,8 @@ export function App() {
                       onConfirm={confirmEdit}
                       onDiscard={discardEdit}
                       onChart={openChart}
+                      transposed={!!transposedOn()}
+                      onTranspose={toggleTranspose}
                       onExport={(fmt) => void doExport(fmt as AnyExportFormat)}
                     >
                       {/* A data tab has no editor bar to hold these, so they
@@ -4412,67 +4466,94 @@ export function App() {
                   </Show>
                   <div class="result-body">
                     <div class="result-grid-wrap">
-                      <ResultGrid
-                        result={currentResult().result}
-                        loading={currentResult().loading}
-                        error={currentResult().error}
-                        rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
-                        gridStyle={settings().gridStyle}
-                        emptyState={
-                          <EmptyState
-                            recentTables={recentTables()}
-                            history={history()}
-                            snippets={snippets()}
-                            isMac={isMac()}
-                            onOpenTable={openData}
-                            onRunHistory={runFromHistory}
-                            onInsertSnippet={insertSnippet}
+                      <Show
+                        when={transposedView()}
+                        fallback={
+                          <ResultGrid
+                            result={currentResult().result}
+                            loading={currentResult().loading}
+                            error={currentResult().error}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                            gridStyle={settings().gridStyle}
+                            emptyState={
+                              <EmptyState
+                                recentTables={recentTables()}
+                                history={history()}
+                                snippets={snippets()}
+                                isMac={isMac()}
+                                onOpenTable={openData}
+                                onRunHistory={runFromHistory}
+                                onInsertSnippet={insertSnippet}
+                              />
+                            }
+                            onCellContext={onCellContext}
+                            onMarkedRowsChange={setMarkedRows}
+                            onSelectedCellsChange={setSelectedCells}
+                            onColumnOrderChange={setColumnOrder}
+                            onCopyRows={copyRowsFromGrid}
+                            onDuplicateRows={currentEditable() ? duplicateRows : undefined}
+                            clearMarksTick={clearMarksTick()}
+                            referencedColumns={referencedColumns()}
+                            onRelated={openRelated}
+                            onSortColumn={
+                              isDataTab(tab().id)
+                                ? (column) => sortDataColumn(tab().id, column)
+                                : undefined
+                            }
+                            sortedColumn={
+                              isDataTab(tab().id) ? (filterOf(tab().id).order[0] ?? null) : null
+                            }
+                            onCancel={cancelActive}
+                            cancelDisabledReason={
+                              tabConn(tab())?.features?.cancel === false
+                                ? t("grid.cancelUnsupported")
+                                : undefined
+                            }
+                            onRequestEdit={
+                              currentEditable() && !currentEdit().editing ? beginEdit : undefined
+                            }
+                            fk={currentFk()}
+                            edit={
+                              currentEditable()
+                                ? {
+                                    active: currentEdit().editing,
+                                    pending: currentEdit().pending,
+                                    onEditCell,
+                                    onToggleDelete,
+                                    onToggleDeleteRows,
+                                    onInsertCell,
+                                    onRemoveInsert,
+                                    pkColumns: currentResult().source?.pk ?? [],
+                                    pkModeOf: (i) => pkModeOf(currentEdit().pending, i),
+                                    conflicts: currentConflicts(),
+                                    failedInsert: currentEdit().failedInsert,
+                                  }
+                                : undefined
+                            }
                           />
                         }
-                        onCellContext={onCellContext}
-                        onMarkedRowsChange={setMarkedRows}
-                        onColumnOrderChange={setColumnOrder}
-                        onCopyRows={copyRowsFromGrid}
-                        onDuplicateRows={currentEditable() ? duplicateRows : undefined}
-                        clearMarksTick={clearMarksTick()}
-                        referencedColumns={referencedColumns()}
-                        onRelated={openRelated}
-                        onSortColumn={
-                          isDataTab(tab().id)
-                            ? (column) => sortDataColumn(tab().id, column)
-                            : undefined
-                        }
-                        sortedColumn={
-                          isDataTab(tab().id) ? (filterOf(tab().id).order[0] ?? null) : null
-                        }
-                        onCancel={cancelActive}
-                        cancelDisabledReason={
-                          tabConn(tab())?.features?.cancel === false
-                            ? t("grid.cancelUnsupported")
-                            : undefined
-                        }
-                        onRequestEdit={
-                          currentEditable() && !currentEdit().editing ? beginEdit : undefined
-                        }
-                        fk={currentFk()}
-                        edit={
-                          currentEditable()
-                            ? {
-                                active: currentEdit().editing,
-                                pending: currentEdit().pending,
-                                onEditCell,
-                                onToggleDelete,
-                                onToggleDeleteRows,
-                                onInsertCell,
-                                onRemoveInsert,
-                                pkColumns: currentResult().source?.pk ?? [],
-                                pkModeOf: (i) => pkModeOf(currentEdit().pending, i),
-                                conflicts: currentConflicts(),
-                                failedInsert: currentEdit().failedInsert,
-                              }
-                            : undefined
-                        }
-                      />
+                      >
+                        {(tv) => (
+                          // Read-only and without the row actions: its rows are
+                          // the source's COLUMNS, so a row index here means
+                          // nothing to copy, edit or the context menu.
+                          <>
+                            <ResultGrid
+                              result={tv().result}
+                              loading={currentResult().loading}
+                              error={null}
+                              rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                              gridStyle={settings().gridStyle}
+                              cellType={(r, c) => (c >= 2 ? tv().types[r] : undefined)}
+                            />
+                            <Show when={tv().capped}>
+                              <div class="grid-truncated">
+                                {t("transpose.capped", { n: TRANSPOSE_MAX_ROWS })}
+                              </div>
+                            </Show>
+                          </>
+                        )}
+                      </Show>
                       {/* While pending rows exist the bar gives way: they get their
                           own bar with the save flow (#517, phase C). */}
                       <Show
@@ -5000,6 +5081,7 @@ export function App() {
         rowCount={currentResult().result?.rows.length ?? null}
         markedCount={markedRows().length}
         txStatements={txOpenCount(tabConn(current()))}
+        summary={cellSummary()}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
         ranAt={currentResult().ranAt}
