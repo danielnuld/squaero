@@ -87,7 +87,7 @@ for (const theme of ["light", "dark"] as const) {
       test("connection search and the new-connection form", async ({ app }) => {
         const { page } = app;
         await app.open();
-        await page.getByRole("button", { name: "Conectar a una base…" }).click();
+        await page.getByRole("button", { name: "Conectar a una base de datos…" }).click();
         const search = page.getByRole("dialog", { name: "Buscar una conexión" });
         await expect(search.getByRole("button", { name: /E2E SQLite/ })).toBeVisible();
         await expectTheme(page, theme);
