@@ -789,6 +789,7 @@ export const en: Record<string, string> = {
   "ssync.nothingExecutable": "No executable statements (notes only).",
   "ssync.applied": "{n} statement(s) applied on the target.",
   "ssync.applyError": "Could not apply: {reason}",
+  "edit.partialNoTx": "{n} change(s) were saved, then one failed: {reason}. This engine has no transactions, so the saved ones stay; the grid shows what is stored now.",
   "ssync.migrationSql": "Migration SQL ({n} executable)",
   "ssync.alreadyMatch": "The structures already match.",
   "ssync.apply": "Apply on target",
