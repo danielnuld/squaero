@@ -239,7 +239,18 @@ static dbc_status open_connection(dbc_conn *c, const cJSON *root)
     }
     dbsetuserdata(c->dbproc, (BYTE *)c);
     dbsetinterrupt(c->dbproc, chk_interrupt, handle_interrupt);
-    return DBC_OK;
+
+    /* db-lib logs in without the TDS ODBC flag, so the session keeps the old
+       DB-Library defaults: among them ANSI_NULL_DFLT_ON OFF, which makes a
+       column declared without NULL / NOT NULL refuse NULLs. Ask for what ODBC,
+       libtdswire and SSMS sessions get, so both clients behave the same. */
+    dbc_result *r = NULL;
+    dbc_status st = ms_drv_query(c,
+                                 "SET ANSI_NULLS, ANSI_NULL_DFLT_ON, ANSI_PADDING, ANSI_WARNINGS, "
+                                 "CONCAT_NULL_YIELDS_NULL, QUOTED_IDENTIFIER ON",
+                                 &r);
+    ms_drv_free_result(r);
+    return st;
 }
 
 dbc_status ms_drv_connect(const char *dsn_json, dbc_conn **out)
