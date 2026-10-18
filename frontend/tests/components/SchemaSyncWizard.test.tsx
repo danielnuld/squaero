@@ -5,8 +5,9 @@ import { SchemaSyncWizard } from "../../src/components/SchemaSyncWizard";
 import type { Connection } from "../../src/utils/connections";
 
 // Drives the real schema-sync wizard against a mocked bridge: opening a target
-// connection, comparing two databases (schema.tree + schema.describe on each),
-// showing the migration SQL, and applying it in a transaction.
+// connection, comparing two databases (schema.tree + schema.describe + catalog
+// queries on each), showing the differences and the migration script, opening
+// it in the editor, and applying it only after an explicit confirmation.
 
 interface BridgeHost {
   quaeroRpc?: (requestJson: string) => Promise<unknown>;
@@ -16,6 +17,7 @@ let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
 
 afterEach(() => {
+  treeHasType = true;
   dispose?.();
   dispose = null;
   host?.remove();
@@ -35,6 +37,7 @@ const structures: Record<string, Record<string, (string | null)[][]>> = {
     users: [
       ["id", "INTEGER", "1", null, "1"],
       ["email", "TEXT", "0", null, "0"],
+      ["age", "INTEGER", "0", null, "0"],
     ],
     orders: [["id", "INTEGER", "1", null, "1"]],
   },
@@ -42,18 +45,21 @@ const structures: Record<string, Record<string, (string | null)[][]>> = {
     users: [
       ["id", "INTEGER", "1", null, "1"],
       ["legacy", "TEXT", "0", null, "0"],
+      ["age", "TEXT", "0", null, "0"],
     ],
     audit: [["id", "INTEGER", "1", null, "1"]],
   },
 };
 
+let treeHasType = true;
+
 function treeResult(names: string[]) {
   return {
     columns: [
       { name: "name", type: "text" },
-      { name: "type", type: "text" },
+      ...(treeHasType ? [{ name: "type", type: "text" }] : []),
     ],
-    rows: names.map((n) => [n, "table"]),
+    rows: names.map((n) => (treeHasType ? [n, "table"] : [n])),
     truncated: false,
     rowsAffected: 0,
   };
@@ -101,7 +107,7 @@ const conns: Connection[] = [
   { id: "d2", name: "Prod", driver: "sqlite", params: { path: "/prod.db" } },
 ];
 
-function mount() {
+function mount(onOpenSql: (sql: string, defId: string) => void = () => {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
   createRoot((d) => {
@@ -110,14 +116,21 @@ function mount() {
       () => (
         <SchemaSyncWizard
           sourceConnId="c1"
+          sourceEngine="sqlite"
           sourceDb="main"
           connections={conns}
+          onOpenSql={onOpenSql}
           onClose={() => {}}
         />
       ),
       host!,
     );
   });
+}
+
+async function compare() {
+  clickButton("Comparar");
+  for (let i = 0; i < 10; i++) await flush(); // target open + both snapshots
 }
 
 function clickButton(label: string) {
@@ -128,36 +141,72 @@ function clickButton(label: string) {
 }
 
 describe("SchemaSyncWizard", () => {
-  it("compares two databases and generates migration SQL", async () => {
+  it("shows the categorized differences, the unsupported list and the script", async () => {
     installBridge();
     mount();
-    clickButton("Comparar");
-    await flush();
-    await flush(); // open target + the parallel schema fetches settle
+    await compare();
 
     const text = host!.textContent ?? "";
-    expect(text).toContain('CREATE TABLE "orders"');
-    expect(text).toContain('ALTER TABLE "users" ADD COLUMN "email"');
-    expect(text).toContain('ALTER TABLE "users" DROP COLUMN "legacy"');
-    expect(text).toContain("audit existe en destino pero no en origen");
+    expect(text).toContain("Tablas");
+    expect(text).toContain("+ orders");
+    expect(text).toContain("− audit");
+    expect(text).toContain("+ users.email");
+    expect(text).toContain("~ users.age");
+    // SQLite cannot retype a column: listed, and flagged in the script.
+    expect(text).toContain("No soportado por el motor destino (1)");
+    expect(text).toContain("users.age: SQLite no puede cambiar el tipo");
+    const script = host!.querySelector("pre")!.textContent!;
+    expect(script).toContain('CREATE TABLE "orders"');
+    expect(script).toContain('ALTER TABLE "users" ADD COLUMN "email" TEXT;');
+    expect(script).toContain('ALTER TABLE "users" DROP COLUMN "legacy";');
+    expect(script).toContain("-- UNSUPPORTED: users.age:");
+    expect(script).toContain("-- NOTE: audit: exists only in the target; DROP TABLE not generated");
   });
 
-  it("applies the executable statements on the target in a transaction", async () => {
+  it("opens the script in the editor, bound to the target connection", async () => {
+    installBridge();
+    const opened: [string, string][] = [];
+    mount((sql, defId) => opened.push([sql, defId]));
+    await compare();
+    clickButton("Abrir en el editor");
+    expect(opened).toHaveLength(1);
+    expect(opened[0][1]).toBe("d2");
+    expect(opened[0][0]).toMatch(/^-- Target: Prod \(sqlite, main\)\n/);
+    expect(opened[0][0]).toContain('CREATE TABLE "orders"');
+  });
+
+  it("applies only after confirming, in a transaction on the target", async () => {
     const calls = installBridge();
     mount();
-    clickButton("Comparar");
-    await flush();
-    await flush();
+    await compare();
+    const before = calls.length;
 
     clickButton("Aplicar en destino");
     await flush();
+    expect(calls.length).toBe(before); // nothing runs until confirmed
+    expect(host!.querySelector('[role="dialog"], .confirm-dialog, .modal')).not.toBeNull();
 
-    const methods = calls.map((c) => c.method);
-    expect(methods).toContain("tx.begin");
-    // Two executable statements (CREATE orders, and the users ALTERs) run via query.run.
-    const runs = calls.filter((c) => c.method === "query.run");
-    expect(runs.length).toBeGreaterThanOrEqual(3); // CREATE + ADD + DROP
+    clickButton("Aplicar");
+    for (let i = 0; i < 5; i++) await flush();
+
+    const after = calls.slice(before);
+    const methods = after.map((c) => c.method);
+    expect(methods[0]).toBe("tx.begin");
+    const runs = after.filter((c) => c.method === "query.run").map((c) => c.params.sql);
+    expect(runs).toEqual([
+      'CREATE TABLE "orders" (\n  "id" INTEGER NOT NULL\n)',
+      'ALTER TABLE "users" ADD COLUMN "email" TEXT',
+      'ALTER TABLE "users" DROP COLUMN "legacy"',
+    ]);
     expect(methods).toContain("tx.commit");
     expect(host!.textContent).toContain("aplicada");
+  });
+
+  it("asks for a schema when the container lists schemas instead of tables", async () => {
+    treeHasType = false;
+    installBridge();
+    mount();
+    await compare();
+    expect(host!.querySelector('[role="alert"]')!.textContent).toContain("indica el esquema");
   });
 });
