@@ -1140,7 +1140,7 @@ export function App() {
   // engine whose driver can write rows at all.
   const currentEditable = createMemo<boolean>(() => {
     const src = currentResult().source;
-    return !!src && src.pk.length > 0 && engineEdits(tabConn(current())?.driver ?? "");
+    return !!src && src.pk.length > 0 && engineEdits(tabConn(current())?.driver ?? "", tabConn(current())?.features?.dml);
   });
   // Why it is not (issue #718), translated, or null when it is or when there is
   // nothing to say (a result still loading, a statement that returned no rows).
@@ -1148,7 +1148,7 @@ export function App() {
     if (currentEditable()) return null;
     const r = currentResult();
     const block: EditBlock | null | undefined = r.source
-      ? engineEdits(tabConn(current())?.driver ?? "") ? "noPk" : "engine"
+      ? engineEdits(tabConn(current())?.driver ?? "", tabConn(current())?.features?.dml) ? "noPk" : "engine"
       : r.editBlock;
     return block ? t(`objbar.readOnly.${block}`) : null;
   });
@@ -1959,7 +1959,7 @@ export function App() {
     };
     // A statement with no columns (DDL, DML) is not a grid to edit: say nothing.
     if (result.columns.length === 0) return;
-    const check = queryEditCheck(sql, conn.driver);
+    const check = queryEditCheck(sql, conn.driver, conn.features?.dml);
     if ("block" in check) return settle({ editBlock: check.block });
     const { target } = check;
     let desc: ResultSet;

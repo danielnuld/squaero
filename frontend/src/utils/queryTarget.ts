@@ -139,14 +139,14 @@ export type EditBlock =
   | "noPk"
   | "pkNotProjected";
 
-/** Engines whose driver implements row.insert/update/delete (DBC_FEAT_DML).
-    ponytail: mirrored by hand — the core does not report features to the UI yet;
-    read them from conn.open once it does. */
+/** Engines whose driver implements row.insert/update/delete (DBC_FEAT_DML), for
+    a session whose conn.open did not report its features. */
 const DML_ENGINES = new Set(["sqlite", "postgres", "mysql", "informix"]);
 
-/** Whether the engine's driver can write rows at all. */
-export function engineEdits(engine: string): boolean {
-  return DML_ENGINES.has(engineFamily(engine));
+/** Whether the engine's driver can write rows at all: `dml` is what conn.open
+    reported (features.dml); without it, the known engines. */
+export function engineEdits(engine: string, dml?: boolean): boolean {
+  return dml ?? DML_ENGINES.has(engineFamily(engine));
 }
 
 /** Parse `sql` down to its one table, or say why it has none (engine aside). */
@@ -182,8 +182,9 @@ function parseTarget(sql: string, engine: string): { target: QueryTarget } | { b
 export function queryEditCheck(
   sql: string,
   engine = "",
+  dml?: boolean,
 ): { target: QueryTarget } | { block: EditBlock } {
-  return engineEdits(engine) ? parseTarget(sql, engine) : { block: "engine" };
+  return engineEdits(engine, dml) ? parseTarget(sql, engine) : { block: "engine" };
 }
 
 /**

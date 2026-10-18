@@ -171,6 +171,12 @@ describe("engineEdits", () => {
   it("is false for the rest, and for no engine", () => {
     for (const e of ["mssql", "sqlserver", "mongodb", ""]) expect(engineEdits(e)).toBe(false);
   });
+  it("follows the features conn.open reported over the known list", () => {
+    expect(engineEdits("mongodb", true)).toBe(true);
+    expect(engineEdits("sqlite", false)).toBe(false);
+    expect(queryEditCheck("SELECT * FROM clientes", "mssql", true)).toHaveProperty("target");
+    expect(queryEditCheck("SELECT * FROM clientes", "sqlite", false)).toEqual({ block: "engine" });
+  });
 });
 
 describe("editablePk", () => {
