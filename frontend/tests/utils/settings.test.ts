@@ -7,6 +7,10 @@ import {
   rowHeightFor,
   MIN_SLOW_MS,
   MAX_SLOW_MS,
+  clampLocalVersions,
+  clampLocalDays,
+  MAX_LOCAL_VERSIONS,
+  MAX_LOCAL_DAYS,
 } from "../../src/utils/settings";
 
 describe("clampSlowThreshold", () => {
@@ -87,8 +91,31 @@ describe("parseSettings", () => {
       colorTypes: false,
       editorDiagnostics: false,
       builtinTemplates: false,
+      localHistoryVersions: 7,
+      localHistoryDays: 0,
     };
     expect(parseSettings(serializeSettings(s))).toEqual(s);
+  });
+
+  // Local-history retention (issue #674).
+  it("clamps the local-history retention and defaults what is not a number", () => {
+    const out = parseSettings(
+      JSON.stringify({ localHistoryVersions: 99999, localHistoryDays: -3 }),
+    );
+    expect(out.localHistoryVersions).toBe(MAX_LOCAL_VERSIONS);
+    expect(out.localHistoryDays).toBe(0);
+    const bad = parseSettings(JSON.stringify({ localHistoryVersions: "10", localHistoryDays: null }));
+    expect(bad.localHistoryVersions).toBe(DEFAULT_SETTINGS.localHistoryVersions);
+    expect(bad.localHistoryDays).toBe(DEFAULT_SETTINGS.localHistoryDays);
+  });
+
+  it("clampLocalVersions / clampLocalDays keep 0 (off / no age limit) and floor", () => {
+    expect(clampLocalVersions(0)).toBe(0);
+    expect(clampLocalVersions(1.9)).toBe(1);
+    expect(clampLocalVersions(NaN)).toBe(DEFAULT_SETTINGS.localHistoryVersions);
+    expect(clampLocalDays(0)).toBe(0);
+    expect(clampLocalDays(MAX_LOCAL_DAYS + 1)).toBe(MAX_LOCAL_DAYS);
+    expect(clampLocalDays(Infinity)).toBe(DEFAULT_SETTINGS.localHistoryDays);
   });
 
   it("fills missing fields with defaults (partial blob)", () => {

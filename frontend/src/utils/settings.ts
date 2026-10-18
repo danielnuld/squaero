@@ -55,6 +55,13 @@ export interface Settings {
   /** Offer the shipped editor templates (`sel`, `ins`, `upd`, `del`, `cte`;
       issue #665). The user's own, from snippets with an abbreviation, stay. */
   builtinTemplates: boolean;
+  /**
+   * Local history of the editor tabs (issue #674): how many versions each tab
+   * keeps, newest first. 0 turns the history off (and clears what it held).
+   */
+  localHistoryVersions: number;
+  /** Days a version is kept. 0 = no age limit, only the count above. */
+  localHistoryDays: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -66,6 +73,8 @@ export const DEFAULT_SETTINGS: Settings = {
   colorTypes: true,
   editorDiagnostics: true,
   builtinTemplates: true,
+  localHistoryVersions: 50,
+  localHistoryDays: 30,
 };
 
 /** Bounds for the slow-query threshold (ms): 0 (off) up to one hour. */
@@ -76,6 +85,22 @@ export const MAX_SLOW_MS = 3_600_000;
 export function clampSlowThreshold(ms: number): number {
   if (!Number.isFinite(ms)) return DEFAULT_SETTINGS.slowThresholdMs;
   return Math.min(MAX_SLOW_MS, Math.max(MIN_SLOW_MS, Math.round(ms)));
+}
+
+/** Bounds for the local-history retention (issue #674). */
+export const MAX_LOCAL_VERSIONS = 500;
+export const MAX_LOCAL_DAYS = 365;
+
+/** Clamp a versions-per-tab count into 0..MAX_LOCAL_VERSIONS; NaN → the default. */
+export function clampLocalVersions(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_SETTINGS.localHistoryVersions;
+  return Math.min(MAX_LOCAL_VERSIONS, Math.max(0, Math.floor(n)));
+}
+
+/** Clamp a retention age (days) into 0..MAX_LOCAL_DAYS; NaN → the default. */
+export function clampLocalDays(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_SETTINGS.localHistoryDays;
+  return Math.min(MAX_LOCAL_DAYS, Math.max(0, Math.floor(n)));
 }
 
 /**
@@ -141,6 +166,14 @@ export function parseSettings(raw: string | null | undefined): Settings {
       typeof obj.builtinTemplates === "boolean"
         ? obj.builtinTemplates
         : DEFAULT_SETTINGS.builtinTemplates,
+    localHistoryVersions:
+      typeof obj.localHistoryVersions === "number"
+        ? clampLocalVersions(obj.localHistoryVersions)
+        : DEFAULT_SETTINGS.localHistoryVersions,
+    localHistoryDays:
+      typeof obj.localHistoryDays === "number"
+        ? clampLocalDays(obj.localHistoryDays)
+        : DEFAULT_SETTINGS.localHistoryDays,
   };
 }
 
