@@ -228,7 +228,7 @@ import {
   type ExportFormat,
 } from "./utils/exporters";
 import { pickRows } from "./utils/rowSelection";
-import { queryEditTarget } from "./utils/queryTarget";
+import { editablePk, engineEdits, queryEditCheck, type EditBlock } from "./utils/queryTarget";
 import { tablesInStatement } from "./utils/queryTables";
 import { changesCatalog } from "./utils/sqlEffects";
 import {
@@ -331,6 +331,9 @@ interface TabResult {
   /** The table this result was read from + its PK, when opened from the tree.
       Present + pk non-empty => the grid is editable. */
   source?: EditSource | null;
+  /** Why a query's result got no edit source (issue #718): the toolbar shows
+      it on a disabled Editar instead of hiding the edit functions. */
+  editBlock?: EditBlock | null;
   /** Offset pagination (issue #134): the SQL that produced this page, the current
       row offset, and the page size — so prev/next re-run the same SQL at a new
       offset. `truncated` on the result means a further page exists. */
@@ -430,6 +433,7 @@ const emptyResult = (): TabResult => ({
   // a script and then a single statement would otherwise keep the old strip.
   sets: undefined,
   activeSet: 0,
+  editBlock: undefined,
 });
 
 // A table target (import / generator / diff / transfer / structure).
@@ -1132,10 +1136,21 @@ export function App() {
     return (t && edits[t.id]) || emptyEdit();
   });
   // A tab is editable when it was opened from a table whose primary key is known
-  // and projected — otherwise a row cannot be identified unambiguously.
+  // and projected — otherwise a row cannot be identified unambiguously — on an
+  // engine whose driver can write rows at all.
   const currentEditable = createMemo<boolean>(() => {
     const src = currentResult().source;
-    return !!src && src.pk.length > 0;
+    return !!src && src.pk.length > 0 && engineEdits(tabConn(current())?.driver ?? "");
+  });
+  // Why it is not (issue #718), translated, or null when it is or when there is
+  // nothing to say (a result still loading, a statement that returned no rows).
+  const currentReadOnlyReason = createMemo<string | null>(() => {
+    if (currentEditable()) return null;
+    const r = currentResult();
+    const block: EditBlock | null | undefined = r.source
+      ? engineEdits(tabConn(current())?.driver ?? "") ? "noPk" : "engine"
+      : r.editBlock;
+    return block ? t(`objbar.readOnly.${block}`) : null;
   });
   // The FK pickers of the active tab (empty until an edit session loads them).
   const currentFk = createMemo<Record<string, FkLookup>>(() => {
@@ -1928,31 +1943,35 @@ export function App() {
   // path is not the only way to look at a table's rows. Derive the table from the
   // SQL (utils/queryTarget), describe it, and attach the edit source only when its
   // primary key came back in the result — without the key a row cannot be
-  // addressed unambiguously. Best-effort and out of band: any failure (a view, a
-  // keyless table, a describe error) simply leaves the tab read-only.
+  // addressed unambiguously. Out of band, and never silent: whatever stops it
+  // (a join, a view, a keyless table, a describe error) is recorded as the
+  // tab's editBlock, which the toolbar shows on a disabled Editar (issue #718).
   const attachQuerySource = async (
     tabId: number,
     sql: string,
     conn: ActiveConnection,
     result: ResultSet,
   ) => {
-    const target = queryEditTarget(sql, conn.driver);
-    if (!target) return;
+    // The tab may have run something else meanwhile; only the run that is still
+    // on screen gets a verdict.
+    const settle = (patch: { source: EditSource } | { editBlock: EditBlock }) => {
+      if (results[tabId]?.pageSql === sql) setResults(tabId, patch);
+    };
+    // A statement with no columns (DDL, DML) is not a grid to edit: say nothing.
+    if (result.columns.length === 0) return;
+    const check = queryEditCheck(sql, conn.driver);
+    if ("block" in check) return settle({ editBlock: check.block });
+    const { target } = check;
+    let desc: ResultSet;
     try {
-      const desc = await schemaDescribe(conn.connId, target.table, target.db, target.schema);
-      // The describe is done anyway — feed its columns to the autocomplete cache.
-      setColumnCache((c) => ({ ...c, [target.table]: describeColumnNames(desc) }));
-      const pk = describePkColumns(desc);
-      if (pk.length === 0) return;
-      // Every key column must be projected under its own name, or whereForRow
-      // would build no WHERE at all (see utils/edit.ts).
-      if (!pk.every((k) => result.columns.some((c) => c.name === k))) return;
-      // The tab may have run something else while we were describing.
-      if (results[tabId]?.pageSql !== sql) return;
-      setResults(tabId, "source", { ...target, pk });
+      desc = await schemaDescribe(conn.connId, target.table, target.db, target.schema);
     } catch {
-      /* describe failed: the tab stays read-only (no source). */
+      return settle({ editBlock: "noTable" });
     }
+    // The describe is done anyway — feed its columns to the autocomplete cache.
+    setColumnCache((c) => ({ ...c, [target.table]: describeColumnNames(desc) }));
+    const key = editablePk(desc, result.columns);
+    settle("block" in key ? { editBlock: key.block } : { source: { ...target, pk: key.pk } });
   };
 
   // `tabId` names the tab to run into; omitted it is the focused one. A refresh
@@ -2046,6 +2065,9 @@ export function App() {
         cursor: result?.cursor ?? false,
         pages,
         source: keepSource,
+        // A script's results are not pageable, nor editable: its statements
+        // are read back, not re-run against one table.
+        editBlock: script ? "statement" : undefined,
         sets,
         activeSet,
       });
@@ -2098,6 +2120,7 @@ export function App() {
       elapsedMs: set.elapsedMs,
       pageSql: undefined,
       source: undefined,
+      editBlock: "statement",
     });
   };
 
@@ -4297,6 +4320,7 @@ export function App() {
                       }
                       editing={currentEdit().editing}
                       editable={currentEditable()}
+                      readOnlyReason={currentReadOnlyReason()}
                       busy={currentEdit().busy}
                       error={currentEdit().error}
                       changeCount={changeCount(currentEdit().pending)}

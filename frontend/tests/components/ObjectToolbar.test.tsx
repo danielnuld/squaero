@@ -74,10 +74,30 @@ describe("ObjectToolbar", () => {
     expect(p.onTransfer).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the read-only hint (no Editar) when the table lacks a primary key", () => {
-    mount({ editable: false });
+  it("disables Editar and says why when the table lacks a primary key", () => {
+    const p = mount({ editable: false });
+    const edit = btn("Editar")!;
+    expect(edit.disabled).toBe(true);
+    edit.click();
+    expect(p.onEdit).not.toHaveBeenCalled();
+    const hint = document.getElementById(edit.getAttribute("aria-describedby")!);
+    expect(hint?.textContent).toMatch(/clave primaria/);
+  });
+
+  it("shows a query result's reason on a disabled Editar, without the table actions", () => {
+    mount({ isTable: false, editable: false, readOnlyReason: "Solo lectura: un join" });
+    const edit = btn("Editar")!;
+    expect(edit.disabled).toBe(true);
+    expect(document.getElementById(edit.getAttribute("aria-describedby")!)?.textContent).toBe(
+      "Solo lectura: un join",
+    );
+    expect(btn("Importar")).toBeUndefined();
+    expect(btn("Sincronizar")).toBeUndefined();
+  });
+
+  it("shows no edit section for a query result with nothing to say", () => {
+    mount({ isTable: false, editable: false, readOnlyReason: null });
     expect(btn("Editar")).toBeUndefined();
-    expect(host!.querySelector(".edit-hint-ro")).toBeTruthy();
   });
 
   it("opens the Sincronizar menu: schema always, data only when editable + columns", () => {

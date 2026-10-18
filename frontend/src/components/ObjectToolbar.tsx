@@ -1,4 +1,4 @@
-import { Show, type JSX } from "solid-js";
+import { Show, createUniqueId, type JSX } from "solid-js";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
 
@@ -33,6 +33,12 @@ export interface ObjectToolbarProps {
   editing: boolean;
   /** True when the object is editable (has a primary key). */
   editable: boolean;
+  /**
+   * Why the result is not editable, already translated (issue #718). Editar
+   * then stays on screen, disabled, and carries the reason — on a query tab
+   * too, where hiding it left the user guessing. Null/absent: nothing to say.
+   */
+  readOnlyReason?: string | null;
   /** An edit operation is in flight (disables mutating buttons). */
   busy: boolean;
   /** Current edit-session error, if any. */
@@ -72,6 +78,7 @@ export interface ObjectToolbarProps {
 }
 
 export function ObjectToolbar(props: ObjectToolbarProps) {
+  const reasonId = createUniqueId();
   // Build the "Sincronizar ▾" menu: schema always, data only for an editable
   // table with a result (the old conditional, now spelled out unambiguously).
   const openSyncMenu = (e: MouseEvent) => {
@@ -107,7 +114,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
         <span class="eb-ic" aria-hidden="true">⟳</span> {t("objbar.refresh")}
       </button>
       <span class="toolbar-sep" aria-hidden="true" />
-      <Show when={props.isTable}>
+      <Show when={props.isTable || props.readOnlyReason}>
         <Show
           when={props.editing}
           fallback={
@@ -115,9 +122,18 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
               <Show
                 when={props.editable}
                 fallback={
-                  <span class="edit-hint-ro">
-                    {t("objbar.readOnlyNoPk")}
-                  </span>
+                  <>
+                    <button
+                      class="edit-btn edit-btn-primary"
+                      disabled
+                      aria-describedby={reasonId}
+                    >
+                      <span class="eb-ic" aria-hidden="true">✎</span> {t("common.edit")}
+                    </button>
+                    <span id={reasonId} class="edit-hint-ro">
+                      {props.readOnlyReason ?? t("objbar.readOnly.noPk")}
+                    </span>
+                  </>
                 }
               >
                 <button
@@ -128,25 +144,27 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                   <span class="eb-ic" aria-hidden="true">✎</span> {t("common.edit")}
                 </button>
               </Show>
-              <button class="edit-btn" onClick={props.onImport}>
-                <span class="eb-ic" aria-hidden="true">↧</span> {t("objbar.import")}
-              </button>
-              <button class="edit-btn" onClick={props.onGenerate}>
-                <span class="eb-ic" aria-hidden="true">✦</span> {t("objbar.generate")}
-              </button>
-              <button
-                class="edit-btn edit-btn-menu"
-                aria-haspopup="menu"
-                title={t("objbar.syncTitle")}
-                onClick={openSyncMenu}
-              >
-                <span class="eb-ic" aria-hidden="true">⇅</span> {t("objbar.sync")}{" "}
-                <span class="eb-caret" aria-hidden="true">▾</span>
-              </button>
-              <Show when={props.hasColumns}>
-                <button class="edit-btn" onClick={props.onTransfer}>
-                  <span class="eb-ic" aria-hidden="true">⇄</span> {t("objbar.transfer")}
+              <Show when={props.isTable}>
+                <button class="edit-btn" onClick={props.onImport}>
+                  <span class="eb-ic" aria-hidden="true">↧</span> {t("objbar.import")}
                 </button>
+                <button class="edit-btn" onClick={props.onGenerate}>
+                  <span class="eb-ic" aria-hidden="true">✦</span> {t("objbar.generate")}
+                </button>
+                <button
+                  class="edit-btn edit-btn-menu"
+                  aria-haspopup="menu"
+                  title={t("objbar.syncTitle")}
+                  onClick={openSyncMenu}
+                >
+                  <span class="eb-ic" aria-hidden="true">⇅</span> {t("objbar.sync")}{" "}
+                  <span class="eb-caret" aria-hidden="true">▾</span>
+                </button>
+                <Show when={props.hasColumns}>
+                  <button class="edit-btn" onClick={props.onTransfer}>
+                    <span class="eb-ic" aria-hidden="true">⇄</span> {t("objbar.transfer")}
+                  </button>
+                </Show>
               </Show>
             </>
           }
