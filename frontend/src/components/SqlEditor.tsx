@@ -55,31 +55,30 @@ import { sqlNavigation, type ObjectTarget } from "./editorNavigation";
 import { templateAt, templateToSnippet, type SqlTemplate } from "../utils/sqlTemplates";
 
 /**
- * SQL colouring in the app's own palette (issue #473).
+ * SQL colouring in the app's own palette (issue #473, tokens in #680).
  *
  * It used to be CodeMirror's `defaultHighlightStyle`, a fixed set of colours
  * designed for a light page — dark blue keywords on a near-black editor. It was
  * already wrong on the dark theme and it stayed exactly as wrong under every new
  * one, because it knew nothing about them.
  *
- * The values are the app's OWN tokens, so this follows any theme, present or
- * future, with nothing to keep in sync: keywords take the theme's identity
- * colour, literals its value colour, NULL the colour the grid already gives
- * NULL, and comments recede to the dim text colour. CodeMirror emits these as
- * plain CSS rules, so `var()` resolves against the root like everywhere else.
- * They inherit the contrast the palette was validated for.
+ * Each role reads its own `--syntax-*` token, which every theme defines (see
+ * themeSchema.ts), so this follows any theme, present or future, with nothing to
+ * keep in sync. CodeMirror emits these as plain CSS rules, so `var()` resolves
+ * against the root like everywhere else, and the tokens inherit the contrast
+ * the palette was validated for.
  */
 const sqlHighlight = HighlightStyle.define([
-  { tag: tags.keyword, color: "var(--accent-text)", fontWeight: "600" },
-  { tag: [tags.string, tags.special(tags.string)], color: "var(--number)" },
-  { tag: [tags.number, tags.bool], color: "var(--number)" },
-  { tag: tags.null, color: "var(--null)", fontStyle: "italic" },
-  { tag: [tags.lineComment, tags.blockComment], color: "var(--text-dim)", fontStyle: "italic" },
-  { tag: [tags.operator, tags.punctuation, tags.separator], color: "var(--text-dim)" },
-  { tag: [tags.typeName, tags.standard(tags.name)], color: "var(--accent-text)" },
-  { tag: tags.function(tags.variableName), color: "var(--accent-text)" },
-  { tag: [tags.variableName, tags.propertyName], color: "var(--text)" },
-  { tag: tags.invalid, color: "var(--error)" },
+  { tag: tags.keyword, color: "var(--syntax-keyword)", fontWeight: "600" },
+  { tag: [tags.string, tags.special(tags.string)], color: "var(--syntax-string)" },
+  { tag: [tags.number, tags.bool], color: "var(--syntax-number)" },
+  { tag: tags.null, color: "var(--syntax-null)", fontStyle: "italic" },
+  { tag: [tags.lineComment, tags.blockComment], color: "var(--syntax-comment)", fontStyle: "italic" },
+  { tag: [tags.operator, tags.punctuation, tags.separator], color: "var(--syntax-operator)" },
+  { tag: [tags.typeName, tags.standard(tags.name)], color: "var(--syntax-type)" },
+  { tag: tags.function(tags.variableName), color: "var(--syntax-type)" },
+  { tag: [tags.variableName, tags.propertyName], color: "var(--syntax-name)" },
+  { tag: tags.invalid, color: "var(--syntax-invalid)" },
 ]);
 
 // Diagnostics (issue #662): squiggles under what sqlDiagnostics finds, with the

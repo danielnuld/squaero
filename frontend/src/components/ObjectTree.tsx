@@ -35,6 +35,7 @@ import { t, locale } from "../utils/i18n";
 const nodeLabel = (node: TreeNode): string =>
   node.kind === "group" ? t(node.label) : node.label;
 
+/** `--h-sm` at 100% zoom; App passes the zoomed value (typography.ts, #681). */
 const ROW_HEIGHT = 24;
 
 /** True for a routine/trigger/event leaf (listed on demand, opens its DDL). */
@@ -70,6 +71,9 @@ const folderGlyph = (node: TreeNode): string => FOLDER_ICONS[folderKind(node)] ?
 // (.rules/frontend.md §2). Tree shape/flatten logic is pure (src/utils/tree.ts).
 export function ObjectTree(props: {
   connId: string | null;
+  /** Row height in px, equal to what the CSS paints (`--h-sm` under the zoom),
+      so the virtualization math and the rows on screen agree (#681). */
+  rowHeight?: number;
   /** Active engine/driver name, for listing routines/triggers (issue #135 ph.2). */
   engine?: string;
   /** Double-click a table/view -> open its structure. */
@@ -651,6 +655,7 @@ export function ObjectTree(props: {
   const [activeIndex, setActiveIndex] = createSignal(-1);
 
   const rowId = (index: number) => `objtree-row-${index}`;
+  const rowH = () => props.rowHeight ?? ROW_HEIGHT;
 
   /** Moves the active row, keeping it inside the rendered window. */
   const moveActive = (next: number) => {
@@ -660,8 +665,8 @@ export function ObjectTree(props: {
     setActiveIndex(clamped);
     // Scroll it into view ourselves: the element may not exist yet.
     if (scrollerEl) {
-      const top = clamped * ROW_HEIGHT;
-      const bottom = top + ROW_HEIGHT;
+      const top = clamped * rowH();
+      const bottom = top + rowH();
       if (top < scrollerEl.scrollTop) {
         scrollerEl.scrollTop = top;
       } else if (bottom > scrollerEl.scrollTop + scrollerEl.clientHeight) {
@@ -741,7 +746,7 @@ export function ObjectTree(props: {
     visibleRange({
       scrollTop: scrollTop(),
       viewportHeight: viewportH(),
-      rowHeight: ROW_HEIGHT,
+      rowHeight: rowH(),
       rowCount: flat().length,
     });
 

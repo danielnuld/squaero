@@ -5,6 +5,8 @@
 // the NEW preferences: grid density, the slow-query threshold, and the
 // check-for-updates-on-start toggle. Everything here is pure and tested.
 
+import { clampFontSize, clampLineHeight, clampZoom, sanitizeFontFamily } from "./typography";
+
 /** Row density of the result grid. */
 export type GridDensity = "normal" | "compact";
 
@@ -70,6 +72,22 @@ export interface Settings {
    * its menu bar regardless (the panel hides the toggle there).
    */
   nativeMenu: boolean;
+  /**
+   * Typography (issue #681). A font is a sanitized CSS family list ("" = the
+   * stack styles.css ships); sizes are px before zoom; the zoom is a percentage
+   * that scales the type scale, spacing and control heights (typography.ts).
+   * The defaults reproduce the stylesheet exactly, so nothing changes until
+   * the user does — the default typeface is #678's decision, not this one.
+   */
+  uiFont: string;
+  uiFontSize: number;
+  editorFont: string;
+  editorFontSize: number;
+  editorLineHeight: number;
+  editorLigatures: boolean;
+  gridFont: string;
+  gridFontSize: number;
+  zoom: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -84,6 +102,16 @@ export const DEFAULT_SETTINGS: Settings = {
   localHistoryVersions: 50,
   localHistoryDays: 30,
   nativeMenu: true,
+  uiFont: "",
+  uiFontSize: 12,
+  editorFont: "",
+  editorFontSize: 13,
+  // CodeMirror's own default; the editor never set one before.
+  editorLineHeight: 1.4,
+  editorLigatures: true,
+  gridFont: "",
+  gridFontSize: 12,
+  zoom: 100,
 };
 
 /** Bounds for the slow-query threshold (ms): 0 (off) up to one hour. */
@@ -125,8 +153,13 @@ const ROW_HEIGHT: Record<GridStyle, Record<GridDensity, number>> = {
   informe: { normal: 32, compact: 28 },
 };
 
-export function rowHeightFor(style: GridStyle, density: GridDensity): number {
-  return ROW_HEIGHT[style][density];
+/**
+ * `scale` is the grid font × zoom factor (typography.ts gridScale): the heights
+ * above were drawn for 12px text, and a bigger font or a zoomed interface needs
+ * the row to grow with it — rounded, so a row never lands on a half pixel.
+ */
+export function rowHeightFor(style: GridStyle, density: GridDensity, scale = 1): number {
+  return Math.max(1, Math.round(ROW_HEIGHT[style][density] * scale));
 }
 
 const isDensity = (v: unknown): v is GridDensity => v === "normal" || v === "compact";
@@ -185,8 +218,32 @@ export function parseSettings(raw: string | null | undefined): Settings {
         : DEFAULT_SETTINGS.localHistoryDays,
     nativeMenu:
       typeof obj.nativeMenu === "boolean" ? obj.nativeMenu : DEFAULT_SETTINGS.nativeMenu,
+    // Typography (#681): a font is re-sanitized on read — the blob is only as
+    // trustworthy as whatever last wrote it — and every number is clamped.
+    uiFont: font(obj.uiFont),
+    uiFontSize: num(obj.uiFontSize, (v) => clampFontSize(v, DEFAULT_SETTINGS.uiFontSize)),
+    editorFont: font(obj.editorFont),
+    editorFontSize: num(obj.editorFontSize, (v) =>
+      clampFontSize(v, DEFAULT_SETTINGS.editorFontSize),
+    ),
+    editorLineHeight: num(obj.editorLineHeight, (v) =>
+      clampLineHeight(v, DEFAULT_SETTINGS.editorLineHeight),
+    ),
+    editorLigatures:
+      typeof obj.editorLigatures === "boolean"
+        ? obj.editorLigatures
+        : DEFAULT_SETTINGS.editorLigatures,
+    gridFont: font(obj.gridFont),
+    gridFontSize: num(obj.gridFontSize, (v) => clampFontSize(v, DEFAULT_SETTINGS.gridFontSize)),
+    zoom: num(obj.zoom, clampZoom),
   };
 }
+
+const font = (v: unknown): string => (typeof v === "string" ? sanitizeFontFamily(v) : "");
+
+/** A persisted number through its clamp; anything else is the clamp's fallback. */
+const num = (v: unknown, clamp: (n: number) => number): number =>
+  clamp(typeof v === "number" ? v : NaN);
 
 /** Serialize settings for storage (already-valid input assumed). */
 export function serializeSettings(s: Settings): string {

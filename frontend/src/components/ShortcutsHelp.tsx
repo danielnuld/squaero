@@ -1,18 +1,23 @@
 import { For } from "solid-js";
-import { SHORTCUTS, displayKeys } from "../utils/shortcuts";
+import { SHORTCUTS, displayKeys, type Shortcut } from "../utils/shortcuts";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 
 // Keyboard-shortcuts reference overlay (issue #42). Renders the single source
 // of truth in utils/shortcuts.ts, so the documentation cannot drift from the
 // behaviour. Opened with F1 (or the status-bar "?"), closed by Escape/clicking away.
-export function ShortcutsHelp(props: { isMac: boolean; onClose: () => void }) {
+// App passes the effective table (the user's rebound keys applied, #684).
+export function ShortcutsHelp(props: {
+  isMac: boolean;
+  shortcuts?: readonly Shortcut[];
+  onClose: () => void;
+}) {
   return (
     <Panel title={t("shortcuts.title")} class="shortcuts" onClose={props.onClose}>
       <h2>{t("shortcuts.title")}</h2>
       <table class="shortcuts-list">
           <tbody>
-            <For each={SHORTCUTS}>
+            <For each={props.shortcuts ?? SHORTCUTS}>
               {(s) => (
                 <tr>
                   <td>{t(s.description)}</td>
