@@ -62,6 +62,14 @@ export interface Settings {
   localHistoryVersions: number;
   /** Days a version is kept. 0 = no age limit, only the count above. */
   localHistoryDays: number;
+  /**
+   * Show the native menu bar the shell draws on Windows and Linux (issue #686).
+   *
+   * On by default: it is where someone who does not know the shortcuts finds
+   * the actions. Off for a style that carries its own in-app menu. macOS keeps
+   * its menu bar regardless (the panel hides the toggle there).
+   */
+  nativeMenu: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -75,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   builtinTemplates: true,
   localHistoryVersions: 50,
   localHistoryDays: 30,
+  nativeMenu: true,
 };
 
 /** Bounds for the slow-query threshold (ms): 0 (off) up to one hour. */
@@ -174,6 +183,8 @@ export function parseSettings(raw: string | null | undefined): Settings {
       typeof obj.localHistoryDays === "number"
         ? clampLocalDays(obj.localHistoryDays)
         : DEFAULT_SETTINGS.localHistoryDays,
+    nativeMenu:
+      typeof obj.nativeMenu === "boolean" ? obj.nativeMenu : DEFAULT_SETTINGS.nativeMenu,
   };
 }
 

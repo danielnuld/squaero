@@ -6,6 +6,8 @@ extern "C" {
 #include "dbcore/loader.h"
 #include "dbcore/runtime.h"
 #include "frontend_assets.h"
+#include "menu_model.h"
+#include "window_state.h"
 }
 
 #include "cJSON.h"
@@ -26,6 +28,7 @@ extern "C" {
 #include <shlobj.h>
 #include <shellapi.h>
 #include <urlmon.h>
+#include <dwmapi.h>
 #include <WebView2.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -195,6 +198,19 @@ static bool is_cancel_request(const std::string &request)
     return cancel;
 }
 
+// The first argument of a bound call when it is a string, else empty.
+static std::string first_string_arg(const char *req)
+{
+    std::string out;
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *first = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    if (cJSON_IsString(first) && first->valuestring != nullptr) {
+        out = first->valuestring;
+    }
+    cJSON_Delete(args);
+    return out;
+}
+
 // Run one request through the pure dispatcher, honoring QUAERO_RPC_DEBUG tracing,
 // and return the response JSON (owned by the caller; free with dbcore_ipc_free).
 // On a hang the "RPC>" line prints with no matching "RPC<", naming the culprit.
@@ -335,6 +351,18 @@ static void rpc_handler(const char *id, const char *req, void *arg)
 // persists; the origin carries no path, so where the file lives can change.
 // The storage itself is per program — $XDG_DATA_HOME/squaero/storage, named
 // after g_set_prgname in main() — so other WebKitGTK apps never see it.
+
+// The one URL the UI lives at (issue #685). The app is a single page that never
+// navigates, so every other navigation the engine is asked for — a file dropped
+// on the window, a mouse back button, a stray link — is a browser behaviour and
+// is cancelled. "about:" covers the set_html fallback (about:blank).
+static std::string g_app_uri = "about:blank";
+
+static bool is_app_navigation(const std::string &uri)
+{
+    return uri == g_app_uri || uri.rfind("about:", 0) == 0;
+}
+
 static void load_frontend(webview_t w)
 {
     const char *html = reinterpret_cast<const char *>(quaero_frontend_html);
@@ -353,6 +381,7 @@ static void load_frontend(webview_t w)
         if (uri == nullptr) {
             break;
         }
+        g_app_uri = uri;
         webview_navigate(w, uri);
         std::printf("Squaero: UI served from %s (persistent)\n", uri);
         g_free(uri);
@@ -368,6 +397,7 @@ static void load_frontend(webview_t w)
     {
         std::string uri = mac_write_ui(html);
         if (!uri.empty()) {
+            g_app_uri = uri;
             webview_navigate(w, uri.c_str());
             std::printf("Squaero: UI served from %s (persistent)\n", uri.c_str());
             return;
@@ -429,7 +459,8 @@ static void load_frontend(webview_t w)
         if (!SUCCEEDED(hr)) {
             break;
         }
-        webview_navigate(w, "https://quaero.local/index.html");
+        g_app_uri = "https://quaero.local/index.html";
+        webview_navigate(w, g_app_uri.c_str());
         std::printf("Squaero: UI served from https://quaero.local (persistent)\n");
         return;
     } while (0);
@@ -439,6 +470,45 @@ static void load_frontend(webview_t w)
 #endif
     webview_set_html(w, html);
 }
+
+#if defined(_WIN32) || defined(__linux__)
+// --- Native menu bar (issue #686) ---------------------------------------------
+//
+// The UI owns the menu: it sends the model (menu_model.h) through quaeroSetMenu
+// whenever its language, its state or the setting changes, and the shell only
+// builds the toolkit's menu from it. A click comes back as a `quaero-menu`
+// CustomEvent carrying the action id, which the UI runs through the same
+// handler its command palette and shortcuts use. The accelerators are display
+// only — the UI already handles the keys itself — except "quit", which is the
+// window's own and never reaches the page. macOS keeps its menu in macos.mm.
+
+static quaero_menu g_menu = {nullptr, 0};
+static webview_t   g_menu_webview = nullptr;
+
+static void run_menu_action(size_t index)
+{
+    if (g_menu_webview == nullptr || index >= g_menu.count ||
+        g_menu.entries[index].kind != QUAERO_MENU_ITEM) {
+        return;
+    }
+    const char *id = g_menu.entries[index].id;
+    if (std::strcmp(id, "quit") == 0) {
+        webview_terminate(g_menu_webview);
+        return;
+    }
+    // A JSON string literal is a JS string literal, so cJSON does the quoting.
+    cJSON *str = cJSON_CreateString(id);
+    char *quoted = cJSON_PrintUnformatted(str);
+    if (quoted != nullptr) {
+        std::string js = "window.dispatchEvent(new CustomEvent('quaero-menu',{detail:";
+        js += quoted;
+        js += "}))";
+        webview_eval(g_menu_webview, js.c_str());
+        cJSON_free(quoted);
+    }
+    cJSON_Delete(str);
+}
+#endif
 
 #if defined(_WIN32)
 // Apply the embedded application icon (resource id 1, from quaero.rc — issue
@@ -470,9 +540,9 @@ static void apply_window_icon(webview_t w)
     }
 }
 
-/* The app's own --bg, picked from the system light/dark preference — which is
+/* The system's apps-use-light-theme preference; dark when unreadable, which is
    also what the interface itself defaults to, so the two agree. */
-static COLORREF startup_background(void)
+static bool system_prefers_light(void)
 {
     DWORD light = 0;
     DWORD size = sizeof light;
@@ -480,10 +550,291 @@ static COLORREF startup_background(void)
         HKEY_CURRENT_USER,
         L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
         L"AppsUseLightTheme", RRF_RT_REG_DWORD, nullptr, &light, &size);
-    if (st == ERROR_SUCCESS && light != 0) {
+    return st == ERROR_SUCCESS && light != 0;
+}
+
+/* The app's own --bg for the system preference. */
+static COLORREF startup_background(void)
+{
+    if (system_prefers_light()) {
         return RGB(0xf7, 0xf7, 0xfa);  /* light theme --bg */
     }
     return RGB(0x1e, 0x1e, 0x24);      /* dark theme --bg (the default) */
+}
+
+/* Title bar following the theme (issue #685). 20 is DWMWA_USE_IMMERSIVE_DARK_MODE
+   since Windows 10 20H1; 19 is the value the attribute had before that, tried
+   when 20 is refused. Spelled as numbers: older SDKs do not name them. */
+static void apply_title_bar_theme(HWND hwnd, bool dark)
+{
+    if (hwnd == nullptr) {
+        return;
+    }
+    BOOL value = dark ? TRUE : FALSE;
+    if (FAILED(DwmSetWindowAttribute(hwnd, 20, &value, sizeof value))) {
+        DwmSetWindowAttribute(hwnd, 19, &value, sizeof value);
+    }
+}
+
+// Wide (UTF-16) to UTF-8, for URIs WebView2 hands back.
+static std::string narrow(const wchar_t *wide)
+{
+    int len = WideCharToMultiByte(CP_UTF8, 0, wide, -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 1) {
+        return {};
+    }
+    std::string utf8(static_cast<size_t>(len) - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide, -1, &utf8[0], len, nullptr, nullptr);
+    return utf8;
+}
+
+// UTF-8 to wide (UTF-16), for the menu labels the UI sends.
+static std::wstring widen(const char *utf8)
+{
+    int len = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
+    if (len <= 1) {
+        return {};
+    }
+    std::wstring wide(static_cast<size_t>(len) - 1, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8, -1, &wide[0], len);
+    return wide;
+}
+
+// The Win32 menu bar (issue #686). Each item's command id is its index in the
+// model offset by k_menu_cmd_base, which WM_COMMAND (shell_wndproc) maps back.
+// The accelerator is only the text after the tab: no accelerator table, so the
+// key reaches the page once, through the UI's own shortcut handling.
+//
+// Known limitation: a Win32 menu bar follows the system's light/dark setting
+// for menus, not the app's theme — there is no documented API to darken it.
+static const UINT k_menu_cmd_base = 1000;
+
+static HMENU build_menu_bar(const quaero_menu &m)
+{
+    HMENU bar = CreateMenu();
+    HMENU sub = nullptr;
+    for (size_t i = 0; i < m.count; i++) {
+        const quaero_menu_entry &e = m.entries[i];
+        if (e.kind == QUAERO_MENU_TOP) {
+            sub = CreatePopupMenu();
+            AppendMenuW(bar, MF_POPUP, reinterpret_cast<UINT_PTR>(sub), widen(e.label).c_str());
+        } else if (sub == nullptr) {
+            continue;  // an item before any menu: the parser does not produce it
+        } else if (e.kind == QUAERO_MENU_SEPARATOR) {
+            AppendMenuW(sub, MF_SEPARATOR, 0, nullptr);
+        } else {
+            std::wstring text = widen(e.label);
+            if (e.accel != nullptr) {
+                text += L"\t" + widen(e.accel);
+            }
+            AppendMenuW(sub, MF_STRING | (e.enabled ? MF_ENABLED : MF_GRAYED),
+                        k_menu_cmd_base + i, text.c_str());
+        }
+    }
+    return bar;
+}
+
+/* Replace the window's menu bar with the current model; an empty model takes
+   it away. The client area changes height either way, and the webview library
+   fits its child to the client area on WM_SIZE, so one is sent. */
+static void apply_menu_bar(HWND hwnd)
+{
+    if (hwnd == nullptr) {
+        return;
+    }
+    HMENU prev = GetMenu(hwnd);
+    SetMenu(hwnd, g_menu.count > 0 ? build_menu_bar(g_menu) : nullptr);
+    if (prev != nullptr) {
+        DestroyMenu(prev);
+    }
+    RECT r;
+    if (GetClientRect(hwnd, &r)) {
+        SendMessageW(hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(r.right, r.bottom));
+    }
+}
+
+// NavigationStarting: cancel anything that is not the app's own page (#685) —
+// what a file dropped on the window, or a mouse back/forward button, asks for.
+// One static instance for the process, hence the no-op reference counting.
+class NavigationGuard final : public ICoreWebView2NavigationStartingEventHandler {
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **obj) override
+    {
+        static const IID k_iid_unknown = {0, 0, 0, {0xC0, 0, 0, 0, 0, 0, 0, 0x46}};
+        if (obj == nullptr) {
+            return E_POINTER;
+        }
+        if (IsEqualIID(riid, k_iid_unknown) ||
+            IsEqualIID(riid, IID_ICoreWebView2NavigationStartingEventHandler)) {
+            *obj = this;
+            return S_OK;
+        }
+        *obj = nullptr;
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+    ULONG STDMETHODCALLTYPE Release() override { return 1; }
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2 *,
+                                     ICoreWebView2NavigationStartingEventArgs *args) override
+    {
+        LPWSTR uri = nullptr;
+        if (SUCCEEDED(args->get_Uri(&uri)) && uri != nullptr) {
+            std::string utf8 = narrow(uri);
+            CoTaskMemFree(uri);
+            if (!is_app_navigation(utf8)) {
+                args->put_Cancel(TRUE);
+                std::fprintf(stderr, "Squaero: blocked navigation to %s\n", utf8.c_str());
+            }
+        }
+        return S_OK;
+    }
+};
+
+static NavigationGuard g_navigation_guard;
+
+/* Take the browser out of the window (issue #685): no accelerator keys (reload,
+   print, find, zoom, back/forward — text editing keys such as Ctrl+C/V/X/A/Z
+   are NOT accelerators and keep working), no Ctrl+wheel zoom, no status-bar
+   link preview, no swipe navigation, and no default context menu — the UI draws
+   its own (frontend contextMenu.ts) and already suppresses the native one.
+   DevTools are decided by the `debug` flag webview_create received. Each
+   setting is best-effort: a runtime too old for an interface simply keeps that
+   one browser behaviour. */
+static void apply_browser_settings(webview_t w)
+{
+    auto controller = static_cast<ICoreWebView2Controller *>(
+        webview_get_native_handle(w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER));
+    if (controller == nullptr) {
+        return;
+    }
+    ICoreWebView2 *core = nullptr;
+    if (FAILED(controller->get_CoreWebView2(&core)) || core == nullptr) {
+        return;
+    }
+    ICoreWebView2Settings *settings = nullptr;
+    if (SUCCEEDED(core->get_Settings(&settings)) && settings != nullptr) {
+        settings->put_IsZoomControlEnabled(FALSE);
+        settings->put_IsStatusBarEnabled(FALSE);
+        settings->put_AreDefaultContextMenusEnabled(FALSE);
+        ICoreWebView2Settings3 *s3 = nullptr;
+        if (SUCCEEDED(settings->QueryInterface(IID_ICoreWebView2Settings3,
+                                               reinterpret_cast<void **>(&s3))) &&
+            s3 != nullptr) {
+            s3->put_AreBrowserAcceleratorKeysEnabled(FALSE);
+            s3->Release();
+        }
+        ICoreWebView2Settings6 *s6 = nullptr;
+        if (SUCCEEDED(settings->QueryInterface(IID_ICoreWebView2Settings6,
+                                               reinterpret_cast<void **>(&s6))) &&
+            s6 != nullptr) {
+            s6->put_IsSwipeNavigationEnabled(FALSE);
+            s6->Release();
+        }
+        settings->Release();
+    }
+    EventRegistrationToken token;
+    core->add_NavigationStarting(&g_navigation_guard, &token);
+    core->Release();
+}
+
+// --- Remembered window placement (issue #685) ---------------------------------
+//
+// %APPDATA%\Squaero\window holds one "x y w h max" line (window_state.h). The
+// normal (un-maximised) rectangle plus whether the window was maximised is
+// exactly what WINDOWPLACEMENT carries, so that is what is saved and restored.
+
+static std::wstring window_state_path()
+{
+    wchar_t appdata[MAX_PATH];
+    if (!SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
+        return {};
+    }
+    std::wstring dir = std::wstring(appdata) + L"\\Squaero";
+    SHCreateDirectoryExW(nullptr, dir.c_str(), nullptr);
+    return dir + L"\\window";
+}
+
+static void save_window_state(HWND hwnd)
+{
+    WINDOWPLACEMENT wp = {};
+    wp.length = sizeof wp;
+    if (!GetWindowPlacement(hwnd, &wp)) {
+        return;
+    }
+    const RECT r = wp.rcNormalPosition;
+    quaero_window_state s = {r.left, r.top, r.right - r.left, r.bottom - r.top,
+                             wp.showCmd == SW_SHOWMAXIMIZED ? 1 : 0};
+    char line[64];
+    std::wstring path = window_state_path();
+    if (quaero_window_state_format(&s, line, sizeof line) == 0 || path.empty()) {
+        return;
+    }
+    FILE *f = _wfopen(path.c_str(), L"wb");
+    if (f != nullptr) {
+        std::fputs(line, f);
+        std::fclose(f);
+    }
+}
+
+/* Restore the saved placement, or start maximised when there is none — or when
+   the saved rectangle is on no monitor any more (a laptop undocked from the
+   screen it was last used on): MONITOR_DEFAULTTONULL says so without guessing. */
+static void restore_window_state(HWND hwnd)
+{
+    quaero_window_state s;
+    bool have = false;
+    std::wstring path = window_state_path();
+    if (!path.empty()) {
+        if (FILE *f = _wfopen(path.c_str(), L"rb")) {
+            char line[64] = {0};
+            size_t n = std::fread(line, 1, sizeof line - 1, f);
+            line[n] = '\0';
+            std::fclose(f);
+            have = quaero_window_state_parse(line, &s) != 0;
+        }
+    }
+    RECT r = {};
+    if (have) {
+        r = RECT{s.x, s.y, s.x + s.width, s.y + s.height};
+        have = MonitorFromRect(&r, MONITOR_DEFAULTTONULL) != nullptr;
+    }
+    if (!have) {
+        // Start maximised. The chrome above and below the grid is a fixed
+        // ~495 px, so at 1100x720 the data — the reason the window is open —
+        // is under a third of it. The default size still decides what
+        // "restore" gives back.
+        ShowWindow(hwnd, SW_MAXIMIZE);
+        return;
+    }
+    WINDOWPLACEMENT wp = {};
+    wp.length = sizeof wp;
+    wp.rcNormalPosition = r;
+    wp.showCmd = s.maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+    SetWindowPlacement(hwnd, &wp);
+}
+
+/* The webview library owns the window procedure (it destroys the window on
+   WM_CLOSE), so the placement is read just before, from a subclass that then
+   hands every message on. */
+static WNDPROC g_prev_wndproc = nullptr;
+
+static LRESULT CALLBACK shell_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+    if (msg == WM_CLOSE) {
+        save_window_state(hwnd);
+    }
+    // A menu bar item (issue #686): HIWORD 0 and no control handle is a menu.
+    if (msg == WM_COMMAND && HIWORD(wp) == 0 && lp == 0 && LOWORD(wp) >= k_menu_cmd_base) {
+        run_menu_action(static_cast<size_t>(LOWORD(wp) - k_menu_cmd_base));
+        return 0;
+    }
+    return CallWindowProcW(g_prev_wndproc, hwnd, msg, wp, lp);
+}
+
+static void watch_window_close(HWND hwnd)
+{
+    g_prev_wndproc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+        hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(shell_wndproc)));
 }
 
 /* Set once the interface has booted and the browser surface is on screen. */
@@ -818,19 +1169,6 @@ static void download_install_handler(const char *id, const char *req, void *arg)
 // There is no quaeroDownloadAndInstall: a .deb or a .dmg is not updated in
 // place, so the update modal sends the user to the release page instead.
 
-// The first argument of a bound call when it is a string, else empty.
-static std::string first_string_arg(const char *req)
-{
-    std::string out;
-    cJSON *args = cJSON_Parse(req);
-    const cJSON *first = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
-    if (cJSON_IsString(first) && first->valuestring != nullptr) {
-        out = first->valuestring;
-    }
-    cJSON_Delete(args);
-    return out;
-}
-
 // Bridge: window.quaeroOpenExternal(url) — http(s) only, through GIO (which
 // asks the desktop, or its portal, for the default browser) or NSWorkspace.
 static void open_external_handler(const char *id, const char *req, void *arg)
@@ -862,6 +1200,282 @@ static std::string path_result(const char *path)
     }
     return result;
 }
+
+#if defined(__linux__)
+// --- Browser behaviours out of the WebKitGTK window (issue #685) ---------------
+
+// decide-policy: refuse any navigation that is not the app's own page — a file
+// dropped on the window would otherwise replace the UI with that file.
+static gboolean on_decide_policy(WebKitWebView *, WebKitPolicyDecision *decision,
+                                 WebKitPolicyDecisionType type, gpointer)
+{
+    if (type != WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION &&
+        type != WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) {
+        return FALSE;
+    }
+    WebKitNavigationAction *action = webkit_navigation_policy_decision_get_navigation_action(
+        WEBKIT_NAVIGATION_POLICY_DECISION(decision));
+    const char *uri = webkit_uri_request_get_uri(webkit_navigation_action_get_request(action));
+    if (uri != nullptr && is_app_navigation(uri)) {
+        return FALSE;
+    }
+    std::fprintf(stderr, "Squaero: blocked navigation to %s\n", uri != nullptr ? uri : "?");
+    webkit_policy_decision_ignore(decision);
+    return TRUE;
+}
+
+static void apply_browser_settings(webview_t w)
+{
+    auto *view = static_cast<WebKitWebView *>(
+        webview_get_native_handle(w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER));
+    if (view == nullptr) {
+        return;
+    }
+    // WebKitGTK binds no reload/print/zoom/back keys of its own (those are the
+    // browser's, not the engine's); developer extras follow webview_create's
+    // debug flag. What the engine does do on its own is navigate.
+    g_signal_connect(view, "decide-policy", G_CALLBACK(on_decide_policy), nullptr);
+}
+
+// --- Remembered window size (issue #685) ---------------------------------------
+//
+// $XDG_CONFIG_HOME/squaero/window, "x y w h max" (window_state.h). Size and
+// maximised state only: GTK4 has no window positioning (Wayland), so x and y are
+// written as 0 and ignored.
+
+static char *window_state_file()
+{
+    return g_build_filename(g_get_user_config_dir(), "squaero", "window", nullptr);
+}
+
+static void save_window_state(GtkWindow *win)
+{
+    int width = 0;
+    int height = 0;
+#if GTK_MAJOR_VERSION >= 4
+    // The un-maximised size GTK keeps up to date as the user resizes — the value
+    // its documentation says to save and feed back to set_default_size.
+    gtk_window_get_default_size(win, &width, &height);
+#else
+    // ponytail: on GTK3 a maximised window reports its maximised size here;
+    // restoring then un-maximising gives a large window. Track the last
+    // un-maximised size on configure-event if that ever matters.
+    gtk_window_get_size(win, &width, &height);
+#endif
+    quaero_window_state s = {0, 0, width, height, gtk_window_is_maximized(win) ? 1 : 0};
+    char line[64];
+    if (quaero_window_state_format(&s, line, sizeof line) == 0) {
+        return;
+    }
+    char *file = window_state_file();
+    char *dir = g_path_get_dirname(file);
+    if (g_mkdir_with_parents(dir, 0700) == 0) {
+        g_file_set_contents(file, line, -1, nullptr);
+    }
+    g_free(dir);
+    g_free(file);
+}
+
+#if GTK_MAJOR_VERSION >= 4
+static gboolean on_close_request(GtkWindow *win, gpointer)
+{
+    save_window_state(win);
+    return FALSE;  // keep closing
+}
+#else
+static gboolean on_delete_event(GtkWidget *win, GdkEvent *, gpointer)
+{
+    save_window_state(GTK_WINDOW(win));
+    return FALSE;  // keep closing
+}
+#endif
+
+static void restore_window_state(GtkWindow *win)
+{
+    quaero_window_state s;
+    char *file = window_state_file();
+    char *text = nullptr;
+    bool have = g_file_get_contents(file, &text, nullptr, nullptr) &&
+                quaero_window_state_parse(text, &s) != 0;
+    g_free(text);
+    g_free(file);
+    if (have) {
+        gtk_window_set_default_size(win, s.width, s.height);
+    }
+    if (!have || s.maximized) {
+        gtk_window_maximize(win);
+    }
+#if GTK_MAJOR_VERSION >= 4
+    g_signal_connect(win, "close-request", G_CALLBACK(on_close_request), nullptr);
+#else
+    g_signal_connect(win, "delete-event", G_CALLBACK(on_delete_event), nullptr);
+#endif
+}
+
+// --- The GTK menu bar (issue #686) ---------------------------------------------
+//
+// webview puts the WebKitWebView straight into the window; the menu bar needs a
+// row above it, so once, at startup, the view moves into a vertical box. From
+// then on apply_menu_bar swaps the bar at the top of that box: GtkMenuBar on
+// GTK3, a GtkPopoverMenuBar over a GMenuModel with one GSimpleAction per item
+// on GTK4. The accelerators are shown (gtk_accel_label_set_accel / the "accel"
+// attribute) but bound to nothing: the keys stay the UI's.
+
+static GtkWidget *g_menu_box = nullptr;
+static GtkWidget *g_menu_bar = nullptr;
+
+static void install_menu_host(GtkWindow *win)
+{
+#if GTK_MAJOR_VERSION >= 4
+    GtkWidget *view = gtk_window_get_child(win);
+    if (view == nullptr) {
+        return;
+    }
+    g_object_ref(view);
+    gtk_window_set_child(win, nullptr);
+    g_menu_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_vexpand(view, TRUE);
+    gtk_box_append(GTK_BOX(g_menu_box), view);
+    gtk_window_set_child(win, g_menu_box);
+    g_object_unref(view);
+#else
+    GtkWidget *view = gtk_bin_get_child(GTK_BIN(win));
+    if (view == nullptr) {
+        return;
+    }
+    g_object_ref(view);
+    gtk_container_remove(GTK_CONTAINER(win), view);
+    g_menu_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_box_pack_start(GTK_BOX(g_menu_box), view, TRUE, TRUE, 0);
+    gtk_container_add(GTK_CONTAINER(win), g_menu_box);
+    gtk_widget_show_all(g_menu_box);
+    g_object_unref(view);
+#endif
+}
+
+#if GTK_MAJOR_VERSION >= 4
+static void on_menu_action(GSimpleAction *, GVariant *, gpointer data)
+{
+    run_menu_action(GPOINTER_TO_SIZE(data));
+}
+
+static GtkWidget *build_menu_bar(GtkWindow *win, const quaero_menu &m)
+{
+    GMenu *bar = g_menu_new();
+    GMenu *sub = nullptr;
+    GMenu *section = nullptr;  // a separator in a GMenuModel is a new section
+    GSimpleActionGroup *group = g_simple_action_group_new();
+    for (size_t i = 0; i < m.count; i++) {
+        const quaero_menu_entry &e = m.entries[i];
+        if (e.kind == QUAERO_MENU_TOP) {
+            sub = g_menu_new();
+            section = g_menu_new();
+            g_menu_append_section(sub, nullptr, G_MENU_MODEL(section));
+            g_menu_append_submenu(bar, e.label, G_MENU_MODEL(sub));
+            g_object_unref(section);
+            g_object_unref(sub);
+        } else if (sub == nullptr) {
+            continue;
+        } else if (e.kind == QUAERO_MENU_SEPARATOR) {
+            section = g_menu_new();
+            g_menu_append_section(sub, nullptr, G_MENU_MODEL(section));
+            g_object_unref(section);
+        } else {
+            char name[32];
+            std::snprintf(name, sizeof name, "i%zu", i);
+            GSimpleAction *action = g_simple_action_new(name, nullptr);
+            g_simple_action_set_enabled(action, e.enabled ? TRUE : FALSE);
+            g_signal_connect(action, "activate", G_CALLBACK(on_menu_action), GSIZE_TO_POINTER(i));
+            g_action_map_add_action(G_ACTION_MAP(group), G_ACTION(action));
+            g_object_unref(action);
+
+            std::string detailed = std::string("menu.") + name;
+            GMenuItem *item = g_menu_item_new(e.label, detailed.c_str());
+            char accel[64];
+            if (e.accel != nullptr && quaero_menu_accel_gtk(e.accel, accel, sizeof accel) > 0) {
+                g_menu_item_set_attribute(item, "accel", "s", accel);
+            }
+            g_menu_append_item(section, item);
+            g_object_unref(item);
+        }
+    }
+    // Replaces the previous model's group under the same prefix.
+    gtk_widget_insert_action_group(GTK_WIDGET(win), "menu", G_ACTION_GROUP(group));
+    g_object_unref(group);
+    GtkWidget *widget = gtk_popover_menu_bar_new_from_model(G_MENU_MODEL(bar));
+    g_object_unref(bar);
+    return widget;
+}
+#else
+static void on_menu_item(GtkMenuItem *, gpointer data)
+{
+    run_menu_action(GPOINTER_TO_SIZE(data));
+}
+
+static GtkWidget *build_menu_bar(GtkWindow *, const quaero_menu &m)
+{
+    GtkWidget *bar = gtk_menu_bar_new();
+    GtkWidget *sub = nullptr;
+    for (size_t i = 0; i < m.count; i++) {
+        const quaero_menu_entry &e = m.entries[i];
+        if (e.kind == QUAERO_MENU_TOP) {
+            GtkWidget *top = gtk_menu_item_new_with_label(e.label);
+            sub = gtk_menu_new();
+            gtk_menu_item_set_submenu(GTK_MENU_ITEM(top), sub);
+            gtk_menu_shell_append(GTK_MENU_SHELL(bar), top);
+        } else if (sub == nullptr) {
+            continue;
+        } else if (e.kind == QUAERO_MENU_SEPARATOR) {
+            gtk_menu_shell_append(GTK_MENU_SHELL(sub), gtk_separator_menu_item_new());
+        } else {
+            GtkWidget *item = gtk_menu_item_new_with_label(e.label);
+            char accel[64];
+            if (e.accel != nullptr && quaero_menu_accel_gtk(e.accel, accel, sizeof accel) > 0) {
+                guint key = 0;
+                GdkModifierType mods = static_cast<GdkModifierType>(0);
+                gtk_accelerator_parse(accel, &key, &mods);
+                GtkWidget *label = gtk_bin_get_child(GTK_BIN(item));
+                if (key != 0 && GTK_IS_ACCEL_LABEL(label)) {
+                    gtk_accel_label_set_accel(GTK_ACCEL_LABEL(label), key, mods);
+                }
+            }
+            gtk_widget_set_sensitive(item, e.enabled ? TRUE : FALSE);
+            g_signal_connect(item, "activate", G_CALLBACK(on_menu_item), GSIZE_TO_POINTER(i));
+            gtk_menu_shell_append(GTK_MENU_SHELL(sub), item);
+        }
+    }
+    gtk_widget_show_all(bar);
+    return bar;
+}
+#endif
+
+/* Put the current model's bar at the top of the box; an empty model leaves the
+   box with the view alone (the bar hidden, as the setting asks). */
+static void apply_menu_bar(GtkWindow *win)
+{
+    if (g_menu_box == nullptr) {
+        return;
+    }
+    if (g_menu_bar != nullptr) {
+#if GTK_MAJOR_VERSION >= 4
+        gtk_box_remove(GTK_BOX(g_menu_box), g_menu_bar);
+#else
+        gtk_widget_destroy(g_menu_bar);
+#endif
+        g_menu_bar = nullptr;
+    }
+    if (g_menu.count == 0) {
+        return;
+    }
+    g_menu_bar = build_menu_bar(win, g_menu);
+#if GTK_MAJOR_VERSION >= 4
+    gtk_box_prepend(GTK_BOX(g_menu_box), g_menu_bar);
+#else
+    gtk_box_pack_start(GTK_BOX(g_menu_box), g_menu_bar, FALSE, FALSE, 0);
+    gtk_box_reorder_child(GTK_BOX(g_menu_box), g_menu_bar, 0);
+#endif
+}
+#endif
 
 #if defined(__APPLE__)
 // Bridge: window.quaeroPickFile(title) — NSOpenPanel, modal to the app.
@@ -929,6 +1543,65 @@ static void pick_file_handler(const char *id, const char *req, void *arg)
     g_object_unref(dialog);
 }
 #endif
+#endif
+
+// --- Shell bindings the UI drives (issue #685) ---------------------------------
+//
+// Not IPC: nothing here reaches the core. These are the window's own chrome,
+// which only the UI knows the state of (its theme, what it is showing).
+
+// Bridge: window.quaeroSetTitle(title) — the native window title. Empty falls
+// back to the product name, so the title bar is never blank.
+static void set_title_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    std::string title = first_string_arg(req);
+    webview_set_title(w, title.empty() ? "Squaero" : title.c_str());
+    webview_return(w, id, 0, "null");
+}
+
+// Bridge: window.quaeroSetTheme("dark" | "light") — the title bar (and on
+// Linux the GTK chrome) follows the theme the UI resolved. Anything that is not
+// "dark" is light.
+static void set_theme_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    const bool dark = first_string_arg(req) == "dark";
+#if defined(_WIN32)
+    apply_title_bar_theme(static_cast<HWND>(webview_get_window(w)), dark);
+#elif defined(__linux__)
+    g_object_set(gtk_settings_get_default(), "gtk-application-prefer-dark-theme",
+                 dark ? TRUE : FALSE, nullptr);
+#elif defined(__APPLE__)
+    mac_set_dark(webview_get_window(w), dark);
+#endif
+    webview_return(w, id, 0, "null");
+}
+
+#if defined(_WIN32) || defined(__linux__)
+// Bridge: window.quaeroSetMenu(json) — the native menu bar (issue #686), built
+// from the model the UI sends (menu_model.h); "[]" takes the bar away. A model
+// the parser refuses is reported and the bar is left as it was — never half a
+// menu. Resolves to true when applied, false when refused.
+static void set_menu_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    quaero_menu next;
+    if (!quaero_menu_parse(first_string_arg(req).c_str(), &next)) {
+        std::fprintf(stderr, "Squaero: ignored a malformed menu model\n");
+        webview_return(w, id, 0, "false");
+        return;
+    }
+    quaero_menu_free(&g_menu);
+    g_menu = next;
+    g_menu_webview = w;
+#if defined(_WIN32)
+    apply_menu_bar(static_cast<HWND>(webview_get_window(w)));
+#else
+    apply_menu_bar(GTK_WINDOW(webview_get_window(w)));
+#endif
+    webview_return(w, id, 0, "true");
+}
 #endif
 
 #if defined(_WIN32)
@@ -1033,7 +1706,13 @@ int main()
     // Register driver plugins before the UI opens so conn.open can resolve them.
     load_drivers();
 
-    webview_t w = webview_create(0, nullptr);
+    // Developer tools (F12 / inspector) only in a Debug build (issue #685).
+#if defined(QUAERO_DEV_TOOLS)
+    const int dev_tools = 1;
+#else
+    const int dev_tools = 0;
+#endif
+    webview_t w = webview_create(dev_tools, nullptr);
     if (w == nullptr) {
         // This is a GUI-subsystem process: stderr goes nowhere, so a bare exit
         // looks to the user like nothing happened at all (reported from a fresh
@@ -1057,18 +1736,28 @@ int main()
 #if defined(_WIN32)
     apply_window_icon(w);
     apply_startup_background(w);
+    apply_browser_settings(w);
+#elif defined(__linux__)
+    apply_browser_settings(w);
+#elif defined(__APPLE__)
+    mac_harden_webview(
+        webview_get_native_handle(w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER),
+        [](const char *uri) { return is_app_navigation(uri); });
 #endif
+    // The default size is what "restore" gives back when nothing was remembered
+    // (and what the first launch opens maximised from).
     webview_set_size(w, 1100, 720, WEBVIEW_HINT_NONE);
 #if defined(_WIN32)
-    // Start maximised. The chrome above and below the grid is a fixed ~495 px,
-    // so at 1100x720 the data — the reason the window is open — is under a
-    // third of it. The size above still decides what "restore" gives back.
     if (HWND hwnd = static_cast<HWND>(webview_get_window(w))) {
-        ShowWindow(hwnd, SW_MAXIMIZE);
+        // The title bar follows the system until the UI reports its theme.
+        apply_title_bar_theme(hwnd, !system_prefers_light());
+        restore_window_state(hwnd);
+        watch_window_close(hwnd);
     }
 #elif defined(__linux__)
     gtk_window_set_default_icon_name("squaero");
-    gtk_window_maximize(GTK_WINDOW(webview_get_window(w)));
+    restore_window_state(GTK_WINDOW(webview_get_window(w)));
+    install_menu_host(GTK_WINDOW(webview_get_window(w)));
 #elif defined(__APPLE__)
     mac_setup_app(webview_get_window(w));
 #endif
@@ -1076,6 +1765,13 @@ int main()
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
     webview_bind(w, "quaeroOpenExternal", open_external_handler, w);
     webview_bind(w, "quaeroPickFile", pick_file_handler, w);
+#endif
+    webview_bind(w, "quaeroSetTitle", set_title_handler, w);
+    webview_bind(w, "quaeroSetTheme", set_theme_handler, w);
+#if defined(_WIN32) || defined(__linux__)
+    // macOS keeps its AppKit menu (macos.mm): the binding's absence is how the
+    // UI knows there is no bar of its own to fill or hide there.
+    webview_bind(w, "quaeroSetMenu", set_menu_handler, w);
 #endif
 #if defined(_WIN32)
     webview_bind(w, "quaeroDownloadAndInstall", download_install_handler, w);
@@ -1103,6 +1799,9 @@ int main()
     g_rpc_worker.join();
 
     webview_destroy(w);
+#if defined(_WIN32) || defined(__linux__)
+    quaero_menu_free(&g_menu);
+#endif
 
     for (dbc_plugin *plugin : g_plugins) {
         dbc_plugin_unload(plugin);

@@ -107,7 +107,10 @@ import {
   type ThemePref,
 } from "./utils/theme";
 import { loadSkin, saveSkin, applySkin, isDarkOnly, type SkinPref } from "./utils/skin";
-import { matchShortcut } from "./utils/shortcuts";
+import { matchShortcut, type ActionId } from "./utils/shortcuts";
+import { installHostGuards } from "./utils/hostGuards";
+import { setShellTheme, setShellTitle, windowTitle } from "./utils/shell";
+import { buildMenuModel, hasShellMenu, onShellMenu, setShellMenu } from "./utils/nativeMenu";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import {
   clampEditorPct,
@@ -706,12 +709,17 @@ export function App() {
     typeof navigator !== "undefined" &&
     /mac/i.test(navigator.platform || navigator.userAgent || "");
 
+  // Stamp the resolved theme on the document and tell the shell, so the native
+  // title bar changes with it (issue #685).
+  const stampTheme = (pref: ThemePref, s: SkinPref) => {
+    if (typeof document === "undefined") return;
+    setShellTheme(applyTheme(pref, document.documentElement, prefersDark(), isDarkOnly(s)));
+  };
+
   const applyThemePref = (pref: ThemePref) => {
     setTheme(pref);
     saveTheme(pref, safeStorage());
-    if (typeof document !== "undefined") {
-      applyTheme(pref, document.documentElement, prefersDark(), isDarkOnly(skin()));
-    }
+    stampTheme(pref, skin());
   };
   const toggleTheme = () => applyThemePref(nextTheme(theme()));
 
@@ -724,7 +732,7 @@ export function App() {
     saveSkin(s, safeStorage());
     if (typeof document !== "undefined") {
       applySkin(s, document.documentElement);
-      applyTheme(theme(), document.documentElement, prefersDark(), isDarkOnly(s));
+      stampTheme(theme(), s);
     }
   };
 
@@ -882,13 +890,11 @@ export function App() {
   onMount(() => {
     if (typeof document !== "undefined") {
       applySkin(skin(), document.documentElement);
-      applyTheme(theme(), document.documentElement, prefersDark(), isDarkOnly(skin()));
+      stampTheme(theme(), skin());
     }
     // Follow the OS live while the preference is "system".
     const onSystemChange = () => {
-      if (theme() === "system" && typeof document !== "undefined") {
-        applyTheme("system", document.documentElement, prefersDark(), isDarkOnly(skin()));
-      }
+      if (theme() === "system") stampTheme("system", skin());
     };
     const mql =
       typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -950,7 +956,12 @@ export function App() {
     };
     document.addEventListener("paste", onPaste);
 
+    // What the host would still do as a browser — reload, zoom, navigate to a
+    // dropped file — refused here for every engine alike (issue #685).
+    const uninstallGuards = installHostGuards(document, isMac());
+
     onCleanup(() => {
+      uninstallGuards();
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("contextmenu", onNativeMenu);
       document.removeEventListener("paste", onPaste);
@@ -967,13 +978,10 @@ export function App() {
     return connections().find((c) => c.id === id)?.driver ?? "";
   });
 
-  // Document/window title (issue #192): "Squaero — <conexión activa>" when a
-  // connection is active, else just "Squaero". The native shell window title is
-  // set to "Squaero" in main.cc; this keeps the document title in sync so the
-  // active connection is reflected wherever the title surfaces.
+  // Window title (issues #192, #685): "<tab> — <connection> — Squaero" for what
+  // is on screen, pushed to the native title bar through the shell.
   createEffect(() => {
-    const conn = active();
-    document.title = conn?.name ? `Squaero — ${conn.name}` : "Squaero";
+    setShellTitle(windowTitle(current()?.title, active()?.name));
   });
 
   // Keep the workspace on disk (issue #401). Debounced because the editor emits
@@ -4267,6 +4275,40 @@ export function App() {
     if (mode === "all") return paletteCommands();
     const only = mode === "objects" ? "object" : "snippet";
     return paletteCommands().filter((c) => c.category === only);
+  });
+
+  // --- Native menu bar (issue #686) ----------------------------------------
+  // The shell draws it from the model sent here — rebuilt whenever the language,
+  // the connection, the tab or the setting changes; [] takes it away. A click
+  // comes back as an item id and runs the same thing the palette or the key
+  // would: the palette's own command when it is one, else the shortcut handler.
+  // Run and format are the editor's keys, reached here through their ticks.
+  const runMenuAction = (id: string) => {
+    const cmd = paletteCommands().find((c) => c.id === id);
+    if (cmd) {
+      cmd.run();
+      return;
+    }
+    if (id === "run-query") setRunTick((n) => n + 1);
+    else if (id === "format-sql") setFormatTick((n) => n + 1);
+    else runShortcut(id as ActionId);
+  };
+  createEffect(() => {
+    if (!hasShellMenu()) return;
+    setShellMenu(
+      settings().nativeMenu
+        ? buildMenuModel(t, {
+            connected: !!active(),
+            hasDb: !!activeDb(),
+            hasTab: !!current(),
+            isMac: isMac(),
+          })
+        : [],
+    );
+  });
+  onMount(() => {
+    if (typeof window === "undefined") return;
+    onCleanup(onShellMenu(window, runMenuAction));
   });
 
   return (

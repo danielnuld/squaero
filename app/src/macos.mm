@@ -3,7 +3,57 @@
 
 #include "macos.h"
 
+#include <cstdio>
+
 #import <AppKit/AppKit.h>
+#import <WebKit/WebKit.h>
+
+// WKWebView keeps its navigation delegate weakly; this is the strong reference.
+static bool (*g_allow_navigation)(const char *uri) = nullptr;
+
+@interface QuaeroNavigationDelegate : NSObject <WKNavigationDelegate>
+@end
+
+@implementation QuaeroNavigationDelegate
+- (void)webView:(WKWebView *)webView
+    decidePolicyForNavigationAction:(WKNavigationAction *)action
+                    decisionHandler:(void (^)(WKNavigationActionPolicy))handler
+{
+    const char *uri = action.request.URL.absoluteString.UTF8String;
+    if (uri != nullptr && g_allow_navigation != nullptr && g_allow_navigation(uri)) {
+        handler(WKNavigationActionPolicyAllow);
+        return;
+    }
+    std::fprintf(stderr, "Squaero: blocked navigation to %s\n", uri != nullptr ? uri : "?");
+    handler(WKNavigationActionPolicyCancel);
+}
+@end
+
+static QuaeroNavigationDelegate *g_navigation_delegate = nil;
+
+void mac_harden_webview(void *webview, bool (*allow)(const char *uri))
+{
+    @autoreleasepool {
+        WKWebView *view = (__bridge WKWebView *)webview;
+        if (view == nil) {
+            return;
+        }
+        view.allowsMagnification = NO;
+        view.allowsBackForwardNavigationGestures = NO;
+        g_allow_navigation = allow;
+        g_navigation_delegate = [[QuaeroNavigationDelegate alloc] init];
+        view.navigationDelegate = g_navigation_delegate;
+    }
+}
+
+void mac_set_dark(void *window, bool dark)
+{
+    @autoreleasepool {
+        NSWindow *win = (__bridge NSWindow *)window;
+        win.appearance = [NSAppearance
+            appearanceNamed:dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
+    }
+}
 
 std::string mac_write_ui(const char *html)
 {
@@ -97,13 +147,20 @@ void mac_setup_app(void *window)
 
         [NSApplication sharedApplication].mainMenu = bar;
 
-        // Fill the screen's visible frame, and come to the front: launched from
-        // the Finder or the Dock the app must own the menu bar, not Finder.
+        // The frame remembered from the last run (issue #685) — AppKit keeps it
+        // in the user defaults and clamps it to a screen that still exists —
+        // or, the first time, the screen's visible frame. Then come to the
+        // front: launched from the Finder or the Dock the app must own the
+        // menu bar, not Finder.
         NSWindow *win = (__bridge NSWindow *)window;
-        NSScreen *screen = win.screen != nil ? win.screen : [NSScreen mainScreen];
-        if (screen != nil) {
-            [win setFrame:screen.visibleFrame display:YES];
+        static NSString *const kFrameName = @"QuaeroMainWindow";
+        if (![win setFrameUsingName:kFrameName]) {
+            NSScreen *screen = win.screen != nil ? win.screen : [NSScreen mainScreen];
+            if (screen != nil) {
+                [win setFrame:screen.visibleFrame display:YES];
+            }
         }
+        [win setFrameAutosaveName:kFrameName];
         [NSApp activateIgnoringOtherApps:YES];
     }
 }
