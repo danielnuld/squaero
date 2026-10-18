@@ -85,7 +85,7 @@ describe("DataFilterBar Enter applies", () => {
 });
 
 // Issue #462: the list is where the eye is once it is long, so it gets its own
-// "+ condición", and Shift+Enter is the same reflex without the mouse.
+// "+ Condición", and Shift+Enter is the same reflex without the mouse.
 describe("DataFilterBar adds a condition", () => {
   it("adds on Shift+Enter instead of applying", () => {
     const { applied, added } = mount();
@@ -104,7 +104,7 @@ describe("DataFilterBar adds a condition", () => {
   it("has a + at the end of the list, not only in the head", () => {
     const { added } = mount();
     const adders = Array.from(host!.querySelectorAll("button")).filter(
-      (b) => b.textContent === "+ condición",
+      (b) => b.textContent === "+ Condición",
     );
     expect(adders).toHaveLength(2);
     (host!.querySelector(".filter-actions button") as HTMLButtonElement).click();

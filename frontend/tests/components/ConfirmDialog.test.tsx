@@ -41,9 +41,9 @@ describe("ConfirmDialog", () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
     mount(() => (
-      <ConfirmDialog message="m" confirmLabel="Borrar" onConfirm={onConfirm} onCancel={onCancel} />
+      <ConfirmDialog message="m" confirmLabel="Eliminar" onConfirm={onConfirm} onCancel={onCancel} />
     ));
-    clickText("Borrar");
+    clickText("Eliminar");
     expect(onConfirm).toHaveBeenCalledTimes(1);
     clickText("Cancelar");
     expect(onCancel).toHaveBeenCalledTimes(1);

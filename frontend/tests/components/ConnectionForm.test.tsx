@@ -141,7 +141,7 @@ describe("ConnectionForm engine cards", () => {
 describe("ConnectionForm side index", () => {
   it("names each section and its state, in words", () => {
     mount({ initial: mysql() });
-    expect(indexNames()).toContain("Servidor: falta algo");
+    expect(indexNames()).toContain("Servidor: incompleta");
     // The tunnel is off until there is a host to tunnel to — which is exactly
     // what the model means.
     expect(indexNames()).toContain("Túnel SSH: apagado");
@@ -418,7 +418,7 @@ describe("ConnectionForm preview and test card", () => {
 
   it("starts by saying it has not been tested", () => {
     mount({});
-    expect(host!.querySelector(".cf-test")!.textContent).toContain("Sin probar");
+    expect(host!.querySelector(".cf-test")!.textContent).toContain("Aún sin probar");
   });
 
   // The core reports no latency, so the number is measured here — showing one

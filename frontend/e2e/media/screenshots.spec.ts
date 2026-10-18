@@ -68,7 +68,7 @@ test("capture the published screenshots", async ({ page }) => {
     const openDemoTable = async () => {
       await page.goto("/");
     await startBlank(page);
-      await page.getByRole("button", { name: "Conectar a una base…" }).click();
+      await page.getByRole("button", { name: "Conectar a una base de datos…" }).click();
       await page.getByRole("button", { name: /Nueva conexión/ }).waitFor();
       await page.getByRole("button", { name: /Ventas \(demo\)/ }).click();
       await page.getByRole("button", { name: /^Desconectar Ventas/ }).first().waitFor();

@@ -108,7 +108,7 @@ describeEngine("sqlite", () => {
     await expect(rows).toHaveCount(2);
 
     // "count(*)" is in no name at all — searching what a query DOES is the point.
-    await page.getByRole("searchbox", { name: "Buscar en tus snippets" }).fill("count(*)");
+    await page.getByRole("searchbox", { name: "Buscar snippets" }).fill("count(*)");
     await expect(rows).toHaveCount(1);
 
     await page.getByRole("button", { name: "Abrir", exact: true }).click();

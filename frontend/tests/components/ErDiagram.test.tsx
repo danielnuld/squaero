@@ -125,7 +125,7 @@ describe("ErDiagram", () => {
     expect(edges[0].querySelector("title")?.textContent).toContain("customers.id");
     // Labelled as real, not inferred.
     expect(host!.textContent).toContain("(FK reales)");
-    expect(host!.textContent).toContain("llaves foráneas reales");
+    expect(host!.textContent).toContain("claves foráneas reales");
     expect(host!.querySelector(".er-col-pk")).not.toBeNull();
   });
 

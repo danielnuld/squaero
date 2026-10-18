@@ -20,7 +20,7 @@ describeEngine("sqlite", () => {
 
     await expect(panel(page)).toBeVisible();
     // Unfolded on arrival: a filter nobody can see is a filter nobody uses.
-    await expect(page.getByRole("button", { name: "+ condición" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ Condición" })).toBeVisible();
     // The editor is gone, and with it the buttons that acted on it.
     await expect(page.getByRole("textbox", { name: "Editor SQL", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Formatear" })).toHaveCount(0);
@@ -36,7 +36,7 @@ describeEngine("sqlite", () => {
     await openFixtureTable(app);
     await expect(page.getByText("Nogales", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "+ condición" }).click();
+    await page.getByRole("button", { name: "+ Condición" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
     await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
     await panel(page).getByRole("textbox", { name: "Valor" }).fill("Obreg");
@@ -67,7 +67,7 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
-    await page.getByRole("button", { name: "+ condición" }).click();
+    await page.getByRole("button", { name: "+ Condición" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
     await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
     await panel(page).getByRole("textbox", { name: "Valor" }).fill("Obreg");
@@ -87,7 +87,7 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
-    await page.getByRole("button", { name: "+ condición" }).click();
+    await page.getByRole("button", { name: "+ Condición" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
     await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
     await panel(page).getByRole("textbox", { name: "Valor" }).fill("Obreg");
@@ -105,7 +105,7 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
-    await page.getByRole("button", { name: "+ orden" }).click();
+    await page.getByRole("button", { name: "+ Orden" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna de ordenación" }), "nombre");
     await page.getByRole("button", { name: "Aplicar", exact: true }).click();
 

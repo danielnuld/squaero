@@ -14,6 +14,7 @@
 
 import { quoteIdentifier } from "./schema";
 import { engineFamily as family } from "./engineFamily";
+import { t } from "./i18n";
 
 /** Which schema object the explorer is listing. */
 export type ObjectKind = "trigger" | "event";
@@ -242,15 +243,14 @@ export function definitionFor(
 /** A short reason the given object kind is unavailable on an engine. */
 export function unsupportedReason(engine: string, kind: ObjectKind): string {
   const f = family(engine);
-  const what = kind === "event" ? "Los eventos programados" : "Los triggers";
+  const name = { engine: engine || t("engine.unknown") };
   if (kind === "event") {
-    if (f === "sqlite") return "SQLite no tiene eventos programados.";
-    if (f === "postgres" || f === "postgresql")
-      return "PostgreSQL no tiene eventos programados nativos (se usan extensiones como pg_cron).";
-    if (f === "informix") return "Los eventos programados de Informix no están disponibles aquí.";
-    if (f === "mongodb") return "MongoDB no expone eventos programados en catálogos SQL.";
-    return `Los eventos programados no están disponibles para el motor "${engine || "desconocido"}".`;
+    if (f === "sqlite") return t("triggers.unsupported.event.sqlite");
+    if (f === "postgres" || f === "postgresql") return t("triggers.unsupported.event.postgres");
+    if (f === "informix") return t("triggers.unsupported.event.informix");
+    if (f === "mongodb") return t("triggers.unsupported.event.mongodb");
+    return t("triggers.unsupported.event.other", name);
   }
-  if (f === "mongodb") return "MongoDB no expone triggers en catálogos SQL.";
-  return `${what} no están disponibles para el motor "${engine || "desconocido"}".`;
+  if (f === "mongodb") return t("triggers.unsupported.trigger.mongodb");
+  return t("triggers.unsupported.trigger.other", name);
 }

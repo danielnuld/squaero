@@ -68,7 +68,7 @@ describe("RowActionBar", () => {
     const { button } = mount({ pasteCount: 0 });
     const paste = button(/^Pegar/);
     expect(paste.disabled).toBe(true);
-    expect(paste.title).toBe("Todavía no has copiado filas");
+    expect(paste.title).toBe("No hay filas copiadas");
   });
 
   it("offers to paste the copied rows, saying how many", () => {
