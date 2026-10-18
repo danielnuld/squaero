@@ -198,4 +198,23 @@ describe("ObjectToolbar", () => {
     mount({ isTable: false, hasColumns: true });
     expect(btn("Refrescar")).toBeTruthy();
   });
+
+  // Issue #670: columns as rows.
+  it("toggles the transposed view, and says whether it is on", () => {
+    const onTranspose = vi.fn();
+    mount({ onTranspose, transposed: true });
+    const b = btn("Transponer")!;
+    expect(b.getAttribute("aria-pressed")).toBe("true");
+    b.click();
+    expect(onTranspose).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no transposed view while editing, nor without a handler", () => {
+    mount({ onTranspose: vi.fn(), editing: true });
+    expect(btn("Transponer")!.disabled).toBe(true);
+    dispose?.();
+    host?.remove();
+    mount();
+    expect(btn("Transponer")).toBeUndefined();
+  });
 });

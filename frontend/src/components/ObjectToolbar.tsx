@@ -67,6 +67,10 @@ export interface ObjectToolbarProps {
   onConfirm: () => void;
   onDiscard: () => void;
   onChart: () => void;
+  /** Columns as rows (issue #670): whether it is on, and the toggle. Absent →
+      no button. Off while editing: the transposed view is read-only. */
+  transposed?: boolean;
+  onTranspose?: () => void;
   onExport: (fmt: string) => void;
   /**
    * Actions that belong to the tab rather than to the object, dropped in the
@@ -196,6 +200,17 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
 
       <Show when={props.hasColumns}>
         <span class="toolbar-spacer" />
+        <Show when={props.onTranspose}>
+          <button
+            class="edit-btn"
+            aria-pressed={!!props.transposed}
+            disabled={props.editing}
+            title={t("objbar.transposeTitle")}
+            onClick={() => props.onTranspose?.()}
+          >
+            <span class="eb-ic" aria-hidden="true">⇄</span> {t("objbar.transpose")}
+          </button>
+        </Show>
         <button class="edit-btn" onClick={props.onChart}>
           <span class="eb-ic" aria-hidden="true">📊</span> {t("objbar.chart")}
         </button>
