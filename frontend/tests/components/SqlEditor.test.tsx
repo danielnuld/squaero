@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { EditorView } from "@codemirror/view";
-import { completionStatus, startCompletion } from "@codemirror/autocomplete";
+import { completionStatus, currentCompletions, startCompletion } from "@codemirror/autocomplete";
 import { SqlEditor } from "../../src/components/SqlEditor";
 import type { RunScope } from "../../src/utils/runScope";
 
@@ -315,5 +315,100 @@ describe("SqlEditor Tab (issue #432)", () => {
     tab(view);
     expect(view.state.doc.toString()).not.toBe("select 1");
     expect(view.state.doc.toString()).toContain("select 1");
+  });
+});
+
+describe("SqlEditor semantic completion (issue #661)", () => {
+  const mount = (doc: string, props: Record<string, unknown> = {}) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => doc}
+            onChange={() => {}}
+            onRun={() => {}}
+            dialect="sqlite"
+            schema={{ clientes: ["id", "nombre"], pedidos: ["id", "cliente_id"] }}
+            {...props}
+          />
+        ),
+        host!,
+      );
+    });
+    return EditorView.findFromDOM(host!)!;
+  };
+
+  const options = async (view: EditorView) => {
+    for (let i = 0; i < 200; i++) {
+      if (completionStatus(view.state) === "active") break;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    return currentCompletions(view.state).map((c) => c.label);
+  };
+
+  it("completes an alias's columns", async () => {
+    const view = mount("select c. from clientes c");
+    view.dispatch({ selection: { anchor: "select c.".length } });
+    startCompletion(view);
+    expect(await options(view)).toEqual(expect.arrayContaining(["id", "nombre"]));
+  });
+
+  it("completes the join condition from the foreign keys", async () => {
+    const view = mount("select * from clientes c join pedidos p on ", {
+      foreignKeys: [{ fromTable: "pedidos", toTable: "clientes", constraint: "fk", columns: [{ from: "cliente_id", to: "id" }] }],
+    });
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    startCompletion(view);
+    expect(await options(view)).toContain("p.cliente_id = c.id");
+  });
+
+  it("falls back to lang-sql where it has nothing to add", async () => {
+    // `clientes.` names no relation of the statement, but lang-sql knows the table.
+    const view = mount("select clientes. from x");
+    view.dispatch({ selection: { anchor: "select clientes.".length } });
+    startCompletion(view);
+    expect(await options(view)).toEqual(expect.arrayContaining(["id", "nombre"]));
+  });
+});
+
+describe("SqlEditor diagnostics (issue #662)", () => {
+  const mount = (doc: string, diagnostics?: boolean) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => doc}
+            onChange={() => {}}
+            onRun={() => {}}
+            dialect="sqlite"
+            diagnostics={diagnostics}
+          />
+        ),
+        host!,
+      );
+    });
+    return EditorView.findFromDOM(host!)!;
+  };
+  const settle = () => new Promise((r) => setTimeout(r, 400));
+
+  it("marks a DELETE without WHERE once typing settles", async () => {
+    mount("delete from t");
+    await settle();
+    const mark = host!.querySelector(".cm-diag-warning");
+    expect(mark?.textContent).toBe("delete");
+  });
+
+  it("marks nothing when turned off", async () => {
+    mount("delete from t", false);
+    await settle();
+    expect(host!.querySelector(".cm-diag")).toBeNull();
   });
 });

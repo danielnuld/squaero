@@ -49,6 +49,9 @@ export interface Settings {
    * at all day, and turning it off has to be one click, not six resets.
    */
   colorTypes: boolean;
+  /** Mark problems (unknown names, UPDATE without WHERE…) in the SQL editor
+      before running it (issue #662). Never blocks a run; on by default. */
+  editorDiagnostics: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -58,6 +61,7 @@ export const DEFAULT_SETTINGS: Settings = {
   checkUpdatesOnStart: true,
   toolStrip: true,
   colorTypes: true,
+  editorDiagnostics: true,
 };
 
 /** Bounds for the slow-query threshold (ms): 0 (off) up to one hour. */
@@ -125,6 +129,10 @@ export function parseSettings(raw: string | null | undefined): Settings {
       typeof obj.toolStrip === "boolean" ? obj.toolStrip : DEFAULT_SETTINGS.toolStrip,
     colorTypes:
       typeof obj.colorTypes === "boolean" ? obj.colorTypes : DEFAULT_SETTINGS.colorTypes,
+    editorDiagnostics:
+      typeof obj.editorDiagnostics === "boolean"
+        ? obj.editorDiagnostics
+        : DEFAULT_SETTINGS.editorDiagnostics,
   };
 }
 

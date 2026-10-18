@@ -207,6 +207,13 @@ export const es: Record<string, string> = {
   "editor.runHint": "Ctrl/Cmd + Enter para ejecutar",
   "editor.selectAll": "Seleccionar todo",
   "editor.copy": "Copiar",
+  // diagnósticos del editor (#662)
+  "diag.unknownTable": "Tabla desconocida: {name}",
+  "diag.unknownColumn": "Columna desconocida: {name}",
+  "diag.ambiguousColumn": "Columna ambigua {name}: existe en {tables}",
+  "diag.updateWithoutWhere": "UPDATE sin WHERE modifica todas las filas",
+  "diag.deleteWithoutWhere": "DELETE sin WHERE borra todas las filas",
+  "diag.insertArity": "{values} valores para {columns} columnas",
 
   // editor empty state (issue #178)
   "empty.lead": "Ejecuta una consulta para ver resultados.",
@@ -1028,6 +1035,7 @@ export const es: Record<string, string> = {
   "error.tabConnClosed": "La conexión de esta pestaña está cerrada. Vuelve a conectarla desde el panel de conexiones.",
   "error.importNoConns": "No se pudo importar: ningún archivo contiene conexiones.",
   "settings.lowContrast": "Contraste bajo sobre el fondo",
+  "settings.editorDiagnostics": "Marcar problemas en el editor SQL",
   "settings.resetColor": "Volver al color del tema para {kind}",
   "kind.text": "Texto",
   "kind.number": "Números",
