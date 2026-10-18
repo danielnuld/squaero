@@ -834,6 +834,13 @@ body {
   cursor: default;
 }
 
+.connbar-reconnecting {
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
 .connbar-lost {
   font-size: var(--fs-micro);
   text-transform: uppercase;
@@ -6877,3 +6884,28 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .filter-empty { color: var(--text-dim); margin: var(--sp-2) 0; }
 .filter-count { color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* Transaction controls in the editor bar and the open-transaction marks in the
+   status bar and the connection bar (issue #667). Open reads as "unsaved", the
+   accent the app already uses for what still has to be acted on. */
+.tx-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.status-btn.tx-mode.is-manual {
+  color: var(--accent);
+}
+
+.tx-open,
+.status-tx,
+.conn-tx {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.conn-tx {
+  font-size: var(--fs-micro);
+  margin-left: var(--sp-2);
+}

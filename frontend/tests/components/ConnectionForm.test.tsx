@@ -501,3 +501,37 @@ describe("ConnectionForm — migrated Informix port (issue #557)", () => {
     expect("port_review" in saved.params).toBe(false);
   });
 });
+
+// Keep-alive (issue #676): a per-connection interval, only where it applies.
+describe("ConnectionForm keep-alive", () => {
+  const keepAliveInput = () =>
+    [...host!.querySelectorAll<HTMLLabelElement>("label.cf-field")]
+      .find((l) => l.textContent?.includes("Keep-alive"))
+      ?.querySelector("input") ?? null;
+
+  it("saves the interval in seconds on a network engine", () => {
+    const onSave = vi.fn();
+    mount({ initial: { ...mysql({ host: "db", user: "u" }), name: "x" }, onSave });
+    const input = keepAliveInput()!;
+    input.value = "45";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    clickText("Guardar");
+    expect(onSave.mock.calls[0][0].keepAlive).toBe(45);
+  });
+
+  it("0 or empty turns it off", () => {
+    const onSave = vi.fn();
+    mount({ initial: { ...mysql({ host: "db", user: "u" }), name: "x", keepAlive: 30 }, onSave });
+    const input = keepAliveInput()!;
+    expect(input.value).toBe("30");
+    input.value = "0";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    clickText("Guardar");
+    expect(onSave.mock.calls[0][0].keepAlive).toBeUndefined();
+  });
+
+  it("is not offered for SQLite (a local file cannot drop)", () => {
+    mount({});
+    expect(keepAliveInput()).toBeNull();
+  });
+});

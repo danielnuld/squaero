@@ -97,6 +97,21 @@ int dbcore_conn_manager_set_cursor(dbcore_conn_manager *mgr, int id,
    is unknown or no cursor is open. */
 dbc_result *dbcore_conn_manager_take_cursor(dbcore_conn_manager *mgr, int id);
 
+/*
+ * Transaction bookkeeping (issue #667): whether tx.begin opened a transaction on
+ * the connection that no tx.commit / tx.rollback has ended yet. The IPC layer
+ * keeps it so a second tx.begin is refused instead of reaching the engine (MySQL
+ * would silently commit the first one), and so a reconnect can tell it must not
+ * retry inside a transaction (#676). Statements the user runs through query.run
+ * (a typed BEGIN) are NOT seen here: the frontend routes those to tx.*.
+ */
+
+/* Set or clear the flag. Returns 1, or 0 if the id is unknown. */
+int dbcore_conn_manager_set_in_tx(dbcore_conn_manager *mgr, int id, int open);
+
+/* 1 when a transaction is open on the connection, 0 otherwise or if unknown. */
+int dbcore_conn_manager_in_tx(const dbcore_conn_manager *mgr, int id);
+
 /* Number of currently open connections. */
 int dbcore_conn_manager_count(const dbcore_conn_manager *mgr);
 

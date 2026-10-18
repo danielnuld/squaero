@@ -25,6 +25,7 @@ typedef struct {
     dbc_conn           *handle;
     ssh_tunnel         *tunnel;   /* NULL for a direct (non-tunnelled) connection */
     dbc_result         *cursor;   /* open paging cursor (issue #478), or NULL */
+    int                 in_tx;    /* tx.begin opened a transaction (issue #667) */
 } conn_slot;
 
 struct dbcore_conn_manager {
@@ -96,6 +97,7 @@ static conn_slot *acquire_slot(dbcore_conn_manager *mgr)
         grown[i].handle = NULL;
         grown[i].tunnel = NULL;
         grown[i].cursor = NULL;
+        grown[i].in_tx = 0;
     }
     mgr->slots = grown;
     conn_slot *slot = &grown[mgr->cap];
@@ -190,6 +192,7 @@ dbc_status dbcore_conn_manager_open(dbcore_conn_manager *mgr,
     slot->handle = handle;
     slot->tunnel = tunnel;
     slot->cursor = NULL;
+    slot->in_tx = 0;
     *out_id = slot->id;
     return DBC_OK;
 }
@@ -227,6 +230,22 @@ int dbcore_conn_manager_get(const dbcore_conn_manager *mgr, int id,
     out->driver = slot->driver;
     out->handle = slot->handle;
     return 1;
+}
+
+int dbcore_conn_manager_set_in_tx(dbcore_conn_manager *mgr, int id, int open)
+{
+    conn_slot *slot = find_slot(mgr, id);
+    if (slot == NULL) {
+        return 0;
+    }
+    slot->in_tx = open != 0;
+    return 1;
+}
+
+int dbcore_conn_manager_in_tx(const dbcore_conn_manager *mgr, int id)
+{
+    const conn_slot *slot = find_slot(mgr, id);
+    return slot != NULL && slot->in_tx;
 }
 
 int dbcore_conn_manager_set_cursor(dbcore_conn_manager *mgr, int id,

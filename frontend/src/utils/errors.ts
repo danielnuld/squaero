@@ -8,6 +8,8 @@
 import { QueryError } from "./query";
 import { locale, type Locale } from "./i18n";
 import { informixErrorText } from "./informixErrors";
+import { translate } from "./translate";
+import { NOT_RETRIED_KEY, type NotRetried } from "./reconnect";
 
 export interface FriendlyError {
   /** Short, actionable sentence. */
@@ -36,6 +38,13 @@ const STANDARD: Record<number, string> = {
 /** Map any error into a friendly {title, detail}. */
 export function describeError(err: unknown, lang: Locale = locale()): FriendlyError {
   if (err instanceof QueryError) {
+    // A dead session the transport did not retry says why (issue #676): the
+    // generic -32000 title ("check the host…") is wrong for a connection that
+    // was working a moment ago.
+    const why = (err.data as { notRetried?: NotRetried } | undefined)?.notRetried;
+    if (why && NOT_RETRIED_KEY[why]) {
+      return { title: translate(lang, NOT_RETRIED_KEY[why]), detail: err.message || undefined };
+    }
     // An Informix SQLCODE says more than the generic domain title (#559); the
     // raw code, SQLSTATE and tokens stay as detail, to search or report.
     const ifx = informixErrorText(err.message, lang);

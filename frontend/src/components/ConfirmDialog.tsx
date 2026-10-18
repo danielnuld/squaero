@@ -25,6 +25,10 @@ export function ConfirmDialog(props: {
   error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
+  /** An optional third, non-destructive choice between Cancel and the confirm
+      button (e.g. Commit beside Rollback, issue #667). */
+  altLabel?: string;
+  onAlt?: () => void;
 }) {
   let cancelBtn: HTMLButtonElement | undefined;
   let dialogEl: HTMLDivElement | undefined;
@@ -93,6 +97,11 @@ export function ConfirmDialog(props: {
           <button ref={cancelBtn} disabled={props.busy} onClick={props.onCancel}>
             {props.cancelLabel ?? t("common.cancel")}
           </button>
+          <Show when={props.onAlt}>
+            <button disabled={props.busy} onClick={() => props.onAlt?.()}>
+              {props.altLabel}
+            </button>
+          </Show>
           <button class="danger" disabled={props.busy} onClick={props.onConfirm}>
             {props.busy ? t("confirm.applying") : props.confirmLabel ?? t("common.delete")}
           </button>

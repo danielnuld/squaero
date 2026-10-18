@@ -37,7 +37,9 @@ export type ActionId =
   | "select-next-occurrence"
   | "select-all-occurrences"
   | "add-cursor"
-  | "expand-template";
+  | "expand-template"
+  | "tx-commit"
+  | "tx-rollback";
 
 export interface Shortcut {
   id: ActionId;
@@ -95,6 +97,9 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "select-all-occurrences", keys: "Mod+Shift+L", description: "sc.select-all-occurrences", global: false },
   { id: "add-cursor", keys: "Mod+Alt+↑/↓", description: "sc.add-cursor", global: false },
   { id: "expand-template", keys: "Tab", description: "sc.expand-template", global: false },
+  // End the connection's open transaction (issue #667); no-ops when none is.
+  { id: "tx-commit", keys: "Mod+Alt+C", description: "sc.tx-commit", global: true },
+  { id: "tx-rollback", keys: "Mod+Alt+R", description: "sc.tx-rollback", global: true },
 ];
 
 /** Minimal shape of the fields we read off a KeyboardEvent (testable). */
@@ -123,6 +128,8 @@ export function matchShortcut(e: KeyEventLike): ActionId | null {
     if (k === "w") return "close-tab";
   }
   if (mod(e) && e.altKey && !e.shiftKey && k === "l") return "toggle-theme";
+  if (mod(e) && e.altKey && !e.shiftKey && k === "c") return "tx-commit";
+  if (mod(e) && e.altKey && !e.shiftKey && k === "r") return "tx-rollback";
 
   // Ctrl/Cmd+K opens the command palette (issue #174), from any focus.
   if (mod(e) && !e.altKey && !e.shiftKey && k === "k") return "command-palette";

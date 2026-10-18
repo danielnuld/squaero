@@ -389,6 +389,18 @@ describe("serialize / parse round-trip", () => {
     expect(parsed).toEqual([sqliteConn()]);
   });
 
+  it("keeps a keep-alive interval (#676) and drops one that is not whole seconds > 0", () => {
+    const raw = JSON.stringify([
+      { ...pgConn(), keepAlive: 60 },
+      { ...pgConn(), id: "conn-9", keepAlive: 0 },
+      { ...pgConn(), id: "conn-8", keepAlive: "junk" },
+    ]);
+    const parsed = parseConnections(raw);
+    expect(parsed[0].keepAlive).toBe(60);
+    expect("keepAlive" in parsed[1]).toBe(false);
+    expect("keepAlive" in parsed[2]).toBe(false);
+  });
+
   it("returns [] for null, junk or non-array", () => {
     expect(parseConnections(null)).toEqual([]);
     expect(parseConnections("not json")).toEqual([]);
