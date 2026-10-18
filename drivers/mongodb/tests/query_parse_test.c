@@ -1,6 +1,7 @@
 #include "query_parse.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* Unit tests for the mongosh-style query parser. Pure: no libbson/mongoc. */
@@ -111,6 +112,253 @@ int main(void)
         int rc = mongo_query_parse("  db.users.find() ;  ", &q, err, sizeof(err));
         EXPECT(rc == 0, "surrounding whitespace + semicolon tolerated");
         mongo_query_free(&q);
+    }
+
+    /* --- findOne maps to find with limit 1 --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.users.findOne({a: 1}, {b: 1})", &q, err, sizeof(err));
+        EXPECT(rc == 0, "findOne parses");
+        EXPECT(q.op == MONGO_OP_FIND && q.limit == 1, "findOne is find limit 1");
+        EXPECT(streq(q.filter, "{a: 1}") && streq(q.projection, "{b: 1}"),
+               "findOne filter + projection");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.users.findOne().limit(3)", &q, err, sizeof(err)) != 0,
+               "findOne takes no chain");
+    }
+
+    /* --- inserts --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.users.insertOne({ name: 'ana', tags: [1, 2], n: {k: \"a,b\"} })",
+                                   &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_INSERT_ONE, "insertOne parses");
+        EXPECT(streq(q.collection, "users"), "insertOne collection");
+        EXPECT(q.nargs == 1 && streq(q.args[0], "{ name: 'ana', tags: [1, 2], n: {k: \"a,b\"} }"),
+               "insertOne document captured whole (commas in nested values)");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.users.insertOne({})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && streq(q.args[0], "{}"), "insertOne of an empty document");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.c.insertMany([{a:1}, {a:2}], {ordered: false})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_INSERT_MANY && q.nargs == 2, "insertMany + options");
+        EXPECT(streq(q.args[0], "[{a:1}, {a:2}]") && streq(q.args[1], "{ordered: false}"),
+               "insertMany args");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.c.insertMany([])", &q, err, sizeof(err));
+        EXPECT(rc == 0 && streq(q.args[0], "[]"), "insertMany of an empty array parses");
+        mongo_query_free(&q);
+
+        EXPECT(mongo_query_parse("db.c.insertOne()", &q, err, sizeof(err)) != 0,
+               "insertOne needs a document");
+        EXPECT(mongo_query_parse("db.c.insertOne([1])", &q, err, sizeof(err)) != 0 &&
+               strstr(err, "must be a document") != NULL,
+               "insertOne rejects an array");
+        EXPECT(mongo_query_parse("db.c.insertMany({a:1})", &q, err, sizeof(err)) != 0 &&
+               strstr(err, "must be an array") != NULL,
+               "insertMany rejects a document");
+        EXPECT(mongo_query_parse("db.c.insertOne({a:1}, {}, {})", &q, err, sizeof(err)) != 0,
+               "insertOne rejects too many arguments");
+    }
+
+    /* --- updates / replace / deletes --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse(
+            "db.users.updateOne({_id: ObjectId(\"5f1d7f3e9b1e8a0012345678\")}, {$set: {a: [1,2]}}, {upsert: true})",
+            &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_UPDATE_ONE && q.nargs == 3, "updateOne parses");
+        EXPECT(streq(q.args[0], "{_id: ObjectId(\"5f1d7f3e9b1e8a0012345678\")}"),
+               "updateOne filter keeps the constructor call");
+        EXPECT(streq(q.args[1], "{$set: {a: [1,2]}}"), "updateOne update");
+        EXPECT(streq(q.args[2], "{upsert: true}"), "updateOne options");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.users.updateMany({}, [{$set: {a: 1}}])", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_UPDATE_MANY, "updateMany accepts a pipeline update");
+        EXPECT(streq(q.args[0], "{}") && streq(q.args[1], "[{$set: {a: 1}}]"), "updateMany args");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.users.replaceOne({a: 1}, {b: 2})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_REPLACE_ONE && q.nargs == 2, "replaceOne parses");
+        mongo_query_free(&q);
+
+        rc = mongo_query_parse("db.users.deleteOne({a: 1})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_DELETE_ONE && streq(q.args[0], "{a: 1}"), "deleteOne parses");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.deleteMany({})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_DELETE_MANY && streq(q.args[0], "{}"), "deleteMany({}) parses");
+        mongo_query_free(&q);
+
+        EXPECT(mongo_query_parse("db.users.deleteMany()", &q, err, sizeof(err)) != 0 &&
+               strstr(err, "at least 1") != NULL,
+               "deleteMany() without a filter is refused");
+        EXPECT(mongo_query_parse("db.users.updateOne({a: 1})", &q, err, sizeof(err)) != 0,
+               "updateOne needs an update");
+        EXPECT(mongo_query_parse("db.users.updateOne({a: 1}, 5)", &q, err, sizeof(err)) != 0,
+               "updateOne update must be a document");
+        EXPECT(mongo_query_parse("db.users.replaceOne({a: 1}, [1])", &q, err, sizeof(err)) != 0,
+               "replaceOne replacement must be a document");
+        EXPECT(mongo_query_parse("db.users.deleteOne({a: 1}) .foo()", &q, err, sizeof(err)) != 0,
+               "no chain after a delete");
+    }
+
+    /* --- count / distinct --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.users.countDocuments()", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_COUNT && q.nargs == 0, "countDocuments() parses");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.countDocuments({age: {$gt: 3}})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.nargs == 1 && streq(q.args[0], "{age: {$gt: 3}}"), "countDocuments(filter)");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.distinct(\"city\", {active: true})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_DISTINCT && q.nargs == 2, "distinct parses");
+        EXPECT(streq(q.args[0], "\"city\"") && streq(q.args[1], "{active: true}"), "distinct args");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.users.distinct()", &q, err, sizeof(err)) != 0,
+               "distinct needs a field");
+        EXPECT(mongo_query_parse("db.users.distinct({a: 1})", &q, err, sizeof(err)) != 0,
+               "distinct field must be a string");
+    }
+
+    /* --- indexes / collection management --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.users.createIndex({email: 1}, {unique: true, name: 'ux'})",
+                                   &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_CREATE_INDEX && q.nargs == 2, "createIndex parses");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.dropIndex('ux')", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_DROP_INDEX && streq(q.args[0], "'ux'"), "dropIndex by name");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.dropIndex({email: 1})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && streq(q.args[0], "{email: 1}"), "dropIndex by keys");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.getIndexes()", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_GET_INDEXES && q.nargs == 0, "getIndexes parses");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.users.drop()", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_DROP && streq(q.collection, "users"), "drop parses");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.system.js.drop();", &q, err, sizeof(err));
+        EXPECT(rc == 0 && streq(q.collection, "system.js"), "drop on a dotted collection");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.users.getIndexes(1)", &q, err, sizeof(err)) != 0,
+               "getIndexes takes no arguments");
+        EXPECT(mongo_query_parse("db.users.createIndex()", &q, err, sizeof(err)) != 0,
+               "createIndex needs keys");
+    }
+
+    /* --- db-level methods have no collection --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.createCollection(\"logs\", {capped: true, size: 1048576})",
+                                   &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_CREATE_COLLECTION && q.collection == NULL,
+               "createCollection parses without a collection");
+        EXPECT(q.nargs == 2 && streq(q.args[0], "\"logs\"") &&
+                   streq(q.args[1], "{capped: true, size: 1048576}"),
+               "createCollection args");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.runCommand({ping: 1})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_RUN_COMMAND && q.collection == NULL &&
+                   streq(q.args[0], "{ping: 1}"),
+               "runCommand parses");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.runCommand(\"ping\")", &q, err, sizeof(err));
+        EXPECT(rc == 0 && streq(q.args[0], "\"ping\""), "runCommand accepts a command name");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.users.runCommand({ping: 1})", &q, err, sizeof(err)) != 0 &&
+                   strstr(err, "runs on the database") != NULL,
+               "runCommand on a collection is refused");
+        EXPECT(mongo_query_parse("db.insertOne({a: 1})", &q, err, sizeof(err)) != 0 &&
+                   strstr(err, "runs on a collection") != NULL,
+               "a collection method on the db is refused");
+        EXPECT(mongo_query_parse("db.find()", &q, err, sizeof(err)) != 0,
+               "find on the db is refused");
+        EXPECT(mongo_query_parse("db.createCollection()", &q, err, sizeof(err)) != 0,
+               "createCollection needs a name");
+    }
+
+    /* --- unknown methods are UNSUPPORTED, distinct from a syntax error --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.users.bulkWrite([])", &q, err, sizeof(err));
+        EXPECT(rc == MONGO_PARSE_UNSUPPORTED, "unknown method reports UNSUPPORTED");
+        EXPECT(strstr(err, "unsupported operation 'bulkWrite'") != NULL, "error names the method");
+        EXPECT(q.collection == NULL, "nothing left allocated on failure");
+        EXPECT(mongo_query_parse("db.users.find({a:1)", &q, err, sizeof(err)) == MONGO_PARSE_SYNTAX,
+               "a malformed command is a SYNTAX error");
+        EXPECT(mongo_query_parse("db.users.remove({})", &q, err, sizeof(err)) == MONGO_PARSE_UNSUPPORTED,
+               "remove is unsupported");
+    }
+
+    /* --- mongo_unquote --- */
+    {
+        char *u = mongo_unquote("\"abc\"");
+        EXPECT(u != NULL && streq(u, "abc"), "unquote double");
+        free(u);
+        u = mongo_unquote("  'a\\'b\\\\c\\n'  ");
+        EXPECT(u != NULL && streq(u, "a'b\\c\n"), "unquote single with escapes");
+        free(u);
+        u = mongo_unquote("\"\\u00e9\\ud83d\\ude00\"");
+        EXPECT(u != NULL && streq(u, "\xc3\xa9\xf0\x9f\x98\x80"),
+               "unquote \\u escapes incl. surrogate pair");
+        free(u);
+        u = mongo_unquote("\"\"");
+        EXPECT(u != NULL && streq(u, ""), "unquote empty");
+        free(u);
+        EXPECT(mongo_unquote("abc") == NULL, "unquote needs quotes");
+        EXPECT(mongo_unquote("\"abc") == NULL, "unquote unterminated");
+        EXPECT(mongo_unquote("\"a\" \"b\"") == NULL, "unquote trailing text");
+        EXPECT(mongo_unquote("\"\\uZZZZ\"") == NULL, "unquote bad \\u");
+        EXPECT(mongo_unquote(NULL) == NULL, "unquote NULL");
+    }
+
+    /* --- db.getCollection("name") addresses any collection name --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse("db.getCollection(\"my-coll (v2)\").find({a: 1})", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_FIND, "getCollection + find parses");
+        EXPECT(streq(q.collection, "my-coll (v2)"), "getCollection keeps parentheses and dashes");
+        EXPECT(streq(q.filter, "{a: 1}"), "getCollection find filter");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.getCollection('it''s').deleteOne({a: 1})", &q, err, sizeof(err));
+        EXPECT(rc != 0, "a malformed string literal is rejected");
+        EXPECT(mongo_query_parse("db.getCollection(\"\").find()", &q, err, sizeof(err)) != 0,
+               "empty getCollection name rejected");
+        EXPECT(mongo_query_parse("db.getCollection(x).find()", &q, err, sizeof(err)) != 0,
+               "getCollection needs a string literal");
+        EXPECT(mongo_query_parse("db.getCollection(\"a\")", &q, err, sizeof(err)) != 0,
+               "getCollection without a method rejected");
+        EXPECT(mongo_query_parse("db.getCollection(\"a\").runCommand({ping: 1})", &q, err, sizeof(err)) != 0,
+               "a db-level method on getCollection is refused");
+    }
+
+    /* --- createView --- */
+    {
+        mongo_query q;
+        int rc = mongo_query_parse(
+            "db.createView(\"active\", \"users\", [{$match: {active: true}}], {collation: {locale: 'en'}})",
+            &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.op == MONGO_OP_CREATE_VIEW && q.collection == NULL && q.nargs == 4,
+               "createView parses with four arguments");
+        EXPECT(streq(q.args[2], "[{$match: {active: true}}]"), "createView pipeline");
+        mongo_query_free(&q);
+        rc = mongo_query_parse("db.createView('v', 'c', [])", &q, err, sizeof(err));
+        EXPECT(rc == 0 && q.nargs == 3, "createView with an empty pipeline");
+        mongo_query_free(&q);
+        EXPECT(mongo_query_parse("db.createView('v', 'c')", &q, err, sizeof(err)) != 0,
+               "createView needs a pipeline");
+        EXPECT(mongo_query_parse("db.createView('v', 'c', {})", &q, err, sizeof(err)) != 0 &&
+                   strstr(err, "must be an array") != NULL,
+               "createView pipeline must be an array");
+        EXPECT(mongo_query_parse("db.c.createView('v', 'c', [])", &q, err, sizeof(err)) != 0,
+               "createView on a collection is refused");
     }
 
     /* --- error cases --- */

@@ -5,6 +5,12 @@
  * relaxed, unquoted keys) and the document->row flattening (union columns,
  * SQL NULL for a missing field, a nested document rendered as a JSON cell).
  *
+ * It also covers the write and utility commands (insert/update/replace/delete,
+ * countDocuments, distinct, indexes, createCollection, drop, runCommand) with
+ * their real rows_affected, and that an unknown method is reported as UNSUPPORTED
+ * rather than faked. Those use a scratch collection (quaero_w) that the test
+ * creates and drops itself.
+ *
  * Requires a reachable server, PRE-SEEDED with a `quaero_it` collection holding:
  *   { _id: 1, name: "alice" }
  *   { _id: 2, name: "bob", extra: { k: 1 } }
@@ -63,6 +69,195 @@ static cJSON *cell(cJSON *res, int row, int col)
     cJSON *rows = cJSON_GetObjectItem(res, "rows");
     cJSON *r = cJSON_GetArrayItem(rows, row);
     return r != NULL ? cJSON_GetArrayItem(r, col) : NULL;
+}
+
+/* ---- helpers for the write / DML / DDL section ------------------------- */
+
+static int g_rpc_id = 100;
+
+/* Call `method` with `params` (ownership taken); returns the parsed response. */
+static cJSON *rpc(const char *method, cJSON *params)
+{
+    cJSON *req = cJSON_CreateObject();
+    cJSON_AddStringToObject(req, "jsonrpc", "2.0");
+    cJSON_AddNumberToObject(req, "id", g_rpc_id++);
+    cJSON_AddStringToObject(req, "method", method);
+    cJSON_AddItemToObject(req, "params", params);
+    char *text = cJSON_PrintUnformatted(req);
+    cJSON_Delete(req);
+    cJSON *root = call(text);
+    free(text);
+    return root;
+}
+
+static cJSON *params_for(const char *conn_id)
+{
+    cJSON *p = cJSON_CreateObject();
+    cJSON_AddStringToObject(p, "connId", conn_id);
+    return p;
+}
+
+/* Run a mongosh command; the caller deletes the response. */
+static cJSON *run(const char *conn_id, const char *sql)
+{
+    cJSON *p = params_for(conn_id);
+    cJSON_AddStringToObject(p, "sql", sql);
+    return rpc("query.run", p);
+}
+
+static int is_error(cJSON *root)
+{
+    return cJSON_GetObjectItem(root, "error") != NULL;
+}
+
+static const char *error_text(cJSON *root)
+{
+    cJSON *e = cJSON_GetObjectItem(root, "error");
+    cJSON *m = e ? cJSON_GetObjectItem(e, "message") : NULL;
+    return cJSON_IsString(m) ? m->valuestring : "(no error)";
+}
+
+/* The text of cell (0, column `name`) of a result, or "". */
+static const char *first_cell(cJSON *root, const char *name)
+{
+    cJSON *res = result_of(root);
+    int i = res ? col_index(res, name) : -1;
+    cJSON *c = i >= 0 ? cell(res, 0, i) : NULL;
+    return cJSON_IsString(c) ? c->valuestring : "";
+}
+
+/* rowsAffected of a query.run / row.* response, or -1. */
+static double rows_affected(cJSON *root)
+{
+    cJSON *res = result_of(root);
+    cJSON *n = res ? cJSON_GetObjectItem(res, "rowsAffected") : NULL;
+    return cJSON_IsNumber(n) ? n->valuedouble : -1;
+}
+
+static int row_count(cJSON *root)
+{
+    cJSON *res = result_of(root);
+    return res ? cJSON_GetArraySize(cJSON_GetObjectItem(res, "rows")) : -1;
+}
+
+/* Run `sql`, require success and the given rowsAffected, and (when col != NULL)
+   the first-row text of `col`. */
+static void expect_cmd(const char *conn_id, const char *sql, double affected,
+                       const char *col, const char *want)
+{
+    cJSON *root = run(conn_id, sql);
+    char msg[400];
+    snprintf(msg, sizeof msg, "%s succeeds (%s)", sql, is_error(root) ? error_text(root) : "ok");
+    EXPECT(!is_error(root), msg);
+    if (!is_error(root)) {
+        snprintf(msg, sizeof msg, "%s rowsAffected == %g (got %g)", sql, affected,
+                 rows_affected(root));
+        EXPECT(rows_affected(root) == affected, msg);
+        if (col != NULL) {
+            snprintf(msg, sizeof msg, "%s: %s is '%s' (got '%s')", sql, col, want,
+                     first_cell(root, col));
+            EXPECT(strcmp(first_cell(root, col), want) == 0, msg);
+        }
+    }
+    cJSON_Delete(root);
+}
+
+/* Run `sql` and require an error whose message contains `frag` (and, when
+   code != 0, that JSON-RPC error code). */
+static void expect_cmd_error(const char *conn_id, const char *sql, int code, const char *frag)
+{
+    cJSON *root = run(conn_id, sql);
+    char msg[400];
+    snprintf(msg, sizeof msg, "%s fails", sql);
+    EXPECT(is_error(root), msg);
+    if (is_error(root)) {
+        snprintf(msg, sizeof msg, "%s error mentions '%s' (got '%s')", sql, frag, error_text(root));
+        EXPECT(strstr(error_text(root), frag) != NULL, msg);
+        if (code != 0) {
+            cJSON *c = cJSON_GetObjectItem(cJSON_GetObjectItem(root, "error"), "code");
+            snprintf(msg, sizeof msg, "%s error code is %d", sql, code);
+            EXPECT(cJSON_IsNumber(c) && (int)c->valuedouble == code, msg);
+        }
+    }
+    cJSON_Delete(root);
+}
+
+/* Write and utility commands, against a scratch collection. */
+static void write_section(const char *conn_id)
+{
+    cJSON *root;
+    char msg[400];
+
+    /* Start clean (the collection may not exist: that error is ignored). */
+    cJSON_Delete(run(conn_id, "db.quaero_w.drop()"));
+
+    expect_cmd(conn_id, "db.createCollection(\"quaero_w\")", 0, "created", "quaero_w");
+
+    /* --- inserts: real counts, an acknowledged result --------------------- */
+    expect_cmd(conn_id, "db.quaero_w.insertOne({_id: 1, name: 'a', n: 10})", 1, "insertedId", "1");
+    expect_cmd(conn_id,
+               "db.quaero_w.insertMany([{_id: 2, name: 'b', n: 20}, {_id: 3, name: 'c', n: 30}])",
+               2, "insertedCount", "2");
+    expect_cmd_error(conn_id, "db.quaero_w.insertOne({_id: 1})", 0, "duplicate key");
+
+    /* --- updates: rows_affected is the matched count, modifiedCount is shown --- */
+    expect_cmd(conn_id, "db.quaero_w.updateOne({_id: 1}, {$set: {n: 11}})", 1, "modifiedCount", "1");
+    expect_cmd(conn_id, "db.quaero_w.updateOne({_id: 1}, {$set: {n: 11}})", 1, "modifiedCount", "0");
+    expect_cmd(conn_id, "db.quaero_w.updateMany({}, {$inc: {n: 1}})", 3, "modifiedCount", "3");
+    expect_cmd(conn_id, "db.quaero_w.updateOne({_id: 99}, {$set: {n: 1}})", 0, "matchedCount", "0");
+    expect_cmd(conn_id, "db.quaero_w.updateOne({_id: 99}, {$set: {n: 1}}, {upsert: true})", 1,
+               "upsertedCount", "1");
+    expect_cmd(conn_id, "db.quaero_w.updateOne({_id: 99}, [{$set: {n: 5}}])", 1, "modifiedCount", "1");
+    expect_cmd(conn_id, "db.quaero_w.replaceOne({_id: 3}, {name: 'cc'})", 1, "matchedCount", "1");
+    expect_cmd_error(conn_id, "db.quaero_w.updateOne({_id: 1}, {n: 5})", 0, "");
+
+    /* --- reads ------------------------------------------------------------ */
+    expect_cmd(conn_id, "db.quaero_w.countDocuments({})", 0, "count", "4");
+    expect_cmd(conn_id, "db.quaero_w.countDocuments({name: 'a'})", 0, "count", "1");
+    root = run(conn_id, "db.quaero_w.distinct('name')");
+    snprintf(msg, sizeof msg, "distinct returns the 3 distinct names (got %d)", row_count(root));
+    EXPECT(row_count(root) == 3, msg);
+    cJSON_Delete(root);
+    root = run(conn_id, "db.quaero_w.findOne({_id: 2})");
+    EXPECT(row_count(root) == 1 && strcmp(first_cell(root, "name"), "b") == 0,
+           "findOne returns the document");
+    cJSON_Delete(root);
+    root = run(conn_id, "db.quaero_w.findOne({_id: 12345})");
+    EXPECT(!is_error(root) && row_count(root) == 0, "findOne with no match returns no rows");
+    cJSON_Delete(root);
+
+    /* --- indexes ---------------------------------------------------------- */
+    expect_cmd(conn_id, "db.quaero_w.createIndex({name: 1}, {unique: true})", 0, "name", "name_1");
+    expect_cmd(conn_id, "db.quaero_w.createIndex({n: -1, name: 1}, {name: 'by_n'})", 0, "name",
+               "by_n");
+    root = run(conn_id, "db.quaero_w.getIndexes()");
+    EXPECT(row_count(root) == 3, "getIndexes lists _id_, name_1 and by_n");
+    cJSON_Delete(root);
+
+    expect_cmd(conn_id, "db.quaero_w.dropIndex('by_n')", 0, "nIndexesWas", "3");
+    expect_cmd(conn_id, "db.quaero_w.dropIndex({name: 1})", 0, "nIndexesWas", "2");
+    expect_cmd_error(conn_id, "db.quaero_w.dropIndex('nope')", 0, "");
+
+    /* --- runCommand ------------------------------------------------------- */
+    expect_cmd(conn_id, "db.runCommand({ping: 1})", 0, "ok", "1");
+    expect_cmd(conn_id, "db.runCommand('ping')", 0, "ok", "1");
+    expect_cmd(conn_id, "db.runCommand({delete: 'quaero_w', deletes: [{q: {_id: 99}, limit: 1}]})",
+               1, "n", "1");
+    expect_cmd_error(conn_id, "db.runCommand({noSuchCommandXyz: 1})", 0, "");
+
+    /* --- deletes ------------------------------------------------------------ */
+    expect_cmd(conn_id, "db.quaero_w.deleteOne({_id: 3})", 1, "deletedCount", "1");
+    expect_cmd(conn_id, "db.quaero_w.deleteMany({})", 2, "deletedCount", "2");
+
+    /* --- unsupported / malformed are explicit errors, never a fake success ---- */
+    expect_cmd_error(conn_id, "db.quaero_w.bulkWrite([])", -32001,
+                     "unsupported operation 'bulkWrite'");
+    expect_cmd_error(conn_id, "db.quaero_w.deleteMany()", 0, "at least 1");
+    expect_cmd_error(conn_id, "db.quaero_w.insertOne({a: })", 0, "invalid document");
+    expect_cmd_error(conn_id, "db.runCommand({ping: 1}, {readPreference: 'primary'})", -32001,
+                     "not supported");
+
+    expect_cmd(conn_id, "db.quaero_w.drop()", 0, "dropped", "quaero_w");
 }
 
 int main(void)
@@ -216,6 +411,8 @@ int main(void)
         cJSON_Delete(root);
     }
 
+    write_section(conn_id);
+
     /* conn.close. */
     snprintf(req, sizeof req,
              "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"conn.close\","
@@ -231,7 +428,7 @@ int main(void)
     dbc_plugin_unload(plugin);
 
     if (failures == 0) {
-        printf("OK: MongoDB integration (conn + query + schema over IPC)\n");
+        printf("OK: MongoDB integration (conn + query + writes over IPC)\n");
         return 0;
     }
     fprintf(stderr, "%d assertion(s) failed\n", failures);
