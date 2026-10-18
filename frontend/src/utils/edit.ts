@@ -122,7 +122,14 @@ export function rowCountOk(engine: string, kind: "update" | "delete" | "insert",
   return rowsAffected === 0 && kind === "update" && family === "mysql";
 }
 
-/** Builds the params object for a row.* method, omitting undefined qualifiers. */
+/**
+ * Builds the params object for a row.* method, omitting undefined qualifiers.
+ * row.* reads only `schema` (docs/IPC.md), so a target named by its database
+ * alone — a MySQL `db.table`, an Informix `db:table`, an attached SQLite
+ * database — sends it there, the same `schema ?? db` rule schema.describe
+ * follows. Without it the edit hit the session's current database instead of
+ * the one the rows were read from (issue #718).
+ */
 function baseParams(
   connId: string,
   target: EditTarget,
@@ -130,7 +137,8 @@ function baseParams(
 ): Record<string, unknown> {
   const params: Record<string, unknown> = { connId, table: target.table };
   if (target.db !== undefined) params.db = target.db;
-  if (target.schema !== undefined) params.schema = target.schema;
+  const schema = target.schema ?? target.db;
+  if (schema !== undefined) params.schema = schema;
   if (preview) params.preview = true;
   return params;
 }
