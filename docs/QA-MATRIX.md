@@ -17,7 +17,7 @@ cambiando ⏳ → ✅/⚠️/❌ a medida que se prueba en vivo. El smoke automa
 | ⏳ | Sin verificar todavía |
 
 **Motores:** SQLite (embebido), MySQL/MariaDB (motor de referencia), Informix
-(ODBC, build x86), MongoDB (solo lectura: find/aggregate). **PostgreSQL** (libpq)
+(ODBC, build x86), MongoDB (find/aggregate, escrituras mongosh, edición por `_id`; sin transacciones). **PostgreSQL** (libpq)
 ya se distribuye (#22/#23, PR #275); su camino núcleo + funciones específicas del
 motor están verificados en vivo por `scripts/smoke/postgres-features.mjs` (10/10
 vs `postgres:16`, ver [QA-SMOKE](./QA-SMOKE.md)). Aún no tiene columna propia en
@@ -43,7 +43,7 @@ pudo verificar: el contenedor de 2022 sin configurar corta la conexión.
 | Describe / estructura / DDL | ✅ | ✅ | ✅ 29 | ⚠️ 4·34 |
 | Ejecutar consulta | ✅ | ✅ | ✅ 28 | ⚠️ 5·34 |
 | Paginación real (offset) | ✅ | ✅ | ✅ 28 | ✅ |
-| Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ✅ 32 | ➖ 6 |
+| Edición transaccional (insert/update/delete + rollback) | ✅ | ✅ | ✅ 32 | ⚠️ 6 |
 | Detalle de fila (form view) | ⏳ | ⏳ | ⏳ | ⚠️ 7 |
 | Export CSV / JSON / SQL / XML / HTML / XLSX | ✅ 8 | ✅ 8 | ✅ 8·35 | ⏳ 8 |
 | Import CSV / JSON / XLSX | ⏳ | ⏳ | ⏳ | ➖ 6 |
@@ -76,10 +76,15 @@ Las razones ➖ son las que la propia UI muestra (fuente: `frontend/src/utils/*`
 3. **MongoDB — árbol:** colecciones en lugar de tablas; sin carpetas de rutinas.
 4. **MongoDB — describe:** los tipos/columnas se infieren muestreando ~200 documentos.
 5. **MongoDB — consulta:** sintaxis mongosh (`db.coll.find({...}).sort().limit()`),
-   solo `find`/`aggregate` (lectura).
-6. **MongoDB — escritura:** «MongoDB es de solo lectura en Squaero (find/aggregate)»
-   → edición, import, generación, diseñador, sync no aplican.
-7. **MongoDB — detalle de fila:** disponible en modo lectura (sin editar).
+   `find`/`findOne`/`aggregate`, escrituras (`insertOne/Many`, `updateOne/Many`,
+   `replaceOne`, `deleteOne/Many`), `countDocuments`, `distinct`, índices,
+   `createCollection`/`createView`/`drop` y `runCommand`, con `rowsAffected` real; un
+   método desconocido es un error «no soportado» explícito (#719).
+6. **MongoDB — edición:** la cuadrícula edita documentos por `_id` (`build_dml`
+   genera `insertOne`/`updateOne`/`deleteOne`). **Sin transacciones:** cada cambio se
+   aplica al momento y un fallo a medias conserva los anteriores (se avisa). Import,
+   generación, diseñador y sync siguen sin aplicar.
+7. **MongoDB — detalle de fila:** disponible; edita por `_id` como la cuadrícula.
 8. **Engine-agnóstico:** funciona sobre el conjunto de resultados/cliente, igual en
    todos los motores; ⏳ hasta confirmarlo en vivo o por el smoke.
 9. **SQLite — monitor:** «SQLite es una base de datos embebida: no tiene procesos de servidor.»
