@@ -117,8 +117,18 @@ describe("row.* param builders", () => {
       connId: "c1",
       table: "users",
       db: "shop",
+      schema: "shop",
       values: { id: "3", name: "carol" },
     });
+  });
+
+  it("sends a database-only target as the schema row.* reads, a schema as itself", () => {
+    // row.* reads only `schema`: a MySQL `shop.users` must not land on the
+    // session's current database instead.
+    expect(deleteParams("c1", target, { id: "1" })).toMatchObject({ db: "shop", schema: "shop" });
+    expect(
+      deleteParams("c1", { table: "t", db: "app", schema: "public" }, { id: "1" }),
+    ).toMatchObject({ db: "app", schema: "public" });
   });
 
   it("update carries set + where, and preview when asked", () => {
