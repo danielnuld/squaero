@@ -129,6 +129,8 @@ for (const theme of ["light", "dark"] as const) {
         const { page } = app;
         await app.open();
         await page.getByRole("button", { name: "Ajustes" }).click();
+        // The grid category: the one with the most to look at (#684 split the panel).
+        await page.locator(".settings-nav-item", { hasText: "Rejilla" }).click();
         await expect(page.getByText("Colorear los datos por tipo")).toBeVisible();
         await expectTheme(page, theme);
         await shot(page, "settings");

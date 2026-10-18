@@ -44,17 +44,19 @@ jobs:
       run:
         shell: bash
     steps:
+      # Before the checkout: without git in the image it downloads a tarball with
+      # no repository, and the update run has to commit. unzip is for get-cmake.
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential git unzip
+
       - uses: actions/checkout@v7
 
       # The core and the SQLite driver are built here, in the container, so the
       # spec drives the real quaero-rpc like every other e2e test. gcc comes from
       # apt; CMake and Ninja from the usual action (jammy's cmake is 3.22, fine,
       # but one source of truth for the version is better than two).
-      - name: Install build tools
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends build-essential
-
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest
 
@@ -107,6 +109,7 @@ jobs:
       - name: Commit the baselines
         if: inputs.update
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
           git add frontend/e2e/visual/__screenshots__
