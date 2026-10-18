@@ -106,6 +106,30 @@ describe("ConfirmDialog", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it("offers a third choice only when asked to (#667)", () => {
+    const onAlt = vi.fn();
+    const onConfirm = vi.fn();
+    mount(() => (
+      <ConfirmDialog
+        message="m"
+        confirmLabel="Revertir"
+        altLabel="Confirmar"
+        onAlt={onAlt}
+        onConfirm={onConfirm}
+        onCancel={() => {}}
+      />
+    ));
+    expect(host!.querySelectorAll(".modal-actions button").length).toBe(3);
+    clickText("Confirmar");
+    expect(onAlt).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("has two buttons without an alternative", () => {
+    mount(() => <ConfirmDialog message="m" onConfirm={() => {}} onCancel={() => {}} />);
+    expect(host!.querySelectorAll(".modal-actions button").length).toBe(2);
+  });
+
   it("omits the SQL block when no sql is given", () => {
     mount(() => <ConfirmDialog message="m" onConfirm={() => {}} onCancel={() => {}} />);
     expect(host!.querySelector("pre.ddl-text")).toBeNull();

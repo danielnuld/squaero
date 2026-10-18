@@ -16,6 +16,9 @@ export function StatusBar(props: {
   connection: string | null;
   rowCount: number | null;
   truncated: boolean;
+  /** Statements in the connection's open transaction (issue #667); null/absent
+      = no transaction open. */
+  txStatements?: number | null;
   /** Rows marked in the grid (issue #382); 0 hides the indicator. */
   markedCount?: number;
   elapsedMs: number | null;
@@ -53,6 +56,11 @@ export function StatusBar(props: {
           /
         </span>
         <span class="status-item status-object">{props.object}</span>
+      </Show>
+      <Show when={props.txStatements != null}>
+        <span class="status-item status-tx" title={t("tx.openTitle", { n: props.txStatements! })}>
+          {t("tx.open", { n: props.txStatements! })}
+        </span>
       </Show>
       <span class="status-spacer" />
       {/* The pager, formerly a band of its own under the grid. */}

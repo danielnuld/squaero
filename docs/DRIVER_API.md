@@ -86,6 +86,14 @@ typedef enum {
 } dbc_type;
 ```
 
+Una vez abierta la conexión, `DBC_ERR_CONN` significa **«la sesión murió»** y no
+otra cosa: es lo que el frontend usa para reconectar y, si es seguro, reintentar
+(#407, #676). Un driver devuelve `DBC_ERR_CONN` desde `query`/`next_row`/`begin`/…
+solo cuando el motor dice que la conexión se cayó (PostgreSQL `CONNECTION_BAD`,
+MySQL `CR_SERVER_GONE_ERROR`/`CR_SERVER_LOST`, FreeTDS `dbdead`…); un error de la
+sentencia es `DBC_ERR_QUERY`. Ante la duda, `DBC_ERR_QUERY`: nunca dispara un
+reintento.
+
 `col_type` devuelve un `dbc_type` neutral. El mapeo motor→neutral lo hace el
 driver; el núcleo y la UI nunca ven códigos de tipo específicos del motor.
 `DBC_TYPE_NULL` es el tipo de una columna cuyo tipo no se puede determinar — **no**

@@ -146,6 +146,20 @@ describe("ConnectionBar rows", () => {
     expect(host!.textContent).not.toContain("desconectada");
   });
 
+  it("says it is reconnecting by itself, without offering a second reconnect (#676)", () => {
+    mount({ open: [row({ defId: "a", name: "Prod", lost: true, reconnecting: true })] });
+    expect(host!.querySelector(".connbar-reconnecting")?.textContent).toBe("reconectando…");
+    expect(host!.textContent).not.toContain("desconectada");
+    expect(host!.querySelector(".conn-live")).toBeNull();
+  });
+
+  it("says it reconnected, for a moment, in place of the live dot (#676)", () => {
+    mount({ open: [row({ defId: "a", name: "Prod", reconnected: true })] });
+    const mark = host!.querySelector(".connbar-reconnecting");
+    expect(mark?.textContent).toBe("reconectada");
+    expect(mark?.getAttribute("title")).toBe("Reconectado a «Prod».");
+  });
+
   it("disables the row actions while a connection is being opened", () => {
     mount({ open: [row({ defId: "a", name: "Prod", lost: true })], connectingId: "b" });
     expect(button("Reconectar").disabled).toBe(true);

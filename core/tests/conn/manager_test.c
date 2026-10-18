@@ -115,6 +115,14 @@ int main(void)
     EXPECT(dbcore_conn_manager_get(mgr, 999, &ref) == 0, "get unknown id");
     EXPECT(dbcore_conn_manager_get(mgr, id1, NULL) == 0, "get with NULL out");
 
+    /* The open-transaction flag (#667): per connection, 0 when unknown. */
+    EXPECT(dbcore_conn_manager_in_tx(mgr, id1) == 0, "no transaction to start with");
+    EXPECT(dbcore_conn_manager_set_in_tx(mgr, id1, 1) == 1, "set in_tx");
+    EXPECT(dbcore_conn_manager_in_tx(mgr, id1) == 1, "in_tx is set");
+    EXPECT(dbcore_conn_manager_in_tx(mgr, id2) == 0, "the other connection is untouched");
+    EXPECT(dbcore_conn_manager_set_in_tx(mgr, 999, 1) == 0, "set in_tx on an unknown id");
+    EXPECT(dbcore_conn_manager_in_tx(mgr, 999) == 0, "unknown id has no transaction");
+
     /* Close one; the slot frees and the id is never reused. */
     EXPECT(dbcore_conn_manager_close(mgr, id1) == DBC_OK, "close 1");
     EXPECT(dbcore_conn_manager_count(mgr) == 1, "one open after close");
@@ -122,6 +130,7 @@ int main(void)
     int id3 = 0;
     EXPECT(dbcore_conn_manager_open(mgr, &ok, "{}", &id3, err, sizeof err) == DBC_OK, "open 3");
     EXPECT(id3 == 3, "ids are never reused");
+    EXPECT(dbcore_conn_manager_in_tx(mgr, id3) == 0, "a reused slot starts without a transaction");
 
     /* Error paths. */
     EXPECT(dbcore_conn_manager_close(mgr, 999) == DBC_ERR_PARAM, "close unknown is PARAM");

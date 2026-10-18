@@ -13,9 +13,17 @@ static char g_tx_error[256];
 typedef dbc_status (*tx_fn)(const dbcore_conn_ref *, char *, size_t);
 
 /* Shared body for the three tx.* methods: resolve the connection and delegate to
-   `op`, returning {ok: true} or mapping the driver status to an error. */
+   `op`, returning {ok: true} or mapping the driver status to an error.
+
+   `begins` says whether `op` opens a transaction. The manager remembers one
+   opened here (issue #667): a second tx.begin is refused rather than handed to
+   the engine — MySQL's START TRANSACTION would quietly commit the first one, so
+   a grid edit started inside the user's manual transaction would commit it. A
+   commit clears the flag once it succeeds (a failed one leaves the transaction
+   to be rolled back); a rollback clears it whatever the engine said, since
+   there is nothing left to end either way. */
 static cJSON *tx_dispatch(const cJSON *params, int *code, const char **message,
-                          tx_fn op)
+                          tx_fn op, int begins)
 {
     const cJSON *conn_id = cJSON_GetObjectItemCaseSensitive(params, "connId");
     if (!cJSON_IsString(conn_id) || conn_id->valuestring == NULL) {
@@ -44,7 +52,18 @@ static cJSON *tx_dispatch(const cJSON *params, int *code, const char **message,
         return NULL;
     }
 
+    dbcore_conn_manager *mgr = dbcore_runtime_conns(rt);
+    if (begins && dbcore_conn_manager_in_tx(mgr, id)) {
+        *code = IPC_ERR_QUERY;
+        *message = "a transaction is already open on this connection; "
+                   "commit or roll it back first";
+        return NULL;
+    }
+
     dbc_status st = op(&ref, g_tx_error, sizeof g_tx_error);
+    if (op == dbcore_tx_rollback || st == DBC_OK) {
+        dbcore_conn_manager_set_in_tx(mgr, id, begins);
+    }
     if (st != DBC_OK) {
         *code = ipc_status_to_code(st);
         *message = g_tx_error[0] != '\0' ? g_tx_error : "transaction failed";
@@ -64,15 +83,15 @@ static cJSON *tx_dispatch(const cJSON *params, int *code, const char **message,
 
 cJSON *ipc_method_tx_begin(const cJSON *params, int *code, const char **message)
 {
-    return tx_dispatch(params, code, message, dbcore_tx_begin);
+    return tx_dispatch(params, code, message, dbcore_tx_begin, 1);
 }
 
 cJSON *ipc_method_tx_commit(const cJSON *params, int *code, const char **message)
 {
-    return tx_dispatch(params, code, message, dbcore_tx_commit);
+    return tx_dispatch(params, code, message, dbcore_tx_commit, 0);
 }
 
 cJSON *ipc_method_tx_rollback(const cJSON *params, int *code, const char **message)
 {
-    return tx_dispatch(params, code, message, dbcore_tx_rollback);
+    return tx_dispatch(params, code, message, dbcore_tx_rollback, 0);
 }

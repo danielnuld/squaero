@@ -231,18 +231,22 @@ export interface StatementRun {
  * A failure stops the run and is reported on its own statement rather than
  * thrown, so the results already obtained are not lost with it — the workspace
  * shows them beside the statement that failed.
+ *
+ * `exec` wraps each statement's query.run — the editor passes the connection's
+ * transaction handling through it (issue #667). Absent, it is just the run.
  */
 export async function runStatements(
   connId: string,
   stmts: string[],
   limit?: number,
+  exec: (sql: string, run: () => Promise<ResultSet>) => Promise<ResultSet> = (_sql, run) => run(),
 ): Promise<StatementRun[]> {
   const runs: StatementRun[] = [];
   for (const sql of stmts) {
     const started = performance.now();
     try {
       // eslint-disable-next-line no-await-in-loop -- statements run in order
-      const result = await runQuery(connId, sql, limit);
+      const result = await exec(sql, () => runQuery(connId, sql, limit));
       runs.push({ sql, result, elapsedMs: performance.now() - started });
     } catch (error) {
       runs.push({ sql, result: null, error, elapsedMs: performance.now() - started });
