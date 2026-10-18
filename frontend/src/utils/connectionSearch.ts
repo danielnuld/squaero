@@ -32,7 +32,7 @@ export interface SearchGroup {
  * below is those marks; without this, a Spanish name is only findable by
  * someone willing to type the accent.
  */
-function fold(text: string): string {
+export function fold(text: string): string {
   return text
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

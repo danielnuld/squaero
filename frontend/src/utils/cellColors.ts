@@ -15,8 +15,9 @@
 import type { CellKind } from "./format";
 import { contrastRatio, AA_NORMAL } from "./contrast";
 import type { ResolvedTheme } from "./theme";
-import type { SkinPref } from "./skin";
-import { isDarkOnly } from "./skin";
+import { normalizeHex } from "./themeSchema";
+
+export { normalizeHex };
 
 /**
  * The CSS variable each kind reads.
@@ -48,23 +49,25 @@ export type CellColorStore = Record<string, CellColors>;
 export const CELL_COLORS_KEY = "quaero.cellColors";
 
 /**
- * Which palette a look uses: a theme that brings its own surfaces answers with
- * its own name, everything else with light or dark. That is exactly the set of
- * palettes styles.css defines, so an override can never land on a look that has
- * no colours of its own.
+ * Which palette a look uses: one per theme variant (issue #680), e.g.
+ * `terminal:dark`. Every theme has both variants now, so this is simply the
+ * pair — no theme answers with a name of its own any more.
  */
-export function paletteKey(theme: ResolvedTheme, skin: SkinPref): string {
-  return isDarkOnly(skin) ? skin : theme;
+export function paletteKey(theme: ResolvedTheme, themeId: string): string {
+  return `${themeId}:${theme}`;
 }
 
-/** `#rgb` / `#rrggbb` (any case) normalised to lowercase `#rrggbb`, or null. */
-export function normalizeHex(value: string): string | null {
-  const raw = value.trim().toLowerCase();
-  if (/^#[0-9a-f]{3}$/.test(raw)) {
-    return "#" + raw.slice(1).split("").map((c) => c + c).join("");
-  }
-  return /^#[0-9a-f]{6}$/.test(raw) ? raw : null;
-}
+/**
+ * The keys the old model wrote (#483): "light"/"dark" were SHARED by the two
+ * accent skins, and a surfaces-owning skin had its own. Mapped once, on read.
+ */
+const LEGACY_PALETTE_KEYS: Record<string, string[]> = {
+  light: ["indigo:light", "blue:light"],
+  dark: ["indigo:dark", "blue:dark"],
+  ciruela: ["ciruela:dark"],
+  pizarra: ["pizarra:dark"],
+  terminal: ["terminal:dark"],
+};
 
 /**
  * Whether `colour` can be read on `background`.
@@ -116,7 +119,11 @@ export function parseCellColors(raw: string | null): CellColorStore {
   const out: CellColorStore = {};
   for (const key of Object.keys(data as Record<string, unknown>)) {
     const colors = colorsFor(data as CellColorStore, key);
-    if (Object.keys(colors).length > 0) out[key] = colors;
+    if (Object.keys(colors).length === 0) continue;
+    // A new-style key wins over whatever a legacy key would migrate onto.
+    for (const k of LEGACY_PALETTE_KEYS[key] ?? [key]) {
+      if (k === key || !(k in (data as Record<string, unknown>))) out[k] = colors;
+    }
   }
   return out;
 }

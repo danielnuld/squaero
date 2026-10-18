@@ -99,18 +99,37 @@ import { autoFocus } from "./utils/autoFocus";
 import { runnableStatements, type RunScope } from "./utils/runScope";
 import { copyRows, rowToJson, rowsAsInserts, copyText } from "./utils/rowCopy";
 import {
-  loadTheme,
   saveTheme,
   nextTheme,
   applyTheme,
   resolveTheme,
   type ThemePref,
+  type ResolvedTheme,
 } from "./utils/theme";
-import { loadSkin, saveSkin, applySkin, isDarkOnly, type SkinPref } from "./utils/skin";
-import { matchShortcut, type ActionId } from "./utils/shortcuts";
 import { installHostGuards } from "./utils/hostGuards";
 import { setShellTheme, setShellTitle, windowTitle } from "./utils/shell";
 import { buildMenuModel, hasShellMenu, onShellMenu, setShellMenu } from "./utils/nativeMenu";
+import {
+  loadThemeChoice,
+  saveThemeId,
+  loadCustomThemes,
+  saveCustomThemes,
+  addCustomTheme,
+  removeCustomTheme,
+  customThemeId,
+  findTheme,
+} from "./utils/themeStore";
+import { themeCss, type Theme } from "./utils/themeSchema";
+import { BUILTIN_THEMES, DEFAULT_THEME_ID } from "./utils/themes";
+import {
+  displayKeys,
+  effectiveShortcuts,
+  matchShortcut,
+  type ActionId,
+  type ShortcutOverrides,
+} from "./utils/shortcuts";
+import { loadShortcutOverrides, saveShortcutOverrides } from "./utils/shortcutStore";
+import type { ConfigBundle } from "./utils/settingsCatalog";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import {
   clampEditorPct,
@@ -172,6 +191,14 @@ import {
 import { loadSnippets, saveSnippets } from "./utils/snippetStore";
 import { BUILTIN_TEMPLATES, resolveTemplates } from "./utils/sqlTemplates";
 import { rowHeightFor, type Settings } from "./utils/settings";
+import {
+  applyTypography,
+  gridScale,
+  nextZoom,
+  prevZoom,
+  treeRowHeight,
+  typographyVars,
+} from "./utils/typography";
 import { applyPlan } from "./utils/editApply";
 import { idleTx, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
 import { TxControls } from "./components/TxControls";
@@ -293,7 +320,7 @@ import { summarizeCells } from "./utils/cellSummary";
 import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
 import { IconSearch } from "./components/icons";
-import { locale, t } from "./utils/i18n";
+import { locale, setLocale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
 import {
   checkForUpdate,
@@ -685,6 +712,18 @@ export function App() {
   // holds only the settings owned by settings.ts (grid density, slow threshold,
   // check-updates-on-start). Patched immutably so the panel stays controlled.
   const [settings, setSettings] = createSignal<Settings>(loadSettings());
+  // The user's rebound keys (issue #684): the matcher, the help overlay and the
+  // settings editor all read the one effective table.
+  const [shortcutOverrides, setShortcutOverridesSignal] = createSignal<ShortcutOverrides>(
+    loadShortcutOverrides(),
+  );
+  const shortcuts = createMemo(() => effectiveShortcuts(shortcutOverrides()));
+  const setShortcutOverrides = (o: ShortcutOverrides) => {
+    setShortcutOverridesSignal(o);
+    saveShortcutOverrides(o);
+  };
+  const paletteKeys = () =>
+    displayKeys(shortcuts().find((sc) => sc.id === "command-palette")?.keys ?? "Mod+K", isMac());
   const patchSettings = (patch: Partial<Settings>) => {
     const next = { ...settings(), ...patch };
     setSettings(next);
@@ -699,49 +738,78 @@ export function App() {
       return undefined;
     }
   };
-  const [theme, setTheme] = createSignal<ThemePref>(loadTheme(safeStorage()));
+  // One read gives the mode AND the theme id, migrating the old skin key (#680).
+  const themeChoice = loadThemeChoice(safeStorage());
+  const [theme, setTheme] = createSignal<ThemePref>(themeChoice.mode);
 
   const prefersDark = () =>
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-color-scheme: dark)").matches;
+  /** The mode on screen (never "system"), as last stamped on the root. */
+  const [resolved, setResolved] = createSignal<ResolvedTheme>(
+    resolveTheme(themeChoice.mode, prefersDark()),
+  );
+  // Stamp the resolved mode on the document and tell the shell, so the native
+  // title bar changes with it (issue #685).
+  const stampMode = () => {
+    if (typeof document !== "undefined") {
+      const r = applyTheme(theme(), document.documentElement, prefersDark());
+      setResolved(r);
+      setShellTheme(r);
+    }
+  };
   const isMac = () =>
     typeof navigator !== "undefined" &&
     /mac/i.test(navigator.platform || navigator.userAgent || "");
 
-  // Stamp the resolved theme on the document and tell the shell, so the native
-  // title bar changes with it (issue #685).
-  const stampTheme = (pref: ThemePref, s: SkinPref) => {
-    if (typeof document === "undefined") return;
-    setShellTheme(applyTheme(pref, document.documentElement, prefersDark(), isDarkOnly(s)));
-  };
-
   const applyThemePref = (pref: ThemePref) => {
     setTheme(pref);
     saveTheme(pref, safeStorage());
-    stampTheme(pref, skin());
+    stampMode();
   };
   const toggleTheme = () => applyThemePref(nextTheme(theme()));
 
-  // Colour theme: the accent skins (indigo/blue) layer over light or dark; the
-  // three that bring their own surfaces (issue #473) hold it at dark for as long
-  // as they are picked — hence re-applying the theme here, not just the skin.
-  const [skin, setSkin] = createSignal<SkinPref>(loadSkin(safeStorage()));
-  const applySkinPref = (s: SkinPref) => {
-    setSkin(s);
-    saveSkin(s, safeStorage());
-    if (typeof document !== "undefined") {
-      applySkin(s, document.documentElement);
-      stampTheme(theme(), s);
-    }
+  // The theme (issue #680): built-in or imported, every one with both variants.
+  // Its tokens go into a generated <style> block rather than inline on the root,
+  // so the per-type cell colour overrides below — which ARE inline — keep
+  // winning over the theme, as they did over the stylesheet.
+  const [themeId, setThemeId] = createSignal(themeChoice.themeId);
+  const [customThemes, setCustomThemes] = createSignal<Theme[]>(loadCustomThemes(safeStorage()));
+  const allThemes = () => [...BUILTIN_THEMES, ...customThemes()];
+  const setThemeChoice = (id: string) => {
+    setThemeId(id);
+    saveThemeId(id, safeStorage());
   };
+  const importTheme = (t: Theme) => {
+    const list = addCustomTheme(customThemes(), t);
+    setCustomThemes(list);
+    saveCustomThemes(list, safeStorage());
+    setThemeChoice(customThemeId(t.id));
+  };
+  const removeTheme = (id: string) => {
+    const list = removeCustomTheme(customThemes(), id);
+    setCustomThemes(list);
+    saveCustomThemes(list, safeStorage());
+    if (themeId() === id) setThemeChoice(DEFAULT_THEME_ID);
+  };
+  createEffect(() => {
+    if (typeof document === "undefined") return;
+    let el = document.getElementById("quaero-theme");
+    if (!el) {
+      el = document.createElement("style");
+      el.id = "quaero-theme";
+      document.head.appendChild(el);
+    }
+    el.textContent = themeCss(findTheme(themeId(), customThemes()), resolved());
+  });
 
   // Colours per data type (issue #483). The store holds one set of overrides
   // PER LOOK: a blue that reads on the light theme is invisible on Terminal, so
   // "adapt them between themes" cannot mean carrying one value everywhere.
   const [cellColorStore, setCellColorStore] = createSignal<CellColorStore>(loadCellColors());
   /** The palette the overrides on screen belong to. */
-  const palette = () => paletteKey(resolveTheme(theme(), prefersDark(), isDarkOnly(skin())), skin());
+  const palette = () => paletteKey(resolved(), themeId());
   const cellColors = (): CellColors => colorsFor(cellColorStore(), palette());
 
   // Applied as inline custom properties on the root, so the CSS keeps its own
@@ -769,6 +837,14 @@ export function App() {
     document.documentElement.setAttribute("data-grid-style", settings().gridStyle);
   });
 
+  // Typography and zoom (issue #681): the type scale, spacing, control heights
+  // and the editor's and grid's fonts go inline on the root, the same route as
+  // the cell colours, so the stylesheet keeps its values as the default.
+  createEffect(() => {
+    if (typeof document === "undefined") return;
+    applyTypography(document.documentElement.style, typographyVars(settings()));
+  });
+
   /** Set (or, with null, take back) one type's colour for the look in use. */
   const setCellColor = (kind: CellKind, hex: string | null) => {
     const key = palette();
@@ -794,6 +870,15 @@ export function App() {
   let addFilterSort: (() => void) | undefined;
   const runShortcut = (action: ReturnType<typeof matchShortcut>) => {
     switch (action) {
+      case "zoom-in":
+        patchSettings({ zoom: nextZoom(settings().zoom) });
+        break;
+      case "zoom-out":
+        patchSettings({ zoom: prevZoom(settings().zoom) });
+        break;
+      case "zoom-reset":
+        patchSettings({ zoom: 100 });
+        break;
       case "new-tab":
         setTabs((s) => addTab(s, newQueryTitle(), focusedDefId() ?? undefined));
         break;
@@ -888,13 +973,10 @@ export function App() {
   });
 
   onMount(() => {
-    if (typeof document !== "undefined") {
-      applySkin(skin(), document.documentElement);
-      stampTheme(theme(), skin());
-    }
+    stampMode();
     // Follow the OS live while the preference is "system".
     const onSystemChange = () => {
-      if (theme() === "system") stampTheme("system", skin());
+      if (theme() === "system") stampMode();
     };
     const mql =
       typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -903,7 +985,7 @@ export function App() {
     mql?.addEventListener?.("change", onSystemChange);
 
     const onKey = (e: KeyboardEvent) => {
-      const action = matchShortcut(e);
+      const action = matchShortcut(e, shortcuts());
       if (!action) return;
       // While the command palette owns the screen, only the palette toggles act;
       // other shortcuts are swallowed (preventDefault, no-op) so the webview host
@@ -1422,6 +1504,18 @@ export function App() {
   const clearHistory = () => {
     setHistory([]);
     saveHistory([]);
+  };
+
+  // A configuration file (issue #684) is every store at once; each part goes
+  // through the same handler its own control uses. A theme the file names but
+  // this machine does not have is left alone — the built-ins are always there.
+  const importConfig = (b: ConfigBundle) => {
+    patchSettings(b.settings);
+    setShortcutOverrides(b.shortcuts);
+    applyThemePref(b.theme);
+    if (allThemes().some((th) => th.id === b.themeId)) setThemeChoice(b.themeId);
+    changeHistoryLimit(b.historyLimit);
+    if (b.locale) setLocale(b.locale);
   };
 
   const changeHistoryLimit = (n: number) => {
@@ -4370,6 +4464,7 @@ export function App() {
                     >
                       <ObjectTree
                         connId={conn.connId}
+                        rowHeight={treeRowHeight(settings().zoom)}
                         engine={conn.driver}
                         title={conn.name}
                         accent={conn.color}
@@ -4467,7 +4562,7 @@ export function App() {
           <div class="tabbar">
             <button
               class="tab-launch"
-              title={`${t("toolbar.launchTitle")} (${isMac() ? "⌘K" : "Ctrl+K"})`}
+              title={`${t("toolbar.launchTitle")} (${paletteKeys()})`}
               onClick={() => {
                 setPaletteMode("all");
                 setPaletteOpen(true);
@@ -4477,7 +4572,7 @@ export function App() {
                 <IconSearch />
               </span>
               <span class="tab-launch-lb">{t("toolbar.launch")}</span>
-              <kbd class="tab-kbd">{isMac() ? "⌘K" : "Ctrl K"}</kbd>
+              <kbd class="tab-kbd">{paletteKeys()}</kbd>
             </button>
             <span class="tab-sep" aria-hidden="true" />
             <div class="tablist" role="tablist" aria-label={t("tab.listLabel")}>
@@ -4968,7 +5063,7 @@ export function App() {
                             result={c().view.result}
                             loading={false}
                             error={null}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             keyColumns={c().key}
                             cellType={(r, ci) => (c().view.changed[r]?.has(ci) ? "text" : undefined)}
@@ -4982,7 +5077,7 @@ export function App() {
                             result={p().result}
                             loading={false}
                             error={null}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             keyColumns={p().pk}
                           />
@@ -4996,7 +5091,7 @@ export function App() {
                             result={currentResult().result}
                             loading={currentResult().loading}
                             error={currentResult().error}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             emptyState={
                               <EmptyState
@@ -5004,6 +5099,7 @@ export function App() {
                                 history={history()}
                                 snippets={snippets()}
                                 isMac={isMac()}
+                                shortcuts={shortcuts()}
                                 onOpenTable={openData}
                                 onRunHistory={runFromHistory}
                                 onInsertSnippet={insertSnippet}
@@ -5065,7 +5161,7 @@ export function App() {
                               result={tv().result}
                               loading={currentResult().loading}
                               error={null}
-                              rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                              rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
                               gridStyle={settings().gridStyle}
                               cellType={(r, c) => (c >= 2 ? tv().types[r] : undefined)}
                             />
@@ -5456,8 +5552,11 @@ export function App() {
                   <SettingsPanel
                     theme={theme()}
                     onSetTheme={applyThemePref}
-                    skin={skin()}
-                    onSetSkin={applySkinPref}
+                    themeId={themeId()}
+                    themes={allThemes()}
+                    onSetThemeId={setThemeChoice}
+                    onImportTheme={importTheme}
+                    onRemoveTheme={removeTheme}
                     historyLimit={historyLimit()}
                     onSetHistoryLimit={changeHistoryLimit}
                     settings={settings()}
@@ -5465,11 +5564,16 @@ export function App() {
                     cellColors={cellColors()}
                     onSetCellColor={setCellColor}
                     onResetCellColors={resetCellColors}
+                    shortcuts={shortcuts()}
+                    shortcutOverrides={shortcutOverrides()}
+                    onSetShortcutOverrides={setShortcutOverrides}
+                    isMac={isMac()}
+                    onImportConfig={importConfig}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
                 <Match when={tt().tool === "help"}>
-                  <ShortcutsHelp isMac={isMac()} onClose={() => closeTool(tt().id)} />
+                  <ShortcutsHelp isMac={isMac()} shortcuts={shortcuts()} onClose={() => closeTool(tt().id)} />
                 </Match>
               </Switch>
               </Show>
@@ -5682,6 +5786,8 @@ export function App() {
             : null
         }
         onPage={pageBy}
+        zoom={settings().zoom}
+        onResetZoom={() => patchSettings({ zoom: 100 })}
         theme={theme()}
         onToggleTheme={toggleTheme}
         onShowHelp={() => showTool("help", t("status.shortcuts"), { key: "help" })}

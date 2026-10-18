@@ -83,6 +83,7 @@ describe("parseSettings", () => {
 
   it("round-trips a full settings object", () => {
     const s = {
+      ...DEFAULT_SETTINGS,
       gridDensity: "compact" as const,
       gridStyle: "informe" as const,
       slowThresholdMs: 1200,
@@ -142,5 +143,68 @@ describe("parseSettings", () => {
     expect(out.gridDensity).toBe(DEFAULT_SETTINGS.gridDensity); // unknown density
     expect(out.slowThresholdMs).toBe(MIN_SLOW_MS); // clamped from -5
     expect(out.checkUpdatesOnStart).toBe(DEFAULT_SETTINGS.checkUpdatesOnStart); // not a boolean
+  });
+});
+
+describe("parseSettings typography (issue #681)", () => {
+  it("defaults reproduce the stylesheet: system UI font, mono stack, 100% zoom", () => {
+    const out = parseSettings("{}");
+    expect(out.uiFont).toBe("");
+    expect(out.uiFontSize).toBe(12);
+    expect(out.editorFont).toBe("");
+    expect(out.editorFontSize).toBe(13);
+    expect(out.editorLineHeight).toBe(1.4);
+    expect(out.editorLigatures).toBe(true);
+    expect(out.gridFont).toBe("");
+    expect(out.gridFontSize).toBe(12);
+    expect(out.zoom).toBe(100);
+  });
+
+  it("round-trips a full typography blob", () => {
+    const s = {
+      ...DEFAULT_SETTINGS,
+      uiFont: '"Inter"',
+      uiFontSize: 14,
+      editorFont: '"JetBrains Mono"',
+      editorFontSize: 15,
+      editorLineHeight: 1.6,
+      editorLigatures: false,
+      gridFont: '"Fira Code", monospace',
+      gridFontSize: 11,
+      zoom: 125,
+    };
+    expect(parseSettings(serializeSettings(s))).toEqual(s);
+  });
+
+  it("re-sanitizes fonts and clamps numbers on read", () => {
+    const out = parseSettings(
+      JSON.stringify({
+        uiFont: "Arial; color: red",
+        editorFont: "Fira Code, url(x)",
+        gridFont: 42,
+        uiFontSize: 200,
+        editorFontSize: "big",
+        editorLineHeight: 0,
+        gridFontSize: 2,
+        zoom: 999,
+        editorLigatures: "no",
+      }),
+    );
+    expect(out.uiFont).toBe("");
+    expect(out.editorFont).toBe('"Fira Code"');
+    expect(out.gridFont).toBe("");
+    expect(out.uiFontSize).toBe(32);
+    expect(out.editorFontSize).toBe(13);
+    expect(out.editorLineHeight).toBe(1);
+    expect(out.gridFontSize).toBe(8);
+    expect(out.zoom).toBe(200);
+    expect(out.editorLigatures).toBe(true);
+  });
+
+  it("rowHeightFor grows with the scale and stays whole", () => {
+    expect(rowHeightFor("registro", "normal", 1)).toBe(28);
+    expect(rowHeightFor("registro", "normal", 1.25)).toBe(35);
+    expect(rowHeightFor("hoja", "compact", 0.8)).toBe(16);
+    expect(rowHeightFor("informe", "normal", 1.1)).toBe(35);
   });
 });

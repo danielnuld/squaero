@@ -47,6 +47,9 @@ export function StatusBar(props: {
   onToggleTheme: () => void;
   onShowHelp: () => void;
   onShowSettings: () => void;
+  /** Interface zoom in percent (issue #681); shown only away from 100. */
+  zoom?: number;
+  onResetZoom?: () => void;
 }) {
   return (
     <footer class="statusbar">
@@ -144,6 +147,16 @@ export function StatusBar(props: {
         >
           {formatDuration(props.elapsedMs!)}
         </span>
+      </Show>
+      <Show when={props.zoom !== undefined && props.zoom !== 100}>
+        <button
+          class="status-btn"
+          title={`${t("status.zoomTitle")} (Ctrl+0)`}
+          aria-label={t("status.zoomTitle")}
+          onClick={props.onResetZoom}
+        >
+          {props.zoom}%
+        </button>
       </Show>
       <button
         class="status-btn"
