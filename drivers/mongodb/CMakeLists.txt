@@ -58,6 +58,25 @@ if(BUILD_TESTING)
   target_include_directories(mongodb_json_relax_test PRIVATE src/utils)
   quaero_set_warnings(mongodb_json_relax_test)
   add_test(NAME mongodb_json_relax_test COMMAND mongodb_json_relax_test)
+
+  add_executable(mongodb_strutil_test
+    tests/strutil_test.c
+    src/utils/strutil.c
+    src/utils/json_check.c)
+  target_include_directories(mongodb_strutil_test PRIVATE src/utils)
+  quaero_set_warnings(mongodb_strutil_test)
+  add_test(NAME mongodb_strutil_test COMMAND mongodb_strutil_test)
+
+  add_executable(mongodb_dml_test
+    tests/dml_test.c
+    src/utils/dml.c
+    src/utils/strutil.c
+    src/utils/json_check.c
+    src/utils/json_relax.c)
+  target_include_directories(mongodb_dml_test PRIVATE
+    src/utils ${CMAKE_SOURCE_DIR}/core/include)
+  quaero_set_warnings(mongodb_dml_test)
+  add_test(NAME mongodb_dml_test COMMAND mongodb_dml_test)
 endif()
 
 # --- driver plugin (when the mongo-c-driver is available) ------------------
@@ -84,11 +103,15 @@ if(MONGOC_FOUND OR QUAERO_MONGOC)
     src/command.c
     src/docs.c
     src/metadata.c
+    src/edit.c
     src/utils/bson_types.c
     src/utils/columns.c
+    src/utils/dml.c
+    src/utils/json_check.c
     src/utils/json_relax.c
     src/utils/query_parse.c
     src/utils/result.c
+    src/utils/strutil.c
     src/utils/value_fmt.c)
   target_include_directories(mongodb_driver PRIVATE
     src ${CMAKE_SOURCE_DIR}/core/include)
