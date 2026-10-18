@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from "solid-js";
 import { visibleRange } from "../utils/virtualize";
 import {
   flattenTree,
@@ -12,7 +12,9 @@ import {
   type TreeNode,
   type FlatNode,
 } from "../utils/tree";
-import { schemaTree, parseTreeRows, type NodeKind } from "../utils/schema";
+import { schemaTree, parseTreeRows, type NodeKind, type TreeRow } from "../utils/schema";
+import { treeKey, type ConnMetaCache } from "../utils/metaCache";
+import { timeAgo } from "../utils/history";
 import { runQuery } from "../utils/query";
 import { folderSpec, objectLeaves, readDefinitionText } from "../utils/treeObjects";
 import { definitionFor as routineDefinitionFor, type RoutineType } from "../utils/routines";
@@ -26,7 +28,7 @@ import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { objectBadge, routineKind } from "../utils/objectIcons";
 import { IconTools } from "./icons";
-import { t } from "../utils/i18n";
+import { t, locale } from "../utils/i18n";
 
 // A group folder's label is an i18n key ("tree.tables"); real object nodes carry
 // their true name. Translate only the former so object names pass through as-is.
@@ -128,6 +130,9 @@ export function ObjectTree(props: {
   /** Closes this connection from its own section header — with several open,
       the bar's single "Desconectar" could only ever close the focused one. */
   onDisconnect?: () => void;
+  /** This connection's introspection cache (issue #675). Levels found there are
+      shown at once, marked "from cache", and re-read from the server. */
+  cache?: ConnMetaCache;
   /** Rendered right under the header — the working-database selector of the
       focused connection. */
   children?: JSX.Element;
@@ -139,6 +144,31 @@ export function ObjectTree(props: {
   const [rootLoading, setRootLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [filter, setFilter] = createSignal("");
+  // Levels on screen that came from the cache and have not been re-read yet,
+  // by level key ("" = the root) -> when they were fetched (issue #675).
+  const [cachedAt, setCachedAt] = createSignal<Record<string, number>>({});
+  const markCached = (key: string, at: number) => setCachedAt((m) => ({ ...m, [key]: at }));
+  const markFresh = (key: string) =>
+    setCachedAt((m) => {
+      if (!(key in m)) return m;
+      const next = { ...m };
+      delete next[key];
+      return next;
+    });
+  const oldestCached = () => {
+    const ats = Object.values(cachedAt());
+    return ats.length > 0 ? Math.min(...ats) : null;
+  };
+  // A cached level's rows, shape-checked: storage is outside our control.
+  const KINDS = new Set(["database", "schema", "table", "view"]);
+  const cachedRows = (key: string) => {
+    const hit = props.cache?.get<TreeRow[]>(treeKey(key));
+    const ok =
+      hit &&
+      Array.isArray(hit.value) &&
+      hit.value.every((r) => typeof r?.name === "string" && KINDS.has(r?.kind));
+    return ok ? hit : undefined;
+  };
 
   // Bumped on every connection change; async loads from a stale connection
   // check it before writing state, so switching connections mid-fetch cannot
@@ -227,23 +257,29 @@ export function ObjectTree(props: {
     setExpanded(new Set<string>());
     setError(null);
     setFilter(""); // a stale filter must not hide the freshly-loaded tree (#175)
+    setCachedAt({});
     if (!connId) {
       setRootLoading(false);
       return;
+    }
+    const rootNodes = (rows: TreeRow[]): TreeNode[] =>
+      rows.map((r) => ({ key: databaseKey(r.name), label: r.name, kind: r.kind, db: r.name }));
+    // Stale-while-revalidate (issue #675): the cached roots show at once, marked,
+    // and are replaced by the server's answer.
+    const hit = untrack(() => cachedRows(""));
+    if (hit) {
+      setRoots(rootNodes(hit.value));
+      markCached("", hit.fetchedAt);
     }
     setRootLoading(true);
     void (async () => {
       try {
         const res = await schemaTree(connId);
         if (myGen !== generation) return; // connection changed mid-flight
-        setRoots(
-          parseTreeRows(res, "database").map((r) => ({
-            key: databaseKey(r.name),
-            label: r.name,
-            kind: r.kind,
-            db: r.name,
-          })),
-        );
+        const rows = parseTreeRows(res, "database");
+        setRoots(rootNodes(rows));
+        props.cache?.put(treeKey(""), rows);
+        markFresh("");
       } catch (err) {
         if (myGen !== generation) return;
         setError(err instanceof Error ? err.message : String(err));
@@ -295,6 +331,15 @@ export function ObjectTree(props: {
       return;
     }
     const myGen = generation;
+    // Not loaded yet this session: show the cached level now, marked, while the
+    // server is asked (issue #675). A forced re-list skips the cache.
+    if (!force) {
+      const hit = cachedRows(node.key);
+      if (hit) {
+        applyRows(node, hit.value);
+        markCached(node.key, hit.fetchedAt);
+      }
+    }
     setBusy(node.key, true);
     try {
       const res =
@@ -305,27 +350,35 @@ export function ObjectTree(props: {
       // A database's children may be schemas (containers) or tables; a schema's
       // children are tables. parseTreeRows auto-detects tables from the `type`
       // column, so the only ambiguous (type-less) case is containers -> schema.
-      const built = buildChildren(node, parseTreeRows(res, "schema"));
-      // Leaf objects (tables/views) are grouped under Tablas/Vistas folders
-      // (#135); containers (schemas) stay flat. Both the folder nodes and their
-      // pre-loaded members go into the children map in one update.
-      const isLeafLevel = built.some((n) => n.kind === "table" || n.kind === "view");
-      // A database also gets lazy folders for routines/triggers/events (phase 2),
-      // listed on demand — appended after Tablas/Vistas.
-      const folders =
-        node.kind === "database"
-          ? lazyObjectFolders(node.key, node.db, node.schema, props.engine ?? "")
-          : [];
-      if (isLeafLevel) {
-        const { groups, members } = groupObjectsByType(node.key, node.db, node.schema, built);
-        setChildren((c) => ({ ...c, [node.key]: [...groups, ...folders], ...members }));
-      } else {
-        setChildren((c) => ({ ...c, [node.key]: [...built, ...folders] }));
-      }
+      const rows = parseTreeRows(res, "schema");
+      applyRows(node, rows);
+      props.cache?.put(treeKey(node.key), rows);
+      markFresh(node.key);
     } catch (err) {
       if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
     } finally {
       if (myGen === generation) setBusy(node.key, false);
+    }
+  };
+
+  // Puts one schema.tree level's rows under `node`.
+  const applyRows = (node: TreeNode, rows: TreeRow[]) => {
+    const built = buildChildren(node, rows);
+    // Leaf objects (tables/views) are grouped under Tablas/Vistas folders
+    // (#135); containers (schemas) stay flat. Both the folder nodes and their
+    // pre-loaded members go into the children map in one update.
+    const isLeafLevel = built.some((n) => n.kind === "table" || n.kind === "view");
+    // A database also gets lazy folders for routines/triggers/events (phase 2),
+    // listed on demand — appended after Tablas/Vistas.
+    const folders =
+      node.kind === "database"
+        ? lazyObjectFolders(node.key, node.db, node.schema, props.engine ?? "")
+        : [];
+    if (isLeafLevel) {
+      const { groups, members } = groupObjectsByType(node.key, node.db, node.schema, built);
+      setChildren((c) => ({ ...c, [node.key]: [...groups, ...folders], ...members }));
+    } else {
+      setChildren((c) => ({ ...c, [node.key]: [...built, ...folders] }));
     }
   };
 
@@ -762,6 +815,13 @@ export function ObjectTree(props: {
         class="objtree-body"
         style={props.collapsed ? { display: "none" } : undefined}
       >
+      <Show when={oldestCached()}>
+        {(at) => (
+          <div class="objtree-cached" role="status" title={t("tree.fromCacheTitle")}>
+            {t("tree.fromCache", { age: timeAgo(at(), Date.now(), locale()) })}
+          </div>
+        )}
+      </Show>
       <Show when={roots().length > 0}>
         <div class="objtree-filter">
           <input

@@ -3,6 +3,7 @@ import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { ObjectTree } from "../../src/components/ObjectTree";
 import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
+import { createMetaCacheStore, treeKey } from "../../src/utils/metaCache";
 
 // Drives the real object tree against a mocked bridge to check the refresh
 // wiring (issue #107): bumping reloadKey re-fetches the tree from the root.
@@ -954,5 +955,115 @@ describe("ObjectTree MongoDB collection management", () => {
     expect(menuItem("Vaciar colección…")).toBeUndefined();
     expect(menuItem("Renombrar colección…")).toBeUndefined();
     expect(menuItem("Eliminar…")).toBeUndefined();
+  });
+});
+
+describe("ObjectTree introspection cache (issue #675)", () => {
+  // A bridge whose answers are released by hand, so the test can look at the
+  // tree while the server has not answered yet.
+  function heldBridge() {
+    const pending: { req: any; resolve: (v: unknown) => void }[] = [];
+    (globalThis as BridgeHost).quaeroRpc = (requestJson: string) =>
+      new Promise((resolve) => pending.push({ req: JSON.parse(requestJson), resolve }));
+    const answer = (rows: string[][], typed = false) => {
+      const p = pending.shift()!;
+      p.resolve({
+        jsonrpc: "2.0",
+        id: p.req.id,
+        result: {
+          columns: typed
+            ? [{ name: "name", type: "text" }, { name: "type", type: "text" }]
+            : [{ name: "name", type: "text" }],
+          rows,
+          truncated: false,
+          rowsAffected: 0,
+        },
+      });
+    };
+    const fail = () => {
+      const p = pending.shift()!;
+      p.resolve({ jsonrpc: "2.0", id: p.req.id, error: { code: -1, message: "server gone" } });
+    };
+    return { pending, answer, fail };
+  }
+
+  function mount(cache: ReturnType<ReturnType<typeof createMetaCacheStore>["conn"]>) {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree connId="c1" cache={cache} onOpenData={() => {}} onOpenStructure={() => {}} />
+        ),
+        host!,
+      );
+    });
+  }
+  const memKv = () => {
+    const data = new Map<string, string>();
+    return { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) };
+  };
+  const rowByText = (t: string) =>
+    [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as
+      | HTMLElement
+      | undefined;
+  const marker = () => host!.querySelector(".objtree-cached");
+
+  it("shows the cached roots at once, marked, and replaces them with the server's", async () => {
+    const store = createMetaCacheStore(memKv());
+    store.open("def1", "fp");
+    store.conn("def1").put(treeKey(""), [{ name: "old_db", kind: "database" }]);
+    const bridge = heldBridge();
+    mount(store.conn("def1"));
+    await flush();
+
+    expect(rowByText("old_db")).toBeTruthy();
+    expect(marker()).toBeTruthy();
+
+    bridge.answer([["new_db"]]);
+    await flush();
+    expect(rowByText("old_db")).toBeFalsy();
+    expect(rowByText("new_db")).toBeTruthy();
+    expect(marker()).toBeFalsy();
+    // And the cache now holds the fresh answer.
+    expect(store.conn("def1").get(treeKey(""))!.value).toEqual([{ name: "new_db", kind: "database" }]);
+  });
+
+  it("an expanded level comes from the cache too, and stays marked if the server fails", async () => {
+    const store = createMetaCacheStore(memKv());
+    store.open("def1", "fp");
+    store.conn("def1").put(treeKey(""), [{ name: "main", kind: "database" }]);
+    store.conn("def1").put(treeKey("db:main"), [{ name: "cached_t", kind: "table" }]);
+    const bridge = heldBridge();
+    mount(store.conn("def1"));
+    await flush();
+    bridge.answer([["main"]]);
+    await flush();
+    expect(marker()).toBeFalsy();
+
+    rowByText("main")!.click();
+    await flush();
+    rowByText("Tablas")!.click();
+    await flush();
+    expect(rowByText("cached_t")).toBeTruthy();
+    expect(marker()).toBeTruthy();
+
+    bridge.fail();
+    await flush();
+    // Still on screen, still saying it is from the cache — never passed off as current.
+    expect(rowByText("cached_t")).toBeTruthy();
+    expect(marker()).toBeTruthy();
+  });
+
+  it("ignores a cached level of the wrong shape", async () => {
+    const store = createMetaCacheStore(memKv());
+    store.open("def1", "fp");
+    store.conn("def1").put(treeKey(""), [{ nope: 1 }]);
+    heldBridge();
+    mount(store.conn("def1"));
+    await flush();
+    expect(host!.querySelectorAll(".objtree-row")).toHaveLength(0);
+    expect(marker()).toBeFalsy();
   });
 });

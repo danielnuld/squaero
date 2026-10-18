@@ -488,6 +488,10 @@ export const es: Record<string, string> = {
   "tree.renameLabel": "Nuevo nombre",
   "tree.renameConfirm": "Renombrar",
   "tree.renameInvalid": "Ese nombre no se puede usar: está vacío, no cambia, contiene «$» o empieza por «system.».",
+  "tree.fromCache": "Desde caché · {age}",
+  "tree.fromCacheTitle": "Metadatos en caché, mostrados mientras se vuelven a leer del servidor. Pueden estar desactualizados.",
+  "cache.tooLarge": "Parte de los metadatos del esquema es demasiado grande para la caché; se leerá del servidor cada vez.",
+  "cache.storage": "No se pudo guardar la caché del esquema (almacenamiento lleno o bloqueado); solo dura esta sesión.",
   // folder labels (data keys, translated at the tree consumer)
   "tree.tables": "Tablas",
   "tree.views": "Vistas",
