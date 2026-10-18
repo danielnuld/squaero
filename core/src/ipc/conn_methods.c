@@ -117,8 +117,34 @@ cJSON *ipc_method_conn_open(const cJSON *params, int *code, const char **message
     char idbuf[24];
     cJSON_AddStringToObject(result, "connId",
                             ipc_conn_id_format(id, idbuf, sizeof idbuf));
+    cJSON *features = ipc_driver_features_json(driver);
+    if (features != NULL) {
+        cJSON_AddItemToObject(result, "features", features);
+    }
     *code = 0;
     return result;
+}
+
+cJSON *ipc_driver_features_json(const dbc_driver_t *drv)
+{
+    cJSON *f = cJSON_CreateObject();
+    if (f == NULL || drv == NULL) {
+        return f;
+    }
+    unsigned int on = drv->features;
+    /* A capability is reported only when the core would actually route it:
+       the flag AND, where one exists, the member that backs it (the same test
+       tx.c, edit.c, schema.c and the op registry apply). */
+    cJSON_AddBoolToObject(f, "cancel",
+                          (on & DBC_FEAT_CANCEL) && drv->cancel != NULL);
+    cJSON_AddBoolToObject(f, "transactions",
+                          (on & DBC_FEAT_TRANSACTIONS) && drv->begin != NULL &&
+                          drv->commit != NULL && drv->rollback != NULL);
+    cJSON_AddBoolToObject(f, "ddl", (on & DBC_FEAT_DDL) && drv->get_ddl != NULL);
+    cJSON_AddBoolToObject(f, "dml", (on & DBC_FEAT_DML) && drv->build_dml != NULL);
+    cJSON_AddBoolToObject(f, "schemas", (on & DBC_FEAT_SCHEMAS) != 0);
+    cJSON_AddBoolToObject(f, "introspection", (on & DBC_FEAT_INTROSPECTION) != 0);
+    return f;
 }
 
 cJSON *ipc_method_conn_close(const cJSON *params, int *code,
