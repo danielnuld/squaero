@@ -1443,6 +1443,16 @@ export const en: Record<string, string> = {
   "ios.settings.core": "Core",
   "ios.settings.version": "Version",
   "ios.settings.engines": "Engines",
+  // native menu bar (issue #686)
+  "menu.file": "File",
+  "menu.edit": "Edit",
+  "menu.view": "View",
+  "menu.query": "Query",
+  "menu.tools": "Tools",
+  "menu.window": "Window",
+  "menu.help": "Help",
+  "menu.quit": "Exit",
+  "settings.nativeMenu": "Native menu bar",
   // theme toggle / settings
   "theme.light": "Theme: light",
   "theme.dark": "Theme: dark",
