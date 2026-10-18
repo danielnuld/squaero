@@ -818,9 +818,22 @@ static void restore_window_state(HWND hwnd)
    hands every message on. */
 static WNDPROC g_prev_wndproc = nullptr;
 
+/* webview_create shows the window and then pumps messages while it waits on
+   WebView2 (the controller, then every script it injects; webview_bind and
+   webview_init wait the same way). A close in that span destroys the host, the
+   awaited callback never comes, and webview's wait loop spins forever at 100 %
+   CPU (issue #720). So until webview_run is in charge a close is only
+   remembered, and replayed the moment it is. */
+static bool g_run_loop_ready = false;
+static bool g_close_deferred = false;
+
 static LRESULT CALLBACK shell_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     if (msg == WM_CLOSE) {
+        if (!g_run_loop_ready) {
+            g_close_deferred = true;
+            return 0;
+        }
         save_window_state(hwnd);
     }
     // A menu bar item (issue #686): HIWORD 0 and no control handle is a menu.
@@ -831,10 +844,23 @@ static LRESULT CALLBACK shell_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     return CallWindowProcW(g_prev_wndproc, hwnd, msg, wp, lp);
 }
 
-static void watch_window_close(HWND hwnd)
+/* The subclass has to be in place before webview_create shows the window, so it
+   is put on as the window is created: the first "webview" window of the thread
+   is the main one (the widget and message windows have their own classes). */
+static HHOOK g_create_hook = nullptr;
+
+static LRESULT CALLBACK subclass_on_create(int code, WPARAM wp, LPARAM lp)
 {
-    g_prev_wndproc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
-        hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(shell_wndproc)));
+    HWND hwnd = reinterpret_cast<HWND>(wp);
+    wchar_t cls[16];
+    if (code == HCBT_CREATEWND && GetClassNameW(hwnd, cls, 16) > 0 &&
+        lstrcmpW(cls, L"webview") == 0) {
+        g_prev_wndproc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+            hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(shell_wndproc)));
+        UnhookWindowsHookEx(g_create_hook);
+        g_create_hook = nullptr;
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
 }
 
 /* Set once the interface has booted and the browser surface is on screen. */
@@ -1712,7 +1738,17 @@ int main()
 #else
     const int dev_tools = 0;
 #endif
+#if defined(_WIN32)
+    g_create_hook = SetWindowsHookExW(WH_CBT, subclass_on_create, nullptr,
+                                      GetCurrentThreadId());
+#endif
     webview_t w = webview_create(dev_tools, nullptr);
+#if defined(_WIN32)
+    if (g_create_hook != nullptr) {  // no window was created
+        UnhookWindowsHookEx(g_create_hook);
+        g_create_hook = nullptr;
+    }
+#endif
     if (w == nullptr) {
         // This is a GUI-subsystem process: stderr goes nowhere, so a bare exit
         // looks to the user like nothing happened at all (reported from a fresh
@@ -1752,7 +1788,6 @@ int main()
         // The title bar follows the system until the UI reports its theme.
         apply_title_bar_theme(hwnd, !system_prefers_light());
         restore_window_state(hwnd);
-        watch_window_close(hwnd);
     }
 #elif defined(__linux__)
     gtk_window_set_default_icon_name("squaero");
@@ -1785,6 +1820,13 @@ int main()
     // Windows and Linux; set_html fallback otherwise).
     load_frontend(w);
 
+#if defined(_WIN32)
+    // From here a close is safe: replay the one asked for during setup.
+    g_run_loop_ready = true;
+    if (g_close_deferred) {
+        PostMessageW(static_cast<HWND>(webview_get_window(w)), WM_CLOSE, 0, 0);
+    }
+#endif
     webview_run(w);
 
     // Window closed: stop the worker and wait for any in-flight dispatch to
