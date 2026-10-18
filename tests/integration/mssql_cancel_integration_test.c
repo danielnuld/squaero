@@ -5,7 +5,9 @@
  * — while the main thread calls op.cancel, reaching the driver's cancel hook
  * (an ATTENTION message on the same connection) from another thread. The property under test
  * is the user-facing one: the slow query returns PROMPTLY instead of hanging for
- * its full duration.
+ * its full duration, fails as a query error, and the connection stays usable.
+ * It holds on both clients: libtdswire, and FreeTDS db-lib (where the query
+ * thread sends the ATTENTION from its interrupt handler, issue #668).
  *
  * Requires a reachable server; SKIPS (exit 0) unless QUAERO_MSSQL_DSN is set.
  * MSSQL_PLUGIN_PATH is injected by CMake as the built plugin's full path.
@@ -62,6 +64,7 @@ struct slow_query {
     char   conn_id[32];
     double seconds;   /* wall-clock time the query.run took */
     int    finished;  /* set once the thread returns */
+    int    error;     /* query.run answered with a JSON-RPC error */
 };
 
 /* Background thread body: run a 10s sleep query and record how long it took. */
@@ -75,6 +78,7 @@ static void run_slow_query(struct slow_query *s)
     time_t t0 = time(NULL);
     cJSON *root = call(req);
     s->seconds = difftime(time(NULL), t0);
+    s->error = cJSON_GetObjectItem(root, "error") != NULL;
     cJSON_Delete(root);
     s->finished = 1;
 }
@@ -122,7 +126,7 @@ int main(void)
     dbcore_runtime_reset();
     dbcore_runtime_register_driver(dbcore_runtime_get(), drv);
 
-    struct slow_query s = {{0}, 0.0, 0};
+    struct slow_query s = {{0}, 0.0, 0, 0};
     {
         char req[1024];
         snprintf(req, sizeof req,
@@ -132,6 +136,9 @@ int main(void)
         cJSON *root = call(req);
         cJSON *cid = cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "connId");
         EXPECT(cJSON_IsString(cid), "conn.open returns a connId");
+        cJSON *features = cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "features");
+        EXPECT(cJSON_IsTrue(cJSON_GetObjectItem(features, "cancel")),
+               "conn.open reports features.cancel:true");
         if (cJSON_IsString(cid)) {
             snprintf(s.conn_id, sizeof s.conn_id, "%s", cid->valuestring);
         }
@@ -183,6 +190,23 @@ int main(void)
     EXPECT(s.seconds < 5.0, "canceled query returned promptly, not after its full sleep");
     if (s.seconds >= 5.0) {
         fprintf(stderr, "slow query took %.0fs (expected < 5)\n", s.seconds);
+    }
+
+    EXPECT(s.error, "the canceled query fails (a query error, not a result)");
+
+    /* The connection survives the cancel: the next query runs normally. */
+    {
+        char req[256];
+        snprintf(req, sizeof req,
+                 "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"query.run\","
+                 "\"params\":{\"connId\":\"%s\",\"sql\":\"SELECT 1 AS one\"}}",
+                 s.conn_id);
+        cJSON *root = call(req);
+        cJSON *rows = cJSON_GetObjectItem(cJSON_GetObjectItem(root, "result"), "rows");
+        cJSON *cell = cJSON_GetArrayItem(cJSON_GetArrayItem(rows, 0), 0);
+        EXPECT(cJSON_IsString(cell) && strcmp(cell->valuestring, "1") == 0,
+               "the connection still answers after the cancel");
+        cJSON_Delete(root);
     }
 
     {

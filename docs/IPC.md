@@ -380,7 +380,10 @@ falla luego con un error de consulta (`-32003`), que llega como el error normal 
 La cancelación real requiere que el driver anuncie `DBC_FEAT_CANCEL`; un motor sin
 soporte devuelve `canceled: false` en vez de fingir. Hoy lo respaldan **SQLite**
 (`sqlite3_interrupt`), **MySQL/MariaDB** (`KILL QUERY` sobre una conexión lateral),
-**PostgreSQL** (`PQcancel` de libpq desde otro hilo) e **Informix** (DRDA no puede
+**PostgreSQL** (`PQcancel` de libpq desde otro hilo), **SQL Server** (un mensaje
+ATTENTION de TDS; sobre FreeTDS db-lib lo envía el propio hilo de la consulta desde
+el manejador de interrupciones, en menos de un segundo, y la conexión sigue viva,
+#668) e **Informix** (DRDA no puede
 interrumpir una consulta en la propia conexión, así que la corta: la conexión queda
 perdida y la app ofrece reconectar, como tras una caída, #407); MongoDB aún no lo anuncia
 (para él la UI no se congela, pero la consulta sigue hasta terminar). A diferencia

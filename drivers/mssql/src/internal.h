@@ -23,11 +23,14 @@ struct dbc_conn {
 #include <sybfront.h>
 #include <sybdb.h>
 
+#include "utils/cancel.h"
+
 /* A live connection. The core only holds an opaque dbc_conn pointer. db-lib's
    error and message handlers find this struct through dbsetuserdata. */
 struct dbc_conn {
-    DBPROCESS *dbproc;
-    char       err[1024];  /* last error or server message on this connection */
+    DBPROCESS   *dbproc;
+    char         err[1024];  /* last error or server message on this connection */
+    mssql_cancel cancel;     /* raised by ms_drv_cancel from any thread */
 };
 #endif
 
@@ -56,9 +59,14 @@ struct dbc_result {
 dbc_status   ms_drv_connect(const char *dsn_json, dbc_conn **out);
 void         ms_drv_disconnect(dbc_conn *c);
 const char  *ms_drv_last_error(dbc_conn *c);
-#ifdef QUAERO_MSSQL_TDSWIRE
-/* Cancel the running batch with an ATTENTION (DBC_FEAT_CANCEL), from any thread. */
+/* Cancel the running batch with an ATTENTION (DBC_FEAT_CANCEL), from any
+   thread. libtdswire sends it directly; over db-lib it only raises c->cancel
+   and the query thread sends it (see connection.c). */
 dbc_status   ms_drv_cancel(dbc_conn *c);
+#ifndef QUAERO_MSSQL_TDSWIRE
+/* Query thread, db-lib: 1 when a cancel request was just taken here, after
+   recording why in c->err; the caller must then stop and dbcancel. */
+int          ms_cancel_claimed(dbc_conn *c);
 #endif
 
 /* --- query.c --- */
