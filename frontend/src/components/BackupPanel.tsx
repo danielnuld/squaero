@@ -7,7 +7,11 @@ import { drainQuery, runQuery } from "../utils/query";
 import { parseTreeRows, qualifiedName, schemaDdl, schemaTree, type TreeRow } from "../utils/schema";
 import { dumpChunks, restoreStatements, runRestore, type DumpObject } from "../utils/backup";
 import { fileNameFor } from "../utils/exporters";
-import { pickSaveTarget } from "../utils/download";
+import { pickDirectory, pickSaveTarget, writeFilesToDirectory } from "../utils/download";
+import { buildDumpZip, FOLDERS, planDdlDump, readDdl, type DdlJob, type SkippedObject } from "../utils/ddlDump";
+import { objectFolders, objectLeaves, readDefinitionText } from "../utils/treeObjects";
+import { definitionFor as routineDefinitionFor } from "../utils/routines";
+import { definitionFor as objectDefinitionFor } from "../utils/triggers";
 
 /** Rows per page while reading a table for the dump. */
 const PAGE = 5000;
@@ -33,6 +37,9 @@ export function BackupPanel(props: {
   const [script, setScript] = createSignal<{ name: string; stmts: string[] } | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [status, setStatus] = createSignal<{ text: string; error?: boolean } | null>(null);
+  // What the last DDL dump could not include, and why (#673): never left out silently.
+  const [skipped, setSkipped] = createSignal<string[]>([]);
+  const canPickFolder = typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === "function";
 
   // The database's level is either its tables (MySQL, SQLite, Informix) or its
   // schemas (Postgres); with schemas, the tables come once one is chosen.
@@ -102,6 +109,91 @@ export function BackupPanel(props: {
       setStatus({ text: t("bk.dumped", { n: list.length }) });
     } catch (err) {
       setStatus({ text: t("bk.dumpFailed", { name: current, reason: errorText(err) }), error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Every object of the database/schema, one job each: tables and views by
+  // schema.ddl, routines/triggers/events by the catalog queries the tree uses.
+  // A folder that cannot be listed becomes a note, not a silent gap.
+  const ddlJobs = async (connId: string, db: string, sch: string | undefined) => {
+    const jobs: DdlJob[] = objects().map((o) => ({
+      kind: o.kind,
+      name: o.name,
+      read: () => schemaDdl(connId, o.name, db, sch),
+    }));
+    const notes: string[] = [];
+    const folders = objectFolders(props.engine, db);
+    if (folders.length === 0) notes.push(t("ddl.noRoutines"));
+    for (const spec of folders) {
+      try {
+        const res = await runQuery(connId, spec.listSql);
+        for (const leaf of objectLeaves(spec, res.columns.map((c) => c.name), res.rows)) {
+          const query =
+            spec.groupKind === "procedure" || spec.groupKind === "function"
+              ? routineDefinitionFor(props.engine, {
+                  name: leaf.name,
+                  type: spec.groupKind === "function" ? "FUNCTION" : "PROCEDURE",
+                  id: leaf.id,
+                })
+              : objectDefinitionFor(props.engine, spec.groupKind, { name: leaf.name, table: leaf.table, id: leaf.id });
+          jobs.push({
+            kind: spec.groupKind,
+            name: leaf.name,
+            read: async () => {
+              if (leaf.def) return leaf.def;
+              if (!query) throw new Error(t("bk.noDdl"));
+              const r = await runQuery(connId, query.sql);
+              return readDefinitionText(r.columns.map((c) => c.name), r.rows, query.column, query.concatRows);
+            },
+          });
+        }
+      } catch (err) {
+        notes.push(t("ddl.listFailed", { what: FOLDERS[spec.groupKind], reason: errorText(err) }));
+      }
+    }
+    return { jobs, notes };
+  };
+
+  const dumpDdl = async () => {
+    const db = props.db;
+    if (!db) return;
+    const sch = schema() || undefined;
+    const label = sch ? `${db}.${sch}` : db;
+    // The dialog first, while the click still counts as a user gesture. Without
+    // a folder picker, the same tree goes into one .zip.
+    const dir = await pickDirectory();
+    if (dir === null) return;
+    const zip = dir ? null : await pickSaveTarget(fileNameFor(label, "zip"), "application/zip");
+    if (!dir && !zip) return;
+    const connId = props.connId;
+    setBusy(true);
+    setStatus(null);
+    setSkipped([]);
+    try {
+      const { jobs, notes } = await ddlJobs(connId, db, sch);
+      const total = jobs.length;
+      const read = await readDdl(jobs, errorText, (done, name) =>
+        setStatus({ text: t("ddl.reading", { name, done: done + 1, total }) }),
+      );
+      const plan = planDdlDump(read);
+      if (dir) {
+        await writeFilesToDirectory(dir, plan.files, (done) =>
+          setStatus({ text: t("ddl.writing", { done, total: plan.files.length }) }),
+        );
+      } else {
+        await zip!.write(new Blob([new Uint8Array(buildDumpZip(plan.files))], { type: "application/zip" }));
+      }
+      const why = (s: SkippedObject) => `${FOLDERS[s.kind]}/${s.name}: ${s.reason ?? t("bk.noDdl")}`;
+      setSkipped([...notes, ...plan.skipped.map(why)]);
+      setStatus({
+        text: t("ddl.done", { n: plan.files.length, target: dir ? dir.name : fileNameFor(label, "zip") }) +
+          (plan.skipped.length ? " " + t("ddl.skipped", { n: plan.skipped.length }) : ""),
+        error: plan.skipped.length > 0,
+      });
+    } catch (err) {
+      setStatus({ text: t("ddl.failed", { reason: errorText(err) }), error: true });
     } finally {
       setBusy(false);
     }
@@ -214,6 +306,24 @@ export function BackupPanel(props: {
             {t("bk.dump")}
           </button>
         </div>
+      </Show>
+
+      <h2>{t("ddl.heading")}</h2>
+      <p class="import-subtitle">{t("ddl.hint")}</p>
+      <Show when={!canPickFolder}>
+        <p class="import-subtitle">{t("ddl.hintZip")}</p>
+      </Show>
+      <Show when={props.db}>
+        <div class="modal-actions">
+          <button class="primary" disabled={busy() || (schemas().length > 0 && !schema())} onClick={dumpDdl}>
+            {canPickFolder ? t("ddl.dump") : t("ddl.dumpZip")}
+          </button>
+        </div>
+      </Show>
+      <Show when={skipped().length > 0}>
+        <ul class="import-subtitle">
+          <For each={skipped()}>{(line) => <li>{line}</li>}</For>
+        </ul>
       </Show>
 
       <h2>{t("bk.restoreHeading")}</h2>
