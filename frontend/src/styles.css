@@ -4329,6 +4329,87 @@ button.grid-action.danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+/* Comparing two results (issue #669): the status column and the rows it marks
+   in the app's green / red / amber, the cell that changed tinted most. The
+   status glyph (+ − ~ !) says the same without the colour. */
+.diff-added {
+  color: var(--number);
+}
+.grid-cell.diff-added {
+  background: color-mix(in srgb, var(--number) 12%, transparent);
+}
+.diff-removed {
+  color: var(--error);
+}
+.grid-cell.diff-removed {
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  text-decoration: line-through;
+}
+.diff-changed {
+  color: var(--null);
+}
+.grid-cell.diff-changed {
+  background: color-mix(in srgb, var(--null) 16%, transparent);
+  color: var(--text);
+}
+.grid-cell.diff-duplicate {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.compare-bar {
+  flex-wrap: wrap;
+}
+.compare-key {
+  position: relative;
+}
+.compare-key summary {
+  cursor: pointer;
+}
+.compare-key-list {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  white-space: nowrap;
+}
+.compare-key-hint,
+.pin-note {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+.compare-counts {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A pinned result's tab: open and close are two buttons side by side. */
+.pin-tab {
+  padding: 0;
+  gap: 0;
+}
+.pin-tab-open,
+.pin-tab-close {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.pin-tab-close:hover {
+  color: var(--error);
+}
+
 .preview-sql {
   min-width: 420px;
 }

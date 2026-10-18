@@ -71,6 +71,12 @@ export interface ObjectToolbarProps {
       no button. Off while editing: the transposed view is read-only. */
   transposed?: boolean;
   onTranspose?: () => void;
+  /** Keep this result aside (issue #669). Absent → no button; `pinBlocked`
+      (translated) disables it and says why. */
+  onPin?: () => void;
+  pinBlocked?: string | null;
+  /** Open the "compare with…" menu (issue #669). Absent → no button. */
+  onCompare?: (e: MouseEvent) => void;
   onExport: (fmt: string) => void;
   /**
    * Actions that belong to the tab rather than to the object, dropped in the
@@ -209,6 +215,26 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
             onClick={() => props.onTranspose?.()}
           >
             <span class="eb-ic" aria-hidden="true">⇄</span> {t("objbar.transpose")}
+          </button>
+        </Show>
+        <Show when={props.onPin}>
+          <button
+            class="edit-btn"
+            disabled={!!props.pinBlocked}
+            title={props.pinBlocked ?? t("pin.pinTitle")}
+            onClick={() => props.onPin?.()}
+          >
+            <span class="eb-ic" aria-hidden="true">📌</span> {t("pin.pin")}
+          </button>
+        </Show>
+        <Show when={props.onCompare}>
+          <button
+            class="edit-btn edit-btn-menu"
+            aria-haspopup="menu"
+            title={t("pin.compareTitle")}
+            onClick={(e) => props.onCompare?.(e)}
+          >
+            {t("pin.compare")} <span class="eb-caret" aria-hidden="true">▾</span>
           </button>
         </Show>
         <button class="edit-btn" onClick={props.onChart}>
