@@ -244,7 +244,7 @@
 .snip-save-input,
 .td-in,
 .field input,
-.field select,
+.field .dropdown,
 .field textarea {
   background-color: var(--bg);
   color: var(--text);
@@ -269,7 +269,7 @@
   padding: var(--sp-2) var(--sp-3);
   font-family: inherit;
   font-size: var(--fs-base);
-  cursor: pointer;
+  cursor: default;
 }
 
 /* A square icon button is one control height wide as well as tall. Only
@@ -286,16 +286,159 @@ input[type="radio"] {
   accent-color: var(--accent);
 }
 
-/* The caret is a neutral grey that reads on both palettes: a data: URI cannot
-   inherit currentColor, and one grey beats encoding two SVGs. */
-select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding-right: var(--sp-6);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 L5 6.5 L8 3.5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right var(--sp-3) center;
-  background-size: 10px;
+/* --- Desktop, not browser (issue #687) --------------------------------------
+   The arrow is the cursor over every control, as on the desktop; the I-beam and
+   text selection exist only where text is data: fields, the editor, cells, SQL
+   previews and the messages someone may want to copy. `:focus-visible` above
+   already draws the ring only for keyboard focus. */
+body {
+  cursor: default;
+  user-select: none;
+}
+
+a[href] {
+  cursor: pointer;
+}
+
+input,
+textarea,
+[contenteditable],
+.cm-editor,
+.grid-cell,
+.objlist-grid td,
+.struct-table,
+.ep-table,
+.ep-raw,
+.rd-value,
+.ddl-text,
+.routine-ddl,
+.history-sql,
+.snippet-body,
+.related-sql,
+.empty-sql,
+.nb-src,
+.nb-md,
+.import-paste,
+.update-notes,
+.settings-about dd,
+.connbar-mono,
+.grid-error,
+.objlist-error,
+.objtree-error,
+.update-error,
+.pending-notice,
+.cf-notice,
+.form-errors,
+.field-error,
+.test-error,
+.edit-error,
+.import-errors,
+.confirm-message,
+.conn-warn,
+.conn-import-msg,
+.related-warn,
+.type-color-warn,
+.app-toast-text {
+  cursor: auto;
+  user-select: text;
+}
+
+/* The app's own <select> (Dropdown.tsx): a button that wears the field look of
+   wherever it sits (the `.field`, `.tool-pane` and filter vocabularies list it
+   beside input/textarea) plus the caret the native control used to draw. The
+   caret is a neutral grey that reads on both palettes: a data: URI cannot
+   inherit currentColor, and one grey beats encoding two SVGs. `:where()` keeps
+   this base at zero specificity, exactly as the element selector `select` was,
+   so every field vocabulary above and below still layers over it. */
+:where(.dropdown) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background-color: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  text-align: left;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dropdown:disabled {
+  opacity: 0.6;
+}
+
+.dropdown-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-text.placeholder {
+  color: var(--text-dim);
+}
+
+.dropdown-caret {
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5 L5 6.5 L8 3.5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat center;
+}
+
+/* The list floats in a portal, so it clears modals and clipped panels alike. */
+.dropdown-list {
+  position: fixed;
+  z-index: 400;
+  max-height: 40vh;
+  overflow-y: auto;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
+  padding: var(--sp-1);
+}
+
+.dropdown-option {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-base);
+  white-space: nowrap;
+}
+
+.dropdown-option.active {
+  background: var(--bg-elev2);
+}
+
+.dropdown-option[aria-selected="true"] {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.dropdown-option[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+/* The one tooltip (utils/tooltip.ts), drawn from the theme instead of by the
+   browser; `.above` is set when it had to flip over its anchor. */
+.tooltip {
+  position: fixed;
+  z-index: 500;
+  max-width: 320px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-overlay);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  white-space: pre-line;
+  pointer-events: none;
 }
 
 /* Themed, always-visible scrollbars. WebView2/Chromium renders overlay
@@ -305,10 +448,18 @@ select {
    opts into classic (gutter-taking, always-visible) scrollbars. We must NOT also
    set the standard `scrollbar-width`/`scrollbar-color`: when present Chromium
    uses those and ignores the ::-webkit-scrollbar pseudo-elements, falling back
-   to the auto-hiding overlay. So webkit pseudo-elements only. */
+   to the auto-hiding overlay. So webkit pseudo-elements only — and the
+   standard properties solely where the pseudo-elements do not exist (#687). */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}
+
 *::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 
 *::-webkit-scrollbar-thumb {
@@ -383,7 +534,7 @@ body {
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
 }
 
 .toolstrip-btn svg {
@@ -414,7 +565,7 @@ body {
   color: var(--text-dim);
   font: inherit;
   font-size: var(--fs-md);
-  cursor: pointer;
+  cursor: default;
   flex-shrink: 0;
 }
 
@@ -448,7 +599,7 @@ body {
   font: inherit;
   font-size: var(--fs-base);
   font-weight: 600;
-  cursor: pointer;
+  cursor: default;
 }
 .otab:hover:not(.on) {
   background: var(--bg-elev2);
@@ -597,7 +748,7 @@ body {
   color: var(--text-dim);
   font-size: var(--fs-lg);
   line-height: 1;
-  cursor: pointer;
+  cursor: default;
 }
 
 .connbar-add:hover {
@@ -656,7 +807,7 @@ body {
   color: var(--text);
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 .connbar-mono {
@@ -705,7 +856,7 @@ body {
   border: none;
   border-radius: var(--r-sm);
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-md);
   line-height: 1;
   padding: var(--sp-1) var(--sp-2);
@@ -759,7 +910,7 @@ body {
   padding: 0;
   color: var(--accent-text);
   font: inherit;
-  cursor: pointer;
+  cursor: default;
   text-decoration: underline;
 }
 
@@ -835,7 +986,7 @@ body {
   color: var(--text);
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 /* One highlight for the keyboard and the mouse: the arrows move it, and so
@@ -1038,7 +1189,7 @@ body {
   border-radius: var(--r-pill);
   border: 1px solid var(--border);
   padding: 0;
-  cursor: pointer;
+  cursor: default;
 }
 .color-swatch.selected {
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
@@ -1068,7 +1219,7 @@ body {
   color: inherit;
   font-size: var(--fs-lg);
   line-height: 1;
-  cursor: pointer;
+  cursor: default;
 }
 
 .icon-swatch.selected {
@@ -1134,7 +1285,7 @@ body {
   color: var(--text-dim);
   font: inherit;
   font-size: var(--fs-sm);
-  cursor: pointer;
+  cursor: default;
   flex-shrink: 0;
 }
 
@@ -1194,7 +1345,7 @@ body {
   /* The connection's colour rides this edge (set inline). Reserved on every
      tab so a tab does not shift sideways when it gains one. */
   border-left: 3px solid transparent;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
   color: var(--text-dim);
   flex-shrink: 0;
@@ -1238,7 +1389,7 @@ body {
   background: none;
   border: none;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-lg);
   line-height: 1;
   padding: 0 var(--sp-2);
@@ -1729,7 +1880,7 @@ body {
 
 /* Sortable header + per-column filter row (issue #132) */
 .grid-head-sort {
-  cursor: pointer;
+  cursor: default;
   user-select: none;
   position: relative; /* anchor the resize handle to the header cell */
 }
@@ -1881,7 +2032,7 @@ body {
   background: var(--bg-elev2);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  cursor: pointer;
+  cursor: default;
 }
 
 .grid-cancel:hover:not(:disabled) {
@@ -1953,7 +2104,7 @@ body {
   background: none;
   border: none;
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: var(--fs-md);
   padding: var(--sp-2) var(--sp-4);
@@ -2045,7 +2196,7 @@ body {
   background: none;
   border: none;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: var(--fs-md);
   /* Larger, squared hit target for the glyph buttons (theme/settings/help) —
@@ -2062,6 +2213,14 @@ body {
 .status-btn:hover {
   color: var(--text);
   background: var(--bg-elev2);
+}
+
+/* A tool button: the same control, drawn as a control. "+ condición" and
+   "+ orden" read as web links when they were bare text (issue #687). */
+.status-btn.tool {
+  border: 1px solid var(--border);
+  background: var(--bg-elev2);
+  color: var(--text);
 }
 
 .status-btn.danger {
@@ -2202,7 +2361,7 @@ kbd {
   font: inherit;
   font-size: var(--fs-base);
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 .cf-index-item:hover {
@@ -2295,7 +2454,7 @@ kbd {
   color: var(--text);
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 .cf-engine:hover {
@@ -2386,7 +2545,7 @@ kbd {
 }
 
 .cf-input-row > input,
-.cf-input-row > select {
+.cf-input-row > .dropdown {
   flex: 1;
   min-width: 0;
 }
@@ -2412,7 +2571,7 @@ kbd {
   border-radius: var(--r-sm);
   font: inherit;
   font-size: var(--fs-base);
-  cursor: pointer;
+  cursor: default;
 }
 
 .cf-inline-btn:hover:not(:disabled) {
@@ -2458,7 +2617,7 @@ kbd {
   font: inherit;
   font-size: var(--fs-base);
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
 }
 
 .cf-seg-btn:hover {
@@ -2489,7 +2648,7 @@ kbd {
   gap: var(--sp-3);
   font-size: var(--fs-md);
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
 }
 
 .cf-switch input {
@@ -2541,7 +2700,7 @@ kbd {
 }
 
 .cf-advanced > summary {
-  cursor: pointer;
+  cursor: default;
   padding: var(--sp-2) 0;
   font-size: var(--fs-base);
   color: var(--accent-text);
@@ -2652,7 +2811,7 @@ kbd {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: var(--sp-3) var(--sp-3);
-  cursor: pointer;
+  cursor: default;
   text-align: left;
 }
 
@@ -2676,7 +2835,7 @@ kbd {
   align-items: center;
   gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-2);
-  cursor: pointer;
+  cursor: default;
   list-style: none;
   border-radius: var(--r-sm);
   color: var(--text-dim);
@@ -2744,7 +2903,7 @@ kbd {
   color: inherit;
   text-align: left;
   padding: var(--sp-3) var(--sp-3);
-  cursor: pointer;
+  cursor: default;
 }
 
 .conn-open:disabled {
@@ -2770,7 +2929,7 @@ kbd {
   background: none;
   border: none;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   padding: 0 var(--sp-2);
   font-size: var(--fs-md);
 }
@@ -2828,7 +2987,7 @@ kbd {
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: var(--fs-base);
   padding: var(--sp-3) var(--sp-4);
@@ -2879,7 +3038,7 @@ kbd {
 }
 
 .field input,
-.field select {
+.field .dropdown {
   background-color: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
@@ -2890,7 +3049,7 @@ kbd {
 }
 
 .field input:focus,
-.field select:focus {
+.field .dropdown:focus {
   border-color: var(--accent);
 }
 
@@ -2923,7 +3082,7 @@ kbd {
 }
 
 .field input.input-invalid,
-.field select.input-invalid {
+.field .dropdown.input-invalid {
   border-color: var(--error);
 }
 
@@ -2973,7 +3132,7 @@ button.primary {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: var(--sp-3) var(--sp-4);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
 }
 
@@ -3084,7 +3243,7 @@ button.primary:hover:not(:disabled) {
   border: none;
   color: var(--text);
   padding: var(--sp-3) var(--sp-3);
-  cursor: pointer;
+  cursor: default;
 }
 
 .history-run:hover {
@@ -3122,7 +3281,7 @@ button.primary:hover:not(:disabled) {
   font-size: var(--fs-base);
   color: var(--text-dim);
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
 }
 
 .history-empty {
@@ -3243,7 +3402,7 @@ button.primary:hover:not(:disabled) {
   border: none;
   border-top: 1px solid var(--border);
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
   padding: var(--sp-3) var(--sp-3);
   min-width: 0;
 }
@@ -3414,7 +3573,7 @@ button.primary:hover:not(:disabled) {
   text-transform: inherit;
   letter-spacing: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 /* Closing a connection is destructive in a way refreshing is not, so it warns on
@@ -3452,7 +3611,7 @@ button.primary:hover:not(:disabled) {
   font-size: var(--fs-base);
   font-weight: 600;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
 }
 
 .rtab:hover:not(.on) {
@@ -3557,7 +3716,7 @@ button.primary:hover:not(:disabled) {
   background: none;
   border: none;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-lg);
   line-height: 1;
   padding: 0 var(--sp-2);
@@ -3601,7 +3760,7 @@ button.primary:hover:not(:disabled) {
   background: none;
   border: none;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-base);
   line-height: 1;
   padding: var(--sp-2) var(--sp-2);
@@ -3652,7 +3811,7 @@ button.primary:hover:not(:disabled) {
   gap: var(--sp-2);
   height: var(--h-sm);
   padding-right: var(--sp-3);
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -3840,7 +3999,7 @@ button.primary:hover:not(:disabled) {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
-  cursor: pointer;
+  cursor: default;
 }
 
 .ddl-header button:hover:not(:disabled) {
@@ -4055,7 +4214,7 @@ button.primary:hover:not(:disabled) {
   border: none;
   background: transparent;
   color: var(--accent-text);
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-sm);
   line-height: 1;
 }
@@ -4163,7 +4322,7 @@ button.primary:hover:not(:disabled) {
   border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--accent-text);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: var(--fs-sm);
 }
@@ -4212,7 +4371,7 @@ button.primary:hover:not(:disabled) {
 
 .grid-mark input {
   margin: 0;
-  cursor: pointer;
+  cursor: default;
 }
 
 .grid-row .grid-mark input {
@@ -4235,7 +4394,7 @@ button.primary:hover:not(:disabled) {
 button.grid-action {
   border: none;
   background: transparent;
-  cursor: pointer;
+  cursor: default;
   color: var(--fg-dim);
 }
 
@@ -4316,7 +4475,6 @@ button.grid-action.danger:hover:not(:disabled) {
   position: relative;
 }
 .compare-key summary {
-  cursor: pointer;
 }
 .compare-key-list {
   position: absolute;
@@ -4356,7 +4514,6 @@ button.grid-action.danger:hover:not(:disabled) {
   background: transparent;
   color: inherit;
   font: inherit;
-  cursor: pointer;
 }
 .pin-tab-close:hover {
   color: var(--error);
@@ -4697,7 +4854,7 @@ button.grid-action.danger:hover:not(:disabled) {
   background: none;
   border: none;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: var(--fs-sm);
   text-transform: uppercase;
@@ -4730,7 +4887,7 @@ button.grid-action.danger:hover:not(:disabled) {
   background: none;
   border: none;
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: var(--fs-base);
   text-align: left;
@@ -4812,7 +4969,7 @@ button.grid-action.danger:hover:not(:disabled) {
    fills in where nothing else styles the control. */
 :where(.tool-pane)
   :where(
-    select,
+    .dropdown,
     textarea,
     input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"])
   ) {
@@ -4826,11 +4983,11 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 :where(.tool-pane)
-  :where(select, textarea, input):focus {
+  :where(.dropdown, textarea, input):focus {
   border-color: var(--accent);
 }
 
-:where(.tool-pane) :where(select, textarea, input):disabled {
+:where(.tool-pane) :where(.dropdown, textarea, input):disabled {
   opacity: 0.6;
 }
 
@@ -4870,7 +5027,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .im-fields .td-in,
-.im-fields select {
+.im-fields .dropdown {
   flex: 1 1 10rem;
   min-width: 8rem;
 }
@@ -4943,7 +5100,7 @@ button.grid-action.danger:hover:not(:disabled) {
   gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-sm);
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-md);
 }
 
@@ -5003,7 +5160,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border-radius: var(--r-pill);
   background: var(--bg-elev2);
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
 }
 
 .um-filter.on {
@@ -5135,7 +5292,7 @@ button.grid-action.danger:hover:not(:disabled) {
   background: none;
   color: inherit;
   border-radius: var(--r-sm);
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-md);
 }
 
@@ -5485,7 +5642,7 @@ button.grid-action.danger:hover:not(:disabled) {
   background-color: var(--bg-elev2);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-db .map-select:hover {
@@ -5543,7 +5700,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .settings-check {
-  cursor: pointer;
+  cursor: default;
 }
 
 .settings-check input {
@@ -5581,7 +5738,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border-radius: var(--r-pill);
   padding: var(--sp-2) var(--sp-4);
   font-size: var(--fs-base);
-  cursor: pointer;
+  cursor: default;
 }
 
 .chip:hover {
@@ -5623,7 +5780,6 @@ button.grid-action.danger:hover:not(:disabled) {
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-md);
-  cursor: pointer;
 }
 
 .settings-nav-item:hover {
@@ -5659,7 +5815,6 @@ button.grid-action.danger:hover:not(:disabled) {
   background: transparent;
   color: var(--text-dim);
   font-size: var(--fs-sm);
-  cursor: pointer;
   padding: 0 0 var(--sp-2);
 }
 
@@ -5781,7 +5936,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border: none;
   background: none;
   color: var(--accent-text);
-  cursor: pointer;
+  cursor: default;
   padding: var(--sp-1) 0;
   text-align: left;
   width: 100%;
@@ -5873,7 +6028,7 @@ button.grid-action.danger:hover:not(:disabled) {
   text-align: left;
   padding: var(--sp-3) var(--sp-3);
   border-radius: var(--r-md);
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-md);
 }
 
@@ -5999,7 +6154,7 @@ button.grid-action.danger:hover:not(:disabled) {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  cursor: pointer;
+  cursor: default;
 }
 
 .conn-warn {
@@ -6048,7 +6203,7 @@ button.grid-action.danger:hover:not(:disabled) {
   padding: var(--sp-3) var(--sp-3);
 }
 .nb-params summary {
-  cursor: pointer;
+  cursor: default;
   font-size: var(--fs-base);
   color: var(--text-dim);
 }
@@ -6213,7 +6368,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   background: none;
-  cursor: pointer;
+  cursor: default;
 }
 
 .type-color-name {
@@ -6235,7 +6390,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   padding: 0 var(--sp-2);
 }
 
@@ -6370,7 +6525,7 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--text-dim);
   font-size: var(--fs-lg);
   line-height: 1;
-  cursor: pointer;
+  cursor: default;
   padding: 0 var(--sp-1);
 }
 
@@ -6415,7 +6570,7 @@ button.grid-action.danger:hover:not(:disabled) {
   background: none;
   border: 1px solid transparent;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   border-radius: var(--r-sm);
   padding: var(--sp-1) var(--sp-3);
 }
@@ -6471,7 +6626,7 @@ button.grid-action.danger:hover:not(:disabled) {
   color: inherit;
   font: inherit;
   font-size: var(--fs-md);
-  cursor: pointer;
+  cursor: default;
 }
 
 .related-item:hover:not(:disabled) {
@@ -6619,7 +6774,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--accent-text);
-  cursor: pointer;
+  cursor: default;
   opacity: 0;
 }
 
@@ -6902,7 +7057,7 @@ button.grid-action.danger:hover:not(:disabled) {
   padding: 0;
   color: var(--accent-text);
   font: inherit;
-  cursor: pointer;
+  cursor: default;
   text-decoration: underline;
   text-underline-offset: 2px;
   white-space: nowrap;
@@ -6962,7 +7117,7 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--text);
   font: inherit;
   font-weight: 600;
-  cursor: pointer;
+  cursor: default;
   padding: var(--sp-1) 0;
 }
 
@@ -6997,7 +7152,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .filter-col,
 .filter-op,
-.filter-sort-pill select {
+.filter-sort-pill .dropdown {
   background-color: var(--bg-elev2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -7029,7 +7184,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border-radius: var(--r-sm);
   padding: 0 var(--sp-2);
   font: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 .filter-join:hover { color: var(--text); border-color: var(--text-dim); }
 .filter-drop { font-size: var(--fs-md); line-height: 1; }

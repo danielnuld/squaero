@@ -390,6 +390,7 @@ import { loadLocalHistory, saveLocalHistory } from "./utils/localHistoryStore";
 import { SnippetsPanel } from "./components/SnippetsPanel";
 import { RowDetail } from "./components/RowDetail";
 import { stepRowIndex } from "./utils/rowDetail";
+import { Dropdown } from "./components/Dropdown";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -4508,15 +4509,12 @@ export function App() {
                           <div class="sidebar-db">
                             <label>
                               <span>{t("tree.activeDb")}</span>
-                              <select
-                                class="map-select"
+                              <Dropdown
                                 value={activeDb() ?? ""}
-                                onChange={(e) => selectDb(e.currentTarget.value)}
-                              >
-                                <For each={databases()}>
-                                  {(d) => <option value={d}>{d}</option>}
-                                </For>
-                              </select>
+                                options={databases().map((d) => ({ value: d, label: d }))}
+                                onChange={(v) => selectDb(v)}
+                                class="map-select"
+                              />
                             </label>
                           </div>
                         </Show>

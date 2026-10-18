@@ -14,6 +14,7 @@ import {
   type ChartType,
 } from "../utils/chart";
 import type { ResultSet } from "../utils/query";
+import { Dropdown } from "./Dropdown";
 
 // Result visualization (issue #149): render a loaded result as a bar / line / pie
 // chart with inline SVG (no chart library). The user picks the label (x) column
@@ -80,21 +81,21 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
       <div class="chart-controls">
         <label>
           {t("chart.type")}
-          <select class="map-select" value={type()} onChange={(e) => setType(e.currentTarget.value as ChartType)}>
-            <option value="bar">{t("chart.bar")}</option>
-            <option value="line">{t("chart.line")}</option>
-            <option value="pie">{t("chart.pie")}</option>
-          </select>
+          <Dropdown
+            value={type()}
+            options={[{ value: "bar", label: t("chart.bar") }, { value: "line", label: t("chart.line") }, { value: "pie", label: t("chart.pie") }]}
+            onChange={(v) => setType(v as ChartType)}
+            class="map-select"
+          />
         </label>
         <label>
           {t("chart.axis")}
-          <select
+          <Dropdown
+            value={String(labelCol())}
+            options={cols().map((c, i) => ({ value: String(i), label: c.name }))}
+            onChange={(v) => setLabelCol(Number(v))}
             class="map-select"
-            value={labelCol()}
-            onChange={(e) => setLabelCol(Number(e.currentTarget.value))}
-          >
-            <For each={cols()}>{(c, i) => <option value={i()}>{c.name}</option>}</For>
-          </select>
+          />
         </label>
         <div class="chart-values">
           <span class="chart-values-label">

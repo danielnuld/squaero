@@ -22,6 +22,7 @@ import { txBegin, txCommit, txRollback } from "../utils/edit";
 import { saveText, sqlFileName } from "../utils/download";
 import type { Connection } from "../utils/connections";
 import { t } from "../utils/i18n";
+import { Dropdown } from "./Dropdown";
 
 /** Display order of the difference categories. */
 const KINDS: DiffKind[] = ["table", "column", "primaryKey", "unique", "index", "foreignKey", "check", "view"];
@@ -205,9 +206,11 @@ ${scriptText(r.script)}` : "";
       <div class="import-field">
         <label>
           {t("ssync.target")}{" "}
-          <select value={targetDefId()} onChange={(e) => setTargetDefId(e.currentTarget.value)}>
-            <For each={props.connections}>{(c) => <option value={c.id}>{c.name}</option>}</For>
-          </select>
+          <Dropdown
+            value={targetDefId()}
+            options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+            onChange={(v) => setTargetDefId(v)}
+          />
         </label>{" "}
         <label>
           {t("ssync.db")}{" "}

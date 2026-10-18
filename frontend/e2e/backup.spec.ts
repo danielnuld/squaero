@@ -5,7 +5,7 @@
 // showSaveFilePicker is replaced by one that keeps what is written. Everything
 // else — schema.ddl, the cursor walk, splitting the file, running it — is real.
 
-import { connect, onCore } from "./support/app-actions";
+import { connect, onCore, pick } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
 
 describeAllEngines(["mysql", "postgres"], (name) => {
@@ -40,7 +40,7 @@ describeAllEngines(["mysql", "postgres"], (name) => {
       .click();
 
     // PostgreSQL's database holds schemas, so the tables come once one is chosen.
-    if (name === "postgres") await page.getByLabel("Esquema:").selectOption("public");
+    if (name === "postgres") await pick(page.getByLabel("Esquema:"), "public");
     const box = page.getByRole("checkbox", { name: "e2e_items", exact: true });
     await box.waitFor();
     await page.getByRole("button", { name: "Ninguno", exact: true }).click();

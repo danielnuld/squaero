@@ -4,6 +4,7 @@ import { render } from "solid-js/web";
 import { ConnectionForm } from "../../src/components/ConnectionForm";
 import { QueryError } from "../../src/utils/query";
 import type { Connection } from "../../src/utils/connections";
+import { dropdownValues } from "./dropdownHarness";
 
 // Drives the real connection form (issues #109, #531): one page of sections
 // instead of tabs, engine cards instead of a dropdown, an optional name, and a
@@ -119,7 +120,8 @@ describe("ConnectionForm engine cards", () => {
     mount({});
     const cards = host!.querySelectorAll<HTMLButtonElement>(".cf-engine");
     expect(cards.length).toBeGreaterThan(1);
-    expect(host!.querySelector("select[value]")).toBeNull();
+    expect(host!.querySelector(".cf-section [role=combobox][aria-label*=Motor]")).toBeNull();
+    expect(host!.querySelector("[role=radiogroup]")).not.toBeNull();
     const on = [...cards].filter((c) => c.getAttribute("aria-checked") === "true");
     expect(on).toHaveLength(1);
   });
@@ -444,9 +446,9 @@ describe("ConnectionForm database picker", () => {
     clickText("Listar");
     await flush();
     expect(onListDatabases).toHaveBeenCalledTimes(1);
-    const select = host!.querySelector("select.db-picker-select") as HTMLSelectElement;
+    const select = host!.querySelector(".dropdown.db-picker-select")!;
     expect(select).not.toBeNull();
-    const opts = [...select.options].map((o) => o.value);
+    const opts = dropdownValues(select);
     expect(opts).toContain("appdb");
     expect(opts).toContain("reporting");
   });

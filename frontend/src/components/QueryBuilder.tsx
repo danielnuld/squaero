@@ -14,6 +14,7 @@ import {
   type QuerySpec,
 } from "../utils/queryBuilder";
 import { t } from "../utils/i18n";
+import { Dropdown } from "./Dropdown";
 
 interface TableRef {
   table: string;
@@ -173,19 +174,12 @@ export function QueryBuilder(props: {
         >
           <label class="field">
             <span>{t("qb.table")}</span>
-            <select
-              class="map-select"
+            <Dropdown
               value={tableKey()}
-              onChange={(e) => void selectTable(e.currentTarget.value)}
-            >
-              <For each={tables()}>
-                {(tbl) => (
-                  <option value={keyOf(tbl)}>
-                    {tbl.container ? `${tbl.container}.${tbl.table}` : tbl.table}
-                  </option>
-                )}
-              </For>
-            </select>
+              options={tables().map((tbl) => ({ value: keyOf(tbl), label: tbl.container ? `${tbl.container}.${tbl.table}` : tbl.table }))}
+              onChange={(v) => void selectTable(v)}
+              class="map-select"
+            />
           </label>
 
           <Show when={truncated()}>
@@ -213,33 +207,28 @@ export function QueryBuilder(props: {
           <div class="qb-section">
             <div class="import-subtitle">
               {t("qb.conditions")}
-              <select
-                class="map-select qb-conj"
+              <Dropdown
                 value={conjunction()}
-                onChange={(e) => setConjunction(e.currentTarget.value as "AND" | "OR")}
-              >
-                <option value="AND">{t("qb.and")}</option>
-                <option value="OR">{t("qb.or")}</option>
-              </select>
+                options={[{ value: "AND", label: t("qb.and") }, { value: "OR", label: t("qb.or") }]}
+                onChange={(v) => setConjunction(v as "AND" | "OR")}
+                class="map-select qb-conj"
+              />
             </div>
             <For each={conds}>
               {(c, i) => (
                 <div class="qb-cond">
-                  <select
-                    class="map-select"
+                  <Dropdown
                     value={c.column}
-                    onChange={(e) => patchCond(i(), "column", e.currentTarget.value)}
-                  >
-                    <option value="">{t("qb.columnPlaceholder")}</option>
-                    <For each={columns()}>{(col) => <option value={col}>{col}</option>}</For>
-                  </select>
-                  <select
+                    options={[{ value: "", label: t("qb.columnPlaceholder") }, ...columns().map((col) => ({ value: col, label: col }))]}
+                    onChange={(v) => patchCond(i(), "column", v)}
                     class="map-select"
+                  />
+                  <Dropdown
                     value={c.op}
-                    onChange={(e) => patchCond(i(), "op", e.currentTarget.value as Operator)}
-                  >
-                    <For each={OPERATORS}>{(op) => <option value={op}>{op}</option>}</For>
-                  </select>
+                    options={OPERATORS.map((op) => ({ value: op, label: op }))}
+                    onChange={(v) => patchCond(i(), "op", v as Operator)}
+                    class="map-select"
+                  />
                   <input
                     class="td-in"
                     placeholder={c.op === "IN" ? "a, b, c" : t("qb.valuePlaceholder")}
@@ -261,16 +250,20 @@ export function QueryBuilder(props: {
           <div class="qb-section qb-order">
             <label class="field">
               <span>{t("qb.orderBy")}</span>
-              <select class="map-select" value={orderCol()} onChange={(e) => setOrderCol(e.currentTarget.value)}>
-                <option value="">—</option>
-                <For each={columns()}>{(c) => <option value={c}>{c}</option>}</For>
-              </select>
+              <Dropdown
+                value={orderCol()}
+                options={[{ value: "", label: "—" }, ...columns().map((c) => ({ value: c, label: c }))]}
+                onChange={(v) => setOrderCol(v)}
+                class="map-select"
+              />
             </label>
             <Show when={orderCol()}>
-              <select class="map-select" value={orderDir()} onChange={(e) => setOrderDir(e.currentTarget.value as "ASC" | "DESC")}>
-                <option value="ASC">{t("qb.asc")}</option>
-                <option value="DESC">{t("qb.desc")}</option>
-              </select>
+              <Dropdown
+                value={orderDir()}
+                options={[{ value: "ASC", label: t("qb.asc") }, { value: "DESC", label: t("qb.desc") }]}
+                onChange={(v) => setOrderDir(v as "ASC" | "DESC")}
+                class="map-select"
+              />
             </Show>
             <label class="field">
               <span>{t("qb.limit")}</span>

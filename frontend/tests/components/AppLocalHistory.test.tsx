@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { EditorView } from "@codemirror/view";
 import { App } from "../../src/App";
+import { dropdownLabels } from "./dropdownHarness";
 import { parseLocalHistory } from "../../src/utils/localHistory";
 
 // Issue #674: the local history of the editor tabs, end to end inside the app —
@@ -72,7 +73,7 @@ describe("App — local history of the editor tabs", () => {
     tabByName("Ventas").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
     byText(".context-menu button", "Historial local…").click();
     expect(host!.querySelector(".local-history")).not.toBeNull();
-    expect(host!.querySelector(".local-history select")!.textContent).toContain(
+    expect(dropdownLabels(host!.querySelector(".local-history [role=combobox]")!)).toContain(
       "Pedidos (cerrada)",
     );
 

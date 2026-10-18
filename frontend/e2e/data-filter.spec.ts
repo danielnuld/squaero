@@ -5,7 +5,7 @@
 // The grid's own header sort and column filters never left the browser, which is
 // what it has been warning about under every truncated result.
 
-import { connect, openFixtureTable } from "./support/app-actions";
+import { connect, openFixtureTable, pick } from "./support/app-actions";
 import { describeEngine, test, expect } from "./support/fixtures";
 
 describeEngine("sqlite", () => {
@@ -37,8 +37,8 @@ describeEngine("sqlite", () => {
     await expect(page.getByText("Nogales", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "+ condición" }).click();
-    await panel(page).getByRole("combobox", { name: "Columna" }).selectOption("nombre");
-    await panel(page).getByRole("combobox", { name: "Operador" }).selectOption("CONTAINS");
+    await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
+    await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
     await panel(page).getByRole("textbox", { name: "Valor" }).fill("Obreg");
 
     // Written but not applied: the grid still shows what it fetched, and says so.
@@ -68,8 +68,8 @@ describeEngine("sqlite", () => {
     await openFixtureTable(app);
 
     await page.getByRole("button", { name: "+ condición" }).click();
-    await panel(page).getByRole("combobox", { name: "Columna" }).selectOption("nombre");
-    await panel(page).getByRole("combobox", { name: "Operador" }).selectOption("CONTAINS");
+    await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
+    await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
     await panel(page).getByRole("textbox", { name: "Valor" }).fill("Obreg");
     await page.getByRole("button", { name: "Aplicar", exact: true }).click();
     await expect(page.getByText("Nogales", { exact: true })).toHaveCount(0);
@@ -88,8 +88,8 @@ describeEngine("sqlite", () => {
     await openFixtureTable(app);
 
     await page.getByRole("button", { name: "+ condición" }).click();
-    await panel(page).getByRole("combobox", { name: "Columna" }).selectOption("nombre");
-    await panel(page).getByRole("combobox", { name: "Operador" }).selectOption("CONTAINS");
+    await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
+    await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
     await panel(page).getByRole("textbox", { name: "Valor" }).fill("Obreg");
     await page.getByRole("button", { name: "Aplicar", exact: true }).click();
     await expect(page.getByText("Nogales", { exact: true })).toHaveCount(0);
@@ -106,7 +106,7 @@ describeEngine("sqlite", () => {
     await openFixtureTable(app);
 
     await page.getByRole("button", { name: "+ orden" }).click();
-    await panel(page).getByRole("combobox", { name: "Columna de ordenación" }).selectOption("nombre");
+    await pick(panel(page).getByRole("combobox", { name: "Columna de ordenación" }), "nombre");
     await page.getByRole("button", { name: "Aplicar", exact: true }).click();
 
     await page.getByRole("button", { name: "SQL", exact: true }).click();
@@ -137,7 +137,7 @@ describeEngine("sqlite", () => {
     const panel = page.getByRole("region", { name: "Filtro y orden de la tabla" });
     await expect(panel.getByText("1 orden(es)")).toBeVisible();
     await panel.getByRole("button", { name: /Filtro/ }).click();
-    await expect(panel.getByRole("combobox", { name: "Columna de ordenación" })).toHaveValue(
+    await expect(panel.getByRole("combobox", { name: "Columna de ordenación" })).toHaveText(
       "nombre",
     );
     // And it went into the query, not into the loaded page.

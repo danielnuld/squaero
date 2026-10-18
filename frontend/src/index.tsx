@@ -2,11 +2,14 @@
 import { render } from "solid-js/web";
 import { App } from "./App";
 import { call, hasBridge } from "./utils/transport";
+import { installTooltips } from "./utils/tooltip";
 import "./styles.css";
 
 const root = document.getElementById("root");
 if (root) {
   render(() => <App />, root);
+  // The app's own tooltips over every `title` (issue #687), once, for the page.
+  installTooltips(document);
 }
 
 // Protocol handshake on load (docs/IPC.md rule 4): negotiate the protocol
