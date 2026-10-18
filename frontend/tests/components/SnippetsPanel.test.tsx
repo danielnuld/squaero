@@ -33,6 +33,7 @@ function mount(props: Partial<Parameters<typeof SnippetsPanel>[0]> = {}) {
     onOpen: () => {},
     onInsert: () => {},
     onRename: () => {},
+    onSetAbbr: () => {},
     onDuplicate: () => {},
     onRemove: () => {},
     onExport: () => {},
@@ -69,6 +70,40 @@ const byText = (sel: string, text: string) =>
   [...host!.querySelectorAll(sel)].find((b) => b.textContent?.trim() === text) as HTMLElement;
 
 describe("SnippetsPanel", () => {
+  // Issue #665: a snippet with an abbreviation is an editor template.
+  describe("template abbreviation", () => {
+    const abbrInput = () =>
+      host!.querySelector(".snippet-abbr-row input") as HTMLInputElement;
+    const commit = (value: string) => {
+      abbrInput().value = value;
+      abbrInput().dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    it("shows a snippet's abbreviation in its row and in the detail", () => {
+      mount({ entries: [{ ...entries[0], abbr: "ord" }, entries[1]] });
+      expect(rows()[0].querySelector("kbd")?.textContent).toBe("ord");
+      expect(rows()[1].querySelector("kbd")).toBeNull();
+      expect(abbrInput().value).toBe("ord");
+    });
+
+    it("commits a new abbreviation, or a blank one to remove it", () => {
+      const onSetAbbr = vi.fn();
+      mount({ onSetAbbr });
+      commit("Ord");
+      expect(onSetAbbr).toHaveBeenLastCalledWith("snip-1", "Ord");
+      commit("");
+      expect(onSetAbbr).toHaveBeenLastCalledWith("snip-1", "");
+    });
+
+    it("refuses an abbreviation that is not one word and reverts the field", () => {
+      const onSetAbbr = vi.fn();
+      mount({ entries: [{ ...entries[0], abbr: "ord" }], onSetAbbr });
+      commit("two words");
+      expect(onSetAbbr).not.toHaveBeenCalled();
+      expect(abbrInput().value).toBe("ord");
+    });
+  });
+
   it("lists every snippet with the first line of what it does", () => {
     mount();
     expect(rowNames()).toEqual(["Orders", "Impagadas"]);

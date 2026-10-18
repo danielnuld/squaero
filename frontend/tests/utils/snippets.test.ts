@@ -13,6 +13,7 @@ import {
   type Snippet,
   proposedSnippetName,
   uniqueSnippetName,
+  setSnippetAbbr,
 } from "../../src/utils/snippets";
 
 const snip = (id: string, name: string, body: string): Snippet => ({ id, name, body });
@@ -192,5 +193,46 @@ describe("uniqueSnippetName", () => {
   it("never overwrites: the existing snippet keeps its name", () => {
     const name = uniqueSnippetName(list, "cuadernos");
     expect(list.some((s) => s.name === name)).toBe(false);
+  });
+});
+
+// Issue #665: an optional abbreviation makes a snippet an editor template.
+describe("snippet abbreviation", () => {
+  const list = [snip("snip-1", "a", "SELECT 1"), snip("snip-2", "b", "SELECT 2")];
+
+  it("sets a normalized abbreviation on one snippet", () => {
+    const out = setSnippetAbbr(list, "snip-1", "  Sel ");
+    expect(out[0].abbr).toBe("sel");
+    expect(out[1].abbr).toBeUndefined();
+  });
+
+  it("removes it with a blank value", () => {
+    const withAbbr = setSnippetAbbr(list, "snip-1", "sel");
+    const out = setSnippetAbbr(withAbbr, "snip-1", " ");
+    expect(out[0]).toEqual(list[0]);
+    expect("abbr" in out[0]).toBe(false);
+  });
+
+  it("ignores an abbreviation that is not a single word", () => {
+    for (const bad of ["two words", "9lives", "a-b", "a.b"]) {
+      expect(setSnippetAbbr(list, "snip-1", bad)).toBe(list);
+    }
+  });
+
+  it("loads snippets saved before abbreviations existed (backward compatible)", () => {
+    const old = '[{"id":"snip-1","name":"a","body":"SELECT 1"}]';
+    expect(parseSnippets(old)).toEqual([snip("snip-1", "a", "SELECT 1")]);
+  });
+
+  it("round-trips an abbreviation and drops a malformed one, keeping the snippet", () => {
+    const withAbbr = setSnippetAbbr(list, "snip-1", "sel");
+    expect(parseSnippets(serializeSnippets(withAbbr))).toEqual(withAbbr);
+    const bad = '[{"id":"snip-1","name":"a","body":"x","abbr":"no way"},{"id":"snip-2","name":"b","body":"y","abbr":7}]';
+    expect(parseSnippets(bad)).toEqual([snip("snip-1", "a", "x"), snip("snip-2", "b", "y")]);
+  });
+
+  it("keeps the abbreviation of imported snippets", () => {
+    const out = mergeSnippets([], [{ ...snip("snip-9", "c", "SELECT 3"), abbr: "C3" }]);
+    expect(out).toEqual([{ id: "snip-1", name: "c", body: "SELECT 3", abbr: "c3" }]);
   });
 });
