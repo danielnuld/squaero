@@ -478,6 +478,12 @@ export const en: Record<string, string> = {
   "objbar.confirm": "Confirm ({n})",
   "objbar.discard": "Discard",
   "objbar.chart": "Chart",
+  "objbar.transpose": "Transpose",
+  "objbar.transposeTitle": "Columns as rows: the marked rows, else the selected one, else the whole page",
+  "transpose.column": "column",
+  "transpose.type": "type",
+  "transpose.row": "row {n}",
+  "transpose.capped": "Showing the first {n} rows side by side. Mark rows to transpose others.",
   "objbar.exportTitle": "Export the result",
   "objbar.export": "Export",
 

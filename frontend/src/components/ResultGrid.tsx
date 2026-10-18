@@ -160,6 +160,12 @@ export function ResultGrid(props: {
   onCopyRows?: (rows: number[]) => void;
   /** Ctrl+D: the same rows, to add again as new pending rows. Absent → no-op. */
   onDuplicateRows?: (rows: number[]) => void;
+  /**
+   * The neutral type of one cell when it is not its column's (issue #670): in
+   * the transposed view each ROW is a source column, so a cell is formatted by
+   * its row. Undefined → the column's type, as everywhere else.
+   */
+  cellType?: (rowIndex: number, colIndex: number) => string | undefined;
   /** Bumped by the workspace to clear the marks (the row bar's ✕). */
   clearMarksTick?: number;
 }) {
@@ -237,6 +243,8 @@ export function ResultGrid(props: {
   const rows = () => props.result?.rows ?? [];
   const style = () => props.gridStyle ?? "registro";
   const editing = () => props.edit?.active ?? false;
+  const typeOf = (rowIndex: number, ci: number, columnType: string) =>
+    props.cellType?.(rowIndex, ci) ?? columnType;
 
   /**
    * The rows as they will be SHOWN, for measuring column widths only.
@@ -258,8 +266,11 @@ export function ResultGrid(props: {
   const shownRows = () => {
     if (style() !== "informe") return rows();
     const columns = cols();
-    return rows().map((row) =>
-      row.map((value, ci) => displayText(value, columns[ci]?.type ?? "text", "informe", t).text),
+    return rows().map((row, ri) =>
+      row.map(
+        (value, ci) =>
+          displayText(value, typeOf(ri, ci, columns[ci]?.type ?? "text"), "informe", t).text,
+      ),
     );
   };
 
@@ -898,7 +909,7 @@ export function ResultGrid(props: {
                                       // `props.result.rows`, never this.
                                       const cell = displayText(
                                         original(),
-                                        col.type,
+                                        typeOf(rowIndex(), ci(), col.type),
                                         props.gridStyle ?? "registro",
                                         t,
                                       );

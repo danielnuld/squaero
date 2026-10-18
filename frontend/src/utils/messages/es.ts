@@ -481,6 +481,12 @@ export const es: Record<string, string> = {
   "objbar.confirm": "Confirmar ({n})",
   "objbar.discard": "Descartar",
   "objbar.chart": "Graficar",
+  "objbar.transpose": "Transponer",
+  "objbar.transposeTitle": "Columnas como filas: las filas marcadas, si no la seleccionada, si no toda la página",
+  "transpose.column": "columna",
+  "transpose.type": "tipo",
+  "transpose.row": "fila {n}",
+  "transpose.capped": "Se muestran las primeras {n} filas lado a lado. Marca filas para transponer otras.",
   "objbar.exportTitle": "Exportar el resultado",
   "objbar.export": "Exportar",
 
