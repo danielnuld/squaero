@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   completionContext,
   completionItems,
+  editorSchema,
   highlightSql,
   type EditorSchema,
 } from "../../src/utils/sqlEditor";
@@ -114,5 +115,12 @@ describe("completionItems", () => {
 
   it("keeps to the limit", () => {
     expect(completionItems("s", { from: 0, word: "s" }, schema, 3)).toHaveLength(3);
+  });
+});
+
+describe("editorSchema", () => {
+  it("lists every table and keeps only described columns", () => {
+    expect(editorSchema({ a: ["x"], b: [] })).toEqual({ tables: ["a", "b"], columns: { a: ["x"] } });
+    expect(editorSchema({})).toEqual({ tables: [], columns: {} });
   });
 });

@@ -204,6 +204,13 @@ export const en: Record<string, string> = {
   "editor.runHint": "Ctrl/Cmd + Enter to run",
   "editor.selectAll": "Select all",
   "editor.copy": "Copy",
+  // editor diagnostics (#662)
+  "diag.unknownTable": "Unknown table: {name}",
+  "diag.unknownColumn": "Unknown column: {name}",
+  "diag.ambiguousColumn": "Ambiguous column {name}: it exists in {tables}",
+  "diag.updateWithoutWhere": "UPDATE without WHERE changes every row",
+  "diag.deleteWithoutWhere": "DELETE without WHERE removes every row",
+  "diag.insertArity": "{values} values for {columns} columns",
 
   // editor empty state (issue #178)
   "empty.lead": "Run a query to see results.",
@@ -1013,6 +1020,7 @@ export const en: Record<string, string> = {
   "error.tabConnClosed": "This tab's connection is closed. Reconnect it from the connections panel.",
   "error.importNoConns": "Could not import: no file holds any connections.",
   "settings.lowContrast": "Low contrast against the background",
+  "settings.editorDiagnostics": "Mark problems in the SQL editor",
   "settings.resetColor": "Back to the theme colour for {kind}",
   "kind.text": "Text",
   "kind.number": "Numbers",

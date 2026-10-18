@@ -284,6 +284,14 @@ export function SettingsPanel(props: {
             />
             <span class="settings-label">Barra de herramientas bajo las pestañas</span>
           </label>
+          <label class="settings-row settings-check">
+            <input
+              type="checkbox"
+              checked={props.settings.editorDiagnostics}
+              onChange={(e) => props.onSetSettings({ editorDiagnostics: e.currentTarget.checked })}
+            />
+            <span class="settings-label">{t("settings.editorDiagnostics")}</span>
+          </label>
           {/* Encima de la densidad: primero cómo se lee, después cuánto cabe. */}
           <div class="settings-row">
             <span class="settings-label">Estilo de rejilla</span>

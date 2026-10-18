@@ -1,7 +1,10 @@
-import { onCleanup, onMount, createEffect } from "solid-js";
-import { EditorState, Compartment } from "@codemirror/state";
+import { onCleanup, onMount, createEffect, createMemo } from "solid-js";
+import { EditorState, Compartment, StateEffect, StateField, type Text } from "@codemirror/state";
 import {
+  Decoration,
+  type DecorationSet,
   EditorView,
+  hoverTooltip,
   keymap,
   lineNumbers,
   highlightActiveLine,
@@ -29,6 +32,9 @@ import {
   completionKeymap,
   completionStatus,
   startCompletion,
+  type CompletionContext,
+  type CompletionResult,
+  type CompletionSource,
 } from "@codemirror/autocomplete";
 import { search, searchKeymap, openSearchPanel, highlightSelectionMatches } from "@codemirror/search";
 import { formatSql } from "../utils/sqlFormat";
@@ -37,6 +43,10 @@ import { pickRunTarget, type RunScope } from "../utils/runScope";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { t } from "../utils/i18n";
+import { editorSchema } from "../utils/sqlEditor";
+import { sqlCompletions, type Completions } from "../utils/sqlComplete";
+import { sqlDiagnostics, type SqlDiagnostic } from "../utils/sqlDiagnostics";
+import type { ForeignKeyRelation } from "../utils/foreignKeys";
 
 /**
  * SQL colouring in the app's own palette (issue #473).
@@ -65,6 +75,54 @@ const sqlHighlight = HighlightStyle.define([
   { tag: [tags.variableName, tags.propertyName], color: "var(--text)" },
   { tag: tags.invalid, color: "var(--error)" },
 ]);
+
+// Diagnostics (issue #662): squiggles under what sqlDiagnostics finds, with the
+// message on hover. Built from view primitives rather than @codemirror/lint —
+// a mark decoration and a hover tooltip are all it needs.
+const setDiagnostics = StateEffect.define<DecorationSet>();
+const diagnosticsField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(marks, tr) {
+    marks = marks.map(tr.changes);
+    for (const e of tr.effects) if (e.is(setDiagnostics)) marks = e.value;
+    return marks;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+const diagnosticMarks = (list: SqlDiagnostic[], length: number): DecorationSet =>
+  Decoration.set(
+    list
+      .filter((d) => d.from < d.to && d.to <= length)
+      .map((d) => Decoration.mark({ class: `cm-diag cm-diag-${d.severity}`, diagnostic: d }).range(d.from, d.to)),
+    true,
+  );
+const diagnosticHover = hoverTooltip((view, pos) => {
+  const found: SqlDiagnostic[] = [];
+  let start = pos;
+  let end = pos;
+  view.state.field(diagnosticsField).between(pos, pos, (from, to, mark) => {
+    found.push(mark.spec.diagnostic as SqlDiagnostic);
+    start = Math.min(start, from);
+    end = Math.max(end, to);
+  });
+  if (found.length === 0) return null;
+  return {
+    pos: start,
+    end,
+    above: true,
+    create: () => {
+      const dom = document.createElement("div");
+      dom.className = "cm-diag-tooltip";
+      for (const d of found) {
+        const line = document.createElement("div");
+        line.className = `cm-diag-message cm-diag-${d.severity}`;
+        line.textContent = t(d.messageKey, d.params);
+        dom.appendChild(line);
+      }
+      return { dom };
+    },
+  };
+});
 
 // CodeMirror 6 SQL editor. A single EditorView is reused across query tabs; the
 // active tab's text is swapped in on tab change. Ctrl/Cmd+Enter runs the query
@@ -115,6 +173,14 @@ export function SqlEditor(props: {
    * written reads from.
    */
   defaultTable?: string;
+  /** Real foreign keys of the tables the statement names: JOIN … ON completes
+      the condition from them (issue #661). */
+  foreignKeys?: ForeignKeyRelation[];
+  /** Tables (lower case) the app tried to describe and found missing. Only these
+      are marked as unknown: the table list is just what the tree has loaded. */
+  missingTables?: string[];
+  /** Mark problems in the SQL (issue #662). On unless false. */
+  diagnostics?: boolean;
 }) {
   let host!: HTMLDivElement;
   let view: EditorView | undefined;
@@ -134,6 +200,60 @@ export function SqlEditor(props: {
   // doc actually loaded into the view.
   let loaded = props.activeId;
   let swapping = false;
+
+  const schemaNow = createMemo(() => editorSchema(props.schema ?? {}));
+
+  // Contextual completion (issue #661) first; lang-sql's own sources (schema +
+  // keywords, registered by sql() as language data) only where it has nothing.
+  // Memoized per position: the fallbacks ask the same question again.
+  let lastAsk:
+    | { doc: Text; pos: number; explicit: boolean; schema: unknown; fks: unknown; out: Completions | null }
+    | undefined;
+  const semantic = (ctx: CompletionContext): Completions | null => {
+    const schema = schemaNow();
+    const fks = props.foreignKeys;
+    const a = lastAsk;
+    if (!a || a.doc !== ctx.state.doc || a.pos !== ctx.pos || a.explicit !== ctx.explicit || a.schema !== schema || a.fks !== fks) {
+      const out = sqlCompletions(ctx.state.doc.toString(), ctx.pos, {
+        schema,
+        engine: props.dialect,
+        foreignKeys: fks,
+        explicit: ctx.explicit,
+      });
+      lastAsk = { doc: ctx.state.doc, pos: ctx.pos, explicit: ctx.explicit, schema, fks, out };
+    }
+    return lastAsk!.out;
+  };
+  const semanticSource: CompletionSource = (ctx) => {
+    const r = semantic(ctx);
+    return r && ({ ...r, validFor: /^[\p{L}\p{N}_$]*$/u } as CompletionResult);
+  };
+  const fallbackSource = (i: number): CompletionSource => (ctx) => {
+    if (semantic(ctx)) return null;
+    const src = ctx.state.languageDataAt<CompletionSource>("autocomplete", ctx.pos)[i];
+    return typeof src === "function" ? src(ctx) : null;
+  };
+
+  // Diagnostics run once typing settles, and again when the schema they read
+  // changes. Never on every keystroke: the marks just map along with the edit.
+  let diagTimer: ReturnType<typeof setTimeout> | undefined;
+  const runDiagnostics = () => {
+    if (!view) return;
+    const doc = view.state.doc.toString();
+    const list =
+      props.diagnostics === false
+        ? []
+        : sqlDiagnostics(doc, {
+            schema: schemaNow(),
+            engine: props.dialect,
+            missingTables: new Set(props.missingTables ?? []),
+          });
+    view.dispatch({ effects: setDiagnostics.of(diagnosticMarks(list, doc.length)) });
+  };
+  const scheduleDiagnostics = () => {
+    clearTimeout(diagTimer);
+    diagTimer = setTimeout(runDiagnostics, 300);
+  };
 
   // Reformat the current document in place, replacing its text and persisting
   // the result. A no-op when the formatter leaves the text unchanged (empty
@@ -174,7 +294,10 @@ export function SqlEditor(props: {
           bracketMatching(),
           closeBrackets(),
           indentOnInput(),
-          autocompletion(),
+          // lang-sql registers two sources: schema names, then keywords.
+          autocompletion({ override: [semanticSource, fallbackSource(0), fallbackSource(1)] }),
+          diagnosticsField,
+          diagnosticHover,
           // In-editor find/replace (Ctrl/Cmd+F). The panel sits at the top and
           // matches are highlighted; searchKeymap adds find-next/prev + replace.
           search({ top: true }),
@@ -225,6 +348,7 @@ export function SqlEditor(props: {
             if (u.docChanged && !swapping) {
               props.onChange(loaded, view!.state.doc.toString());
             }
+            if (u.docChanged) scheduleDiagnostics();
             // Keep the toolbar's Run button in sync with the selection so it can
             // read "Ejecutar selección" when text is highlighted.
             if ((u.selectionSet || u.docChanged) && props.onSelectionChange) {
@@ -257,6 +381,7 @@ export function SqlEditor(props: {
     const schema = props.schema ?? {};
     const dialect = editorDialect(props.dialect);
     const defaultTable = props.defaultTable;
+    void props.foreignKeys; // join conditions arrive like columns do
     if (!view) return;
     view.dispatch({
       effects: sqlConf.reconfigure(sql({ dialect, schema, defaultTable })),
@@ -339,7 +464,19 @@ export function SqlEditor(props: {
     view.focus();
   });
 
-  onCleanup(() => view?.destroy());
+  // New schema facts, or the setting flipped: diagnose again.
+  createEffect(() => {
+    schemaNow();
+    void props.missingTables;
+    void props.diagnostics;
+    void props.dialect;
+    scheduleDiagnostics();
+  });
+
+  onCleanup(() => {
+    clearTimeout(diagTimer);
+    view?.destroy();
+  });
 
   // Right-click menu: format / run / select-all / copy, all operating on the
   // live editor. Copy uses the current selection, or the whole document when

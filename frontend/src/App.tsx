@@ -890,10 +890,19 @@ export function App() {
   // connection and left the first table-open "loading" for seconds (issue: the
   // sidebar open hangs). Columns fill in progressively as the user browses.
   const [columnCache, setColumnCache] = createSignal<Record<string, string[]>>({});
+  // Names the editor asked to describe and got nothing for (lower case): the
+  // only tables the diagnostics may call unknown (#662) — the tree's list alone
+  // is not proof, it holds just the branches that were opened.
+  const [missingTables, setMissingTables] = createSignal<string[]>([]);
+  // Outbound foreign keys of the tables a statement joins, by table: JOIN … ON
+  // completes the condition from them (#661).
+  const [fkCache, setFkCache] = createSignal<Record<string, ForeignKeyRelation[]>>({});
   createEffect(() => {
     active();
     void treeReload(); // a connection switch or refresh clears the cache
     setColumnCache({});
+    setMissingTables([]);
+    setFkCache({});
   });
   // Columns for the tables the statement being written actually mentions.
   //
@@ -914,6 +923,7 @@ export function App() {
   // costs one failed describe, swallowed: completions are a convenience, not a
   // contract.
   const describedColumns = new Set<string>();
+  const fetchedFks = new Set<string>();
   let columnFetchTimer: ReturnType<typeof setTimeout> | undefined;
   createEffect(() => {
     const conn = active();
@@ -940,23 +950,48 @@ export function App() {
         if (describedColumns.has(guard)) continue;
         describedColumns.add(guard);
         void (async () => {
+          const missing = () => setMissingTables((m) => [...m, label.toLowerCase()]);
           try {
             const desc = await schemaDescribe(conn.connId, label, node?.db, node?.schema);
             const cols = describeColumnNames(desc);
             if (cols.length > 0) {
               setColumnCache((c) => ({ ...c, [label]: cols }));
-            }
+            } else missing();
           } catch {
             // Not a table, or not reachable. Either way the name suggestions still
             // work and nothing needs to be said about it.
+            missing();
           }
         })();
+      }
+      // Foreign keys only matter once there is something to join, and then
+      // once per table: its outbound keys cover both directions between any
+      // two tables of the statement.
+      if (names.length < 2) return;
+      for (const name of names) {
+        const node = known.get(name.toLowerCase());
+        const label = node?.label ?? name;
+        const guard = `${conn.connId}:${label}`;
+        if (fetchedFks.has(guard)) continue;
+        fetchedFks.add(guard);
+        const plan = foreignKeysFor(conn.driver, node?.db, { table: label, direction: "from" });
+        if (!plan.supported || !plan.bulkSql) continue;
+        void runQuery(conn.connId, plan.bulkSql, FK_CATALOG_LIMIT)
+          .then((res) => {
+            const rels = groupForeignKeys(parseForeignKeys(res.columns, res.rows));
+            if (rels.length > 0) setFkCache((c) => ({ ...c, [label]: rels }));
+          })
+          .catch(() => {
+            /* no FK metadata: JOIN … ON just completes columns. */
+          });
       }
     }, 400);
   });
   onCleanup(() => {
     if (columnFetchTimer !== undefined) clearTimeout(columnFetchTimer);
   });
+
+  const sqlForeignKeys = createMemo(() => Object.values(fkCache()).flat());
 
   const sqlSchema = createMemo<Record<string, string[]>>(() => {
     const cache = columnCache();
@@ -3793,6 +3828,9 @@ export function App() {
                     insertRequest={snippetInsert()}
                     schema={sqlSchema()}
                     defaultTable={sqlDefaultTable()}
+                    foreignKeys={sqlForeignKeys()}
+                    missingTables={missingTables()}
+                    diagnostics={settings().editorDiagnostics}
                   />
                   </Show>
                   {/* The editor's own bar. A data tab has no editor: its
