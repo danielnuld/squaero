@@ -437,7 +437,8 @@ para agrupar una tanda de ediciones (`row.*`) y confirmarlas o descartarlas en
 bloque (edición segura, issue #28). Requieren que el driver anuncie
 `DBC_FEAT_TRANSACTIONS`; un motor sin soporte devuelve `-32001` (no soportado)
 en lugar de fingir éxito. Los motores SQL (SQLite, MySQL/MariaDB) los soportan;
-MongoDB no los anuncia.
+MongoDB no los anuncia todavía: una sesión de edición sobre él (`tx.begin` responde
+`-32001`) aplica cada cambio en el momento y no tiene nada que confirmar ni revertir.
 
 El núcleo recuerda, por conexión, si `tx.begin` abrió una transacción que ningún
 `tx.commit`/`tx.rollback` cerró todavía (#667): un segundo `tx.begin` sobre la misma
@@ -472,8 +473,12 @@ Resultado `{ sql: string, rowsAffected?: number }`. Con `preview: true` solo se
 sin `preview` se genera y además se ejecuta. El driver construye el SQL literal
 (`build_dml`), así que el `sql` del preview es exactamente el que se ejecuta al
 confirmar (issue #29). El núcleo rechaza un `UPDATE`/`DELETE` sin `where` (jamás
-afecta todas las filas). Requiere `DBC_FEAT_DML`; MongoDB no lo anuncia (solo
-lectura). La edición segura se agrupa con `tx.begin`/`tx.commit`/`tx.rollback`.
+afecta todas las filas). Requiere `DBC_FEAT_DML`. MongoDB lo anuncia: `build_dml`
+renderiza un `insertOne`/`updateOne`/`deleteOne` de la superficie mongosh que
+identifica el documento por su `_id` (la clave que `schema.describe` marca como pk),
+y `rowsAffected` es el número de documentos *encontrados* por el filtro (para un
+`updateOne` con el mismo valor, 1 aunque no cambie nada). La edición segura se agrupa con
+`tx.begin`/`tx.commit`/`tx.rollback` en los motores que los anuncian.
 
 ### Códigos de error
 

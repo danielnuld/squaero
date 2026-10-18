@@ -30,7 +30,7 @@ habla directo con las librerías cliente de cada base de datos.
 | **PostgreSQL** | ✅ Vía libpq — SSL/TLS, SCRAM |
 | **MySQL / MariaDB** | ✅ Completo (verificado) — SSL/TLS, túnel SSH |
 | **Informix** | ✅ Por DRDA, sin cliente de IBM |
-| **MongoDB** | ✅ Lectura (find/aggregate, sintaxis mongosh) |
+| **MongoDB** | ✅ Sintaxis mongosh — find/aggregate, escrituras (insert/update/replace/delete), índices, `runCommand`; edición de documentos en la cuadrícula por `_id`; la definición de una colección como script. Aún no: transacciones, explain/monitor, cancelar una consulta |
 | **SQL Server** | ✅ Vía FreeTDS — consultas, tipos, esquema, transacciones, cifrado, instancias con nombre. Aún no: editar filas en la rejilla, DDL, cancelar una consulta |
 | Oracle | ⏳ Planeado (M12) |
 

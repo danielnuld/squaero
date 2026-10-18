@@ -48,24 +48,115 @@ writes a **mongosh-style** expression:
 
 ```
 db.<collection>.find(<filter?>, <projection?>)[.sort(<doc>)][.skip(<n>)][.limit(<n>)]
+db.<collection>.findOne(<filter?>, <projection?>)
 db.<collection>.aggregate(<pipeline-array>)
+db.<collection>.countDocuments(<filter?>)       db.<collection>.distinct("<field>", <filter?>)
+db.<collection>.insertOne(<doc>)                db.<collection>.insertMany(<docs-array>)
+db.<collection>.updateOne(<filter>, <update>, <opts?>)   (updateMany: same; <update> may be a pipeline)
+db.<collection>.replaceOne(<filter>, <doc>, <opts?>)
+db.<collection>.deleteOne(<filter>)             db.<collection>.deleteMany(<filter>)
+db.<collection>.createIndex(<keys>, <opts?>)    db.<collection>.dropIndex(<name | keys>)
+db.<collection>.getIndexes()                    db.<collection>.drop()
+db.createCollection("<name>", <opts?>)          db.createView("<name>", "<source>", <pipeline>, <opts?>)
+db.runCommand(<doc | "name">)
+db.getCollection("<name>").<method>(...)        (addresses any collection name)
 ```
 
 - `find` runs `mongoc_collection_find_with_opts`; the optional second argument is
-  a projection, and `.sort()`/`.skip()`/`.limit()` chain onto it.
+  a projection, and `.sort()`/`.skip()`/`.limit()` chain onto it. `findOne` is a
+  `find` of one document (no chaining).
 - `aggregate` runs `mongoc_collection_aggregate` over the pipeline array.
+- **Writes and utility commands** return a result set shaped like mongosh's
+  acknowledgement, flattened by the same code as find results: `insertOne` ->
+  `acknowledged`, `insertedId`; `insertMany` -> `acknowledged`, `insertedCount`,
+  `insertedIds`; `updateOne`/`updateMany`/`replaceOne` -> `acknowledged`,
+  `matchedCount`, `modifiedCount`, `upsertedCount`[, `upsertedId`]; `deleteOne`/
+  `deleteMany` -> `acknowledged`, `deletedCount`; `countDocuments` -> `count`;
+  `distinct` -> one `value` row per distinct value; `createIndex` -> `name` (+ the
+  server's counts); `runCommand` -> the reply document. **`rows_affected`** is the
+  real server count: inserted documents, the documents *matched* by an update or
+  replace (plus an upserted one; `modifiedCount` tells how many actually changed,
+  the "changed" of MySQL), deleted documents, and the reply's `n` for
+  `runCommand`. Commands that change no documents report 0. A server error
+  (duplicate key, validation failure, a bad update operator) is a query error
+  carrying the server's message.
 - An unbounded `find` (no `.limit()`) is capped at a safety bound
   (`MONGO_SCAN_CAP`, 10000) so it cannot exhaust memory; the core's own row cap
   and truncation flag apply on top.
 
 The argument documents accept the **relaxed** JavaScript-object form the mongo
-shell uses — bare (unquoted) keys and single-quoted strings, e.g.
+shell uses — bare (unquoted) keys, single-quoted strings and the value
+constructors `ObjectId("...")`, `ISODate("...")` / `new Date("...")`,
+`NumberLong(...)`, `NumberInt(...)` and `NumberDecimal("...")`, e.g.
 `db.users.find({ age: { $gt: 25 } })`. A pure normalizer
-(`utils/json_relax.c`) rewrites them to strict JSON before handing them to
+(`utils/json_relax.c`) rewrites them to strict Extended JSON before handing them to
 libbson; already-valid JSON passes through unchanged. The command *shape* is
 parsed by a pure module (`utils/query_parse.c`); neither depends on libbson, so
-both are unit-tested without a MongoDB client. Unsupported operations (insert,
-update, remove, …) are rejected with an explicit error rather than faked.
+both are unit-tested without a MongoDB client. An unknown method (`bulkWrite`,
+`findOneAndUpdate`, `remove`, ...) is rejected as **unsupported**
+(`DBC_ERR_UNSUPPORTED`, JSON-RPC `-32001`) with a message naming it, rather than
+faked; a malformed command is an ordinary query error. Not covered yet:
+`bulkWrite`, `findOneAndUpdate/Replace/Delete`, `estimatedDocumentCount`, cursor
+modifiers other than `sort/skip/limit`, `runCommand` options, JavaScript
+expressions and variables.
+
+## Editing documents from the grid (`DBC_FEAT_DML`)
+
+`describe_table` reports `_id` as the primary key, so a collection opened from the
+tree is editable. `build_dml` (`utils/dml.c`, pure) renders the grid's change as a
+mongosh statement that the driver runs through the same command path:
+
+```
+db.users.insertOne({"name": "ana", "age": 30})
+db.users.updateOne({"$or": [{"_id": {"$oid": "..."}}, {"_id": "..."}]}, {"$set": {"age": 31}})
+db.users.deleteOne({"$or": [{"_id": 7}, {"_id": "7"}]})
+```
+
+- The cell text does not say which BSON type `_id` has, so the filter matches every
+  type the text can stand for (24 hex digits -> ObjectId or string, an integer ->
+  number or string, an ISO date -> date or string; each branch uses the `_id`
+  index).
+- Values are typed from the neutral column type: INT/FLOAT/BOOL unquoted (a value
+  that does not fit its type is kept as a string — the collection is schemaless),
+  JSON cells parsed and validated (an invalid one is refused; it can never break
+  out of the statement), DATE/TIMESTAMP as `{"$date": ...}`, everything else a
+  string. With no types the value is inferred conservatively (number,
+  `true`/`false`, JSON document/array, else string). A NULL is `null` in an update;
+  in an insert a NULL cell (or an empty `_id`) is left out so the server applies its
+  defaults. `_id` is never `$set`.
+- A collection name that is not a plain identifier goes through
+  `db.getCollection("...")`. Statements run against the connected database, so
+  editing another database's collection is refused (`DBC_ERR_UNSUPPORTED`).
+- **No transactions.** The driver does not advertise `DBC_FEAT_TRANSACTIONS`, so
+  `tx.begin` answers unsupported and the frontend's edit session applies each
+  change as it runs (nothing to commit or roll back). If one fails midway, the ones
+  before it stay applied and the session ends with a message saying so.
+- Limitations: an ObjectId-valued field *other than* `_id` is shown as text and is
+  written back as a string if the user edits it (use `ObjectId("...")` in the
+  editor for that); binary cells are not editable as binary; int32/int64 and
+  double/decimal128 are not told apart on edit beyond "an integer-looking value of
+  a float column stays a double".
+
+## Collection definition (`DBC_FEAT_DDL`)
+
+`get_ddl` returns a reproducible mongosh script as the usual one-column `sql`
+result: the `createCollection` options (capped, validator, collation, timeseries,
+...) from `listCollections` and one `createIndex` per secondary index from
+`listIndexes`, sorted by index name so the output is deterministic; the default
+`_id_` index is left out (the server creates it). A view is a single
+`db.createView(...)`. The pure assembly is `utils/ddl.c`; fetching the pieces is
+`src/ddl.c`.
+
+```
+db.createCollection("orders", { "validator" : { "$jsonSchema" : { "required" : [ "sku" ] } }, "validationLevel" : "moderate" });
+db.orders.createIndex({ "sku" : 1 }, { "name": "sku_1", "unique" : true });
+```
+
+The script runs in Squaero's own editor as well as in mongosh. A text index is
+rebuilt from its `weights` (`{ "t" : "text" }`).
+
+Arrays in result cells are rendered as JSON arrays (`[ 1, 2 ]`), so a JSON cell
+edited in the grid round-trips.
 
 ## Introspection
 
