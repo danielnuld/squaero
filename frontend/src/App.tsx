@@ -9,7 +9,7 @@ import {
   onMount,
   onCleanup,
 } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createStore, unwrap } from "solid-js/store";
 import {
   runQuery,
   queryNext,
@@ -271,6 +271,7 @@ import { TOOL_CATALOG } from "./utils/toolCatalog";
 import { sourceLabel } from "./utils/resultFacts";
 import { summarizeCells } from "./utils/cellSummary";
 import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
+import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
 import { IconSearch } from "./components/icons";
 import { locale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
@@ -286,6 +287,13 @@ import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar } from "./components/ObjectToolbar";
 import { ResultTabs } from "./components/ResultTabs";
+import {
+  PinStrip,
+  PinNote,
+  CompareBar,
+  pinLabel,
+  type PinnedResult,
+} from "./components/PinnedResults";
 import { ObjectListView } from "./components/ObjectListView";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { RelatedData } from "./components/RelatedData";
@@ -3128,6 +3136,151 @@ export function App() {
     setSelectedCells(null);
     setTransposed({ source: res, rows, offset: currentResult().offset ?? 0 });
   };
+  // --- Pinned results and comparing them (issue #669) --------------------
+  // A pin is the page that was on screen, copied aside per tab so the next run
+  // does not replace it; it is never re-run. Bounded: past MAX_PINS per tab the
+  // button is disabled and says why, rather than dropping an older pin.
+  const MAX_PINS = 5;
+  const [pins, setPins] = createStore<Record<number, PinnedResult[]>>({});
+  let pinSeq = 0;
+  // A closed tab's pins go with it: they are copies nothing else can reach.
+  createEffect(() => {
+    const open = new Set(tabs().tabs.map((tb) => tb.id));
+    for (const id of Object.keys(pins).map(Number)) {
+      if (!open.has(id) && pins[id]) setPins(id, undefined!);
+    }
+  });
+  const tabPins = (): PinnedResult[] => {
+    const tb = current();
+    return (tb && pins[tb.id]) || [];
+  };
+  /** A side of a comparison: a pin's id, or the tab's live result. */
+  type Side = number | "current";
+  // What the pane shows instead of the live result. Each is held for the live
+  // result it was opened over, like the transposed view: a new run, a page
+  // turn, another tab or editing show the live result again.
+  const [pinShown, setPinShown] = createSignal<{
+    tabId: number;
+    pin: number;
+    live: ResultSet | null;
+  } | null>(null);
+  const [comparing, setComparing] = createSignal<{
+    tabId: number;
+    base: Side;
+    other: Side;
+    key: string[];
+    live: ResultSet | null;
+  } | null>(null);
+  const holds = (v: { tabId: number; live: ResultSet | null } | null) =>
+    !!v && v.tabId === current()?.id && v.live === currentResult().result && !currentEdit().editing;
+  const shownPin = createMemo(() => {
+    const v = pinShown();
+    return holds(v) ? (tabPins().find((p) => p.id === v!.pin) ?? null) : null;
+  });
+  const sideOf = (s: Side) => {
+    if (s === "current") {
+      const r = currentResult();
+      return r.result ? { result: r.result, pk: r.source?.pk ?? [], label: t("pin.current") } : null;
+    }
+    const p = tabPins().find((x) => x.id === s);
+    return p ? { result: p.result, pk: p.pk, label: pinLabel(p) } : null;
+  };
+  const comparison = createMemo(() => {
+    const c = comparing();
+    if (!holds(c)) return null;
+    const base = sideOf(c!.base);
+    const other = sideOf(c!.other);
+    if (!base || !other) return null;
+    const cmp = compareResults(
+      base.result,
+      other.result,
+      c!.key.length > 0 ? { by: "key", columns: c!.key } : { by: "position" },
+    );
+    const view = comparisonView(cmp, base.result, other.result, t("compare.status"));
+    return { cmp, view, base, other, key: c!.key };
+  });
+  const pinBlocked = (): string | null => {
+    const r = currentResult();
+    if (!r.result || r.loading) return t("pin.nothing");
+    if (tabPins().length >= MAX_PINS) return t("pin.full", { n: MAX_PINS });
+    return null;
+  };
+  const pinCurrent = () => {
+    const tb = current();
+    const r = currentResult();
+    if (!tb || !r.result || pinBlocked()) return;
+    const pin: PinnedResult = {
+      id: ++pinSeq,
+      ranAt: r.ranAt ?? Date.now(),
+      sql: r.sets?.[r.activeSet ?? 0]?.sql ?? r.pageSql ?? "",
+      // A copy, not the store's object: nothing done to the live result later
+      // may reach into a pin.
+      result: structuredClone(unwrap(r.result)),
+      offset: r.offset ?? 0,
+      pk: [...(r.source?.pk ?? [])],
+    };
+    setPins(tb.id, (l) => [...(l ?? []), pin]);
+  };
+  // The alternative grids publish no marks or selection: clear what the live
+  // grid left, as the transposed view does.
+  const leaveLiveGrid = () => {
+    setMarkedRows([]);
+    setSelectedCells(null);
+    setDetailIndex(null);
+  };
+  const showPin = (id: number | null) => {
+    const tb = current();
+    setComparing(null);
+    if (id === null || !tb) return setPinShown(null);
+    leaveLiveGrid();
+    setPinShown({ tabId: tb.id, pin: id, live: currentResult().result });
+  };
+  const unpin = (id: number) => {
+    const tb = current();
+    if (tb) setPins(tb.id, (l) => (l ?? []).filter((p) => p.id !== id));
+  };
+  /** Compare `base` (the one chosen) → `other` (the one on screen). */
+  const startCompare = (base: Side, other: Side) => {
+    const tb = current();
+    const b = sideOf(base);
+    const o = sideOf(other);
+    if (!tb || !b || !o) return;
+    // By the table's primary key when a side has one and both project it;
+    // otherwise by position.
+    const pk = o.pk.length > 0 ? o.pk : b.pk;
+    const has = (rs: ResultSet) => pk.every((k) => rs.columns.some((c) => c.name === k));
+    leaveLiveGrid();
+    setComparing({
+      tabId: tb.id,
+      base,
+      other,
+      key: pk.length > 0 && has(b.result) && has(o.result) ? [...pk] : [],
+      live: currentResult().result,
+    });
+  };
+  const openCompareMenu = (e: MouseEvent, shown: Side) => {
+    const choices: Side[] = [
+      ...(shown !== "current" && (currentResult().result?.columns.length ?? 0) > 0
+        ? (["current"] as const)
+        : []),
+      ...tabPins()
+        .map((p) => p.id)
+        .filter((id) => id !== shown),
+    ];
+    const items: MenuItem[] =
+      choices.length > 0
+        ? choices.map((s) => ({ label: sideOf(s)!.label, action: () => startCompare(s, shown) }))
+        : [{ label: t("pin.compareNone"), disabled: true }];
+    openContextMenu(e, items);
+  };
+  /** How a comparison's cell is marked: changed cells, and added / removed rows. */
+  const diffCellClass = (v: ComparisonView, r: number, ci: number) => {
+    const s = v.status[r];
+    if (v.changed[r]?.has(ci)) return "diff-changed";
+    if (ci === 0 || s === "added" || s === "removed") return `diff-${s}`;
+    return undefined;
+  };
+
   // How the grid is currently drawing its columns (issue #446), as original
   // indices in display order. Copying from the grid follows what the user sees;
   // generating SQL (inserts, transfer) keeps the table's own order, which is
@@ -4379,10 +4532,41 @@ export function App() {
                       onSelect={(i) => selectSet(tab().id, i)}
                     />
                   </Show>
+                  <Show when={tabPins().length > 0}>
+                    <PinStrip
+                      pins={tabPins()}
+                      shown={shownPin()?.id ?? null}
+                      onSelect={showPin}
+                      onClose={unpin}
+                    />
+                  </Show>
+                  <Show when={comparison()}>
+                    {(c) => (
+                      <CompareBar
+                        cmp={c().cmp}
+                        baseLabel={c().base.label}
+                        otherLabel={c().other.label}
+                        keyColumns={c().key}
+                        onKey={(key) => setComparing((v) => (v ? { ...v, key } : v))}
+                        onClose={() => setComparing(null)}
+                      />
+                    )}
+                  </Show>
+                  <Show when={!comparison() && shownPin()}>
+                    {(p) => (
+                      <PinNote
+                        pin={p()}
+                        onCompare={(e) => openCompareMenu(e, p().id)}
+                        onClose={() => unpin(p().id)}
+                      />
+                    )}
+                  </Show>
                   <Show
                     when={
-                      currentResult().source ||
-                      (currentResult().result?.columns.length ?? 0) > 0
+                      !comparison() &&
+                      !shownPin() &&
+                      (currentResult().source ||
+                        (currentResult().result?.columns.length ?? 0) > 0)
                     }
                   >
                     <ObjectToolbar
@@ -4412,6 +4596,9 @@ export function App() {
                       onChart={openChart}
                       transposed={!!transposedOn()}
                       onTranspose={toggleTranspose}
+                      onPin={pinCurrent}
+                      pinBlocked={pinBlocked()}
+                      onCompare={(e) => openCompareMenu(e, "current")}
                       onExport={(fmt) => void doExport(fmt as AnyExportFormat)}
                     >
                       {/* A data tab has no editor bar to hold these, so they
@@ -4466,6 +4653,35 @@ export function App() {
                   </Show>
                   <div class="result-body">
                     <div class="result-grid-wrap">
+                      {/* A comparison, else a pinned result (issue #669): both
+                          read-only, in the same virtualized grid. */}
+                      <Show when={comparison()}>
+                        {(c) => (
+                          <ResultGrid
+                            result={c().view.result}
+                            loading={false}
+                            error={null}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                            gridStyle={settings().gridStyle}
+                            keyColumns={c().key}
+                            cellType={(r, ci) => (c().view.changed[r]?.has(ci) ? "text" : undefined)}
+                            cellClass={(r, ci) => diffCellClass(c().view, r, ci)}
+                          />
+                        )}
+                      </Show>
+                      <Show when={!comparison() && shownPin()}>
+                        {(p) => (
+                          <ResultGrid
+                            result={p().result}
+                            loading={false}
+                            error={null}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity)}
+                            gridStyle={settings().gridStyle}
+                            keyColumns={p().pk}
+                          />
+                        )}
+                      </Show>
+                      <Show when={!comparison() && !shownPin()}>
                       <Show
                         when={transposedView()}
                         fallback={
@@ -4553,6 +4769,7 @@ export function App() {
                             </Show>
                           </>
                         )}
+                      </Show>
                       </Show>
                       {/* While pending rows exist the bar gives way: they get their
                           own bar with the save flow (#517, phase C). */}

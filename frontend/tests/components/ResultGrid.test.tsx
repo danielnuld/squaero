@@ -1380,3 +1380,42 @@ describe("ResultGrid mark column", () => {
     expect(box("Marcar todas las filas visibles").hasAttribute("tabindex")).toBe(false);
   });
 });
+
+// Issue #669: a comparison marks its cells through cellClass.
+describe("ResultGrid per-cell class", () => {
+  it("adds the classes cellClass gives to read-only cells", () => {
+    const grid: ResultSet = {
+      columns: [
+        { name: "Δ", type: "text" },
+        { name: "v", type: "text" },
+      ],
+      rows: [
+        ["~", "a → b"],
+        ["+", "c"],
+      ],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={grid}
+            loading={false}
+            error={null}
+            cellClass={(r, c) => (r === 0 && c === 1 ? "diff-changed" : r === 1 ? "diff-added" : undefined)}
+          />
+        ),
+        host!,
+      );
+    });
+    const cell = (r: number, c: number) => host!.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`)!;
+    expect(cell(0, 1).classList.contains("diff-changed")).toBe(true);
+    expect(cell(0, 0).classList.contains("diff-changed")).toBe(false);
+    expect(cell(1, 0).classList.contains("diff-added")).toBe(true);
+    expect(cell(1, 1).classList.contains("diff-added")).toBe(true);
+  });
+});
