@@ -485,6 +485,10 @@ export const en: Record<string, string> = {
   "tree.renameLabel": "New name",
   "tree.renameConfirm": "Rename",
   "tree.renameInvalid": "That name cannot be used: it is empty, unchanged, contains “$” or starts with “system.”.",
+  "tree.fromCache": "From cache · {age}",
+  "tree.fromCacheTitle": "Cached metadata, shown while it is re-read from the server. It may be out of date.",
+  "cache.tooLarge": "Some schema metadata is too large to cache; it will be read from the server each time.",
+  "cache.storage": "The schema cache could not be saved (storage full or blocked); it lasts only for this session.",
   // folder labels (data keys, translated at the tree consumer)
   "tree.tables": "Tables",
   "tree.views": "Views",
