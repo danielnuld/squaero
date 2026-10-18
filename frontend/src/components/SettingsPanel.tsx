@@ -5,6 +5,10 @@ import { call } from "../utils/transport";
 import { APP_VERSION, REPO_URL } from "../utils/version";
 import {
   clampSlowThreshold,
+  clampLocalVersions,
+  clampLocalDays,
+  MAX_LOCAL_VERSIONS,
+  MAX_LOCAL_DAYS,
   MIN_SLOW_MS,
   MAX_SLOW_MS,
   type GridDensity,
@@ -366,6 +370,36 @@ export function SettingsPanel(props: {
             />
             <span class="settings-label">{t("settings.builtinTemplates")}</span>
           </label>
+          {/* Local history of the editor tabs (issue #674). */}
+          <label class="settings-row">
+            <span class="settings-label">{t("lhist.settingVersions")}</span>
+            <input
+              type="number"
+              min={0}
+              max={MAX_LOCAL_VERSIONS}
+              value={props.settings.localHistoryVersions}
+              onChange={(e) =>
+                props.onSetSettings({
+                  localHistoryVersions: clampLocalVersions(Number(e.currentTarget.value)),
+                })
+              }
+            />
+          </label>
+          <label class="settings-row">
+            <span class="settings-label">{t("lhist.settingDays")}</span>
+            <input
+              type="number"
+              min={0}
+              max={MAX_LOCAL_DAYS}
+              value={props.settings.localHistoryDays}
+              onChange={(e) =>
+                props.onSetSettings({
+                  localHistoryDays: clampLocalDays(Number(e.currentTarget.value)),
+                })
+              }
+            />
+          </label>
+          <p class="settings-hint">{t("lhist.settingHint")}</p>
         </section>
 
         <section class="settings-section">
