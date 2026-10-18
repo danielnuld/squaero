@@ -597,6 +597,47 @@ describe("ResultGrid selection + keyboard + bit display", () => {
   });
 });
 
+// Issue #670: the transposed view formats each cell by its ROW's type.
+describe("ResultGrid per-cell type", () => {
+  it("formats a cell by the type cellType gives, else by its column", () => {
+    const grid: ResultSet = {
+      columns: [
+        { name: "column", type: "text" },
+        { name: "row 1", type: "" },
+      ],
+      rows: [
+        ["id", "7"],
+        ["activo", "true"],
+        ["nota", null],
+      ],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    const types = ["int", "bool", "text"];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={grid}
+            loading={false}
+            error={null}
+            cellType={(r, c) => (c >= 1 ? types[r] : undefined)}
+          />
+        ),
+        host!,
+      );
+    });
+    const cell = (r: number, c: number) => host!.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`)!;
+    expect(cell(0, 0).classList.contains("cell-text")).toBe(true);
+    expect(cell(0, 1).classList.contains("cell-number")).toBe(true);
+    expect(cell(1, 1).textContent).toBe("1");
+    expect(cell(2, 1).classList.contains("cell-null")).toBe(true);
+  });
+});
+
 describe("ResultGrid loading + cancel", () => {
   it("shows a Cancelar button while loading and calls onCancel when clicked", () => {
     host = document.createElement("div");
@@ -848,9 +889,11 @@ describe("ResultGrid row marking", () => {
   };
 
   let marked: number[] = [];
+  let cells: { column: number; rows: number[] } | null = null;
 
   function mountMarkable() {
     marked = [];
+    cells = null;
     host = document.createElement("div");
     document.body.appendChild(host);
     createRoot((d) => {
@@ -862,6 +905,7 @@ describe("ResultGrid row marking", () => {
             loading={false}
             error={null}
             onMarkedRowsChange={(rows) => (marked = rows)}
+            onSelectedCellsChange={(c) => (cells = c)}
           />
         ),
         host!,
@@ -892,6 +936,16 @@ describe("ResultGrid row marking", () => {
     expect(marked).toEqual([1]);
     click(1, { ctrlKey: true });
     expect(marked).toEqual([]);
+  });
+
+  // Issue #670: what the status-bar summary adds up.
+  it("reports the selected cell's column over the marked rows", () => {
+    mountMarkable();
+    expect(cells).toBeNull();
+    click(1);
+    expect(cells).toEqual({ column: 0, rows: [1] });
+    click(3, { shiftKey: true });
+    expect(cells).toEqual({ column: 0, rows: [1, 2, 3] });
   });
 
   it("marks with cmd + click too (macOS)", () => {

@@ -481,6 +481,12 @@ export const es: Record<string, string> = {
   "objbar.confirm": "Confirmar ({n})",
   "objbar.discard": "Descartar",
   "objbar.chart": "Graficar",
+  "objbar.transpose": "Transponer",
+  "objbar.transposeTitle": "Columnas como filas: las filas marcadas, si no la seleccionada, si no toda la página",
+  "transpose.column": "columna",
+  "transpose.type": "tipo",
+  "transpose.row": "fila {n}",
+  "transpose.capped": "Se muestran las primeras {n} filas lado a lado. Marca filas para transponer otras.",
   "objbar.exportTitle": "Exportar el resultado",
   "objbar.export": "Exportar",
 
@@ -1147,6 +1153,13 @@ export const es: Record<string, string> = {
   "run.failed": "Falló a las {time} · {duration}",
   "status.marked": "{n} seleccionadas",
   "status.markedTitle": "Filas marcadas en la rejilla (clic con Ctrl o Mayús; Ctrl+A todas)",
+  "status.summaryTitle": "La columna de la celda seleccionada en las filas marcadas (clic con Ctrl o Mayús)",
+  "status.cells": "{n} celdas",
+  "status.nulls": "{n} NULL",
+  "status.sum": "Suma {v}",
+  "status.avg": "Media {v}",
+  "status.min": "Mín {v}",
+  "status.max": "Máx {v}",
   "status.shortcuts": "Atajos de teclado",
 
   // run scope indicator (issue #130)

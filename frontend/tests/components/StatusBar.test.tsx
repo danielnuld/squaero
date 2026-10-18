@@ -69,4 +69,18 @@ describe("StatusBar", () => {
     next.click();
     expect(steps).toEqual([-1]);
   });
+
+  // Issue #670: the selected cells, summed up.
+  it("summarizes the selected cells", () => {
+    mount({ summary: { count: 3, nulls: 1, sum: "0.3", avg: "0.15", min: "0.1", max: "0.2" } });
+    const text = host!.textContent ?? "";
+    expect(text).toContain("3 celdas · 1 NULL · Suma 0.3 · Media 0.15 · Mín 0.1 · Máx 0.2");
+  });
+
+  it("shows only the count when there is nothing to add up", () => {
+    mount({ summary: { count: 2, nulls: 0 } });
+    const text = host!.textContent ?? "";
+    expect(text).toContain("2 celdas");
+    expect(text).not.toContain("Suma");
+  });
 });
