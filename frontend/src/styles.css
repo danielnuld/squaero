@@ -1977,9 +1977,14 @@ body {
   cursor: pointer;
 }
 
-.grid-cancel:hover {
+.grid-cancel:hover:not(:disabled) {
   border-color: var(--error);
   color: var(--error);
+}
+
+.grid-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Branded welcome shown in the workspace when no tab is open (issue #191). */

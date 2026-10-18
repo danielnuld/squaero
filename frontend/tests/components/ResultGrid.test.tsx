@@ -623,6 +623,32 @@ describe("ResultGrid loading + cancel", () => {
     expect(canceled).toBe(1);
   });
 
+  it("disables the button, with the reason as its tooltip, when the engine cannot cancel", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    let canceled = 0;
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={null}
+            loading={true}
+            error={null}
+            onCancel={() => canceled++}
+            cancelDisabledReason="no cancel here"
+          />
+        ),
+        host!,
+      );
+    });
+    const btn = host!.querySelector<HTMLButtonElement>("button.grid-cancel")!;
+    expect(btn.disabled).toBe(true);
+    expect(btn.title).toBe("no cancel here");
+    btn.click();
+    expect(canceled).toBe(0);
+  });
+
   it("shows no cancel button when onCancel is absent", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
