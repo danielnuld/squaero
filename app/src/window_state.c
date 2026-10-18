@@ -1,20 +1,43 @@
 #include "window_state.h"
 
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+/* One int, after optional whitespace; advances *p past it. strtol rather than
+   sscanf: MSVC deprecates sscanf (C4996, an error under /WX). */
+static int next_int(const char **p, int *out)
+{
+    char *end;
+    long v;
+    errno = 0;
+    v = strtol(*p, &end, 10);
+    if (end == *p || errno == ERANGE || v < INT_MIN || v > INT_MAX) {
+        return 0;
+    }
+    *out = (int)v;
+    *p = end;
+    return 1;
+}
 
 int quaero_window_state_parse(const char *text, quaero_window_state *out)
 {
     quaero_window_state s;
-    int consumed = 0;
+    const char *p = text;
     if (text == NULL || out == NULL) {
         return 0;
     }
-    if (sscanf(text, "%d %d %d %d %d %n", &s.x, &s.y, &s.width, &s.height,
-               &s.maximized, &consumed) != 5) {
+    if (!next_int(&p, &s.x) || !next_int(&p, &s.y) || !next_int(&p, &s.width) ||
+        !next_int(&p, &s.height) || !next_int(&p, &s.maximized)) {
         return 0;
     }
-    /* "%n" lands after the trailing whitespace: anything left is junk. */
-    if (text[consumed] != '\0') {
+    /* Trailing whitespace is fine; anything else is junk. */
+    while (isspace((unsigned char)*p)) {
+        p++;
+    }
+    if (*p != '\0') {
         return 0;
     }
     if (s.width < QUAERO_WINDOW_MIN_SIZE || s.height < QUAERO_WINDOW_MIN_SIZE) {
