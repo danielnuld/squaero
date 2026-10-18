@@ -8,6 +8,7 @@ import {
   createEffect,
   onMount,
   onCleanup,
+  untrack,
 } from "solid-js";
 import { createStore, unwrap } from "solid-js/store";
 import {
@@ -337,6 +338,17 @@ import { TransferWizard } from "./components/TransferWizard";
 import { BackupPanel } from "./components/BackupPanel";
 import { DataSearchPanel } from "./components/DataSearchPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { LocalHistoryPanel } from "./components/LocalHistoryPanel";
+import {
+  recordVersion,
+  pruneHistory,
+  AUTO_SNAPSHOT_MS,
+  MAX_VERSION_CHARS,
+  type Retention,
+  type TabHistory,
+  type VersionReason,
+} from "./utils/localHistory";
+import { loadLocalHistory, saveLocalHistory } from "./utils/localHistoryStore";
 import { SnippetsPanel } from "./components/SnippetsPanel";
 import { RowDetail } from "./components/RowDetail";
 import { stepRowIndex } from "./utils/rowDetail";
@@ -2060,6 +2072,8 @@ export function App() {
       setResults(id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
+    // What the editor held when it ran (issue #674); page turns are not a run.
+    if (offset === 0 && tab.kind === "query" && !isDataTab(id)) recordLocal(tab, "run");
     // Run against the tab's OWN connection (bound at creation), so a prod tab and
     // a dev tab keep hitting their own servers regardless of which is focused. A
     // tab with no binding follows whatever is focused.
@@ -2623,6 +2637,89 @@ export function App() {
   const isDataTab = (id: number): boolean => {
     const preview = results[id]?.preview;
     return !!preview && engineFamily(preview.engine) !== "mongodb";
+  };
+
+  // --- Local history of the editor tabs (issue #674) ----------------------
+  // Versions of each query tab's text, taken on run, every AUTO_SNAPSHOT_MS
+  // while it changes, on close and on restore. A data tab is left out: its SQL
+  // is the generated page query, not something the user wrote.
+  const localRetention = (): Retention => ({
+    maxVersions: settings().localHistoryVersions,
+    maxDays: settings().localHistoryDays,
+  });
+  const [localHist, setLocalHist] = createSignal<TabHistory[]>(loadLocalHistory());
+  // Said once, not on every snapshot: a tab too big to keep is warned about
+  // until it records again, a failing store until a write succeeds.
+  const [localWarn, setLocalWarn] = createSignal<string | null>(null);
+  const tooBigWarned = new Set<number>();
+  let saveFailWarned = false;
+  const commitLocal = (list: TabHistory[]) => {
+    setLocalHist(list);
+    if (saveLocalHistory(list)) {
+      saveFailWarned = false;
+    } else if (!saveFailWarned) {
+      saveFailWarned = true;
+      setLocalWarn(t("lhist.saveFailed"));
+    }
+  };
+  const recordLocal = (tab: QueryTab, reason: VersionReason) => {
+    const { list, outcome } = recordVersion(
+      localHist(),
+      tab,
+      reason,
+      Date.now(),
+      localRetention(),
+    );
+    if (outcome === "tooBig") {
+      if (!tooBigWarned.has(tab.id)) {
+        tooBigWarned.add(tab.id);
+        setLocalWarn(
+          t("lhist.tooBig", {
+            title: tab.title,
+            n: tab.sql.length.toLocaleString(),
+            max: MAX_VERSION_CHARS.toLocaleString(),
+          }),
+        );
+      }
+    } else if (outcome === "recorded") {
+      tooBigWarned.delete(tab.id);
+      commitLocal(list);
+    }
+  };
+  const editorTabs = (): QueryTab[] =>
+    tabs().tabs.filter((x): x is QueryTab => x.kind === "query" && !isDataTab(x.id));
+  // Retention applies when it changes, and once at start (age limits).
+  createEffect(() => {
+    const retention = localRetention();
+    commitLocal(pruneHistory(untrack(localHist), retention, Date.now()));
+  });
+  const autoTimer = setInterval(() => {
+    for (const tab of editorTabs()) recordLocal(tab, "auto");
+  }, AUTO_SNAPSHOT_MS);
+  onCleanup(() => clearInterval(autoTimer));
+  // A tab that disappears (closed one by one, with "close the others", on
+  // disconnect) gets its last text recorded. Watched here rather than in each
+  // close path so no path can be missed.
+  let openEditorTabs = new Map<number, QueryTab>();
+  createEffect(() => {
+    tabs(); // track the tab list itself
+    const now = new Map(untrack(editorTabs).map((x) => [x.id, x] as const));
+    for (const [id, tab] of openEditorTabs) if (!now.has(id)) recordLocal(tab, "close");
+    openEditorTabs = now;
+  });
+  const openLocalHistory = (tabId: number) =>
+    showTool("localHistory", t("lhist.tabTitle"), { key: "localHistory", params: { tabId } });
+  // Restoring keeps what the tab held first, so the restore can be undone.
+  const restoreLocal = (tabId: number, sql: string) => {
+    const tab = tabs().tabs.find((x): x is QueryTab => x.kind === "query" && x.id === tabId);
+    if (!tab) return;
+    recordLocal(tab, "auto");
+    recordLocal({ ...tab, sql }, "restore");
+    setTabs((st) => updateTabSql(st, tabId, sql));
+  };
+  const localSqlOf = (tabId: number): string | undefined => {
+    const tab = tabs().tabs.find((x) => x.id === tabId);
+    return tab?.kind === "query" ? tab.sql : undefined;
   };
   const filterOf = (id: number): FilterState => filters[id] ?? emptyFilter();
   const colsOf = (id: number) => dataCols[id] ?? { columns: [], types: {} };
@@ -3913,6 +4010,9 @@ export function App() {
         action: () => setTabs((s) => closeOtherTabs(s, id)),
         disabled: tabs().tabs.length < 2,
       },
+      ...(tabs().tabs.some((x) => x.id === id && x.kind === "query" && !isDataTab(id))
+        ? [{ label: t("lhist.menu"), action: () => openLocalHistory(id) }]
+        : []),
       { separator: true },
       { label: t("toolbar.newQuery.title"), action: newTab },
     ]);
@@ -4455,6 +4555,7 @@ export function App() {
                     diagnostics={settings().editorDiagnostics}
                     onGoToObject={(target) => void goToObject(target)}
                     templates={editorTemplates()}
+                    onLocalHistory={() => openLocalHistory(tab().id)}
                   />
                   </Show>
                   {/* The editor's own bar. A data tab has no editor: its
@@ -5116,6 +5217,16 @@ export function App() {
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
+                <Match when={tt().tool === "localHistory"}>
+                  <LocalHistoryPanel
+                    docs={localHist()}
+                    tabId={(tt().params as { tabId: number }).tabId}
+                    currentSql={localSqlOf}
+                    onRestore={restoreLocal}
+                    onOpenCopy={(title, sql) => openSqlInNewTab(sql, title || undefined)}
+                    onClose={() => closeTool(tt().id)}
+                  />
+                </Match>
                 <Match when={tt().tool === "snippets"}>
                   <SnippetsPanel
                     entries={snippets()}
@@ -5332,6 +5443,22 @@ export function App() {
               title={t("panel.close")}
               aria-label={t("panel.close")}
               onClick={() => setExportStatus(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </Show>
+
+      <Show when={localWarn()}>
+        {(text) => (
+          <div class="app-toast app-toast-error" role="alert">
+            <span class="app-toast-text">{text()}</span>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setLocalWarn(null)}
             >
               ×
             </button>

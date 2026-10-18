@@ -14,6 +14,7 @@ export type ToolKind =
   | "indexes"
   | "structure"
   | "history"
+  | "localHistory"
   | "snippets"
   | "connectionForm"
   | "connections"
@@ -155,6 +156,9 @@ export const GLOBAL_TOOLS: ReadonlySet<ToolKind> = new Set<ToolKind>([
   // (issue #525): one tab serves them all, whichever one is focused.
   "connections",
   "history",
+  // One local-history tab (issue #674): it lists every tab's versions, closed
+  // ones included, and `params.tabId` says which one to show first.
+  "localHistory",
   "snippets",
   "notebook",
 ]);

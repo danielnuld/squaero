@@ -3235,6 +3235,50 @@ button.primary:hover:not(:disabled) {
   flex: 1;
 }
 
+/* Local history of the editor tabs (issue #674): the versions on the left, the
+   diff of the picked one against the current text on the right. */
+.lhist-body {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+}
+
+.lhist-versions {
+  flex: 0 0 16rem;
+}
+
+.lhist-versions .history-run.active {
+  background: var(--bg-elev2);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.lhist-diff {
+  flex: 1;
+  min-width: 0;
+}
+
+.lhist-lines {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.lhist-add {
+  color: var(--number);
+}
+
+.lhist-del {
+  color: var(--error);
+}
+
 /* Snippet library panel (issues #129, #338): a filterable list beside the full
    body of whatever is selected, replacing the scroll of every snippet with its
    body permanently unfolded. */
