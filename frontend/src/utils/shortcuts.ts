@@ -10,6 +10,9 @@ export type ActionId =
   | "run-query"
   | "format-sql"
   | "editor-find"
+  | "editor-definition"
+  | "editor-usages"
+  | "editor-rename"
   | "filter-add-sort"
   | "object-palette"
   | "new-tab"
@@ -58,6 +61,10 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "save-snippet", keys: "Mod+Shift+S", description: "sc.save-snippet", global: true },
   { id: "save-edits", keys: "Mod+S", description: "sc.save-edits", global: true },
   { id: "editor-find", keys: "Mod+F", description: "sc.editor-find", global: true },
+  // The SQL editor owns these (issues #663, #664); documented, never matched globally.
+  { id: "editor-definition", keys: "F12", description: "sc.editor-definition", global: false },
+  { id: "editor-usages", keys: "Shift+F12", description: "sc.editor-usages", global: false },
+  { id: "editor-rename", keys: "F2", description: "sc.editor-rename", global: false },
   // The grid owns these (they only make sense with the grid focused), so they
   // are documented here but never matched globally. Copy and duplicate act on
   // the marked rows, or the selected cell's row; paste comes in on the paste

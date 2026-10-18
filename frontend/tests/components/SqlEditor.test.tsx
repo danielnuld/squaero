@@ -412,3 +412,111 @@ describe("SqlEditor diagnostics (issue #662)", () => {
     expect(host!.querySelector(".cm-diag")).toBeNull();
   });
 });
+
+describe("SqlEditor navigation and rename (issues #663, #664)", () => {
+  const mount = (doc: string, onGoToObject?: (target: unknown) => void) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    let text = doc;
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => doc}
+            onChange={(_id, sql) => (text = sql)}
+            onRun={() => {}}
+            dialect="postgres"
+            onGoToObject={onGoToObject}
+          />
+        ),
+        host!,
+      );
+    });
+    return { view: EditorView.findFromDOM(host!)!, text: () => text };
+  };
+
+  const press = (view: EditorView, key: string, mods: KeyboardEventInit = {}) =>
+    view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...mods }));
+
+  const caretAt = (view: EditorView, offset: number) => view.dispatch({ selection: { anchor: offset } });
+
+  it("F12 on an alias qualifier selects its declaration", () => {
+    const doc = "SELECT c.id FROM clientes c";
+    const { view } = mount(doc);
+    caretAt(view, 7);
+    press(view, "F12");
+    expect(view.state.selection.main.from).toBe(doc.lastIndexOf("c"));
+    expect(view.state.selection.main.to).toBe(doc.length);
+  });
+
+  it("F12 on a table asks the app to show the object", () => {
+    let target: unknown = null;
+    const { view } = mount("SELECT * FROM ventas.clientes", (t) => (target = t));
+    caretAt(view, 24);
+    press(view, "F12");
+    expect(target).toEqual({ kind: "table", name: "ventas.clientes" });
+  });
+
+  it("F12 on a call asks for the routine", () => {
+    let target: unknown = null;
+    const { view } = mount("SELECT total_de(1)", (t) => (target = t));
+    caretAt(view, 9);
+    press(view, "F12");
+    expect(target).toEqual({ kind: "routine", name: "total_de", schema: undefined });
+  });
+
+  it("Shift+F12 paints every usage, F3 steps through them and Escape clears", () => {
+    const doc = "SELECT c.id FROM clientes c WHERE c.id > 0";
+    const { view } = mount(doc);
+    caretAt(view, 7);
+    press(view, "F12", { shiftKey: true });
+    expect(view.dom.querySelectorAll(".cm-usage").length).toBe(3);
+    expect(view.dom.querySelector(".cm-usages")?.textContent).toContain("3");
+    press(view, "F3");
+    expect(view.state.selection.main.from).toBe(26);
+    press(view, "F3");
+    expect(view.state.selection.main.from).toBe(34);
+    press(view, "F3", { shiftKey: true });
+    expect(view.state.selection.main.from).toBe(26);
+    press(view, "Escape");
+    expect(view.dom.querySelectorAll(".cm-usage").length).toBe(0);
+  });
+
+  it("Alt+F7 finds usages too", () => {
+    const { view } = mount("SELECT c.id FROM clientes c");
+    caretAt(view, 7);
+    press(view, "F7", { altKey: true });
+    expect(view.dom.querySelectorAll(".cm-usage").length).toBe(2);
+  });
+
+  it("F2 renames in one undoable step through the inline prompt", async () => {
+    const doc = "SELECT c.id FROM clientes c WHERE 'c' = c.nombre";
+    const { view, text } = mount(doc);
+    caretAt(view, 7);
+    press(view, "F2");
+    const form = view.dom.querySelector(".cm-rename form") as HTMLFormElement;
+    const input = form.querySelector("input")!;
+    expect(input.value).toBe("c");
+    input.value = "cli";
+    form.dispatchEvent(new Event("submit", { cancelable: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(text()).toBe("SELECT cli.id FROM clientes cli WHERE 'c' = cli.nombre");
+    press(view, "z", { ctrlKey: true });
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it("Shift+F6 refuses an invalid name and keeps the prompt open", async () => {
+    const doc = "SELECT c.id FROM clientes c";
+    const { view } = mount(doc);
+    caretAt(view, 7);
+    press(view, "F6", { shiftKey: true });
+    const form = view.dom.querySelector(".cm-rename form") as HTMLFormElement;
+    form.querySelector("input")!.value = "   ";
+    form.dispatchEvent(new Event("submit", { cancelable: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.dom.querySelector(".cm-rename")?.textContent).toMatch(/vac[ií]o|empty/);
+  });
+});
