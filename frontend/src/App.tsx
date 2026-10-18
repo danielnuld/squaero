@@ -245,6 +245,14 @@ import { editablePk, engineEdits, queryEditCheck, type EditBlock } from "./utils
 import { tablesInStatement } from "./utils/queryTables";
 import { changesCatalog } from "./utils/sqlEffects";
 import {
+  createMetaCacheStore,
+  connFingerprint,
+  colsKey,
+  type CacheProblem,
+  type DdlTargets,
+} from "./utils/metaCache";
+import { resolveStore } from "./utils/kvStore";
+import {
   foreignKeysFor,
   groupForeignKeys,
   parseForeignKeys,
@@ -611,6 +619,22 @@ export function App() {
   // what is open instead of collapsing, which is what an explicit refresh does.
   const [treeSoftReload, setTreeSoftReload] = createSignal(0);
   const refreshTreeInPlace = () => setTreeSoftReload((n) => n + 1);
+  // Introspection cache (issue #675): tree levels and table columns per saved
+  // connection, persisted, shown marked "from cache" while re-read. What could
+  // not be cached is said once per kind of problem, not swallowed.
+  const [cacheNotice, setCacheNotice] = createSignal<string | null>(null);
+  const cacheProblems = new Set<CacheProblem>();
+  const metaCache = createMetaCacheStore(resolveStore(), (p) => {
+    if (cacheProblems.has(p)) return;
+    cacheProblems.add(p);
+    setCacheNotice(t(p === "tooLarge" ? "cache.tooLarge" : "cache.storage"));
+  });
+  // An explicit refresh (or a GUI tool that changed the catalog): nothing cached
+  // is trusted any more — it is marked stale, then the tree reloads.
+  const reloadTree = () => {
+    for (const o of openConns()) metaCache.markStale(o.defId);
+    setTreeReload((n) => n + 1);
+  };
   // Row form/detail view (issue #133): index of the loaded row shown as a form,
   // or null when closed. Navigation walks the loaded rows in original order.
   const [detailIndex, setDetailIndex] = createSignal<number | null>(null);
@@ -841,7 +865,7 @@ export function App() {
   // refresh never silently discards pending changes.
   const refreshAll = () => {
     if (!active()) return;
-    setTreeReload((n) => n + 1);
+    reloadTree();
     const t = current();
     if (t && !currentEdit().editing) reloadCurrent(t.id);
   };
@@ -971,6 +995,7 @@ export function App() {
   // the window going away flushes what is pending. Both events, because which
   // of them a webview fires on close is not something to bet the buffer on.
   const flushWorkspace = () => {
+    metaCache.flush();
     clearTimeout(saveTimer);
     if (pendingRestore()) return; // the offer outlives the window, unanswered
     saveWorkspace(tabs());
@@ -1001,13 +1026,54 @@ export function App() {
   // Outbound foreign keys of the tables a statement joins, by table: JOIN … ON
   // completes the condition from them (#661).
   const [fkCache, setFkCache] = createSignal<Record<string, ForeignKeyRelation[]>>({});
+  // Tables described in this session, by `${connId}:${table}`: each is asked
+  // about once; a cached entry not in here is re-described when mentioned.
+  const describedColumns = new Set<string>();
   createEffect(() => {
-    active();
+    const conn = active();
     void treeReload(); // a connection switch or refresh clears the cache
-    setColumnCache({});
+    describedColumns.clear();
+    // Seeded from the persistent cache (issue #675) — but only entries neither
+    // invalidated nor old: the autocomplete has nowhere to say "from cache".
+    const seed: Record<string, string[]> = {};
+    if (conn) {
+      for (const { key, entry } of metaCache.list(conn.defId, colsKey(""))) {
+        const v = entry.value;
+        if (!entry.stale && Array.isArray(v) && v.every((x) => typeof x === "string")) {
+          seed[key.slice(colsKey("").length)] = v;
+        }
+      }
+    }
+    setColumnCache(seed);
     setMissingTables([]);
     setFkCache({});
   });
+  // A describe's column names, kept for the autocomplete and the cache.
+  const rememberColumns = (conn: ActiveConnection, table: string, cols: string[]) => {
+    describedColumns.add(`${conn.connId}:${table}`);
+    if (conn.defId === focusedDefId()) setColumnCache((c) => ({ ...c, [table]: cols }));
+    metaCache.conn(conn.defId).put(colsKey(table), cols);
+  };
+  // DDL from the editor: drop the columns it may have changed, so they are
+  // described again instead of offered as they were.
+  const forgetColumns = (conn: ActiveConnection, targets: DdlTargets) => {
+    if (targets === null || conn.defId !== focusedDefId()) return;
+    if (targets === "all") {
+      describedColumns.clear();
+      setColumnCache({});
+      return;
+    }
+    const names = new Set(targets.tables.map((n) => n.toLowerCase()));
+    setColumnCache((c) => {
+      const next = { ...c };
+      for (const k of Object.keys(next)) {
+        if (!names.has(k.toLowerCase())) continue;
+        delete next[k];
+        describedColumns.delete(`${conn.connId}:${k}`);
+      }
+      return next;
+    });
+  };
   // Columns for the tables the statement being written actually mentions.
   //
   // Until now the cache only filled when a table was OPENED, so typing
@@ -1026,7 +1092,6 @@ export function App() {
   // time does not fire a describe per keystroke. A name that turns out not to exist
   // costs one failed describe, swallowed: completions are a convenience, not a
   // contract.
-  const describedColumns = new Set<string>();
   const fetchedFks = new Set<string>();
   let columnFetchTimer: ReturnType<typeof setTimeout> | undefined;
   createEffect(() => {
@@ -1045,11 +1110,9 @@ export function App() {
     const names = tablesInStatement(sql);
 
     columnFetchTimer = setTimeout(() => {
-      const cache = columnCache();
       for (const name of names) {
         const node = known.get(name.toLowerCase());
         const label = node?.label ?? name;
-        if (cache[label] !== undefined) continue;
         const guard = `${conn.connId}:${label}`;
         if (describedColumns.has(guard)) continue;
         describedColumns.add(guard);
@@ -1058,9 +1121,8 @@ export function App() {
           try {
             const desc = await schemaDescribe(conn.connId, label, node?.db, node?.schema);
             const cols = describeColumnNames(desc);
-            if (cols.length > 0) {
-              setColumnCache((c) => ({ ...c, [label]: cols }));
-            } else missing();
+            if (cols.length > 0) rememberColumns(conn, label, cols);
+            else missing();
           } catch {
             // Not a table, or not reachable. Either way the name suggestions still
             // work and nothing needs to be said about it.
@@ -1698,6 +1760,9 @@ export function App() {
       }
       const { connId, features } = await openSession(c.driver, buildDsn(c));
       setConnGuard(connId, guardFor(c));
+      // Before the tree mounts: a connection whose host/database changed since
+      // it was cached starts from an empty cache (issue #675).
+      metaCache.open(c.id, connFingerprint(c));
       setOpenConns((list) => [
         ...list,
         { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color, features },
@@ -2050,7 +2115,7 @@ export function App() {
       return settle({ editBlock: "noTable" });
     }
     // The describe is done anyway — feed its columns to the autocomplete cache.
-    setColumnCache((c) => ({ ...c, [target.table]: describeColumnNames(desc) }));
+    rememberColumns(conn, target.table, describeColumnNames(desc));
     const key = editablePk(desc, result.columns);
     settle("block" in key ? { editBlock: key.block } : { source: { ...target, pk: key.pk } });
   };
@@ -2173,7 +2238,12 @@ export function App() {
       if (!keepSource && result) void attachQuerySource(id, trimmed, conn, result);
       // DDL from the editor is the only way to create a stored routine, and it
       // left the tree showing yesterday's catalog until a manual refresh (#317).
-      if (changesCatalog(trimmed)) refreshTreeInPlace();
+      // The introspection cache is told too (issue #675): what the script may
+      // have changed is marked stale — the whole connection when unsure.
+      if (changesCatalog(trimmed)) {
+        refreshTreeInPlace();
+        forgetColumns(conn, metaCache.invalidateSql(conn.defId, trimmed));
+      }
     } catch (err) {
       const elapsedMs = performance.now() - started;
       setResults(id, {
@@ -2519,7 +2589,7 @@ export function App() {
         const desc = await schemaDescribe(conn.connId, node.label, node.db, node.schema);
         // Feed this table's columns into the autocomplete cache (lazy schema).
         const names = describeColumnNames(desc);
-        setColumnCache((c) => ({ ...c, [node.label]: names }));
+        rememberColumns(conn, node.label, names);
         // And into the filter panel, which needs the same describe: the names to
         // offer, and the declared types to quote each value the way its column
         // expects (issue #347).
@@ -4269,6 +4339,7 @@ export function App() {
                         onOpenData={inConn(conn.defId, openData)}
                         onOpenStructure={inConn(conn.defId, openStructure)}
                         onOpenSql={inConn(conn.defId, openSqlInNewTab)}
+                        cache={metaCache.conn(conn.defId)}
                         reloadKey={treeReload()}
                         softReloadKey={treeSoftReload()}
                         onRefresh={inConn(conn.defId, refreshAll)}
@@ -5122,7 +5193,7 @@ export function App() {
                     db={(tt().params as { db?: string }).db}
                     schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
-                    onApplied={() => setTreeReload((n) => n + 1)}
+                    onApplied={reloadTree}
                   />
                 </Match>
                 <Match when={tt().tool === "indexes"}>
@@ -5133,7 +5204,7 @@ export function App() {
                     db={(tt().params as { db?: string }).db}
                     schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
-                    onChanged={() => setTreeReload((n) => n + 1)}
+                    onChanged={reloadTree}
                   />
                 </Match>
                 <Match when={tt().tool === "structure"}>
@@ -5145,7 +5216,7 @@ export function App() {
                     kind={(tt().params as { node: TreeNode }).node.kind}
                     engine={activeDialect()}
                     onClose={() => closeTool(tt().id)}
-                    onApplied={() => setTreeReload((n) => n + 1)}
+                    onApplied={reloadTree}
                   />
                 </Match>
                 <Match when={tt().tool === "schemaSync"}>
@@ -5478,6 +5549,22 @@ export function App() {
               title={t("panel.close")}
               aria-label={t("panel.close")}
               onClick={() => setRunToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </Show>
+
+      <Show when={cacheNotice()}>
+        {(text) => (
+          <div class="app-toast" role="status">
+            <span class="app-toast-text">{text()}</span>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setCacheNotice(null)}
             >
               ×
             </button>
