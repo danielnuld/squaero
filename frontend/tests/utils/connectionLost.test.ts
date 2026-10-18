@@ -193,6 +193,7 @@ describe("connection activity (keep-alive input)", () => {
     const pending = call("query.run", { connId: "k1", sql: "SELECT 1" });
     expect(connActivity("k1").inFlight).toBe(1);
     expect(connActivity("k1").last).toBeGreaterThanOrEqual(before);
+    await new Promise((r) => setTimeout(r, 0)); // past the safe-mode check (#666)
     release();
     await pending;
     expect(connActivity("k1").inFlight).toBe(0);

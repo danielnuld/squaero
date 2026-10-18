@@ -4,7 +4,7 @@
 // pairs it with the transport. Contract: docs/IPC.md (`query.run`).
 
 import { call } from "./transport";
-import { isError, type JsonRpcResponse } from "./ipc";
+import { isError, QueryError, type JsonRpcResponse } from "./ipc";
 
 export interface ResultColumn {
   name: string;
@@ -25,17 +25,9 @@ export interface ResultSet {
   rowsAffected: number;
 }
 
-/** Error carrying the JSON-RPC domain code so the UI can react to it. */
-export class QueryError extends Error {
-  code: number;
-  data?: unknown;
-  constructor(message: string, code: number, data?: unknown) {
-    super(message);
-    this.name = "QueryError";
-    this.code = code;
-    this.data = data;
-  }
-}
+// QueryError lives in ipc.ts (the transport raises it too); re-exported here,
+// where every caller has always imported it from.
+export { QueryError };
 
 /**
  * Normalizes a JSON-RPC response into a ResultSet. Throws QueryError for an

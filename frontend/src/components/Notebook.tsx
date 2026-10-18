@@ -4,6 +4,8 @@ import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { runScript, type ResultSet } from "../utils/query";
 import { runnableStatements } from "../utils/runScope";
+import { withWriteConsent } from "../utils/transport";
+import { writeStatements } from "../utils/safeMode";
 import { errorText } from "../utils/errors";
 import { changesCatalog } from "../utils/sqlEffects";
 import { renderMarkdown } from "../utils/markdown";
@@ -141,10 +143,9 @@ export function Notebook(props: {
     try {
       // A cell holding several statements runs them one by one, like the editor:
       // engines take a single statement per call.
-      const result = await runScript(
-        props.connId,
-        runnableStatements(sql, props.engine),
-      );
+      const stmts = runnableStatements(sql, props.engine);
+      const connId = props.connId;
+      const result = await withWriteConsent(connId, stmts, () => runScript(connId, stmts));
       setResults(cell.id, { loading: false, error: null, result });
       // A cell can create or drop objects too — the tree must hear about it
       // (issue #317), the same as a run from the editor.
@@ -154,9 +155,27 @@ export function Notebook(props: {
     }
   };
   const runAll = async () => {
-    for (const cell of current().cells) {
-      // eslint-disable-next-line no-await-in-loop -- cells run in document order
-      if (cell.kind === "sql") await runCell(cell);
+    const cells = current().cells.filter((c) => c.kind === "sql");
+    const runEach = async () => {
+      for (const cell of cells) {
+        // eslint-disable-next-line no-await-in-loop -- cells run in document order
+        await runCell(cell);
+      }
+    };
+    if (!props.connId) return runEach();
+    // One action, one question on a protected connection (issue #666): every
+    // cell's statements are listed together, and a refusal stops the whole run
+    // before anything is sent — the same rule as a script in the editor.
+    const stmtsOf = (c: Cell) =>
+      runnableStatements(applyParams(c.source, current().params), props.engine);
+    try {
+      await withWriteConsent(props.connId, cells.flatMap(stmtsOf), runEach);
+    } catch (err) {
+      for (const c of cells) {
+        if (writeStatements(stmtsOf(c), props.engine).length > 0) {
+          setResults(c.id, { loading: false, error: errorText(err), result: null });
+        }
+      }
     }
   };
 

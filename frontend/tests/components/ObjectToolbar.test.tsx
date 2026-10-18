@@ -243,3 +243,17 @@ describe("ObjectToolbar", () => {
     expect(btn("Fijar resultado")).toBeUndefined();
   });
 });
+
+// Safe mode (issue #666): a read-only connection offers nothing that writes.
+describe("ObjectToolbar on a read-only connection", () => {
+  it("says why, with Edit disabled and no Import or Generate", () => {
+    mount({ editable: false, readOnly: true });
+    expect(host!.querySelector(".edit-hint-ro")?.textContent).toBe(
+      "Solo lectura: la conexión está protegida.",
+    );
+    expect(btn("Editar")?.disabled).toBe(true);
+    expect(btn("Importar")).toBeUndefined();
+    expect(btn("Generar")).toBeUndefined();
+    expect(btn("Exportar")).toBeDefined(); // reading out is still fine
+  });
+});
