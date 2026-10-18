@@ -3,6 +3,7 @@ import { themeIcon, type ThemePref } from "../utils/theme";
 import { type RunScope } from "../utils/runScope";
 import { formatClock, formatDuration } from "../utils/duration";
 import { t } from "../utils/i18n";
+import type { CellSummary } from "../utils/cellSummary";
 
 // Bottom status bar: active connection, the object the rows came from, the
 // pager, and the shape and cost of the last run, plus the theme toggle and
@@ -21,6 +22,8 @@ export function StatusBar(props: {
   txStatements?: number | null;
   /** Rows marked in the grid (issue #382); 0 hides the indicator. */
   markedCount?: number;
+  /** Summary of the selected cells (issue #670); null/absent hides it. */
+  summary?: CellSummary | null;
   elapsedMs: number | null;
   /** When the last run started, epoch ms (issue #643); named in the tooltip. */
   ranAt?: number;
@@ -113,6 +116,22 @@ export function StatusBar(props: {
         <span class="status-item" title={t("status.markedTitle")}>
           {t("status.marked", { n: props.markedCount! })}
         </span>
+      </Show>
+      <Show when={props.summary}>
+        {(s) => (
+          <span class="status-item" title={t("status.summaryTitle")}>
+            {[
+              t("status.cells", { n: s().count }),
+              s().nulls > 0 ? t("status.nulls", { n: s().nulls }) : null,
+              s().sum !== undefined ? t("status.sum", { v: s().sum! }) : null,
+              s().avg !== undefined ? t("status.avg", { v: s().avg! }) : null,
+              s().min !== undefined ? t("status.min", { v: s().min! }) : null,
+              s().max !== undefined ? t("status.max", { v: s().max! }) : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        )}
       </Show>
       <Show when={props.elapsedMs !== null}>
         <span

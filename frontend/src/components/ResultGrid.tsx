@@ -121,6 +121,12 @@ export function ResultGrid(props: {
    */
   onSelectedRowChange?: (rowIndex: number | null) => void;
   /**
+   * The cells the selection covers (issue #670), for the status-bar summary:
+   * the selected cell's column (ORIGINAL index) over the marked rows, or over
+   * its own row when none are marked. Null when no cell is selected.
+   */
+  onSelectedCellsChange?: (cells: { column: number; rows: number[] } | null) => void;
+  /**
    * Sort at the SERVER instead of in the browser (issue #347). Given, a header
    * click hands the column name up rather than reordering the rows already
    * fetched — which over a truncated result reordered an arbitrary sample. The
@@ -610,6 +616,11 @@ export function ResultGrid(props: {
   createEffect(() => {
     const s = sel();
     props.onSelectedRowChange?.(s === null ? null : (view()[s.r] ?? null));
+  });
+
+  createEffect(() => {
+    const s = sel();
+    props.onSelectedCellsChange?.(s === null ? null : { column: s.c, rows: rowTargets() });
   });
 
   return (
