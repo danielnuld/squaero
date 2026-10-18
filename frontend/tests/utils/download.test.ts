@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { saveText, saveBytes, sqlFileName } from "../../src/utils/download";
+import {
+  pickDirectory,
+  saveText,
+  saveBytes,
+  sqlFileName,
+  writeFilesToDirectory,
+  type DirectoryHandleLike,
+} from "../../src/utils/download";
 
 // saveText prefers the native save dialog (File System Access API) and falls
 // back to an anchor download. These drive both paths without a real file system.
@@ -8,6 +15,7 @@ const g = globalThis as Record<string, unknown>;
 
 afterEach(() => {
   delete g.showSaveFilePicker;
+  delete g.showDirectoryPicker;
   vi.restoreAllMocks();
 });
 
@@ -110,5 +118,71 @@ describe("sqlFileName", () => {
     expect(sqlFileName("db:owner.tabla")).toBe("dbowner.tabla.sql");
     expect(sqlFileName("reporte.sql")).toBe("reporte.sql");
     expect(sqlFileName(' <?> ')).toBe("consulta.sql");
+  });
+});
+
+describe("pickDirectory", () => {
+  it("is undefined where the webview has no folder picker", async () => {
+    expect(await pickDirectory()).toBeUndefined();
+  });
+
+  it("asks for a writable folder", async () => {
+    const handle = { name: "repo" };
+    const picker = vi.fn().mockResolvedValue(handle);
+    g.showDirectoryPicker = picker;
+    expect(await pickDirectory()).toBe(handle);
+    expect(picker).toHaveBeenCalledWith({ mode: "readwrite" });
+  });
+
+  it("is null when the user dismisses the dialog", async () => {
+    g.showDirectoryPicker = vi.fn().mockRejectedValue(new DOMException("x", "AbortError"));
+    expect(await pickDirectory()).toBeNull();
+  });
+
+  it("falls back (undefined) when the picker is blocked", async () => {
+    g.showDirectoryPicker = vi.fn().mockRejectedValue(new DOMException("x", "SecurityError"));
+    expect(await pickDirectory()).toBeUndefined();
+  });
+});
+
+describe("writeFilesToDirectory", () => {
+  /** An in-memory folder: path -> content. */
+  function fakeDir(files: Record<string, string>, prefix = ""): DirectoryHandleLike {
+    return {
+      name: prefix || "root",
+      getDirectoryHandle: async (name, opts) => {
+        expect(opts.create).toBe(true);
+        return fakeDir(files, `${prefix}${name}/`);
+      },
+      getFileHandle: async (name) => ({
+        createWritable: async () => {
+          let buf = "";
+          return {
+            write: async (d: string | Blob) => {
+              buf += d as string;
+            },
+            close: async () => {
+              files[prefix + name] = buf;
+            },
+          };
+        },
+      }),
+    };
+  }
+
+  it("writes every file under its subfolders and reports progress", async () => {
+    const disk: Record<string, string> = {};
+    const done: number[] = [];
+    await writeFilesToDirectory(
+      fakeDir(disk),
+      [
+        { path: "tables/a.sql", content: "A;" },
+        { path: "views/v.sql", content: "V;" },
+        { path: "top.sql", content: "T;" },
+      ],
+      (n) => done.push(n),
+    );
+    expect(disk).toEqual({ "tables/a.sql": "A;", "views/v.sql": "V;", "top.sql": "T;" });
+    expect(done).toEqual([1, 2, 3]);
   });
 });

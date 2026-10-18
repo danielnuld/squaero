@@ -163,3 +163,48 @@ export function sqlFileName(title: string): string {
   const base = title.replace(/[\/:*?"<>|\u0000-\u001f]/g, "").trim() || "consulta";
   return /\.sql$/i.test(base) ? base : `${base}.sql`;
 }
+
+/** The part of a FileSystemDirectoryHandle a folder dump needs. */
+export interface DirectoryHandleLike {
+  name: string;
+  getDirectoryHandle: (name: string, opts: { create: boolean }) => Promise<DirectoryHandleLike>;
+  getFileHandle: (name: string, opts: { create: boolean }) => Promise<FileSystemFileHandleLike>;
+}
+
+/**
+ * Ask for a folder to write into (issue #673). Undefined means this webview has
+ * no usable folder picker (WKWebView, WebKitGTK, jsdom) and the caller falls back;
+ * null means the user dismissed the dialog. Call it inside the click, like
+ * pickSaveTarget: the picker needs the user gesture.
+ */
+export async function pickDirectory(): Promise<DirectoryHandleLike | null | undefined> {
+  const picker = (globalThis as {
+    showDirectoryPicker?: (opts: { mode: "readwrite" }) => Promise<DirectoryHandleLike>;
+  }).showDirectoryPicker;
+  if (typeof picker !== "function") return undefined;
+  try {
+    return await picker({ mode: "readwrite" });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return null;
+    // Present but blocked: the zip fallback, as pickSaveTarget does.
+    return undefined;
+  }
+}
+
+/** Write `files` (paths with `/`) under `dir`, creating the subfolders. */
+export async function writeFilesToDirectory(
+  dir: DirectoryHandleLike,
+  files: { path: string; content: string }[],
+  onFile?: (done: number) => void,
+): Promise<void> {
+  for (const [i, f] of files.entries()) {
+    const parts = f.path.split("/");
+    let d = dir;
+    for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p, { create: true });
+    const handle = await d.getFileHandle(parts[parts.length - 1], { create: true });
+    const w = await handle.createWritable();
+    await w.write(f.content);
+    await w.close();
+    onFile?.(i + 1);
+  }
+}
