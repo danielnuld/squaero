@@ -26,6 +26,8 @@ const backToData = async (page: Page) => {
 
 const openSettings = async (page: Page) => {
   await page.getByRole("button", { name: "Ajustes" }).click();
+  // The colours live in the grid category (#684); the panel opens on General.
+  await page.getByRole("navigation", { name: "Categorías de ajustes" }).getByRole("button", { name: "Rejilla" }).click();
   await expect(page.getByText("Colorear los datos por tipo")).toBeVisible();
 };
 

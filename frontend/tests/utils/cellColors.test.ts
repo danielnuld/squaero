@@ -14,15 +14,38 @@ import {
 } from "../../src/utils/cellColors";
 
 describe("paletteKey", () => {
-  it("gives a theme that owns its surfaces its own key", () => {
-    expect(paletteKey("dark", "terminal")).toBe("terminal");
-    expect(paletteKey("dark", "ciruela")).toBe("ciruela");
+  it("keys every theme variant on its own (#680)", () => {
+    expect(paletteKey("dark", "terminal")).toBe("terminal:dark");
+    expect(paletteKey("light", "indigo")).toBe("indigo:light");
+    expect(paletteKey("light", "blue")).toBe("blue:light");
+  });
+});
+
+describe("parseCellColors — keys of the old model", () => {
+  it("gives light/dark overrides to both accent skins, and a dark skin its own", () => {
+    const raw = JSON.stringify({
+      light: { text: "#112233" },
+      dark: { number: "#445566" },
+      terminal: { null: "#778899" },
+    });
+    expect(parseCellColors(raw)).toEqual({
+      "indigo:light": { text: "#112233" },
+      "blue:light": { text: "#112233" },
+      "indigo:dark": { number: "#445566" },
+      "blue:dark": { number: "#445566" },
+      "terminal:dark": { null: "#778899" },
+    });
   });
 
-  it("keys an accent skin by the theme it layers over", () => {
-    expect(paletteKey("light", "indigo")).toBe("light");
-    expect(paletteKey("dark", "indigo")).toBe("dark");
-    expect(paletteKey("light", "blue")).toBe("light");
+  it("never lets a legacy key overwrite a new one", () => {
+    const raw = JSON.stringify({
+      light: { text: "#112233" },
+      "indigo:light": { text: "#aabbcc" },
+    });
+    expect(parseCellColors(raw)).toEqual({
+      "indigo:light": { text: "#aabbcc" },
+      "blue:light": { text: "#112233" },
+    });
   });
 });
 
@@ -68,7 +91,7 @@ describe("withColors", () => {
 
 describe("parseCellColors", () => {
   it("round-trips what was saved", () => {
-    const store: CellColorStore = { terminal: { text: "#529875", null: "#e0a13c" } };
+    const store: CellColorStore = { "terminal:dark": { text: "#529875", null: "#e0a13c" } };
     expect(parseCellColors(serializeCellColors(store))).toEqual(store);
   });
 

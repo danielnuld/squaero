@@ -23,6 +23,7 @@ describe("settingsStore", () => {
   it("persists and reloads a settings object", async () => {
     const { loadSettings, saveSettings } = await freshModule();
     const s: Settings = {
+      ...DEFAULT_SETTINGS,
       gridDensity: "compact",
       gridStyle: "hoja",
       slowThresholdMs: 900,
