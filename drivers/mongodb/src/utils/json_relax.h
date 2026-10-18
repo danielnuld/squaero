@@ -14,7 +14,14 @@
  * verbatim (including braces, commas and escapes).
  *
  * It is a lexical transform, not a full parser: it does not validate the JSON
- * (an invalid document still surfaces later as a bson parse error, honestly). It
+ * (an invalid document still surfaces later as a bson parse error, honestly).
+ *
+ * It also rewrites the mongosh value constructors to Extended JSON, so
+ * `{_id: ObjectId("5f1d...")}` and `{at: ISODate("2020-01-02T03:04:05Z")}` work
+ * as they do in the shell: ObjectId -> {"$oid":..}, ISODate / Date (with or
+ * without `new`) -> {"$date":..}, NumberLong / NumberInt / NumberDecimal ->
+ * {"$numberLong"/"$numberInt"/"$numberDecimal":".."}. A bare identifier is only a
+ * key when a ':' follows it, so `[1, true]` keeps its literal. It
  * depends on nothing external, so it is unit-tested without a MongoDB client.
  *
  * Returns a freshly allocated strict-JSON string (free with free()), or NULL on

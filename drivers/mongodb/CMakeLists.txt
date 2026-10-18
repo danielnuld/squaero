@@ -81,6 +81,8 @@ if(MONGOC_FOUND OR QUAERO_MONGOC)
     src/entry.c
     src/connection.c
     src/query.c
+    src/command.c
+    src/docs.c
     src/metadata.c
     src/utils/bson_types.c
     src/utils/columns.c

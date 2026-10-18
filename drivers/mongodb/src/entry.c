@@ -6,15 +6,18 @@
  * dbc_driver_entry. Behaviour lives in connection.c / query.c / metadata.c and
  * the pure helpers under utils/.
  *
- * Capabilities: connect + query (mongosh-style find/aggregate) + result-set
- * reading (required), and introspection (list_databases / list_tables /
- * describe_table). MongoDB has no schema layer between database and collection,
- * so list_schemas is NULL and DBC_FEAT_SCHEMAS is not advertised. DDL generation
- * and multi-document transactions are honestly absent for now (their members are
- * NULL and their flags unset). TLS (DBC_FEAT_SSL) is the DSN's `tls` field or a
- * `uri` with tls=true; the server certificate is verified against the system's
- * trusted CAs. On Windows a URI's tlsCAFile is refused, because the Secure
- * Channel backend would install that CA machine-wide (see connection.c).
+ * Capabilities: connect + query (the mongosh surface: find/findOne/aggregate,
+ * the write commands insertOne/Many, updateOne/Many, replaceOne, deleteOne/Many,
+ * and countDocuments, distinct, createIndex/dropIndex/getIndexes, drop,
+ * createCollection, createView, runCommand) + result-set reading (required) and
+ * introspection (list_databases / list_tables / describe_table). MongoDB has no
+ * schema layer between database and collection, so list_schemas is NULL and
+ * DBC_FEAT_SCHEMAS is not advertised. DDL generation, data modification and
+ * multi-document transactions are honestly absent for now (their members are NULL
+ * and their flags unset). TLS (DBC_FEAT_SSL) is the DSN's `tls` field or a `uri`
+ * with tls=true; the server certificate is verified against the system's trusted
+ * CAs. On Windows a URI's tlsCAFile is refused, because the Secure Channel backend
+ * would install that CA machine-wide (see connection.c).
  *
  * Query cancellation (DBC_FEAT_CANCEL) is intentionally NOT advertised. Unlike
  * SQLite (sqlite3_interrupt), MySQL (KILL QUERY) and Informix (SQLCancel), the
