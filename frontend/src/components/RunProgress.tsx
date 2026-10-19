@@ -79,38 +79,48 @@ export function RunProgress(props: {
         <span class="run-count">{t("prog.elapsed", { time: formatElapsed(elapsed()) })}</span>
       </p>
       {props.children}
-      <Show when={errors().length > 0}>
-        <div class="run-errors">
-          <div class="run-errors-head">
-            <strong>{t("prog.errorsSoFar", { n: errors().length })}</strong>
-            <Show when={props.errorPolicy}>
-              <span class="help">{props.errorPolicy}</span>
-            </Show>
-            <span class="toolbar-spacer" />
-            <button
-              type="button"
-              class="btn"
-              onClick={() => copyText(errors().map((e) => `${e.where}\t${e.message}`).join("\n"))}
-            >
-              <Icon name="copy" size={14} />
-              {t("prog.copyErrors")}
-            </button>
-          </div>
-          <ul class="import-errors">
-            {/* The first hundred: enough to see the pattern; Copiar has them all. */}
-            <For each={errors().slice(0, 100)}>
-              {(e) => (
-                <li>
-                  {e.where}: {e.message}
-                </li>
-              )}
-            </For>
-          </ul>
-        </div>
-      </Show>
+      <RunErrors errors={errors()} policy={props.errorPolicy} />
       <Show when={props.note}>
         <p class="help">{props.note}</p>
       </Show>
     </section>
+  );
+}
+
+/**
+ * The failures of a run, during it and on its result screen: «Errores hasta
+ * ahora (2)», what the policy did with them, and Copiar errores — all of them,
+ * though the list shows the first hundred (enough to see the pattern).
+ */
+export function RunErrors(props: { errors: RunError[]; policy?: string; title?: string }) {
+  return (
+    <Show when={props.errors.length > 0}>
+      <div class="run-errors">
+        <div class="run-errors-head">
+          <strong>{props.title ?? t("prog.errorsSoFar", { n: props.errors.length })}</strong>
+          <Show when={props.policy}>
+            <span class="help">{props.policy}</span>
+          </Show>
+          <span class="toolbar-spacer" />
+          <button
+            type="button"
+            class="btn"
+            onClick={() => copyText(props.errors.map((e) => `${e.where}\t${e.message}`).join("\n"))}
+          >
+            <Icon name="copy" size={14} />
+            {t("prog.copyErrors")}
+          </button>
+        </div>
+        <ul class="import-errors">
+          <For each={props.errors.slice(0, 100)}>
+            {(e) => (
+              <li>
+                {e.where}: {e.message}
+              </li>
+            )}
+          </For>
+        </ul>
+      </div>
+    </Show>
   );
 }

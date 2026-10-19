@@ -90,9 +90,10 @@ function mount(initialText?: string) {
 }
 
 /** Simulate choosing a file on the wizard's file input. */
-async function chooseFile(name: string, text: string) {
+async function chooseFile(name: string, text: string | Uint8Array) {
   const input = host!.querySelector<HTMLInputElement>('input[type="file"]')!;
-  const file = { name, text: async () => text } as unknown as File;
+  const bytes = typeof text === "string" ? new TextEncoder().encode(text) : text;
+  const file = { name, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) } as unknown as File;
   Object.defineProperty(input, "files", { value: [file], configurable: true });
   input.dispatchEvent(new Event("change", { bubbles: true }));
   await flush();
@@ -296,12 +297,120 @@ describe("ImportWizard — pasted rows", () => {
     const area = host!.querySelector<HTMLTextAreaElement>(".import-paste")!;
     area.value = "ciudad\nHermosillo";
     area.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(host!.textContent).toContain("1 fila(s)");
+    expect(host!.textContent).toContain("1 fila");
     expect(button("Siguiente").disabled).toBe(false);
 
     area.value = "";
     area.dispatchEvent(new Event("input", { bubbles: true }));
     expect(host!.textContent).not.toContain("Vista previa");
     expect(button("Siguiente").disabled).toBe(true);
+  });
+});
+
+// #692 (P5): the format the file was read with, the mapping with examples, and
+// the run itself — progress, errors as they happen, a Cancelar that rolls back.
+describe("ImportWizard — depth", () => {
+  it("reads a semicolon CSV in Windows-1252 and says how it read it", async () => {
+    installBridge();
+    mount();
+    await flush();
+    // «id;name\n1;año» in Windows-1252: ñ is the single byte 0xF1.
+    const bytes = new Uint8Array([...new TextEncoder().encode("id;name\n1;a"), 0xf1, 0x6f]);
+    await chooseFile("gente.csv", bytes);
+    expect(host!.textContent).toContain("CSV · punto y coma · Windows-1252 · con encabezados");
+    expect(host!.querySelector(".wiz-preview")!.getAttribute("aria-label")).toBe(
+      "Vista previa de gente.csv · 1 fila · 2 columnas",
+    );
+    expect(host!.querySelector(".wiz-preview")!.textContent).toContain("año");
+  });
+
+  it("lets the user change the detected format, re-reading the file", async () => {
+    installBridge();
+    mount();
+    await flush();
+    await chooseFile("n.csv", "1,ana\n2,eva");
+    expect(host!.textContent).toContain("sin encabezados");
+    button("Cambiar…").click();
+    await flush();
+    const header = host!.querySelector<HTMLInputElement>('.import-check input[type="checkbox"]')!;
+    header.checked = true;
+    header.dispatchEvent(new Event("change", { bubbles: true }));
+    await flush();
+    expect(host!.textContent).toContain("con encabezados");
+    expect(host!.querySelector(".wiz-preview")!.getAttribute("aria-label")).toContain("1 fila");
+  });
+
+  it("maps with types, a first-row example and a count of what is assigned", async () => {
+    installBridge();
+    mount();
+    await flush();
+    await chooseFile("p.csv", "ID;Name\n7;Ana");
+    await next();
+    expect(host!.querySelector(".colmap-head")!.textContent).toContain("2 de 2 columnas asignadas");
+    const examples = [...host!.querySelectorAll(".colmap-example")].map((e) => e.textContent);
+    expect(examples).toEqual(["7", "Ana"]);
+    expect(host!.querySelector(".colmap-type")!.textContent).toBe("int");
+    // Clear one, then «Asignar por nombre» puts it back.
+    const selects = host!.querySelectorAll<HTMLElement>(".map-select");
+    const { pickOption } = await import("./dropdownHarness");
+    pickOption(selects[1], "");
+    expect(host!.querySelector(".colmap-head")!.textContent).toContain("1 de 2 columnas asignadas");
+    button("Asignar por nombre").click();
+    expect(host!.querySelector(".colmap-head")!.textContent).toContain("2 de 2 columnas asignadas");
+  });
+
+  it("shows the run with progress, and Cancelar rolls it all back", async () => {
+    const calls: string[] = [];
+    let release: (() => void) | null = null;
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string };
+      calls.push(req.method);
+      if (req.method === "schema.describe") return describeResponse(req.id);
+      if (req.method === "row.insert") {
+        // The second insert waits: the run is on screen, mid-way.
+        if (calls.filter((m) => m === "row.insert").length === 2) await new Promise<void>((r) => (release = r));
+        return { jsonrpc: "2.0", id: req.id, result: { sql: "INSERT", rowsAffected: 1 } };
+      }
+      return { jsonrpc: "2.0", id: req.id, result: { ok: true } };
+    };
+    mount();
+    await flush();
+    await chooseFile("p.csv", "id,name\n1,a\n2,b\n3,c");
+    await next();
+    button("Importar 3 filas").click();
+    await flush();
+    expect(host!.querySelector(".run-progress-line")!.textContent).toMatch(/^1 de 3 filas · 33 %/);
+    expect(host!.querySelector('[role="progressbar"]')!.getAttribute("aria-valuenow")).toBe("33");
+    // The footer offers only the cancel.
+    button("Cancelar importación").click();
+    release!();
+    await flush();
+    await flush();
+    expect(calls).toContain("tx.rollback");
+    expect(calls).not.toContain("tx.commit");
+    expect(host!.querySelector('[role="alert"]')!.textContent).toContain("Importación cancelada");
+  });
+
+  it("ends on a summary card with the failed rows listed", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: { values?: { id?: string } } };
+      if (req.method === "schema.describe") return describeResponse(req.id);
+      if (req.method === "row.insert" && req.params.values?.id === "2") {
+        return { jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "Ya existe" } };
+      }
+      if (req.method === "row.insert") return { jsonrpc: "2.0", id: req.id, result: { sql: "INSERT", rowsAffected: 1 } };
+      return { jsonrpc: "2.0", id: req.id, result: { ok: true } };
+    };
+    mount();
+    await flush();
+    await chooseFile("p.csv", "id,name\n1,a\n2,b\n3,c");
+    await next();
+    button("Importar 3 filas").click();
+    await flush();
+    await flush();
+    const stats = [...host!.querySelectorAll(".wiz-stat")].map((s) => s.textContent);
+    expect(stats[0]).toBe("2filas insertadas");
+    expect(stats[1]).toBe("1con error");
+    expect(host!.querySelector(".run-errors")!.textContent).toContain("Fila 2: Ya existe");
   });
 });

@@ -381,8 +381,8 @@ const LOOKS_LIKE_DATA = /^\s*$|^[+-]?\d+([.,]\d+)?$|^\d{4}-\d{2}-\d{2}|^\d{1,2}\
  * Whether the first record is a header: none of its cells is empty, a number or
  * a date — which a column name never is and a row of data very often is.
  */
-export function detectHeader(first: string[]): boolean {
-  return first.length > 0 && first.every((c) => !LOOKS_LIKE_DATA.test(c));
+export function detectHeader(first: (string | null)[]): boolean {
+  return first.length > 0 && first.every((c) => c !== null && !LOOKS_LIKE_DATA.test(c));
 }
 
 /** Delimiter, quote and header of delimited text, in one sniff. */
