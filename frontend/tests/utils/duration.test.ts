@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatClock, formatDuration, isSlow } from "../../src/utils/duration";
+import { formatClock, formatDuration, formatElapsed, isSlow } from "../../src/utils/duration";
 
 describe("formatDuration", () => {
   it("shows whole ms below a second", () => {
@@ -47,5 +47,25 @@ describe("formatClock", () => {
   });
   it("renders a dash for an invalid timestamp", () => {
     expect(formatClock(NaN)).toBe("—");
+  });
+});
+
+describe("formatElapsed", () => {
+  it("reads minutes and seconds while under an hour", () => {
+    expect(formatElapsed(4_000)).toBe("00:04");
+    expect(formatElapsed(4_999)).toBe("00:04");
+    expect(formatElapsed(65_000)).toBe("01:05");
+    expect(formatElapsed(3_599_000)).toBe("59:59");
+  });
+
+  it("adds the hours from an hour on", () => {
+    expect(formatElapsed(3_600_000)).toBe("1:00:00");
+    expect(formatElapsed(3_723_000)).toBe("1:02:03");
+  });
+
+  it("is a clock at zero for nothing yet, a negative or a NaN", () => {
+    expect(formatElapsed(0)).toBe("00:00");
+    expect(formatElapsed(-5)).toBe("00:00");
+    expect(formatElapsed(NaN)).toBe("00:00");
   });
 });

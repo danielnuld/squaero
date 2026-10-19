@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   splitStatements,
   pickRunTarget,
+  statementAt,
   isCommentOnly,
   runnableStatements,
 } from "../../src/utils/runScope";
@@ -78,36 +79,96 @@ describe("splitStatements", () => {
 describe("pickRunTarget", () => {
   it("runs the selection verbatim when one exists", () => {
     const doc = "SELECT 1; SELECT 2";
-    expect(pickRunTarget(doc, 0, 8)).toEqual({ text: "SELECT 1", scope: "selection" });
+    expect(pickRunTarget(doc, 0, 8)).toEqual({ text: "SELECT 1", scope: "selection", from: 0, to: 8 });
   });
 
   it("normalizes a reversed selection range", () => {
     const doc = "SELECT 1; SELECT 2";
-    expect(pickRunTarget(doc, 8, 0)).toEqual({ text: "SELECT 1", scope: "selection" });
+    expect(pickRunTarget(doc, 8, 0)).toEqual({ text: "SELECT 1", scope: "selection", from: 0, to: 8 });
   });
 
-  it("runs the whole document when nothing is selected", () => {
+  it("runs the only statement when nothing is selected", () => {
     const doc = "SELECT * FROM t";
-    expect(pickRunTarget(doc, 5, 5)).toEqual({ text: doc, scope: "document" });
+    expect(pickRunTarget(doc, 5, 5)).toEqual({ text: doc, scope: "statement", from: 0, to: doc.length });
   });
 
-  it("runs the WHOLE document with several statements, wherever the cursor is", () => {
-    // It used to run only the statement under the cursor, so writing three
-    // queries and pressing Ejecutar ran one of them in silence.
+  it("runs the statement under the cursor, never the others", () => {
     const doc = "SELECT 1;\nSELECT 2;\nUPDATE t SET a = 1;";
-    expect(pickRunTarget(doc, 2, 2)).toEqual({ text: doc, scope: "document" });
+    expect(pickRunTarget(doc, 2, 2).text).toBe("SELECT 1");
     const inSecond = doc.indexOf("SELECT 2") + 2;
-    expect(pickRunTarget(doc, inSecond, inSecond)).toEqual({ text: doc, scope: "document" });
-    expect(pickRunTarget(doc, doc.length, doc.length)).toEqual({ text: doc, scope: "document" });
+    expect(pickRunTarget(doc, inSecond, inSecond)).toMatchObject({ text: "SELECT 2", scope: "statement" });
+    expect(pickRunTarget(doc, doc.length, doc.length).text).toBe("UPDATE t SET a = 1");
+  });
+
+  it("the range it returns is the slice it runs", () => {
+    const doc = "  SELECT 1;\n\n  SELECT 2  ";
+    const target = pickRunTarget(doc, doc.length - 1, doc.length - 1);
+    expect(doc.slice(target.from, target.to)).toBe(target.text);
+    expect(target.text).toBe("SELECT 2");
+  });
+
+  it("runs the whole script when asked for it, selection or not", () => {
+    const doc = "SELECT 1;\nSELECT 2;";
+    expect(pickRunTarget(doc, 0, 0, "document")).toEqual({
+      text: doc,
+      scope: "document",
+      from: 0,
+      to: doc.length,
+    });
+    expect(pickRunTarget(doc, 0, 8, "document").scope).toBe("document");
+  });
+
+  it("asked for the statement, ignores a selection", () => {
+    const doc = "SELECT 1;\nSELECT 2;";
+    expect(pickRunTarget(doc, 0, 3, "statement")).toMatchObject({ text: "SELECT 1", scope: "statement" });
+  });
+
+  it("asked for a selection that is not there, runs the statement", () => {
+    expect(pickRunTarget("SELECT 1", 3, 3, "selection").scope).toBe("statement");
   });
 
   it("still runs one statement when it is the selected one", () => {
     const doc = "SELECT 1;\nSELECT 2;";
     const from = doc.indexOf("SELECT 2");
-    expect(pickRunTarget(doc, from, doc.length)).toEqual({
-      text: "SELECT 2;",
-      scope: "selection",
-    });
+    expect(pickRunTarget(doc, from, doc.length)).toMatchObject({ text: "SELECT 2;", scope: "selection" });
+  });
+
+  it("a blank document runs as a blank document (the caller rejects it)", () => {
+    expect(pickRunTarget("  \n", 1, 1)).toEqual({ text: "  \n", scope: "document", from: 0, to: 3 });
+  });
+
+  it("keeps a routine body whole as the statement under the cursor", () => {
+    const doc = "SELECT 1;\nCREATE PROCEDURE p() BEGIN SELECT 1; SELECT 2; END;";
+    const pos = doc.indexOf("SELECT 2");
+    expect(pickRunTarget(doc, pos, pos, undefined, "mysql").text).toBe(
+      "CREATE PROCEDURE p() BEGIN SELECT 1; SELECT 2; END",
+    );
+  });
+});
+
+describe("statementAt", () => {
+  const doc = "SELECT 1;\n\n-- note\nSELECT 2;";
+  const slice = (r: { from: number; to: number } | null) => (r ? doc.slice(r.from, r.to) : null);
+
+  it("finds the statement the cursor is in", () => {
+    expect(slice(statementAt(doc, doc.indexOf("SELECT 2") + 1))).toBe("-- note\nSELECT 2");
+  });
+
+  it("right after a semicolon, is the statement it closes", () => {
+    expect(statementAt(doc, doc.indexOf(";") + 1)).toEqual({ from: 0, to: 8 });
+  });
+
+  it("on a blank line between statements, is the one before", () => {
+    expect(statementAt(doc, doc.indexOf("\n\n") + 1)).toEqual({ from: 0, to: 8 });
+  });
+
+  it("before the first statement, is the first", () => {
+    expect(statementAt("\n\nSELECT 1", 0)).toEqual({ from: 2, to: 10 });
+  });
+
+  it("is null when nothing is runnable", () => {
+    expect(statementAt("", 0)).toBeNull();
+    expect(statementAt("-- only a comment", 3)).toBeNull();
   });
 });
 
