@@ -9,7 +9,7 @@
 
 import type { Page } from "@playwright/test";
 
-import { connect, openTool } from "./support/app-actions";
+import { connect, newQuery, openTool } from "./support/app-actions";
 import { describeEngine, test, expect, type App } from "./support/fixtures";
 import { seedSnippets } from "./support/state";
 
@@ -23,6 +23,7 @@ describeEngine("sqlite", () => {
   async function openWithSnippets(app: App): Promise<void> {
     await seedSnippets(app.page, SNIPPETS);
     await app.open();
+    await newQuery(app.page); // the query being written, «Consulta 1»
   }
 
   const editor = (page: Page) => page.getByRole("textbox", { name: "Editor SQL", exact: true });

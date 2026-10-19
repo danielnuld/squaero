@@ -10,7 +10,7 @@
 // schema the report came from — most of what a user meets is the unavailable
 // path, so that is the path worth pinning.
 
-import { connect, openFixtureTable, runSql } from "./support/app-actions";
+import { connect, newQuery, openFixtureTable, runSql } from "./support/app-actions";
 import { describeEngine, test, expect } from "./support/fixtures";
 
 describeEngine("sqlite", () => {
@@ -41,6 +41,7 @@ describeEngine("sqlite", () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(page);
     // A projection without the primary key: the tab cannot tell which table's
     // rows these are, which is the commonest reason the action goes quiet.
     await runSql(page, "SELECT nombre FROM e2e_items");

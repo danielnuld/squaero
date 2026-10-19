@@ -11,7 +11,7 @@
 
 import { readFileSync } from "node:fs";
 
-import { connect, runSql } from "./support/app-actions";
+import { connect, newQuery, runSql } from "./support/app-actions";
 import { bulkFill } from "./support/seed";
 import { describeAllEngines, test, expect } from "./support/fixtures";
 
@@ -79,6 +79,7 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
     await recordRpc(page);
 
     await runSql(page, QUERY);
@@ -116,6 +117,7 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     });
     await app.open();
     await connect(app);
+    await newQuery(app.page);
     await recordRpc(page);
 
     await runSql(page, QUERY);

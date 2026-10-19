@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "../../src/App";
+import { openQueryTab } from "./appHelpers";
 
 // Smoke test: the workspace shell mounts and renders without throwing after the
 // M7 edit wiring was added (a bad memo or store access would surface here).
@@ -34,8 +35,12 @@ describe("App shell", () => {
     // With nothing open the explorer says so and offers to connect (#525, #689).
     expect(host!.textContent).toContain("Sin conexión");
     expect(host!.textContent).toContain("No hay ninguna conexión abierta");
-    // A fresh workspace has one query tab and the empty-grid prompt.
-    expect(host!.querySelector(".tabbar")).not.toBeNull();
+    // A fresh workspace opens on the welcome, with no tab (#694); a new query
+    // tab shows the empty-grid prompt.
+    expect(host!.querySelectorAll(".tab").length).toBe(0);
+    expect(host!.querySelector(".welcome")).not.toBeNull();
+    openQueryTab(host!);
+    expect(host!.querySelector(".welcome")).toBeNull();
     expect(host!.textContent).toContain("Ejecuta una consulta");
   });
 });
@@ -136,6 +141,7 @@ describe("App — theme & shortcuts", () => {
 
   it("opens the shortcuts help as a tab and closing it returns to the query", () => {
     mount();
+    openQueryTab(host!);
     expect(host!.querySelectorAll(".tab").length).toBe(1);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "F1" }));
     // A new (tool) tab appeared for the help panel.
@@ -147,11 +153,11 @@ describe("App — theme & shortcuts", () => {
 
   it("opens a new tab with Ctrl+Alt+T", () => {
     mount();
-    expect(host!.querySelectorAll(".tab").length).toBe(1);
+    expect(host!.querySelectorAll(".tab").length).toBe(0);
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "t", ctrlKey: true, altKey: true }),
     );
-    expect(host!.querySelectorAll(".tab").length).toBe(2);
+    expect(host!.querySelectorAll(".tab").length).toBe(1);
   });
 
   it("opens a tab with Ctrl+T and closes it with Ctrl+W, as in a browser (#591)", () => {
@@ -159,9 +165,11 @@ describe("App — theme & shortcuts", () => {
     const t = new KeyboardEvent("keydown", { key: "t", ctrlKey: true, cancelable: true });
     document.dispatchEvent(t);
     expect(t.defaultPrevented).toBe(true); // the host never sees it
-    expect(host!.querySelectorAll(".tab").length).toBe(2);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "w", ctrlKey: true }));
     expect(host!.querySelectorAll(".tab").length).toBe(1);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "w", ctrlKey: true }));
+    // Closing the last tab is fine: back to the welcome (#694).
+    expect(host!.querySelectorAll(".tab").length).toBe(0);
+    expect(host!.querySelector(".welcome")).not.toBeNull();
   });
 });
 
@@ -179,6 +187,7 @@ const moreItem = (label: string) => {
 describe("App — EXPLAIN", () => {
   it("has a Plan entry that surfaces an honest error on an empty query", () => {
     mount();
+    openQueryTab(host!);
     const btn = moreItem("Plan");
     expect(btn).toBeTruthy();
     btn.click(); // fresh tab has empty SQL

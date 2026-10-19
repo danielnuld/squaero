@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { EditorView } from "@codemirror/view";
 import { App } from "../../src/App";
+import { openQueryTab } from "./appHelpers";
 
 // Integration (issue #667): manual transactions from the editor. utils/txMode
 // covers the policy; this covers the WIRING — the switch, the tx.begin before
@@ -85,6 +86,9 @@ const connect = async () => {
   });
   click(host.querySelector(".connbar-add"));
   click(host.querySelector(".connsearch-hit"));
+  await settle();
+  // Connecting lands on the connection's home (#694); open a query tab.
+  openQueryTab(host);
   await settle();
 };
 

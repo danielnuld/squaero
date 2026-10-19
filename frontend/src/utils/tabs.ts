@@ -132,13 +132,13 @@ export function addTab(
 }
 
 /**
- * The first tab of a session that starts blank: nothing to restore, or a
- * restore the user has not taken. Its title starts at 1 again; its id still
- * comes after every id handed out before (`seq`, issue #355), so if the user
- * then resumes the saved tabs no id collides.
+ * The workspace the app opens on (issue #694): no tab at all, so the welcome
+ * screen (or the connected home) is what you see first. Its ids still come
+ * after every id handed out before (`seq`, issue #355), so resuming the saved
+ * tabs later hands out no id twice; titles start at 1 again.
  */
-export function blankSession(stored: TabState | null, title = "Consulta"): TabState {
-  return addTab({ tabs: [], activeId: 0, seq: stored?.seq ?? 0, num: 0 }, title);
+export function emptySession(stored: TabState | null): TabState {
+  return { tabs: [], activeId: 0, seq: stored?.seq ?? 0, num: 0 };
 }
 
 /**

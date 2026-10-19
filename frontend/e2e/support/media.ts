@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 
 import { findTheme } from "../../src/utils/themeStore";
-import { startBlank } from "./app-actions";
+import { newQuery, startBlank } from "./app-actions";
 import { installBridge } from "./bridge";
 import { DEMO_CONNECTION } from "./demo";
 import type { RpcClient } from "./rpc";
@@ -132,9 +132,12 @@ export async function runEditor(page: Page): Promise<void> {
   await page.getByRole("button", { name: /^Ejecutar( sentencia)?$/ }).first().click();
 }
 
-/** Types `sql` into the first query tab and runs it; waits for `ready` in the grid. */
+/**
+ * Types `sql` into the query tab on screen and runs it; waits for `ready` in the
+ * grid. The app starts with no tab (#694): with no editor showing, one is opened.
+ */
 export async function runQuery(page: Page, sql: string, ready: string): Promise<void> {
-  await page.getByRole("tab", { name: "Consulta 1" }).click();
+  if (!(await sqlEditor(page).isVisible())) await newQuery(page);
   await typeSql(page, sql);
   await runEditor(page);
   await expect(page.getByRole("grid").getByText(ready, { exact: true }).first()).toBeVisible();
