@@ -64,6 +64,9 @@ describe("buildMenuModel", () => {
     expect(run.accel).toBe("Ctrl+Enter");
     expect(items({ ...ALL, isMac: true }).find((i) => i.id === "run-query")!.accel).toBe("⌘+Enter");
     expect(items(ALL).find((i) => i.id === "refresh")!.accel).toBe("F5");
+    // The script and the plan are the editor's keys too (issue #691).
+    expect(items(ALL).find((i) => i.id === "run-script")!.accel).toBe("Ctrl+Shift+Enter");
+    expect(items(ALL).find((i) => i.id === "explain")!.accel).toBe("Ctrl+Shift+E");
     // Palette-only actions have no key, so no accelerator text.
     expect(items(ALL).find((i) => i.id === "act:settings")!.accel).toBeUndefined();
   });
@@ -73,6 +76,7 @@ describe("buildMenuModel", () => {
     const enabled = (id: string) => off.find((i) => i.id === id)!.enabled !== false;
     expect(enabled("act:reconnect")).toBe(false);
     expect(enabled("run-query")).toBe(false);
+    expect(enabled("run-script")).toBe(false);
     expect(enabled("tool:monitor")).toBe(false);
     expect(enabled("act:objects")).toBe(false);
     expect(enabled("close-tab")).toBe(false);

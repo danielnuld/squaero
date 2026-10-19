@@ -105,6 +105,8 @@ export function buildMenuModel(t: Translate, s: MenuState): Menu[] {
       label: t("menu.query"),
       items: [
         sc("run-query", "sc.run-query", s.connected),
+        sc("run-script", "sc.run-script", s.connected),
+        sc("explain", "sc.explain", s.connected),
         sc("format-sql"),
         SEP,
         act("act:newTable", "toolbar.newTable.title", s.connected),

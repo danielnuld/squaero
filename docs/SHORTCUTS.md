@@ -39,8 +39,10 @@ Con el foco en el editor (CodeMirror). Estas teclas no se pueden reasignar.
 
 | Acción | Atajo |
 |---|---|
-| Ejecutar la consulta (o la selección) | `Mod`+Enter |
+| Ejecutar la sentencia actual (o la selección) | `Mod`+Enter |
+| Ejecutar el script completo | `Mod`+Shift+Enter |
 | Formatear la consulta | `Mod`+Shift+F |
+| Plegar / desplegar la sentencia o el comentario | `Mod`+Shift+[ / `Mod`+Shift+] |
 | Plan de ejecución (EXPLAIN) | `Mod`+Shift+E |
 | Abrir las sugerencias de autocompletado | Ctrl+Espacio |
 | Aceptar la sugerencia; si no hay, expandir una abreviatura de plantilla | Tab |
