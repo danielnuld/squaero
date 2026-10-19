@@ -10418,3 +10418,68 @@ ul.sidebar-tree {
   max-height: 6rem;
   overflow: auto;
 }
+
+/* Slow queries: catalog note and the selected statement's detail pane. */
+.slow-source {
+  flex: none;
+  margin: 0 0 var(--sp-3);
+}
+
+.slow-detail {
+  flex: none;
+  display: flex;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+}
+
+.slow-detail-sql {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.slow-facts {
+  flex: none;
+  width: 16rem;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-2) var(--sp-4);
+  align-content: start;
+  font-size: var(--fs-base);
+}
+
+.slow-facts dt {
+  color: var(--text-dim);
+}
+
+.slow-facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.slow-facts .slow-share-label {
+  grid-column: 1 / -1;
+  margin-top: var(--sp-2);
+}
+
+.slow-facts .slow-share {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.slow-share > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}

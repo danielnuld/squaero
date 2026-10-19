@@ -177,3 +177,42 @@ export function unsupportedReason(engine: string): string {
   if (f === "informix") return t("slow.unsupported.informix");
   return t("slow.unsupported.other", { engine: engine || t("engine.unknown") });
 }
+
+/** i18n key of the note that says where the numbers come from, or null. */
+export function slowSourceKey(engine: string): string | null {
+  const f = family(engine);
+  return f === "mysql" || f === "postgres" || f === "mongodb" ? `slow.source.${f}` : null;
+}
+
+/** What the detail pane says about one listed statement. */
+export interface SlowFacts {
+  calls: string | null;
+  avgMs: string | null;
+  maxMs: string | null;
+  totalMs: string | null;
+  /** Its share (0–100, rounded) of the total time of the LISTED statements —
+      not of everything the server recorded — or null when unknown. */
+  share: number | null;
+}
+
+/**
+ * The facts of row `r` of the listing, read from the columns every engine's
+ * query names the same (ejecuciones, avg_ms, max_ms, total_ms). Pure.
+ */
+export function slowFacts(
+  result: { columns: readonly { name: string }[]; rows: readonly (readonly (string | null)[])[] },
+  r: number,
+): SlowFacts | null {
+  const row = result.rows[r];
+  if (!row) return null;
+  const idx = (n: string) => result.columns.findIndex((c) => c.name.toLowerCase() === n);
+  const at = (n: string) => (idx(n) < 0 ? null : (row[idx(n)] ?? null));
+  const ti = idx("total_ms");
+  let share: number | null = null;
+  if (ti >= 0) {
+    const sum = result.rows.reduce((s, x) => s + (Number(x[ti]) || 0), 0);
+    const mine = Number(row[ti]);
+    if (sum > 0 && Number.isFinite(mine)) share = Math.round((mine / sum) * 100);
+  }
+  return { calls: at("ejecuciones"), avgMs: at("avg_ms"), maxMs: at("max_ms"), totalMs: at("total_ms"), share };
+}
