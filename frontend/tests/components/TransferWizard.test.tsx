@@ -157,6 +157,20 @@ describe("TransferWizard", () => {
     expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Transferir");
   });
 
+  it("refuses a read-only destination up front, saying why", async () => {
+    const calls = installBridge();
+    conns[0].safeMode = "readOnly";
+    try {
+      mount();
+      expect(host!.textContent).toContain("Prod es de solo lectura: no se pueden copiar filas en ella");
+      const next = [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Siguiente")!;
+      expect(next.disabled).toBe(true);
+      expect(calls.some((c) => c.method === "conn.open")).toBe(false);
+    } finally {
+      delete conns[0].safeMode;
+    }
+  });
+
   it("copies the whole source table by default when it can read it", async () => {
     const calls = installBridge();
     mount({ defId: "d2", db: "main" });

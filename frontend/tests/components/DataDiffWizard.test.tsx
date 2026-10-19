@@ -122,6 +122,13 @@ const settle = async () => {
   for (let i = 0; i < 10; i++) await flush();
 };
 
+/** DELETE is off by default (audit P1): the tests that want it tick it. */
+const tickDelete = () =>
+  [...document.querySelectorAll<HTMLLabelElement>("label")]
+    .find((l) => l.textContent?.startsWith("DELETE"))!
+    .querySelector("input")!
+    .click();
+
 const writes = (calls: { method: string; params: any }[]) =>
   calls.filter((c) => c.method.startsWith("row.") && c.params.preview !== true);
 
@@ -129,6 +136,7 @@ describe("DataDiffWizard", () => {
   it("reads the whole source table, not just the first page", async () => {
     const calls = installBridge();
     mount();
+    tickDelete();
     clickButton("Comparar");
     await settle();
 
@@ -146,6 +154,7 @@ describe("DataDiffWizard", () => {
   it("asks before applying, naming the target and the count per kind", async () => {
     const calls = installBridge();
     mount();
+    tickDelete();
     clickButton("Comparar");
     await settle();
 
@@ -169,6 +178,7 @@ describe("DataDiffWizard", () => {
   it("applies the plan in a transaction once confirmed", async () => {
     const calls = installBridge();
     mount();
+    tickDelete();
     clickButton("Comparar");
     await settle();
     document.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!.click();
@@ -183,5 +193,43 @@ describe("DataDiffWizard", () => {
     expect(writes(calls).map((c) => c.method)).toEqual(["row.insert", "row.update", "row.delete"]);
     expect(writes(calls).every((c) => c.params.connId === "tgt")).toBe(true);
     expect(host!.textContent).toContain("aplicada");
+  });
+
+  it("generates no DELETE unless it is ticked", async () => {
+    const calls = installBridge();
+    mount();
+    expect(host!.textContent).toContain("DELETE está desmarcado por defecto");
+    clickButton("Comparar");
+    await settle();
+    expect(calls.filter((c) => c.method === "row.delete")).toEqual([]);
+    expect(host!.textContent).toContain("1 INSERT · 1 UPDATE · 0 DELETE");
+    // Nothing deletes, so the button is not the red one.
+    expect(document.querySelector(".wiz-foot .btn-danger")).toBeNull();
+    expect(document.querySelector(".wiz-foot .btn-primary")!.textContent).toBe("Aplicar 2 cambios en Ventas copia");
+  });
+
+  it("only generates the script for a read-only target", async () => {
+    const calls = installBridge();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const ro: Connection = { ...conns[1], safeMode: "readOnly" };
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <DataDiffWizard sourceDefId="d1" source={{ table: "clientes", db: "main" }} pk={["id"]}
+            connections={[ro, conns[0]]} onClose={() => {}} />
+        ),
+        host!,
+      );
+    });
+    expect(host!.textContent).toContain("Ventas copia es de solo lectura: solo se genera el script");
+    clickButton("Comparar");
+    await settle();
+    // The SQL is there, the apply button is not; nothing was written.
+    expect(host!.querySelector(".preview-sql")!.textContent).toContain("row.insert");
+    expect([...document.querySelectorAll(".wiz-foot button")].some((b) => b.textContent?.startsWith("Aplicar"))).toBe(false);
+    expect([...document.querySelectorAll(".wiz-foot button")].some((b) => b.textContent === "Guardar .sql")).toBe(true);
+    expect(writes(calls)).toEqual([]);
   });
 });
