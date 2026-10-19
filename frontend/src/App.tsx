@@ -6573,6 +6573,7 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     sql={(tt().params as { sql: string }).sql}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
