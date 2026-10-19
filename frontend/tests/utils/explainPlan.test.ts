@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  planRows,
   explainKind,
   buildStructuredExplain,
   parsePlan,
@@ -346,5 +347,39 @@ describe("parsePlan — MongoDB explain", () => {
     const hot = expensivePath(plan);
     expect(hot.has(plan.children[1].id)).toBe(true);
     expect(hot.has(plan.children[0].id)).toBe(false);
+  });
+});
+
+describe("planRows (table view)", () => {
+  const node = (id: number, op: string, cost: number, children: PlanNode[] = [], table?: string): PlanNode => ({
+    id,
+    op,
+    cost,
+    rows: 10,
+    table,
+    children,
+  });
+
+  it("lists the nodes parent first, indented by depth", () => {
+    const root = node(0, "Sort", 100, [
+      node(1, "Hash Join", 80, [node(2, "Seq Scan", 50, [], "pedidos"), node(3, "Hash", 20, [node(4, "Seq Scan", 10, [], "clientes")])]),
+    ]);
+    const rows = planRows(root);
+    expect(rows.map((r) => [r.op, r.depth, r.table])).toEqual([
+      ["Sort", 0, undefined],
+      ["Hash Join", 1, undefined],
+      ["Seq Scan", 2, "pedidos"],
+      ["Hash", 2, undefined],
+      ["Seq Scan", 3, "clientes"],
+    ]);
+  });
+
+  it("marks the costliest path as the tree does", () => {
+    const root = node(0, "Join", 100, [node(1, "A", 70), node(2, "B", 20)]);
+    expect(planRows(root).filter((r) => r.hot).map((r) => r.op)).toEqual(["Join", "A"]);
+  });
+
+  it("is one row for a single node", () => {
+    expect(planRows(node(0, "Result", 0))).toHaveLength(1);
   });
 });
