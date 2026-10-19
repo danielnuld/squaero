@@ -104,12 +104,14 @@ describe("App — safe mode per connection (issue #666)", () => {
     expect(host!.querySelector(".connbar-item .safe-badge")).not.toBeNull();
   });
 
-  it("read-only: a read runs, but Editar is disabled with the reason", async () => {
+  it("read-only: a read runs, and the toolbar says why it cannot be edited", async () => {
     setup("readOnly", "SELECT * FROM pedidos");
     await connectAndRunHistory();
     expect(ranSql()).toContain("SELECT * FROM pedidos");
     expect(host!.querySelectorAll(".grid-rows .grid-row").length).toBe(1);
-    expect((byText("button", "Editar") as HTMLButtonElement | undefined)?.disabled).toBe(true);
+    // No Editar button any more (#688), and no row to add on a protected one.
+    expect(byText("button", "Editar")).toBeUndefined();
+    expect(byText("button", "Fila")).toBeUndefined();
     expect(host!.querySelector(".edit-hint-ro")?.textContent).toContain("protegida");
   });
 

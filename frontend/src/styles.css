@@ -4267,8 +4267,98 @@ svg.icon {
 }
 
 .edit-hint-ro {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
   font-size: var(--fs-base);
   color: var(--fg-dim);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The result toolbar's hierarchy (issue #688): ghost actions with icon and
+   text, one filled primary, icon-only tools on the right. */
+.edit-toolbar {
+  min-height: var(--band-lg);
+  background: var(--bg);
+}
+
+.edit-toolbar .edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--h-md);
+  padding: 0 var(--sp-3);
+  border-color: transparent;
+  background: transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.edit-toolbar .edit-btn:hover:not(:disabled),
+.edit-toolbar .edit-btn[aria-pressed="true"] {
+  background: var(--bg-elev2);
+}
+
+.edit-toolbar .edit-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.edit-toolbar .edit-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.edit-toolbar .edit-btn-icon {
+  justify-content: center;
+  width: var(--h-md);
+  padding: 0;
+}
+
+.edit-hint {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+/* A segmented choice: Datos · Estructura · Índices · DDL. */
+.seg {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: var(--sp-1);
+  gap: var(--sp-1);
+  border-radius: var(--r-md);
+  background: var(--bg-elev2);
+}
+
+.seg-btn {
+  height: var(--h-sm);
+  padding: 0 var(--sp-4);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-base);
+  cursor: default;
+}
+
+.seg-btn:hover:not(.on) {
+  color: var(--text);
+}
+
+.seg-btn.on {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 
 .edit-error {

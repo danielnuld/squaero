@@ -150,8 +150,8 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await editRow(app.page, "Nogal");
     await nombreCell(app.page).fill("Nogal editado");
     // The pending-change counter is the interface's own account of what it will do.
-    await expect(app.page.getByRole("button", { name: /Confirmar \(1\)/ })).toBeEnabled();
-    await app.page.getByRole("button", { name: /Confirmar \(1\)/ }).click();
+    await expect(app.page.getByRole("button", { name: /Guardar \(1\)/ })).toBeEnabled();
+    await app.page.getByRole("button", { name: /Guardar \(1\)/ }).click();
 
     // It shows the exact statement before running it, which is the whole point of
     // a confirmation step: the user gets to see the UPDATE, not just trust it.
@@ -172,7 +172,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
 
     await editRow(app.page, "Nogal");
     await nombreCell(app.page).fill("No debe guardarse");
-    await expect(app.page.getByRole("button", { name: /Confirmar \(1\)/ })).toBeEnabled();
+    await expect(app.page.getByRole("button", { name: /Guardar \(1\)/ })).toBeEnabled();
     await app.page.getByRole("button", { name: "Descartar" }).click();
 
     expect(await readNombre(app, 1)).toBe("Nogales");
