@@ -16,3 +16,9 @@ target_include_directories(menu_model_test PRIVATE ../include)
 target_link_libraries(menu_model_test PRIVATE cjson)
 quaero_set_warnings(menu_model_test)
 add_test(NAME menu_model_test COMMAND menu_model_test)
+
+# The app's own title bar: commands, geometry, the remembered choice (#688).
+add_executable(titlebar_test titlebar_test.c ../src/titlebar.c)
+target_include_directories(titlebar_test PRIVATE ../include)
+quaero_set_warnings(titlebar_test)
+add_test(NAME titlebar_test COMMAND titlebar_test)
