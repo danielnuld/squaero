@@ -1,5 +1,5 @@
 import { onCleanup, onMount, createEffect, createMemo, on } from "solid-js";
-import { keyLabel } from "../utils/shortcuts";
+import { keyLabel, keyParams } from "../utils/shortcuts";
 import { EditorState, Compartment, RangeSet, StateEffect, StateField, type Text } from "@codemirror/state";
 import {
   ViewPlugin,
@@ -889,7 +889,7 @@ export function SqlEditor(props: {
       ref={host}
       // The completion list's key hints (M14 EditorAutocomplete): CodeMirror has
       // no footer, so its stylesheet draws this string under the list.
-      style={{ "--complete-footer": JSON.stringify(t("complete.footer")) }}
+      style={{ "--complete-footer": JSON.stringify(t("complete.footer", keyParams({ enter: "Enter", tab: "Tab", esc: "Esc" }))) }}
       onContextMenu={(e) => openContextMenu(e, editorMenu(e))}
     />
   );

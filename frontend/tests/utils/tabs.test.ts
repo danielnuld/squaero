@@ -663,6 +663,9 @@ describe("closeAllTabs / closedQueryTabs (Ctrl+Mayús+W / T)", () => {
     expect(closedQueryTabs(prev, next).map((t) => t.id)).toEqual([2]);
     expect(closedQueryTabs(prev, prev)).toEqual([]);
     expect(closedQueryTabs(prev, closeAllTabs(prev)).map((t) => t.sql)).toEqual(["select 1", "select 2"]);
+  });
+});
+
 describe("tab menu helpers (M14 TabContextMenu)", () => {
   const three = () => addTab(addTab(addTab(emptySession(null)))); // ids 1..3, active 3
 

@@ -64,6 +64,13 @@ const GROUP_OF: Record<ActionId, ShortcutGroup> = {
   "view-structure": "grid",
   "view-indexes": "grid",
   "view-ddl": "grid",
+  "open-file": "editor",
+  "open-settings": "general",
+  "toggle-sidebar": "general",
+  "focus-explorer": "general",
+  "toggle-history": "general",
+  connect: "general",
+  "close-all-tabs": "tabs",
 };
 
 export const shortcutGroup = (id: ActionId): ShortcutGroup => GROUP_OF[id];

@@ -693,14 +693,14 @@ export function SettingsPanel(props: {
         {row("runKey", () => (
           <>
             {chips(
-              t("settings.runKey", { keys: displayKeys("Mod+Enter", props.isMac) }),
+              t("settings.runKey", { keys: formatKeys("Mod+Enter", os()) }),
               RUN_KEY_OPTS,
               () => props.settings.runKeyScope,
               (m) => t(`settings.runKey.${m}`),
               (m) => props.onSetSettings({ runKeyScope: m }),
             )}
             <p class="settings-hint">
-              {t("settings.runKeyHint", { keys: displayKeys("Mod+Shift+Enter", props.isMac) })}
+              {t("settings.runKeyHint", { keys: formatKeys("Mod+Shift+Enter", os()) })}
             </p>
           </>
         ))}
@@ -1178,7 +1178,7 @@ export function SettingsPanel(props: {
                     }}
                   >
                     <span class="settings-nav-hit-label">
-                      {t(e.keys[0], { keys: displayKeys("Mod+Enter", props.isMac) })}
+                      {t(e.keys[0], { keys: formatKeys("Mod+Enter", os()) })}
                     </span>
                     <span class="settings-nav-hit-cat">{t(`settings.cat.${e.category}`)}</span>
                   </button>
