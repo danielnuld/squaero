@@ -4567,37 +4567,14 @@ export function App() {
             )}
           </Show>
           <div class="side-explorer" hidden={side().panel !== "explorer"}>
-          <div class="sidebar-section-title">{t("conn.title")}</div>
           <ConnectionBar
             connections={connections()}
-            /* The bar draws one row per open connection (#525). The second line
-               comes from the SAVED connection, which is where the DSN lives. */
-            open={openConns().map((o) => {
-              const saved = connections().find((c) => c.id === o.defId);
-              const label = driverSchema(o.driver)?.label ?? o.driver;
-              const target = saved ? connectionTarget(saved) : "";
-              return {
-                defId: o.defId,
-                name: o.name,
-                driver: o.driver,
-                color: o.color,
-                lost: o.lost,
-                reconnecting: o.reconnecting,
-                reconnected: o.reconnected,
-                txStatements: txOpenCount(o) ?? undefined,
-                sub: target ? `${label} · ${target}` : label,
-                safeMode: saved?.safeMode,
-              };
-            })}
-            focusedDefId={focusedDefId()}
-            onFocus={setFocusedDefId}
-            onReconnectConn={(defId) => inConn(defId, reconnect)()}
+            openIds={openConns().map((o) => o.defId)}
             connectingId={connectingId()}
             onPick={onConnect}
             onNew={onNewConnection}
-            onDisconnect={(defId) => void disconnect(defId)}
             /* Creating, editing, importing and exporting live in their own tab
-               now (#525); the bar's search only links to it. */
+               (#525); the search only links to it. */
             onImport={openConnectionsTab}
             onManage={openConnectionsTab}
           />
@@ -4607,15 +4584,20 @@ export function App() {
               its own virtualized scroller. */}
           <Show
             when={openConns().length > 0}
-            fallback={<p class="sidebar-empty">{t("tree.connectHint")}</p>}
           >
-            <div class="sidebar-tree">
+            <ul class="sidebar-tree" aria-label={t("connbar.listLabel")}>
               <For each={openConns()}>
                 {(conn) => {
                   const focused = () => conn.defId === focusedDefId();
                   const collapsed = () => collapsedSections().has(conn.defId);
+                  const saved = () => connections().find((c) => c.id === conn.defId);
+                  const sub = () => {
+                    const label = driverSchema(conn.driver)?.label ?? conn.driver;
+                    const target = saved() ? connectionTarget(saved()!) : "";
+                    return target ? `${label} · ${target}` : label;
+                  };
                   return (
-                    <div
+                    <li
                       class="conn-section"
                       classList={{ "is-collapsed": collapsed(), "is-focused": focused() }}
                       style={{ "--conn-accent": conn.color ?? "var(--accent)" }}
@@ -4626,6 +4608,19 @@ export function App() {
                         engine={conn.driver}
                         title={conn.name}
                         accent={conn.color}
+                        conn={{
+                          driver: conn.driver,
+                          sub: sub(),
+                          focused: focused(),
+                          lost: conn.lost,
+                          reconnecting: conn.reconnecting,
+                          reconnected: conn.reconnected,
+                          txStatements: txOpenCount(conn) ?? undefined,
+                          safeMode: saved()?.safeMode,
+                          busy: connectingId() !== null,
+                        }}
+                        onFocusConn={() => setFocusedDefId(conn.defId)}
+                        onReconnect={() => inConn(conn.defId, reconnect)()}
                         collapsed={collapsed()}
                         onToggleCollapse={() =>
                           setCollapsedSections((s) => toggleSection(s, conn.defId))
@@ -4676,11 +4671,11 @@ export function App() {
                           </div>
                         </Show>
                       </ObjectTree>
-                    </div>
+                    </li>
                   );
                 }}
               </For>
-            </div>
+            </ul>
           </Show>
           </div>
         </aside>
