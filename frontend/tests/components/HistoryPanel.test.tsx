@@ -79,8 +79,29 @@ describe("HistoryPanel", () => {
 
   it("shows an empty state when there is no history", () => {
     mount({ entries: [] });
-    expect(host!.querySelector(".history-empty")!.textContent).toContain("Aún no has ejecutado");
+    expect(host!.querySelector(".empty-note")!.textContent).toContain("Sin consultas aún");
     expect((host!.querySelector(".danger-text") as HTMLButtonElement).disabled).toBe(true);
+    // No action unless the workspace offers one.
+    expect(host!.querySelector(".empty-note button")).toBeNull();
+  });
+
+  // Issue #694: one primary action per empty state.
+  it("offers a new query when empty, and clearing a search with no matches", () => {
+    const onNewQuery = vi.fn();
+    mount({ entries: [], onNewQuery });
+    (host!.querySelector(".empty-note button") as HTMLButtonElement).click();
+    expect(onNewQuery).toHaveBeenCalledOnce();
+    dispose?.();
+    host?.remove();
+    mount();
+    const box = host!.querySelector('input[type="search"]') as HTMLInputElement;
+    box.value = "zzz-nothing";
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    const clear = host!.querySelector(".empty-note button") as HTMLButtonElement;
+    expect(clear.textContent).toBe("Quitar la búsqueda");
+    clear.click();
+    expect(host!.querySelector(".empty-note")).toBeNull();
+    expect(box.value).toBe("");
   });
 
   it("shows per-entry duration and marks the slow one (#179)", () => {

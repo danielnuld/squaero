@@ -47,6 +47,35 @@ function installBridge() {
 }
 
 describe("ObjectTree refresh", () => {
+  // Issue #694: an empty catalog is an empty state with its one action.
+  it("says an empty database is empty and offers to refresh", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number };
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: [{ name: "name", type: "text" }], rows: [], truncated: false, rowsAffected: 0 },
+      };
+    };
+    let refreshed = 0;
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree connId="c1" onOpenData={() => {}} onOpenStructure={() => {}} onRefresh={() => refreshed++} />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    const note = host!.querySelector(".empty-note")!;
+    expect(note.textContent).toContain("Sin objetos");
+    (note.querySelector("button") as HTMLButtonElement).click();
+    expect(refreshed).toBe(1);
+  });
+
   it("re-fetches the root when reloadKey is bumped", async () => {
     const calls = installBridge();
     const [reload, setReload] = createSignal(0);

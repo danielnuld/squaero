@@ -4802,6 +4802,7 @@ export function App() {
           <Show when={side().panel === "history"}>
             <HistoryPanel
               docked
+              onNewQuery={() => runShortcut("new-tab")}
               entries={history()}
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}

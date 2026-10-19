@@ -7,6 +7,7 @@ import { autoFocus } from "../utils/autoFocus";
 import { historyEngines, searchHistory, type HistoryEntry } from "../utils/history";
 import { formatDuration, isSlow } from "../utils/duration";
 import { Dropdown } from "./Dropdown";
+import { EmptyNote } from "./EmptyNote";
 
 // Query-history panel (issue #128): search executed queries and re-run one in a
 // new tab. Filtering is pure (searchHistory); the clear action is lifted to the
@@ -25,6 +26,8 @@ export function HistoryPanel(props: {
   onClose: () => void;
   /** Shown in the side column (#689): running an entry keeps it open. */
   docked?: boolean;
+  /** The empty history's one action (#694); absent → none offered. */
+  onNewQuery?: () => void;
 }) {
   const [query, setQuery] = createSignal("");
   const [onlySlow, setOnlySlow] = createSignal(false);
@@ -80,11 +83,29 @@ export function HistoryPanel(props: {
       <Show
         when={results().length > 0}
         fallback={
-          <p class="history-empty">
-            {props.entries.length === 0
-              ? t("hist.none")
-              : t("hist.noMatches")}
-          </p>
+          <Show
+            when={props.entries.length > 0}
+            fallback={
+              <EmptyNote
+                title={t("hist.noneTitle")}
+                text={t("hist.none")}
+                action={props.onNewQuery ? { label: t("home.newQuery"), onClick: props.onNewQuery } : undefined}
+              />
+            }
+          >
+            <EmptyNote
+              title={t("empty.noResultsTitle")}
+              text={t("hist.noMatches")}
+              action={{
+                label: t("empty.clearSearch"),
+                onClick: () => {
+                  setQuery("");
+                  setEngine("");
+                  setOnlySlow(false);
+                },
+              }}
+            />
+          </Show>
         }
       >
         <ul class="history-list">
