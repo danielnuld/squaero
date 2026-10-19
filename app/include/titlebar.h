@@ -4,6 +4,7 @@
 
      quaeroWindow("state")                  -> {"os":..,"frameless":..,"maximized":..,"backdrop":..}
      quaeroWindow("frameless", true|false)  persist + apply the user's choice
+     quaeroWindow("backdrop", true|false)   Mica behind the page, if the system has it
      quaeroWindow("minimize" | "maximize" | "close")
      quaeroWindow("drag")                   start moving the window (mouse down on the bar)
      quaeroWindow("double-click")           what a title bar double click does
@@ -31,7 +32,8 @@ typedef enum quaero_window_command {
     QUAERO_WINDOW_DRAG,
     QUAERO_WINDOW_DOUBLE_CLICK,
     QUAERO_WINDOW_SYSTEM_MENU,
-    QUAERO_WINDOW_SNAP
+    QUAERO_WINDOW_SNAP,
+    QUAERO_WINDOW_BACKDROP
 } quaero_window_command;
 
 /* The command named by `name`; QUAERO_WINDOW_UNKNOWN for NULL or anything else. */
