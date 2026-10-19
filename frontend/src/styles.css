@@ -2634,6 +2634,21 @@ kbd {
   color: var(--error-fg);
 }
 
+/* A menuitemradio's mark: a ring, filled when it is the one chosen. */
+.context-menu-radio {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+}
+
+.context-menu-radio.on {
+  background: currentColor;
+  border-color: currentColor;
+}
+
 .context-menu-sep {
   height: 1px;
   margin: var(--sp-1) var(--sp-2);

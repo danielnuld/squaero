@@ -232,7 +232,6 @@ export const en: Record<string, string> = {
   "editor.noConn": "No connection",
   "editor.connMenuConns": "Use another open connection",
   "editor.saveSnippetMenu": "Save as snippet",
-  "editor.connCurrent": "in use",
   "editor.connMenuDbs": "Working database",
   "editor.ariaLabel": "SQL editor",
   "editor.runSelectionTitle": "Run the selection ({keys})",

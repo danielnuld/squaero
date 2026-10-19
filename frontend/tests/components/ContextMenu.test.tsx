@@ -266,3 +266,31 @@ describe("ContextMenu submenus (audit A-14)", () => {
     expect(host!.querySelector(".context-menu")).toBeNull();
   });
 });
+
+// Audit P4 (R-29): real section headers and radio items.
+describe("ContextMenu — headers and radio items", () => {
+  it("draws a header as a label the arrows never land on", () => {
+    mount();
+    openContextMenu(evAt(0, 0), [{ label: "Bases de datos", heading: true }, { label: "main", action: () => {} }]);
+    const header = host!.querySelector(".context-menu-heading")!;
+    expect(header.textContent).toBe("Bases de datos");
+    expect(header.getAttribute("role")).toBe("presentation");
+    expect([...host!.querySelectorAll(".context-menu-item")].map((b) => b.textContent)).toEqual(["main"]);
+  });
+
+  it("makes a choice of a set a menuitemradio with aria-checked", () => {
+    mount();
+    const pick = vi.fn();
+    openContextMenu(evAt(0, 0), [
+      { label: "main", checked: true, action: () => {} },
+      { label: "temp", checked: false, action: pick },
+      { label: "Otra cosa", action: () => {} },
+    ]);
+    const radios = [...host!.querySelectorAll<HTMLButtonElement>("[role=menuitemradio]")];
+    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "false"]);
+    expect(radios[0].querySelector(".context-menu-radio.on")).not.toBeNull();
+    expect(host!.querySelectorAll("[role=menuitem]")).toHaveLength(1);
+    radios[1].click();
+    expect(pick).toHaveBeenCalled();
+  });
+});

@@ -39,6 +39,11 @@ export interface MenuItem {
    * action of its own. One level only: a submenu row's `submenu` is ignored.
    */
   submenu?: MenuItem[];
+  /**
+   * One choice of a set (the database in use…): a menuitemradio, checked or
+   * not. Absent for an ordinary command.
+   */
+  checked?: boolean;
 }
 
 export interface MenuState {

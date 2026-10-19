@@ -235,7 +235,6 @@ export const es: Record<string, string> = {
   "editor.noConn": "Sin conexión",
   "editor.connMenuConns": "Usar otra conexión abierta",
   "editor.saveSnippetMenu": "Guardar como snippet",
-  "editor.connCurrent": "en uso",
   "editor.connMenuDbs": "Base de datos de trabajo",
   "editor.ariaLabel": "Editor SQL",
   "editor.runSelectionTitle": "Ejecutar la selección ({keys})",

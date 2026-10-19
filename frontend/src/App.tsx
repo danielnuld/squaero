@@ -3072,19 +3072,15 @@ export function App() {
     const conn = tabConn(tab);
     const items: MenuItem[] = [];
     if (conn && conn.defId === focusedDefId() && databases().length > 0) {
-      items.push({ label: t("editor.connMenuDbs"), disabled: true });
+      items.push({ label: t("editor.connMenuDbs"), heading: true });
       for (const db of databases()) {
-        items.push({
-          label: db,
-          hint: db === activeDb() ? t("editor.connCurrent") : undefined,
-          action: () => selectDb(db),
-        });
+        items.push({ label: db, checked: db === activeDb(), action: () => selectDb(db) });
       }
     }
     const others = openConns().filter((o) => o.defId !== conn?.defId);
     if (others.length > 0) {
       if (items.length) items.push({ separator: true });
-      items.push({ label: t("editor.connMenuConns"), disabled: true });
+      items.push({ label: t("editor.connMenuConns"), heading: true });
       for (const o of others) {
         items.push({
           label: o.name,
