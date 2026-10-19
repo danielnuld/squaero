@@ -44,8 +44,10 @@ Ver [«Empaquetado y consumo del SDK»](DRIVER_API.md#empaquetado-y-consumo-del-
 
 Parte del **driver de plantilla**: [`examples/driver-template/`](../examples/driver-template/).
 Es el driver mínimo que satisface la ABI (solo los miembros obligatorios, sin
-dependencias externas, sirviendo una tabla fija en memoria). Cópialo a
-`drivers/<tu-motor>/` (si contribuyes al repo) o a tu propio proyecto.
+dependencias externas, sirviendo una tabla fija en memoria, en `internal.h`,
+`driver.c` y `entry.c`). Cópialo a `drivers/<tu-motor>/` (si contribuyes al repo)
+o a tu propio proyecto y, a medida que crezca, repártelo como los drivers del
+repositorio:
 
 ```
 drivers/mi_motor/
@@ -88,6 +90,11 @@ motor, guardando el handle nativo en tu `struct dbc_conn`.
   `DBC_ERR_*`.
 - Ante un fallo de conexión, devuelve `DBC_ERR_CONN` y deja el motivo en
   `last_error`.
+- Una vez abierta la conexión, `DBC_ERR_CONN` significa **«la sesión murió»**:
+  devuélvelo desde `query`/`next_row`/`begin`/… solo cuando el motor dice que la
+  conexión se cayó, porque es lo que hace al frontend reconectar y, si es seguro,
+  reintentar (#676). Un error de la sentencia es `DBC_ERR_QUERY`; ante la duda,
+  `DBC_ERR_QUERY`.
 
 No manejes SSL ni túneles SSH tú mismo salvo que el motor lo requiera: los campos
 `ssh_*` del DSN los procesa el núcleo **antes** de llamarte (te entrega un DSN
@@ -136,6 +143,14 @@ Cada capacidad opcional es un grupo de miembros de la vtable **y** un flag en
   `get_ddl`); el núcleo lo previsualiza y/o ejecuta. **Escapa** identificadores y
   literales, y **rechaza** un UPDATE/DELETE sin clave (jamás afectes todas las
   filas). El armado del SQL va en un módulo puro `utils/dml.c` con tests.
+- **Cancelación** (`DBC_FEAT_CANCEL`, ABI 6) — `cancel` interrumpe la consulta
+  en curso. Es el **único** miembro que el núcleo llama desde otro hilo mientras
+  `query`/`next_row` corren sobre la misma conexión, así que debe ser
+  thread-safe y volver enseguida: `sqlite3_interrupt`, `PQcancel`, un
+  `KILL QUERY` por una conexión lateral, o un flag atómico que el hilo de la
+  consulta revisa (SQL Server sobre FreeTDS). La consulta interrumpida falla con
+  `DBC_ERR_QUERY`; sin consulta en curso es un no-op. Si el motor no puede, no
+  anuncies el flag: la UI deshabilita el botón Cancelar con su motivo.
 
 **Convención de columnas de introspección** (para que el núcleo y la UI las
 consuman igual en todo motor):
@@ -161,8 +176,9 @@ set_target_properties(mi_driver PROPERTIES PREFIX "" OUTPUT_NAME "mi_motor")
 
 El nombre de archivo debe ser `mi_motor.<ext>` (sin prefijo `lib`) para que el
 cargador lo reconozca. Coloca el binario en el directorio `drivers/` junto al
-ejecutable `quaero`; al arrancar, la app escanea ese directorio y registra cada
-plugin válido. Verás en el log `loaded driver 'mi_motor'`.
+ejecutable `squaero` (en un build del repositorio, `build/app/drivers/`); al
+arrancar, la app escanea ese directorio y registra cada plugin válido. Verás en
+la salida `Squaero: loaded driver 'mi_motor'`.
 
 ## Paso 7 — Muéstralo en la interfaz
 
@@ -215,6 +231,8 @@ cuando su handler real esté implementado y testeado.
 - [ ] `DBC_FEAT_DDL` — `get_ddl` (columna `sql`).
 - [ ] `DBC_FEAT_TRANSACTIONS` — `begin`, `commit`, `rollback`.
 - [ ] `DBC_FEAT_DML` — `build_dml` (escapa identificadores/literales; rechaza UPDATE/DELETE sin clave).
+- [ ] `DBC_FEAT_CANCEL` — `cancel` thread-safe y best-effort (la consulta falla con `DBC_ERR_QUERY`).
+- [ ] `DBC_ERR_CONN` tras conectar solo cuando la sesión murió; el resto de errores, `DBC_ERR_QUERY`.
 - [ ] `DBC_FEAT_SSL` — campos `ssl_*` del DSN, si el motor cifra el transporte.
 - [ ] Registrado en el frontend (`AVAILABLE_DRIVERS` + `DriverSchema`).
 - [ ] Tests: seams puros + smoke/integración con *skip* verde sin servidor.

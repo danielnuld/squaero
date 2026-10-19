@@ -117,6 +117,13 @@ capacidad **solo** si un handler real la respalda; la UI oculta lo ausente. Las
 operaciones no advertidas devuelven `DBC_ERR_UNSUPPORTED`, nunca un éxito vacío
 falso.
 
+El núcleo da por disponible una capacidad solo si el flag está **y** el miembro
+que la respalda no es `NULL`; es la misma prueba con la que enruta `op.cancel`,
+`tx.*`, `schema.ddl` y `row.*`, y la que reporta al frontend en el `features` de
+`conn.open` (#668, ver [IPC](IPC.md)) para que la UI deshabilite, con su motivo,
+lo que el motor no puede hacer. `DBC_FEAT_SSH_TUNNEL` no lo anuncia ningún
+driver: el túnel lo abre el núcleo antes de llamar a `connect`.
+
 ## La vtable
 
 ```c

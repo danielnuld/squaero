@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://github.com/danielnuld/squaero/releases"><img alt="Release" src="https://img.shields.io/github/v/release/danielnuld/squaero?include_prereleases&sort=semver"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-GPLv3-blue"></a>
-  <img alt="Engines" src="https://img.shields.io/badge/engines-SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB%20%C2%B7%20SQL%20Server-5b5bd6">
+  <img alt="Engines" src="https://img.shields.io/badge/engines-SQLite%20%C2%B7%20PostgreSQL%20%C2%B7%20MySQL%2FMariaDB%20%C2%B7%20Informix%20%C2%B7%20MongoDB%20%C2%B7%20SQL%20Server-0f7b72">
 </p>
 
 **Squaero** (Latin *quaero*, "I seek / I inquire") is a multi-engine database
@@ -31,7 +31,7 @@ each database's client libraries.
 | **MySQL / MariaDB** | ✅ Complete (verified) — SSL/TLS, SSH tunnel |
 | **Informix** | ✅ Over DRDA, no IBM client needed |
 | **MongoDB** | ✅ mongosh syntax — find/aggregate, writes (insert/update/replace/delete), indexes, `runCommand`; edit documents in the grid by `_id`; a collection's definition as a script; execution plan (`.explain()`), operations monitor (`currentOp`/`killOp`), profiler-backed slow queries, collection/view/index management from the tree, cancel (`killOp`), and transactions on a replica set or sharded cluster (a standalone server says so) |
-| **SQL Server** | ✅ Via FreeTDS — queries, types, schema, transactions, encryption, named instances. Not yet: editing rows in the grid, DDL, cancelling a query |
+| **SQL Server** | ✅ Via FreeTDS — queries, types, schema, transactions, encryption, named instances, cancel. Not yet: editing rows in the grid, DDL |
 | Oracle | ⏳ Planned (M12) |
 
 Engines load as **plugins** (`.dll`/`.so`) implementing a C contract: adding an
@@ -40,30 +40,53 @@ engine never touches the core. See [how to write a driver](docs/WRITING_A_DRIVER
 ## Features
 
 **SQL editor**
-- CodeMirror editor with **schema-aware autocomplete**, SQL **formatting**, and
-  run **selection / statement / document**.
-- Query **history** with per-query duration and slow-query marks.
+- CodeMirror editor that understands the query: **contextual completion**
+  (aliases, CTEs, subqueries, joins along foreign keys, clause keywords),
+  **diagnostics** (unknown names, ambiguous columns, risky writes), **go to
+  definition**, **find usages** and **rename** within the script, **multicursor**
+  and abbreviation **templates**.
+- SQL **formatting** per engine dialect; run **selection / statement / document**.
+- Query **history** with per-query duration and slow-query marks, and a **local
+  history** of each tab's text, so overwritten or closed work can be restored.
 - **Snippets / favorites**; **command palette** (Ctrl/Cmd+K).
 - **Visual execution plan** (EXPLAIN) as a tree.
+
+**Safe execution**
+- Per-connection **safe mode**: read-only (writes are refused before they are
+  sent) or confirm writes.
+- **Manual transactions** with commit/rollback, or auto-commit.
+- **Cancel** a running query on every engine; what an engine cannot do is shown
+  disabled with the reason, never faked.
+- **Lost-connection recovery** (reconnects, and retries a read only when it is
+  safe) and an optional **keep-alive**.
 
 **Result grid**
 - Virtualized, per-column **sort and filter**, real **pagination** (offset).
 - Inline **transactional editing** (insert/update/delete + SQL preview +
   commit/rollback); **row detail** (form view).
+- **Cell-range selection** with a **summary** in the status bar (count, NULLs,
+  sum, average, min, max), and a **transposed view** of wide results.
+- **Pin** a result so the next run does not replace it, and **compare** two
+  results.
 - **Export** CSV / JSON / SQL / XML / HTML / **XLSX**; **import** CSV / JSON / XLSX.
 - **Charts** (bar / line / pie).
 
 **Objects and design**
 - Lazy, virtualized object tree **grouped by type** (tables, views, procedures,
-  functions, triggers, events).
+  functions, triggers, events), served from a **schema cache** while it is
+  re-read in the background.
 - **Table designer** (create and ALTER), **index and constraint editor**.
 - **Procedures / functions**, **triggers / events**, **users and privileges**.
 - **Server monitor** (process list + kill), **slow queries**.
 - **ER diagram** (real foreign keys from the engine) and a **visual query builder**.
+- **Search a text** across the tables of a schema.
 
 **Data across connections**
-- Schema and data **sync**, table **transfer** between connections, and test
-  **data generation**.
+- **Schema diff** with a reviewable, dependency-ordered **migration script**;
+  data **sync**, table **transfer** between connections, and test **data
+  generation**.
+- **Backup and restore**, and the **schema DDL to a folder**, one `.sql` file per
+  object, ready to version in git.
 
 **Connectivity and platform**
 - **SSH tunnel** (all engines), **SSL/TLS** (MySQL, PostgreSQL, MongoDB, Informix, SQL Server), and
@@ -71,9 +94,21 @@ engine never touches the core. See [how to write a driver](docs/WRITING_A_DRIVER
   `data-sources.json` (with the `credentials-config.json` beside it) and
   **Navicat**'s `.ncx`, **passwords and all**, so moving in does not start with
   retyping thirty servers.
-- **Light/dark** theme with the indigo brand, **Settings** and **About** panels,
-  **keyboard shortcuts**, adaptive context menus.
+- Four built-in **styles** — **B · Nativo** (the default), **A · Quiet pro**,
+  **C · Editorial** and **Rosa pastel**, each light and dark — plus the earlier
+  themes and your own, imported as a file. Configurable typography, interface
+  zoom and grid style.
+- Desktop behaviour: a **native menu bar** on Windows and Linux, the app's own
+  icon set, remembered window state, **editable keyboard shortcuts**
+  ([list](docs/SHORTCUTS.md)), adaptive context menus.
 - **Single executable** (embedded UI) + drivers as plugins. No Electron.
+
+**Beyond the desktop**
+- **`quaero-mcp`**: a [Model Context Protocol](docs/MCP.md) server that exposes
+  the connections you opt in to MCP clients, read-only unless you allow writes.
+- **iPhone**: the same core and drivers with a SwiftUI app — browse, query,
+  edit with Face ID and a transaction, export — and, on devices with Apple's
+  on-device model, filter a table by asking. Being prepared for the App Store.
 
 <p align="center">
   <img src="assets/media/screenshot-initial-dark.png" alt="Squaero — initial screen" width="820">
@@ -129,7 +164,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure   # core tests
 ```
 
-The binary lands in `build/app/quaero` (`.exe` on Windows). **Webview
+The binary lands in `build/app/squaero` (`.exe` on Windows). **Webview
 dependencies**: Linux `libgtk-4-dev libwebkitgtk-6.0-dev`; macOS system WebKit;
 Windows WebView2 (downloaded at build time). Core only: `-DQUAERO_BUILD_APP=OFF`.
 
@@ -163,11 +198,15 @@ Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Documentation
 
-- [ROADMAP](ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md)
-- [Driver contract](docs/DRIVER_API.md) · [How to write a driver](docs/WRITING_A_DRIVER.md)
-- [IPC protocol](docs/IPC.md) · [Shortcuts](docs/SHORTCUTS.md) · [Versioning](docs/VERSIONING.md)
-- [Verification matrix](docs/QA-MATRIX.md) · [Brand](assets/brand/BRAND.md)
-- [Contributing](CONTRIBUTING.md)
+Most documents under `docs/` are in Spanish; the MCP server, the MongoDB result
+model, the UI glossary and the trademark policy are in English.
+
+- [ROADMAP](ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [IPC protocol](docs/IPC.md)
+- [Driver contract](docs/DRIVER_API.md) · [How to write a driver](docs/WRITING_A_DRIVER.md) · [MongoDB result model](docs/MONGODB.md)
+- [Keyboard shortcuts](docs/SHORTCUTS.md) · [UI glossary](docs/GLOSSARY.md) · [MCP server](docs/MCP.md)
+- [Verification matrix](docs/QA-MATRIX.md) · [Per-engine smoke](docs/QA-SMOKE.md) · [Versioning and releases](docs/VERSIONING.md)
+- [M14 design direction](docs/design/m14/README.md) · [Brand](assets/brand/BRAND.md) · [Website](docs/SITE.md)
+- [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Third-party inventory](THIRD-PARTY.md) · [Trademark policy](TRADEMARKS.md)
 
 ## License
 
