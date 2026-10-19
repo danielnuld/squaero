@@ -3,7 +3,7 @@ import { EmptyNote } from "./EmptyNote";
 import type { TreeNode } from "../utils/tree";
 import type { HistoryEntry } from "../utils/history";
 import type { Snippet } from "../utils/snippets";
-import { SHORTCUTS, formatKeys, type Shortcut } from "../utils/shortcuts";
+import { SHORTCUTS, formatKeys, shortcutText, type Shortcut } from "../utils/shortcuts";
 import { t } from "../utils/i18n";
 
 // Useful editor empty state (issue #178): instead of a bare "run a query"
@@ -131,7 +131,7 @@ export function EmptyState(props: {
             <For each={shortcuts()}>
               {(s) => (
                 <li>
-                  <span>{t(s.description)}</span>
+                  <span>{shortcutText(s, props.isMac ? "macos" : "windows")}</span>
                   <kbd>{formatKeys(s.keys, props.isMac ? "macos" : "windows")}</kbd>
                 </li>
               )}

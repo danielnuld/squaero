@@ -115,7 +115,7 @@ export function searchSettings(
   if (terms.length === 0) return index.map((e) => e.id);
   return index
     .filter((e) => {
-      const text = fold(e.keys.map(resolve).join(" "));
+      const text = fold(e.keys.map((k) => resolve(k)).join(" "));
       return terms.every((term) => text.includes(term));
     })
     .map((e) => e.id);

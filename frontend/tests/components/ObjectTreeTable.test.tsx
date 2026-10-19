@@ -183,7 +183,7 @@ describe("ObjectTree — the table menu (audit A-17)", () => {
     await openTables();
     const items = openMenu();
     expect(items[0]).toMatchObject({ heading: true, label: "pedidos · tabla de Ventas" });
-    expect(item(items, "Abrir datos").hint).toBe("Enter");
+    expect(item(items, "Abrir datos").hint).toBe("Intro");
     expect(item(items, "Modificar tabla").hint).toBe("F4");
     const zone = items.findIndex((i) => i.heading && i.label === "Zona de peligro");
     expect(items.slice(zone + 1).map((i) => i.label)).toEqual(["Vaciar tabla…", "Eliminar…"]);

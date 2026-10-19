@@ -69,11 +69,21 @@ const EN: Rule[] = [
   { name: "quotes: use “…”, not \"…\"", test: /"/, allow: XML_LITERAL },
 ];
 
+// Key names are formatted per platform and language (formatKeys, R-33): a
+// message takes them as {keys}-style placeholders, never spelled out.
+const KEY_NAMES: Rule = {
+  name: "key names belong in a {keys} placeholder (formatKeys)",
+  test: /\b(Ctrl|Cmd|Mayús|Shift|Intro|Enter|Supr)\b|⌘/,
+};
+ES.push(KEY_NAMES);
+EN.push(KEY_NAMES);
+
 function violations(catalog: Record<string, string>, rules: Rule[]): string[] {
   const out: string[] = [];
   for (const [key, value] of Object.entries(catalog)) {
     for (const r of rules) {
       if (r.allow?.includes(key)) continue;
+      if (r === KEY_NAMES && key.startsWith("key.")) continue;
       if (r.test.test(value)) out.push(`${key}: ${r.name} — ${JSON.stringify(value)}`);
     }
   }

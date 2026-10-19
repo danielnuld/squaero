@@ -1,4 +1,5 @@
 import { onCleanup, onMount, createEffect, createMemo } from "solid-js";
+import { keyLabel } from "../utils/shortcuts";
 import { EditorState, Compartment, RangeSet, StateEffect, StateField, type Text } from "@codemirror/state";
 import {
   Decoration,
@@ -752,7 +753,7 @@ export function SqlEditor(props: {
     return [
       { separator: true },
       { label: t("editor.goToDefinition"), action: () => nav.goToDefinition(v, pos), disabled: !can.definition },
-      { label: t("editor.findUsages"), action: () => nav.findUsages(v, pos), disabled: !can.symbol },
+      { label: t("editor.findUsages", { keys: keyLabel("Shift+F12") }), action: () => nav.findUsages(v, pos), disabled: !can.symbol },
       { label: t("editor.renameSymbol"), action: () => nav.rename(v, pos), disabled: !can.symbol },
     ];
   };
