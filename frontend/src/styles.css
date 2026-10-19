@@ -2448,7 +2448,8 @@ kbd {
   color: var(--text-dim);
 }
 
-.welcome-action.primary .welcome-action-icon {
+/* Not `.primary`: the global button.primary would fill the whole row with the accent. */
+.welcome-action-primary .welcome-action-icon {
   border-color: transparent;
   background: var(--accent);
   color: var(--accent-fg);
