@@ -114,3 +114,15 @@ describe("StatusBar", () => {
     expect(text).not.toContain("Suma");
   });
 });
+
+describe("StatusBar with the page search on (A-05)", () => {
+  it("says how many of the loaded rows the search leaves", () => {
+    mount({ matchCount: 3, rowCount: 12 });
+    expect(host!.textContent).toContain("3 de 12 filas");
+  });
+  it("says the plain count when the search hides nothing", () => {
+    mount({ matchCount: null, rowCount: 12 });
+    expect(host!.textContent).toContain("12 filas");
+    expect(host!.textContent).not.toContain("de 12");
+  });
+});

@@ -37,6 +37,8 @@ export function StatusBar(props: {
   /** What the active tab is, which decides the facts on the right. */
   kind: StatusTabKind;
   rowCount: number | null;
+  /** Rows the grid's page search leaves on screen (A-05); null/absent = all. */
+  matchCount?: number | null;
   truncated: boolean;
   /** Rows marked in the grid (issue #382); 0 hides the indicator. */
   markedCount?: number;
@@ -136,10 +138,12 @@ export function StatusBar(props: {
               );
             case "rows":
               return (
-                <span class="status-item">
-                  {t(props.rowCount === 1 ? "status.rowsOne" : "status.rowsOther", {
-                    n: props.rowCount!,
-                  })}
+                <span class="status-item" title={props.matchCount != null ? t("grid.searchMatches", { m: props.matchCount, n: props.rowCount! }) : undefined}>
+                  {props.matchCount != null
+                    ? t("status.rowsMatching", { m: props.matchCount, n: props.rowCount! })
+                    : t(props.rowCount === 1 ? "status.rowsOne" : "status.rowsOther", {
+                        n: props.rowCount!,
+                      })}
                   {props.truncated ? "+" : ""}
                 </span>
               );

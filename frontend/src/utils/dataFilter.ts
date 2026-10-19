@@ -45,6 +45,37 @@ export interface FilterState {
    * 28 px bar that still names the filter, summarises it, and opens on a click.
    */
   collapsed: boolean;
+  /**
+   * How the draft is written (R-22): the condition rows, or the WHERE and
+   * ORDER BY typed as SQL. Absent → conditions. Each mode keeps its own draft,
+   * so switching back and forth loses nothing.
+   */
+  mode?: "conditions" | "sql";
+  rawWhere?: string;
+  rawOrderBy?: string;
+}
+
+/**
+ * A WHERE and an ORDER BY typed by hand, as the preview takes them: trimmed,
+ * without the keyword if the user wrote it, and without a trailing `;` (the
+ * clause is spliced into a SELECT).
+ */
+export function rawFilter(where: string, orderBy: string): PreviewFilter {
+  const clean = (text: string, keyword: RegExp) =>
+    text.trim().replace(keyword, "").replace(/;+\s*$/, "").trim();
+  return {
+    where: clean(where, /^where\b/i),
+    orderBy: clean(orderBy, /^order\s+by\b/i),
+  };
+}
+
+/** How many conditions and sort columns are in force on the rows on screen:
+    the count the Filtrar button wears. */
+export function appliedCount(state: FilterState): number {
+  if (!state.applied?.where && !state.applied?.orderBy) return 0;
+  if (state.mode === "sql") return (state.applied.where ? 1 : 0) + (state.applied.orderBy ? 1 : 0);
+  const { conditions, order } = summaryParts(state);
+  return conditions + order;
 }
 
 export function emptyFilter(): FilterState {
@@ -71,6 +102,7 @@ export function draftFilter(
   state: FilterState,
   types?: ColumnTypes,
 ): PreviewFilter {
+  if (state.mode === "sql") return rawFilter(state.rawWhere ?? "", state.rawOrderBy ?? "");
   return {
     where: renderWhere(engine, state.conditions, state.conjunction, types),
     orderBy: renderOrderBy(engine, state.order),

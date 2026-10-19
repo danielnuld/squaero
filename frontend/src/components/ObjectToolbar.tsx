@@ -113,6 +113,10 @@ export interface ObjectToolbarProps {
   /** The table's filter panel (data tabs only). Absent → no Filtrar button. */
   filterOpen?: boolean;
   onFilter?: () => void;
+  /** Conditions and sorts applied to the rows on screen: a chip on Filtrar. */
+  filterCount?: number;
+  /** Open the filter panel on a new sort line (R-22). */
+  onSort?: () => void;
   /** Datos · Estructura · Índices · DDL (data tabs only). Absent → no switch. */
   onView?: (v: ObjectView) => void;
   /** Tab-level entries appended to «Más» (Plan, Historial, Snippets…). */
@@ -177,11 +181,25 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
         disabled: !!props.refreshBlocked,
         onClick: () => props.onRefresh(),
       }),
-    filter: () =>
-      ghost("filter", t("objbar.filter"), {
-        title: t("objbar.filterTitle"),
-        "aria-pressed": !!props.filterOpen,
-        onClick: () => props.onFilter?.(),
+    filter: () => (
+      <button
+        class="edit-btn"
+        title={t("objbar.filterTitle")}
+        aria-pressed={!!props.filterOpen}
+        onClick={() => props.onFilter?.()}
+      >
+        <Icon name="filter" size={14} class="eb-ic" /> {t("objbar.filter")}
+        <Show when={(props.filterCount ?? 0) > 0}>
+          <span class="edit-btn-count" title={t("objbar.filterCount", { n: props.filterCount! })}>
+            {props.filterCount}
+          </span>
+        </Show>
+      </button>
+    ),
+    sort: () =>
+      ghost("sort", t("objbar.sort"), {
+        title: t("objbar.sortTitle"),
+        onClick: () => props.onSort?.(),
       }),
     search: () =>
       ghost("search", t("objbar.search"), {

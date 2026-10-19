@@ -44,7 +44,14 @@ export function DataFilterBar(props: {
   addRef?: (add: () => void) => void;
   /** Same for "add a sort" (issue #645). */
   addSortRef?: (add: () => void) => void;
+  /** Switch between the condition rows and typed SQL (R-22). Absent → no switch. */
+  onMode?: (mode: "conditions" | "sql") => void;
+  /** The typed WHERE / ORDER BY changed. */
+  onRaw?: (patch: { rawWhere?: string; rawOrderBy?: string }) => void;
+  /** The statement the draft will run, shown live under the panel. */
+  previewSql?: string;
 }) {
+  const sqlMode = () => props.state.mode === "sql";
   const opLabel = (op: Operator) => t(`filter.op.${op}`);
 
   /** The two halves of a BETWEEN row, which travel inside one value string. */
@@ -105,6 +112,15 @@ export function DataFilterBar(props: {
       class={`filterbar ${props.state.collapsed ? "folded" : ""}`}
       aria-label={t("filter.region")}
       onKeyDown={(e) => {
+        // Esc folds the panel without applying the draft (R-22); an open
+        // dropdown owns its own Esc.
+        if (e.key === "Escape" && !props.state.collapsed) {
+          if ((e.target as Element | null)?.getAttribute?.("aria-expanded") === "true") return;
+          e.preventDefault();
+          e.stopPropagation();
+          props.onToggleCollapsed();
+          return;
+        }
         // Enter anywhere in the panel applies the draft, so a filter can be
         // typed and run without reaching for the button. Ctrl/Cmd+Enter does it
         // too, matching the editor. A plain Enter on a button is left to that
@@ -118,6 +134,8 @@ export function DataFilterBar(props: {
           return;
         }
         if (!chord && e.target instanceof HTMLButtonElement) return;
+        // A WHERE of several lines: Enter writes the line, Ctrl+Enter applies.
+        if (!chord && e.target instanceof HTMLTextAreaElement) return;
         e.preventDefault();
         props.onApply();
       }}
@@ -165,6 +183,48 @@ export function DataFilterBar(props: {
 
       <Show when={!props.state.collapsed}>
         <div class="filter-body">
+          <div class="filter-mode-row">
+            <p class="filter-help">{t("filter.serverHelp")}</p>
+            <Show when={props.onMode}>
+              <div class="filter-mode" role="group" aria-label={t("filter.modeLabel")}>
+                <button
+                  class="status-btn"
+                  aria-pressed={!sqlMode()}
+                  onClick={() => props.onMode?.("conditions")}
+                >
+                  {t("filter.modeConditions")}
+                </button>
+                <button class="status-btn" aria-pressed={sqlMode()} onClick={() => props.onMode?.("sql")}>
+                  {t("filter.modeSql")}
+                </button>
+              </div>
+            </Show>
+          </div>
+          <Show when={!sqlMode()} fallback={
+            <div class="filter-raw">
+              <label class="filter-raw-field">
+                <span class="filter-raw-kw">{t("filter.rawWhere")}</span>
+                <textarea
+                  class="filter-raw-where"
+                  rows={3}
+                  spellcheck={false}
+                  placeholder={t("filter.rawWherePlaceholder")}
+                  value={props.state.rawWhere ?? ""}
+                  onInput={(e) => props.onRaw?.({ rawWhere: e.currentTarget.value })}
+                />
+              </label>
+              <label class="filter-raw-field">
+                <span class="filter-raw-kw">{t("filter.rawOrderBy")}</span>
+                <input
+                  class="filter-raw-order"
+                  type="text"
+                  spellcheck={false}
+                  value={props.state.rawOrderBy ?? ""}
+                  onInput={(e) => props.onRaw?.({ rawOrderBy: e.currentTarget.value })}
+                />
+              </label>
+            </div>
+          }>
           <Show
             when={props.state.conditions.length > 0}
             fallback={<p class="filter-empty">{t("filter.none")}</p>}
@@ -306,8 +366,17 @@ export function DataFilterBar(props: {
             </For>
           </div>
 
+          </Show>
+
+          <Show when={props.previewSql}>
+            <div class="filter-preview">
+              <span class="filter-preview-label">{t("filter.preview")}</span>
+              <code class="filter-preview-sql">{props.previewSql}</code>
+            </div>
+          </Show>
+
           <div class="filter-apply">
-            <button class="primary" onClick={props.onApply}>
+            <button class="primary" title={t("filter.applyKeys")} onClick={props.onApply}>
               {t("filter.apply")}
             </button>
             <button class="status-btn" onClick={props.onClear}>

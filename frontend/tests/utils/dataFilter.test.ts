@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   addCellCondition,
+  appliedCount,
+  rawFilter,
   applyFilter,
   cellFilterOps,
   cycleSortColumn,
@@ -171,3 +173,27 @@ describe("filter by a cell's value (#593)", () => {
   });
 });
 
+
+describe("SQL mode (R-22)", () => {
+  it("strips the keywords and a trailing semicolon from typed clauses", () => {
+    expect(rawFilter("  WHERE ciudad = 'X';  ", "order by id desc;")).toEqual({
+      where: "ciudad = 'X'",
+      orderBy: "id desc",
+    });
+    expect(rawFilter("", "")).toEqual({ where: "", orderBy: "" });
+    // A column that merely starts with the word is left alone.
+    expect(rawFilter("whereabouts = 1", "")).toEqual({ where: "whereabouts = 1", orderBy: "" });
+  });
+  it("drafts from the typed clauses in SQL mode and from the rows otherwise", () => {
+    const base = { ...emptyFilter(), rawWhere: "a > 1", rawOrderBy: "b" };
+    expect(draftFilter("mysql", { ...base, mode: "sql" })).toEqual({ where: "a > 1", orderBy: "b" });
+    expect(draftFilter("mysql", base).where).toBeFalsy();
+    expect(filterIsDirty("mysql", { ...base, mode: "sql" })).toBe(true);
+  });
+  it("counts what is applied, for the Filtrar button", () => {
+    const f = { ...emptyFilter(), conditions: [{ column: "a", op: "=" as const, value: "1" }] };
+    expect(appliedCount(f)).toBe(0);
+    expect(appliedCount(applyFilter("mysql", f))).toBe(1);
+    expect(appliedCount(applyFilter("mysql", { ...emptyFilter(), mode: "sql", rawWhere: "x=1", rawOrderBy: "y" }))).toBe(2);
+  });
+});

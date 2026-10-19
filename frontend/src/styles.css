@@ -4971,6 +4971,17 @@ button.btn-danger:disabled {
   flex-shrink: 0;
 }
 
+/* How many conditions the rows on screen are filtered by (R-22). */
+.edit-btn-count {
+  margin-left: var(--sp-1);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .edit-btn {
   /* The base look comes from the shared button rule above. */
   font-family: inherit;
@@ -8283,6 +8294,41 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .filter-empty { color: var(--text-dim); margin: var(--sp-2) 0; }
 .filter-count { color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* What the panel filters, and how the filter is written (R-21, R-22). */
+.filter-mode-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.filter-help { margin: 0; color: var(--text-dim); font-size: var(--fs-sm); }
+.filter-mode { display: inline-flex; margin-left: auto; gap: var(--sp-1); }
+.filter-mode [aria-pressed="true"] { background: var(--bg-elev2); color: var(--text); font-weight: 600; }
+.filter-raw { display: grid; gap: var(--sp-2); }
+.filter-raw-field { display: grid; grid-template-columns: 6rem 1fr; gap: var(--sp-2); align-items: start; }
+/* SQL keywords keep their case in every style (R-39). */
+.filter-raw-kw { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-dim); padding-top: var(--sp-1); }
+.filter-raw textarea,
+.filter-raw input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text);
+  resize: vertical;
+}
+.filter-preview {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+.filter-preview-sql { font-family: var(--font-mono); color: var(--text); white-space: pre-wrap; word-break: break-word; }
 
 /* Transaction controls in the editor bar and the open-transaction marks in the
    status bar and the connection bar (issue #667). Open reads as "unsaved", the

@@ -98,7 +98,9 @@ import { DataFilterBar } from "./components/DataFilterBar";
 import {
   addCellCondition,
   applyFilter,
+  appliedCount,
   cellFilterOps,
+  draftFilter,
   cycleSortColumn,
   emptyFilter,
   filterIsDirty,
@@ -637,6 +639,8 @@ export function App() {
   // The grid's page search row ("Buscar en la página", #690), driven by the
   // toolbar button and by the grid's own Ctrl+F.
   const [gridSearch, setGridSearch] = createSignal(false);
+  // Rows the page search leaves on screen, for the status bar (A-05).
+  const [searchMatches, setSearchMatches] = createSignal<number | null>(null);
   let panesEl: HTMLDivElement | undefined;
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
@@ -3467,6 +3471,34 @@ export function App() {
     void runPreviewPage(id, preview, 0);
   };
 
+  /** «Filtrar en la tabla» (R-21): the page search's boxes become CONTAINS
+      conditions at the server, and the page search closes. */
+  const filterTableBy = (id: number, terms: { column: string; value: string }[]) => {
+    if (terms.length === 0) return;
+    withFilter(id, (f) =>
+      terms.reduce<FilterState>((acc, x) => addCellCondition(acc, x.column, "CONTAINS", x.value), {
+        ...f,
+        mode: "conditions" as const,
+      }),
+    );
+    setGridSearch(false);
+    applyDataFilter(id);
+  };
+
+  /** The statement the panel's draft will run, for its live preview (R-22). */
+  const filterPreviewSql = (id: number): string | undefined => {
+    const preview = results[id]?.preview;
+    if (!preview) return undefined;
+    const size = results[id]?.pageSize ?? pageSize();
+    return objectPreviewQuery(
+      preview.parts,
+      preview.engine,
+      size,
+      0,
+      draftFilter(preview.engine, filterOf(id), colsOf(id).types),
+    );
+  };
+
   const clearDataFilter = (id: number) => {
     const preview = results[id]?.preview;
     withFilter(id, (f) => ({ ...emptyFilter(), collapsed: f.collapsed }));
@@ -5447,6 +5479,9 @@ export function App() {
                         withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
                       }
                       onOpenSql={() => openSqlInNewTab(sqlOfTab(tab().id), tab().title)}
+                      onMode={(mode) => withFilter(tab().id, (f) => ({ ...f, mode }))}
+                      onRaw={(patch) => withFilter(tab().id, (f) => ({ ...f, ...patch }))}
+                      previewSql={filterPreviewSql(tab().id)}
                       addRef={(add) => (addFilterCondition = add)}
                       addSortRef={(add) => (addFilterSort = add)}
                     />
@@ -5699,6 +5734,8 @@ export function App() {
                       onSearch={() => setGridSearch((v) => !v)}
                       editHint={t("objbar.editHint")}
                       filterOpen={isDataTab(tab().id) && !filterOf(tab().id).collapsed}
+                      filterCount={isDataTab(tab().id) ? appliedCount(filterOf(tab().id)) : 0}
+                      onSort={isDataTab(tab().id) ? () => addFilterSort?.() : undefined}
                       onFilter={
                         isDataTab(tab().id)
                           ? () => withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
@@ -5865,6 +5902,10 @@ export function App() {
                             showOldValues={settings().showOldValues}
                             searchOpen={gridSearch()}
                             onSearchOpenChange={setGridSearch}
+                            onSearchCountChange={setSearchMatches}
+                            onFilterTable={
+                              isDataTab(tab().id) ? (terms) => filterTableBy(tab().id, terms) : undefined
+                            }
                             edit={
                               currentEditable()
                                 ? {
@@ -6685,6 +6726,7 @@ export function App() {
         }
         kind={statusKind()}
         rowCount={currentResult().result?.rows.length ?? null}
+        matchCount={searchMatches()}
         markedCount={markedRows().length}
         summary={cellSummary()}
         truncated={currentResult().result?.truncated ?? false}
