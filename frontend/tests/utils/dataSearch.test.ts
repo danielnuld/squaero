@@ -159,6 +159,8 @@ describe("matchLabel", () => {
   });
 });
 
+const rowsOf = (n: number) => ({ columns: [{ name: "s", type: "text" }], rows: Array.from({ length: n }, () => ["x"]) });
+
 describe("runSearch", () => {
   const tables = [{ name: "a" }, { name: "b" }, { name: "c" }];
   const describeAll = async (t: { name: string }): Promise<Record<string, string>> =>
@@ -170,7 +172,7 @@ describe("runSearch", () => {
       tables,
       "sqlite",
       opts({ limit: 2 }),
-      { describe: describeAll, count: async (sql) => (sql.includes('"a"') ? 2 : 1) },
+      { describe: describeAll, run: async (sql) => rowsOf(sql.includes('"a"') ? 2 : 1) },
       () => false,
       (i, n, t) => progress.push(`${i}/${n} ${t}`),
     );
@@ -189,7 +191,7 @@ describe("runSearch", () => {
       tables,
       "sqlite",
       opts(),
-      { describe: describeAll, count: async () => ((stop = true), 0) },
+      { describe: describeAll, run: async () => ((stop = true), rowsOf(0)) },
       () => stop,
     );
     expect(out.stopped).toBe(true);
@@ -203,9 +205,9 @@ describe("runSearch", () => {
       opts(),
       {
         describe: describeAll,
-        count: async (sql) => {
+        run: async (sql) => {
           if (sql.includes('"a"')) throw new Error("boom");
-          return 0;
+          return rowsOf(0);
         },
       },
       () => false,
@@ -222,7 +224,7 @@ describe("runSearch", () => {
       opts(),
       {
         describe: describeAll,
-        count: async () => {
+        run: async () => {
           stop = true;
           throw new Error("canceled");
         },
@@ -230,5 +232,62 @@ describe("runSearch", () => {
       () => stop,
     );
     expect(out).toEqual({ results: [], stopped: true });
+  });
+});
+
+import { foldAccents, foldAccentsSql, searchableCounts, planTable as plan2 } from "../../src/utils/dataSearch";
+
+describe("accent folding", () => {
+  it("folds the common accented vowels of the text, both cases, and leaves ñ", () => {
+    expect(foldAccents("Ángel Muñoz Güell")).toBe("Angel Muñoz Guell");
+  });
+  it("wraps the column in REPLACE, lower-case only when the server lowered it", () => {
+    const lowered = foldAccentsSql("LOWER(x)", true, "postgres");
+    expect(lowered.startsWith("REPLACE(REPLACE(")).toBe(true);
+    expect(lowered).toContain("'á', 'a'");
+    expect(lowered).not.toContain("'Á'");
+    // SQLite's LOWER leaves Á alone: both cases are folded there.
+    expect(foldAccentsSql("LOWER(x)", true, "sqlite")).toContain("'Á', 'A'");
+    expect(foldAccentsSql("x", false, "mysql")).toContain("'Á', 'A'");
+  });
+  it("searches folded on both sides when asked", () => {
+    const p = plan2({ name: "t" }, { s: "text" }, "postgres", {
+      text: "Ángel",
+      mode: "contains",
+      ignoreCase: true,
+      ignoreAccents: true,
+      numeric: false,
+      limit: 10,
+    });
+    expect("sql" in p && p.sql).toContain("LIKE '%angel%' ESCAPE '!'");
+    expect("sql" in p && p.sql).toContain("REPLACE(LOWER(\"s\"), 'á', 'a')");
+  });
+});
+
+describe("searchableCounts", () => {
+  it("counts text and number columns, ignoring the rest", () => {
+    expect(searchableCounts({ a: "varchar(10)", b: "int", c: "blob", d: "text" }, "mysql")).toEqual({ text: 2, number: 1 });
+  });
+});
+
+describe("runSearch live results", () => {
+  it("reports each table as it finishes and keeps the rows it read", async () => {
+    const seen: string[] = [];
+    const out = await runSearch(
+      [{ name: "a" }, { name: "b" }],
+      "sqlite",
+      { text: "x", mode: "contains", ignoreCase: true, numeric: false, limit: 5 },
+      {
+        describe: async (t): Promise<Record<string, string>> => (t.name === "b" ? { id: "integer" } : { s: "text" }),
+        run: async () => ({ columns: [{ name: "s", type: "text" }], rows: [["x"]] }),
+      },
+      () => false,
+      undefined,
+      (r) => seen.push(r.table),
+    );
+    expect(seen).toEqual(["a", "b"]);
+    expect(out.results[0].matches!.rows).toEqual([["x"]]);
+    expect(out.results[0].columns).toEqual(["s"]);
+    expect(out.results[1].skipped).toBe("ds.skipNoColumns");
   });
 });
