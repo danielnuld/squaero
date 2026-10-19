@@ -239,7 +239,7 @@ test("selection summary in the status bar", async ({ page }) => {
   const grid = page.getByRole("grid");
   await grid.getByRole("gridcell", { name: "1250.00", exact: true }).click();
   await grid.getByRole("gridcell", { name: "640.00", exact: true }).click({ modifiers: ["Shift"] });
-  await expect(page.getByRole("contentinfo").getByText(/Suma/)).toBeVisible();
+  await expect(page.getByRole("status", { name: "Barra de estado" }).getByText(/Suma/)).toBeVisible();
   await shot(page, "screenshot-selection-summary");
 });
 
