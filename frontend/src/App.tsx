@@ -125,8 +125,8 @@ import {
 } from "./utils/theme";
 import { installHostGuards } from "./utils/hostGuards";
 import { setShellTheme, setShellTitle, windowTitle } from "./utils/shell";
-import { buildMenuModel, hasShellMenu, onShellMenu, setShellMenu } from "./utils/nativeMenu";
-import { detectOs } from "./utils/titleBar";
+import { buildMenuModel, hasShellMenu, onShellMenu, setShellMenu, withAccessKeys } from "./utils/nativeMenu";
+import { detectOs, windowCommand } from "./utils/titleBar";
 import { TitleBar } from "./components/TitleBar";
 import {
   loadThemeChoice,
@@ -151,7 +151,7 @@ import {
   type ShortcutOverrides,
 } from "./utils/shortcuts";
 import { loadShortcutOverrides, saveShortcutOverrides } from "./utils/shortcutStore";
-import type { ConfigBundle } from "./utils/settingsCatalog";
+import type { ConfigBundle, SettingsCategory } from "./utils/settingsCatalog";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import {
   clampEditorPct,
@@ -360,7 +360,7 @@ import { compareResults, comparisonView, type ComparisonView } from "./utils/res
 import { Icon } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
 import { currentOs, orderActions } from "./utils/dialog";
-import { APP_VERSION } from "./utils/version";
+import { ABOUT_LINKS, APP_VERSION, DOCS_URL } from "./utils/version";
 import {
   checkForUpdate,
   loadSkippedVersion,
@@ -817,6 +817,8 @@ export function App() {
 
   // A newer release found on startup (autoupdater); drives the update modal.
   const [update, setUpdate] = createSignal<UpdateInfo | null>(null);
+  // The settings section Ayuda › Acerca de asks the settings tab to show.
+  const [settingsGoTo, setSettingsGoTo] = createSignal<{ category: SettingsCategory }>();
 
 
   // --- User preferences (issue #181) -------------------------------------
@@ -5222,7 +5224,24 @@ export function App() {
       if (!cmd.disabled) cmd.run();
       return;
     }
-    if (id === "run-query") requestRun();
+    const tab = current();
+    // Only the app's own bar sends these here (the native bars run them in the
+    // shell), and it has put the focus back where it was before it opened.
+    if (id.startsWith("edit:")) void windowCommand("edit", id);
+    else if (id === "act:saveSql") {
+      if (tab?.kind === "query")
+        void saveText(sqlFileName(tab.title), sqlOfTab(tab.id), "application/sql");
+    } else if (id === "act:resume") void resumeSession();
+    else if (id === "act:about") {
+      showTool("settings", t("common.settings"), { key: "settings" });
+      setSettingsGoTo({ category: "about" });
+    } else if (id === "act:docs") openExternal(DOCS_URL);
+    else if (id === "act:report") openExternal(ABOUT_LINKS.issues);
+    else if (id === "act:updates")
+      void checkForUpdate(APP_VERSION).then((info) =>
+        info ? setUpdate(info) : notify("info", t("menu.upToDate", { version: APP_VERSION })),
+      );
+    else if (id === "run-query") requestRun();
     else if (id === "run-script") requestRun("document");
     else if (id === "explain") explainActive();
     else if (id === "format-sql") setFormatTick((n) => n + 1);
@@ -5234,14 +5253,20 @@ export function App() {
       connected: !!active(),
       hasDb: !!activeDb(),
       hasTab: !!current(),
+      queryTab: current()?.kind === "query",
+      canResume: !!pendingRestore(),
       isMac: isMac(),
       engine: active()?.driver,
       shortcuts: shortcuts(),
     }),
   );
+  const os = detectOs(typeof navigator !== "undefined" ? navigator.platform || navigator.userAgent : "");
+  // The native bars get their access keys marked the toolkit's way (R-41). A
+  // Mac's bar is never hidden: its app and Edit menus are how Cmd+C and Cmd+Q
+  // work at all.
   createEffect(() => {
     if (!hasShellMenu()) return;
-    setShellMenu(settings().nativeMenu ? menuModel() : []);
+    setShellMenu(settings().nativeMenu || os === "macos" ? withAccessKeys(menuModel(), os) : []);
   });
   onMount(() => {
     if (typeof window === "undefined") return;
@@ -5251,7 +5276,7 @@ export function App() {
   return (
     <div class="app">
       <TitleBar
-        os={detectOs(typeof navigator !== "undefined" ? navigator.platform || navigator.userAgent : "")}
+        os={os}
         custom={settings().customTitleBar}
         showMenu={settings().nativeMenu}
         menus={menuModel()}
@@ -6597,6 +6622,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "settings"}>
                   <SettingsPanel
+                    goTo={settingsGoTo()}
                     theme={theme()}
                     onSetTheme={applyThemePref}
                     themeId={themeId()}

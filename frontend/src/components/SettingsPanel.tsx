@@ -1,6 +1,6 @@
 import { Segmented } from "./Segmented";
 import type { Os } from "../utils/dialog";
-import { createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js";
 import { Panel } from "./Panel";
 import { BrandWordmark } from "./Brand";
 import { call } from "../utils/transport";
@@ -127,6 +127,9 @@ const themeName = (th: Theme): string =>
   isBuiltinTheme(th.id) ? t(`theme.name.${th.id}`) : th.name;
 
 export function SettingsPanel(props: {
+  /** A section to show, asked for from outside (Ayuda › Acerca de, A-11): a
+      new object each time, so asking twice shows it twice. */
+  goTo?: { category: SettingsCategory };
   theme: ThemePref;
   onSetTheme: (p: ThemePref) => void;
   /** The theme in use, every theme on offer (built-in first), and the actions (#680). */
@@ -260,6 +263,12 @@ export function SettingsPanel(props: {
   // knowing where it was filed.
   const [category, setCategory] = createSignal<SettingsCategory>("general");
   const [query, setQuery] = createSignal("");
+  createEffect(() => {
+    const go = props.goTo;
+    if (!go) return;
+    setQuery("");
+    setCategory(go.category);
+  });
   const searching = () => query().trim() !== "";
   const visible = createMemo(() => new Set(searchSettings(query(), t)));
   const show = (id: string) => visible().has(id);
@@ -901,8 +910,9 @@ export function SettingsPanel(props: {
     // The window's own furniture.
     window: () => (
       <>
-        {/* Only where the shell draws one (Windows, Linux — issue #686). */}
-        <Show when={hasShellMenu()}>
+        {/* Only where the shell draws one that can be hidden (Windows, Linux —
+            issue #686); a Mac always has its menu bar. */}
+        <Show when={hasShellMenu() && !props.isMac}>
           {row("nativeMenu", () => check("nativeMenu", t("settings.nativeMenu")))}
         </Show>
         {/* Only where the shell can draw without its frame (Windows, macOS — #688). */}

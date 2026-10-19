@@ -14,7 +14,7 @@ import {
   type Shortcut,
   type ShortcutOverrides,
 } from "../../src/utils/shortcuts";
-import type { ConfigBundle } from "../../src/utils/settingsCatalog";
+import type { ConfigBundle, SettingsCategory } from "../../src/utils/settingsCatalog";
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -49,6 +49,7 @@ function mount(over: {
   onSetShortcutOverrides?: (o: ShortcutOverrides) => void;
   isMac?: boolean;
   onImportConfig?: (b: ConfigBundle) => void;
+  goTo?: { category: SettingsCategory };
 } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -57,6 +58,7 @@ function mount(over: {
     render(
       () => (
         <SettingsPanel
+          goTo={over.goTo}
           theme={over.theme ?? "system"}
           onSetTheme={over.onSetTheme ?? (() => {})}
           themeId={over.themeId ?? "indigo"}
@@ -331,6 +333,12 @@ describe("SettingsPanel — categories and search", () => {
     goto("Editor");
     expect(headings()).toEqual(["Editor"]);
     expect(host!.querySelector('.settings-nav-item[aria-current="true"]')!.textContent).toBe("Editor");
+  });
+
+  it("opens on the section it is sent to (Ayuda > Acerca de)", () => {
+    mount({ goTo: { category: "about" } });
+    expect(headings()).toEqual(["Acerca de"]);
+    expect(host!.querySelector(".settings-about")).not.toBeNull();
   });
 
   it("finds a setting by its words, case and accents aside, across categories", () => {

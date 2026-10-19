@@ -16,6 +16,9 @@ export const APP_VERSION: string =
 /** Public source repository, linked from About. */
 export const REPO_URL = "https://github.com/danielnuld/squaero";
 
+/** The user manual, on the project site (Ayuda › Documentación, A-11). */
+export const DOCS_URL = "https://danielnuld.github.io/squaero/manual/";
+
 /** Where About's links point (issue #694). */
 export const ABOUT_LINKS = {
   repo: REPO_URL,
