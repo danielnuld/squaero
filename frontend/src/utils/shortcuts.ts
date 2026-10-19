@@ -15,6 +15,8 @@
 
 export type ActionId =
   | "run-query"
+  | "run-script"
+  | "explain"
   | "format-sql"
   | "editor-find"
   | "editor-definition"
@@ -66,6 +68,10 @@ export interface Shortcut {
 
 export const SHORTCUTS: Shortcut[] = [
   { id: "run-query", keys: "Mod+Enter", description: "sc.run-query", global: false },
+  // The whole script, on purpose (issue #691): Mod+Enter runs one statement.
+  { id: "run-script", keys: "Mod+Shift+Enter", description: "sc.run-script", global: false },
+  // The editor owns it too (issue #131); it was missing here, so F1 never listed it.
+  { id: "explain", keys: "Mod+Shift+E", description: "sc.explain", global: false },
   { id: "format-sql", keys: "Mod+Shift+F", description: "sc.format-sql", global: false },
   // Ctrl/Cmd+T and +W open and close a tab, as in a browser (issue #591); the
   // listener's preventDefault keeps them from the host. The older Mod+Alt forms

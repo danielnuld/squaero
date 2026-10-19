@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { BUILTIN_THEMES, DEFAULT_THEME_ID, STYLE_THEME_IDS, isBuiltinTheme } from "../../src/utils/themes";
-import { contrastIssues, themeVariables, validateTheme } from "../../src/utils/themeSchema";
+import { TOKEN_GROUPS, contrastIssues, themeVariables, validateTheme } from "../../src/utils/themeSchema";
+import { AA_NORMAL, contrastRatio, mixHex } from "../../src/utils/contrast";
 
 const CSS = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8").replace(/\r\n/g, "\n");
 
@@ -102,5 +103,31 @@ describe("the M14 styles", () => {
       expect(lum(t.light.bg), t.id).toBeGreaterThan(200);
       expect(lum(t.dark.bg), t.id).toBeLessThan(60);
     }
+  });
+});
+
+// The SQL editor paints bands under the text (issue #691): the statement that
+// will run (accent at 9%), the line that failed (error at 10%) and the current
+// line (accent at 5%). The syntax colours must stay AA on them, in every style.
+describe("syntax colours on the editor's bands", () => {
+  const bands = [
+    ["accent", 0.09],
+    ["error", 0.1],
+    ["accent", 0.05],
+  ] as const;
+  it.each(BUILTIN_THEMES.map((t) => t.id))("%s keeps AA for code on the run and error bands", (id) => {
+    const theme = BUILTIN_THEMES.find((t) => t.id === id)!;
+    const low: string[] = [];
+    for (const mode of ["light", "dark"] as const) {
+      const v = theme[mode];
+      for (const [tint, w] of bands) {
+        const band = mixHex(v[tint], v.bg, w);
+        for (const fg of [...TOKEN_GROUPS.syntax, "text"] as const) {
+          const r = contrastRatio(v[fg], band);
+          if (r < AA_NORMAL) low.push(`${mode} ${fg} on ${tint} ${w}: ${r.toFixed(2)}`);
+        }
+      }
+    }
+    expect(low).toEqual([]);
   });
 });
