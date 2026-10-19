@@ -109,7 +109,7 @@ const openWithRows = async () => {
   // Connecting lands on the connection's home (#694); open a query tab.
   openQueryTab(host);
   await settle();
-  click(host.querySelector(".empty-history button, .empty-state button"));
+  click(host.querySelector(".empty-history button, .empty-state .empty-sql"));
   await settle();
   expect(host.querySelectorAll(".grid-rows .grid-row").length).toBe(3);
 };

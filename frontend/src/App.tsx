@@ -5565,6 +5565,9 @@ export function App() {
                                 onOpenTable={openData}
                                 onRunHistory={runFromHistory}
                                 onInsertSnippet={insertSnippet}
+                                onPickSnippet={() => runShortcut("snippet-palette")}
+                                onHistory={() => showTool("history", t("editor.history"), { key: "history" })}
+                                onAllShortcuts={() => runShortcut("toggle-help")}
                               />
                             }
                             onCellContext={onCellContext}

@@ -6928,14 +6928,9 @@ button.grid-action.danger:hover:not(:disabled) {
   box-sizing: border-box;
 }
 
-.empty-state-brand {
-  margin: 0 0 var(--sp-4);
-  opacity: 0.9;
-}
-
-.empty-state-lead {
-  color: var(--text-dim);
-  margin: 0 0 var(--sp-5);
+/* The empty pattern on top sits flush with the cards below it. */
+.empty-state > .empty-note {
+  padding: 0 0 var(--sp-5);
 }
 
 .empty-state-cards {
@@ -7003,10 +6998,10 @@ button.grid-action.danger:hover:not(:disabled) {
   padding: var(--sp-1) 0;
 }
 
-.empty-state-hint {
-  margin-top: var(--sp-5);
-  color: var(--text-dim);
-  font-size: var(--fs-md);
+/* «Ver el historial», «Todos los atajos»: the way from a card to the rest. */
+.empty-more {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
 }
 
 /* Command palette overlay (issue #174) */

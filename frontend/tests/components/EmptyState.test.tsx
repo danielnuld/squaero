@@ -40,12 +40,17 @@ function mount(over: Partial<Parameters<typeof EmptyState>[0]> = {}) {
 }
 
 describe("EmptyState", () => {
-  it("shows the shortcuts card always, and the hint when there is no data", () => {
+  it("shows the shortcuts card always, under the empty pattern", () => {
     mount();
+    expect(host!.querySelector(".empty-note-title")!.textContent).toBe(
+      "Ejecuta una consulta para ver resultados",
+    );
+    expect(host!.querySelector(".empty-note")!.textContent).toContain(
+      "Ctrl+Enter ejecuta la sentencia donde está el cursor (o la selección); Ctrl+Shift+Enter ejecuta el script completo.",
+    );
     expect(host!.querySelector(".empty-shortcuts")).not.toBeNull();
     expect(host!.textContent).toContain("Ejecutar la sentencia actual, o la selección");
     expect(host!.textContent).toContain("Ejecutar el script completo");
-    expect(host!.querySelector(".empty-state-hint")).not.toBeNull();
     // No data cards.
     expect(host!.textContent).not.toContain("Tablas recientes");
     expect(host!.textContent).not.toContain("Consultas recientes");
@@ -62,7 +67,6 @@ describe("EmptyState", () => {
     links[0].click();
     expect(onOpenTable).toHaveBeenCalledWith(expect.objectContaining({ label: "orders" }));
     // No hint when there is data.
-    expect(host!.querySelector(".empty-state-hint")).toBeNull();
   });
 
   it("re-runs a history entry via its handler", () => {
@@ -91,5 +95,36 @@ describe("EmptyState", () => {
     const many = Array.from({ length: 9 }, (_, i) => hist(`SELECT ${i}`));
     mount({ history: many });
     expect(host!.querySelectorAll(".empty-sql")).toHaveLength(5);
+  });
+
+  it("offers one primary action, a snippet, and nothing without its handler (EditorEmpty, #691)", () => {
+    mount();
+    expect(host!.querySelector(".empty-note button")).toBeNull();
+    dispose?.();
+    host?.remove();
+    const onPickSnippet = vi.fn();
+    mount({ onPickSnippet });
+    const buttons = host!.querySelectorAll(".empty-note button");
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].textContent).toBe("Insertar un snippet");
+    (buttons[0] as HTMLButtonElement).click();
+    expect(onPickSnippet).toHaveBeenCalledOnce();
+  });
+
+  it("leads from the cards to the whole history and every shortcut", () => {
+    const onHistory = vi.fn();
+    const onAllShortcuts = vi.fn();
+    mount({ history: [hist("SELECT 1")], onHistory, onAllShortcuts });
+    const more = [...host!.querySelectorAll<HTMLButtonElement>(".empty-more")];
+    expect(more.map((b) => b.textContent)).toEqual(["Ver el historial", "Todos los atajos"]);
+    more[0].click();
+    more[1].click();
+    expect(onHistory).toHaveBeenCalledOnce();
+    expect(onAllShortcuts).toHaveBeenCalledOnce();
+  });
+
+  it("has no wordmark: the result pane is not a splash screen", () => {
+    mount();
+    expect(host!.querySelector("svg")).toBeNull();
   });
 });

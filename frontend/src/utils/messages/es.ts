@@ -322,14 +322,17 @@ export const es: Record<string, string> = {
   "editor.nav.unsupported": "Este motor no permite abrir la definición de rutinas.",
 
   // editor empty state (issue #178)
-  "empty.lead": "Ejecuta una consulta para ver resultados.",
+  "empty.lead": "Ejecuta una consulta para ver resultados",
+  "empty.keys": "{run} ejecuta la sentencia donde está el cursor (o la selección); {script} ejecuta el script completo.",
+  "empty.pickSnippet": "Insertar un snippet",
+  "empty.allHistory": "Ver el historial",
+  "empty.allShortcuts": "Todos los atajos",
   "empty.recentTables": "Tablas recientes",
   "empty.openTable": "Abrir {name}",
   "empty.recentQueries": "Consultas recientes",
   "empty.rerunNewTab": "Reejecutar en una pestaña nueva",
   "empty.insertSnippet": "Insertar en el editor",
   "empty.shortcuts": "Atajos",
-  "empty.hint": "Abre una tabla del árbol o escribe SQL y pulsa {keys}.",
 
   // tool panels — shared chrome
   "panel.refresh": "Refrescar",

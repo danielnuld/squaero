@@ -172,7 +172,7 @@ describe("App — the foreign-key picker, end to end", () => {
     await settle();
 
     // Run a plain single-table query from the empty state's history.
-    click(host.querySelector(".empty-history button, .empty-state button"));
+    click(host.querySelector(".empty-history button, .empty-state .empty-sql"));
     await settle();
     expect(host.querySelectorAll(".grid-rows .grid-row").length).toBe(1);
 
