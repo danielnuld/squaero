@@ -215,6 +215,19 @@ describe("motion", () => {
 });
 
 // Issue #687: the interface behaves like a desktop application, not a web page.
+// Issue #694 (REDESIGN: sentence case everywhere): the editor's empty-state
+// cards and the welcome's labels never shout.
+describe("empty states and the welcome", () => {
+  it("sets no label in capitals", () => {
+    for (const sel of [".empty-card h4", ".welcome-label", ".empty-note-title"]) {
+      const at = RULES.indexOf(`${sel} {`);
+      expect(at, sel).toBeGreaterThan(-1);
+      const body = RULES.slice(at, RULES.indexOf("}", at));
+      expect(body, sel).not.toContain("uppercase");
+    }
+  });
+});
+
 describe("styles.css desktop behaviour", () => {
   it("shows the arrow over controls and the hand only over real hyperlinks", () => {
     const pointers = Array.from(

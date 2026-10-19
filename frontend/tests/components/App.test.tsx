@@ -100,13 +100,16 @@ describe("App — theme & shortcuts", () => {
     expect(t === "light" || t === "dark").toBe(true);
   });
 
-  it("cycles the theme when the status-bar toggle is clicked", () => {
+  // The status bar has no theme toggle any more (issue #693): Ctrl+Alt+L.
+  it("cycles the theme with its shortcut, and the status bar has no toggle", () => {
     mount();
-    const btn = host!.querySelector(".statusbar .status-btn") as HTMLButtonElement;
+    expect(host!.querySelector(".statusbar .status-btn")).toBeNull();
+    const press = () =>
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", ctrlKey: true, altKey: true }));
     // Fresh preference is "system" (→ light under jsdom's no-matchMedia).
-    btn.click(); // system → light
+    press(); // system → light
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-    btn.click(); // light → dark
+    press(); // light → dark
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 

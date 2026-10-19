@@ -2,7 +2,9 @@ import { createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js
 import { Panel } from "./Panel";
 import { BrandWordmark } from "./Brand";
 import { call } from "../utils/transport";
-import { APP_VERSION, REPO_URL } from "../utils/version";
+import { APP_VERSION, ABOUT_LINKS, aboutReport } from "../utils/version";
+import { openExternal } from "../utils/openExternal";
+import { copyText } from "../utils/rowCopy";
 import {
   clampSlowThreshold,
   clampLocalVersions,
@@ -83,6 +85,15 @@ import { hasShellMenu } from "../utils/nativeMenu";
 // navigation list, a search box shows the matching rows of every category at
 // once, each section can go back to its defaults, the whole configuration can
 // be exported and imported, and the global shortcuts can be rebound.
+
+/** About's links in reading order (issue #694): i18n key suffix and URL. */
+const ABOUT_LINK_KEYS: [string, string][] = [
+  ["repo", ABOUT_LINKS.repo],
+  ["releases", ABOUT_LINKS.releases],
+  ["licenses", ABOUT_LINKS.thirdParty],
+  ["license", ABOUT_LINKS.licence],
+  ["report", ABOUT_LINKS.issues],
+];
 
 const THEME_OPTS: ThemePref[] = ["system", "light", "dark"];
 const DENSITY_OPTS: GridDensity[] = ["normal", "compact"];
@@ -911,15 +922,41 @@ export function SettingsPanel(props: {
                 {(c) => `v${c().protocolVersion}`}
               </Show>
             </dd>
+            <dt>{t("settings.about.license")}</dt>
+            <dd>{t("settings.about.licenseValue")}</dd>
           </dl>
-          <div class="settings-links">
-            <a href={REPO_URL} target="_blank" rel="noreferrer">
-              {t("settings.about.repo")}
-            </a>
-            <a href={`${REPO_URL}/blob/main/THIRD-PARTY.md`} target="_blank" rel="noreferrer">
-              {t("settings.about.licenses")}
-            </a>
-          </div>
+          <button
+            class="btn"
+            onClick={() =>
+              copyText(
+                aboutReport({
+                  app: APP_VERSION,
+                  core: core()?.coreVersion ?? null,
+                  protocol: core()?.protocolVersion ?? null,
+                  system: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                }),
+              )
+            }
+          >
+            {t("settings.about.copy")}
+          </button>
+          {/* Links open in the system browser (the webview has no tabs). */}
+          <nav class="settings-links" aria-label={t("settings.about.links")}>
+            <For each={ABOUT_LINK_KEYS}>
+              {([key, url]) => (
+                <a
+                  href={url}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openExternal(url);
+                  }}
+                >
+                  {t(`settings.about.${key}`)}
+                </a>
+              )}
+            </For>
+          </nav>
+          <p class="settings-hint">{t("settings.about.notices")}</p>
         </>
       )),
   };

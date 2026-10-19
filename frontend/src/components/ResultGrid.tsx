@@ -1401,6 +1401,10 @@ export function ResultGrid(props: {
               </div>
             </Show>
 
+            <Show when={!filtersActive() && rows().length === 0}>
+              <div class="grid-empty-filter">{t("grid.noRows")}</div>
+            </Show>
+
             <Show when={filtersActive() && view().length === 0}>
               <div class="grid-empty-filter">
                 {t("grid.noFilterMatch")}
