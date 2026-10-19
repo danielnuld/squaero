@@ -8,7 +8,7 @@ import { Icon } from "./icons";
 // The result panel's status band (issue #691, R-01): what the run below the
 // editor is doing or did, said in one line that ties the result to the run.
 //
-//   running  «Ejecutando · 00:04 · sentencia 2 de 3»          [Cancelar]
+//   running  «Ejecutando script · 00:04 · 2 de 3»              [Cancelar]
 //   rows     «Resultado · 8 filas · 11 ms»
 //   write    «2 filas afectadas · 9 ms · confirmado en modo Auto»  [Ver en el historial]
 //   error    «Error en la línea 3 · 13 ms»                    [Ir a la línea 3]
@@ -57,9 +57,11 @@ export function RunStatus(props: {
 
   const text = () => {
     if (props.loading) {
-      const clock = t("run.running", { time: formatElapsed(now() - (props.startedAt ?? now())) });
+      const time = formatElapsed(now() - (props.startedAt ?? now()));
       const p = props.progress;
-      return p && p.total > 1 ? `${clock} · ${t("run.progress", { n: p.n, total: p.total })}` : clock;
+      return p && p.total > 1
+        ? t("run.runningScript", { time, n: p.n, total: p.total })
+        : t("run.running", { time });
     }
     if (kind() === "error") {
       const line = props.errorLine;

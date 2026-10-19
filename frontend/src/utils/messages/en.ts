@@ -697,6 +697,7 @@ export const en: Record<string, string> = {
   "result.setRows": "{n} rows",
   "result.setAffected": "{n} affected",
   "result.setFailed": "error",
+  "result.setRunning": "running…",
   "result.copyRowJson": "Copy row as JSON",
   "result.copyAs": "Copy as",
   // set NULL from the grid (#398): clearing the box leaves "", a different value
@@ -902,7 +903,7 @@ export const en: Record<string, string> = {
   "grid.runToSee": "Run a query to see results.",
   "grid.running": "Running…",
   "run.running": "Running · {time}",
-  "run.progress": "statement {n} of {total}",
+  "run.runningScript": "Running script · {time} · {n} of {total}",
   "run.rows": "Result · {n} rows",
   "run.rowsOne": "Result · 1 row",
   "run.affected": "{n} rows affected",

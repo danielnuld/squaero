@@ -60,9 +60,9 @@ describe("RunStatus", () => {
     const onCancel = vi.fn();
     const started = Date.now();
     mount({ loading: true, startedAt: started, progress: { n: 2, total: 3 }, onCancel });
-    expect(text()).toBe("Ejecutando · 00:00 · sentencia 2 de 3");
+    expect(text()).toBe("Ejecutando script · 00:00 · 2 de 3");
     vi.advanceTimersByTime(4000);
-    expect(text()).toBe("Ejecutando · 00:04 · sentencia 2 de 3");
+    expect(text()).toBe("Ejecutando script · 00:04 · 2 de 3");
     const cancel = buttons().find((b) => b.textContent === "Cancelar")!;
     cancel.click();
     expect(onCancel).toHaveBeenCalled();
