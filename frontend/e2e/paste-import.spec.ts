@@ -35,7 +35,10 @@ describeEngine("sqlite", () => {
     await expect(page.getByText("Vista previa de lo pegado")).toBeVisible();
     await expect(page.getByText("2 fila(s)")).toBeVisible();
 
-    await page.getByRole("button", { name: "Importar", exact: true }).click();
+    // The wizard's steps (#692): the source and its preview, then the columns,
+    // where the verb carries the count.
+    await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+    await page.getByRole("button", { name: "Importar 2 filas", exact: true }).click();
     await expect(page.getByText("fila(s) insertada(s)")).toBeVisible();
 
     // Read straight from the database: the summary is the app's own account of

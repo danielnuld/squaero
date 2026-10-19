@@ -115,16 +115,20 @@ describe("TransferWizard", () => {
     const calls = installBridge();
     mount();
 
-    clickButton("Preparar");
+    // Step 1 names the target; «Siguiente» reads its columns.
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Destino");
+    clickButton("Siguiente");
     await flush();
 
-    // Destination columns fetched + auto-mapped.
+    // Destination columns fetched + auto-mapped, on the second step.
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Columnas");
     const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2);
     expect(dropdownValue(selects[0])).toBe("id");
     expect(dropdownValue(selects[1])).toBe("name");
 
-    clickButton("Transferir");
+    // The verb says how many rows and where they go.
+    clickButton("Transferir 2 filas a Prod");
     await flush();
 
     const methods = calls.map((c) => c.method);
@@ -139,5 +143,18 @@ describe("TransferWizard", () => {
     expect(firstInsert.table).toBe("users");
     expect(firstInsert.values).toEqual({ id: "1", name: "alice" });
     expect(host!.textContent).toContain("transferida");
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Transferir");
+  });
+
+  it("goes back to the target with Atrás, keeping what was typed", async () => {
+    installBridge();
+    mount();
+    clickButton("Siguiente");
+    await flush();
+    clickButton("Atrás");
+    await flush();
+    expect(host!.querySelector(".map-select")).toBeNull();
+    const table = [...host!.querySelectorAll<HTMLInputElement>("input[type=text]")].pop()!;
+    expect(table.value).toBe("users");
   });
 });

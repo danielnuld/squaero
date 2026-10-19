@@ -107,7 +107,29 @@ async function chooseBytes(name: string, bytes: Uint8Array) {
   await flush();
 }
 
+/** A footer button by its exact text. */
+const button = (text: string | RegExp) =>
+  [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) =>
+    typeof text === "string" ? b.textContent === text : text.test(b.textContent ?? ""),
+  )!;
+/** «Siguiente»: from where the rows come from to the column mapping. */
+const next = async () => {
+  button("Siguiente").click();
+  await flush();
+};
+
 describe("ImportWizard", () => {
+  it("walks numbered steps: Origen, Columnas, Importar", async () => {
+    installBridge();
+    mount();
+    await flush();
+    const steps = [...host!.querySelectorAll(".wiz-step")];
+    expect(steps.map((s) => s.textContent)).toEqual(["1Origen", "2Columnas", "3Importar"]);
+    expect(steps[0].getAttribute("aria-current")).toBe("step");
+    // Nothing to go on with until there are rows.
+    expect(button("Siguiente").disabled).toBe(true);
+  });
+
   it("fetches the target columns and shows the file picker", async () => {
     installBridge();
     mount();
@@ -123,19 +145,20 @@ describe("ImportWizard", () => {
 
     await chooseFile("people.csv", "id,name\r\n1,alice\r\n2,bob");
 
-    // Preview + a mapping row per target column appear.
+    // The preview first; the mapping is the next step.
     expect(host!.textContent).toContain("people.csv");
+    expect(host!.querySelectorAll(".map-select").length).toBe(0);
+    await next();
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Columnas");
     const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2); // id, name
     // auto-mapped by name (case-insensitive): id->id, name->name.
     expect(dropdownValue(selects[0])).toBe("id");
     expect(dropdownValue(selects[1])).toBe("name");
 
-    // Run the import.
-    const runBtn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
-      (b) => b.textContent === "Importar",
-    )!;
-    runBtn.click();
+    // Run the import: the verb carries the count, and the policy is offered.
+    expect(host!.textContent).toContain("Si una fila falla");
+    button("Importar 2 filas").click();
     await flush();
 
     const methods = calls.map((c) => c.method);
@@ -153,6 +176,20 @@ describe("ImportWizard", () => {
     expect(host!.textContent).toContain("2");
     expect(host!.textContent).toContain("insertada");
     expect(onImported).toHaveBeenCalled();
+    // The result screen closes with «Cerrar», and Back is gone.
+    expect(button("Cerrar")).toBeDefined();
+    expect(button("Atrás")).toBeUndefined();
+  });
+
+  it("goes back to the source with Atrás", async () => {
+    installBridge();
+    mount();
+    await flush();
+    await chooseFile("people.csv", "id,name\r\n1,alice");
+    await next();
+    button("Atrás").click();
+    await flush();
+    expect(host!.querySelector('input[type="file"]')).not.toBeNull();
   });
 
   it("reads an XLSX workbook, maps columns and imports", async () => {
@@ -176,15 +213,13 @@ describe("ImportWizard", () => {
 
     // Headers read from the workbook drive the auto-mapping.
     expect(host!.textContent).toContain("people.xlsx");
+    await next();
     const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2);
     expect(dropdownValue(selects[0])).toBe("id");
     expect(dropdownValue(selects[1])).toBe("name");
 
-    const runBtn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
-      (b) => b.textContent === "Importar",
-    )!;
-    runBtn.click();
+    button("Importar 2 filas").click();
     await flush();
 
     expect(calls.filter((c) => c.method === "row.insert").length).toBe(2);
@@ -200,10 +235,7 @@ describe("ImportWizard", () => {
 describe("ImportWizard — pasted rows", () => {
   const TSV = "id\tname\n1\talice\n2\t";
 
-  const runButton = () =>
-    [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
-      (b) => b.textContent === "Importar",
-    )!;
+  const runButton = () => button(/^Importar \d+ filas?$/);
 
   it("opens on the clipboard tab with the pasted rows parsed and mapped", async () => {
     installBridge();
@@ -212,6 +244,7 @@ describe("ImportWizard — pasted rows", () => {
 
     expect(host!.querySelector<HTMLTextAreaElement>(".import-paste")!.value).toBe(TSV);
     expect(host!.textContent).toContain("Vista previa de lo pegado");
+    await next();
     const selects = host!.querySelectorAll<HTMLElement>(".map-select");
     expect(selects.length).toBe(2);
     // Mapped even though the text arrived before schema.describe answered.
@@ -224,6 +257,7 @@ describe("ImportWizard — pasted rows", () => {
     const { onImported } = mount(TSV);
     await flush();
 
+    await next();
     runButton().click();
     await flush();
 
@@ -246,6 +280,7 @@ describe("ImportWizard — pasted rows", () => {
     box.checked = false;
     box.dispatchEvent(new Event("change", { bubbles: true }));
 
+    await next();
     runButton().click();
     await flush();
 
@@ -261,12 +296,12 @@ describe("ImportWizard — pasted rows", () => {
     const area = host!.querySelector<HTMLTextAreaElement>(".import-paste")!;
     area.value = "ciudad\nHermosillo";
     area.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(host!.querySelectorAll(".map-select").length).toBe(2);
     expect(host!.textContent).toContain("1 fila(s)");
+    expect(button("Siguiente").disabled).toBe(false);
 
     area.value = "";
     area.dispatchEvent(new Event("input", { bubbles: true }));
     expect(host!.textContent).not.toContain("Vista previa");
-    expect(runButton().disabled).toBe(true);
+    expect(button("Siguiente").disabled).toBe(true);
   });
 });

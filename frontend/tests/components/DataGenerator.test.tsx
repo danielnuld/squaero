@@ -172,4 +172,38 @@ describe("DataGenerator", () => {
     expect(calls.map((c) => c.method)).toContain("tx.rollback");
     expect(host!.textContent).toContain("boom");
   });
+
+  it("with «omitir», skips the failing row and keeps the rest (#692)", async () => {
+    const calls = installBridge();
+    let failed = false;
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: unknown };
+      calls.push({ method: req.method, params: req.params });
+      if (req.method === "schema.describe") return describeResponse(req.id);
+      if (req.method === "row.insert" && !failed) {
+        failed = true;
+        return { jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "duplicate key" } };
+      }
+      return { jsonrpc: "2.0", id: req.id, result: { ok: true } };
+    };
+    mount();
+    await flush();
+    setCount(3);
+    await flush();
+    // All or nothing by default; the user chooses to skip.
+    const [skip, abort] = [...host!.querySelectorAll<HTMLInputElement>("input[type=radio]")];
+    expect(abort.checked).toBe(true);
+    skip.click();
+    const runBtn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
+      (b) => b.textContent === "Generar 3 filas",
+    )!;
+    runBtn.click();
+    await flush();
+    const methods = calls.map((c) => c.method);
+    expect(methods.filter((m) => m === "row.insert").length).toBe(3);
+    expect(methods).toContain("tx.commit");
+    expect(methods).not.toContain("tx.rollback");
+    expect(host!.textContent).toContain("duplicate key");
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Resultado");
+  });
 });

@@ -3212,6 +3212,169 @@ kbd {
   color: var(--text-dim);
 }
 
+/* --- The one wizard (issue #692) -------------------------------------------
+   Wizard.tsx inside a tool tab: the head with the numbered steps, a form whose
+   labels share one 160px column and whose fields stop at 360px, and a footer
+   pinned to the bottom of the tab — [Atrás] … [primary] [Cancelar]. The tab's
+   own padding is taken back so the footer can run edge to edge. */
+.tool-pane:has(> .wiz) {
+  padding: 0;
+  overflow: hidden;
+}
+
+.wiz {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wiz-head {
+  flex: none;
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.wiz-head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.wiz-sub {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-dim);
+}
+
+.wiz-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  margin: var(--sp-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiz-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-dim);
+}
+
+.wiz-step.is-current {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.wiz-num {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+}
+
+.wiz-step.is-current .wiz-num {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.wiz-step.is-done .wiz-num {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.wiz-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-5) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.wiz-body > .seg {
+  align-self: flex-start;
+}
+
+.wiz-body > p,
+.wiz-body > h3 {
+  margin: 0;
+}
+
+.wiz-body > h3 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.wiz-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
+/* The form grid: labels in one column, fields in the other. */
+.wiz-form {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 360px);
+  gap: var(--sp-3) var(--sp-4);
+  align-items: center;
+}
+
+.wiz-row,
+.wiz-field {
+  display: contents;
+}
+
+.wiz-label {
+  grid-column: 1;
+  color: var(--text-dim);
+}
+
+.wiz-ctl {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.wiz-ctl > input:not([type="checkbox"]):not([type="radio"]),
+.wiz-ctl > .dropdown {
+  flex: 1;
+  min-width: 0;
+}
+
+.wiz-help {
+  grid-column: 2;
+  margin: -4px 0 0;
+}
+
+.wiz-radios {
+  flex-wrap: wrap;
+}
+
+.wiz-radios label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.help {
+  font-size: var(--fs-base);
+  color: var(--text-dim);
+}
+
 /* The footer row of a tool panel (former .modal-actions inside a tab): its
    buttons at the end, in the OS order when there is a primary and a cancel. */
 .panel-foot {
@@ -4972,10 +5135,10 @@ button.grid-action.danger:hover:not(:disabled) {
   resize: vertical;
 }
 
+/* Sentence case, not small caps (M14: hierarchy by weight and tone). */
 .import-subtitle {
-  font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-base);
+  font-weight: 600;
   color: var(--fg-dim);
   margin: var(--sp-3) 0 var(--sp-2);
 }
