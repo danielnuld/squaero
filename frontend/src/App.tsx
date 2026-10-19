@@ -6227,6 +6227,7 @@ export function App() {
                   <ImportWizard
                     connId={toolConn()?.connId ?? ""}
                     target={(tt().params as { target: EditTarget }).target}
+                    engine={activeDialect()}
                     initialText={(tt().params as { initialText?: string }).initialText}
                     onClose={() => closeTool(tt().id)}
                     onImported={() => {
