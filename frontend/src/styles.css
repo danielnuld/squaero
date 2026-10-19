@@ -10861,3 +10861,46 @@ ul.sidebar-tree {
   align-items: center;
   gap: var(--sp-3);
 }
+
+/* Palette preview pane (P6): the snippet's name, where it runs, its body and
+   its actions. */
+.cmdk-preview-pane {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.cmdk-preview-pane .cmdk-preview {
+  flex: 1;
+  border-left: 0;
+}
+
+.cmdk-preview-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4) 0;
+}
+
+.cmdk-preview-name {
+  font-weight: 600;
+}
+
+.cmdk-preview-pane > .help {
+  padding: var(--sp-1) var(--sp-4) 0;
+}
+
+.cmdk-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.cmdk-preview-actions .btn:first-child {
+  margin-right: auto;
+}
