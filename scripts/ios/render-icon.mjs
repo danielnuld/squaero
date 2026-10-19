@@ -3,7 +3,8 @@
 //   node scripts/ios/render-icon.mjs      (run from the repo root, after
 //                                           `pnpm install` in frontend/)
 // - AppIcon.png: 1024×1024, opaque, from ios/Brand/AppIcon.svg
-// - LaunchMark@{2,3}x.png: the brand mark (assets/brand/quaero-mark.svg) at 128 pt
+// - LaunchMark{,-dark}@{2,3}x.png: the brand mark at 128 pt, light
+//   (assets/brand/quaero-mark.svg) and dark (quaero-mark-dark.svg) appearance
 // The PNGs are checked in; run this again only when a source SVG changes.
 
 import { createRequire } from "node:module";
@@ -14,6 +15,7 @@ const { chromium } = require("@playwright/test");
 
 const icon = readFileSync("ios/Brand/AppIcon.svg", "utf8");
 const mark = readFileSync("assets/brand/quaero-mark.svg", "utf8");
+const markDark = readFileSync("assets/brand/quaero-mark-dark.svg", "utf8");
 const catalog = "ios/Squaero/Assets.xcassets";
 
 // CHROMIUM_PATH: a Chromium other than the one this Playwright pins.
@@ -28,4 +30,6 @@ async function render(svg, size, path, transparent) {
 await render(icon, 1024, `${catalog}/AppIcon.appiconset/AppIcon.png`, false);
 await render(mark, 256, `${catalog}/LaunchMark.imageset/LaunchMark@2x.png`, true);
 await render(mark, 384, `${catalog}/LaunchMark.imageset/LaunchMark@3x.png`, true);
+await render(markDark, 256, `${catalog}/LaunchMark.imageset/LaunchMark-dark@2x.png`, true);
+await render(markDark, 384, `${catalog}/LaunchMark.imageset/LaunchMark-dark@3x.png`, true);
 await browser.close();

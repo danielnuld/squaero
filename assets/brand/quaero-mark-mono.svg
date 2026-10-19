@@ -1,12 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Squaero">
   <title>Squaero</title>
-  <!-- Monochrome: inherits the current text color. Set `color:` on the parent. -->
-  <g fill="none" stroke="currentColor" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="58" cy="56" r="38"/>
-    <path d="M85 83 L104 102"/>
-  </g>
-  <g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M46 42 L60 56 L46 70"/>
-    <path d="M72 44 L72 68"/>
+  <!-- Monochrome: inherits the current text colour when inlined. Set `color:` on the parent. -->
+  <circle cx="58" cy="58" r="36" fill="none" stroke="currentColor" stroke-width="14"/>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M84 84 L106 106" stroke-width="14"/>
+    <path d="M50 44 L64 58 L50 72" stroke-width="10"/>
   </g>
 </svg>

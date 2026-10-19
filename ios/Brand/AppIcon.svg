@@ -1,16 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- The iPhone icon (issue #579, task 7.1): assets/brand/quaero-mark.svg in
-       white on the brand indigo, full bleed and opaque (iOS rounds the corners
-       itself). Rendered to AppIcon.png by scripts/ios/render-icon.mjs. -->
-  <rect width="1024" height="1024" fill="#5b5bd6"/>
-  <g transform="translate(115.2 128) scale(6.4)">
-    <g fill="none" stroke="#ffffff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="58" cy="56" r="38"/>
-      <path d="M85 83 L104 102"/>
-    </g>
-    <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M46 42 L60 56 L46 70"/>
-      <path d="M72 44 L72 68"/>
-    </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="1024" height="1024">
+  <!-- The iPhone icon (issues #579, #679): the B · Nativo app-icon tile of
+       assets/icons/quaero-app-icon.svg, full bleed and opaque (iOS rounds the
+       corners itself). Rendered to AppIcon.png by scripts/ios/render-icon.mjs. -->
+  <rect width="128" height="128" fill="#0f7b72"/>
+  <g transform="translate(64 64) scale(0.74) translate(-64 -64)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="58" cy="58" r="36" stroke="#ffffff" stroke-width="14"/>
+    <path d="M84 84 L106 106" stroke="#a6ebe0" stroke-width="14"/>
+    <path d="M50 44 L64 58 L50 72" stroke="#a6ebe0" stroke-width="10"/>
   </g>
 </svg>
