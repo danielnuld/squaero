@@ -89,6 +89,9 @@ núcleo GPL.
 | [fflate](https://github.com/101arrowz/fflate) | MIT |
 | [Lucide](https://lucide.dev) — algunas formas del set de iconos propio, trazado en `src/components/icons.tsx` (no se enlaza el paquete) | ISC |
 | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) — tipografía monoespaciada opcional para el editor y la rejilla (Regular y Bold, subconjuntos Latin y Latin Extended en woff2, incrustados en el bundle; licencia en `frontend/src/assets/fonts/JetBrainsMono-OFL.txt`) | OFL-1.1 |
+| [Geist y Geist Mono](https://github.com/vercel/geist-font) — tipografía del estilo A · Quiet pro (variables, subconjunto Latin en woff2, incrustadas en el bundle; licencias en `frontend/src/assets/fonts/Geist-OFL.txt` y `GeistMono-OFL.txt`) | OFL-1.1 |
+| [IBM Plex Sans y IBM Plex Mono](https://github.com/IBM/plex) — tipografía del estilo C · Editorial (Sans variable; Mono Regular y SemiBold; subconjunto Latin en woff2, incrustadas en el bundle; licencias en `frontend/src/assets/fonts/IBMPlexSans-OFL.txt` y `IBMPlexMono-OFL.txt`) | OFL-1.1 |
+| [Figtree](https://github.com/erikdkennedy/figtree) — tipografía del estilo Rosa pastel (variable, subconjunto Latin en woff2, incrustada en el bundle; licencia en `frontend/src/assets/fonts/Figtree-OFL.txt`) | OFL-1.1 |
 
 Herramientas de desarrollo **no distribuidas** (dev-dependencies): Vite,
 vite-plugin-solid, vite-plugin-singlefile, Vitest, TypeScript, jsdom — todas

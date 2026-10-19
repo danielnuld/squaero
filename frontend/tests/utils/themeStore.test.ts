@@ -42,10 +42,10 @@ describe("migrateLegacyChoice", () => {
     expect(migrateLegacyChoice("pizarra", "dark")).toEqual({ themeId: "pizarra", mode: "dark" });
   });
 
-  it("falls back to the brand default for nothing or nonsense", () => {
-    expect(migrateLegacyChoice(null, "dark")).toEqual({ themeId: "indigo", mode: "dark" });
-    expect(migrateLegacyChoice(undefined, "system")).toEqual({ themeId: "indigo", mode: "system" });
-    expect(migrateLegacyChoice("bogus", "light")).toEqual({ themeId: "indigo", mode: "light" });
+  it("falls back to the default (B · Nativo, #747) for nothing or nonsense", () => {
+    expect(migrateLegacyChoice(null, "dark")).toEqual({ themeId: "nativo", mode: "dark" });
+    expect(migrateLegacyChoice(undefined, "system")).toEqual({ themeId: "nativo", mode: "system" });
+    expect(migrateLegacyChoice("bogus", "light")).toEqual({ themeId: "nativo", mode: "light" });
   });
 });
 
@@ -53,6 +53,18 @@ describe("loadThemeChoice", () => {
   it("reads the new key when present", () => {
     const s = memStore({ [THEME_ID_KEY]: "mine", [THEME_KEY]: "light", [LEGACY_SKIN_KEY]: "terminal" });
     expect(loadThemeChoice(s)).toEqual({ themeId: "mine", mode: "light" });
+  });
+
+  // #747 changed the default; whoever already has a theme stored keeps it.
+  it("keeps a stored theme across the change of default", () => {
+    const s = memStore({ [THEME_ID_KEY]: "indigo" });
+    expect(loadThemeChoice(s).themeId).toBe("indigo");
+  });
+
+  it("starts a new install on B · Nativo and stores it", () => {
+    const s = memStore();
+    expect(loadThemeChoice(s)).toEqual({ themeId: "nativo", mode: "system" });
+    expect(s._m.get(THEME_ID_KEY)).toBe("nativo");
   });
 
   it("migrates the old skin once, writing the id and a forced mode", () => {
@@ -69,14 +81,14 @@ describe("loadThemeChoice", () => {
   });
 
   it("defaults without storage and never throws", () => {
-    expect(loadThemeChoice(undefined)).toEqual({ themeId: "indigo", mode: "system" });
+    expect(loadThemeChoice(undefined)).toEqual({ themeId: "nativo", mode: "system" });
     const broken = {
       getItem: () => {
         throw new Error("nope");
       },
       setItem: () => {},
     };
-    expect(loadThemeChoice(broken)).toEqual({ themeId: "indigo", mode: "system" });
+    expect(loadThemeChoice(broken)).toEqual({ themeId: "nativo", mode: "system" });
   });
 
   it("round-trips the id", () => {
@@ -109,7 +121,7 @@ describe("custom themes", () => {
     const again = addCustomTheme(list, { ...mine, name: "Mine v2" });
     expect(again).toHaveLength(1);
     expect(again[0].name).toBe("Mine v2");
-    const edited = addCustomTheme(again, { ...BUILTIN_THEMES[1], name: "My blue" });
+    const edited = addCustomTheme(again, { ...BUILTIN_THEMES.find((t) => t.id === "blue")!, name: "My blue" });
     expect(edited.map((t) => t.id)).toEqual(["mine", "blue-custom"]);
     expect(customThemeId("blue")).toBe("blue-custom");
     expect(customThemeId("mine")).toBe("mine");
@@ -123,6 +135,6 @@ describe("custom themes", () => {
   it("finds built-in first, then imported, else the default", () => {
     expect(findTheme("blue", [mine]).id).toBe("blue");
     expect(findTheme("mine", [mine]).id).toBe("mine");
-    expect(findTheme("gone", [mine]).id).toBe("indigo");
+    expect(findTheme("gone", [mine]).id).toBe("nativo");
   });
 });

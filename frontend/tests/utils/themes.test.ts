@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { BUILTIN_THEMES, DEFAULT_THEME_ID, isBuiltinTheme } from "../../src/utils/themes";
-import { themeVariables, validateTheme } from "../../src/utils/themeSchema";
+import { BUILTIN_THEMES, DEFAULT_THEME_ID, STYLE_THEME_IDS, isBuiltinTheme } from "../../src/utils/themes";
+import { contrastIssues, themeVariables, validateTheme } from "../../src/utils/themeSchema";
 
 const CSS = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8").replace(/\r\n/g, "\n");
 
@@ -29,9 +29,9 @@ describe("built-in themes", () => {
   });
 
   // Ciruela, Pizarra and Terminal had no light variant (#473): paired with the
-  // default light palette rather than half-designed while #678 is open.
-  it("pair the once dark-only themes with the default light palette", () => {
-    const indigo = BUILTIN_THEMES.find((t) => t.id === DEFAULT_THEME_ID)!;
+  // brand light palette rather than half-designed while #678 was open.
+  it("pair the once dark-only themes with the indigo light palette", () => {
+    const indigo = BUILTIN_THEMES.find((t) => t.id === "indigo")!;
     for (const id of ["ciruela", "pizarra", "terminal"]) {
       expect(BUILTIN_THEMES.find((t) => t.id === id)!.light).toEqual(indigo.light);
     }
@@ -41,11 +41,66 @@ describe("built-in themes", () => {
     expect(BUILTIN_THEMES.filter((t) => t.monoUi).map((t) => t.id)).toEqual(["terminal"]);
   });
 
-  // The stylesheet keeps the brand dark palette as the baseline for the first
-  // paint; it is the one place a theme value is still written in CSS, and this
-  // is what stops it from drifting away from the data.
+  // The stylesheet keeps the default theme's light variant as the baseline for
+  // the first paint; it is the one place a theme value is still written in CSS,
+  // and this is what stops it from drifting away from the data.
   it("match the stylesheet's baseline block, token for token", () => {
-    const indigo = BUILTIN_THEMES.find((t) => t.id === DEFAULT_THEME_ID)!;
-    expect(baseline()).toEqual(themeVariables(indigo, "dark"));
+    const def = BUILTIN_THEMES.find((t) => t.id === DEFAULT_THEME_ID)!;
+    expect(baseline()).toEqual(themeVariables(def, "light"));
+  });
+});
+
+// The M14 styles (#747, docs/design/m14/).
+describe("the M14 styles", () => {
+  const styles = STYLE_THEME_IDS.map((id) => BUILTIN_THEMES.find((t) => t.id === id)!);
+
+  it("are built in, first in picker order, with B · Nativo the default", () => {
+    expect(BUILTIN_THEMES.slice(0, 4).map((t) => t.id)).toEqual(["nativo", "quiet", "editorial", "rosa"]);
+    expect(DEFAULT_THEME_ID).toBe("nativo");
+  });
+
+  it("keep every earlier theme", () => {
+    for (const id of ["indigo", "blue", "ciruela", "pizarra", "terminal", "contrast"]) {
+      expect(isBuiltinTheme(id), id).toBe(true);
+    }
+  });
+
+  it("carry their own typography and radii", () => {
+    const byId = Object.fromEntries(styles.map((t) => [t.id, t]));
+    expect(byId.nativo.fontUi).toContain("Segoe UI Variable");
+    expect(byId.quiet.fontUi).toMatch(/^"Geist"/);
+    expect(byId.quiet.fontMono).toMatch(/^"Geist Mono"/);
+    expect(byId.editorial.fontUi).toMatch(/^"IBM Plex Sans"/);
+    expect(byId.editorial.fontMono).toMatch(/^"IBM Plex Mono"/);
+    expect(byId.rosa.fontUi).toMatch(/^"Figtree"/);
+    expect(byId.nativo.radius).toEqual({ sm: 6, md: 8, lg: 12 });
+    expect(byId.quiet.radius).toEqual({ sm: 4, md: 6, lg: 8 });
+    expect(byId.editorial.radius).toEqual({ sm: 2, md: 2, lg: 2 });
+    expect(byId.rosa.radius).toEqual({ sm: 8, md: 12, lg: 16 });
+  });
+
+  // The prototype's own variant, value for value where it already met AA on
+  // every surface the app paints text on.
+  it("keep the prototype's surfaces and accents", () => {
+    const byId = Object.fromEntries(styles.map((t) => [t.id, t]));
+    expect(byId.nativo.light).toMatchObject({ bg: "#ffffff", "bg-elev": "#e9edf1", accent: "#0f7b72", "border-strong": "#7a838e" });
+    expect(byId.quiet.dark).toMatchObject({ bg: "#0f1216", "bg-elev": "#0c0f12", accent: "#3fb8a9", "border-strong": "#5f6a78" });
+    expect(byId.editorial.dark).toMatchObject({ bg: "#17140f", accent: "#e0a43c", "text-faint": "#958a74" });
+    expect(byId.rosa.light).toMatchObject({ bg: "#fffafc", "bg-elev": "#fbe7ef", accent: "#c2477a" });
+  });
+
+  // The light and the dark of each style, every pair contrastIssues measures:
+  // text 4.5:1 on all four surfaces, ink on fills 4.5:1, accent and the control
+  // border 3:1.
+  it.each(STYLE_THEME_IDS)("%s meets WCAG AA in both variants", (id) => {
+    expect(contrastIssues(BUILTIN_THEMES.find((t) => t.id === id)!)).toEqual([]);
+  });
+
+  it("read light-first or dark-first as designed", () => {
+    const lum = (hex: string) => parseInt(hex.slice(1, 3), 16);
+    for (const t of styles) {
+      expect(lum(t.light.bg), t.id).toBeGreaterThan(200);
+      expect(lum(t.dark.bg), t.id).toBeLessThan(60);
+    }
   });
 });

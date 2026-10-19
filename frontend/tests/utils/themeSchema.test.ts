@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  OPTIONAL_TOKENS,
   TOKEN_NAMES,
   TOKEN_GROUPS,
   contrastIssues,
@@ -14,7 +15,7 @@ import {
 import { BUILTIN_THEMES } from "../../src/utils/themes";
 import { contrastRatio } from "../../src/utils/contrast";
 
-const indigo = BUILTIN_THEMES[0];
+const indigo = BUILTIN_THEMES.find((t) => t.id === "indigo")!;
 
 /** A valid theme file body to break in one place at a time. */
 const valid = (): Record<string, unknown> => JSON.parse(serializeTheme(indigo));
@@ -84,6 +85,36 @@ describe("validateTheme", () => {
     ]);
   });
 
+  // Files exported before #747 have no border-strong, text-faint, warn or ok.
+  it("accepts a file without the optional tokens", () => {
+    const d = valid();
+    for (const key of Object.keys(OPTIONAL_TOKENS)) delete (d.light as Record<string, unknown>)[key];
+    expect(validateTheme(d)).toEqual([]);
+  });
+
+  it("accepts font stacks and radii, and refuses what could escape the style block", () => {
+    const d = valid();
+    d.fontUi = '"Geist", system-ui, sans-serif';
+    d.fontMono = "Menlo, monospace";
+    d.radius = { sm: 2, md: 4, lg: 6 };
+    expect(validateTheme(d)).toEqual([]);
+    d.fontUi = "x; } body { color: red";
+    d.fontMono = 3;
+    d.radius = { sm: -1, md: 4.5, lg: 99, xl: 1 };
+    expect(validateTheme(d)).toEqual([
+      { code: "type", path: "fontUi", value: "x; } body { color: red" },
+      { code: "type", path: "fontMono", value: "3" },
+      { code: "unknown", path: "radius.xl" },
+      { code: "type", path: "radius.sm", value: "-1" },
+      { code: "type", path: "radius.md", value: "4.5" },
+      { code: "type", path: "radius.lg", value: "99" },
+    ]);
+    d.radius = "big";
+    expect(validateTheme({ ...d, fontUi: undefined, fontMono: undefined })).toEqual([
+      { code: "type", path: "radius", value: "string" },
+    ]);
+  });
+
   it("reports a variant that is missing altogether as one error, not forty", () => {
     const d = valid();
     delete d.light;
@@ -119,6 +150,24 @@ describe("parseThemeJson / serializeTheme", () => {
     expect(r.errors).toEqual([{ code: "id", path: "id" }]);
   });
 
+  it("fills a missing optional token from its fallback", () => {
+    const d = valid();
+    for (const key of Object.keys(OPTIONAL_TOKENS)) delete (d.dark as Record<string, unknown>)[key];
+    const { theme } = parseThemeJson(JSON.stringify(d));
+    for (const [key, from] of Object.entries(OPTIONAL_TOKENS)) {
+      expect(theme!.dark[key as keyof Theme["dark"]]).toBe(indigo.dark[from]);
+    }
+  });
+
+  it("round-trips fonts and radii, and writes them only when set", () => {
+    expect(serializeTheme(indigo)).not.toMatch(/fontUi|fontMono|radius/);
+    const rosa = BUILTIN_THEMES.find((t) => t.id === "rosa")!;
+    const data = JSON.parse(serializeTheme(rosa));
+    expect(data.fontUi).toBe(rosa.fontUi);
+    expect(data.radius).toEqual({ sm: 8, md: 12, lg: 16 });
+    expect(parseThemeJson(serializeTheme(rosa)).theme).toEqual(rosa);
+  });
+
   it("writes monoUi only when set", () => {
     expect(serializeTheme(indigo)).not.toContain("monoUi");
     const terminal = BUILTIN_THEMES.find((t) => t.id === "terminal")!;
@@ -139,6 +188,23 @@ describe("themeVariables / themeCss", () => {
     const vars = themeVariables(indigo, "light");
     expect(vars["--focus-ring"]).toBe("rgba(91, 91, 214, 0.32)");
     expect(vars["--shadow-lg"]).toBe("0 12px 40px rgba(20, 22, 30, 0.18)");
+  });
+
+  it("emits the theme's fonts and radii, or the defaults", () => {
+    const quiet = BUILTIN_THEMES.find((t) => t.id === "quiet")!;
+    const q = themeVariables(quiet, "dark");
+    expect(q["--font-theme-ui"]).toBe(quiet.fontUi);
+    expect(q["--font-mono"]).toBe(quiet.fontMono);
+    expect([q["--r-sm"], q["--r-md"], q["--r-lg"]]).toEqual(["4px", "6px", "8px"]);
+    const i = themeVariables(indigo, "light");
+    expect(i["--font-theme-ui"]).toBe('system-ui, "Segoe UI", sans-serif');
+    expect(i["--font-mono"]).toBe('"Cascadia Code", "Consolas", ui-monospace, monospace');
+    expect([i["--r-sm"], i["--r-md"], i["--r-lg"]]).toEqual(["4px", "8px", "12px"]);
+  });
+
+  it("derives the soft tints from their colours, by mode", () => {
+    expect(themeVariables(indigo, "light")["--accent-soft"]).toBe("rgba(91, 91, 214, 0.1)");
+    expect(themeVariables(indigo, "dark")["--error-soft"]).toBe("rgba(240, 138, 138, 0.14)");
   });
 
   it("puts the UI in monospace for a monoUi theme", () => {
@@ -173,6 +239,16 @@ describe("contrastIssues", () => {
     expect(onBg.min).toBe(4.5);
     expect(onBg.ratio).toBeLessThan(4.5);
     expect(onBg.ratio).toBeGreaterThan(1);
+  });
+
+  it("holds the control border to 3:1 and the faint text to 4.5:1", () => {
+    const soft: Theme = {
+      ...indigo,
+      light: { ...indigo.light, "border-strong": "#d3d3dc", "text-faint": "#a0a0a8" },
+    };
+    const issues = contrastIssues(soft);
+    expect(issues).toContainEqual(expect.objectContaining({ fg: "border-strong", bg: "bg", min: 3 }));
+    expect(issues).toContainEqual(expect.objectContaining({ fg: "text-faint", bg: "bg", min: 4.5 }));
   });
 
   it("holds the accent to 3:1 as a UI colour and its ink to 4.5:1", () => {

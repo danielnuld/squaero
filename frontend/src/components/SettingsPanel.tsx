@@ -50,15 +50,16 @@ import {
   UI_FONT_CHOICES,
   ZOOM_STEPS,
 } from "../utils/typography";
-import type { ThemePref } from "../utils/theme";
+import type { ResolvedTheme, ThemePref } from "../utils/theme";
 import {
   contrastIssues,
   parseThemeJson,
   serializeTheme,
+  themeVariables,
   type Theme,
   type ThemeError,
 } from "../utils/themeSchema";
-import { DEFAULT_THEME_ID, isBuiltinTheme } from "../utils/themes";
+import { DEFAULT_THEME_ID, STYLE_THEME_IDS, isBuiltinTheme } from "../utils/themes";
 import { saveText } from "../utils/download";
 import {
   CELL_KINDS,
@@ -117,6 +118,8 @@ export function SettingsPanel(props: {
   onSetThemeId: (id: string) => void;
   onImportTheme: (theme: Theme) => void;
   onRemoveTheme: (id: string) => void;
+  /** The mode on screen, so the style cards preview the variant you would get. */
+  resolvedMode?: ResolvedTheme;
   /** Colour overrides for the look in use (issue #483), and how to change them. */
   cellColors: CellColors;
   onSetCellColor: (kind: CellKind, hex: string | null) => void;
@@ -164,6 +167,10 @@ export function SettingsPanel(props: {
   const [coreErr, setCoreErr] = createSignal(false);
 
   const activeTheme = () => props.themes.find((th) => th.id === props.themeId) ?? props.themes[0];
+  // The M14 styles (#747) get cards; every other theme, built-in or imported,
+  // stays a chip below them.
+  const styleThemes = () => props.themes.filter((th) => STYLE_THEME_IDS.includes(th.id));
+  const otherThemes = () => props.themes.filter((th) => !STYLE_THEME_IDS.includes(th.id));
 
   // Import (#680): the file is parsed and validated here, pure functions all the
   // way; errors are listed, and a theme that is valid but has pairs under AA is
@@ -438,6 +445,63 @@ export function SettingsPanel(props: {
     ),
     appearance: () => (
       <>
+        {row("style", () => (
+          <div class="style-cards" role="radiogroup" aria-label={t("settings.style")}>
+            <For each={styleThemes()}>
+              {(th) => (
+                <button
+                  class="style-card"
+                  role="radio"
+                  aria-checked={props.themeId === th.id}
+                  onClick={() => props.onSetThemeId(th.id)}
+                >
+                  {/* A miniature of the window in the style's own tokens. */}
+                  <span
+                    class="style-preview"
+                    aria-hidden="true"
+                    style={themeVariables(th, props.resolvedMode ?? "light")}
+                  >
+                    <span class="style-preview-bar">
+                      <i class="on" />
+                      <i class="search" />
+                    </span>
+                    <span class="style-preview-body">
+                      <span class="style-preview-rail">
+                        <i class="on" />
+                        <i />
+                        <i />
+                      </span>
+                      <span class="style-preview-tree">
+                        <i />
+                        <i class="on" />
+                        <i />
+                      </span>
+                      <span class="style-preview-content">
+                        <span class="style-preview-head" />
+                        <span class="style-preview-main">
+                          <span class="style-preview-aa">Aa</span>
+                          <span class="style-preview-lines">
+                            <i />
+                            <i class="on" />
+                            <i class="faint" />
+                          </span>
+                        </span>
+                      </span>
+                    </span>
+                  </span>
+                  <span class="style-card-name">
+                    <span class="style-card-radio" />
+                    {themeName(th)}
+                    <Show when={th.id === DEFAULT_THEME_ID}>
+                      <span class="style-card-default">{t("settings.styleDefault")}</span>
+                    </Show>
+                  </span>
+                  <span class="style-card-desc">{t(`theme.desc.${th.id}`)}</span>
+                </button>
+              )}
+            </For>
+          </div>
+        ))}
         {row("mode", () =>
           chips(t("settings.mode"), THEME_OPTS, () => props.theme, (m) => t(`settings.mode.${m}`), props.onSetTheme),
         )}
@@ -448,7 +512,7 @@ export function SettingsPanel(props: {
             <div class="settings-row">
               <span class="settings-label">{t("settings.theme")}</span>
               <div class="settings-choice" role="radiogroup" aria-label={t("settings.theme")}>
-                <For each={props.themes}>
+                <For each={otherThemes()}>
                   {(th) => (
                     <button
                       class={`chip ${props.themeId === th.id ? "active" : ""}`}

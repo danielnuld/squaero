@@ -1,67 +1,70 @@
 /* Squaero base UI. Themed via CSS custom properties (issue #42; tokens as data
    in #680). The theme in use is DATA — src/utils/themes.ts — and App writes its
    variant's values into a generated <style id="quaero-theme"> block, so the
-   stylesheet never hardcodes a per-theme value: the block below is the brand
-   dark palette as a BASELINE for the first paint and for a document no script
-   has reached, and tests/utils/themes.test.ts keeps it equal to that theme.
+   stylesheet never hardcodes a per-theme value: the block below is the
+   default theme's light variant (B · Nativo, #747) as a BASELINE for the
+   first paint and for a document no script has reached, and
+   tests/utils/themes.test.ts keeps it equal to that theme.
    App also stamps the resolved mode on the root as `data-theme`. Layout is a
    full-height flex column: the work area on top, the status bar pinned to the
    bottom. */
 
 :root {
-  --bg: #1e1e24;
-  --bg-elev: #26262e;
-  --bg-elev2: #2e2e38;
-  --bg-overlay: #2e2e38;
-  --border: #3a3a46;
-  --text: #e6e6ec;
-  --text-dim: #9a9aa6;
-  /* Brand indigo (issue #189/#191). --accent-fg is the text/icon color that
-     sits ON an accent fill; --accent-text is the accent as coloured TEXT on
-     elevated surfaces, lighter so it clears 4.5:1 on --bg-elev2 (issue #220). */
-  --accent: #7c7cf0;
-  --accent-fg: #1e1e24;
-  --accent-hover: #9a9aff;
-  --accent-text: #9090f5;
-  --error: #f08a8a;
-  --error-fg: #1e1e24;
-  --null: #d98a4b;
-  --number: #8fd0a0;
-  /* Tipos de dato en la rejilla (issue #483), medidos contra las tres
-     superficies. */
-  --cell-null: #d98a4b;
-  --cell-number: #8fd0a0;
-  --cell-text: #6ba1c7;
-  --cell-temporal: #b987d1;
-  --cell-bool: #c49331;
-  --cell-blob: #55a6ad;
-  /* Editor syntax (issue #680): what SqlEditor's highlight style reads. */
-  --syntax-keyword: #9090f5;
-  --syntax-string: #8fd0a0;
-  --syntax-number: #8fd0a0;
-  --syntax-null: #d98a4b;
-  --syntax-comment: #9a9aa6;
-  --syntax-operator: #9a9aa6;
-  --syntax-type: #9090f5;
-  --syntax-name: #e6e6ec;
-  --syntax-invalid: #f08a8a;
-  /* Categorical chart palette (issue #149): the validated 8-hue dataviz theme,
-     dark steps. Assigned to series in fixed order, never cycled. */
-  --chart-1: #3987e5;
-  --chart-2: #199e70;
-  --chart-3: #c98500;
+  --bg: #ffffff;
+  --bg-elev: #e9edf1;
+  --bg-elev2: #dfe5ea;
+  --bg-overlay: #ffffff;
+  --border: #dde2e7;
+  --text: #1b1f24;
+  --text-dim: #59626e;
+  --accent: #0f7b72;
+  --accent-fg: #ffffff;
+  --accent-hover: #0c6b63;
+  --accent-text: #0c6b63;
+  --error: #b42a25;
+  --error-fg: #ffffff;
+  --null: #59626e;
+  --number: #a14d00;
+  --border-strong: #7a838e;
+  --text-faint: #5b646e;
+  --warn: #8f4400;
+  --ok: #1a6f38;
+  --cell-null: #59626e;
+  --cell-number: #1b1f24;
+  --cell-text: #1b1f24;
+  --cell-temporal: #1b1f24;
+  --cell-bool: #a14d00;
+  --cell-blob: #59626e;
+  --syntax-keyword: #1f4fd1;
+  --syntax-string: #1a6f38;
+  --syntax-number: #a14d00;
+  --syntax-null: #59626e;
+  --syntax-comment: #5b646e;
+  --syntax-operator: #59626e;
+  --syntax-type: #0c6b63;
+  --syntax-name: #1b1f24;
+  --syntax-invalid: #b42a25;
+  --chart-1: #2a78d6;
+  --chart-2: #1baf7a;
+  --chart-3: #eda100;
   --chart-4: #008300;
-  --chart-5: #9085e9;
-  --chart-6: #e66767;
-  --chart-7: #d55181;
-  --chart-8: #d95926;
-  /* Derived by the theme (themeSchema.ts): the accent at an alpha, and the two
-     shadows by light/dark (#386). */
-  --focus-ring: rgba(124, 124, 240, 0.4);
-  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
-  /* A theme with `monoUi` (Terminal) points this at --font-mono. */
+  --chart-5: #4a3aa7;
+  --chart-6: #e34948;
+  --chart-7: #e87ba4;
+  --chart-8: #eb6834;
+  --focus-ring: rgba(15, 123, 114, 0.32);
+  --shadow-sm: 0 4px 16px rgba(20, 22, 30, 0.12);
+  --shadow-lg: 0 12px 40px rgba(20, 22, 30, 0.18);
   --font-ui: var(--font-system);
+  --font-theme-ui: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Cantarell, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --accent-soft: rgba(15, 123, 114, 0.1);
+  --error-soft: rgba(180, 42, 37, 0.1);
+  --warn-soft: rgba(143, 68, 0, 0.1);
+  --ok-soft: rgba(26, 111, 56, 0.1);
 }
 
 :root {
@@ -70,8 +73,9 @@
   --fg: var(--text);
   --fg-dim: var(--text-dim);
   --bg-alt: var(--bg-elev);
-  --font-system: system-ui, "Segoe UI", sans-serif;
-  --font-mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+  /* The theme's UI stack, with the user's font (typography.ts) in front. The
+     theme block above sets --font-theme-ui and --font-mono (#747). */
+  --font-system: var(--font-theme-ui);
   /* Typography settings (issue #681). The editor and the grid each read their
      own family and size, so the user can set them apart from the UI; the
      values here are the defaults, and App overrides them — and the scales
@@ -98,10 +102,8 @@
   --sp-5: 16px;
   --sp-6: 24px;
 
-  /* Radios: control, contenedor, píldora. 4px es el radio que la app ya usaba
-     en 44 reglas — la escala se ajusta a lo que hay, no al revés. */
-  --r-sm: 4px;
-  --r-md: 8px;
+  /* Radios: control, contenedor, píldora. --r-sm, --r-md y --r-lg los pone el
+     tema (#747): cada estilo tiene los suyos; sin tema propio, 4 / 8 / 12. */
   --r-pill: 999px;
 
   /* Tipo. --fs-micro es el suelo: badges de tipo y contadores, nada de prosa. */
@@ -153,8 +155,8 @@
 /* JetBrains Mono (OFL 1.1; licence in assets/fonts/JetBrainsMono-OFL.txt),
    bundled so the editor and the grid can look the same on Windows, Linux and
    macOS (issue #681). Regular and Bold, Latin and Latin Extended, inlined by
-   the single-file build. It is an available choice, not the default: the
-   default stack stays --font-mono until #678 decides the typeface. */
+   the single-file build. B · Nativo and Rosa pastel use it as their code font
+   (#747); elsewhere it is an available choice. */
 @font-face {
   font-family: "JetBrains Mono";
   font-style: normal;
@@ -195,6 +197,71 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
     U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
     U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* The typefaces of the M14 styles (#747), bundled so a style looks the same
+   offline and on every OS: Geist + Geist Mono (A · Quiet pro), IBM Plex Sans +
+   Mono (C · Editorial), Figtree (Rosa pastel). All OFL 1.1 (licences next to
+   the files in assets/fonts/), Latin subset; the sans faces are variable, so
+   one file covers every weight. B · Nativo uses the system font. */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(./assets/fonts/Geist-Latin-Variable.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(./assets/fonts/GeistMono-Latin-Variable.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url(./assets/fonts/IBMPlexSans-Latin-Variable.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/fonts/IBMPlexMono-Latin-Regular.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(./assets/fonts/IBMPlexMono-Latin-SemiBold.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url(./assets/fonts/Figtree-Latin-Variable.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 * {
@@ -5873,6 +5940,198 @@ button.grid-action.danger:hover:not(:disabled) {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-fg);
+}
+
+/* The M14 style cards (#747), as in the prototype's SettingsAppearance: a
+   miniature of the window painted with the style's own tokens (set inline on
+   .style-preview), its name and one line on what it is. */
+.style-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--sp-4);
+}
+
+.style-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: default;
+}
+
+.style-card[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
+}
+
+.style-preview {
+  height: 68px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.style-preview i {
+  display: block;
+  border-radius: var(--r-sm);
+  background: var(--text-faint);
+  opacity: 0.5;
+}
+
+.style-preview i.on {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.style-preview-bar {
+  height: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+}
+
+.style-preview-bar i {
+  width: 7px;
+  height: 7px;
+}
+
+.style-preview-bar i.search {
+  width: 54px;
+  height: 6px;
+  margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  opacity: 1;
+}
+
+.style-preview-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.style-preview-rail {
+  width: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+}
+
+.style-preview-rail i {
+  width: 8px;
+  height: 8px;
+}
+
+.style-preview-tree {
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) 0;
+}
+
+.style-preview-tree i {
+  height: 4px;
+}
+
+.style-preview-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  border-top-left-radius: var(--r-md);
+}
+
+.style-preview-head {
+  height: 12px;
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--border);
+}
+
+.style-preview-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+}
+
+.style-preview-aa {
+  font-family: var(--font-theme-ui);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.style-preview-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.style-preview-lines i {
+  height: 4px;
+  background: var(--text-dim);
+  opacity: 1;
+}
+
+.style-preview-lines i.on {
+  width: 60%;
+}
+
+.style-preview-lines i.faint {
+  width: 80%;
+  background: var(--text-faint);
+}
+
+.style-card-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-1);
+  font-weight: 600;
+}
+
+.style-card-radio {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg);
+}
+
+.style-card[aria-checked="true"] .style-card-radio {
+  border: 4px solid var(--accent);
+}
+
+.style-card-default {
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.style-card-desc {
+  padding: 0 var(--sp-4) var(--sp-4) var(--sp-6);
+  font-size: var(--fs-base);
+  line-height: 1.35;
+  color: var(--text-dim);
 }
 
 /* Settings redesign (issue #684): a navigation list of categories beside the

@@ -21,6 +21,10 @@ export const TOKEN_GROUPS = {
   text: ["text", "text-dim"],
   accent: ["accent", "accent-fg", "accent-hover", "accent-text"],
   states: ["error", "error-fg", "null", "number"],
+  // Added with the M14 styles (#747): the control border that has to clear 3:1
+  // (the hairline `border` is decorative), a third text level and the warning /
+  // success colours. Optional in a theme file — see OPTIONAL_TOKENS.
+  extended: ["border-strong", "text-faint", "warn", "ok"],
   cells: ["cell-null", "cell-number", "cell-text", "cell-temporal", "cell-bool", "cell-blob"],
   syntax: [
     "syntax-keyword",
@@ -46,6 +50,44 @@ export type ThemeTokens = Record<TokenName, string>;
 
 export type ThemeMode = "light" | "dark";
 
+type ExtendedToken = (typeof TOKEN_GROUPS.extended)[number];
+
+/**
+ * The tokens a theme file may leave out, each with the older token it falls
+ * back to. Files exported before #747 do not have them; every fallback already
+ * meets the bar its token is held to (text-dim is text at 4.5:1, so it also
+ * clears 3:1 as a control border).
+ */
+export const OPTIONAL_TOKENS: Readonly<Record<ExtendedToken, TokenName>> = {
+  "border-strong": "text-dim",
+  "text-faint": "text-dim",
+  warn: "null",
+  ok: "number",
+};
+
+/** A variant without the optional tokens, completed from their fallbacks. */
+export function withOptionalTokens(
+  t: Omit<ThemeTokens, ExtendedToken> & Partial<Record<ExtendedToken, string>>,
+): ThemeTokens {
+  const out = { ...t } as ThemeTokens;
+  for (const [key, from] of Object.entries(OPTIONAL_TOKENS) as [ExtendedToken, TokenName][]) {
+    out[key] ??= out[from];
+  }
+  return out;
+}
+
+/** Corner radii in px: controls, containers, dialogs. */
+export interface ThemeRadius {
+  sm: number;
+  md: number;
+  lg: number;
+}
+
+/** What a theme without its own typography or radii gets. */
+export const DEFAULT_FONT_UI = 'system-ui, "Segoe UI", sans-serif';
+export const DEFAULT_FONT_MONO = '"Cascadia Code", "Consolas", ui-monospace, monospace';
+export const DEFAULT_RADIUS: ThemeRadius = { sm: 4, md: 8, lg: 12 };
+
 export interface Theme {
   /** Stable slug, what settings store and what a palette key is built from. */
   id: string;
@@ -53,15 +95,24 @@ export interface Theme {
   name: string;
   /** Draw the whole UI in the monospace font (Terminal's half of the effect). */
   monoUi?: boolean;
+  /** CSS font-family stacks for the UI and for code (#747); default stacks when absent. */
+  fontUi?: string;
+  fontMono?: string;
+  /** Corner radii (#747); DEFAULT_RADIUS when absent. */
+  radius?: ThemeRadius;
   light: ThemeTokens;
   dark: ThemeTokens;
 }
 
 /** Top-level keys a theme file may carry. */
-const THEME_KEYS = ["id", "name", "monoUi", "light", "dark"];
+const THEME_KEYS = ["id", "name", "monoUi", "fontUi", "fontMono", "radius", "light", "dark"];
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const HEX_RE = /^#[0-9a-f]{6}$/;
+/** A font-family list: names, quotes, commas. Nothing that could close the
+ *  declaration it is written into (`;`, `}`, `(`…), since it lands in a <style>. */
+const FONT_RE = /^[A-Za-z0-9 ,"'-]{1,200}$/;
+const RADIUS_MAX = 24;
 
 /** `#rgb` / `#rrggbb` (any case) normalised to lowercase `#rrggbb`, or null. */
 export function normalizeHex(value: string): string | null {
@@ -94,7 +145,7 @@ function validateTokens(data: unknown, path: string, errors: ThemeError[]): void
     return;
   }
   for (const key of TOKEN_NAMES) {
-    if (!(key in data)) errors.push({ code: "missing", path: `${path}.${key}` });
+    if (!(key in data) && !(key in OPTIONAL_TOKENS)) errors.push({ code: "missing", path: `${path}.${key}` });
   }
   for (const [key, value] of Object.entries(data)) {
     const p = `${path}.${key}`;
@@ -102,6 +153,22 @@ function validateTokens(data: unknown, path: string, errors: ThemeError[]): void
       errors.push({ code: "unknown", path: p });
     } else if (typeof value !== "string" || normalizeHex(value) === null) {
       errors.push({ code: "color", path: p, value: String(value) });
+    }
+  }
+}
+
+function validateRadius(data: unknown, errors: ThemeError[]): void {
+  if (!isRecord(data)) {
+    errors.push({ code: "type", path: "radius", value: typeof data });
+    return;
+  }
+  for (const key of Object.keys(data)) {
+    if (!["sm", "md", "lg"].includes(key)) errors.push({ code: "unknown", path: `radius.${key}` });
+  }
+  for (const key of ["sm", "md", "lg"]) {
+    const v = data[key];
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > RADIUS_MAX) {
+      errors.push({ code: "type", path: `radius.${key}`, value: String(v) });
     }
   }
 }
@@ -125,6 +192,13 @@ export function validateTheme(data: unknown): ThemeError[] {
   if (data.monoUi !== undefined && typeof data.monoUi !== "boolean") {
     errors.push({ code: "type", path: "monoUi", value: typeof data.monoUi });
   }
+  for (const key of ["fontUi", "fontMono"]) {
+    const v = data[key];
+    if (v !== undefined && (typeof v !== "string" || !FONT_RE.test(v))) {
+      errors.push({ code: "type", path: key, value: String(v) });
+    }
+  }
+  if (data.radius !== undefined) validateRadius(data.radius, errors);
   validateTokens(data.light, "light", errors);
   validateTokens(data.dark, "dark", errors);
   return errors;
@@ -143,8 +217,8 @@ export function parseThemeJson(text: string): { theme: Theme | null; errors: The
   const d = data as Record<string, unknown>;
   const norm = (tokens: Record<string, string>): ThemeTokens => {
     const out = {} as ThemeTokens;
-    for (const key of TOKEN_NAMES) out[key] = normalizeHex(tokens[key])!;
-    return out;
+    for (const key of TOKEN_NAMES) if (key in tokens) out[key] = normalizeHex(tokens[key])!;
+    return withOptionalTokens(out);
   };
   const theme: Theme = {
     id: d.id as string,
@@ -153,6 +227,12 @@ export function parseThemeJson(text: string): { theme: Theme | null; errors: The
     dark: norm(d.dark as Record<string, string>),
   };
   if (d.monoUi === true) theme.monoUi = true;
+  if (typeof d.fontUi === "string") theme.fontUi = d.fontUi;
+  if (typeof d.fontMono === "string") theme.fontMono = d.fontMono;
+  if (d.radius !== undefined) {
+    const r = d.radius as ThemeRadius;
+    theme.radius = { sm: r.sm, md: r.md, lg: r.lg };
+  }
   return { theme, errors: [] };
 }
 
@@ -165,6 +245,9 @@ export function serializeTheme(theme: Theme): string {
       id: theme.id,
       name: theme.name,
       ...(theme.monoUi ? { monoUi: true } : {}),
+      ...(theme.fontUi ? { fontUi: theme.fontUi } : {}),
+      ...(theme.fontMono ? { fontMono: theme.fontMono } : {}),
+      ...(theme.radius ? { radius: theme.radius } : {}),
       light: ordered(theme.light),
       dark: ordered(theme.dark),
     },
@@ -183,6 +266,9 @@ const AS_TEXT: TokenName[] = [
   ...TOKEN_GROUPS.text,
   "accent-text",
   ...TOKEN_GROUPS.states.filter((t) => t !== "error-fg"),
+  "text-faint",
+  "warn",
+  "ok",
   ...TOKEN_GROUPS.cells,
   ...TOKEN_GROUPS.syntax,
 ];
@@ -201,7 +287,8 @@ export interface ContrastIssue {
 /**
  * Every key pair of `theme` that falls under WCAG AA: text tokens on each
  * surface (4.5:1), the ink on an accent/error fill (4.5:1) and the accent itself
- * on each surface as the focus ring and accent borders (3:1). Empty = passes.
+ * on each surface as the focus ring and accent borders, and `border-strong` as
+ * the edge of a control (3:1). Empty = passes.
  *
  * Deliberately NOT checked: `border` (a decorative hairline, every theme today
  * is under 3:1 by design) and the chart series (fills judged against each other
@@ -218,6 +305,7 @@ export function contrastIssues(theme: Theme): ContrastIssue[] {
     for (const surface of SURFACES) {
       for (const fg of AS_TEXT) check(mode, fg, surface, AA_NORMAL);
       check(mode, "accent", surface, AA_UI);
+      check(mode, "border-strong", surface, AA_UI);
     }
     check(mode, "accent-fg", "accent", AA_NORMAL);
     check(mode, "error-fg", "error", AA_NORMAL);
@@ -242,6 +330,11 @@ function withAlpha(hex: string, alpha: number): string {
  *  - `--shadow-sm` / `--shadow-lg`: by mode. On a light canvas a black shadow at
  *    50 % reads as dirt, not elevation, so light is neutral-cool and softer.
  *  - `--font-ui`: the monospace stack when `monoUi`, else the system one.
+ *  - `--font-theme-ui` / `--font-mono`: the theme's stacks (#747). The user's
+ *    own font, when set, goes in front of them (typography.ts).
+ *  - `--r-sm` / `--r-md` / `--r-lg`: the theme's radii.
+ *  - `--accent-soft`, `--error-soft`, `--warn-soft`, `--ok-soft`: the colour at
+ *    a low alpha, for a tinted background under text of that colour.
  */
 export function themeVariables(theme: Theme, mode: ThemeMode): Record<string, string> {
   const t = theme[mode];
@@ -256,6 +349,16 @@ export function themeVariables(theme: Theme, mode: ThemeMode): Record<string, st
     vars["--shadow-lg"] = "0 12px 40px rgba(20, 22, 30, 0.18)";
   }
   vars["--font-ui"] = theme.monoUi ? "var(--font-mono)" : "var(--font-system)";
+  vars["--font-theme-ui"] = theme.fontUi ?? DEFAULT_FONT_UI;
+  vars["--font-mono"] = theme.fontMono ?? DEFAULT_FONT_MONO;
+  const r = theme.radius ?? DEFAULT_RADIUS;
+  vars["--r-sm"] = `${r.sm}px`;
+  vars["--r-md"] = `${r.md}px`;
+  vars["--r-lg"] = `${r.lg}px`;
+  const soft = mode === "dark" ? 0.14 : 0.1;
+  for (const key of ["accent", "error", "warn", "ok"] as const) {
+    vars[`--${key}-soft`] = withAlpha(t[key], soft);
+  }
   return vars;
 }
 

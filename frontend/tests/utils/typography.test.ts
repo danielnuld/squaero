@@ -125,9 +125,12 @@ describe("sanitizeFontFamily", () => {
     expect(fontStack("", MONO_FALLBACK)).toBe(MONO_FALLBACK);
     expect(fontStack('"Fira Code"', MONO_FALLBACK)).toBe(`"Fira Code", ${MONO_FALLBACK}`);
   });
+  // The fallbacks are the theme's stacks (#747), which the theme writes.
   it("keeps the fallback stacks equal to the stylesheet's", () => {
     expect(CSS).toContain(`--font-system: ${UI_FALLBACK};`);
-    expect(CSS).toContain(`--font-mono: ${MONO_FALLBACK};`);
+    expect(CSS).toContain(`--font-editor: ${MONO_FALLBACK};`);
+    expect(CSS).toContain("--font-theme-ui: ");
+    expect(CSS).toContain("--font-mono: ");
   });
 });
 

@@ -7,7 +7,7 @@ import { fold } from "./connectionSearch";
 import { DEFAULT_HISTORY_LIMIT, clampLimit } from "./history";
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from "./settings";
 import { SHORTCUTS, parseOverrides, type ShortcutOverrides } from "./shortcuts";
-import { DEFAULT_THEME_ID } from "./themes";
+import { DEFAULT_THEME_ID, STYLE_THEME_IDS } from "./themes";
 import type { ThemePref } from "./theme";
 import { isLocale, type Locale } from "./translate";
 
@@ -49,6 +49,14 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   { id: "language", category: "general", keys: ["common.language", "lang.es", "lang.en"] },
   { id: "checkUpdates", category: "general", keys: ["settings.checkUpdates"] },
   { id: "config", category: "general", keys: ["settings.exportConfig", "settings.importConfig"] },
+  {
+    id: "style",
+    category: "appearance",
+    keys: [
+      "settings.style",
+      ...STYLE_THEME_IDS.flatMap((id) => [`theme.name.${id}`, `theme.desc.${id}`]),
+    ],
+  },
   {
     id: "mode",
     category: "appearance",
