@@ -221,3 +221,55 @@ describe("CommandPalette — snippet mode (issue #320)", () => {
     expect(host!.querySelector(".cmdk-footer")?.textContent).toContain("Shift+Enter");
   });
 });
+
+// Audit P4 (R-29): the WAI-ARIA combobox pattern, scopes and unavailable commands.
+describe("CommandPalette — semantics", () => {
+  const input = () => host!.querySelector<HTMLInputElement>(".cmdk-input")!;
+  const options = () => [...host!.querySelectorAll<HTMLElement>("[role=option]")];
+
+  it("is a combobox over a listbox of options, with the active one as activedescendant", () => {
+    mount();
+    expect(host!.querySelector(".cmdk")!.getAttribute("aria-modal")).toBe("true");
+    expect(input().getAttribute("role")).toBe("combobox");
+    expect(input().getAttribute("aria-expanded")).toBe("true");
+    const list = host!.querySelector("[role=listbox]")!;
+    expect(input().getAttribute("aria-controls")).toBe(list.id);
+    expect(options()).toHaveLength(4);
+    expect(input().getAttribute("aria-activedescendant")).toBe(options()[0].id);
+    expect(options()[0].getAttribute("aria-selected")).toBe("true");
+    key(input(), "ArrowDown");
+    expect(input().getAttribute("aria-activedescendant")).toBe(options()[1].id);
+    expect(options()[1].getAttribute("aria-selected")).toBe("true");
+    expect(options()[0].getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("labels each group by its header", () => {
+    mount();
+    const group = host!.querySelector("[role=group]")!;
+    const label = host!.querySelector(`#${group.getAttribute("aria-labelledby")}`)!;
+    expect(label.textContent).toBe("Acciones");
+  });
+
+  it("moves between scopes with Tab, showing each one's count", () => {
+    mount();
+    const tabs = () => [...host!.querySelectorAll<HTMLElement>("[role=tab]")];
+    expect(tabs().map((t) => t.textContent)).toEqual(["Todo 4", "Objetos 2", "Acciones 2"]);
+    expect(tabs()[0].getAttribute("aria-selected")).toBe("true");
+    key(input(), "Tab");
+    expect(tabs()[1].getAttribute("aria-selected")).toBe("true");
+    expect(options().map((o) => o.querySelector(".cmdk-item-label")!.textContent)).toEqual(["orders", "customers"]);
+  });
+
+  it("lists an unavailable command with its reason and does not run it", () => {
+    const run = vi.fn();
+    mount({
+      commands: [{ id: "tool:mon", category: "tool", label: "Monitor", disabled: "conecta primero", run }],
+    });
+    const opt = options()[0];
+    expect(opt.getAttribute("aria-disabled")).toBe("true");
+    expect(opt.textContent).toContain("No disponible: conecta primero");
+    key(input(), "Enter");
+    opt.click();
+    expect(run).not.toHaveBeenCalled();
+  });
+});
