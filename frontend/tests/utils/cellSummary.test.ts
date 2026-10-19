@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { summarizeCells } from "../../src/utils/cellSummary";
+import { summarizeCells, summarizeRange } from "../../src/utils/cellSummary";
 
 // Issue #670: the status bar sums up the selected cells.
 describe("summarizeCells", () => {
@@ -91,5 +91,41 @@ describe("summarizeCells", () => {
 
   it("gives only a count for dates it cannot order", () => {
     expect(summarizeCells(["02/14/2023", "01/01/2024"], "date")).toEqual({ count: 2, nulls: 0 });
+  });
+});
+
+// Issue #690: a block of cells over several columns.
+describe("summarizeRange", () => {
+  it("adds up a block of numeric columns as one set of numbers", () => {
+    expect(
+      summarizeRange([
+        { values: ["1.5", "2"], type: "float" },
+        { values: ["10", null], type: "int" },
+      ]),
+    ).toEqual({ count: 4, nulls: 1, sum: "13.5", avg: "4.5", min: "1.5", max: "10" });
+  });
+
+  it("gives only the count and the NULLs for a block of mixed kinds", () => {
+    expect(
+      summarizeRange([
+        { values: ["1", "2"], type: "int" },
+        { values: ["ana", null], type: "text" },
+      ]),
+    ).toEqual({ count: 4, nulls: 1 });
+  });
+
+  it("is a single column's summary for a one-column block", () => {
+    expect(summarizeRange([{ values: ["3", "4"], type: "int" }])).toEqual(
+      summarizeCells(["3", "4"], "int"),
+    );
+  });
+
+  it("keeps min and max for a block of ISO dates", () => {
+    const out = summarizeRange([
+      { values: ["2023-05-01"], type: "date" },
+      { values: ["2022-01-31"], type: "date" },
+    ]);
+    expect(out.min).toBe("2022-01-31");
+    expect(out.max).toBe("2023-05-01");
   });
 });

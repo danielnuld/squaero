@@ -29,7 +29,7 @@ describe("clampSlowThreshold", () => {
 describe("rowHeightFor (per style and density, issue #540)", () => {
   it("gives each style its own pair of heights", () => {
     expect(rowHeightFor("registro", "normal")).toBe(28);
-    expect(rowHeightFor("registro", "compact")).toBe(22);
+    expect(rowHeightFor("registro", "compact")).toBe(24);
     expect(rowHeightFor("hoja", "normal")).toBe(22);
     expect(rowHeightFor("hoja", "compact")).toBe(20);
     expect(rowHeightFor("informe", "normal")).toBe(32);

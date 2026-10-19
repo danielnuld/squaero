@@ -39,6 +39,7 @@ export type ActionId =
   | "paste-rows"
   | "unmark-rows"
   | "delete-rows"
+  | "related-row"
   | "add-condition"
   | "filter-add-condition"
   | "select-next-occurrence"
@@ -96,6 +97,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "paste-rows", keys: "Mod+V", description: "sc.paste-rows", global: false },
   { id: "unmark-rows", keys: "Esc", description: "sc.unmark-rows", global: false },
   { id: "delete-rows", keys: "Delete", description: "sc.delete-rows", global: false },
+  { id: "related-row", keys: "Mod+B", description: "sc.related-row", global: false },
   // The filter panel owns it (issue #462): Enter there applies the draft, so
   // Shift+Enter is the "one more line" of the same reflex. Not matched globally.
   { id: "add-condition", keys: "Shift+Enter", description: "sc.add-condition", global: false },

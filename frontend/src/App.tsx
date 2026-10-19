@@ -316,7 +316,7 @@ import { ExplainPlan } from "./components/ExplainPlan";
 import { UpdateModal } from "./components/UpdateModal";
 import { TOOL_CATALOG } from "./utils/toolCatalog";
 import { sourceLabel } from "./utils/resultFacts";
-import { summarizeCells } from "./utils/cellSummary";
+import { summarizeRange } from "./utils/cellSummary";
 import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
 import { Icon, IconSearch } from "./components/icons";
@@ -3044,6 +3044,17 @@ export function App() {
       table (their dependents) or foreign keys themselves (their parent row).
       Both get the cell affordance, because from the user's side it is the same
       question — "what else is attached to this value?". */
+  // Where this table's own foreign keys point, by column (issue #690): the
+  // grid header shows "integer → clientes.id".
+  const foreignKeyTargets = createMemo(() => {
+    const tab = current();
+    const out: Record<string, string> = {};
+    for (const rel of tab ? (outbound[tab.id]?.rels ?? []) : []) {
+      for (const c of rel.columns) out[c.from] ??= `${rel.toTable}.${c.to}`;
+    }
+    return out;
+  });
+
   const referencedColumns = createMemo(() => {
     const tab = current();
     if (!tab) return [];
@@ -3439,21 +3450,25 @@ export function App() {
   // result's rows. The grid publishes them; the copy / transfer actions below
   // narrow the result to exactly those rows and reuse the existing paths.
   const [markedRows, setMarkedRows] = createSignal<number[]>([]);
-  // The cells the grid's selection covers (issue #670), summarized in the
-  // status bar. One cell is not summarized: it is already on screen.
-  const [selectedCells, setSelectedCells] = createSignal<{ column: number; rows: number[] } | null>(null);
+  // The cells the grid's selection covers (issues #670, #690), summarized in
+  // the status bar. One cell is not summarized: it is already on screen.
+  const [selectedCells, setSelectedCells] = createSignal<{ columns: number[]; rows: number[] } | null>(null);
   const cellSummary = createMemo(() => {
     const cells = selectedCells();
     const res = currentResult().result;
-    const col = cells && res?.columns[cells.column];
-    if (!cells || !res || !col || cells.rows.length < 2) return null;
+    if (!cells || !res || cells.columns.length * cells.rows.length < 2) return null;
     // What the grid shows: a pending edit, else the value the core sent.
     const edits = currentEdit().pending.edits;
-    const values = cells.rows.map((r) => {
-      const e = edits[r];
-      return e && col.name in e ? e[col.name] : (res.rows[r]?.[cells.column] ?? null);
+    const columns = cells.columns.flatMap((ci) => {
+      const col = res.columns[ci];
+      if (!col) return [];
+      const values = cells.rows.map((r) => {
+        const e = edits[r];
+        return e && col.name in e ? e[col.name] : (res.rows[r]?.[ci] ?? null);
+      });
+      return [{ values, type: col.type }];
     });
-    return summarizeCells(values, col.type);
+    return columns.length > 0 ? summarizeRange(columns) : null;
   });
   // Columns as rows (issue #670), held for the result it was turned on over: a
   // new run, another page or another tab shows the plain grid again, and so
@@ -5111,6 +5126,7 @@ export function App() {
                             onDuplicateRows={currentEditable() ? duplicateRows : undefined}
                             clearMarksTick={clearMarksTick()}
                             referencedColumns={referencedColumns()}
+                            foreignKeys={foreignKeyTargets()}
                             onRelated={openRelated}
                             onSortColumn={
                               isDataTab(tab().id)

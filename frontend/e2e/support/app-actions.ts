@@ -129,7 +129,9 @@ export async function editRow(page: Page, nameFragment: string): Promise<void> {
   // Filtering is by substring, so an id of "1" would also match 11, 12, 21… — narrow
   // on a name fragment instead, and one that survives the edit so the row does not
   // vanish from under the test halfway through.
-  await page.getByRole("searchbox", { name: "Filtrar por nombre" }).fill(nameFragment);
+  // The page search is closed by default (issue #690): Ctrl+F on the grid opens it.
+  await page.getByRole("grid").press("Control+f");
+  await page.getByRole("searchbox", { name: "Buscar en nombre (página cargada)" }).fill(nameFragment);
   await expect(nombreCell(page)).toHaveValue(new RegExp(nameFragment));
 }
 
