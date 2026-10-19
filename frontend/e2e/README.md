@@ -155,9 +155,8 @@ Chromium installed.
 
 - **Geometry**: 1280×800 at `deviceScaleFactor: 1`, in the config.
 - **Data**: the same SQLite fixture every e2e test reseeds.
-- **Time**: `page.clock` freezes `Date`, timers and `performance.now`, so the run
-  toast reads "Ejecutada a las 10:30:00 · 0 ms", stays on screen instead of timing
-  out, and the status bar's duration never varies. The time zone and locale are
+- **Time**: `page.clock` freezes `Date`, timers and `performance.now`, so toasts
+  stay on screen instead of timing out and the status bar's duration never varies. The time zone and locale are
   pinned in the config for the same reason.
 - **Motion**: `reducedMotion: "reduce"` (which `styles.css` honours by zeroing every
   transition), `animations: "disabled"` and `caret: "hide"` on the comparison.
