@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { EmptyNote } from "./EmptyNote";
 import { drainQuery, runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
@@ -170,7 +171,7 @@ export function RoutineExplorer(props: {
 
       <Show
         when={support().supported}
-        fallback={<p class="grid-empty">{unsupportedReason(props.engine, locale())}</p>}
+        fallback={<EmptyNote title={t("tool.unsupportedTitle")} text={unsupportedReason(props.engine, locale())} />}
       >
         <div class="routine-body">
           <div class="routine-list">

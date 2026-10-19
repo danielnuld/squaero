@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { EmptyNote } from "./EmptyNote";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
@@ -204,7 +205,7 @@ export function TriggersExplorer(props: {
 
       <Show
         when={support().supported}
-        fallback={<p class="grid-empty">{unsupportedReason(props.engine, kind())}</p>}
+        fallback={<EmptyNote title={t("tool.unsupportedTitle")} text={unsupportedReason(props.engine, kind())} />}
       >
         <div class="routine-body">
           <div class="routine-list">

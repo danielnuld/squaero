@@ -31,6 +31,18 @@ describe("ContextMenu", () => {
     expect(host!.querySelector(".context-menu")).toBeNull();
   });
 
+  it("draws a heading as a title, not as an item (audit A-18)", () => {
+    mount();
+    openContextMenu(evAt(5, 5), [
+      { heading: true, label: "Servidor" },
+      { label: "Monitor", action: () => {} },
+    ]);
+    const heading = host!.querySelector(".context-menu-heading")!;
+    expect(heading.textContent).toBe("Servidor");
+    expect(heading.getAttribute("role")).toBe("presentation");
+    expect([...host!.querySelectorAll("[role=menuitem]")].map((b) => b.textContent)).toEqual(["Monitor"]);
+  });
+
   it("renders items and runs an action then closes on click", () => {
     mount();
     const action = vi.fn();
