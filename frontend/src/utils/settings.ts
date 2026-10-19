@@ -148,7 +148,7 @@ export function clampLocalDays(n: number): number {
  * another leave gaps or overlap as you scroll.
  */
 const ROW_HEIGHT: Record<GridStyle, Record<GridDensity, number>> = {
-  registro: { normal: 28, compact: 22 },
+  registro: { normal: 28, compact: 24 },
   hoja: { normal: 22, compact: 20 },
   informe: { normal: 32, compact: 28 },
 };

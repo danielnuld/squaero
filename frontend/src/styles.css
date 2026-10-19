@@ -1778,6 +1778,8 @@ body {
 }
 
 .grid-scroll {
+  /* The two-line header (issue #690); the search row sticks right under it. */
+  --grid-head-h: 40px;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -1794,6 +1796,12 @@ body {
    doesn't shift layout (the grid cells clip, so use an inset box-shadow). */
 .grid-cell.cell-selected {
   box-shadow: inset 0 0 0 2px var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* The rest of a selected block of cells (issue #690): the tint without the
+   ring, which stays on the focused corner. */
+.grid-cell.cell-in-range {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
@@ -1859,23 +1867,62 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   border-right: 1px solid var(--border);
-  font-family: var(--font-grid);
+  font-family: var(--font-ui);
   font-size: var(--fs-grid);
+}
+
+/* Text reads in the interface's font; what is read digit by digit — numbers,
+   dates, bytes — in the grid's (monospaced by default) with tabular figures, so
+   a column of them lines up (issue #690). Both are typography settings. */
+.cell-number,
+.cell-temporal,
+.cell-blob {
+  font-family: var(--font-grid);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two lines (issue #690): the name with its marks, and the type under it. */
+.grid-header .grid-head {
+  height: var(--grid-head-h);
+  line-height: 1.25;
 }
 
 .grid-head {
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-3);
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
   font-family: var(--font-ui);
   font-weight: 600;
 }
 
+.col-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.col-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.head-number .col-line {
+  justify-content: flex-end;
+}
+
+.head-number .col-type {
+  text-align: right;
+}
+
 .col-type {
-  font-size: var(--fs-micro);
+  font-size: var(--fs-sm);
   font-weight: 400;
   color: var(--text-dim);
-  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Sortable header + per-column filter row (issue #132) */
@@ -1907,15 +1954,59 @@ body {
 }
 
 .col-sort {
-  margin-left: auto;
   font-size: var(--fs-micro);
   color: var(--accent-text);
+}
+
+.col-sort:empty {
+  display: none;
+}
+
+.col-search-mark {
+  display: inline-flex;
+  color: var(--accent-text);
+}
+
+.col-search-mark svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* The page search (issue #690) says what it searches: the loaded rows only. */
+.grid-search-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  background: var(--bg-elev2);
+  border-bottom: 1px solid var(--border);
+}
+
+.grid-search-note svg {
+  width: 12px;
+  height: 12px;
+}
+
+.grid-search-close {
+  margin-left: auto;
+  min-width: 24px;
+  min-height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-md);
+}
+
+.grid-search-close:hover {
+  color: var(--text);
 }
 
 .grid-filter {
   display: grid;
   position: sticky;
-  top: 28px;
+  top: var(--grid-head-h);
   z-index: 1;
   background: var(--bg-elev2);
   border-bottom: 1px solid var(--border);
@@ -4169,6 +4260,35 @@ svg.icon {
   height: 100%;
 }
 
+/* A changed cell (issue #690): amber, a corner mark that does not rest on the
+   colour, and the original value in the tooltip — or beside it, struck. */
+.cell-dirty {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cell-dirty .cell-input {
+  background: color-mix(in srgb, var(--null) 18%, var(--bg));
+}
+
+.cell-dirty::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-top: 7px solid var(--null);
+  border-left: 7px solid transparent;
+  pointer-events: none;
+}
+
+.cell-old {
+  flex: none;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
 /* Foreign-key value picker: a free-text input plus a visible ▾ that opens the
    referenced table's rows. The popup is position:fixed (placed from the input's
    rect) so it escapes the grid cell's clipping instead of being cut off. */
@@ -4370,8 +4490,29 @@ svg.icon {
 
 .grid-row:hover .grid-mark-num,
 .grid-row.row-marked .grid-mark-num,
-.grid-scroll.has-marks .grid-mark-num {
+.grid-scroll.has-marks .grid-mark-num,
+.grid-rows .grid-row:hover .row-glyph,
+.grid-rows .grid-row.row-marked .row-glyph,
+.grid-scroll.has-marks .row-glyph {
   visibility: hidden;
+}
+
+/* What is staged for a row (issue #690): + new, ~ changed, − deleted. */
+.row-glyph {
+  font-weight: 700;
+  font-size: var(--fs-md);
+}
+
+.glyph-added {
+  color: var(--number);
+}
+
+.glyph-changed {
+  color: var(--null);
+}
+
+.glyph-removed {
+  color: var(--error);
 }
 
 button.grid-action {
@@ -6767,7 +6908,7 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .cell-related:hover .cell-related-btn,
-.cell-related.cell-selected .cell-related-btn {
+.row-focus .cell-related .cell-related-btn {
   opacity: 1;
 }
 
@@ -6789,9 +6930,13 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .col-ref-mark {
-  font-size: var(--fs-micro);
+  display: inline-flex;
   color: var(--accent-text);
-  opacity: 0.8;
+}
+
+.col-ref-mark svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* The primary-key mark in a column header (issue #344). */
@@ -6821,60 +6966,23 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--cell-text-chosen, var(--text));
 }
 
-:root[data-grid-style="registro"] .grid-head {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0;
-  line-height: 1.3;
-}
-
-/* A header on TWO LINES — Registro and Informe both stack the type under the
-   name — needs the name, its marks and the sort glyph sharing a row of their
-   own. The sort glyph's `margin-left: auto`, written for a single-line header,
-   otherwise divides the HEIGHT and squeezes the name down to nothing: that is
-   what left the "id" column showing its key icon and no name at all. */
-:root[data-grid-style="registro"] .grid-head,
-:root[data-grid-style="informe"] .grid-head {
-  display: grid;
-  grid-template-columns: auto auto auto 1fr;
-  grid-template-rows: auto auto;
-  align-content: center;
-  column-gap: var(--sp-2);
-}
-
-:root[data-grid-style="registro"] .grid-head > .col-name,
-:root[data-grid-style="informe"] .grid-head > .col-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The type goes under everything, across the full width. */
-:root[data-grid-style="registro"] .grid-head > .col-type,
-:root[data-grid-style="informe"] .grid-head > .col-type {
-  grid-column: 1 / -1;
-}
-
-:root[data-grid-style="registro"] .grid-head > .col-sort,
-:root[data-grid-style="informe"] .grid-head > .col-sort {
-  margin-left: 0;
-}
-
 :root[data-grid-style="registro"] .grid-cell {
   border-right: none;
-}
-
-:root[data-grid-style="registro"] .cell-number {
-  font-variant-numeric: tabular-nums;
 }
 
 /* Hoja densa: the spreadsheet. Full gridlines, shorter rows, colour on every
    type including text — the most like the grid before all this. Nothing to undo
    here: the base rules already draw it, and this is where its own bits go. */
+:root[data-grid-style="hoja"] .grid-scroll {
+  --grid-head-h: var(--grid-row-h, var(--h-md));
+}
+
 :root[data-grid-style="hoja"] .grid-head {
   /* One line, with the type as a pill beside the name rather than under it. */
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-start;
+  gap: var(--sp-3);
 }
 
 :root[data-grid-style="hoja"] .col-type {
@@ -6921,26 +7029,21 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--cell-text-chosen, var(--text));
 }
 
-:root[data-grid-style="informe"] .cell-number {
-  font-variant-numeric: tabular-nums;
-}
-
-/* NULL is the absence of a value, so it does not read as one. A tag says that
-   at a glance; the italic word it replaces looked like data in italics. */
+/* NULL is the absence of a value, so it does not read as one (issue #690): a
+   dim italic label in the interface's font, readable (text-dim keeps 4.5:1)
+   where the old 10px tag was not. */
 .cell-null-tag {
   font-family: var(--font-ui);
-  font-size: var(--fs-micro);
-  letter-spacing: 0.06em;
+  font-size: var(--fs-sm);
+  font-style: italic;
   color: var(--text-dim);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 0 var(--sp-2);
 }
 
-/* The tag takes the NULL colour when the per-type colours are on. */
-:root:not([data-cell-colors="off"]) .cell-null-tag {
-  color: var(--cell-null);
-  border-color: color-mix(in srgb, var(--cell-null) 40%, transparent);
+/* An empty string is a value, and must not pass for NULL: '' in dim. */
+.cell-empty-tag {
+  font-family: var(--font-grid);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
 }
 
 /* Text only assistive technology reads: kept in the accessibility tree, so it

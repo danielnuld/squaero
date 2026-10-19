@@ -17,6 +17,7 @@ import {
   hasChanges,
   changeCount,
   buildPlan,
+  rowChange,
   type EditSource,
 } from "../../src/utils/editSession";
 import type { ResultColumn } from "../../src/utils/query";
@@ -302,5 +303,26 @@ describe("text batches and batch removal", () => {
     s = addInsert(s);
     expect(lastBatch(s)).toBe(1);
     expect(lastBatch(removeBatch(s, 1))).toBe(0);
+  });
+});
+
+// Issue #690: the grid's gutter glyph for a staged row.
+describe("rowChange", () => {
+  it("is null for an untouched row", () => {
+    expect(rowChange(emptyPending(), 0)).toBeNull();
+  });
+
+  it("is changed once a cell of the row is edited", () => {
+    expect(rowChange(setCell(emptyPending(), 1, "name", "x"), 1)).toBe("changed");
+    expect(rowChange(setCell(emptyPending(), 1, "name", "x"), 0)).toBeNull();
+  });
+
+  it("is removed for a deleted row, even one with edits", () => {
+    const edited = setCell(emptyPending(), 2, "name", null);
+    expect(rowChange(toggleDelete(edited, 2), 2)).toBe("removed");
+  });
+
+  it("ignores an empty edit map", () => {
+    expect(rowChange({ ...emptyPending(), edits: { 0: {} } }, 0)).toBeNull();
   });
 });
