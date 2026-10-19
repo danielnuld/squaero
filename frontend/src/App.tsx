@@ -977,6 +977,10 @@ export function App() {
       case "refresh":
         refreshAll();
         break;
+      case "cancel-query":
+        // Only while the tab's query runs: there is nothing to stop otherwise.
+        if (currentResult().loading) cancelActive();
+        break;
       case "toggle-theme":
         toggleTheme();
         break;

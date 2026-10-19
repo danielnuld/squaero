@@ -98,6 +98,24 @@ describe("matchShortcut — interface zoom (#681)", () => {
   });
 });
 
+describe("matchShortcut — stop the running query (#691)", () => {
+  it("Ctrl+Break stops it, however the browser names the key", () => {
+    // Chromium on Windows reports Ctrl+Pause as "Cancel".
+    expect(matchShortcut(ev({ key: "Cancel", ctrlKey: true }))).toBe("cancel-query");
+    expect(matchShortcut(ev({ key: "Pause", ctrlKey: true }))).toBe("cancel-query");
+    expect(matchShortcut(ev({ key: "Pause", metaKey: true }))).toBe("cancel-query");
+  });
+  it("leaves Pause alone without Ctrl", () => {
+    expect(matchShortcut(ev({ key: "Pause" }))).toBeNull();
+    expect(matchShortcut(ev({ key: "Cancel", ctrlKey: true, shiftKey: true }))).toBeNull();
+  });
+  it("is listed for the help as Ctrl+Pause", () => {
+    const sc = SHORTCUTS.find((s) => s.id === "cancel-query")!;
+    expect(sc.global).toBe(true);
+    expect(displayKeys(sc.keys, false)).toBe("Ctrl+Pause");
+  });
+});
+
 describe("matchShortcut — non-matches", () => {
   it("does NOT match run-query globally (editor owns Mod+Enter)", () => {
     expect(matchShortcut(ev({ key: "Enter", ctrlKey: true }))).toBeNull();

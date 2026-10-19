@@ -1161,6 +1161,7 @@ export const en: Record<string, string> = {
   "sc.next-tab": "Next tab",
   "sc.prev-tab": "Previous tab",
   "sc.refresh": "Refresh data and tree",
+  "sc.cancel-query": "Stop the running query",
   "sc.toggle-theme": "Switch light/dark theme",
   "sc.toggle-help": "Show/hide shortcuts",
   "sc.command-palette": "Command palette",

@@ -19,6 +19,7 @@ la tecla vigente.
 | Siguiente pestaña | Ctrl+AvPág (PageDown) |
 | Pestaña anterior | Ctrl+RePág (PageUp) |
 | Refrescar datos y árbol | F5 |
+| Detener la consulta en curso | `Mod`+Pausa (Ctrl+Break) |
 | Paleta de comandos | `Mod`+K |
 | Buscar objetos (tablas, vistas…) | `Mod`+P |
 | Buscar snippets guardados | `Mod`+J |
