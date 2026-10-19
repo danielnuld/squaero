@@ -73,8 +73,8 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await connect(app);
     await openFixtureTable(app);
 
-    const previous = app.page.getByRole("button", { name: /Anterior/ });
-    const next = app.page.getByRole("button", { name: /Siguiente/ });
+    const previous = app.page.getByRole("button", { name: /anterior/i });
+    const next = app.page.getByRole("button", { name: /siguiente/i });
 
     // First page: nothing before it, something after it, and the first row present.
     await expect(previous).toBeDisabled();

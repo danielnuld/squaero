@@ -84,8 +84,8 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     await runSql(page, QUERY);
     await expect(page.getByText(/Filas 1–1000/)).toBeVisible({ timeout: 20_000 });
 
-    const next = page.getByRole("button", { name: /Siguiente/ });
-    const previous = page.getByRole("button", { name: /Anterior/ });
+    const next = page.getByRole("button", { name: /siguiente/i });
+    const previous = page.getByRole("button", { name: /anterior/i });
     await expect(next).toBeEnabled();
 
     await next.click();
