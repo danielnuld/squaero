@@ -28,9 +28,10 @@ refuse writes unless you deliberately allow them:
 
 ## Setup with Claude Code
 
-1. **Build the binary** (bundled with releases; from source it is
-   `build/tools/quaero-mcp/quaero-mcp[.exe]`, produced by the default
-   `-DQUAERO_BUILD_TOOLS=ON`).
+1. **Build the binary.** Releases do not ship it yet (the MSI, `.deb`, snap
+   and `.dmg` carry only the app and its drivers), so build it from source: it
+   is `build/tools/quaero-mcp/quaero-mcp[.exe]`, produced by the default
+   `-DQUAERO_BUILD_TOOLS=ON`.
 
 2. **Create a connections file** (see [format](#connections-file)). The easiest
    start is *Exportar conexiones* in the app (issue #188), then add the `mcp` /
@@ -45,8 +46,9 @@ refuse writes unless you deliberately allow them:
      --drivers /path/to/drivers
    ```
 
-   On Windows, point at `quaero-mcp.exe` and the installed `drivers` directory,
-   e.g. `C:\Program Files\Squaero\quaero-mcp.exe` and `C:\Program Files\Squaero\drivers`.
+   On Windows, point at the `quaero-mcp.exe` you built and a `drivers`
+   directory with the plugins: the build's `build/app/drivers`, or the
+   installed app's (e.g. `C:\Program Files\Squaero\drivers`).
 
    `--drivers` may be omitted; the server then looks for a `drivers` directory
    next to the executable. `--connections` may also be supplied via the

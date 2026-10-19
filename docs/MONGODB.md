@@ -292,7 +292,11 @@ sufficient; the ABI and IPC protocol are unchanged.
 The driver itself (connect / query via the mongosh-style parser / introspection
 over the mongo-c-driver) is issue #47:
 `connection.c` (JSON DSN or a full `uri` → a validated mongoc client, pinged at
-connect), `query.c` (parse → find/aggregate → two-phase flatten), `metadata.c`
-(list databases/collections, sample-based `describe_table`), plus the pure
+connect), `query.c` (parse → find/aggregate), `docs.c` (the BSON ↔ result
+plumbing and the two-phase flatten, shared with `command.c` and `ddl.c`),
+`metadata.c` (list databases/collections, sample-based `describe_table`); later
+`command.c` (writes and utility commands), `edit.c`, `ddl.c`, `txn.c`,
+`admin.c` (explain, current operations, profiler) and `cancel.c` joined them
+(#719). Plus the pure
 `utils/json_relax.c` and `utils/value_fmt.c` (BSON datetime → ISO 8601) and the
 `utils/result.c` materialized result the readers walk.

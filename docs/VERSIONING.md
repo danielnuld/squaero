@@ -35,7 +35,8 @@ No hay ningún otro lugar donde escribir la versión a mano.
 
 El release lo produce un tag. El workflow
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) (issue #41)
-se dispara al empujar un tag `vX.Y.Z` y hace todo en un runner `windows-latest`:
+se dispara al empujar un tag `vX.Y.Z`. El job `windows-msi` corre en un runner
+`windows-latest`:
 
 1. Verifica que el tag coincida con `VERSION` (falla si no).
 2. Instala el MinGW x86_64 (winlibs), compila el frontend y hace el build **x64**
@@ -48,6 +49,13 @@ se dispara al empujar un tag `vX.Y.Z` y hace todo en un runner `windows-latest`:
 5. Emite una **attestation de procedencia** del MSI (`actions/attest-build-provenance`).
 6. Publica el release de GitHub adjuntando `squaero-X.Y.Z-x64.msi` +
    `SHA256SUMS.txt` (o los sube a un release ya existente con `--clobber`).
+
+Después, en este orden para no pisarse en `SHA256SUMS.txt`, los demás jobs
+añaden al mismo release sus artefactos (cada uno con su attestation y su línea en
+`SHA256SUMS.txt`): `linux-deb` (`squaero_X.Y.Z_amd64.deb`, Ubuntu 24.04),
+`linux-snap` (el snap, que además se publica en la Snap Store cuando existe el
+secret `SNAPCRAFT_STORE_CREDENTIALS`) y `macos-dmg` / `macos-publish`
+(`squaero-X.Y.Z-arm64.dmg`, construido por [`macos.yml`](../.github/workflows/macos.yml)).
 
 Flujo típico: bumpea `VERSION`, mergea a `main` con CI en verde, y entonces:
 
@@ -78,8 +86,10 @@ pública del proyecto; se puede volver a pedir cuando tenga más adopción.
 ## Nombre del producto y ejecutable
 
 - **Nombre de producto:** `Squaero`.
-- **Ejecutable:** `quaero` (`squaero.exe` en Windows) — coincide con el target de
-  CMake `add_executable(quaero …)`.
-- **Título de la ventana:** `Squaero` (fijado por el shell nativo en `main.cc`).
-  La UI ajusta además el título del documento a `Squaero — <conexión activa>`
-  cuando hay una conexión abierta, y a `Squaero` cuando no.
+- **Ejecutable:** `squaero` (`squaero.exe` en Windows, `Squaero.app` en macOS).
+  El target de CMake conserva el nombre `quaero` (`add_executable(quaero …)` con
+  `OUTPUT_NAME squaero`, #466); el servidor MCP es el binario aparte `quaero-mcp`.
+- **Título de la ventana:** `Squaero` al arrancar (fijado por el shell nativo en
+  `main.cc`). La UI lo ajusta después a lo que hay en pantalla:
+  `<pestaña> — <conexión> — Squaero`, omitiendo la parte que falte
+  (`frontend/src/utils/shell.ts`).
