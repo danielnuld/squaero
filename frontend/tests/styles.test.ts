@@ -53,7 +53,7 @@ describe("styles.css scales", () => {
       "--r-sm", "--r-md", "--r-lg", "--r-pill",
       "--fs-micro", "--fs-sm", "--fs-base", "--fs-md", "--fs-lg",
       "--h-micro", "--h-sm", "--h-md",
-      "--band-sm", "--band-md", "--band-lg",
+      "--band-sm", "--band-md", "--band-lg", "--band-xl",
       "--shadow-sm", "--shadow-lg", "--focus-ring",
       "--motion-fast",
       // Typography settings (#681): the editor's and the grid's own tokens.
@@ -98,6 +98,19 @@ describe("styles.css scales", () => {
         }
       }
     }
+    expect(offScale).toEqual([]);
+  });
+
+  // Issue #682: density acts on the height scales, so a control or a band
+  // with its own px height would stay put while everything around it shrinks.
+  it("sizes every control and band from the height scales", () => {
+    // Under 20px is a glyph (a dot, a badge, a switch track), not a control;
+    // 100px and up is a content area (an editor, a list) whose floor is about
+    // content, not density. 68px is the style card's miniature window, a
+    // drawing of the app rather than a piece of it.
+    const offScale = declarations(RULES, "height") // also min-/max-/line-height
+      .filter((v) => /^\d+px$/.test(v))
+      .filter((v) => parseInt(v, 10) >= 20 && parseInt(v, 10) < 100 && v !== "68px");
     expect(offScale).toEqual([]);
   });
 

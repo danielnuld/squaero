@@ -808,7 +808,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  height: 44px;
+  height: var(--band-xl);
   padding: 0 var(--sp-2) 0 var(--sp-4);
   background: none;
   border: none;
@@ -1135,7 +1135,7 @@ body {
   gap: var(--sp-3);
 }
 .color-swatch {
-  width: 24px;
+  width: var(--h-sm);
   height: var(--h-sm);
   border-radius: var(--r-pill);
   border: 1px solid var(--border);
@@ -1161,7 +1161,7 @@ body {
 }
 
 .icon-swatch {
-  min-width: 28px;
+  min-width: var(--h-md);
   height: var(--h-md);
   padding: 0 var(--sp-2);
   border: 1px solid var(--border);
@@ -2069,7 +2069,7 @@ body {
 .grid-search-close {
   margin-left: auto;
   min-width: 24px;
-  min-height: 24px;
+  min-height: var(--h-sm);
   border: none;
   background: transparent;
   color: var(--text-dim);
@@ -2314,8 +2314,8 @@ body {
 }
 
 .welcome-action-icon {
-  width: 34px;
-  height: 34px;
+  width: var(--band-md);
+  height: var(--band-md);
   flex: none;
   box-sizing: border-box;
   display: flex;
@@ -2364,7 +2364,7 @@ body {
 }
 
 .welcome-conn {
-  min-height: 48px;
+  min-height: var(--band-xl);
 }
 
 .welcome-conn:disabled {
@@ -2383,8 +2383,8 @@ body {
 }
 
 .welcome-conn-mono {
-  width: 32px;
-  height: 32px;
+  width: var(--band-md);
+  height: var(--band-md);
   flex: none;
   display: flex;
   align-items: center;
@@ -2475,7 +2475,7 @@ body {
   align-items: center;
   gap: var(--sp-3);
   width: calc(100% + 16px);
-  height: 30px;
+  height: var(--h-md);
   margin: 0 -8px;
   padding: 0 var(--sp-3);
   border: 0;
@@ -3396,7 +3396,7 @@ button.status-chip:not(:disabled):hover {
   font-size: var(--fs-md);
   /* WCAG 2.2 target size (issue #762). */
   min-width: 24px;
-  min-height: 24px;
+  min-height: var(--h-sm);
 }
 
 .conn-actions button:hover {
@@ -3440,7 +3440,7 @@ button.status-chip:not(:disabled):hover {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 48px;
+  min-height: var(--band-xl);
   padding: 0 var(--sp-4) 0 var(--sp-6);
 }
 
@@ -3569,8 +3569,8 @@ button.status-chip:not(:disabled):hover {
 }
 
 .wiz-num {
-  width: 20px;
-  height: 20px;
+  width: var(--h-micro);
+  height: var(--h-micro);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -8281,7 +8281,7 @@ button.grid-action.danger:hover:not(:disabled) {
   justify-content: center;
   gap: var(--sp-2);
   width: 60px;
-  height: 52px;
+  height: var(--band-xl);
   padding: 0;
   border: 0;
   border-radius: var(--r-md);
@@ -8393,7 +8393,7 @@ button.grid-action.danger:hover:not(:disabled) {
   align-items: center;
   gap: var(--sp-3);
   width: 100%;
-  height: 40px;
+  height: var(--band-lg);
   padding: 0 var(--sp-3) 0 var(--sp-4);
   border: 0;
   border-radius: var(--r-sm);
@@ -8431,7 +8431,7 @@ ul.sidebar-tree {
 }
 
 .objtree-header .connbar-pick {
-  height: 40px;
+  height: var(--band-lg);
   padding: 0 var(--sp-2);
 }
 
@@ -8735,7 +8735,7 @@ ul.sidebar-tree {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  height: 44px;
+  height: var(--band-xl);
   flex: none;
   padding: 0 var(--sp-3) 0 var(--sp-5);
   border-bottom: 1px solid var(--border);
@@ -8801,7 +8801,7 @@ ul.sidebar-tree {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 44px;
+  min-height: var(--band-xl);
   flex: none;
   padding: 0 var(--sp-3) 0 var(--sp-5);
   border-top: 1px solid var(--border);
