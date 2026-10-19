@@ -1912,3 +1912,24 @@ describe("ResultGrid Ctrl+Shift+C", () => {
     expect(got).toEqual([[1], true]);
   });
 });
+
+describe("ResultGrid decimal scale (A-39)", () => {
+  it("pads a number to its column's scale, keeping the raw value in the tooltip", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const money: ResultSet = {
+      columns: [{ name: "saldo", type: "float" }],
+      rows: [["980.5"], ["12"]],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ResultGrid result={money} loading={false} error={null} scales={{ saldo: 2 }} />, host!);
+    });
+    const cell = host.querySelector('[data-cell="0-0"]')!;
+    expect(cell.textContent).toBe("980.50");
+    expect(cell.getAttribute("title")).toBe("980.5");
+    expect(host.querySelector('[data-cell="1-0"]')!.textContent).toBe("12.00");
+  });
+});

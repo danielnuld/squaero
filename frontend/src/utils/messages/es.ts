@@ -877,6 +877,7 @@ export const es: Record<string, string> = {
   "chart.bar": "Barras",
   "chart.line": "Líneas",
   "chart.pie": "Pastel",
+  "chart.saveImage": "Guardar imagen",
   "chart.axis": "Eje (etiquetas)",
   "chart.valueSingle": "Valor (1)",
   "chart.values": "Valores",
