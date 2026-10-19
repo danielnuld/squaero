@@ -102,9 +102,9 @@ describe("App — catalog for completion (A-06)", () => {
     await settle();
     (host.querySelector(".editor-conn") as HTMLElement).click();
     const items = contextMenu()!.items;
-    expect(items[0].heading).toBe("Conexiones abiertas");
+    expect(items[0]).toMatchObject({ heading: true, label: "Conexiones abiertas" });
     expect(items.find((i) => i.label === "main")).toMatchObject({ checked: true });
-    expect(items.some((i) => i.heading === "Guardadas · sin conectar")).toBe(true);
+    expect(items.some((i) => i.heading && i.label === "Guardadas · sin conectar")).toBe(true);
     expect(items.find((i) => i.label === "otra")!.hint).toBe("conectar");
     closeContextMenu();
     expect(host.querySelector(".connsearch-hit")).toBeNull();

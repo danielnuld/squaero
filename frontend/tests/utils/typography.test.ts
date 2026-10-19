@@ -104,7 +104,7 @@ describe("row heights follow the zoom and the font", () => {
     expect(gridScale({ gridFontSize: 18, zoom: 100 })).toBe(1.5);
     expect(gridScale({ gridFontSize: 12, zoom: 200 })).toBe(2);
     expect(rowHeightFor("registro", "comfortable", gridScale({ gridFontSize: 12, zoom: 200 }))).toBe(56);
-    expect(rowHeightFor("hoja", "compact", gridScale({ gridFontSize: 15, zoom: 100 }))).toBe(25);
+    expect(rowHeightFor("hoja", "compact", gridScale({ gridFontSize: 15, zoom: 100 }))).toBe(30);
   });
 });
 

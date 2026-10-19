@@ -54,6 +54,16 @@ const GROUP_OF: Record<ActionId, ShortcutGroup> = {
   "unmark-rows": "grid",
   "delete-rows": "grid",
   "related-row": "grid",
+  "edit-cell": "grid",
+  "set-null": "grid",
+  "row-detail": "grid",
+  "fk-picker": "grid",
+  "copy-with-headers": "grid",
+  "pin-result": "grid",
+  "view-data": "grid",
+  "view-structure": "grid",
+  "view-indexes": "grid",
+  "view-ddl": "grid",
 };
 
 export const shortcutGroup = (id: ActionId): ShortcutGroup => GROUP_OF[id];
