@@ -72,6 +72,13 @@ export interface Settings {
    */
   nativeMenu: boolean;
   /**
+   * The app's own title bar (issue #688) on Windows and macOS: on by default.
+   * Off is the fallback when it misbehaves — the system's title bar (and on
+   * Windows the native menu bar) comes back at once. Linux always keeps the
+   * system's frame.
+   */
+  customTitleBar: boolean;
+  /**
    * Typography (issue #681). A font is a sanitized CSS family list ("" = the
    * stack styles.css ships); sizes are px before zoom; the zoom is a percentage
    * that scales the type scale, spacing and control heights (typography.ts).
@@ -101,6 +108,7 @@ export const DEFAULT_SETTINGS: Settings = {
   localHistoryVersions: 50,
   localHistoryDays: 30,
   nativeMenu: true,
+  customTitleBar: true,
   uiFont: "",
   uiFontSize: 12,
   editorFont: "",
@@ -228,6 +236,10 @@ export function parseSettings(raw: string | null | undefined): Settings {
         : DEFAULT_SETTINGS.localHistoryDays,
     nativeMenu:
       typeof obj.nativeMenu === "boolean" ? obj.nativeMenu : DEFAULT_SETTINGS.nativeMenu,
+    customTitleBar:
+      typeof obj.customTitleBar === "boolean"
+        ? obj.customTitleBar
+        : DEFAULT_SETTINGS.customTitleBar,
     // Typography (#681): a font is re-sanitized on read — the blob is only as
     // trustworthy as whatever last wrote it — and every number is clamped.
     uiFont: font(obj.uiFont),

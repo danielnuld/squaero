@@ -8646,28 +8646,12 @@ ul.sidebar-tree {
   padding: 0 var(--sp-3);
 }
 
-/* The notification history (issue #693): a panel beside the rail's bell, above
-   the status bar, so it covers neither the tabs nor the rows' pager. */
-.rail-badge {
-  position: absolute;
-  top: 6px;
-  right: 12px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 var(--sp-2);
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--accent-fg);
-  font-size: var(--fs-micro);
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-}
-
+/* The notification history (issues #693, #688): a panel dropping from the
+   title bar's bell. */
 .notes-panel {
   position: fixed;
-  left: 72px;
-  bottom: calc(var(--band-sm) + var(--sp-3));
+  right: var(--sp-3);
+  top: calc(var(--band-lg) + var(--sp-2));
   z-index: 40;
   width: 400px;
   max-width: calc(100vw - 88px);
@@ -8783,4 +8767,229 @@ ul.sidebar-tree {
 
 .empty-note > button {
   margin-top: var(--sp-2);
+}
+
+/* The app's own title bar (issue #688). One bar for every OS; `data-os` and
+   the shell's frame pick what it holds (TitleBar.tsx). With the app's own
+   frame (.tb-own) the empty bar is the window's caption: it drags, so text in
+   it is not selectable. */
+.titlebar {
+  position: relative;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--band-lg);
+  flex-shrink: 0;
+  padding-left: var(--sp-3);
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--fs-base);
+  user-select: none;
+}
+
+.titlebar.tb-own[data-os="windows"] {
+  padding-left: 0;
+}
+
+/* macOS: the traffic lights sit over this. */
+.tb-lights {
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.tb-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.titlebar.tb-own[data-os="windows"] .tb-brand {
+  width: 44px;
+  justify-content: center;
+}
+
+.tb-name {
+  font-weight: 600;
+}
+
+.tb-spacer {
+  flex: 1;
+  min-width: var(--sp-4);
+}
+
+.tb-menubar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.tb-menu-wrap {
+  position: relative;
+}
+
+.tb-menu-top {
+  height: var(--h-md);
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: default;
+}
+
+.tb-menu-top:hover,
+.tb-menu-top.on {
+  background: var(--bg-elev2);
+}
+
+.tb-access {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tb-menu.context-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 240px;
+}
+
+.tb-menu .context-menu-label {
+  white-space: nowrap;
+}
+
+.tb-menu .context-menu-item:hover:not(:disabled) {
+  background: transparent;
+  color: inherit;
+}
+
+.tb-menu .context-menu-item.active:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.tb-menu .context-menu-item.active:not(:disabled) .context-menu-hint {
+  color: inherit;
+}
+
+.tb-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: min(360px, 34vw);
+  height: var(--h-md);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text-dim);
+  font: inherit;
+  text-align: left;
+  cursor: text;
+}
+
+.tb-search:hover {
+  border-color: var(--border-strong);
+}
+
+.tb-search-text {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tb-kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+}
+
+.tb-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--band-md);
+  height: var(--h-md);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.tb-icon:hover,
+.tb-icon.on {
+  background: var(--bg-elev2);
+  color: var(--text);
+}
+
+/* Without window buttons the bell is the last thing on the bar. */
+.tb-bell:last-child {
+  margin-right: var(--sp-3);
+}
+
+.tb-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--sp-2);
+  box-sizing: border-box;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* Windows' caption buttons: 46 px wide, the bar's full height, square. */
+.tb-winbtns {
+  display: flex;
+  align-self: stretch;
+  margin-left: var(--sp-3);
+}
+
+.tb-winbtn {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.tb-winbtn:hover,
+.tb-winbtn.hover {
+  background: var(--bg-elev2);
+}
+
+.tb-winbtn.tb-close:hover {
+  background: var(--error);
+  color: var(--error-fg);
+}
+
+/* Mica (Windows 11, Nativo style): the shell paints the backdrop behind a
+   clear page; only the title bar and the side column let it through. */
+:root[data-backdrop="mica"],
+:root[data-backdrop="mica"] body,
+:root[data-backdrop="mica"] .app,
+:root[data-backdrop="mica"] .titlebar,
+:root[data-backdrop="mica"] .rail,
+:root[data-backdrop="mica"] .sidebar {
+  background: transparent;
+}
+
+:root[data-backdrop="mica"] .workspace {
+  background: var(--bg);
 }
