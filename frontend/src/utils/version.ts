@@ -15,3 +15,30 @@ export const APP_VERSION: string =
 
 /** Public source repository, linked from About. */
 export const REPO_URL = "https://github.com/danielnuld/squaero";
+
+/** Where About's links point (issue #694). */
+export const ABOUT_LINKS = {
+  repo: REPO_URL,
+  releases: `${REPO_URL}/releases`,
+  licence: `${REPO_URL}/blob/main/LICENSE`,
+  thirdParty: `${REPO_URL}/blob/main/THIRD-PARTY.md`,
+  issues: `${REPO_URL}/issues/new`,
+} as const;
+
+/**
+ * The facts a bug report needs, as plain text for the clipboard (issue #694).
+ * A core that did not answer is said as such, not left blank.
+ */
+export function aboutReport(f: {
+  app: string;
+  core: string | null;
+  protocol: number | null;
+  system: string;
+}): string {
+  return [
+    `Squaero ${f.app}`,
+    `libdbcore ${f.core ?? "?"}`,
+    `IPC ${f.protocol === null ? "?" : `v${f.protocol}`}`,
+    f.system,
+  ].join("\n");
+}
