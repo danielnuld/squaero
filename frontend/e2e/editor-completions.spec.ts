@@ -5,7 +5,7 @@
 // COLUMNS were only cached when a table was opened, which meant the common case —
 // type a query against a table you have not browsed — offered no column help at all.
 
-import { connect } from "./support/app-actions";
+import { connect, newQuery } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
 
 describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
@@ -13,6 +13,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     // Deliberately do NOT open e2e_items: this is the case that used to come up
     // empty. Only the object tree has been loaded, which is names but no columns.
@@ -33,6 +34,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     const editor = page.getByRole("textbox", { name: "Editor SQL", exact: true });
     await editor.click();

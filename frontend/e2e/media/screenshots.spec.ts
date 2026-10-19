@@ -33,7 +33,7 @@ import {
   type MediaOptions,
   type StyleId,
 } from "../support/media";
-import { pick } from "../support/app-actions";
+import { newQuery, pick } from "../support/app-actions";
 import type { RpcClient } from "../support/rpc";
 
 
@@ -131,7 +131,7 @@ test("protected connection asks before writing", async ({ page }) => {
     connections: [{ ...DEMO_CONNECTION, safeMode: "confirm", color: "#e5484d" }],
   });
   await openDemoTable(page, "productos", "Teclado mecánico");
-  await page.getByRole("tab", { name: "Consulta 1" }).click();
+  await newQuery(page);
   await typeSql(page, "UPDATE productos SET existencias = existencias + 10 WHERE id = 4");
   await runEditor(page);
   const dialog = page.getByRole("dialog", { name: /Conexión protegida/ });
@@ -143,7 +143,7 @@ test("protected connection asks before writing", async ({ page }) => {
 test("manual transaction pending", async ({ page }) => {
   await openMedia(page, rpc);
   await openDemoTable(page, "productos", "Teclado mecánico");
-  await page.getByRole("tab", { name: "Consulta 1" }).click();
+  await newQuery(page);
   await page.getByRole("button", { name: "Auto-commit", exact: true }).click();
   await expect(page.getByRole("button", { name: "Transacción manual", exact: true })).toBeVisible();
   await typeSql(page, "UPDATE productos SET existencias = existencias - 1 WHERE id = 2");
@@ -185,7 +185,7 @@ test("query builder", async ({ page }) => {
 test("editor completion", async ({ page }) => {
   await openMedia(page, rpc);
   await openDemoTable(page);
-  await page.getByRole("tab", { name: "Consulta 1" }).click();
+  await newQuery(page);
   await sqlEditor(page).click();
   await page.keyboard.type(
     "SELECT c.nombre, p.total\nFROM clientes c\nJOIN pedidos p ON p.cliente_id = c.id\nWHERE c.",
@@ -198,7 +198,7 @@ test("editor completion", async ({ page }) => {
 test("editor diagnostic", async ({ page }) => {
   await openMedia(page, rpc);
   await openDemoTable(page, "productos", "Teclado mecánico");
-  await page.getByRole("tab", { name: "Consulta 1" }).click();
+  await newQuery(page);
   // A comment first, so the hint over the UPDATE line does not cover the tabs.
   await typeSql(page, "-- Subir los precios un 5 %\nUPDATE productos\nSET precio = precio * 1.05");
   await sqlEditor(page).getByText("UPDATE").hover();

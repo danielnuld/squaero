@@ -53,10 +53,11 @@ const mount = () => {
 };
 
 describe("App — welcome and connected home (issue #694)", () => {
-  it("shows the welcome with no tab, connects from it and lands on the home", async () => {
+  it("starts on the welcome with no tab, connects from it and lands on the home", async () => {
     mount();
-    (host!.querySelector(".tab-close") as HTMLElement).click();
     await settle();
+    // The app opens on the welcome: no tab to close first.
+    expect(host!.querySelectorAll(".tab").length).toBe(0);
     const names = [...host!.querySelectorAll(".welcome-conn-name")].map((n) => n.textContent);
     expect(names).toEqual(["notas", "local"]);
 

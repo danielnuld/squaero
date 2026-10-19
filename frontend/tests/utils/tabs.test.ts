@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   nextTabId,
   addTab,
-  blankSession,
+  emptySession,
   openTool,
   GLOBAL_TOOLS,
   type ToolTab,
@@ -600,7 +600,7 @@ describe("SQL variables travel with the tab (issue #481)", () => {
 
 // A session that starts blank numbers its tabs from 1 again, while the ids go
 // on after every id handed out before (issue #355 still holds).
-describe("the title counter of a blank session", () => {
+describe("the title counter of a fresh session", () => {
   const saved = parseWorkspace(
     JSON.stringify({
       tabs: [{ id: 47, kind: "query", title: "Consulta 47", sql: "SELECT 1" }],
@@ -609,9 +609,10 @@ describe("the title counter of a blank session", () => {
     }),
   )!;
 
-  it("starts at 1, with an id after the saved ones", () => {
-    const blank = blankSession(saved);
-    expect(blank.tabs).toHaveLength(1);
+  it("opens with no tab (#694); the first starts at 1, with an id after the saved ones", () => {
+    const start = emptySession(saved);
+    expect(start.tabs).toHaveLength(0);
+    const blank = addTab(start);
     expect(blank.tabs[0].title).toBe("Consulta 1");
     expect(blank.tabs[0].id).toBe(48);
     const next = addTab(blank);
@@ -620,11 +621,12 @@ describe("the title counter of a blank session", () => {
   });
 
   it("starts at 1 with nothing stored either", () => {
-    expect(blankSession(null).tabs[0]).toMatchObject({ id: 1, title: "Consulta 1" });
+    expect(emptySession(null).tabs).toHaveLength(0);
+    expect(addTab(emptySession(null)).tabs[0]).toMatchObject({ id: 1, title: "Consulta 1" });
   });
 
   it("keeps counting through a tool, a snippet and a closed tab", () => {
-    let st = blankSession(saved);
+    let st = addTab(emptySession(saved));
     st = openTool(st, "monitor", "Monitor");
     st = openSnippetTab(st, { id: "s1", name: "Mi snippet", body: "SELECT 2" });
     st = closeTab(st, st.tabs[0].id);
@@ -636,7 +638,7 @@ describe("the title counter of a blank session", () => {
   it("a resumed session goes on from its own numbers, even one saved before the counter", () => {
     expect(saved.num).toBe(47); // no num stored: its titles went by seq
     expect(addTab(saved).tabs[1].title).toBe("Consulta 48");
-    const round = parseWorkspace(serializeWorkspace(addTab(blankSession(saved))))!;
+    const round = parseWorkspace(serializeWorkspace(addTab(addTab(emptySession(saved)))))!;
     expect(round.num).toBe(2);
     expect(addTab(round).tabs.at(-1)!.title).toBe("Consulta 3");
   });

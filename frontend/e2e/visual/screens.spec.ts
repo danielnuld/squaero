@@ -21,7 +21,7 @@ import { join } from "node:path";
 
 import type { Page } from "@playwright/test";
 
-import { connect, openFixtureTable, runSql } from "../support/app-actions";
+import { connect, newQuery, openFixtureTable, runSql } from "../support/app-actions";
 import { describeEngine, expect, test } from "../support/fixtures";
 
 type Theme = "light" | "dark";
@@ -113,7 +113,7 @@ for (const theme of ["light", "dark"] as const) {
         const { page } = app;
         await app.open();
         await connect(app);
-        await page.getByRole("button", { name: "Nueva consulta", exact: true }).click();
+        await newQuery(page);
         await runSql(
           page,
           "SELECT id, nombre, length(nombre) AS largo FROM e2e_items WHERE id < 20 ORDER BY id",
