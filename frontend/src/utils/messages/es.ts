@@ -578,6 +578,7 @@ export const es: Record<string, string> = {
   "objbar.refreshTitle": "Volver a ejecutar lo que muestra esta pestaña (F5)",
   "objbar.refreshBlocked.editing": "Hay cambios sin guardar: guárdalos o descártalos antes de refrescar",
   "objbar.refreshBlocked.running": "La consulta se está ejecutando",
+  "objbar.refreshBlocked.writes": "La consulta modifica datos: refrescar la ejecutaría otra vez",
   "objbar.refreshBlocked.nothing": "Aún no hay nada que refrescar",
   "objbar.readOnly.noPk": "Solo lectura: la tabla no tiene clave primaria (una vista nunca la tiene), y sin ella no se puede señalar una sola fila.",
   "objbar.readOnly.pkNotProjected": "Solo lectura: el resultado no incluye la clave primaria de la tabla. Añade sus columnas al SELECT, con su propio nombre.",

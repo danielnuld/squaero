@@ -575,6 +575,7 @@ export const en: Record<string, string> = {
   "objbar.refreshTitle": "Run what this tab is showing again (F5)",
   "objbar.refreshBlocked.editing": "There are unsaved changes: save or discard them before refreshing",
   "objbar.refreshBlocked.running": "The query is still running",
+  "objbar.refreshBlocked.writes": "The query changes data: refreshing would run it again",
   "objbar.refreshBlocked.nothing": "Nothing to refresh yet",
   "objbar.readOnly.noPk": "Read-only: the table has no primary key (a view never has one), so a single row cannot be pointed at.",
   "objbar.readOnly.pkNotProjected": "Read-only: the result does not include the table's primary key. Add its columns to the SELECT, under their own names.",

@@ -5,6 +5,16 @@
 // full page means another page may exist (the standard full-page heuristic — the
 // only cost is one empty final page when the row count is an exact multiple).
 
+import { readsOnly } from "./txMode";
+
+/** Whether `sql` may be executed again behind the user's back (a page turn, a
+    refresh, an export re-read). Only a plain read: re-running an UPDATE or a
+    DELETE because the user pressed F5 or «Siguiente» would write twice. Fail
+    closed, as readsOnly is. Pure. */
+export function rerunnable(sql: string | undefined): sql is string {
+  return !!sql && readsOnly(sql);
+}
+
 /** The offset of the page `delta` steps away, clamped to >= 0 (page size >= 1). */
 export function nextOffset(offset: number, delta: number, size: number): number {
   const s = Math.max(1, Math.floor(size));
@@ -69,7 +79,7 @@ export function pageStep(r: PageableResult | undefined, delta: 1 | -1): PageStep
     return { kind: "cursor", index: target, offset };
   }
   if (r.preview) return { kind: "preview", index: target, offset };
-  if (r.pageSql) return { kind: "query", index: target, offset };
+  if (rerunnable(r.pageSql)) return { kind: "query", index: target, offset };
   return null;
 }
 
@@ -118,12 +128,12 @@ export type RefreshAction =
 export function refreshAction(r: RefreshableResult | undefined): RefreshAction {
   if (!r) return null;
   if (r.preview) return { kind: "preview", offset: r.offset ?? 0 };
-  if (r.pageSql) return { kind: "query", sql: r.pageSql, offset: r.offset ?? 0 };
+  if (rerunnable(r.pageSql)) return { kind: "query", sql: r.pageSql, offset: r.offset ?? 0 };
   return null;
 }
 
 /** Why a refresh cannot run right now; null when it can. */
-export type RefreshBlock = "editing" | "running" | "nothing" | null;
+export type RefreshBlock = "editing" | "running" | "writes" | "nothing" | null;
 
 /**
  * Whether the result on screen can be re-run, and why not when it cannot
@@ -140,6 +150,7 @@ export function refreshBlock(
 ): RefreshBlock {
   if (state.editing) return "editing";
   if (state.loading) return "running";
+  if (!r?.preview && r?.pageSql && !rerunnable(r.pageSql)) return "writes";
   if (!refreshAction(r)) return "nothing";
   return null;
 }
