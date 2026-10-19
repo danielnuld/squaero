@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stepStates } from "../../src/utils/wizard";
+import { isReadOnlyTarget, stepStates, targetOptions } from "../../src/utils/wizard";
 
 describe("stepStates", () => {
   it("marks the steps behind as done, one as current and the rest as waiting", () => {
@@ -14,5 +14,26 @@ describe("stepStates", () => {
 
   it("has nothing to say about a wizard without steps", () => {
     expect(stepStates(0, 0)).toEqual([]);
+  });
+});
+
+describe("read-only targets", () => {
+  it("only a readOnly safe mode makes a target read-only", () => {
+    expect(isReadOnlyTarget({ safeMode: "readOnly" })).toBe(true);
+    expect(isReadOnlyTarget({ safeMode: "confirm" })).toBe(false);
+    expect(isReadOnlyTarget({})).toBe(false);
+    expect(isReadOnlyTarget(undefined)).toBe(false);
+  });
+
+  it("marks them in the target options", () => {
+    expect(
+      targetOptions([
+        { id: "a", name: "Prod", safeMode: "readOnly" },
+        { id: "b", name: "Dev" },
+      ]),
+    ).toEqual([
+      { value: "a", label: "Prod · solo lectura" },
+      { value: "b", label: "Dev" },
+    ]);
   });
 });

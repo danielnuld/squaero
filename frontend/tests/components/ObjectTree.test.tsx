@@ -795,10 +795,86 @@ describe("ObjectTree delete", () => {
     const confirm = dialog.querySelector(".btn-danger") as HTMLButtonElement;
     confirm.click();
     await flush();
-    const ran = calls.find((c) => c.method === "query.run");
+    const ran = calls.find((c) => c.method === "query.run" && c.params.sql.startsWith("DROP"));
     expect(ran!.params.sql).toBe('DROP TABLE "main"."customers"');
     expect(refreshed).toBe(1); // the tree reloads without it
     expect(host!.querySelector(".confirm-dialog")).toBeFalsy();
+  });
+
+  it("says what goes with the table and who references it, with Copiar SQL", async () => {
+    bridge();
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      const rs = (cols: string[], rows: string[][]) =>
+        ok({ columns: cols.map((name) => ({ name, type: "text" })), rows, truncated: false, rowsAffected: 0 });
+      const sql: string = req.params.sql ?? "";
+      if (req.method === "query.run") {
+        if (sql.includes("COUNT(*)")) return rs(["n"], [["12"]]);
+        if (sql.includes("pragma_index_list")) return rs(["name"], [["ix_a"], ["ix_b"]]);
+        if (sql.includes("pragma_foreign_key_list")) {
+          return rs(
+            ["from_table", "from_column", "to_table", "to_column", "constraint_name", "position"],
+            [["pedidos", "cliente_id", "customers", "id", "0", "0"]],
+          );
+        }
+        return rs([], []);
+      }
+      if (!req.params.db) return rs(["name"], [["main"]]);
+      return rs(["name", "type"], [["customers", "table"]]);
+    };
+    const row = await openTable(() => {});
+    row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    menuItem("Eliminar…")!.action!();
+    await flush();
+    await flush();
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    expect(dialog.textContent).toContain("Con ella se eliminan 12 filas y 2 índices.");
+    expect(dialog.textContent).toContain("pedidos.cliente_id referencia esta tabla");
+    // Not protected: no name to type.
+    expect(dialog.querySelector(".dlg-field input")).toBeNull();
+    expect([...dialog.querySelectorAll("button")].some((b) => b.textContent === "Copiar SQL")).toBe(true);
+  });
+
+  it("asks for the typed name inside the same dialog on a protected connection", async () => {
+    const calls = bridge();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            engine="sqlite"
+            conn={{ name: "Prod", sub: "", focused: true, safeMode: "confirm" } as never}
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    const rowByText = (t: string) =>
+      [...host!.querySelectorAll(".objtree-row")].find((r) => r.textContent?.includes(t)) as HTMLElement;
+    rowByText("main").click();
+    await flush();
+    rowByText("Tablas").click();
+    await flush();
+    rowByText("customers").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    menuItem("Eliminar…")!.action!();
+    await flush();
+    const dialog = host!.querySelector(".confirm-dialog")!;
+    const confirm = dialog.querySelector(".btn-danger") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    const input = dialog.querySelector(".dlg-field input") as HTMLInputElement;
+    input.value = "customers";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(confirm.disabled).toBe(false);
+    confirm.click();
+    await flush();
+    expect(calls.some((c) => c.method === "query.run" && c.params.sql.startsWith("DROP"))).toBe(true);
   });
 
   it("keeps the dialog open with the engine's complaint when the drop fails", async () => {

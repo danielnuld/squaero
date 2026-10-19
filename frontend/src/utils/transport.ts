@@ -183,6 +183,16 @@ export async function withWriteConsent<T>(
   if (!guard || writes.length === 0 || (consent.get(connId) ?? 0) > 0) return fn();
   if (guard.mode === "readOnly") throw refusal(guard);
   if (!ui || !(await ui.confirm(guard, writes))) throw declined();
+  return withConfirmedWrites(connId, fn);
+}
+
+/**
+ * Run `fn` as an action the user has ALREADY confirmed in the caller's own
+ * dialog — one that asked for the typed name on a protected connection (a DROP,
+ * audit A-25) — so the guard does not ask a second time. Read-only still
+ * refuses: consent never reaches that check.
+ */
+export async function withConfirmedWrites<T>(connId: string, fn: () => Promise<T>): Promise<T> {
   consent.set(connId, (consent.get(connId) ?? 0) + 1);
   try {
     return await fn();

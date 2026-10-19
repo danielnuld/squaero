@@ -77,3 +77,50 @@ describe("Notebook SQL cell formatting", () => {
     expect(sqlCell().value).toBe("SELECT\n  1");
   });
 });
+
+describe("Notebook deletions ask first (audit P1)", () => {
+  const button = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].filter(
+      (b) => b.getAttribute("aria-label") === label || b.textContent === label,
+    );
+  const dialog = () => document.querySelector('[role="alertdialog"]');
+
+  it("a cell with content is deleted only after confirming, an empty one at once", async () => {
+    mount();
+    await flush();
+    // Add a second cell so one can be deleted; the new one is empty.
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "+SQL")!.click();
+    await flush();
+    expect(host!.querySelectorAll("textarea.nb-src-sql")).toHaveLength(2);
+    type(sqlCell(), "DELETE FROM pedidos");
+    button("Eliminar celda")[0].click();
+    await flush();
+    expect(dialog()!.textContent).toContain("¿Eliminar la celda [1]?");
+    expect(dialog()!.textContent).toContain("DELETE FROM pedidos");
+    dialog()!.querySelector<HTMLButtonElement>(".btn-danger")!.click();
+    await flush();
+    expect(host!.querySelectorAll("textarea.nb-src-sql")).toHaveLength(1);
+
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "+SQL")!.click();
+    await flush();
+    button("Eliminar celda")[1].click(); // the empty one
+    await flush();
+    expect(dialog()).toBeNull();
+    expect(host!.querySelectorAll("textarea.nb-src-sql")).toHaveLength(1);
+  });
+
+  it("deleting a notebook names it and counts its cells", async () => {
+    mount();
+    await flush();
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "+ Nuevo")!.click();
+    await flush();
+    const del = button("Eliminar")[0];
+    del.click();
+    await flush();
+    expect(dialog()!.textContent).toMatch(/¿Eliminar el notebook .+\?/);
+    expect(dialog()!.textContent).toContain("su única celda");
+    [...dialog()!.querySelectorAll("button")].find((b) => b.textContent === "Cancelar")!.click();
+    await flush();
+    expect(dialog()).toBeNull();
+  });
+});

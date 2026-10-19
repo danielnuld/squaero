@@ -9,8 +9,10 @@ import { formatDuration, isSlow } from "../utils/duration";
 import { Dropdown } from "./Dropdown";
 import { EmptyNote } from "./EmptyNote";
 
-// Query-history panel (issue #128): search executed queries and re-run one in a
-// new tab. Filtering is pure (searchHistory); the clear action is lifted to the
+// Query-history panel (issue #128): search executed queries and reuse one. A
+// click only selects (and shows the whole statement); inserting, opening in a new
+// tab or running are explicit buttons, so a stray click never re-runs an UPDATE.
+// Double click inserts in the active tab. Filtering is pure (searchHistory); the clear action is lifted to the
 // workspace, which owns persistence. The saved-entry limit is now configured in
 // the Settings panel (issue #181), not here. Each entry shows its duration and
 // slow runs (over the configured threshold) are marked and filterable (#179).
@@ -21,7 +23,12 @@ export function HistoryPanel(props: {
   slowThresholdMs: number;
   /** The focused connection's driver: the engine filter starts on it (#642). */
   engine?: string;
+  /** «Ejecutar»: runs in a new tab, through the normal run path. */
   onRun: (sql: string) => void;
+  /** «Insertar»: at the caret of the active query tab. */
+  onInsert: (sql: string) => void;
+  /** «Abrir en pestaña nueva», without running. */
+  onOpen: (sql: string) => void;
   onClear: () => void;
   onClose: () => void;
   /** Shown in the side column (#689): running an entry keeps it open. */
@@ -47,8 +54,9 @@ export function HistoryPanel(props: {
     return onlySlow() ? matched.filter((e) => isSlow(e.durationMs, props.slowThresholdMs)) : matched;
   });
 
-  const pick = (sql: string) => {
-    props.onRun(sql);
+  const [selected, setSelected] = createSignal<HistoryEntry | null>(null);
+  const pick = (action: (sql: string) => void, sql: string) => {
+    action(sql);
     if (!props.docked) props.onClose();
   };
 
@@ -120,8 +128,11 @@ export function HistoryPanel(props: {
                 <li class="history-item">
                   <button
                     class="history-run"
-                    title={t("hist.rerun")}
-                    onClick={() => pick(e.sql)}
+                    classList={{ active: selected() === e }}
+                    aria-expanded={selected() === e}
+                    title={t("hist.pickHint")}
+                    onClick={() => setSelected(e)}
+                    onDblClick={() => pick(props.onInsert, e.sql)}
                   >
                     <span class="history-sql">{e.sql}</span>
                     <span class="history-meta">
@@ -136,6 +147,19 @@ export function HistoryPanel(props: {
                       </Show>
                     </span>
                   </button>
+                  <Show when={selected() === e}>
+                    <div class="history-actions">
+                      <button class="btn" onClick={() => pick(props.onInsert, e.sql)}>
+                        {t("hist.insert")}
+                      </button>
+                      <button class="btn" onClick={() => pick(props.onOpen, e.sql)}>
+                        {t("hist.openNewTab")}
+                      </button>
+                      <button class="btn" onClick={() => pick(props.onRun, e.sql)}>
+                        {t("hist.run")}
+                      </button>
+                    </div>
+                  </Show>
                 </li>
               );
             }}
