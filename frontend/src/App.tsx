@@ -393,6 +393,7 @@ import {
   type PinnedResult,
 } from "./components/PinnedResults";
 import { ObjectListView } from "./components/ObjectListView";
+import { ToolTabContext, busyTools, onToolJobFinished } from "./utils/toolJobs";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { RelatedData } from "./components/RelatedData";
 import { RestorePrompt } from "./components/RestorePrompt";
@@ -2447,6 +2448,15 @@ export function App() {
     // The Toast clears a success itself; an error stays until it is closed.
     setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
   };
+  // A tool's job that ends in a tab the user has left (M14 P6), said like a
+  // run's. Under a second it was a refresh caught mid-flight, not news.
+  onToolJobFinished((id, ms) => {
+    const tab = tabs().tabs.find((x) => x.id === id);
+    if (!tab || current()?.id === id || ms < 1000) return;
+    clearTimeout(runToastTimer);
+    setRunToast({ text: t("tool.jobDone", { title: tab.title, duration: formatDuration(ms) }), error: false });
+    runToastTimer = setTimeout(() => setRunToast(null), 6000);
+  });
   const showErrorToast = (text: string) => {
     setRunToast({ text, error: true });
   };
@@ -5490,7 +5500,7 @@ export function App() {
               color: tabColor(tab),
               conn: openConns().length > 1 ? tabConn(tab)?.name : undefined,
               safe: safeModeOf(tabConn(tab)?.defId),
-              running: !!results[tab.id]?.loading,
+              running: !!results[tab.id]?.loading || busyTools().has(tab.id),
               dirty: isUnsaved(tab),
               tool: tab.kind === "tool",
             }))}
@@ -6244,6 +6254,7 @@ export function App() {
               // result to chart, another connection to edit — has to rebuild the
               // panel, or onMount never sees the new params.
               <Show when={`${tt().id}:${tt().rev ?? 0}`} keyed>
+              <ToolTabContext.Provider value={tt().id}>
               <Switch>
                 <Match when={tt().tool === "objectList"}>
                   <ObjectListView
@@ -6606,6 +6617,7 @@ export function App() {
                   <ShortcutsHelp isMac={isMac()} shortcuts={shortcuts()} onClose={() => closeTool(tt().id)} />
                 </Match>
               </Switch>
+              </ToolTabContext.Provider>
               </Show>
             )}
           </Show>

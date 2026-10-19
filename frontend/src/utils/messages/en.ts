@@ -106,6 +106,7 @@ export const en: Record<string, string> = {
   "tool.users.label": "Users and privileges",
   "tool.users.tab": "Users and privileges",
   "tool.users.title": "Users and privileges",
+  "tool.jobDone": "“{title}” finished · {duration}",
   "tool.er.label": "ER diagram",
   "tool.er.tab": "ER diagram",
   "tool.er.title": "Entity-relationship diagram",
