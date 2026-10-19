@@ -4,11 +4,14 @@ import { createStore } from "solid-js/store";
 import { schemaDescribe } from "../utils/schema";
 import { rowInsert, txBegin, txCommit, txRollback } from "../utils/edit";
 import { errorText } from "../utils/errors";
+import { runQuery } from "../utils/query";
 import {
   defaultGen,
   generateRows,
   makeRng,
   clampCount,
+  maxSql,
+  nextSequenceStart,
   GEN_KINDS,
   type ColumnGen,
   type GenKind,
@@ -33,6 +36,8 @@ const PREVIEW_SEED = 0x9e3779b9; // stable preview independent of the real run
 export function DataGenerator(props: {
   connId: string;
   target: { table: string; db?: string; schema?: string };
+  /** The connection's engine: quotes the MAX(pk) query. */
+  engine?: string;
   onClose: () => void;
   onGenerated?: () => void;
 }) {
@@ -65,7 +70,19 @@ export function DataGenerator(props: {
           pk: pi >= 0 && (r[pi] ?? "0") !== "0",
         }))
         .filter((c): c is { name: string; type: string; pk: boolean } => !!c.name);
-      setGens(cols.map((c) => defaultGen(c.name, c.type, c.pk)));
+      const defaults = cols.map((c) => defaultGen(c.name, c.type, c.pk));
+      // A key sequence starts after the rows already there (audit A-29), not
+      // at 1 where the first insert would collide. Unreadable: it stays at 1.
+      for (const g of defaults) {
+        if (g.kind !== "sequence") continue;
+        try {
+          const r = await runQuery(props.connId, maxSql(g.column, props.target, props.engine ?? "sqlite"), 1);
+          g.seqStart = nextSequenceStart(r.rows[0]?.[0]);
+        } catch {
+          /* no MAX: the start stays editable at 1 */
+        }
+      }
+      setGens(defaults);
       setLoaded(true);
     } catch (err) {
       setError(errorText(err));

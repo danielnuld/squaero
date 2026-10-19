@@ -5622,6 +5622,7 @@ export function App() {
                   <DataGenerator
                     connId={toolConn()?.connId ?? ""}
                     target={(tt().params as { target: EditTarget }).target}
+                    engine={activeDialect()}
                     onClose={() => closeTool(tt().id)}
                     onGenerated={() => {
                       const s = tt().sourceId;

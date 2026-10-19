@@ -7,6 +7,8 @@
 // deterministic while a real run uses Math.random. The generator never invents a
 // value for a "skip" column, so identity/auto-increment keys keep their defaults.
 
+import { qualifiedName, quoteIdentifier } from "./schema";
+
 /** A pseudo-random source in [0, 1). Math.random by default; seeded in tests. */
 export type Rng = () => number;
 
@@ -185,3 +187,17 @@ export const GEN_KINDS: { kind: GenKind; label: string }[] = [
   { kind: "null", label: "dg.kind.null" },
   { kind: "skip", label: "dg.kind.skip" },
 ];
+
+/** The query that reads a sequence column's current maximum (audit A-29). */
+export function maxSql(column: string, target: { table: string; db?: string; schema?: string }, engine: string): string {
+  return `SELECT MAX(${quoteIdentifier(column, engine)}) FROM ${qualifiedName({ db: target.db, schema: target.schema, name: target.table }, engine)}`;
+}
+
+/**
+ * Where a sequence starts so it does not collide with the rows already there:
+ * MAX + 1, or 1 on an empty table (NULL) or a maximum that is not a number.
+ */
+export function nextSequenceStart(max: string | null | undefined): number {
+  const n = Number(max);
+  return max != null && max !== "" && Number.isFinite(n) ? Math.floor(n) + 1 : 1;
+}

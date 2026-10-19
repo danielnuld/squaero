@@ -16,6 +16,7 @@ let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
 
 afterEach(() => {
+  maxId = undefined;
   dispose?.();
   dispose = null;
   host?.remove();
@@ -49,12 +50,21 @@ function describeResponse(id: number) {
   };
 }
 
+let maxId: string | null | undefined; // MAX(id) the bridge answers; undefined = the query fails
+
 function installBridge() {
   const calls: { method: string; params: unknown }[] = [];
   (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
     const req = JSON.parse(requestJson) as { id: number; method: string; params: unknown };
     calls.push({ method: req.method, params: req.params });
     if (req.method === "schema.describe") return describeResponse(req.id);
+    if (req.method === "query.run" && maxId !== undefined) {
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: [{ name: "max", type: "int" }], rows: [[maxId]], truncated: false, rowsAffected: 0 },
+      };
+    }
     if (req.method === "row.insert") {
       return { jsonrpc: "2.0", id: req.id, result: { sql: "INSERT ...", rowsAffected: 1 } };
     }
@@ -75,6 +85,7 @@ function mount() {
         <DataGenerator
           connId="c1"
           target={{ table: "users" }}
+          engine="mysql"
           onClose={onClose}
           onGenerated={onGenerated}
         />
@@ -92,6 +103,18 @@ const setCount = (n: number) => {
 };
 
 describe("DataGenerator", () => {
+  it("starts the key sequence after the rows already in the table (audit A-29)", async () => {
+    maxId = "12";
+    const calls = installBridge();
+    mount();
+    for (let i = 0; i < 3; i++) await flush();
+    expect((calls.find((c) => c.method === "query.run")!.params as { sql: string }).sql).toBe(
+      "SELECT MAX(`id`) FROM `users`",
+    );
+    const firstCell = host!.querySelector(".import-preview-scroll tbody tr td")!;
+    expect(firstCell.textContent).toBe("13");
+  });
+
   it("loads columns and assigns default strategies by type", async () => {
     installBridge();
     mount();
