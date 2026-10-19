@@ -7674,3 +7674,97 @@ button.grid-action.danger:hover:not(:disabled) {
     transparent 6px 12px
   );
 }
+
+/* The rail (issues #688, #689): a labelled panel switcher on the window's left
+   edge. The side column and its resizer fold away with the hidden attribute,
+   which their display: flex would otherwise override. */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  width: 64px;
+  flex-shrink: 0;
+  padding: var(--sp-2) 0 var(--sp-3);
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.rail-spacer {
+  flex: 1;
+}
+
+.rail-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 60px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: default;
+}
+
+.rail-btn:hover:not(:disabled) {
+  background: var(--bg-elev2);
+  color: var(--text);
+}
+
+.rail-btn.on {
+  background: var(--bg-elev2);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The accent mark on the panel being shown. */
+.rail-btn.on::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--sp-4);
+  bottom: var(--sp-4);
+  width: 3px;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+}
+
+.rail-btn:disabled {
+  opacity: 0.45;
+}
+
+.rail-lb {
+  font-size: var(--fs-sm);
+  line-height: 1.1;
+}
+
+.sidebar[hidden],
+.resizer[hidden],
+.side-explorer[hidden] {
+  display: none;
+}
+
+.side-explorer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A panel docked in the side column: no document padding to spare. */
+.sidebar .tool-pane {
+  padding: var(--sp-3);
+  background: var(--bg-elev);
+}

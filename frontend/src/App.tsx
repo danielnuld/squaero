@@ -336,6 +336,9 @@ import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar, type ObjectView } from "./components/ObjectToolbar";
 import { DocTabs } from "./components/DocTabs";
+import { paneSize, savePaneSize } from "./utils/paneSizes";
+import { Rail } from "./components/Rail";
+import { loadSideState, railClick, saveSideState } from "./utils/sidePanel";
 import { tabIcon } from "./utils/tabStrip";
 import { ResultTabs } from "./components/ResultTabs";
 import {
@@ -556,10 +559,19 @@ export function App() {
   // Foreign-key pickers per tab, column -> referenced table + its candidate rows.
   // Filled when an edit session starts (loadFkLookups) and cleared with the result.
   const [fkLookups, setFkLookups] = createStore<Record<number, Record<string, FkLookup>>>({});
-  const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
+  // Remembered layout (#688): the side column's width, which panel it shows and
+  // whether it is folded, and the editor's share of a query tab.
+  const [sidebarWidth, setSidebarWidth] = createSignal(
+    clampSidebarWidth(paneSize("sidebar", SIDEBAR_DEFAULT)),
+  );
+  const [side, setSide] = createSignal(loadSideState());
+  createEffect(() => saveSideState(side()));
+  let sidebarEl: HTMLElement | undefined;
   // How much of a query tab the editor takes (issue #423). Dragged, not fixed:
   // a procedure's definition needs the height that an empty grid was holding.
-  const [editorPct, setEditorPct] = createSignal(EDITOR_PCT_DEFAULT);
+  const [editorPct, setEditorPct] = createSignal(
+    clampEditorPct(paneSize("editorPct", EDITOR_PCT_DEFAULT)),
+  );
   // The grid's page search row ("Buscar en la página", #690), driven by the
   // toolbar button and by the grid's own Ctrl+F.
   const [gridSearch, setGridSearch] = createSignal(false);
@@ -4361,12 +4373,15 @@ export function App() {
   // Sidebar drag-to-resize: track the pointer on the document until release.
   const startResize = (e: MouseEvent) => {
     e.preventDefault();
+    // Measured from the column's own left edge: the rail sits before it.
+    const left = sidebarEl?.getBoundingClientRect().left ?? 0;
     const onMove = (ev: MouseEvent) =>
-      setSidebarWidth(clampSidebarWidth(ev.clientX));
+      setSidebarWidth(clampSidebarWidth(ev.clientX - left));
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
+      savePaneSize("sidebar", sidebarWidth());
     };
     document.body.style.cursor = "col-resize";
     document.addEventListener("mousemove", onMove);
@@ -4386,6 +4401,7 @@ export function App() {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
+      savePaneSize("editorPct", editorPct());
     };
     document.body.style.cursor = "row-resize";
     document.addEventListener("mousemove", onMove);
@@ -4498,7 +4514,59 @@ export function App() {
   return (
     <div class="app">
       <div class="main">
-        <aside class="sidebar" style={{ width: `${sidebarWidth()}px` }}>
+        <Rail
+          side={side()}
+          onPick={(panel) => setSide((s) => railClick(s, panel))}
+          connected={!!active()}
+          onConnections={openConnectionsTab}
+          onSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
+        />
+        {/* The side column stays mounted when folded or switched: the trees
+            keep their expansion, filter and loaded objects (#444, #689). */}
+        <aside
+          class="sidebar"
+          ref={sidebarEl}
+          hidden={side().collapsed}
+          aria-label={t(`rail.${side().panel}Title`)}
+          style={{ width: `${sidebarWidth()}px` }}
+        >
+          <Show when={side().panel === "history"}>
+            <HistoryPanel
+              docked
+              entries={history()}
+              slowThresholdMs={settings().slowThresholdMs}
+              engine={active()?.driver}
+              onRun={runFromHistory}
+              onClear={clearHistory}
+              onClose={() => setSide((s) => ({ ...s, panel: "explorer" }))}
+            />
+          </Show>
+          <Show when={side().panel === "snippets"}>
+            <SnippetsPanel
+              docked
+              entries={snippets()}
+              onOpen={openSnippet}
+              onInsert={insertSnippet}
+              onRename={renameSnip}
+              onSetAbbr={setSnipAbbr}
+              onDuplicate={duplicateSnip}
+              onRemove={removeSnip}
+              onExport={exportSnippets}
+              onImport={importSnippets}
+              onClose={() => setSide((s) => ({ ...s, panel: "explorer" }))}
+            />
+          </Show>
+          <Show when={side().panel === "search" && active()}>
+            {(conn) => (
+              <DataSearchPanel
+                connId={conn().connId}
+                engine={activeDialect()}
+                db={activeDb()}
+                onOpen={(sql, table) => openSearchMatches(sql, table, conn().defId)}
+              />
+            )}
+          </Show>
+          <div class="side-explorer" hidden={side().panel !== "explorer"}>
           <div class="sidebar-section-title">{t("conn.title")}</div>
           <ConnectionBar
             connections={connections()}
@@ -4614,9 +4682,21 @@ export function App() {
               </For>
             </div>
           </Show>
+          </div>
         </aside>
 
-        <div class="resizer" onMouseDown={startResize} />
+        <div
+          class="resizer"
+          role="separator"
+          aria-orientation="vertical"
+          hidden={side().collapsed}
+          title={t("panes.sidebarTitle")}
+          onMouseDown={startResize}
+          onDblClick={() => {
+            setSidebarWidth(SIDEBAR_DEFAULT);
+            savePaneSize("sidebar", SIDEBAR_DEFAULT);
+          }}
+        />
 
         <section class="workspace">
           {/* A protected connection (issue #666) keeps the strip even without a
@@ -4905,7 +4985,10 @@ export function App() {
                     aria-orientation="horizontal"
                     title={t("panes.dividerTitle")}
                     onMouseDown={startEditorResize}
-                    onDblClick={() => setEditorPct(EDITOR_PCT_DEFAULT)}
+                    onDblClick={() => {
+                      setEditorPct(EDITOR_PCT_DEFAULT);
+                      savePaneSize("editorPct", EDITOR_PCT_DEFAULT);
+                    }}
                   />
                 </Show>
                 <div class="result-pane">
@@ -5827,7 +5910,6 @@ export function App() {
         theme={theme()}
         onToggleTheme={toggleTheme}
         onShowHelp={() => showTool("help", t("status.shortcuts"), { key: "help" })}
-        onShowSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
       />
 
       <CommandPalette
