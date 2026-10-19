@@ -185,7 +185,7 @@ describe("TransferWizard", () => {
     const read = calls.find((c) => c.method === "query.run")!.params;
     expect(read.sql).toBe('SELECT * FROM "main"."users"');
     expect(calls.filter((c) => c.method === "row.insert")).toHaveLength(3);
-    expect(host!.textContent).toContain("Se leyeron 3 filas del origen.");
+    expect([...host!.querySelectorAll(".wiz-stat")].map((s) => s.textContent)).toContain("3filas leídas del origen");
   });
 
   it("can still copy only the loaded rows", async () => {
@@ -210,5 +210,83 @@ describe("TransferWizard", () => {
     expect(host!.querySelector(".map-select")).toBeNull();
     const table = [...host!.querySelectorAll<HTMLInputElement>("input[type=text]")].pop()!;
     expect(table.value).toBe("users");
+  });
+});
+
+// #692 (P5): destination pickers, the typed mapper, the run and its summary.
+describe("TransferWizard — depth", () => {
+  function bridge(opts: { failId?: string } = {}) {
+    const calls: { method: string; params: any }[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      calls.push({ method: req.method, params: req.params });
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      const set = (cols: string[], rows: string[][]) => ok({
+        columns: cols.map((name) => ({ name, type: "text" })),
+        rows,
+        truncated: false,
+        rowsAffected: 0,
+      });
+      switch (req.method) {
+        case "conn.open":
+          return ok({ connId: "c2" });
+        case "schema.tree":
+          return req.params.db
+            ? set(["name", "type"], [["clientes", "table"], ["clientes_archivo", "table"], ["v", "view"]])
+            : set(["name"], [["main"], ["archivo"]]);
+        case "schema.describe":
+          return ok(describeResult());
+        case "row.insert":
+          if (req.params.values.id === opts.failId) {
+            return { jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "UNIQUE failed" } };
+          }
+          return ok({ sql: "INSERT", rowsAffected: 1 });
+        default:
+          return ok({ ok: true });
+      }
+    };
+    return calls;
+  }
+
+  it("offers the destination's databases, then its tables", async () => {
+    bridge();
+    mount();
+    for (let i = 0; i < 4; i++) await flush();
+    const opts = (id: string) => [...host!.querySelectorAll(`#${id} option`)].map((o) => o.getAttribute("value"));
+    expect(opts("tw-dbs")).toEqual(["main", "archivo"]);
+    const db = host!.querySelector<HTMLInputElement>('input[list="tw-dbs"]')!;
+    db.value = "main";
+    db.dispatchEvent(new Event("change", { bubbles: true }));
+    for (let i = 0; i < 3; i++) await flush();
+    // Tables only: a view cannot take the rows.
+    expect(opts("tw-tables")).toEqual(["clientes", "clientes_archivo"]);
+  });
+
+  it("maps with the typed mapper and ends on a summary with the failed rows", async () => {
+    bridge({ failId: "2" });
+    mount();
+    for (let i = 0; i < 3; i++) await flush();
+    clickButton("Siguiente");
+    for (let i = 0; i < 3; i++) await flush();
+    expect(host!.querySelector(".colmap-head")!.textContent).toContain("2 de 2 columnas asignadas");
+    expect([...host!.querySelectorAll(".colmap-example")].map((e) => e.textContent)).toEqual(["1", "alice"]);
+    expect(host!.textContent).toContain("Prod › users");
+    clickButton("Transferir 2 filas a Prod");
+    for (let i = 0; i < 5; i++) await flush();
+    const stats = [...host!.querySelectorAll(".wiz-stat")].map((s) => s.textContent);
+    expect(stats[0]).toBe("1filas transferidas");
+    expect(stats[1]).toBe("1con error");
+    expect(host!.querySelector(".run-errors")!.textContent).toContain("Fila 2: UNIQUE failed");
+  });
+
+  it("«Cambiar destino» goes back to the first step", async () => {
+    bridge();
+    mount();
+    for (let i = 0; i < 3; i++) await flush();
+    clickButton("Siguiente");
+    for (let i = 0; i < 3; i++) await flush();
+    clickButton("Cambiar destino");
+    await flush();
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Destino");
   });
 });

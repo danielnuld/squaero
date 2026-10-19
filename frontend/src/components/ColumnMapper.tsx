@@ -25,6 +25,8 @@ export function ColumnMapper(props: {
   onChange: (mapping: ColumnMapping) => void;
   /** The first source row, for the «Ejemplo» column; absent hides it. */
   example?: (string | null)[];
+  /** «Asignar por nombre» leaves autoincrement columns out (default true). */
+  skipAuto?: boolean;
 }) {
   const autoNames = () => props.targets.filter((c) => c.auto).map((c) => c.name);
   const sample = (col: TargetColumn) => {
@@ -41,13 +43,13 @@ export function ColumnMapper(props: {
         <h3>{t("imp.mapping")}</h3>
         <span class="help" role="status">
           {t("imp.assigned", { n: assignedCount(props.mapping), total: props.targets.length })}
-          <Show when={autoNames().length > 0}>
+          <Show when={autoNames().length > 0 && (props.skipAuto ?? true)}>
             {" · "}
             {t("imp.autoSkipped", { names: autoNames().join(", ") })}
           </Show>
         </span>
         <span class="toolbar-spacer" />
-        <button type="button" class="btn" onClick={() => props.onChange(mapByName(props.sourceHeaders, props.targets))}>
+        <button type="button" class="btn" onClick={() => props.onChange(mapByName(props.sourceHeaders, props.targets, props.skipAuto ?? true))}>
           {t("imp.byName")}
         </button>
       </div>

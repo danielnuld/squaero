@@ -142,6 +142,8 @@ describe("target columns and mapping", () => {
     expect(m).toEqual({ id: null, telefono: "Teléfono", fecha_alta: "Fecha Alta", nota: null });
     expect(assignedCount(m)).toBe(2);
     expect(assignedCount({})).toBe(0);
+    // A transfer copies its keys: the autoincrement is mapped too.
+    expect(mapByName(["ID"], targets, false).id).toBe("ID");
   });
 });
 
