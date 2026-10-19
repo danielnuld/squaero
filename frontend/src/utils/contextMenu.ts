@@ -32,6 +32,11 @@ export interface MenuItem {
   hint?: string;
   /** Hover tooltip: the full text when the label is cut short. */
   title?: string;
+  /**
+   * Rows of a submenu opened beside this one (audit A-14). Such a row has no
+   * action of its own. One level only: a submenu row's `submenu` is ignored.
+   */
+  submenu?: MenuItem[];
 }
 
 export interface MenuState {

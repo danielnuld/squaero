@@ -81,6 +81,25 @@ describe("ExplainPlan", () => {
     expect(host!.querySelectorAll(".ep-node.hot").length).toBeGreaterThan(0);
   });
 
+  it("reads the same plan as a table, indented, costliest path marked (ExplainPlanTable)", async () => {
+    installBridge(() => okCell(PG_PLAN));
+    mount();
+    await flush();
+    const table = [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Tabla")!;
+    table.click();
+    expect(table.getAttribute("aria-pressed")).toBe("true");
+    expect(host!.querySelector(".ep-svg")).toBeNull();
+    const rows = [...host!.querySelectorAll(".ep-table tbody tr")];
+    expect(rows.map((r) => r.querySelector("td")!.textContent)).toEqual([
+      "Nested Loop",
+      "Seq Scan",
+      "Index Scan",
+    ]);
+    expect(rows[1].children[1].textContent).toBe("orders");
+    expect(rows[1].classList.contains("hot")).toBe(true);
+    expect(rows[2].classList.contains("hot")).toBe(false);
+  });
+
   it("shows an honest message and runs nothing for an engine without structured plans", async () => {
     const calls = installBridge(() => okCell(PG_PLAN));
     mount({ engine: "informix" });

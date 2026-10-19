@@ -10,7 +10,7 @@ import { Icon } from "./icons";
 //
 //   running  «Ejecutando · 00:04 · sentencia 2 de 3»          [Cancelar]
 //   rows     «Resultado · 8 filas · 11 ms»
-//   write    «2 filas afectadas · 9 ms»
+//   write    «2 filas afectadas · 9 ms · confirmado en modo Auto»  [Ver en el historial]
 //   error    «Error en la línea 3 · 13 ms»                    [Ir a la línea 3]
 //
 // The clock ticks while the query runs, so a slow query never looks like a dead
@@ -32,6 +32,11 @@ export function RunStatus(props: {
   cancelBlocked?: string;
   /** Show the failed line in the editor; absent when the editor cannot find it. */
   onReveal?: () => void;
+  /** Where a write stands (EditorDmlResult): committed as it ran, or waiting
+      in the open transaction. */
+  tx?: "auto" | "pending";
+  /** Show this run in the query history; absent → no link. */
+  onHistory?: () => void;
 }) {
   const [now, setNow] = createSignal(Date.now());
   createEffect(() => {
@@ -60,7 +65,9 @@ export function RunStatus(props: {
       const line = props.errorLine;
       return (line ? t("run.errorAt", { n: line }) : t("run.error")) + took();
     }
-    return (kind() === "rows" ? plural("run.rows", count()) : plural("run.affected", count())) + took();
+    if (kind() === "rows") return plural("run.rows", count()) + took();
+    const where = props.tx ? ` · ${t(props.tx === "auto" ? "run.committedAuto" : "run.pendingTx")}` : "";
+    return plural("run.affected", count()) + took() + where;
   };
 
   return (
@@ -84,6 +91,11 @@ export function RunStatus(props: {
             onClick={() => props.onCancel?.()}
           >
             {t("common.cancel")}
+          </button>
+        </Show>
+        <Show when={!props.loading && kind() === "affected" && props.onHistory}>
+          <button class="edit-btn" onClick={() => props.onHistory?.()}>
+            {t("run.inHistory")}
           </button>
         </Show>
         <Show when={!props.loading && kind() === "error" && props.onReveal}>

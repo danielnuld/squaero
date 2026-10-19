@@ -50,6 +50,7 @@ export type ActionId =
   | "expand-template"
   | "tx-commit"
   | "tx-rollback"
+  | "cancel-query"
   | "zoom-in"
   | "zoom-out"
   | "zoom-reset";
@@ -123,6 +124,9 @@ export const SHORTCUTS: Shortcut[] = [
   // End the connection's open transaction (issue #667); no-ops when none is.
   { id: "tx-commit", keys: "Mod+Alt+C", description: "sc.tx-commit", global: true },
   { id: "tx-rollback", keys: "Mod+Alt+R", description: "sc.tx-rollback", global: true },
+  // Stop the running query (issue #691), as in SSMS and most SQL clients. With
+  // Ctrl held, Pause/Break reaches the page as "Cancel" (see KEY_NAMES).
+  { id: "cancel-query", keys: "Mod+Pause", description: "sc.cancel-query", global: true },
   // The interface's own zoom (issue #681): it scales the type scale, not the
   // page, and takes the keys the webview host would spend on browser zoom.
   { id: "zoom-in", keys: "Mod++", description: "sc.zoom-in", global: true },
@@ -168,7 +172,16 @@ const MODIFIER_TOKENS: Record<string, keyof Omit<Combo, "key">> = {
 };
 
 /** Keys whose name the browser spells differently from the label. */
-const KEY_NAMES: Record<string, string> = { escape: "Esc", esc: "Esc", " ": "Space", spacebar: "Space" };
+// Ctrl+Pause is reported as "Cancel" (the key's Ctrl+Break meaning), and some
+// layouts label the key "Break": all three are the one Pause key.
+const KEY_NAMES: Record<string, string> = {
+  escape: "Esc",
+  esc: "Esc",
+  " ": "Space",
+  spacebar: "Space",
+  cancel: "Pause",
+  break: "Pause",
+};
 
 /** Canonical spelling of one key: letters upper-cased, named keys as the DOM spells them. */
 function normalizeKey(key: string): string {

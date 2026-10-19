@@ -351,12 +351,17 @@ import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar, type ObjectView } from "./components/ObjectToolbar";
 import { DocTabs } from "./components/DocTabs";
 import { Pager } from "./components/Pager";
-import { pagerView } from "./utils/pager";
+import { pagerView, parsePageSize, offsetForPageSize, PAGE_SIZE_KEY } from "./utils/pager";
 import { paneSize, savePaneSize } from "./utils/paneSizes";
 import { Rail } from "./components/Rail";
 import { loadSideState, railClick, saveSideState } from "./utils/sidePanel";
 import { tabIcon } from "./utils/tabStrip";
-import { ResultTabs } from "./components/ResultTabs";
+import { ResultTabs, type ResultView } from "./components/ResultTabs";
+import { ResultMessages } from "./components/ResultMessages";
+import { ErrorHints } from "./components/ErrorHints";
+import { engineErrorCode, didYouMean } from "./utils/errorHints";
+import { editorSchema } from "./utils/sqlEditor";
+import { runMessages, appendMessages, type RunMessage } from "./utils/runMessages";
 import {
   PinStrip,
   PinNote,
@@ -423,6 +428,10 @@ interface TabResult {
   elapsedMs: number | null;
   /** When the last editor run started, epoch ms (issue #643). */
   ranAt?: number;
+  /** The SQL of the last fresh run, for «Ver en el historial» (#691). */
+  ranSql?: string;
+  /** Where that run's writes stand: committed (auto) or in the open transaction. */
+  ranTx?: "auto" | "pending";
   /** What the last run executed — selection / statement / document (issue #130). */
   ranScope?: RunScope | null;
   /** When the run in flight started, epoch ms: the result panel's clock (#691). */
@@ -510,11 +519,6 @@ interface ActiveConnection {
   reconnected?: boolean;
 }
 
-// Page size, owned by the UI (sent explicitly, not the core default). Table
-// previews fetch page-by-page with a server-side LIMIT/OFFSET (runPreviewPage);
-// a plain query pages via the core's row-skip offset. `truncated` marks a
-// further page; the grid virtualizes the returned page.
-const PAGE_LIMIT = 1000;
 
 // Rows per round trip when EXPORTING (issue #479). Bigger than a screen's page
 // on purpose: the grid pages for the eye, an export pages only to keep any one
@@ -583,6 +587,20 @@ export function App() {
   // the welcome screen (issue #694); a saved session comes back only when resumed.
   const [tabs, setTabs] = createSignal<TabState>(emptySession(stored));
   const [results, setResults] = createStore<Record<number, TabResult>>({});
+  // The result pane's view per query tab (#691): the result(s), the run
+  // messages, or the plan of the statement last explained there.
+  const [resultViews, setResultViews] = createStore<Record<number, ResultView>>({});
+  const [runLogs, setRunLogs] = createStore<Record<number, RunMessage[]>>({});
+  const [planSqls, setPlanSqls] = createStore<Record<number, string>>({});
+  const resultView = (tabId: number): ResultView => resultViews[tabId] ?? "result";
+  const logRun = (tabId: number, lines: RunMessage[]) =>
+    setRunLogs(tabId, (log) => appendMessages(log ?? [], lines));
+  // Rows per page, owned by the UI (sent explicitly, not the core default) and
+  // remembered (A-20, R-38). Table previews fetch page-by-page with a server-side
+  // LIMIT/OFFSET (runPreviewPage); a plain query pages via the core's row-skip
+  // offset. Each result keeps the size it was read with (`pageSize`), so a
+  // change applies to the next read and never mis-counts an open result's pages.
+  const [pageSize, setPageSize] = createSignal(parsePageSize(resolveStore().getItem(PAGE_SIZE_KEY)));
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
   // Foreign-key pickers per tab, column -> referenced table + its candidate rows.
   // Filled when an edit session starts (loadFkLookups) and cleared with the result.
@@ -965,6 +983,10 @@ export function App() {
         break;
       case "refresh":
         refreshAll();
+        break;
+      case "cancel-query":
+        // Only while the tab's query runs: there is nothing to stop otherwise.
+        if (currentResult().loading) cancelActive();
         break;
       case "toggle-theme":
         toggleTheme();
@@ -2346,6 +2368,9 @@ export function App() {
     const tab = tabId !== undefined ? tabs().tabs.find((x) => x.id === tabId) : current();
     if (!tab) return;
     const id = tab.id;
+    // A page turn keeps the size its result was read with: its offset counts
+    // pages of THAT size. A fresh run takes the remembered one.
+    const limit = offset > 0 ? (results[id]?.pageSize ?? pageSize()) : pageSize();
     const trimmed = sql.trim();
     if (!trimmed) {
       setResults(id, { ...emptyResult(), error: t("error.emptyQuery") });
@@ -2353,6 +2378,8 @@ export function App() {
     }
     // What the editor held when it ran (issue #674); page turns are not a run.
     if (offset === 0 && tab.kind === "query" && !isDataTab(id)) recordLocal(tab, "run");
+    // A fresh run shows its result, whichever view the pane was on.
+    if (offset === 0) setResultViews(id, "result");
     // Run against the tab's OWN connection (bound at creation), so a prod tab and
     // a dev tab keep hitting their own servers regardless of which is focused. A
     // tab with no binding follows whatever is focused.
@@ -2402,7 +2429,7 @@ export function App() {
       const sets = script
         ? scriptSets(
             await withWriteConsent(conn.connId, stmts, () =>
-              runStatements(conn.connId, stmts, PAGE_LIMIT, exec),
+              runStatements(conn.connId, stmts, limit, exec),
             ),
             activeDialect(),
           )
@@ -2416,7 +2443,7 @@ export function App() {
       const result = sets
         ? (shown?.result ?? null)
         : await withWriteConsent(conn.connId, [trimmed], () =>
-            exec(trimmed, () => runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0)),
+            exec(trimmed, () => runQuery(conn.connId, trimmed, limit, offset, offset === 0)),
           );
       const elapsedMs = performance.now() - started;
       // The page cache starts here and grows only through the cursor: pages of
@@ -2425,7 +2452,7 @@ export function App() {
       // showing yesterday's rows). It is indexed by page number, so a re-run at
       // an offset lands in its own slot.
       const pages: ResultSet[] | undefined = script || !result ? undefined : [];
-      if (pages && result) pages[Math.round(offset / PAGE_LIMIT)] = result;
+      if (pages && result) pages[Math.round(offset / limit)] = result;
       setResults(id, {
         loading: false,
         error: shown?.error ?? null,
@@ -2435,9 +2462,10 @@ export function App() {
         elapsedMs,
         ranAt,
         ranScope: scope,
+        ...(offset === 0 ? { ranSql: trimmed, ranTx: txOf(conn).open ? "pending" : "auto" } : {}),
         pageSql: script ? undefined : trimmed,
         offset,
-        pageSize: PAGE_LIMIT,
+        pageSize: limit,
         cursor: result?.cursor ?? false,
         pages,
         source: keepSource,
@@ -2452,6 +2480,18 @@ export function App() {
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
         showRunToast(id, ranAt, elapsedMs, !!shown?.error);
+        logRun(
+          id,
+          runMessages({
+            at: ranAt,
+            sql: trimmed,
+            sets,
+            result,
+            error: shown?.error ?? null,
+            elapsedMs,
+            warnings: implicitCommit ? [t("tx.implicitCommit")] : undefined,
+          }),
+        );
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
       // A page turn keeps the source it already had; a fresh query derives it.
@@ -2482,6 +2522,17 @@ export function App() {
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
         showRunToast(id, ranAt, elapsedMs, true);
+        logRun(
+          id,
+          runMessages({
+            at: ranAt,
+            sql: trimmed,
+            result: null,
+            error: errorText(err),
+            elapsedMs,
+            warnings: implicitCommit ? [t("tx.implicitCommit")] : undefined,
+          }),
+        );
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
     }
@@ -2529,12 +2580,13 @@ export function App() {
       });
       return;
     }
+    const limit = pageSize();
     // The filter the panel applied travels INTO the paged query, so narrowing a
     // table narrows the table and not the page (issue #347).
     const sql = objectPreviewQuery(
       preview.parts,
       preview.engine,
-      PAGE_LIMIT,
+      limit,
       offset,
       filters[tabId]?.applied ?? undefined,
     );
@@ -2548,10 +2600,10 @@ export function App() {
     setTabs((s) => updateTabSql(s, tabId, sql));
     const started = performance.now();
     try {
-      const result = await runQuery(conn.connId, sql, PAGE_LIMIT, 0);
+      const result = await runQuery(conn.connId, sql, limit, 0);
       // The preview caps its own rows, so the core can't mark truncation; infer a
       // further page from a full page.
-      const paged: ResultSet = { ...result, truncated: pageHasMore(result.rows.length, PAGE_LIMIT) };
+      const paged: ResultSet = { ...result, truncated: pageHasMore(result.rows.length, limit) };
       setResults(tabId, {
         loading: false,
         error: null,
@@ -2560,7 +2612,7 @@ export function App() {
         ranScope: "document",
         pageSql: sql,
         offset,
-        pageSize: PAGE_LIMIT,
+        pageSize: limit,
         source: keepSource,
         preview,
       });
@@ -2584,7 +2636,7 @@ export function App() {
     const conn = tabConn(tabs().tabs.find((x) => x.id === tabId));
     const r = results[tabId];
     if (!conn || !r) return;
-    const size = r.pageSize ?? PAGE_LIMIT;
+    const size = r.pageSize ?? pageSize();
     setResults(tabId, { loading: true });
     const started = performance.now();
     try {
@@ -2632,7 +2684,7 @@ export function App() {
     if (!r || r.loading || currentEdit().editing) return;
     const step = pageStep(r, delta);
     if (!step) return;
-    const size = r.pageSize ?? PAGE_LIMIT;
+    const size = r.pageSize ?? pageSize();
     if (step.kind === "cached") {
       const page = r.pages?.[step.index];
       if (page) setResults(t.id, { result: page, offset: step.index * size, error: null });
@@ -2668,7 +2720,7 @@ export function App() {
     return pagerView({
       offset: r?.offset ?? 0,
       rows: r?.result?.rows.length ?? 0,
-      size: r?.pageSize ?? PAGE_LIMIT,
+      size: r?.pageSize ?? pageSize(),
       total: dataTotal(tabId),
       more: !!r?.result?.truncated,
       paused: !!edits[tabId]?.editing || !!r?.loading,
@@ -2693,6 +2745,13 @@ export function App() {
     const r = results[tabId];
     if (!r?.preview || r.loading || edits[tabId]?.editing) return;
     void runPreviewPage(tabId, r.preview, offset);
+  };
+  // The pager's size selector (A-20, R-38): remembered for every table, and the
+  // table re-read at once on the page that still holds its first row.
+  const changePageSize = (tabId: number, size: number) => {
+    setPageSize(size);
+    resolveStore().setItem(PAGE_SIZE_KEY, String(size));
+    goToDataOffset(tabId, offsetForPageSize(results[tabId]?.offset ?? 0, size));
   };
 
   /** The variable values this tab last ran with. */
@@ -2886,6 +2945,13 @@ export function App() {
       setResults(tab.id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
+    // A query tab shows the plan in its own result pane, under «Plan» (#691);
+    // anything else keeps the plan's tool tab.
+    if (tab.kind === "query" && !isDataTab(tab.id)) {
+      setPlanSqls(tab.id, sql);
+      setResultViews(tab.id, "plan");
+      return;
+    }
     showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
   };
 
@@ -2945,7 +3011,7 @@ export function App() {
       parts: { db: node.db, schema: node.schema, name: node.label },
       engine: activeDialect(),
     };
-    const sql = objectPreviewQuery(preview.parts, preview.engine, PAGE_LIMIT);
+    const sql = objectPreviewQuery(preview.parts, preview.engine, pageSize());
     let newId = 0;
     setTabs((s) => {
       // The tab is named after the object it opens, not "Consulta N".
@@ -4355,28 +4421,101 @@ export function App() {
     setTimeout(() => setExportStatus((cur) => (cur === done ? null : cur)), 8000);
   };
 
-  // Right-click on a result cell: copy the cell / row / row-as-JSON, and export
-  // the loaded result. Built here because the workspace owns the result + the
-  // exporters; the grid just forwards the click position and indices.
+  // Right-click on a result cell. Built here because the workspace owns the
+  // result + the exporters; the grid just forwards the click position and
+  // indices. Grouped as the M14 prototype draws it (audit A-14): the cell first
+  // (copy, copy as ▸, NULL, detail), then where the value leads (related data,
+  // filter by it ▸), then the row actions, then the export ▸ — four groups
+  // instead of one flat list of twenty rows.
   const onCellContext = (e: MouseEvent, rowIndex: number, colIndex: number) => {
     const res = currentResult().result;
     if (!res) return;
     const row = res.rows[rowIndex];
     const items: MenuItem[] = [];
     if (row) {
+      const column = res.columns[colIndex]?.name ?? "";
+      const cell = row[colIndex];
+      // Row actions take the marked rows, or the row under the pointer when none
+      // is marked. One marked row counts too (#517); these used to need two.
+      // Copying follows the grid's column order (#446); the INSERT and transfer
+      // keep the table's own order, which is part of the statement.
+      const marked = markedRows();
+      const targets = marked.length > 0 ? marked : [rowIndex];
+      const n = targets.length;
+
+      // ── The cell ──
+      items.push({
+        label: t("result.copyCell"),
+        hint: displayKeys("Mod+C", isMac()),
+        action: () => copyText(cell ?? ""),
+      });
+      const copyAs: MenuItem[] = [
+        {
+          label: n === 1 ? t("result.copyRow") : t("result.copyRowsN", { n }),
+          action: () => copyRowsFromGrid(targets),
+        },
+        // With the column names as the first line, for a spreadsheet: the marked
+        // rows (or the one under the pointer), or every row the grid has loaded.
+        {
+          label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
+          action: () => copyRowsFromGrid(targets, true),
+        },
+      ];
+      if (res.rows.length > n) {
+        copyAs.push({
+          label: t("result.copyAllHeader", { n: res.rows.length }),
+          action: () => copyRowsFromGrid(res.rows.map((_, i) => i), true),
+        });
+      }
+      copyAs.push(
+        { separator: true },
+        {
+          label: n === 1 ? t("result.copyRowInsert") : t("result.copyRowsInserts", { n }),
+          action: () => copyRowsAsInserts(targets),
+        },
+        {
+          label: t("result.copyRowJson"),
+          action: () =>
+            copyText(
+              rowToJson(applyOrder(columnOrder(), res.columns), applyOrder(columnOrder(), row)),
+            ),
+        },
+      );
+      items.push({ label: t("result.copyAs"), submenu: copyAs });
+      // Writing a NULL (issue #398). Clearing the box gives "", which is a
+      // different value, so this is the only way to say NULL from the grid. The
+      // entry is always here and carries its own reason when it cannot run —
+      // the same rule as the related-data entry below (#344). Whether the
+      // COLUMN accepts a NULL is not knowable from a ResultColumn (name + type,
+      // nothing else), so a NOT NULL is rejected by the engine, with its error.
+      const nullBlocked = () =>
+        !currentEditable()
+          ? readOnlyReason("result.setNullReadOnly")
+          : !currentEdit().editing
+            ? t("result.setNullNeedsEdit")
+            : null;
+      items.push({
+        get label() {
+          return nullBlocked() ?? t("result.setNull");
+        },
+        get disabled() {
+          return nullBlocked() !== null;
+        },
+        action: () => onEditCell(rowIndex, column, null),
+      });
       items.push({ label: t("result.rowDetail"), action: () => setDetailIndex(rowIndex) });
+      items.push({ separator: true });
+
+      // ── Where the value leads ──
       // The entry is ALWAYS here, disabled with the reason when it cannot run.
       // It used to be added only over a referenced column and simply vanish
       // otherwise, which left "I don't know when this appears — it stopped
       // showing up" as the honest description of the feature (issue #344): four
       // separate conditions gate it and silence gave no way to tell them apart.
-      const column = res.columns[colIndex]?.name ?? "";
       // Getters, not values computed here: the catalog answer can land while the
       // menu is already open, and a string captured at open time left the entry
-      // stuck on "buscando relaciones…" until the menu was closed and reopened —
-      // which on a large schema, where the lookup takes a moment, is what every
-      // right-click looked like. ContextMenu reads both inside JSX, so a getter
-      // re-renders the entry when the state changes.
+      // stuck on "buscando relaciones…" until the menu was closed and reopened.
+      // ContextMenu reads both inside JSX, so a getter re-renders the entry.
       items.push({
         get label() {
           return (
@@ -4387,9 +4526,9 @@ export function App() {
         get disabled() {
           return relatedBlockedReason(column) !== null;
         },
+        hint: displayKeys("Mod+B", isMac()),
         action: () => openRelated(rowIndex, colIndex),
       });
-      items.push({ separator: true });
       // Filter the table by this cell's value (issue #593): each entry adds one
       // condition to the tab's filter panel and applies it at the server. Only
       // a table/view tab has that panel; anywhere else the one entry says so.
@@ -4397,51 +4536,28 @@ export function App() {
       if (tabId !== undefined && isDataTab(tabId)) {
         const value = row[colIndex];
         const shown = value !== null && value.length > 30 ? `${value.slice(0, 30)}…` : value ?? "";
-        for (const op of cellFilterOps(value)) {
-          items.push({
-            label: t("filter.byCell", {
-              cond: `${column} ${t(`filter.op.${op}`)} ${shown}`.trim(),
-            }),
-            action: () => {
-              withFilter(tabId, (f) => addCellCondition(f, column, op, value));
-              applyDataFilter(tabId);
-            },
-          });
-        }
+        const filterBy: MenuItem[] = cellFilterOps(value).map((op) => ({
+          label: t("filter.byCell", {
+            cond: `${column} ${t(`filter.op.${op}`)} ${shown}`.trim(),
+          }),
+          action: () => {
+            withFilter(tabId, (f) => addCellCondition(f, column, op, value));
+            applyDataFilter(tabId);
+          },
+        }));
         if (!filterIsEmpty(filterOf(tabId).applied)) {
-          items.push({ label: t("filter.byCellClear"), action: () => clearDataFilter(tabId) });
+          filterBy.push(
+            { separator: true },
+            { label: t("filter.byCellClear"), action: () => clearDataFilter(tabId) },
+          );
         }
+        items.push({ label: t("filter.byCellMenu"), submenu: filterBy });
       } else {
         items.push({ label: t("filter.byCellNeedsTable"), disabled: true });
       }
       items.push({ separator: true });
-      // Row actions take the marked rows, or the row under the pointer when none
-      // is marked. One marked row counts too (#517); these used to need two.
-      // Copying follows the grid's column order (#446); the INSERT and transfer
-      // keep the table's own order, which is part of the statement.
-      const marked = markedRows();
-      const targets = marked.length > 0 ? marked : [rowIndex];
-      const n = targets.length;
-      items.push({
-        label: n === 1 ? t("result.copyRow") : t("result.copyRowsN", { n }),
-        action: () => copyRowsFromGrid(targets),
-      });
-      // With the column names as the first line, for a spreadsheet: the marked
-      // rows (or the one under the pointer), or every row the grid has loaded.
-      items.push({
-        label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
-        action: () => copyRowsFromGrid(targets, true),
-      });
-      if (res.rows.length > n) {
-        items.push({
-          label: t("result.copyAllHeader", { n: res.rows.length }),
-          action: () => copyRowsFromGrid(res.rows.map((_, i) => i), true),
-        });
-      }
-      items.push({
-        label: n === 1 ? t("result.copyRowInsert") : t("result.copyRowsInserts", { n }),
-        action: () => copyRowsAsInserts(targets),
-      });
+
+      // ── The row ──
       items.push({
         get label() {
           return (
@@ -4452,6 +4568,7 @@ export function App() {
         get disabled() {
           return addRowsBlocked() !== null;
         },
+        hint: displayKeys("Mod+D", isMac()),
         action: () => duplicateRows(targets),
       });
       items.push({
@@ -4461,7 +4578,7 @@ export function App() {
       });
       // Deleting the rows (#644): staged into the pending changes, so nothing
       // runs before the SQL preview. Always listed, with its reason when it
-      // cannot run — the same rule as "Set NULL" below.
+      // cannot run — the same rule as "Set NULL" above.
       const deleteBlocked = () =>
         !currentEditable()
           ? readOnlyReason("result.deleteRowsReadOnly")
@@ -4483,48 +4600,22 @@ export function App() {
         get disabled() {
           return deleteBlocked() !== null;
         },
+        get danger() {
+          return !allDeleted();
+        },
+        hint: displayKeys("Delete", isMac()),
         action: () => onToggleDeleteRows(targets),
       });
       items.push({ separator: true });
-      const cell = row[colIndex];
-      items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
-      items.push({
-        label: t("result.copyRowJson"),
-        action: () =>
-          copyText(
-            rowToJson(applyOrder(columnOrder(), res.columns), applyOrder(columnOrder(), row)),
-          ),
-      });
-      items.push({ separator: true });
-      // Writing a NULL (issue #398). Clearing the box gives "", which is a
-      // different value, so this is the only way to say NULL from the grid. The
-      // entry is always here and carries its own reason when it cannot run —
-      // the same rule as the related-data entry above (#344). Whether the
-      // COLUMN accepts a NULL is not knowable from a ResultColumn (name + type,
-      // nothing else), so a NOT NULL is rejected by the engine, with its error.
-      const nullBlocked = () =>
-        !currentEditable()
-          ? readOnlyReason("result.setNullReadOnly")
-          : !currentEdit().editing
-            ? t("result.setNullNeedsEdit")
-            : null;
-      items.push({
-        get label() {
-          return nullBlocked() ?? t("result.setNull");
-        },
-        get disabled() {
-          return nullBlocked() !== null;
-        },
-        action: () => onEditCell(rowIndex, column, null),
-      });
-      items.push({ separator: true });
     }
-    for (const f of EXPORT_FORMATS) {
-      items.push({
+    // ── The whole result ──
+    items.push({
+      label: t("result.exportMenu"),
+      submenu: EXPORT_FORMATS.map((f) => ({
         label: t("result.exportFmt", { fmt: f.label }),
         action: () => void doExport(f.fmt),
-      });
-    }
+      })),
+    });
     openContextMenu(e, items);
   };
 
@@ -5229,7 +5320,10 @@ export function App() {
                     }}
                   />
                 </Show>
-                <div class="result-pane">
+                <div
+                  class="result-pane"
+                  classList={{ "is-alt-view": !isDataTab(tab().id) && resultView(tab().id) !== "result" }}
+                >
                   {/* What the run did or is doing (issue #691, R-01): the clock
                       while it runs, the summary or the failed line after. */}
                   <Show when={!isDataTab(tab().id)}>
@@ -5246,17 +5340,48 @@ export function App() {
                         tabConn(tab())?.features?.cancel === false ? t("grid.cancelUnsupported") : undefined
                       }
                       onReveal={errorPlace() ? () => setRevealErrorTick((n) => n + 1) : undefined}
+                      tx={currentResult().ranTx}
+                      onHistory={
+                        currentResult().ranSql
+                          ? () =>
+                              showTool("history", t("editor.history"), {
+                                key: "history",
+                                params: { query: currentResult().ranSql },
+                              })
+                          : undefined
+                      }
                     />
                   </Show>
                   {/* One tab per statement when a script ran (issue #450).
                       Above the toolbar: the tab chooses which result Refrescar,
                       Graficar and Exportar act on. */}
-                  <Show when={(currentResult().sets?.length ?? 0) > 1}>
+                  {/* Plus «Mensajes» and «Plan» on a query tab (#691). */}
+                  <Show when={!isDataTab(tab().id) || (currentResult().sets?.length ?? 0) > 1}>
                     <ResultTabs
-                      sets={currentResult().sets!}
+                      sets={currentResult().sets ?? []}
                       active={currentResult().activeSet ?? 0}
                       onSelect={(i) => selectSet(tab().id, i)}
+                      view={isDataTab(tab().id) ? undefined : resultView(tab().id)}
+                      onView={isDataTab(tab().id) ? undefined : (v) => setResultViews(tab().id, v)}
                     />
+                  </Show>
+                  <Show when={!isDataTab(tab().id) && resultView(tab().id) === "messages"}>
+                    <ResultMessages messages={runLogs[tab().id] ?? []} />
+                  </Show>
+                  <Show when={!isDataTab(tab().id) && resultView(tab().id) === "plan"}>
+                    <Show
+                      when={planSqls[tab().id]}
+                      fallback={<p class="grid-empty result-alt">{t("plan.empty")}</p>}
+                    >
+                      {(sql) => (
+                        <ExplainPlan
+                          connId={tabConn(tab())?.connId ?? ""}
+                          engine={activeDialect()}
+                          sql={sql()}
+                          docked
+                        />
+                      )}
+                    </Show>
                   </Show>
                   <Show when={tabPins().length > 0}>
                     <PinStrip
@@ -5417,6 +5542,17 @@ export function App() {
                             result={currentResult().result}
                             loading={currentResult().loading}
                             error={currentResult().error}
+                            errorExtra={
+                              <ErrorHints
+                                code={engineErrorCode(currentResult().error)}
+                                hint={didYouMean(
+                                  currentResult().error,
+                                  currentResult().errorSql ?? "",
+                                  editorSchema(sqlSchema()),
+                                  activeDialect(),
+                                )}
+                              />
+                            }
                             rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             emptyState={
@@ -5429,6 +5565,9 @@ export function App() {
                                 onOpenTable={openData}
                                 onRunHistory={runFromHistory}
                                 onInsertSnippet={insertSnippet}
+                                onPickSnippet={() => runShortcut("snippet-palette")}
+                                onHistory={() => showTool("history", t("editor.history"), { key: "history" })}
+                                onAllShortcuts={() => runShortcut("toggle-help")}
                               />
                             }
                             onCellContext={onCellContext}
@@ -5597,6 +5736,8 @@ export function App() {
                       onFirst={isDataTab(tab().id) ? () => goToDataOffset(tab().id, 0) : undefined}
                       onPrev={() => pageBy(-1)}
                       onNext={() => pageBy(1)}
+                      pageSize={isDataTab(tab().id) ? (currentResult().pageSize ?? pageSize()) : undefined}
+                      onPageSize={isDataTab(tab().id) ? (n) => changePageSize(tab().id, n) : undefined}
                       onLast={
                         isDataTab(tab().id)
                           ? () => {
@@ -5800,6 +5941,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "history"}>
                   <HistoryPanel
+                    initialQuery={(tt().params as { query?: string } | undefined)?.query}
                     entries={history()}
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}

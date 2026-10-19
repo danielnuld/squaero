@@ -55,3 +55,23 @@ export function pagerView(p: PagerInput): PagerView {
     lastOffset,
   };
 }
+
+/** The page sizes a table's pager offers (A-20, R-38). */
+export const PAGE_SIZES = [100, 500, 1000, 5000] as const;
+export const DEFAULT_PAGE_SIZE = 1000;
+export const PAGE_SIZE_KEY = "quaero.pageSize";
+
+/** A remembered page size, or the default when it is missing or not offered. */
+export function parsePageSize(raw: string | null | undefined): number {
+  const n = Number(raw);
+  return (PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE;
+}
+
+/**
+ * Where a table lands after its page size changes: the page of the new size
+ * that still holds the row that was first on screen, so the reader stays put.
+ */
+export function offsetForPageSize(offset: number, size: number): number {
+  const s = Math.max(1, Math.floor(size));
+  return Math.floor(Math.max(0, offset) / s) * s;
+}

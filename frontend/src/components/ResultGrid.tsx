@@ -89,6 +89,8 @@ export function ResultGrid(props: {
   /** Rich content for the no-result state (issue #178). When absent a plain
       "run a query" message is shown. Only rendered before the tab has a result. */
   emptyState?: JSX.Element;
+  /** Shown under the error message (the engine's code, «¿Querías …?», #691). */
+  errorExtra?: JSX.Element;
   /** Ask the workspace to enter edit mode (double-click / Enter on a cell in a
       read-only but editable table). No-op when absent → the grid stays read-only. */
   onRequestEdit?: () => void;
@@ -812,6 +814,7 @@ export function ResultGrid(props: {
       <Show when={props.error}>
         <div class="grid-error" role="alert">
           {props.error}
+          {props.errorExtra}
         </div>
       </Show>
 

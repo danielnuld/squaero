@@ -109,7 +109,7 @@ const openWithRows = async () => {
   // Connecting lands on the connection's home (#694); open a query tab.
   openQueryTab(host);
   await settle();
-  click(host.querySelector(".empty-history button, .empty-state button"));
+  click(host.querySelector(".empty-history button, .empty-state .empty-sql"));
   await settle();
   expect(host.querySelectorAll(".grid-rows .grid-row").length).toBe(3);
 };
@@ -128,6 +128,7 @@ describe("App — acting on the marked rows (issue #382)", () => {
     host!
       .querySelector('[data-cell="0-0"]')!
       .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    click(menuItem("Copiar como"));
     click(menuItem("Copiar 2 filas marcadas"));
     // NULL copies as an empty cell, and the rows come out top-to-bottom.
     expect(copied).toEqual(["1\tana\n3\t"]);
@@ -140,6 +141,7 @@ describe("App — acting on the marked rows (issue #382)", () => {
     host!
       .querySelector('[data-cell="0-0"]')!
       .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    click(menuItem("Copiar como"));
     click(menuItem("Copiar 2 filas como INSERT"));
     expect(copied[0]).toContain("INSERT INTO");
     expect(copied[0].split("\n")).toHaveLength(2);
@@ -151,6 +153,7 @@ describe("App — acting on the marked rows (issue #382)", () => {
     host!
       .querySelector('[data-cell="1-0"]')!
       .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    click(menuItem("Copiar como"));
     expect(menuItem("filas marcadas")).toBeUndefined();
     expect(menuItem("Copiar fila")).toBeDefined();
   });
