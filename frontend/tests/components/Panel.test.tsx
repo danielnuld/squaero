@@ -154,3 +154,26 @@ describe("Panel — Escape never throws work away (rule 11)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Panel in a tool tab", () => {
+  it("marks its tab busy while it refreshes or works", async () => {
+    const { ToolTabContext, busyTools } = await import("../../src/utils/toolJobs");
+    const [refreshing, setRefreshing] = createSignal(false);
+    const [busy, setBusy] = createSignal(false);
+    mount(() => (
+      <ToolTabContext.Provider value={77}>
+        <Panel title="x" refreshing={refreshing()} busy={busy()}>
+          cuerpo
+        </Panel>
+      </ToolTabContext.Provider>
+    ));
+    expect(busyTools().has(77)).toBe(false);
+    setRefreshing(true);
+    expect(busyTools().has(77)).toBe(true);
+    setRefreshing(false);
+    setBusy(true);
+    expect(busyTools().has(77)).toBe(true);
+    setBusy(false);
+    expect(busyTools().has(77)).toBe(false);
+  });
+});

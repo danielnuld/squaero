@@ -109,6 +109,7 @@ export const es: Record<string, string> = {
   "tool.users.label": "Usuarios y permisos",
   "tool.users.tab": "Usuarios y permisos",
   "tool.users.title": "Usuarios y permisos",
+  "tool.jobDone": "«{title}» terminó · {duration}",
   "tool.er.label": "Diagrama ER",
   "tool.er.tab": "Diagrama ER",
   "tool.er.title": "Diagrama entidad-relación",
