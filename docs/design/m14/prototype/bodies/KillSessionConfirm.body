@@ -1,0 +1,52 @@
+Terminar sesión
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; position: relative; overflow: hidden">
+  <div style="position: absolute; left: 0; top: 0; width: 1280px; height: 800px">
+    <dc-import name="ServerMonitor" theme="{{theme}}" os="{{os}}" hint-size="1280px,800px"></dc-import>
+  </div>
+  <div class="dlg-scrim">
+    <div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="killTitle" aria-describedby="killDesc" style="width: 560px">
+      <div class="dlg-h">
+        <span style="width: 28px; height: 28px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--danger-soft); color: var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg></span>
+        <span id="killTitle" style="flex: 1">¿Terminar la sesión 4127 en Producción?</span>
+        <a href="ServerMonitor.dc.html" class="btn btn-icon" aria-label="Cerrar (Esc)" title="Cerrar (Esc)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></a>
+      </div>
+      <div class="dlg-b">
+        <dl style="margin: 0; display: grid; grid-template-columns: 96px 1fr; gap: 6px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); font-size: var(--fs-sm)">
+          <dt style="color: var(--text-dim)">PID</dt><dd class="mono num" style="margin: 0; font-weight: 600">4127</dd>
+          <dt style="color: var(--text-dim)">Usuario</dt><dd style="margin: 0"><span class="mono">reportes</span> desde <span class="mono">10.0.3.21</span> · base <span class="mono">ventas</span></dd>
+          <dt style="color: var(--text-dim)">Estado</dt><dd style="margin: 0">Inactiva en transacción desde hace 12 min · bloquea a 4133 y 4140</dd>
+          <dt style="color: var(--text-dim)">Consulta</dt><dd class="mono" style="margin: 0; line-height: 1.5; word-break: break-word"><span style="color: var(--syntax-keyword)">UPDATE</span> pedidos <span style="color: var(--syntax-keyword)">SET</span> estado = <span style="color: var(--syntax-string)">'facturado'</span> <span style="color: var(--syntax-keyword)">WHERE</span> fecha &lt; <span style="color: var(--syntax-string)">'2025-06-01'</span> <span style="color: var(--syntax-keyword)">AND</span> estado = <span style="color: var(--syntax-string)">'enviado'</span>;</dd>
+        </dl>
+        <div id="killDesc" style="display: flex; flex-direction: column; gap: 6px; line-height: 1.5">
+          <span>Se ejecutará <span class="mono" style="font-size: var(--fs-sm)">pg_terminate_backend(4127)</span> en <b>Producción · ventas</b>:</span>
+          <ul style="margin: 0; padding-left: 20px; color: var(--text)">
+            <li>La transacción abierta se revierte: el UPDATE de <span class="mono" style="font-size: var(--fs-sm)">reportes</span> se pierde.</li>
+            <li>El cliente en 10.0.3.21 pierde la conexión y tendrá que reconectar.</li>
+            <li>Las sesiones 4133 y 4140 dejan de esperar y continúan.</li>
+          </ul>
+          <span class="help">«Solo lectura» protege los datos de tus consultas; terminar una sesión no escribe datos, pero corta el trabajo de otra persona. No se puede deshacer.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="killPid">Escribe <b class="mono" style="font-size: var(--fs-sm)">4127</b> para confirmar</label>
+          <input id="killPid" class="field" value="" autocomplete="off" spellcheck="false" inputmode="numeric" style="width: 160px; font-family: var(--font-mono); font-size: var(--fs-sm)">
+        </div>
+      </div>
+      <div class="dlg-f">
+        <span class="help"><span class="kbd">Esc</span> cancela · <span class="kbd">Intro</span> no termina la sesión</span>
+        <span style="flex: 1"></span>
+        <span class="dlg-actions">
+          <button type="button" class="btn btn-danger" disabled="disabled" aria-disabled="true" title="Escribe 4127 para habilitarlo" style="opacity: .45">Terminar sesión 4127</button>
+          <a href="ServerMonitor.dc.html" class="btn focus">Cancelar</a>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'b', os: this.props.os ?? 'windows' };
+  }
+}

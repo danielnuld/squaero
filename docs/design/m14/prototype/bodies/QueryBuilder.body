@@ -1,0 +1,99 @@
+Constructor de consultas
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Constructor de consultas — Ventas — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="clientes" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+
+      <div role="toolbar" aria-label="Acciones del constructor" style="height: 44px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid var(--border)">
+        <button type="button" class="field" aria-haspopup="listbox" title="Conexión y base de datos de la consulta" style="height: 28px; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm)"><span style="width: 8px; height: 8px; border-radius: 50%; background: #2f7dd6"></span><b style="font-weight: 600">Ventas</b><span style="color: var(--text-dim)">· main</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+        <button type="button" class="btn btn-primary" title="Ejecutar la consulta generada (Ctrl+Intro)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"></path></svg>Ejecutar</button>
+        <button type="button" class="btn btn-icon" disabled="disabled" aria-label="Detener (nada en ejecución)" title="Detener (nada en ejecución)" style="opacity: .45"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg></button>
+        <span style="width: 1px; height: 20px; background: var(--border); margin: 0 4px"></span>
+        <a href="EditorResult.dc.html" class="btn btn-ghost" title="Abrir el SQL en una pestaña de consulta de Ventas"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="m9 13-2 2 2 2"></path><path d="m13 13 2 2-2 2"></path></svg>Abrir en el editor</a>
+        <button type="button" class="btn btn-ghost"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copiar SQL</button>
+        <span style="flex: 1"></span>
+        <button type="button" class="btn btn-ghost" title="Vaciar el formulario (Ctrl+Z lo recupera)">Limpiar formulario</button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex">
+        <form aria-label="Definición de la consulta" style="width: 400px; flex: none; box-sizing: border-box; padding: 16px 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 18px; overflow: hidden">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span class="lbl">Tabla</span>
+            <span class="field" style="display: flex; align-items: center; gap: 8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--obj-table)"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M9 10v10"></path></svg><span style="flex: 1">clientes</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+          </div>
+
+          <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+            <legend class="lbl" style="padding: 0; margin-bottom: 8px; display: flex; gap: 8px; width: 100%">Columnas <span style="flex: 1"></span><span style="font-weight: 400; color: var(--text-dim)">4 de 7 · ninguna marcada = todas</span></legend>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px">
+              <sc-for list="{{cols}}" as="c" hint-placeholder-count="7">
+                <label style="{{c.style}}"><input type="checkbox" checked="{{c.on}}" style="accent-color: var(--accent); margin: 0"><span class="mono" style="font-size: var(--fs-sm)">{{c.name}}</span></label>
+              </sc-for>
+            </div>
+          </fieldset>
+
+          <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+            <legend class="lbl" style="padding: 0; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; width: 100%">Condiciones <span style="flex: 1"></span><span class="seg" role="radiogroup" aria-label="Combinar condiciones" style="font-weight: 400"><span role="radio" aria-checked="true" tabindex="0" class="on">Todas (AND)</span><span role="radio" aria-checked="false" tabindex="-1">Alguna (OR)</span></span></legend>
+            <sc-for list="{{conds}}" as="w" hint-placeholder-count="2">
+              <div style="display: flex; gap: 6px; align-items: center">
+                <span class="field mono" role="combobox" aria-label="Columna" aria-expanded="false" style="width: 100px; display: flex; align-items: center; font-size: var(--fs-sm)">{{w.col}}</span>
+                <span class="field mono" role="combobox" aria-label="Operador" aria-expanded="false" style="width: 50px; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm)">{{w.op}}</span>
+                <input class="field" value="{{w.val}}" aria-label="Valor" style="flex: 1; min-width: 0">
+                <button type="button" class="btn btn-icon" aria-label="Quitar condición"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+              </div>
+            </sc-for>
+            <button type="button" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 24px; padding: 0; border: 0; background: none; color: var(--accent-text); font-size: var(--fs-sm)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Añadir condición</button>
+          </fieldset>
+
+          <div style="display: flex; gap: 12px">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+              <span class="lbl">Ordenar por</span>
+              <div style="display: flex; gap: 6px">
+                <span class="field mono" style="flex: 1; display: flex; align-items: center; font-size: var(--fs-sm)">saldo<span style="flex: 1"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+                <span class="seg" role="radiogroup" aria-label="Sentido"><span role="radio" aria-checked="false" tabindex="-1">Asc</span><span role="radio" aria-checked="true" tabindex="0" class="on">Desc</span></span>
+              </div>
+            </div>
+            <label style="width: 80px; display: flex; flex-direction: column; gap: 6px"><span class="lbl">Límite</span><input class="field num" value="100" style="width: 100%"></label>
+          </div>
+        </form>
+
+        <section aria-label="SQL generado y vista previa" style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <div style="height: 34px; flex: none; display: flex; align-items: center; padding: 0 14px; gap: 8px; border-bottom: 1px solid var(--border)">
+            <span style="font-weight: 600">SQL generado</span>
+            <span class="help">Se actualiza al cambiar el formulario · solo lectura</span>
+          </div>
+          <div style="height: 156px; flex: none; border-bottom: 1px solid var(--border)"><dc-import name="SqlEditor" theme="{{theme}}" sql="{{sql}}" current="0" height="156px" hint-size="100%,156px"></dc-import></div>
+          <div style="height: 34px; flex: none; display: flex; align-items: center; padding: 0 14px; gap: 8px; border-bottom: 1px solid var(--border); background: var(--surface)">
+            <span style="font-weight: 600">Vista previa</span>
+            <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim)">3 filas · 4 ms · se refresca al cambiar el formulario (máx. 100 filas)</span>
+          </div>
+          <div style="flex: 1; min-height: 0"><dc-import name="Grid" theme="{{theme}}" columns="{{gcols}}" rows="{{grows}}" label="Vista previa" height="100%" hint-size="100%,100%"></dc-import></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" color="#2f7dd6" info="Constructor · clientes · 4 columnas · 2 condiciones" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const ticked = ['nombre', 'ciudad', 'saldo', 'alta'];
+    const cols = ['id', 'nombre', 'email', 'ciudad', 'saldo', 'activo', 'alta'].map((name) => {
+      const on = ticked.includes(name);
+      return { name, on, style: `height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; border: 1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}; background: ${on ? 'var(--accent-soft)' : 'transparent'}; color: ${on ? 'var(--accent-text)' : 'var(--text-dim)'}` };
+    });
+    return {
+      theme: this.props.theme ?? 'b', os: this.props.os ?? 'windows',
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', color: '#2f7dd6' }, { label: 'Constructor · clientes', kind: 'tool', active: true, href: 'QueryBuilder.dc.html', color: '#2f7dd6' }],
+      cols,
+      conds: [{ col: 'ciudad', op: '=', val: 'Hermosillo' }, { col: 'saldo', op: '>', val: '10' }],
+      sql: "SELECT nombre, ciudad, saldo, alta\nFROM clientes\nWHERE ciudad = 'Hermosillo'\n  AND saldo > 10\nORDER BY saldo DESC\nLIMIT 100;",
+      gcols: [{ name: 'nombre', type: 'text', kind: 'text', w: '1fr' }, { name: 'ciudad', type: 'text', kind: 'text', w: '140px' }, { name: 'saldo', type: 'numeric(10,2)', kind: 'num', w: '120px', sort: '↓' }, { name: 'alta', type: 'date', kind: 'date', w: '120px' }],
+      grows: [['María López', 'Hermosillo', '1250.00', '2023-02-14'], ['Paola Núñez', 'Hermosillo', '88.25', '2025-01-27'], ['Sofía Torres', 'Hermosillo', '12.00', '2024-04-18']]
+    };
+  }
+}
