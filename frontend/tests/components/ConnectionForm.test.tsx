@@ -296,13 +296,13 @@ describe("ConnectionForm save and connect", () => {
 
 describe("ConnectionForm security", () => {
   const segments = () =>
-    [...host!.querySelectorAll<HTMLButtonElement>(".cf-seg-btn")].map(
+    [...host!.querySelectorAll<HTMLButtonElement>(".cf-seg [role=radio]")].map(
       (b) => b.textContent?.trim() ?? "",
     );
   const hint = () => host!.querySelector(".cf-hint")?.textContent ?? "";
   /** By prefix: some option labels carry a parenthesis ("Estricto (TDS 8…)"). */
   const pick = (label: string) =>
-    [...host!.querySelectorAll<HTMLButtonElement>(".cf-seg-btn")]
+    [...host!.querySelectorAll<HTMLButtonElement>(".cf-seg [role=radio]")]
       .find((b) => (b.textContent ?? "").trim().startsWith(label))!
       .click();
 

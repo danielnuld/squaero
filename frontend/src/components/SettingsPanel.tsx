@@ -1,3 +1,4 @@
+import { Segmented } from "./Segmented";
 import type { Os } from "../utils/dialog";
 import { createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js";
 import { Panel } from "./Panel";
@@ -329,20 +330,13 @@ export function SettingsPanel(props: {
   ) => (
     <div class="settings-row">
       <span class="settings-label">{label}</span>
-      <div class="settings-choice" role="radiogroup" aria-label={label}>
-        <For each={opts}>
-          {(o) => (
-            <button
-              class={`chip ${current() === o ? "active" : ""}`}
-              role="radio"
-              aria-checked={current() === o}
-              onClick={() => pick(o)}
-            >
-              {name(o)}
-            </button>
-          )}
-        </For>
-      </div>
+      <Segmented
+        class="settings-choice"
+        label={label}
+        options={opts.map((o) => ({ value: o, label: name(o) }))}
+        value={current()}
+        onChange={pick}
+      />
     </div>
   );
 
@@ -415,20 +409,13 @@ export function SettingsPanel(props: {
         {row("language", () => (
           <div class="settings-row">
             <span class="settings-label">{t("common.language")}</span>
-            <div class="settings-choice" role="radiogroup" aria-label={t("common.language")}>
-              <For each={LOCALES}>
-                {(l) => (
-                  <button
-                    class={`chip ${locale() === l ? "active" : ""}`}
-                    role="radio"
-                    aria-checked={locale() === l}
-                    onClick={() => setLocale(l)}
-                  >
-                    {t(`lang.${l}`)}
-                  </button>
-                )}
-              </For>
-            </div>
+            <Segmented
+              class="settings-choice"
+              label={t("common.language")}
+              options={LOCALES.map((l) => ({ value: l, label: t(`lang.${l}`) }))}
+              value={locale()}
+              onChange={setLocale}
+            />
           </div>
         ))}
         {row("checkUpdates", () => check("checkUpdatesOnStart", t("settings.checkUpdates")))}
@@ -543,21 +530,13 @@ export function SettingsPanel(props: {
           <>
             <div class="settings-row">
               <span class="settings-label">{t("settings.theme")}</span>
-              <div class="settings-choice" role="radiogroup" aria-label={t("settings.theme")}>
-                <For each={otherThemes()}>
-                  {(th) => (
-                    <button
-                      class={`chip ${props.themeId === th.id ? "active" : ""}`}
-                      role="radio"
-                      aria-checked={props.themeId === th.id}
-                      title={themeName(th)}
-                      onClick={() => props.onSetThemeId(th.id)}
-                    >
-                      {themeName(th)}
-                    </button>
-                  )}
-                </For>
-              </div>
+              <Segmented
+                class="settings-choice"
+                label={t("settings.theme")}
+                options={otherThemes().map((th) => ({ value: th.id, label: themeName(th), title: themeName(th) }))}
+                value={props.themeId}
+                onChange={props.onSetThemeId}
+              />
             </div>
             <div class="settings-row settings-theme-actions">
               <button class="edit-btn" onClick={() => fileInput.click()}>

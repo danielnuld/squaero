@@ -1,3 +1,4 @@
+import { Segmented } from "./Segmented";
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 import { CONN_ENVS, withEnv } from "../utils/connectionEnv";
@@ -375,25 +376,13 @@ export function ConnectionForm(props: {
 
   /** A choice laid out as one strip, so every option is readable at once. */
   const segmented = (f: DriverField) => (
-    <div class="cf-seg" role="radiogroup" aria-label={t(f.label)}>
-      <For each={f.options ?? []}>
-        {(opt) => {
-          const on = () => (draft.params[f.key] ?? "") === opt.value;
-          return (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={on()}
-              class="cf-seg-btn"
-              classList={{ "is-on": on() }}
-              onClick={() => setDraft("params", f.key, opt.value)}
-            >
-              {t(opt.label)}
-            </button>
-          );
-        }}
-      </For>
-    </div>
+    <Segmented
+      class="cf-seg"
+      label={t(f.label)}
+      options={(f.options ?? []).map((opt) => ({ value: opt.value, label: t(opt.label) }))}
+      value={draft.params[f.key] ?? ""}
+      onChange={(v) => setDraft("params", f.key, v)}
+    />
   );
 
   /**
@@ -656,28 +645,17 @@ export function ConnectionForm(props: {
                 transport guard on every call to it. */}
             <div class="cf-field">
               <span class="cf-label">{t("cform.safeMode")}</span>
-              <div class="cf-seg" role="radiogroup" aria-label={t("cform.safeMode")}>
-                <For
-                  each={[
-                    { value: undefined, label: "cform.safeOff" },
-                    { value: "confirm", label: "cform.safeConfirm" },
-                    { value: "readOnly", label: "cform.safeReadOnly" },
-                  ] as const}
-                >
-                  {(opt) => (
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={draft.safeMode === opt.value}
-                      class="cf-seg-btn"
-                      classList={{ "is-on": draft.safeMode === opt.value }}
-                      onClick={() => setDraft("safeMode", opt.value)}
-                    >
-                      {t(opt.label)}
-                    </button>
-                  )}
-                </For>
-              </div>
+              <Segmented
+                class="cf-seg"
+                label={t("cform.safeMode")}
+                options={[
+                  { value: undefined, label: t("cform.safeOff") },
+                  { value: "confirm" as const, label: t("cform.safeConfirm") },
+                  { value: "readOnly" as const, label: t("cform.safeReadOnly") },
+                ]}
+                value={draft.safeMode}
+                onChange={(v) => setDraft("safeMode", v)}
+              />
               <p class="cf-hint">{t("cform.safeHelp")}</p>
             </div>
 
