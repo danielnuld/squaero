@@ -10539,3 +10539,53 @@ ul.sidebar-tree {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
 }
+
+/* Routines and triggers: table group headings and the metadata header. */
+.routine-group {
+  padding: var(--sp-3) var(--sp-3) var(--sp-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.routine-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-6);
+  margin: 0 0 var(--sp-4);
+}
+
+.routine-meta dt {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.routine-meta dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+}
+
+/* Read-only definitions in the explorers, in the editor's colours. */
+.routine-ddl .tok-keyword {
+  color: var(--syntax-keyword);
+}
+
+.routine-ddl .tok-string,
+.routine-ddl .tok-string2 {
+  color: var(--syntax-string);
+}
+
+.routine-ddl .tok-number,
+.routine-ddl .tok-bool {
+  color: var(--syntax-number);
+}
+
+.routine-ddl .tok-comment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.routine-ddl .tok-typeName {
+  color: var(--syntax-type);
+}

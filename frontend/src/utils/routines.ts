@@ -40,6 +40,9 @@ export interface RoutineSupport {
   schemaCol: string | null;
   /** Result column holding a stable id disambiguating overloads (Informix procid). */
   idCol: string | null;
+  /** Listing columns shown in the selected routine's header, with the i18n key
+      of their label (P6). */
+  metaCols: { col: string; label: string }[];
 }
 
 /** How to fetch and read a routine's definition text. */
@@ -77,6 +80,11 @@ export function routinesFor(engine: string, db?: string): RoutineSupport {
         typeCol: "ROUTINE_TYPE",
         schemaCol: null,
         idCol: null,
+        metaCols: [
+          { col: "DATA_TYPE", label: "explorer.meta.returns" },
+          { col: "DEFINER", label: "explorer.meta.owner" },
+          { col: "LAST_ALTERED", label: "explorer.meta.altered" },
+        ],
       };
     }
     case "postgres":
@@ -86,14 +94,25 @@ export function routinesFor(engine: string, db?: string): RoutineSupport {
           "SELECT n.nspname AS schema, p.proname AS name, " +
           "CASE p.prokind WHEN 'p' THEN 'PROCEDURE' WHEN 'a' THEN 'AGGREGATE' " +
           "WHEN 'w' THEN 'WINDOW' ELSE 'FUNCTION' END AS type, " +
-          "pg_get_function_result(p.oid) AS returns " +
+          "pg_get_function_result(p.oid) AS returns, " +
+          "pg_get_function_arguments(p.oid) AS arguments, l.lanname AS language, " +
+          "CASE p.provolatile WHEN 'i' THEN 'IMMUTABLE' WHEN 's' THEN 'STABLE' ELSE 'VOLATILE' END AS volatility, " +
+          "pg_get_userbyid(p.proowner) AS owner " +
           "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace " +
+          "JOIN pg_language l ON l.oid = p.prolang " +
           "WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') " +
           "ORDER BY n.nspname, p.proname",
         nameCol: "name",
         typeCol: "type",
         schemaCol: "schema",
         idCol: null,
+        metaCols: [
+          { col: "returns", label: "explorer.meta.returns" },
+          { col: "arguments", label: "explorer.meta.arguments" },
+          { col: "language", label: "explorer.meta.language" },
+          { col: "volatility", label: "explorer.meta.volatility" },
+          { col: "owner", label: "explorer.meta.owner" },
+        ],
       };
     case "informix":
       // procid is carried so definitionFor can pin an overloaded routine to its
@@ -108,6 +127,7 @@ export function routinesFor(engine: string, db?: string): RoutineSupport {
         typeCol: "type",
         schemaCol: null,
         idCol: "procid",
+        metaCols: [],
       };
     default:
       return {
@@ -117,8 +137,31 @@ export function routinesFor(engine: string, db?: string): RoutineSupport {
         typeCol: null,
         schemaCol: null,
         idCol: null,
+        metaCols: [],
       };
   }
+}
+
+/** The routine list's type filter. */
+export type RoutineFilter = "all" | "function" | "procedure";
+
+/** Whether a routine passes the filter: aggregates and window functions are
+    functions. */
+export function routineMatches(type: RoutineType, filter: RoutineFilter): boolean {
+  if (filter === "all") return true;
+  return filter === "procedure" ? type === "PROCEDURE" : type !== "PROCEDURE";
+}
+
+/** Read a catalog type cell into a RoutineType (FUNCTION when unknown). */
+export function routineTypeOf(cell: string | null): RoutineType {
+  const upper = (cell ?? "").toUpperCase();
+  return upper.includes("PROCEDURE")
+    ? "PROCEDURE"
+    : upper.includes("AGGREGATE")
+      ? "AGGREGATE"
+      : upper.includes("WINDOW")
+        ? "WINDOW"
+        : "FUNCTION";
 }
 
 /**
