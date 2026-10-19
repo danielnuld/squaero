@@ -452,7 +452,7 @@ ${scriptText(r.script)}` : "";
 
                 <Show when={r().script.statements.length > 0}>
                   <div class="colmap-head">
-                    <h3>{t("ssync.migrationSql", { n: executable().length })}</h3>
+                    <h3>{countText("ssync.migrationSql", executable().length)}</h3>
                     <span class="help">
                       {t("ssync.marked", { n: chosen().length, total: executable().length })}
                     </span>
@@ -530,7 +530,7 @@ ${scriptText(r.script)}` : "";
       <Show when={confirming()}>
         <ConfirmDialog
           title={t("ssync.confirmTitle", { target: targetName() })}
-          message={t("ssync.confirmMessage", { n: chosen().length })}
+          message={countText("ssync.confirmMessage", chosen().length)}
           sql={chosen().join("\n")}
           confirmLabel={countText("ssync.applyN", chosen().length, { target: targetName() })}
           busy={busy()}

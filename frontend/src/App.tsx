@@ -1,3 +1,4 @@
+import { Toast } from "./components/Toast";
 import {
   For,
   Show,
@@ -75,6 +76,8 @@ import {
   closeTab,
   closeOtherTabs,
   closeTabsToRight,
+  closeAllTabs,
+  closedQueryTabs,
   closeTabsForConn,
   cycleTab,
   updateTabSql,
@@ -138,7 +141,10 @@ import {
 import { themeCss, type Theme } from "./utils/themeSchema";
 import { BUILTIN_THEMES, DEFAULT_THEME_ID } from "./utils/themes";
 import {
-  displayKeys,
+  formatKeys,
+  keysOf,
+  keyLabel,
+  keyParams,
   effectiveShortcuts,
   matchShortcut,
   type ActionId,
@@ -580,6 +586,11 @@ const EXPORT_FORMATS: { fmt: AnyExportFormat; label: string }[] = [
   { fmt: "sql", label: "SQL" },
 ];
 
+/** Actions that yield to a focused component that already handled their keys. */
+const YIELDING: ReadonlySet<string> = new Set(["toggle-sidebar", "focus-explorer", "connect"]);
+/** How many closed query tabs Ctrl+Mayús+T can bring back. */
+const CLOSED_KEPT = 20;
+
 // Root layout: resizable sidebar (connection manager) | tabbed workspace
 // (editor over result grid), with a status bar across the bottom. Connecting
 // opens a real connection in the core; running SQL goes through query.run and
@@ -823,7 +834,7 @@ export function App() {
     saveShortcutOverrides(o);
   };
   const paletteKeys = () =>
-    displayKeys(shortcuts().find((sc) => sc.id === "command-palette")?.keys ?? "Mod+K", isMac());
+    keysOf("command-palette", shortcuts(), currentOs());
   const patchSettings = (patch: Partial<Settings>) => {
     const next = { ...settings(), ...patch };
     setSettings(next);
@@ -965,6 +976,23 @@ export function App() {
     saveCellColors(store);
   };
 
+  /** Asks the explorer's head to open its connection search (Ctrl+Mayús+K). */
+  const [connectTick, setConnectTick] = createSignal(0);
+  /** Closed query tabs, newest last, for Ctrl+Mayús+T (capped). */
+  const closedStack: QueryTab[] = [];
+  createEffect(
+    on(tabs, (next, prev) => {
+      if (!prev) return;
+      closedStack.push(...closedQueryTabs(prev, next));
+      closedStack.splice(0, Math.max(0, closedStack.length - CLOSED_KEPT));
+    }),
+  );
+  /** Save the active query tab's text as a .sql file; nothing elsewhere. */
+  const saveCurrentSql = () => {
+    const tab = currentQuery();
+    if (tab && !isDataTab(tab.id)) void saveText(sqlFileName(tab.title), sqlOfTab(tab.id), "application/sql");
+  };
+
   /** The mounted filter panel's "add a condition" (#592); one panel at a time. */
   let addFilterCondition: (() => void) | undefined;
   let addFilterSort: (() => void) | undefined;
@@ -1040,9 +1068,39 @@ export function App() {
         break;
       case "save-edits": {
         // Same gate as the toolbar's "Confirmar" button: only while editing,
-        // idle, and with something to write. Otherwise the key is swallowed.
+        // idle, and with something to write. On a query tab the key saves its
+        // .sql file instead (R-17), as every editor does.
         const ed = currentEdit();
         if (ed.editing && !ed.busy && hasChanges(ed.pending)) void confirmEdit();
+        else saveCurrentSql();
+        break;
+      }
+      case "open-file":
+        openSqlFile();
+        break;
+      case "open-settings":
+        showTool("settings", t("common.settings"), { key: "settings" });
+        break;
+      case "toggle-sidebar":
+        setSide((s) => ({ ...s, collapsed: !s.collapsed }));
+        break;
+      case "focus-explorer":
+        setSide({ panel: "explorer", collapsed: false });
+        queueMicrotask(() => sidebarEl?.querySelector<HTMLElement>(".side-explorer [tabindex='0'], .side-explorer button")?.focus());
+        break;
+      case "toggle-history":
+        setSide((s) => railClick(s, "history"));
+        break;
+      case "connect":
+        setSide({ panel: "explorer", collapsed: false });
+        setConnectTick((n) => n + 1);
+        break;
+      case "close-all-tabs":
+        setTabs(closeAllTabs);
+        break;
+      case "reopen-tab": {
+        const last = closedStack.pop();
+        if (last) openSqlInNewTab(last.sql, last.title, undefined, last.connDefId);
         break;
       }
       case "editor-find":
@@ -1100,6 +1158,9 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       const action = matchShortcut(e, shortcuts());
       if (!action) return;
+      // These share their keys with a focused component (the grid's Ctrl+B, the
+      // editor's Explain and delete-line); the one that handled it wins.
+      if (e.defaultPrevented && YIELDING.has(action)) return;
       // While the command palette owns the screen, only the palette toggles act;
       // other shortcuts are swallowed (preventDefault, no-op) so the webview host
       // never runs its own find/print behind the overlay.
@@ -2375,7 +2436,6 @@ export function App() {
   // When the run happened and how long it took (issue #643), said once and gone:
   // the status bar keeps the same two facts for after the toast has left.
   const [runToast, setRunToast] = createSignal<{ text: string; error: boolean } | null>(null);
-  let runToastTimer: ReturnType<typeof setTimeout> | undefined;
   //
   // Issue #693 (audit R-30, A-33): no toast for a run whose result is on
   // screen — the run status band and the status bar already say it. Only a run
@@ -2383,13 +2443,11 @@ export function App() {
   // until it is closed.
   const showRunToast = (tabId: number, ranAt: number, elapsedMs: number, failed: boolean) => {
     if (current()?.id === tabId) return;
-    clearTimeout(runToastTimer);
     const args = { time: formatClock(ranAt), duration: formatDuration(elapsedMs) };
+    // The Toast clears a success itself; an error stays until it is closed.
     setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
-    if (!failed) runToastTimer = setTimeout(() => setRunToast(null), 6000);
   };
   const showErrorToast = (text: string) => {
-    clearTimeout(runToastTimer);
     setRunToast({ text, error: true });
   };
 
@@ -3014,19 +3072,15 @@ export function App() {
     const conn = tabConn(tab);
     const items: MenuItem[] = [];
     if (conn && conn.defId === focusedDefId() && databases().length > 0) {
-      items.push({ label: t("editor.connMenuDbs"), disabled: true });
+      items.push({ label: t("editor.connMenuDbs"), heading: true });
       for (const db of databases()) {
-        items.push({
-          label: db,
-          hint: db === activeDb() ? t("editor.connCurrent") : undefined,
-          action: () => selectDb(db),
-        });
+        items.push({ label: db, checked: db === activeDb(), action: () => selectDb(db) });
       }
     }
     const others = openConns().filter((o) => o.defId !== conn?.defId);
     if (others.length > 0) {
       if (items.length) items.push({ separator: true });
-      items.push({ label: t("editor.connMenuConns"), disabled: true });
+      items.push({ label: t("editor.connMenuConns"), heading: true });
       for (const o of others) {
         items.push({
           label: o.name,
@@ -3044,7 +3098,7 @@ export function App() {
 
   // «Más»: everything the run toolbar does not show (R-20).
   const editorMoreItems = (e: MouseEvent, tab: Tab): MenuItem[] => [
-    { label: t("editor.plan"), hint: displayKeys("Mod+Shift+E", isMac()), action: explainActive },
+    { label: t("editor.plan"), hint: keysOf("explain", shortcuts(), currentOs()), action: explainActive },
     ...(hasVariables() ? [{ label: t("vars.button"), action: editVariables }] : []),
     { separator: true },
     {
@@ -3062,7 +3116,7 @@ export function App() {
     { separator: true },
     {
       label: t("editor.saveSnippetMenu"),
-      hint: displayKeys("Mod+Shift+S", isMac()),
+      hint: keysOf("save-snippet", shortcuts(), currentOs()),
       action: requestSaveSnippet,
     },
     {
@@ -3904,7 +3958,7 @@ export function App() {
     // passes through here, so this is the one place that blocks it.
     const conflicts = currentConflicts().size;
     if (conflicts > 0) {
-      patchEdit(tab.id, { error: t("pending.blockedConfirm", { n: conflicts }) });
+      patchEdit(tab.id, { error: countText("pending.blockedConfirm", conflicts) });
       return;
     }
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
@@ -3992,7 +4046,7 @@ export function App() {
     if (applied > 0) {
       setEdits(tab.id, {
         ...emptyEdit(),
-        error: t("edit.partialNoTx", { n: applied, reason: errMsg(outcome.error) }),
+        error: countText("edit.partialNoTx", applied, { reason: errMsg(outcome.error) }),
       });
       reloadCurrent(tab.id);
       return;
@@ -4692,7 +4746,7 @@ export function App() {
       // ── The cell ──
       items.push({
         label: t("result.copyCell"),
-        hint: displayKeys("Mod+C", isMac()),
+        hint: formatKeys("Mod+C", currentOs()),
         action: () => copyText(cell ?? ""),
       });
       const copyAs: MenuItem[] = [
@@ -4705,7 +4759,7 @@ export function App() {
         {
           label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
           action: () => copyRowsFromGrid(targets, true),
-          hint: displayKeys("Mod+Shift+C", isMac()),
+          hint: formatKeys("Mod+Shift+C", currentOs()),
         },
       ];
       if (res.rows.length > n) {
@@ -4745,7 +4799,7 @@ export function App() {
         get disabled() {
           return nullBlocked() !== null;
         },
-        hint: displayKeys("Mod+Shift+N", isMac()),
+        hint: formatKeys("Mod+Shift+N", currentOs()),
         action: () => void inEdit(() => onEditCell(rowIndex, column, null)),
       });
       // Taking a change back without discarding the others (A-04).
@@ -4779,7 +4833,7 @@ export function App() {
         get disabled() {
           return relatedBlockedReason(column) !== null;
         },
-        hint: displayKeys("Mod+B", isMac()),
+        hint: formatKeys("Mod+B", currentOs()),
         action: () => openRelated(rowIndex, colIndex),
       });
       // Filter the table by this cell's value (issue #593): each entry adds one
@@ -4821,7 +4875,7 @@ export function App() {
         get disabled() {
           return addRowsBlocked() !== null;
         },
-        hint: displayKeys("Mod+D", isMac()),
+        hint: formatKeys("Mod+D", currentOs()),
         action: () => duplicateRows(targets),
       });
       items.push({
@@ -4852,7 +4906,7 @@ export function App() {
         get danger() {
           return !allDeleted();
         },
-        hint: displayKeys("Delete", isMac()),
+        hint: formatKeys("Delete", currentOs()),
         action: () => void inEdit(() => onToggleDeleteRows(targets)),
       });
       items.push({ separator: true });
@@ -4882,7 +4936,7 @@ export function App() {
         action: () => setTabs((s) => closeTabsToRight(s, id)),
         disabled: tabs().tabs.at(-1)?.id === id,
       },
-      { label: t("tabmenu.closeAll"), action: () => setTabs((s) => ({ ...s, tabs: [], activeId: 0 })) },
+      { label: t("tabmenu.closeAll"), hint: keysOf("close-all-tabs", shortcuts(), currentOs()), action: () => setTabs(closeAllTabs) },
       { separator: true },
       {
         label: t("tabmenu.copyName"),
@@ -4960,9 +5014,7 @@ export function App() {
   // definition in a new tab, as the tree does. Either way, a miss is said.
   const goToObject = async (target: ObjectTarget) => {
     const say = (text: string) => {
-      clearTimeout(runToastTimer);
       setRunToast({ text, error: true });
-      runToastTimer = setTimeout(() => setRunToast(null), 4000);
     };
     if (target.kind === "table") {
       const node = objectNodeFor(focusedObjects(), target.name);
@@ -5083,14 +5135,25 @@ export function App() {
       out.push({ id: "act:objects", category: "action", label: t("toolbar.objects.title"), run: openObjectList });
     out.push({ id: "act:settings", category: "action", label: t("common.settings"), run: () => showTool("settings", t("common.settings"), { key: "settings" }) });
     out.push({ id: "act:help", category: "action", label: t("status.shortcuts"), run: () => showTool("help", t("status.shortcuts"), { key: "help" }) });
+    // The theme has no default key (R-17); the palette is where it lives.
+    out.push({ id: "act:theme", category: "action", label: t("sc.toggle-theme"), hint: keysOf("toggle-theme", shortcuts(), currentOs()) || undefined, run: toggleTheme });
+    out.push({ id: "act:openFile", category: "action", label: t("sc.open-file"), hint: keysOf("open-file", shortcuts(), currentOs()), run: openSqlFile });
 
     // Tools (need a connection to be useful — except the saved connections,
     // which belong to no connection at all and are how you open the first one).
-    // A tool the engine cannot run is left out (audit A-18): the tools menu
-    // lists it disabled with the reason; here it would only be a dead end.
+    // Tools that cannot run here are listed anyway, unavailable with the reason
+    // (no connection, or the engine cannot: audit A-18), as the tools menu does.
     for (const tool of TOOL_CATALOG)
-      if ((connected || tool.tool === "connections") && !toolUnsupported(tool, active()?.driver))
-        out.push({ id: `tool:${tool.tool}`, category: "tool", label: t(tool.label), run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }) });
+      out.push({
+        id: `tool:${tool.tool}`,
+        category: "tool",
+        label: t(tool.label),
+        disabled:
+          connected || tool.tool === "connections"
+            ? (toolUnsupported(tool, active()?.driver) ?? undefined)
+            : t("cmdk.needsConn"),
+        run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }),
+      });
 
     // Objects loaded in the tree.
     for (const node of focusedObjects()) {
@@ -5143,7 +5206,7 @@ export function App() {
   const runMenuAction = (id: string) => {
     const cmd = paletteCommands().find((c) => c.id === id);
     if (cmd) {
-      cmd.run();
+      if (!cmd.disabled) cmd.run();
       return;
     }
     if (id === "run-query") requestRun();
@@ -5160,6 +5223,7 @@ export function App() {
       hasTab: !!current(),
       isMac: isMac(),
       engine: active()?.driver,
+      shortcuts: shortcuts(),
     }),
   );
   createEffect(() => {
@@ -5263,6 +5327,7 @@ export function App() {
                (#525); the search only links to it. */
             onImport={openConnectionsTab}
             onManage={openConnectionsTab}
+            searchTick={connectTick()}
           />
           {/* A connection being opened (TreeLoading): its name, the time it
               is taking and the rows to come. No Cancelar: the core cannot
@@ -5597,7 +5662,7 @@ export function App() {
                             }}
                           />
                           <span class="snip-save-scope">
-                            {t(`snip.scope.${pending().scope}`)} · {t("snip.nameHint")}
+                            {t(`snip.scope.${pending().scope}`)} · {t("snip.nameHint", keyParams({ enter: "Enter", esc: "Esc" }))}
                           </span>
                         </span>
                       )}
@@ -5695,7 +5760,7 @@ export function App() {
                   <Show when={!isDataTab(tab().id) && resultView(tab().id) === "plan"}>
                     <Show
                       when={planSqls[tab().id]}
-                      fallback={<p class="grid-empty result-alt">{t("plan.empty")}</p>}
+                      fallback={<p class="grid-empty result-alt">{t("plan.empty", { keys: keysOf("explain", shortcuts(), currentOs()) })}</p>}
                     >
                       {(sql) => (
                         <ExplainPlan
@@ -5808,7 +5873,7 @@ export function App() {
                         <div class="edit-preview-head">
                           <strong>{t("result.confirmChanges")}</strong>
                           <span>
-                            {t("result.willRun", { n: sqls().length })}
+                            {countText("result.willRun", sqls().length)}
                           </span>
                         </div>
                         <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
@@ -5865,7 +5930,7 @@ export function App() {
                               when={!identical() || showSameRows()}
                               fallback={
                                 <div class="grid-empty pane-empty compare-identical" role="status">
-                                  <span>{t("compare.identical", { n: c().cmp.same })}</span>
+                                  <span>{countText("compare.identical", c().cmp.same)}</span>
                                   <button class="btn" onClick={() => setShowSameRows(true)}>
                                     {t("compare.showSame")}
                                   </button>
@@ -6579,20 +6644,12 @@ export function App() {
 
       <Show when={snipToast()}>
         {(toast) => (
-          <div class="app-toast" role="status">
+          <Toast onClose={() => setSnipToast(null)}>
             <span class="app-toast-text">{toast().text}</span>
             <button class="app-toast-action" onClick={undoSaveSnippet}>
               {t("snip.undo")}
             </button>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setSnipToast(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
@@ -6693,73 +6750,39 @@ export function App() {
 
       <Show when={localWarn()}>
         {(text) => (
-          <div class="app-toast app-toast-error" role="alert">
+          <Toast error onClose={() => setLocalWarn(null)}>
             <span class="app-toast-text">{text()}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setLocalWarn(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
-      <Show when={runToast()}>
+      {/* Keyed: a newer run's toast restarts the clock. */}
+      <Show when={runToast()} keyed>
         {(toast) => (
-          <div
-            class={`app-toast app-toast-run${toast().error ? " app-toast-error" : ""}`}
-            role="status"
-          >
-            <span class="app-toast-text">{toast().text}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setRunToast(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          <Toast class="app-toast-run" error={toast.error} autoHideMs={6000} onClose={() => setRunToast(null)}>
+            <span class="app-toast-text">{toast.text}</span>
+          </Toast>
         )}
       </Show>
 
       <Show when={notice()}>
         {(text) => (
-          <div class="app-toast" role="status">
+          <Toast onClose={() => setNotice(null)}>
             <span class="app-toast-text">{text()}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setNotice(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
       <Show when={cacheNotice()}>
         {(text) => (
-          <div class="app-toast" role="status">
+          <Toast onClose={() => setCacheNotice(null)}>
             <span class="app-toast-text">{text()}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setCacheNotice(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
       <Show when={connError()}>
-        <div class="app-toast app-toast-error" role="alert">
+        <Toast error onClose={() => setConnError(null)}>
           <span class="app-toast-text">{connError()}</span>
           {/* Saying the connection is gone without offering the one action that
               fixes it is half a message (issue #407). Only when there is one to
@@ -6770,22 +6793,14 @@ export function App() {
               {t("conn.reconnect")}
             </button>
           </Show>
-          <button
-            class="app-toast-close"
-            title={t("panel.close")}
-            aria-label={t("panel.close")}
-            onClick={() => setConnError(null)}
-          >
-            <Icon name="close" size={12} />
-          </button>
-        </div>
+        </Toast>
       </Show>
 
       <Show when={txPrompt()}>
         {(conn) => (
           <ConfirmDialog
             title={t("tx.closeTitle")}
-            message={t("tx.closeMessage", { name: conn().name, n: txOf(conn()).statements })}
+            message={countText("tx.closeMessage", txOf(conn()).statements, { name: conn().name })}
             confirmLabel={t("tx.rollback")}
             altLabel={t("tx.commit")}
             busy={txBusy()}
@@ -6842,12 +6857,12 @@ export function App() {
         commands={visiblePaletteCommands()}
         placeholder={
           paletteMode() === "objects"
-            ? t("cmdk.objectsPlaceholder")
+            ? t("cmdk.objectsPlaceholder", { keys: keyLabel("Enter") })
             : paletteMode() === "snippets"
               ? t("snip.palettePlaceholder")
               : undefined
         }
-        footer={paletteMode() === "snippets" ? t("snip.paletteFooter") : undefined}
+        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", shiftEnter: "Shift+Enter", modEnter: "Mod+Enter" })) : undefined}
         emptySetLabel={
           paletteMode() === "snippets" ? t("snip.paletteEmptySet") : undefined
         }

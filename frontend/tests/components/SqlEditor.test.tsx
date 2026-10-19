@@ -3,6 +3,7 @@ import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
+import { SearchQuery, openSearchPanel, setSearchQuery } from "@codemirror/search";
 import { completionStatus, currentCompletions, selectedCompletion, startCompletion } from "@codemirror/autocomplete";
 import { SqlEditor } from "../../src/components/SqlEditor";
 import type { RunInfo, RunScope } from "../../src/utils/runScope";
@@ -80,6 +81,20 @@ describe("SqlEditor run scope (issue #130)", () => {
       new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }),
     );
   };
+
+  // Audit P4: the find panel speaks Spanish and says «1 de 2».
+  it("shows the find panel in Spanish with a live match count", () => {
+    const view = mount("select 1; select 2", () => {});
+    openSearchPanel(view);
+    const panel = host!.querySelector(".cm-search")!;
+    expect(panel.querySelector<HTMLInputElement>("input[name=search]")!.placeholder).toBe("Buscar");
+    expect(panel.querySelector("button[name=replaceAll]")!.textContent).toBe("Reemplazar todas");
+    view.dispatch({ effects: setSearchQuery.of(new SearchQuery({ search: "select" })) });
+    view.dispatch({ selection: EditorSelection.single(0, 6) });
+    const count = panel.querySelector(".cm-search-count")!;
+    expect(count.getAttribute("role")).toBe("status");
+    expect(count.textContent).toBe("1 de 2");
+  });
 
   it("runs the selection with scope 'selection'", () => {
     let ran: { sql: string; scope?: RunScope } | null = null;

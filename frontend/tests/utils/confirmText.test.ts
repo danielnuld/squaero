@@ -179,3 +179,27 @@ describe("dropConsequences", () => {
     expect(dropConsequences({ dependants: ["a.x", "b.y"] })[0]).toMatch(/^a\.x, b\.y referencian esta tabla/);
   });
 });
+
+// Rule 9 / A-26: every count in the UI reads as Spanish does — «1 fila»,
+// «0 filas» — through a .one/.other pair, in both catalogs.
+describe("plural keys", () => {
+  it("every .one has its .other, in es and en", async () => {
+    const { es } = await import("../../src/utils/messages/es");
+    const { en } = await import("../../src/utils/messages/en");
+    for (const cat of [es, en] as Record<string, string>[]) {
+      for (const key of Object.keys(cat)) {
+        const m = /^(.*)\.one$/.exec(key);
+        if (m) expect(cat[`${m[1]}.other`], key).toBeDefined();
+      }
+    }
+  });
+  it("read the singular for 1 and the plural otherwise", () => {
+    expect(countText("grid.rowsAffected", 1)).toBe("1 fila afectada.");
+    expect(countText("grid.rowsAffected", 0)).toBe("0 filas afectadas.");
+    expect(countText("monitor.sessions", 3)).toBe("3 sesiones");
+    expect(countText("ds.matches", 50, { n: "≥ 50" })).toBe("≥ 50 filas");
+    setLocale("en");
+    expect(countText("tx.openTitle", 1)).toContain("1 statement ran in it and is not");
+    expect(countText("er.edges", 2)).toBe("2 relationships");
+  });
+});

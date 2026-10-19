@@ -83,7 +83,7 @@ describe("ServerMonitor", () => {
     expect((listCall!.params as { sql: string }).sql).toContain("PROCESSLIST");
     // Two session rows in the result grid + the count in the panel bar.
     expect(host!.querySelectorAll(".grid-rows [role='row']").length).toBe(2);
-    expect(host!.textContent).toContain("2 sesión");
+    expect(host!.textContent).toContain("2 sesiones");
   });
 
   it("kills the SELECTED session with KILL <id> then refreshes", async () => {

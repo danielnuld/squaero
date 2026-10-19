@@ -1,4 +1,5 @@
 import { t } from "../utils/i18n";
+import { keyLabel } from "../utils/shortcuts";
 import { Icon } from "./icons";
 
 // Floating bar over the grid while rows are marked (#517). Marking used to lead
@@ -52,8 +53,8 @@ export function RowActionBar(props: {
       <span class="toolbar-sep" aria-hidden="true" />
       <button
         class="panel-icon-btn"
-        aria-label={t("rowbar.clear")}
-        title={t("rowbar.clear")}
+        aria-label={t("rowbar.clear", { keys: keyLabel("Esc") })}
+        title={t("rowbar.clear", { keys: keyLabel("Esc") })}
         onClick={() => props.onClear()}
       >
         <Icon name="close" size={12} />

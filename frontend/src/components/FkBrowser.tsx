@@ -1,3 +1,5 @@
+import { keyLabel } from "../utils/shortcuts";
+import { countText } from "../utils/confirmText";
 import { Show, createMemo, createSignal } from "solid-js";
 import { Portal } from "solid-js/web";
 import { filterRows, fkValueIndex, type FkLookup } from "../utils/fkLookup";
@@ -54,10 +56,10 @@ export function FkBrowser(props: {
         }}
         helpers={
           <span class="fk-browser-count">
-            {t("fk.count", { n: shown().length })}
+            {countText("fk.count", shown().length)}
             <Show when={props.lookup.truncated}> · {t("fk.truncated")}</Show>
             {" · "}
-            {t("fk.howTo")}
+            {t("fk.howTo", { keys: keyLabel("Enter") })}
           </span>
         }
       >

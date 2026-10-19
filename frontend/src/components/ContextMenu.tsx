@@ -218,7 +218,8 @@ export function ContextMenu() {
           fallback={
             <button
               type="button"
-              role="menuitem"
+              role={p.item.checked === undefined ? "menuitem" : "menuitemradio"}
+              aria-checked={p.item.checked}
               class={`context-menu-item ${p.item.danger ? "danger" : ""}`}
               disabled={p.item.disabled}
               title={p.item.title}
@@ -266,6 +267,9 @@ export function ContextMenu() {
 function RowBody(p: { item: MenuItem }) {
   return (
     <>
+      <Show when={p.item.checked !== undefined}>
+        <span class="context-menu-radio" classList={{ on: p.item.checked }} aria-hidden="true" />
+      </Show>
       <Show when={p.item.Icon}>
         {(Icon) => (
           <span class="context-menu-ic" aria-hidden="true">

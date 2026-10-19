@@ -107,8 +107,9 @@
      tema (#747): cada estilo tiene los suyos; sin tema propio, 4 / 8 / 12. */
   --r-pill: 999px;
 
-  /* Tipo. --fs-micro es el suelo: badges de tipo y contadores, nada de prosa. */
-  --fs-micro: 10px;
+  /* Tipo. --fs-micro es el suelo: badges de tipo y contadores, nada de prosa.
+     11 px como mínimo (R-27): 10 px no se lee en una pantalla de 96 ppp. */
+  --fs-micro: 11px;
   --fs-sm: 11px;
   --fs-base: 12px;
   --fs-md: 13px;
@@ -118,6 +119,9 @@
      compacto (barras, chips, iconos) / normal (botones y campos). */
   --h-micro: 20px;
   --h-sm: 24px;
+  /* The smallest pointer target (WCAG 2.5.8, A-24): not a density step, it
+     holds under "compact" too. */
+  --target-min: 24px;
   --h-md: 28px;
 
   /* Alturas de banda: filtro / pestañas y acciones / herramientas / cabecera
@@ -323,7 +327,7 @@
 .field textarea {
   background-color: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
   font-family: inherit;
@@ -339,7 +343,7 @@
 .rd-nav-btn {
   background-color: var(--bg);
   color: var(--fg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
   font-family: inherit;
@@ -430,7 +434,7 @@ textarea,
   gap: var(--sp-2);
   background-color: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
   font-family: inherit;
@@ -941,7 +945,7 @@ body {
   padding: 0 var(--sp-3);
   background: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   font-family: inherit;
   font-size: var(--fs-md);
@@ -1422,7 +1426,13 @@ body {
   color: var(--text);
 }
 
-.tab-kbd {
+.tab-/* «Sin atajo»: an action with no key (R-17), in the reading font, not a kbd. */
+.sc-none {
+  font-family: var(--font-ui);
+  font-style: italic;
+}
+
+kbd {
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   padding: 0 var(--sp-2);
@@ -2102,7 +2112,7 @@ body {
   box-sizing: border-box;
   background: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: 0 var(--sp-2);
   font-family: var(--font-mono);
@@ -2624,6 +2634,21 @@ body {
   color: var(--error-fg);
 }
 
+/* A menuitemradio's mark: a ring, filled when it is the one chosen. */
+.context-menu-radio {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+}
+
+.context-menu-radio.on {
+  background: currentColor;
+  border-color: currentColor;
+}
+
 .context-menu-sep {
   height: 1px;
   margin: var(--sp-1) var(--sp-2);
@@ -3134,34 +3159,13 @@ button.status-chip:not(:disabled):hover {
    than one welded strip: five security modes with names like "Verificar
    identidad" do not fit on a 480px line, and a welded strip that wraps shows
    its grey rail between the rows with an orphan button hanging off it. */
-.cf-seg {
+/* On top of .seg (Segmented): the strip wraps instead of overflowing. */
+.seg.cf-seg {
   display: flex;
   flex-wrap: wrap;
   align-self: flex-start;
   max-width: 100%;
   gap: var(--sp-2);
-}
-
-.cf-seg-btn {
-  padding: var(--sp-2) var(--sp-3);
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--fs-base);
-  white-space: nowrap;
-  cursor: default;
-}
-
-.cf-seg-btn:hover {
-  background: var(--bg-elev2);
-}
-
-.cf-seg-btn.is-on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
 }
 
 /* The sentence under a security control: what that mode actually protects. */
@@ -3930,7 +3934,7 @@ button.danger-text {
 .field .dropdown {
   background-color: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-3) var(--sp-3);
   font-family: inherit;
@@ -4001,7 +4005,7 @@ button.btn,
 button.primary {
   background: var(--bg-elev2);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-3) var(--sp-4);
   cursor: default;
@@ -4108,7 +4112,7 @@ button.btn-danger:disabled {
   width: 5rem;
   background: var(--bg-elev2);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
 }
@@ -4606,6 +4610,9 @@ button.btn-danger:disabled {
 }
 
 .objtree-refresh {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-dim);
@@ -4977,7 +4984,7 @@ button.btn-danger:disabled {
   box-sizing: border-box;
   background: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
   font-family: var(--font-mono);
@@ -6112,7 +6119,7 @@ button.grid-action.danger:hover:not(:disabled) {
   width: 100%;
   box-sizing: border-box;
   padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--text);
@@ -6305,7 +6312,7 @@ button.grid-action.danger:hover:not(:disabled) {
   ) {
   background-color: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-3) var(--sp-3);
   font-family: inherit;
@@ -7520,6 +7527,47 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--accent-fg);
 }
 
+/* Listed with its reason, never run (disabled-with-reason). */
+.cmdk-item[aria-disabled="true"] .cmdk-item-label {
+  opacity: 0.6;
+}
+
+/* Todo · Objetos · Acciones · Snippets: Tab in the search moves between them. */
+.cmdk-scopes {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.cmdk-scope {
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-dim);
+  padding: var(--sp-1) var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-base);
+  cursor: default;
+}
+
+.cmdk-scope.on {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.cmdk-scope-count {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.cmdk-scope-hint {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
 .cmdk-item-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7792,7 +7840,8 @@ button.grid-action.danger:hover:not(:disabled) {
 .app-toast {
   position: fixed;
   right: 1rem;
-  bottom: 2.4rem;
+  /* Above the grid's pagination, not over it (R-30, rule 10). */
+  bottom: 64px;
   z-index: 300;
   display: flex;
   align-items: flex-start;
@@ -8005,6 +8054,13 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 .app-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  border-radius: var(--r-sm);
   background: none;
   border: none;
   color: var(--text-dim);
@@ -8568,7 +8624,7 @@ button.grid-action.danger:hover:not(:disabled) {
 .filter-sort-pill .dropdown {
   background-color: var(--bg-elev2);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   padding: var(--sp-1) var(--sp-2);
   font: inherit;
@@ -9595,4 +9651,19 @@ ul.sidebar-tree {
   margin: 0;
   font-family: var(--font-mono);
   word-break: break-word;
+}
+
+/* «1 de 2» in the editor's find panel (editorPhrases.ts). */
+.cm-search-count {
+  display: inline-block;
+  margin: 0 var(--sp-2);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* R-39: a label that holds a name the user typed, code or an acronym keeps its
+   own case under a style that cases labels (--label-case). The one escape. */
+[data-case="keep"] {
+  text-transform: none !important;
 }

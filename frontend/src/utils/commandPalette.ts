@@ -5,6 +5,7 @@
 // and tested; the `run` closures are supplied by the workspace.
 
 import { fuzzyMatch } from "./fuzzy";
+import { t } from "./i18n";
 
 export type CommandCategory = "tool" | "object" | "snippet" | "history" | "action";
 
@@ -25,6 +26,9 @@ export interface Command {
   /** Alternate activations: Shift+Enter and Mod+Enter. A command that offers
       none is activated by `run` whatever the modifier. */
   runAlt?: (alt: "shift" | "mod") => void;
+  /** Why it cannot run now. Listed anyway, marked unavailable, with the reason
+      in place of the hint: a command that just vanishes cannot be learned. */
+  disabled?: string;
 }
 
 /** Section headers, in the order sections appear in the palette. */
@@ -36,13 +40,43 @@ export const CATEGORY_ORDER: CommandCategory[] = [
   "history",
 ];
 
+/** Section headers, as catalog keys (shown in the UI's language). */
 export const CATEGORY_LABELS: Record<CommandCategory, string> = {
-  action: "Acciones",
-  tool: "Herramientas",
-  object: "Objetos",
-  snippet: "Snippets",
-  history: "Historial",
+  action: "cmdk.cat.action",
+  tool: "cmdk.cat.tool",
+  object: "cmdk.cat.object",
+  snippet: "cmdk.cat.snippet",
+  history: "cmdk.cat.history",
 };
+
+// ---------------------------------------------------------------------------
+// Scopes (the prototype's «Todo · Objetos · Acciones · Snippets»): Tab in the
+// search box moves between them; each shows how many results it holds.
+
+export type PaletteScope = "all" | "object" | "action" | "snippet";
+export const SCOPES: PaletteScope[] = ["all", "object", "action", "snippet"];
+
+/** Which scope a category belongs to (tools are actions; history, snippets). */
+export function scopeOf(category: CommandCategory): Exclude<PaletteScope, "all"> {
+  if (category === "tool") return "action";
+  if (category === "history") return "snippet";
+  return category;
+}
+
+export const inScope = (cmd: Command, scope: PaletteScope): boolean => scope === "all" || scopeOf(cmd.category) === scope;
+
+/** The scopes worth offering for `commands`: «all» plus each one present, or none when only one is. */
+export function scopesFor(commands: readonly Command[]): PaletteScope[] {
+  const present = SCOPES.filter((s) => s !== "all" && commands.some((c) => inScope(c, s)));
+  return present.length > 1 ? ["all", ...present] : [];
+}
+
+/** The scope after `current` (or before it, with `dir` -1), wrapping. */
+export function nextScope(scopes: readonly PaletteScope[], current: PaletteScope, dir: 1 | -1): PaletteScope {
+  if (scopes.length === 0) return current;
+  const i = scopes.indexOf(current);
+  return scopes[(Math.max(i, 0) + dir + scopes.length) % scopes.length];
+}
 
 // A label match ranks above a hint-only match regardless of raw fuzzy score.
 const LABEL_BOOST = 1000;
@@ -85,7 +119,7 @@ export interface CommandGroup {
 export function groupByCategory(commands: Command[]): CommandGroup[] {
   return CATEGORY_ORDER.map((category) => ({
     category,
-    label: CATEGORY_LABELS[category],
+    label: t(CATEGORY_LABELS[category]),
     items: commands.filter((c) => c.category === category),
   })).filter((g) => g.items.length > 0);
 }

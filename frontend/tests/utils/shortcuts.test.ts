@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   matchShortcut,
-  displayKeys,
+  formatKeys,
+  keysOf,
+  migrateOverrides,
   SHORTCUTS,
   type KeyEventLike,
 } from "../../src/utils/shortcuts";
@@ -22,22 +24,52 @@ describe("matchShortcut — global actions", () => {
     expect(matchShortcut(ev({ key: "T", metaKey: true }))).toBe("new-tab");
     expect(matchShortcut(ev({ key: "W", metaKey: true }))).toBe("close-tab");
   });
-  it("Ctrl+Alt+T / W / L map to tab + theme actions", () => {
-    expect(matchShortcut(ev({ key: "t", ctrlKey: true, altKey: true }))).toBe("new-tab");
-    expect(matchShortcut(ev({ key: "w", ctrlKey: true, altKey: true }))).toBe("close-tab");
-    expect(matchShortcut(ev({ key: "l", ctrlKey: true, altKey: true }))).toBe("toggle-theme");
+  // R-17: Ctrl+Alt is AltGr on many keyboards (AltGr+C types «ć»), and
+  // Ctrl+Alt+L locks the screen on Linux. No default uses it any more.
+  it("binds nothing to Ctrl+Alt: the old tab, theme and transaction keys are free", () => {
+    for (const key of ["t", "w", "l", "c", "r"]) {
+      expect(matchShortcut(ev({ key, ctrlKey: true, altKey: true })), key).toBeNull();
+    }
+    for (const sc of SHORTCUTS) {
+      const c = parseCombo(sc.keys);
+      expect(c?.mod && c.alt, sc.id).toBeFalsy();
+    }
+  });
+  it("the theme has no default key, so nothing matches it", () => {
+    expect(SHORTCUTS.find((s) => s.id === "toggle-theme")?.keys).toBe("");
   });
   it("accepts Cmd (meta) as Mod on macOS", () => {
-    expect(matchShortcut(ev({ key: "t", metaKey: true, altKey: true }))).toBe("new-tab");
+    expect(matchShortcut(ev({ key: "t", metaKey: true }))).toBe("new-tab");
+  });
+  it("Ctrl+Mayús+T / W reopen a closed tab and close them all", () => {
+    expect(matchShortcut(ev({ key: "T", ctrlKey: true, shiftKey: true }))).toBe("reopen-tab");
+    expect(matchShortcut(ev({ key: "W", ctrlKey: true, shiftKey: true }))).toBe("close-all-tabs");
+  });
+  it("Ctrl+O, Ctrl+, and Ctrl+B open a file, the settings and toggle the panel", () => {
+    expect(matchShortcut(ev({ key: "o", ctrlKey: true }))).toBe("open-file");
+    expect(matchShortcut(ev({ key: ",", ctrlKey: true }))).toBe("open-settings");
+    expect(matchShortcut(ev({ key: "b", metaKey: true }))).toBe("toggle-sidebar");
+  });
+  it("Ctrl+Mayús+E / H / K: explorer, history, connect", () => {
+    expect(matchShortcut(ev({ key: "E", ctrlKey: true, shiftKey: true }))).toBe("focus-explorer");
+    expect(matchShortcut(ev({ key: "H", ctrlKey: true, shiftKey: true }))).toBe("toggle-history");
+    expect(matchShortcut(ev({ key: "K", ctrlKey: true, shiftKey: true }))).toBe("connect");
   });
   it("Ctrl+PageUp/Down cycle tabs", () => {
     expect(matchShortcut(ev({ key: "PageDown", ctrlKey: true }))).toBe("next-tab");
     expect(matchShortcut(ev({ key: "PageUp", ctrlKey: true }))).toBe("prev-tab");
   });
-  it("Ctrl+Alt+C / R commit and roll back the open transaction (#667)", () => {
-    expect(matchShortcut(ev({ key: "c", ctrlKey: true, altKey: true }))).toBe("tx-commit");
-    expect(matchShortcut(ev({ key: "r", ctrlKey: true, altKey: true }))).toBe("tx-rollback");
+  it("Alt+Mayús+C / R commit and roll back the open transaction (#667, R-17)", () => {
+    expect(matchShortcut(ev({ key: "C", altKey: true, shiftKey: true }))).toBe("tx-commit");
+    expect(matchShortcut(ev({ key: "R", altKey: true, shiftKey: true }))).toBe("tx-rollback");
     expect(matchShortcut(ev({ key: "c", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "c", altKey: true }))).toBeNull();
+  });
+  it("reads the physical key when Option turned the letter into a symbol (macOS)", () => {
+    expect(matchShortcut(ev({ key: "Ç", code: "KeyC", altKey: true, shiftKey: true }))).toBe("tx-commit");
+    expect(matchShortcut(ev({ key: "‰", code: "KeyR", altKey: true, shiftKey: true }))).toBe("tx-rollback");
+    // Without Alt the code is never consulted.
+    expect(matchShortcut(ev({ key: "Ç", code: "KeyC", shiftKey: true }))).toBeNull();
   });
   it("F5 refreshes", () => {
     expect(matchShortcut(ev({ key: "F5" }))).toBe("refresh");
@@ -76,7 +108,7 @@ describe("matchShortcut — filter (#592)", () => {
   it("maps Mod+Shift+O to filter-add-sort, and not without Shift", () => {
     expect(matchShortcut(ev({ key: "O", ctrlKey: true, shiftKey: true }))).toBe("filter-add-sort");
     expect(matchShortcut(ev({ key: "o", metaKey: true, shiftKey: true }))).toBe("filter-add-sort");
-    expect(matchShortcut(ev({ key: "o", ctrlKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "o", ctrlKey: true }))).toBe("open-file");
     expect(matchShortcut(ev({ key: "o", ctrlKey: true, shiftKey: true, altKey: true }))).toBeNull();
   });
 });
@@ -112,7 +144,8 @@ describe("matchShortcut — stop the running query (#691)", () => {
   it("is listed for the help as Ctrl+Pause", () => {
     const sc = SHORTCUTS.find((s) => s.id === "cancel-query")!;
     expect(sc.global).toBe(true);
-    expect(displayKeys(sc.keys, false)).toBe("Ctrl+Pause");
+    expect(formatKeys(sc.keys, "windows", (k) => (k === "key.pause" ? "Pausa" : k))).toBe("Ctrl+Pausa");
+    expect(formatKeys(sc.keys, "macos")).toBe("⌘Pausa");
   });
 });
 
@@ -122,15 +155,61 @@ describe("matchShortcut — non-matches", () => {
   });
   it("ignores plain letters and unmodified typing", () => {
     expect(matchShortcut(ev({ key: "t" }))).toBeNull();
-    expect(matchShortcut(ev({ key: "t", ctrlKey: true, shiftKey: true }))).toBeNull();
-    expect(matchShortcut(ev({ key: "w", ctrlKey: true, shiftKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "t", altKey: true, shiftKey: true }))).toBeNull();
   });
 });
 
-describe("displayKeys", () => {
-  it("renders Mod as Ctrl or ⌘", () => {
-    expect(displayKeys("Mod+Alt+T", false)).toBe("Ctrl+Alt+T");
-    expect(displayKeys("Mod+Enter", true)).toBe("⌘+Enter");
+describe("formatKeys (R-33)", () => {
+  const es: Record<string, string> = {
+    "key.shift": "Mayús",
+    "key.enter": "Intro",
+    "key.delete": "Supr",
+    "key.backspace": "Retroceso",
+    "key.space": "Espacio",
+    "key.pagedown": "Av Pág",
+    "key.pageup": "Re Pág",
+    "key.esc": "Esc",
+  };
+  const tr = (k: string) => es[k] ?? k;
+
+  it("spells Windows and Linux keys in Spanish, joined by +", () => {
+    expect(formatKeys("Mod+Shift+F", "windows", tr)).toBe("Ctrl+Mayús+F");
+    expect(formatKeys("Mod+Enter", "linux", tr)).toBe("Ctrl+Intro");
+    expect(formatKeys("Alt+Shift+C", "windows", tr)).toBe("Alt+Mayús+C");
+    expect(formatKeys("Delete", "windows", tr)).toBe("Supr");
+    expect(formatKeys("Backspace", "windows", tr)).toBe("Retroceso");
+    expect(formatKeys("Mod+Space", "windows", tr)).toBe("Ctrl+Espacio");
+    expect(formatKeys("Ctrl+PageDown", "windows", tr)).toBe("Ctrl+Av Pág");
+    expect(formatKeys("Escape", "windows", tr)).toBe("Esc");
+    expect(formatKeys("Shift+F12", "windows", tr)).toBe("Mayús+F12");
+  });
+  it("keeps the plus key, symbols and arrows", () => {
+    expect(formatKeys("Mod++", "windows", tr)).toBe("Ctrl++");
+    expect(formatKeys("Mod+,", "windows", tr)).toBe("Ctrl+,");
+    expect(formatKeys("Alt+Shift+↑/↓", "windows", tr)).toBe("Alt+Mayús+↑/↓");
+    expect(formatKeys("Mod+k", "windows", tr)).toBe("Ctrl+K");
+  });
+  it("writes macOS symbols in the order ⌃⌥⇧⌘, with no separators", () => {
+    expect(formatKeys("Mod+Shift+F", "macos", tr)).toBe("⇧⌘F");
+    expect(formatKeys("Shift+Mod+F", "macos", tr)).toBe("⇧⌘F");
+    expect(formatKeys("Alt+Shift+C", "macos", tr)).toBe("⌥⇧C");
+    expect(formatKeys("Mod+Enter", "macos", tr)).toBe("⌘↩");
+    expect(formatKeys("Control+Alt+Mod+L", "macos", tr)).toBe("⌃⌥⌘L");
+    expect(formatKeys("Delete", "macos", tr)).toBe("⌦");
+    expect(formatKeys("Mod++", "macos", tr)).toBe("⌘+");
+  });
+  it("leaves «no key» empty", () => {
+    expect(formatKeys("", "windows", tr)).toBe("");
+    expect(formatKeys("", "macos", tr)).toBe("");
+  });
+  it("defaults to the catalog for the key names", () => {
+    expect(formatKeys("Mod+Shift+Enter", "windows")).toMatch(/^Ctrl\+(Mayús|Shift)\+(Intro|Enter)$/);
+  });
+  it("keysOf reads the table in force", () => {
+    expect(keysOf("refresh", SHORTCUTS, "windows")).toBe("F5");
+    expect(keysOf("toggle-theme", SHORTCUTS, "windows")).toBe("");
+    const rebound = effectiveShortcuts(setOverride({}, "refresh", "Mod+R"));
+    expect(keysOf("refresh", rebound, "macos")).toBe("⌘R");
   });
 });
 
@@ -162,7 +241,9 @@ describe("SHORTCUTS table", () => {
     expect(SHORTCUTS.find((s) => s.id === "run-script")).toMatchObject({ keys: "Mod+Shift+Enter", global: false });
     expect(SHORTCUTS.find((s) => s.id === "explain")).toMatchObject({ keys: "Mod+Shift+E", global: false });
     expect(matchShortcut(ev({ key: "Enter", ctrlKey: true, shiftKey: true }))).toBeNull();
-    expect(matchShortcut(ev({ key: "e", ctrlKey: true, shiftKey: true }))).toBeNull();
+    // Outside the editor the same keys go to the explorer (the editor's
+    // keymap handles them first inside it; App yields to it).
+    expect(matchShortcut(ev({ key: "e", ctrlKey: true, shiftKey: true }))).toBe("focus-explorer");
   });
 });
 
@@ -246,7 +327,7 @@ describe("parseCombo / normalizeKeys", () => {
     expect(parseCombo("K+J")).toBeNull();
   });
   it("round-trips every default label", () => {
-    for (const sc of SHORTCUTS) {
+    for (const sc of SHORTCUTS.filter((s) => s.keys !== "")) {
       expect(normalizeKeys(sc.keys), sc.id).not.toBeNull();
       for (const alias of sc.aliases ?? []) expect(normalizeKeys(alias), alias).not.toBeNull();
     }
@@ -299,7 +380,8 @@ describe("findConflicts", () => {
     expect(findConflicts("Mod+C", "refresh", SHORTCUTS).map((s) => s.id)).toEqual(["copy-rows"]);
   });
   it("counts an alias, and sees Ctrl and Mod as the same key", () => {
-    expect(findConflicts("Mod+Alt+T", "refresh", SHORTCUTS).map((s) => s.id)).toEqual(["new-tab"]);
+    const withAlias = SHORTCUTS.map((s) => (s.id === "new-tab" ? { ...s, aliases: ["Mod+Alt+T"] } : s));
+    expect(findConflicts("Mod+Alt+T", "refresh", withAlias).map((s) => s.id)).toEqual(["new-tab"]);
     expect(findConflicts("Mod+PageDown", "refresh", SHORTCUTS).map((s) => s.id)).toEqual(["next-tab"]);
   });
   it("finds nothing for a free combo or one that does not parse", () => {
@@ -339,7 +421,10 @@ describe("overrides", () => {
 
 describe("effectiveShortcuts + matchShortcut with overrides", () => {
   const o = setOverride(setOverride({}, "refresh", "Mod+R"), "new-tab", "Mod+N");
-  const table = effectiveShortcuts(o);
+  const base = SHORTCUTS.map((s) =>
+    s.id === "new-tab" ? { ...s, aliases: ["Mod+Alt+T"] } : s.id === "close-tab" ? { ...s, aliases: ["Mod+Alt+W"] } : s,
+  );
+  const table = effectiveShortcuts(o, base);
 
   it("applies the override and drops the rebound action's aliases", () => {
     expect(table.find((s) => s.id === "refresh")?.keys).toBe("Mod+R");
@@ -360,5 +445,50 @@ describe("effectiveShortcuts + matchShortcut with overrides", () => {
   });
   it("is the defaults with no overrides", () => {
     expect(effectiveShortcuts({})).toEqual(SHORTCUTS);
+  });
+});
+
+describe("no key (R-17)", () => {
+  it("stores «no key» for an action that has one by default, and matches nothing", () => {
+    const o = setOverride({}, "refresh", "");
+    expect(o).toEqual({ refresh: "" });
+    const table = effectiveShortcuts(o);
+    expect(table.find((s) => s.id === "refresh")?.keys).toBe("");
+    expect(matchShortcut(ev({ key: "F5" }), table)).toBeNull();
+    expect(parseOverrides(serializeOverrides(o))).toEqual({ refresh: "" });
+  });
+  it("is no override at all for an action that has no key by default", () => {
+    expect(setOverride({}, "toggle-theme", "")).toEqual({});
+  });
+  it("lets the theme be given a key", () => {
+    const table = effectiveShortcuts(setOverride({}, "toggle-theme", "Alt+Shift+T"));
+    expect(matchShortcut(ev({ key: "T", altKey: true, shiftKey: true }), table)).toBe("toggle-theme");
+  });
+});
+
+describe("migrateOverrides (version 1 to 2)", () => {
+  it("keeps every binding the user made", () => {
+    const v1 = { refresh: "Mod+R", "tx-commit": "Mod+Shift+Enter" };
+    expect(migrateOverrides({ ...v1 }, 1)).toEqual(v1);
+  });
+  it("unbinds a new default that takes a key the user had given to another action", () => {
+    // In version 1 Ctrl+Shift+H was free and the user put the help on it; the
+    // history's new default must not steal it.
+    const out = migrateOverrides({ "toggle-help": "Mod+Shift+H", refresh: "Alt+Shift+C" }, 1);
+    expect(out).toEqual({ "toggle-help": "Mod+Shift+H", refresh: "Alt+Shift+C", "toggle-history": "", "tx-commit": "" });
+    const table = effectiveShortcuts(out);
+    expect(matchShortcut(ev({ key: "H", ctrlKey: true, shiftKey: true }), table)).toBe("toggle-help");
+    expect(matchShortcut(ev({ key: "C", altKey: true, shiftKey: true }), table)).toBe("refresh");
+  });
+  it("leaves alone an action the user rebound themselves", () => {
+    const out = migrateOverrides({ "toggle-help": "Mod+Shift+H", "toggle-history": "Mod+Alt+9" }, 1);
+    expect(out["toggle-history"]).toBe("Mod+Alt+9");
+  });
+  it("does nothing to a map that is already current", () => {
+    const o = { "toggle-help": "Mod+Shift+H" };
+    expect(migrateOverrides(o, 2)).toBe(o);
+  });
+  it("is a no-op for no overrides", () => {
+    expect(migrateOverrides({}, 1)).toEqual({});
   });
 });

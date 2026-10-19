@@ -1,3 +1,5 @@
+import { Segmented } from "./Segmented";
+import { countText } from "../utils/confirmText";
 import { Show } from "solid-js";
 import { t } from "../utils/i18n";
 import type { TxSession } from "../utils/txMode";
@@ -23,57 +25,21 @@ export function TxControls(props: {
       {/* Auto | Manual as the prototype's segmented control (TxControlsMenu):
           a radio group, so the mode in force reads at a glance and the arrow
           keys move between the two like any radio group. */}
-      <span
-        class="seg tx-mode"
-        classList={{ "is-manual": props.session.manual }}
-        role="radiogroup"
-        aria-label={t("tx.modeAria")}
-        onKeyDown={(e) => {
-          if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-            e.preventDefault();
-            const group = e.currentTarget;
-            if (!locked()) {
-              props.onToggle();
-              // The checked option takes the focus, as a radio group's does.
-              queueMicrotask(() =>
-                group.querySelector<HTMLElement>('[aria-checked="true"]')?.focus(),
-              );
-            }
-          }
-        }}
-      >
-        <button
-          type="button"
-          role="radio"
-          class="seg-btn"
-          classList={{ on: !props.session.manual }}
-          aria-checked={!props.session.manual}
-          tabIndex={props.session.manual ? -1 : 0}
-          disabled={locked()}
-          title={toggleBlocked() ?? t("tx.modeTitleAuto")}
-          onClick={() => props.session.manual && props.onToggle()}
-        >
-          {t("tx.auto")}
-        </button>
-        <button
-          type="button"
-          role="radio"
-          class="seg-btn"
-          classList={{ on: props.session.manual }}
-          aria-checked={props.session.manual}
-          tabIndex={props.session.manual ? 0 : -1}
-          disabled={locked()}
-          title={toggleBlocked() ?? t("tx.modeTitleManual")}
-          onClick={() => !props.session.manual && props.onToggle()}
-        >
-          {t("tx.manual")}
-        </button>
-      </span>
+      <Segmented
+        class={`tx-mode${props.session.manual ? " is-manual" : ""}`}
+        label={t("tx.modeAria")}
+        options={[
+          { value: false, label: t("tx.auto"), title: toggleBlocked() ?? t("tx.modeTitleAuto"), disabled: locked() },
+          { value: true, label: t("tx.manual"), title: toggleBlocked() ?? t("tx.modeTitleManual"), disabled: locked() },
+        ]}
+        value={props.session.manual}
+        onChange={(manual) => manual !== props.session.manual && props.onToggle()}
+      />
       <Show when={props.session.open}>
         <span
           class="tx-open"
           role="status"
-          title={t("tx.openTitle", { n: props.session.statements })}
+          title={countText("tx.openTitle", props.session.statements)}
         >
           {t("tx.open", { n: props.session.statements })}
         </span>

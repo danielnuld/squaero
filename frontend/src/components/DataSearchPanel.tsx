@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { Dropdown } from "./Dropdown";
 import { For, Show, createEffect, createSignal } from "solid-js";
 import { Panel } from "./Panel";
@@ -105,7 +106,9 @@ export function DataSearchPanel(props: {
       setResults(out.results);
       const hits = out.results.filter((r) => r.count > 0).length;
       setStatus({
-        text: t(out.stopped ? "ds.stopped" : "ds.done", { hits, searched: out.results.length, total: chosen().length }),
+        text: out.stopped
+          ? countText("ds.stopped", chosen().length, { hits, searched: out.results.length, total: chosen().length })
+          : countText("ds.done", out.results.length, { hits, searched: out.results.length }),
       });
     } finally {
       setBusy(false);
@@ -189,7 +192,7 @@ export function DataSearchPanel(props: {
         </div>
         <Show when={tables().length > 0}>
           <div class="import-subtitle">
-            {t("ds.tables", { n: chosen().length, total: tables().length })}{" "}
+            {countText("ds.tables", tables().length, { n: chosen().length, total: tables().length })}{" "}
             <button class="edit-btn" disabled={busy()} onClick={() => pickAll(true)}>{t("bk.selectAll")}</button>{" "}
             <button class="edit-btn" disabled={busy()} onClick={() => pickAll(false)}>{t("bk.selectNone")}</button>
           </div>
@@ -228,7 +231,7 @@ export function DataSearchPanel(props: {
                 <div class="map-row" role="listitem">
                   <strong>{r.table}</strong>{" "}
                   <Show when={r.count > 0}>
-                    {t("ds.matches", { n: matchLabel(r) })}{" "}
+                    {countText("ds.matches", r.count, { n: matchLabel(r) })}{" "}
                     <Show when={r.capped}>
                       <span class="import-subtitle">{t("ds.capped", { n: r.count })}</span>{" "}
                     </Show>

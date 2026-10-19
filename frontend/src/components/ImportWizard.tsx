@@ -1,3 +1,4 @@
+import { Segmented } from "./Segmented";
 import { Show, createSignal, onCleanup, onMount } from "solid-js";
 import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
@@ -307,32 +308,21 @@ export function ImportWizard(props: {
             <WizardField label={t("imp.targetTable")}>
               <span>{countText("imp.targetCols", targets().length, { table: props.target.table })}</span>
             </WizardField>
-            <div class="wiz-row" role="radiogroup" aria-label={t("imp.sourceLabel")}>
+            <div class="wiz-row">
               <span class="wiz-label">{t("imp.sourceLabel")}</span>
               <span class="wiz-ctl">
-                <span class="seg">
-                  <button
-                    type="button"
-                    class={source() === "file" ? "seg-btn on" : "seg-btn"}
-                    role="radio"
-                    aria-checked={source() === "file"}
-                    onClick={() => setSource("file")}
-                  >
-                    {t("imp.file")}
-                  </button>
-                  <button
-                    type="button"
-                    class={source() === "clipboard" ? "seg-btn on" : "seg-btn"}
-                    role="radio"
-                    aria-checked={source() === "clipboard"}
-                    onClick={() => {
-                      setSource("clipboard");
-                      usePasted(pasted());
-                    }}
-                  >
-                    {t("imp.clipboard")}
-                  </button>
-                </span>
+                <Segmented
+                  label={t("imp.sourceLabel")}
+                  options={[
+                    { value: "file" as const, label: t("imp.file") },
+                    { value: "clipboard" as const, label: t("imp.clipboard") },
+                  ]}
+                  value={source()}
+                  onChange={(v) => {
+                    setSource(v);
+                    if (v === "clipboard") usePasted(pasted());
+                  }}
+                />
               </span>
             </div>
             <Show when={source() === "file"}>

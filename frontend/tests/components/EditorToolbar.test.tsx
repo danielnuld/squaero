@@ -84,9 +84,9 @@ describe("EditorToolbar", () => {
     button("Qué ejecutar: sentencia actual, selección o script completo").click();
     const items = contextMenu()!.items;
     expect(items.map((i) => i.label)).toEqual(["Sentencia actual", "Selección", "Script completo"]);
-    expect(items[0].hint).toBe("líneas 2–5 · Ctrl+Enter");
+    expect(items[0].hint).toBe("líneas 2–5 · Ctrl+Intro");
     expect(items[1]).toMatchObject({ disabled: true, hint: "no hay texto seleccionado" });
-    expect(items[2].hint).toBe("2 sentencias · Ctrl+Shift+Enter");
+    expect(items[2].hint).toBe("2 sentencias · Ctrl+Mayús+Intro");
     items[2].action!();
     expect(p.onRun).toHaveBeenCalledWith("document");
   });

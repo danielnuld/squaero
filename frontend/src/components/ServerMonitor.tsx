@@ -7,7 +7,7 @@ import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { killSessionConfirm } from "../utils/confirmText";
+import { killSessionConfirm, countText } from "../utils/confirmText";
 
 // Server monitor / process list (issue #148): lists the server's active
 // sessions/queries for the active connection and, where the engine allows, kills
@@ -114,7 +114,7 @@ export function ServerMonitor(props: {
       }
       status={
         <Show when={support.supported}>
-          <span>{t("monitor.sessions", { n: rows().length })}</span>
+          <span>{countText("monitor.sessions", rows().length)}</span>
         </Show>
       }
       onRefresh={support.supported ? load : undefined}

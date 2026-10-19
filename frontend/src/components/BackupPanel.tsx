@@ -296,8 +296,8 @@ export function BackupPanel(props: {
       const why = (s: SkippedObject) => `${FOLDERS[s.kind]}/${s.name}: ${s.reason ?? t("bk.noDdl")}`;
       setSkipped([...notes, ...plan.skipped.map(why)]);
       setStatus({
-        text: t("ddl.done", { n: plan.files.length, target: dir ? dir.name : fileNameFor(label, "zip") }) +
-          (plan.skipped.length ? " " + t("ddl.skipped", { n: plan.skipped.length }) : ""),
+        text: countText("ddl.done", plan.files.length, { target: dir ? dir.name : fileNameFor(label, "zip") }) +
+          (plan.skipped.length ? " " + countText("ddl.skipped", plan.skipped.length) : ""),
         error: plan.skipped.length > 0,
       });
     } catch (err) {
@@ -345,7 +345,7 @@ export function BackupPanel(props: {
               }),
               error: true,
             }
-          : { text: t("bk.restored", { n: report.ran }) },
+          : { text: countText("bk.restored", report.ran) },
       );
       if (report.ran > 0) props.onCatalogChanged();
     } finally {
@@ -611,7 +611,7 @@ export function BackupPanel(props: {
           <div class="wiz-form">
             <WizardField
               label={t("bk.filePick")}
-              help={script() ? t("bk.fileStatements", { name: script()!.name, n: script()!.stmts.length }) : undefined}
+              help={script() ? countText("bk.fileStatements", script()!.stmts.length, { name: script()!.name }) : undefined}
             >
               <input type="file" accept=".sql,text/plain,application/sql" onChange={onFile} />
             </WizardField>
