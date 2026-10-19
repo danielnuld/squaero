@@ -203,4 +203,14 @@ describe("App — result pane views (#691)", () => {
     const search = host!.querySelector<HTMLInputElement>('.tool-pane input[type="search"]')!;
     expect(search.value).toBe("UPDATE t SET a = 1");
   });
+
+  it("runs the whole script from the main button when Ctrl+Intro is set to it, and keeps Ejecutar without the document bar", async () => {
+    localStorage.setItem("quaero.settings", JSON.stringify({ runKeyScope: "script", docBar: false }));
+    await connect();
+    expect(host!.querySelector(".editor-run-main")!.textContent).toContain("Ejecutar script");
+    expect([...host!.querySelectorAll(".editor-toolbar button")].some((b) => b.textContent?.includes("Formatear"))).toBe(false);
+    expect(host!.querySelector(".editor-conn")).not.toBeNull();
+    await runSql("UPDATE t SET a = 1; DELETE FROM t");
+    expect(calls).toEqual(["query:UPDATE t SET a = 1", "query:DELETE FROM t"]);
+  });
 });

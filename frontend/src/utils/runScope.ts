@@ -341,13 +341,29 @@ export interface RunChoice {
   current: boolean;
 }
 
+/**
+ * What Ctrl/Cmd+Enter (and the main button) runs: the selection when there is
+ * one, else the statement under the cursor — or the whole script, when the
+ * user chose that in Ajustes › Editor (`keyScope` "script").
+ */
+export function keyRunScope(hasSelection: boolean, keyScope: "statement" | "script" = "statement"): RunScope {
+  if (hasSelection) return "selection";
+  return keyScope === "script" ? "document" : "statement";
+}
+
 /** The label of the main run button: it always names what it will run. */
-export function runButtonLabel(info: RunInfo): string {
-  return info.hasSelection ? "editor.runSelection" : "editor.runStatement";
+export function runButtonLabel(info: RunInfo, keyScope: "statement" | "script" = "statement"): string {
+  const scope = keyRunScope(info.hasSelection, keyScope);
+  return scope === "selection"
+    ? "editor.runSelection"
+    : scope === "document"
+      ? "editor.runScript"
+      : "editor.runStatement";
 }
 
 /** The run button's menu (R-04): current statement · selection · whole script. */
-export function runChoices(info: RunInfo): RunChoice[] {
+export function runChoices(info: RunInfo, keyScope: "statement" | "script" = "statement"): RunChoice[] {
+  const current = keyRunScope(info.hasSelection, keyScope);
   const st = info.statement;
   return [
     {
@@ -358,9 +374,9 @@ export function runChoices(info: RunInfo): RunChoice[] {
         : st.first === st.last
           ? { key: "editor.scope.line", params: { n: st.first } }
           : { key: "editor.scope.lines", params: { from: st.first, to: st.last } },
-      keys: info.hasSelection ? "" : "Mod+Enter",
+      keys: current === "statement" ? "Mod+Enter" : "",
       disabled: !st,
-      current: !info.hasSelection,
+      current: current === "statement",
     },
     {
       scope: "selection",
@@ -377,9 +393,9 @@ export function runChoices(info: RunInfo): RunChoice[] {
         info.statements === 1
           ? { key: "editor.scope.statementsOne" }
           : { key: "editor.scope.statements", params: { n: info.statements } },
-      keys: "Mod+Shift+Enter",
+      keys: current === "document" ? "Mod+Enter" : "Mod+Shift+Enter",
       disabled: info.statements === 0,
-      current: false,
+      current: current === "document",
     },
   ];
 }

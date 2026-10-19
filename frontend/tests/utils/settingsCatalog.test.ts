@@ -62,6 +62,8 @@ describe("searchSettings", () => {
 describe("sectionDefaults", () => {
   it("returns the defaults of the fields a section owns", () => {
     expect(sectionDefaults("editor")).toEqual({
+      runKeyScope: DEFAULT_SETTINGS.runKeyScope,
+      highlightRun: DEFAULT_SETTINGS.highlightRun,
       editorFont: DEFAULT_SETTINGS.editorFont,
       editorFontSize: DEFAULT_SETTINGS.editorFontSize,
       editorLineHeight: DEFAULT_SETTINGS.editorLineHeight,
@@ -71,7 +73,7 @@ describe("sectionDefaults", () => {
       localHistoryVersions: DEFAULT_SETTINGS.localHistoryVersions,
       localHistoryDays: DEFAULT_SETTINGS.localHistoryDays,
     });
-    expect(sectionDefaults("window")).toEqual({ nativeMenu: true, customTitleBar: true });
+    expect(sectionDefaults("window")).toEqual({ docBar: true, nativeMenu: true, customTitleBar: true });
   });
   it("is empty for a section that owns no Settings field", () => {
     expect(sectionDefaults("shortcuts")).toEqual({});
@@ -129,5 +131,16 @@ describe("config bundle", () => {
     expect(parseConfigBundle("[1,2]")).toBeNull();
     expect(parseConfigBundle("null")).toBeNull();
     expect(parseConfigBundle('"text"')).toBeNull();
+  });
+});
+
+describe("searchSettings with a label that has a placeholder", () => {
+  it("resolves each key on its own (no index passed as params)", () => {
+    const seen: unknown[][] = [];
+    searchSettings("x", (...args: unknown[]) => {
+      seen.push(args);
+      return "";
+    });
+    expect(seen.every((a) => a.length === 1)).toBe(true);
   });
 });

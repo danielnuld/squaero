@@ -7324,6 +7324,13 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* The line under a choice that says what the selected option actually does
    (issue #540): "Informe" does not announce that it will group thousands. */
+/* How NULL will read in the grid (R-25): dimmed and in italics. */
+.settings-null-sample {
+  color: var(--text-dim);
+  font-style: italic;
+  font-family: var(--font-grid);
+}
+
 .settings-hint {
   margin: 0;
   font-size: var(--fs-base);

@@ -15,8 +15,13 @@ import {
   MAX_LOCAL_DAYS,
   MIN_SLOW_MS,
   MAX_SLOW_MS,
+  cleanNullText,
+  MAX_NULL_TEXT,
   type Density,
   type GridStyle,
+  type NumberFormat,
+  type RunKeyScope,
+  type StartupMode,
   type Settings,
 } from "../utils/settings";
 import {
@@ -105,6 +110,9 @@ const THEME_OPTS: ThemePref[] = ["system", "light", "dark"];
 const DENSITY_OPTS: Density[] = ["comfortable", "compact"];
 /** How the grid reads (#540): density is how much fits; this is what it looks like. */
 const GRID_STYLE_OPTS: GridStyle[] = ["registro", "hoja", "informe"];
+const STARTUP_OPTS: StartupMode[] = ["resume", "blank", "ask"];
+const RUN_KEY_OPTS: RunKeyScope[] = ["statement", "script"];
+const NUMBER_OPTS: NumberFormat[] = ["raw", "regional"];
 
 interface CoreInfo {
   coreVersion: string;
@@ -358,7 +366,10 @@ export function SettingsPanel(props: {
       | "editorDiagnostics"
       | "builtinTemplates"
       | "nativeMenu"
-      | "customTitleBar",
+      | "customTitleBar"
+      | "highlightRun"
+      | "headerTypes"
+      | "docBar",
     label: string,
   ) => (
     <label class="settings-row settings-check">
@@ -426,6 +437,18 @@ export function SettingsPanel(props: {
               onChange={setLocale}
             />
           </div>
+        ))}
+        {row("startup", () => (
+          <>
+            {chips(
+              t("settings.startup"),
+              STARTUP_OPTS,
+              () => props.settings.startup,
+              (m) => t(`settings.startup.${m}`),
+              (m) => props.onSetSettings({ startup: m }),
+            )}
+            <p class="settings-hint">{t("settings.startupHint")}</p>
+          </>
         ))}
         {row("checkUpdates", () => check("checkUpdatesOnStart", t("settings.checkUpdates")))}
         {row("config", () => (
@@ -640,6 +663,21 @@ export function SettingsPanel(props: {
     ),
     editor: () => (
       <>
+        {row("runKey", () => (
+          <>
+            {chips(
+              t("settings.runKey", { keys: displayKeys("Mod+Enter", props.isMac) }),
+              RUN_KEY_OPTS,
+              () => props.settings.runKeyScope,
+              (m) => t(`settings.runKey.${m}`),
+              (m) => props.onSetSettings({ runKeyScope: m }),
+            )}
+            <p class="settings-hint">
+              {t("settings.runKeyHint", { keys: displayKeys("Mod+Shift+Enter", props.isMac) })}
+            </p>
+          </>
+        ))}
+        {row("highlightRun", () => check("highlightRun", t("settings.highlightRun")))}
         {row("editorFont", () => (
           <>
             {fontRow("editorFont", MONO_FONT_CHOICES)}
@@ -707,6 +745,39 @@ export function SettingsPanel(props: {
     ),
     grid: () => (
       <>
+        {/* Values as stored by default (audit rule 6); grouping is a choice. */}
+        {row("numberFormat", () => (
+          <>
+            {chips(
+              t("settings.numbers"),
+              NUMBER_OPTS,
+              () => props.settings.numberFormat,
+              (m) => t(`settings.numbers.${m}`),
+              (m) => props.onSetSettings({ numberFormat: m }),
+            )}
+            <p class="settings-hint">{t(`settings.numbersHint.${props.settings.numberFormat}`)}</p>
+          </>
+        ))}
+        {row("nullText", () => (
+          <>
+            <label class="settings-row">
+              <span class="settings-label">{t("settings.nullText")}</span>
+              <input
+                type="text"
+                maxLength={MAX_NULL_TEXT}
+                value={props.settings.nullText}
+                onChange={(e) => {
+                  const clean = cleanNullText(e.currentTarget.value);
+                  e.currentTarget.value = clean;
+                  props.onSetSettings({ nullText: clean });
+                }}
+              />
+              <span class="settings-null-sample">{props.settings.nullText}</span>
+            </label>
+            <p class="settings-hint">{t("settings.nullTextHint")}</p>
+          </>
+        ))}
+        {row("headerTypes", () => check("headerTypes", t("settings.headerTypes")))}
         {row("showOldValues", () => check("showOldValues", t("settings.showOldValues")))}
         {/* Colours per data type (issue #483). The swatch shows what is in
             force — the theme's own colour until this look is overridden —
@@ -910,6 +981,12 @@ export function SettingsPanel(props: {
     // The window's own furniture.
     window: () => (
       <>
+        {row("docBar", () => (
+          <>
+            {check("docBar", t("settings.docBar"))}
+            <p class="settings-hint">{t("settings.docBarHint")}</p>
+          </>
+        ))}
         {/* Only where the shell draws one that can be hidden (Windows, Linux —
             issue #686); a Mac always has its menu bar. */}
         <Show when={hasShellMenu() && !props.isMac}>
