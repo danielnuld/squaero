@@ -172,3 +172,86 @@ describe("ObjectListView on MongoDB", () => {
     expect(onOpenData).toHaveBeenCalledWith("open_orders", "view");
   });
 });
+
+// The toolbar, Triggers tab, keyboard and footer of the M14 object list.
+describe("ObjectListView toolbar and keys", () => {
+  const mountSqlite = (props: Record<string, unknown> = {}) => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; params: { sql: string } };
+      const sql = req.params.sql;
+      const res = (cols: string[], rows: (string | null)[][]) => ({
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: cols.map((name) => ({ name, type: "text" })), rows, truncated: false, rowsAffected: 0 },
+      });
+      if (sql.includes("type = 'trigger'") && sql.includes("LIMIT 1"))
+        return res(["sql"], [["CREATE TRIGGER trg AFTER INSERT ON pedidos BEGIN SELECT 1; END"]]);
+      if (sql.includes("type = 'trigger'")) return res(["name", "table", "sql"], [["trg", "pedidos", "CREATE TRIGGER trg"]]);
+      return res(["nombre", "tipo", "columnas", "indices"], [
+        ["clientes", "table", "7", "2"],
+        ["pedidos", "table", "5", "1"],
+        ["v_ventas", "view", "3", null],
+      ]);
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const cbs = { onOpenData: vi.fn(), onOpenStructure: vi.fn(), onNewTable: vi.fn(), onOpenSql: vi.fn(), ...props };
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ObjectListView connId="c1" engine="sqlite" db="main" onClose={() => {}} {...cbs} />, host!);
+    });
+    return cbs;
+  };
+
+  it("counts every kind in the tabs and the footer, with column and index counts", async () => {
+    mountSqlite();
+    await flush();
+    await flush();
+    const tabs = [...host!.querySelectorAll(".otab")].map((b) => b.textContent);
+    expect(tabs).toEqual(["Todos 4", "Tablas 2", "Vistas 1", "Triggers 1"]);
+    expect(host!.querySelector(".objlist-foot")!.textContent).toContain("4 objetos · 2 tablas · 1 vista · 1 trigger");
+    expect(rowText(0)).toContain("7");
+    expect(rowText(3)).toContain("en pedidos");
+  });
+
+  it("filters by name", async () => {
+    mountSqlite();
+    await flush();
+    await flush();
+    const input = host!.querySelector(".objlist-filter") as HTMLInputElement;
+    input.value = "PED";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    expect(rows().map((r) => r.querySelector(".objlist-name")!.textContent)).toEqual(["pedidos"]);
+  });
+
+  it("moves with the arrows, opens the data with Intro and the structure with F12", async () => {
+    const cbs = mountSqlite();
+    await flush();
+    await flush();
+    const key = (i: number, k: string) => rows()[i].dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
+    key(0, "ArrowDown");
+    expect(rows()[1].getAttribute("aria-selected")).toBe("true");
+    key(1, "Enter");
+    expect(cbs.onOpenData).toHaveBeenCalledWith("pedidos", "table");
+    key(1, "F12");
+    expect(cbs.onOpenStructure).toHaveBeenCalledWith("pedidos", "table");
+  });
+
+  it("opens a trigger's definition in the editor", async () => {
+    const cbs = mountSqlite();
+    await flush();
+    await flush();
+    rows()[3].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    await flush();
+    expect(cbs.onOpenSql).toHaveBeenCalledWith("CREATE TRIGGER trg AFTER INSERT ON pedidos BEGIN SELECT 1; END");
+    expect(cbs.onOpenData).not.toHaveBeenCalled();
+  });
+
+  it("offers Nueva tabla", async () => {
+    const cbs = mountSqlite();
+    await flush();
+    const btn = [...host!.querySelectorAll("button")].find((b) => b.textContent?.includes("Nueva tabla")) as HTMLButtonElement;
+    btn.click();
+    expect(cbs.onNewTable).toHaveBeenCalled();
+  });
+});

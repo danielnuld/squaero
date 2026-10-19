@@ -40,6 +40,8 @@ const COL_TYPE: ObjectListColumn = { key: "tipo", label: "objlist.colType" };
 const COL_ROWS: ObjectListColumn = { key: "filas", label: "objlist.colRows", numeric: true };
 const COL_SIZE: ObjectListColumn = { key: "tamano", label: "objlist.colSize", numeric: true };
 const COL_COMMENT: ObjectListColumn = { key: "comentario", label: "objlist.colComment" };
+const COL_COLS: ObjectListColumn = { key: "columnas", label: "objlist.colColumns", numeric: true };
+const COL_INDEXES: ObjectListColumn = { key: "indices", label: "objlist.colIndexes", numeric: true };
 
 /**
  * Build the object-list query + column set for an engine and database. `db` is
@@ -54,11 +56,17 @@ export function objectListFor(engine: string, db: string): ObjectListSupport {
         sql:
           "SELECT TABLE_NAME AS nombre, " +
           "CASE WHEN TABLE_TYPE = 'VIEW' THEN 'view' ELSE 'table' END AS tipo, " +
-          "TABLE_ROWS AS filas, (DATA_LENGTH + INDEX_LENGTH) AS tamano, " +
+          "TABLE_ROWS AS filas, " +
+          "(SELECT COUNT(*) FROM information_schema.COLUMNS c " +
+          "WHERE c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME) AS columnas, " +
+          "CASE WHEN TABLE_TYPE = 'VIEW' THEN NULL ELSE " +
+          "(SELECT COUNT(DISTINCT s.INDEX_NAME) FROM information_schema.STATISTICS s " +
+          "WHERE s.TABLE_SCHEMA = t.TABLE_SCHEMA AND s.TABLE_NAME = t.TABLE_NAME) END AS indices, " +
+          "(DATA_LENGTH + INDEX_LENGTH) AS tamano, " +
           "TABLE_COMMENT AS comentario " +
-          `FROM information_schema.TABLES WHERE TABLE_SCHEMA = '${lit(db)}' ` +
+          `FROM information_schema.TABLES t WHERE TABLE_SCHEMA = '${lit(db)}' ` +
           "ORDER BY TABLE_NAME",
-        columns: [COL_NAME, COL_TYPE, COL_ROWS, COL_SIZE, COL_COMMENT],
+        columns: [COL_NAME, COL_TYPE, COL_ROWS, COL_COLS, COL_INDEXES, COL_SIZE, COL_COMMENT],
         reason: null,
       };
     case "postgres":
@@ -67,13 +75,17 @@ export function objectListFor(engine: string, db: string): ObjectListSupport {
         sql:
           "SELECT c.relname AS nombre, " +
           "CASE WHEN c.relkind = 'v' THEN 'view' ELSE 'table' END AS tipo, " +
-          "c.reltuples::bigint AS filas, " +
+          "CASE WHEN c.relkind = 'v' THEN NULL ELSE c.reltuples::bigint END AS filas, " +
+          "(SELECT count(*) FROM pg_attribute a " +
+          "WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped) AS columnas, " +
+          "CASE WHEN c.relkind = 'v' THEN NULL ELSE " +
+          "(SELECT count(*) FROM pg_index i WHERE i.indrelid = c.oid) END AS indices, " +
           "pg_total_relation_size(c.oid) AS tamano, " +
           "obj_description(c.oid) AS comentario " +
           "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace " +
           `WHERE n.nspname = '${lit(db)}' AND c.relkind IN ('r','v','p') ` +
           "ORDER BY c.relname",
-        columns: [COL_NAME, COL_TYPE, COL_ROWS, COL_SIZE, COL_COMMENT],
+        columns: [COL_NAME, COL_TYPE, COL_ROWS, COL_COLS, COL_INDEXES, COL_SIZE, COL_COMMENT],
         reason: null,
       };
     case "informix":
@@ -86,22 +98,29 @@ export function objectListFor(engine: string, db: string): ObjectListSupport {
         sql:
           "SELECT TRIM(tabname) AS nombre, " +
           "TRIM(CASE WHEN tabtype = 'V' THEN 'view' ELSE 'table' END) AS tipo, " +
-          "nrows AS filas " +
-          "FROM systables WHERE tabid > 99 AND tabtype IN ('T', 'V') " +
+          "nrows AS filas, ncols AS columnas, " +
+          "CASE WHEN tabtype = 'V' THEN NULL ELSE " +
+          "(SELECT COUNT(*) FROM sysindexes i WHERE i.tabid = t.tabid) END AS indices " +
+          "FROM systables t WHERE tabid > 99 AND tabtype IN ('T', 'V') " +
           "ORDER BY tabname",
-        columns: [COL_NAME, COL_TYPE, COL_ROWS],
+        columns: [COL_NAME, COL_TYPE, COL_ROWS, COL_COLS, COL_INDEXES],
         reason: null,
       };
     case "sqlite":
       // No catalog row-count/size (a COUNT per table would be O(n) each); list
-      // name + type from sqlite_master, skipping internal sqlite_* objects.
+      // name + type from sqlite_master, skipping internal sqlite_* objects, with
+      // the column and index counts the table-valued pragmas give for free.
       return {
         supported: true,
         sql:
-          "SELECT name AS nombre, type AS tipo FROM sqlite_master " +
-          "WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' " +
-          "ORDER BY name",
-        columns: [COL_NAME, COL_TYPE],
+          "SELECT m.name AS nombre, m.type AS tipo, " +
+          "(SELECT COUNT(*) FROM pragma_table_info(m.name)) AS columnas, " +
+          "CASE WHEN m.type = 'view' THEN NULL ELSE " +
+          "(SELECT COUNT(*) FROM pragma_index_list(m.name)) END AS indices " +
+          "FROM sqlite_master m " +
+          "WHERE m.type IN ('table', 'view') AND m.name NOT LIKE 'sqlite_%' " +
+          "ORDER BY m.name",
+        columns: [COL_NAME, COL_TYPE, COL_COLS, COL_INDEXES],
         reason: null,
       };
     case "mongodb":
@@ -127,6 +146,80 @@ export function objectListFor(engine: string, db: string): ObjectListSupport {
         reason: "objlist.reasonUnavailable",
       };
   }
+}
+
+/** The kinds the list tells apart. */
+export type ListedKind = "table" | "view" | "trigger";
+
+/** One object of the list: its name, kind and the row it came from. */
+export interface ListedObject {
+  name: string;
+  kind: ListedKind;
+  /** The catalog row (empty for a trigger, which has its own listing). */
+  row: (string | null)[];
+  /** A trigger's table. */
+  on?: string;
+}
+
+/**
+ * The objects of an object-list result. The type is trimmed: engines that type
+ * the catalog column as fixed-width CHAR pad the value ('view ' on Informix,
+ * issue #315). Anything that is not a view lists as a table (a MongoDB
+ * collection says "collection", a time-series one "timeseries"), and so does
+ * every row when the listing has no type column.
+ */
+export function listedObjects(
+  columns: { name: string }[],
+  rows: (string | null)[][],
+  support: Pick<ObjectListSupport, "nameKey" | "typeKey">,
+): ListedObject[] {
+  const at = (k: string) => columns.findIndex((c) => c.name.toLowerCase() === k);
+  const ni = at(support.nameKey ?? "nombre");
+  const ti = at(support.typeKey ?? "tipo");
+  if (ni < 0) return [];
+  return rows.map((row) => ({
+    name: String(row[ni] ?? "").trim(),
+    kind: ti >= 0 && String(row[ti] ?? "").trim() === "view" ? "view" : "table",
+    row,
+  }));
+}
+
+/**
+ * A database's triggers (the listing of utils/triggers.ts) as list objects.
+ * Empty when the listing does not carry the expected name column.
+ */
+export function listedTriggers(
+  columns: { name: string }[],
+  rows: (string | null)[][],
+  cols: { nameCol: string | null; tableCol: string | null },
+): ListedObject[] {
+  const at = (k: string | null) => (k ? columns.findIndex((c) => c.name === k) : -1);
+  const ni = at(cols.nameCol);
+  const ti = at(cols.tableCol);
+  if (ni < 0) return [];
+  return rows.map((row) => ({
+    name: String(row[ni] ?? "").trim(),
+    kind: "trigger" as const,
+    row: [],
+    on: ti >= 0 ? String(row[ti] ?? "").trim() || undefined : undefined,
+  }));
+}
+
+/** The objects of one kind (or all) whose name contains `text`, ignoring case. */
+export function filterObjects(
+  list: ListedObject[],
+  kind: ListedKind | "all",
+  text: string,
+): ListedObject[] {
+  const q = text.trim().toLowerCase();
+  return list.filter((o) => (kind === "all" || o.kind === kind) && (!q || o.name.toLowerCase().includes(q)));
+}
+
+/** How many objects of each kind, for the tabs and the footer. */
+export function objectCounts(list: ListedObject[]): Record<ListedKind | "all", number> {
+  const n = { all: list.length, table: 0, view: 0, trigger: 0 };
+  for (const o of list) n[o.kind]++;
+  return n;
 }
 
 /** Human-readable byte size (for the numeric size column). */

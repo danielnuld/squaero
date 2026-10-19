@@ -6258,6 +6258,12 @@ export function App() {
                         db: (tt().params as { db: string }).db,
                       })
                     }
+                    onOpenStructure={(name, type) => {
+                      const db = (tt().params as { db: string }).db;
+                      openStructure({ key: `db:${db}/obj:${name}`, label: name, kind: type === "view" ? "view" : "table", db });
+                    }}
+                    onNewTable={() => openTableDesigner((tt().params as { db: string }).db)}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
