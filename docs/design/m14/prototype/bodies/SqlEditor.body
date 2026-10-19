@@ -1,0 +1,52 @@
+Editor SQL
+<div class="th th-{{theme}}" role="textbox" aria-multiline="true" aria-label="Editor SQL" style="width: 100%; height: {{height}}; box-sizing: border-box; background: var(--content); font-family: var(--font-mono); font-size: 13px; line-height: 22px; overflow: hidden; padding-top: 6px">
+  <sc-for list="{{lines}}" as="ln" hint-placeholder-count="5">
+    <div style="{{ln.row}}">
+      <span aria-hidden="true" style="{{ln.gutter}}">{{ln.n}}</span>
+      <span style="{{ln.style}}"><sc-for list="{{ln.toks}}" as="tk"><span style="{{tk.style}}">{{tk.s}}</span></sc-for><sc-if value="{{ln.caret}}"><span style="display: inline-block; width: 2px; height: 16px; vertical-align: -3px; background: var(--accent)"></span></sc-if></span>
+    </div>
+  </sc-for>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"sql":{"editor":"text","default":"SELECT c.nombre, c.ciudad, p.fecha, p.total\nFROM clientes c\nJOIN pedidos p ON p.cliente_id = c.id\nORDER BY p.fecha;"},"current":{"editor":"int","default":4},"caretLine":{"editor":"int","default":0},"errorWord":{"editor":"text","default":""},"selectLines":{"editor":"text","default":""},"runRange":{"editor":"text","default":""},"height":{"editor":"text","default":"240px"},"$preview":{"width":968,"height":240}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const sql = p.sql ?? 'SELECT c.nombre, c.ciudad, p.fecha, p.total\nFROM clientes c\nJOIN pedidos p ON p.cliente_id = c.id\nORDER BY p.fecha;';
+    const cur = p.current ?? 4;
+    const err = p.errorWord ?? '';
+    const selected = String(p.selectLines ?? '').split(',').filter(Boolean).map(Number);
+    const rr = String(p.runRange ?? '').split('-').filter(Boolean).map(Number);
+    const inRun = (n) => rr.length === 2 && n >= rr[0] && n <= rr[1];
+    const KW = /^(SELECT|FROM|JOIN|LEFT|RIGHT|INNER|OUTER|ON|WHERE|AND|OR|NOT|IN|IS|NULL|ORDER|GROUP|BY|HAVING|LIMIT|OFFSET|AS|DESC|ASC|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|VIEW|INDEX|DROP|ALTER|ADD|PRIMARY|KEY|REFERENCES|BEGIN|COMMIT|ROLLBACK|WITH|DISTINCT|CASE|WHEN|THEN|ELSE|END|UNION|ALL|EXPLAIN|INTEGER|TEXT|REAL|DATE|DEFAULT|TRUE|FALSE|COLUMN|IF|EXISTS|UNIQUE|CONSTRAINT|FOREIGN|CHECK|NUMERIC|BOOLEAN)$/i;
+    const FN = /^(count|sum|avg|min|max|coalesce|lower|upper|now|date|round|length)$/i;
+    const tok = (line) => {
+      const out = [];
+      const re = /(--.*$)|('[^']*')|(\s+)|(\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_]*)|(\$\{[^}]*\}|:[a-z_]+)|(.)/g;
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        const s = m[0];
+        let c = 'var(--syntax-name)';
+        if (m[1]) c = 'var(--syntax-comment)';
+        else if (m[2]) c = 'var(--syntax-string)';
+        else if (m[4]) c = 'var(--syntax-number)';
+        else if (m[5]) c = KW.test(s) ? 'var(--syntax-keyword)' : FN.test(s) ? 'var(--syntax-function)' : 'var(--syntax-name)';
+        else if (m[6]) c = 'var(--accent-text)';
+        else if (m[7]) c = 'var(--syntax-operator)';
+        const isErr = err && s === err;
+        out.push({ s, style: `color: ${c}; ${m[1] ? 'font-style: italic;' : ''} ${isErr ? 'text-decoration: underline wavy var(--danger); text-underline-offset: 3px;' : ''}` });
+      }
+      return out;
+    };
+    const lines = sql.split('\n').map((l, i) => {
+      const n = i + 1; const isCur = n === cur; const isSel = selected.includes(n); const run = inRun(n);
+      const hasErr = err && l.includes(err);
+      return { n, toks: tok(l), caret: n === (p.caretLine ?? 0),
+        row: `display: flex; height: 22px; ${run ? 'background: var(--accent-soft);' : isSel ? 'background: var(--sel);' : isCur ? 'background: color-mix(in srgb, var(--accent) 5%, transparent);' : ''}`,
+        gutter: `width: 48px; flex: none; box-sizing: border-box; padding-right: 10px; text-align: right; font-variant-numeric: tabular-nums; color: ${isCur || run ? 'var(--text)' : 'var(--text-faint)'}; ${run ? 'box-shadow: inset 3px 0 0 var(--accent);' : ''} ${hasErr ? 'box-shadow: inset 3px 0 0 var(--danger); color: var(--danger);' : ''}`,
+        style: 'flex: 1; min-width: 0; padding-left: 10px; white-space: pre; overflow: hidden' };
+    });
+    return { theme: p.theme ?? 'b', height: p.height ?? '240px', lines };
+  }
+}

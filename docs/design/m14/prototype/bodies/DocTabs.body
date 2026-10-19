@@ -1,0 +1,53 @@
+Pestañas de documento
+<div class="th th-{{theme}}" role="tablist" aria-label="Pestañas abiertas" style="width: 100%; min-width: 600px; height: var(--h-tabs); box-sizing: border-box; display: flex; align-items: flex-end; gap: 2px; padding: 0 8px; background: var(--surface); border-bottom: 1px solid var(--border)">
+  <sc-for list="{{tabs}}" as="tb" hint-placeholder-count="2">
+    <a href="{{tb.href}}" role="tab" aria-selected="{{tb.selected}}" title="{{tb.title}}" style="{{tb.style}}">
+      <span style="{{tb.topLine}}"></span>
+      <sc-if value="{{tb.running}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" role="img" aria-label="Ejecutando" style="color: var(--accent-text)"><path d="M12 3a9 9 0 1 0 9 9"></path></svg></sc-if>
+      <sc-if value="{{tb.idle}}">
+        <span style="{{tb.iconStyle}}">
+          <sc-if value="{{tb.k.query}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="m9 13-2 2 2 2"></path><path d="m13 13 2 2-2 2"></path></svg></sc-if>
+          <sc-if value="{{tb.k.table}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M9 10v10"></path></svg></sc-if>
+          <sc-if value="{{tb.k.view}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></sc-if>
+          <sc-if value="{{tb.k.tool}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></sc-if>
+          <sc-if value="{{tb.k.settings}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path></svg></sc-if>
+        </span>
+      </sc-if>
+      <sc-if value="{{tb.safe}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Solo lectura" style="color: var(--text-dim)"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></sc-if>
+      <span style="{{tb.titleStyle}}">{{tb.label}}</span>
+      <sc-if value="{{tb.hasConn}}"><span style="font-size: var(--fs-xs); color: var(--text-dim); white-space: nowrap">· {{tb.conn}}</span></sc-if>
+      <span aria-label="{{tb.closeLabel}}" style="{{tb.closeStyle}}">
+        <sc-if value="{{tb.dirty}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim)"></span></sc-if>
+        <sc-if value="{{tb.clean}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></sc-if>
+      </span>
+    </a>
+  </sc-for>
+  <a href="EditorEmpty.dc.html" aria-label="Nueva consulta (Ctrl+T)" title="Nueva consulta (Ctrl+T)" style="align-self: center; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-sm); color: var(--text-dim)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+  <span style="flex: 1"></span>
+  <sc-if value="{{hasOverflow}}"><a href="#" aria-label="Más pestañas" style="align-self: center; height: 28px; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--r-sm); color: var(--text-dim); font-size: var(--fs-xs); text-decoration: none">{{overflow}}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></a></sc-if>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"tabs":{"editor":null,"tsType":"Array<{label:string;kind?:string;active?:boolean;dirty?:boolean;safe?:boolean;running?:boolean;href?:string;conn?:string;color?:string}>"},"overflow":{"editor":"int","default":0},"$preview":{"width":968,"height":36}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const raw = this.props.tabs ?? [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', dirty: true }, { label: 'clientes', kind: 'table', active: true, href: 'DataGrid.dc.html' }];
+    const colors = { query: 'var(--accent-text)', table: 'var(--obj-table)', view: 'var(--obj-view)', tool: 'var(--text-dim)', settings: 'var(--text-dim)' };
+    const tabs = raw.map((tb) => {
+      const on = !!tb.active; const kind = tb.kind ?? 'query'; const k = {}; k[kind] = true;
+      const conn = tb.color ?? (kind === 'tool' || kind === 'settings' ? '' : '#2f7dd6');
+      return {
+        label: tb.label, href: tb.href ?? '#', selected: on ? 'true' : 'false', k, dirty: !!tb.dirty, clean: !tb.dirty,
+        safe: !!tb.safe, running: !!tb.running, idle: !tb.running, conn: tb.conn ?? '', hasConn: !!tb.conn,
+        title: tb.conn ? `${tb.label} · ${tb.conn}` : tb.label,
+        closeLabel: tb.dirty ? 'Cambios sin guardar · cerrar' : 'Cerrar pestaña (Ctrl+W)',
+        style: `position: relative; height: 32px; box-sizing: border-box; display: flex; align-items: center; gap: 7px; padding: 0 4px 0 12px; border: 1px solid ${on ? 'var(--border)' : 'transparent'}; border-bottom: 0; border-radius: var(--r-md) var(--r-md) 0 0; background: ${on ? 'var(--content)' : 'transparent'}; margin-bottom: -1px; color: ${on ? 'var(--text)' : 'var(--text-dim)'}; text-decoration: none; max-width: 260px`,
+        topLine: `position: absolute; left: 6px; right: 6px; top: -1px; height: ${on ? 3 : 2}px; border-radius: 2px; background: ${conn || (on ? 'var(--accent)' : 'transparent')}; opacity: ${on ? 1 : 0.55}`,
+        iconStyle: `display: flex; color: ${colors[kind]}`,
+        titleStyle: `font-size: var(--fs-md); font-weight: ${on ? 600 : 400}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap`,
+        closeStyle: `width: 24px; height: 24px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--text-dim); opacity: ${on || tb.dirty ? 1 : 0.5}` };
+    });
+    const ov = this.props.overflow ?? 0;
+    return { theme: this.props.theme ?? 'b', tabs, hasOverflow: ov > 0, overflow: `+${ov}` };
+  }
+}

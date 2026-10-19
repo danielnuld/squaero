@@ -1,0 +1,131 @@
+Ajustes · Rejilla
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Ajustes — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="settings" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="SettingsNav" theme="{{theme}}" active="grid" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <div role="toolbar" aria-label="Rejilla" style="height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 32px; border-bottom: 1px solid var(--border)">
+        <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">Rejilla</h1>
+        <span class="help">Cómo se ven los datos en las tablas y los resultados</span>
+        <span style="flex: 1"></span>
+        <button class="btn btn-ghost" onClick="{{reset}}">Restablecer esta sección</button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; gap: 28px; overflow: hidden; padding: 4px 32px 24px">
+        <div style="flex: 1; min-width: 0">
+          <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Valores</div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <span style="padding-top: 5px; font-weight: 500">Números</span>
+            <div>
+              <span class="seg" role="radiogroup" aria-label="Formato de números"><sc-for list="{{nums}}" as="m" hint-placeholder-count="2"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+              <sc-if value="{{regional}}" hint-placeholder-val="{{ false }}">
+                <span class="field" role="combobox" aria-label="Configuración regional" aria-expanded="false" style="margin-left: 8px; width: 170px; display: inline-flex; align-items: center; justify-content: space-between; vertical-align: top">Español (España)<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+              </sc-if>
+              <div class="help" style="margin-top: 6px">{{numHelp}}</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <label for="null-text" style="padding-top: 5px; font-weight: 500">Texto de NULL</label>
+            <div>
+              <input id="null-text" class="field" value="{{nullText}}" style="width: 110px; font-style: italic">
+              <span class="help" style="margin-left: 8px">Se ve así: <i style="color: var(--text-dim)">{{nullText}}</i> · cadena vacía: <span class="mono" style="color: var(--text-dim)">''</span></span>
+              <div class="help" style="margin-top: 6px">En cursiva y atenuado, para no confundirlo con el texto «NULL». Booleanos siempre como true / false.</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <span style="font-weight: 500">Cabecera</span>
+            <label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{types}}" onClick="{{toggleTypes}}" style="accent-color: var(--accent); margin: 0; width: 16px; height: 16px">Mostrar el tipo bajo el nombre de la columna</label>
+          </div>
+
+          <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Colores por tipo</div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <span style="font-weight: 500">Colorear</span>
+            <label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{colored}}" onClick="{{toggleColor}}" style="accent-color: var(--accent); margin: 0; width: 16px; height: 16px">Colorear los datos por tipo</label>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 0 0 6px">
+            <span></span>
+            <div style="{{listStyle}}">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px">
+                <sc-for list="{{kinds}}" as="k" hint-placeholder-count="6">
+                  <div style="height: 30px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent)">
+                    <button aria-label="Cambiar el color de {{k.name}}" style="{{k.swatch}}"></button>
+                    <span style="width: 82px">{{k.name}}</span>
+                    <span class="mono" style="{{k.sample}}">{{k.example}}</span>
+                    <span style="flex: 1"></span>
+                    <sc-if value="{{k.warn}}"><span class="chip" title="Contraste bajo sobre el fondo" style="height: 20px; padding: 0 6px; background: var(--warn-soft); color: var(--warn)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>Contraste</span></sc-if>
+                    <sc-if value="{{k.custom}}"><button class="btn btn-icon" aria-label="Volver al color del tema para {{k.name}}" title="Volver al color del tema" style="width: 24px; height: 24px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v5h-5"></path></svg></button></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Disposición</div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <span style="padding-top: 5px; font-weight: 500">Estilo de rejilla</span>
+            <div>
+              <span class="seg" role="radiogroup" aria-label="Estilo de rejilla"><sc-for list="{{gstyles}}" as="m" hint-placeholder-count="3"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+              <div class="help" style="margin-top: 6px">{{gstyleHelp}} La altura de las filas es la <a href="SettingsAppearance.dc.html">densidad de Apariencia</a>.</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0; align-items: center">
+            <span style="font-weight: 500">Fuente de la rejilla</span>
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span class="field" role="combobox" aria-label="Fuente de la rejilla" aria-expanded="false" style="width: 220px; display: inline-flex; align-items: center; justify-content: space-between">Predeterminada<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+              <input class="field" value="13" aria-label="Tamaño de la rejilla (px)" style="width: 60px; text-align: right"><span class="help">px</span>
+            </span>
+          </div>
+        </div>
+
+        <aside aria-label="Vista previa" style="width: 340px; flex: none; margin-top: 14px; align-self: flex-start; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--content)">
+          <div style="height: 34px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--surface)"><span class="lbl" style="flex: 1">Vista previa</span><span style="font-size: var(--fs-xs); color: var(--text-dim)">clientes</span></div>
+          <div style="{{previewBox}}">
+            <dc-import name="Grid" theme="{{theme}}" columns="{{columns}}" rows="{{rows}}" show-types="{{types}}" selected="{{sel}}" label="Vista previa de la rejilla" height="100%" hint-size="100%,100%"></dc-import>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state;
+    const segs = (list, cur, key) => list.map((label) => ({ label, checked: label === cur ? 'true' : 'false', tab: label === cur ? '0' : '-1', cls: label === cur ? 'on' : '',
+      style: `border-top: 0; border-bottom: 0; border-left: 0; ${label === cur ? '' : 'background: transparent;'}`, go: () => this.setState({ [key]: label }) }));
+    const colored = s.colored ?? true;
+    const types = s.types ?? true;
+    const gstyle = s.gstyle ?? 'Registro';
+    const num = s.num ?? 'Valor crudo';
+    const regional = num === 'Formato regional';
+    const K = [['Texto', 'var(--type-dot-text)', 'María López', false, false], ['Números', 'var(--type-dot-num)', regional ? '1.250,00' : '1250.00', false, false], ['Fechas', 'var(--type-dot-date)', '2024-04-18', false, false],
+      ['Booleanos', 'var(--type-dot-bool)', 'true', false, false], ['Binarios', 'var(--obj-event)', '0x8950', true, true], ['NULL', 'var(--null)', 'NULL', false, false]];
+    const kinds = K.map(([name, c, example, custom, warn]) => ({ name, example, custom, warn,
+      swatch: `width: 24px; height: 24px; flex: none; padding: 0; border: 0; border-radius: var(--r-sm); background: ${c}; box-shadow: inset 0 0 0 1px var(--border-strong)`,
+      sample: `font-size: var(--fs-sm); color: ${colored ? c : 'var(--text)'}; ${name === 'NULL' ? 'font-style: italic;' : ''}` }));
+    const help = { Registro: 'Cebra y separadores suaves.', 'Hoja densa': 'Cuadrícula completa, como una hoja de cálculo.', Informe: 'Sin líneas verticales, con más aire.' }[gstyle];
+    const fmtN = (v) => (v == null || !regional ? v : Number(v).toLocaleString('es-ES', { minimumFractionDigits: 2, useGrouping: 'always' }));
+    const raw = [['María López', '1250.00', '2023-02-14'], ['Juan Pérez', '980.50', '2023-03-01'], ['Ana Gómez', null, '2023-05-22'],
+      ['Luis Ramírez', '4321.99', '2024-01-09'], ['Sofía Torres', '12.00', '2024-04-18'], ['', '777.77', '2024-06-30']];
+    return {
+      os: this.props.os ?? 'windows', theme: this.props.theme ?? 'b', colored, toggleColor: () => this.setState({ colored: !colored }), kinds,
+      types, toggleTypes: () => this.setState({ types: !types }),
+      nums: segs(['Valor crudo', 'Formato regional'], num, 'num'), regional,
+      numHelp: regional ? 'Solo cambia cómo se ve: al copiar, filtrar o buscar se usa siempre el valor crudo (1250.00).' : 'Predeterminado: se ve el valor tal como está guardado (1250.00), sin separador de miles.',
+      nullText: s.nullText ?? 'NULL',
+      listStyle: `opacity: ${colored ? 1 : 0.5}`,
+      gstyles: segs(['Registro', 'Hoja densa', 'Informe'], gstyle, 'gstyle'), gstyleHelp: help,
+      reset: () => this.setState({ colored: undefined, types: undefined, gstyle: undefined, num: undefined }),
+      previewBox: `height: ${28 * 6 + (types ? 46 : 32)}px`,
+      sel: { r: 1, c: 1 },
+      columns: [{ name: 'nombre', type: 'text', kind: 'text', w: '1fr' }, { name: 'saldo', type: 'numeric(10,2)', kind: 'num', w: '96px' }, { name: 'alta', type: 'date', kind: 'date', w: '96px' }],
+      rows: raw.map(([a, b, c]) => [a, fmtN(b), c]),
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', dirty: true, color: '#2f7dd6' }, { label: 'Ajustes', kind: 'settings', active: true, href: 'SettingsGrid.dc.html' }]
+    };
+  }
+}

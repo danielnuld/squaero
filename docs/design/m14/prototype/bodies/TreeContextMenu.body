@@ -1,0 +1,57 @@
+Menú de tabla
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; position: relative; overflow: hidden; background: var(--chrome)">
+  <div style="position: absolute; inset: 0">
+    <dc-import name="DataGrid" theme="{{theme}}" os="{{os}}" hint-size="1280px,800px"></dc-import>
+  </div>
+  <a href="DataGrid.dc.html" aria-label="Cerrar el menú (Esc)" style="position: absolute; inset: 0; z-index: 4"></a>
+
+  <div class="menu" role="menu" aria-label="Acciones de clientes" style="left: 206px; top: 226px; width: 280px">
+    <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--fs-xs); color: var(--text-dim)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--obj-table)"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M9 10v10"></path></svg><span class="mono">clientes</span><span>· tabla de Ventas</span>
+    </div>
+    <a href="DataGrid.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M9 10v10"></path></svg>Abrir datos<span class="k">{{k.open}}</span></a>
+    <a href="EditorEmpty.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="m9 13-2 2 2 2"></path><path d="m13 13 2 2-2 2"></path></svg>Nueva consulta sobre clientes</a>
+    <a href="StructureView.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h10"></path><path d="M4 18h14"></path></svg>Ver estructura</a>
+    <a href="TableDesigner.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>Modificar tabla…<span class="k">{{k.alter}}</span></a>
+    <a href="IndexManager.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"></circle><path d="m10.7 12.3 9.3-9.3"></path><path d="m16 7 3 3"></path></svg>Índices y restricciones</a>
+    <div class="msep" role="separator"></div>
+    <a href="#" role="menuitem" aria-haspopup="menu" aria-expanded="true" class="mi on focus-in"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 8-4 4 4 4"></path><path d="m16 8 4 4-4 4"></path></svg>Generar SQL<span class="k" style="display: flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></span></a>
+    <a href="#" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copiar nombre<span class="k">{{k.copy}}</span></a>
+    <a href="DdlView.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copiar DDL<span class="k">{{k.ddl}}</span></a>
+    <div class="msep" role="separator"></div>
+    <a href="ImportWizard.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>Importar datos…</a>
+    <a href="ExportMenu.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="m7 8 5-5 5 5"></path><path d="M5 21h14"></path></svg>Exportar…<span class="k">{{k.export}}</span></a>
+    <a href="DataGenerator.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Generar datos de prueba…</a>
+    <a href="ErDiagram.dc.html" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="6" rx="1"></rect><rect x="14" y="15" width="7" height="6" rx="1"></rect><path d="M6.5 9v3a2 2 0 0 0 2 2h7a2 2 0 0 1 2 2v-1"></path></svg>Diagrama ER de esta tabla</a>
+    <a href="#" role="menuitem" class="mi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v5h-5"></path></svg>Refrescar<span class="k">{{k.refresh}}</span></a>
+    <div class="msep" role="separator"></div>
+    <div class="lbl" role="presentation" style="padding: 4px 10px 2px">Zona de peligro</div>
+    <a href="ConfirmDrop.dc.html" role="menuitem" class="mi danger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 21-4-4 11-11 7 7-7 8z"></path><path d="M22 21H7"></path></svg>Vaciar tabla…<span class="k" style="color: var(--text-dim)">TRUNCATE</span></a>
+    <a href="ConfirmDrop.dc.html" role="menuitem" class="mi danger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path></svg>Eliminar tabla…<span class="k">{{k.del}}</span></a>
+  </div>
+
+  <div class="menu" role="menu" aria-label="Generar SQL" style="left: 490px; top: 410px; width: 250px">
+    <a href="EditorEmpty.dc.html" role="menuitem" class="mi">SELECT<span class="k">en una consulta nueva</span></a>
+    <a href="EditorEmpty.dc.html" role="menuitem" class="mi">INSERT</a>
+    <a href="EditorEmpty.dc.html" role="menuitem" class="mi">UPDATE</a>
+    <a href="EditorEmpty.dc.html" role="menuitem" class="mi">DELETE</a>
+    <div class="msep" role="separator"></div>
+    <a href="DdlView.dc.html" role="menuitem" class="mi">CREATE TABLE (DDL)</a>
+    <div class="msep" role="separator"></div>
+    <div class="help" style="padding: 4px 10px 6px; line-height: 1.4">Se abre en una pestaña nueva sobre Ventas; no se ejecuta nada.</div>
+  </div>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const os = this.props.os ?? 'windows'; const mac = os === 'macos';
+    const K = (s) => { if (!mac) return s; const p = s.split('+'); const key = p.pop(); const sym = { Alt: '⌥', 'Mayús': '⇧', Ctrl: '⌘' }; const km = { Intro: '↩', Supr: '⌫', 'Re Pág': '⇞', 'Av Pág': '⇟' }; return ['Alt', 'Mayús', 'Ctrl'].filter((m) => p.includes(m)).map((m) => sym[m]).join('') + (km[key] ?? key); };
+    const k = { filter: K('Ctrl+Mayús+L'), sort: K('Ctrl+Mayús+O'), find: K('Ctrl+F'), row: K('Ctrl+Intro'), run: K('Ctrl+Intro'), script: K('Ctrl+Mayús+Intro'), fmt: K('Alt+Mayús+F'), stop: 'Esc',
+      open: K('Intro'), alter: 'F4', del: K('Supr'), copy: K('Ctrl+C'), ddl: K('Ctrl+Mayús+C'), refresh: mac ? '⌘R' : 'F5', newq: K('Ctrl+T'), close: K('Ctrl+W'), closeAll: K('Ctrl+Mayús+W'),
+      reopen: K('Ctrl+Mayús+T'), export: K('Ctrl+Mayús+X'), settings: K('Ctrl+,'), save: K('Ctrl+S'), more: K('Alt+M') };
+    const act = os === 'windows' ? '' : 'flex-direction: row-reverse';
+    return { theme: this.props.theme ?? 'b', os, k };
+  }
+}

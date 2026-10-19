@@ -1,0 +1,169 @@
+Ajustes · Apariencia
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Ajustes — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="settings" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="SettingsNav" theme="{{theme}}" active="appearance" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <div role="toolbar" aria-label="Apariencia" style="height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 32px; border-bottom: 1px solid var(--border)">
+        <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">Apariencia</h1>
+        <span class="help">Estilo, colores, tamaño y tipografía</span>
+        <span style="flex: 1"></span>
+        <button class="btn btn-ghost" onClick="{{reset}}">Restablecer esta sección</button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow: hidden; padding: 4px 32px 24px">
+        <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Estilo</div>
+        <div role="radiogroup" aria-label="Estilo" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px">
+          <sc-for list="{{styles}}" as="c" hint-placeholder-count="4">
+            <button role="radio" aria-checked="{{c.checked}}" tabindex="{{c.tab}}" onClick="{{c.go}}" style="{{c.card}}">
+              <span class="{{c.thClass}}" aria-hidden="true" style="height: 68px; display: flex; flex-direction: column; background: var(--chrome); border-bottom: 1px solid var(--border)">
+                <span style="height: 14px; display: flex; align-items: center; gap: 4px; padding: 0 6px">
+                  <span style="width: 7px; height: 7px; border-radius: 2px; background: var(--accent)"></span>
+                  <span style="flex: 1"></span>
+                  <span style="width: 54px; height: 6px; border-radius: 3px; background: var(--content); border: 1px solid var(--border)"></span>
+                  <span style="flex: 1"></span>
+                </span>
+                <span style="flex: 1; display: flex; min-height: 0">
+                  <span style="width: 16px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding-top: 4px">
+                    <span style="width: 8px; height: 8px; border-radius: 2px; background: var(--accent)"></span>
+                    <span style="width: 8px; height: 8px; border-radius: 2px; background: var(--text-faint); opacity: .5"></span>
+                    <span style="width: 8px; height: 8px; border-radius: 2px; background: var(--text-faint); opacity: .5"></span>
+                  </span>
+                  <span style="width: 44px; display: flex; flex-direction: column; gap: 4px; padding: 4px 4px 0">
+                    <span style="height: 4px; border-radius: 2px; background: var(--text-faint); opacity: .6"></span>
+                    <span style="height: 4px; border-radius: 2px; background: var(--sel); box-shadow: inset 0 0 0 1px var(--accent)"></span>
+                    <span style="height: 4px; border-radius: 2px; background: var(--text-faint); opacity: .6"></span>
+                    <span style="height: 4px; width: 70%; border-radius: 2px; background: var(--text-faint); opacity: .6"></span>
+                  </span>
+                  <span style="flex: 1; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+                    <span style="height: 12px; background: var(--surface); border-bottom: 1px solid var(--border)"></span>
+                    <span style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 0 8px">
+                      <span style="font-family: var(--font-ui); font-size: 20px; font-weight: 600; color: var(--text)">Aa</span>
+                      <span style="display: flex; flex-direction: column; gap: 3px; flex: 1">
+                        <span style="height: 4px; border-radius: 2px; background: var(--text-dim)"></span>
+                        <span style="height: 4px; width: 60%; border-radius: 2px; background: var(--accent)"></span>
+                        <span style="height: 4px; width: 80%; border-radius: 2px; background: var(--text-faint)"></span>
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </span>
+              <span style="display: flex; align-items: center; gap: 8px; padding: 10px 12px 2px">
+                <span style="{{c.radio}}"></span>
+                <span style="font-weight: 600">{{c.name}}</span>
+                <sc-if value="{{c.isDefault}}"><span class="chip" style="height: 18px; background: var(--accent-soft); color: var(--accent-text)">Predeterminado</span></sc-if>
+              </span>
+              <span class="help" style="display: block; padding: 0 12px 10px 34px; line-height: 1.35">{{c.desc}}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 18px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Colores y tamaño</div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+          <span style="padding-top: 5px; font-weight: 500">Tema de color</span>
+          <div>
+            <div role="radiogroup" aria-label="Tema de color" style="display: flex; flex-wrap: wrap; gap: 6px">
+              <sc-for list="{{palettes}}" as="t" hint-placeholder-count="6">
+                <button role="radio" aria-checked="{{t.checked}}" aria-disabled="{{t.dis}}" tabindex="{{t.tab}}" title="{{t.why}}" onClick="{{t.go}}" style="{{t.style}}">
+                  <span style="{{t.sw}}"></span>{{t.name}}<sc-if value="{{t.dark}}"><span style="font-size: var(--fs-xs); color: var(--text-dim)">solo oscuro</span></sc-if>
+                </button>
+              </sc-for>
+              <button class="btn btn-ghost" style="height: 28px; color: var(--accent-text)">Importar tema…</button>
+            </div>
+            <div class="help" style="margin-top: 6px">{{palHelp}}</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+          <span style="padding-top: 5px; font-weight: 500">Modo</span>
+          <div style="display: flex; gap: 24px; align-items: flex-start">
+            <div style="width: 230px">
+              <span class="seg" role="radiogroup" aria-label="Modo"><sc-for list="{{modes}}" as="m" hint-placeholder-count="3"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+              <div class="help" style="margin-top: 6px">{{modeHelp}}</div>
+            </div>
+            <span style="padding-top: 5px; font-weight: 500">Densidad</span>
+            <div style="flex: 1; min-width: 0">
+              <span class="seg" role="radiogroup" aria-label="Densidad"><sc-for list="{{densities}}" as="m" hint-placeholder-count="2"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+              <div class="help" style="margin-top: 6px">Un solo ajuste para toda la app: filas de {{rowPx}} px en la rejilla, el árbol, los menús y las listas.</div>
+            </div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+          <span style="padding-top: 5px; font-weight: 500">Zoom de la interfaz</span>
+          <div>
+            <span class="seg" role="radiogroup" aria-label="Zoom de la interfaz"><sc-for list="{{zooms}}" as="m" hint-placeholder-count="8"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+            <div class="help" style="margin-top: 6px"><span class="kbd">{{kIn}}</span> y <span class="kbd">{{kOut}}</span> cambian el zoom; <span class="kbd">{{kZero}}</span> vuelve al 100 %.</div>
+          </div>
+        </div>
+
+        <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 14px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Tipografía</div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+          <span style="padding-top: 5px; font-weight: 500">Fuente de la interfaz</span>
+          <div>
+            <div style="display: flex; gap: 8px; align-items: center">
+              <span class="field" role="combobox" aria-label="Fuente de la interfaz" aria-expanded="false" style="width: 300px; display: inline-flex; align-items: center; justify-content: space-between">{{fontName}}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+              <input class="field" value="13" aria-label="Tamaño de la interfaz (px)" style="width: 64px; text-align: right">
+              <span class="help">px</span>
+              <span aria-label="Vista previa de la fuente" style="margin-left: 12px; font-size: var(--fs-md)">El veloz murciélago hindú <span class="num">0123456789</span></span>
+            </div>
+            <div class="help" style="margin-top: 6px">{{fontHelp}} Editor y rejilla tienen la suya: <a href="SettingsEditor.dc.html">Editor</a>, <a href="SettingsGrid.dc.html">Rejilla</a>.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state;
+    const os = this.props.os ?? 'windows';
+    const mac = os === 'macos';
+    const theme = s.style ?? this.props.theme ?? 'b';
+    const segs = (list, cur, key) => list.map((label) => ({ label, checked: label === cur ? 'true' : 'false', tab: label === cur ? '0' : '-1', cls: label === cur ? 'on' : '',
+      style: `border-top: 0; border-bottom: 0; border-left: 0; ${label === cur ? '' : 'background: transparent;'}`, go: () => this.setState({ [key]: label }) }));
+    const sysFont = { windows: 'Segoe UI Variable', macos: 'SF Pro', linux: 'Cantarell' }[os];
+    const ST = [['b', 'B · Nativo', 'Claro y nítido, con la fuente del sistema.', sysFont], ['a', 'A · Quiet pro', 'Oscuro y sobrio, para jornadas largas. Geist.', 'Geist'],
+      ['c', 'C · Editorial', 'Oscuro cálido, etiquetas en minúscula. IBM Plex.', 'IBM Plex Sans'], ['rosa', 'Rosa pastel', 'Claro y suave, esquinas amplias. Figtree.', 'Figtree']];
+    const styles = ST.map(([id, name, desc]) => {
+      const on = id === theme;
+      return { name, desc, thClass: `th th-${id}`, isDefault: id === 'b', checked: on ? 'true' : 'false', tab: on ? '0' : '-1', go: () => this.setState({ style: id }),
+        radio: `width: 14px; height: 14px; box-sizing: border-box; flex: none; border-radius: 50%; border: ${on ? '4px solid var(--accent)' : '1.5px solid var(--border-strong)'}; background: var(--content)`,
+        card: `padding: 0; display: flex; flex-direction: column; text-align: left; overflow: hidden; border-radius: var(--r-lg); background: var(--content); border: ${on ? '2px solid var(--accent)' : '1px solid var(--border-strong)'}; box-shadow: var(--shadow-sm)` };
+    });
+    const mode = s.mode ?? 'Sistema';
+    const light = mode !== 'Oscuro';
+    const PAL = [['Squaero (índigo)', '#5b5bd6', '#f4f4fb', false], ['Azul', '#2563eb', '#eef3fd', false], ['Ciruela', '#8e4ec6', '#1d1626', true], ['Pizarra', '#64748b', '#151a21', true], ['Terminal', '#22c55e', '#0b0f0b', true], ['Alto contraste', '#ffd400', '#000000', false]];
+    const pal = s.pal ?? 'Squaero (índigo)';
+    const palettes = PAL.map(([name, a, bg, dark]) => {
+      const on = name === pal;
+      const dis = dark && light;
+      return { name, dark, checked: on ? 'true' : 'false', dis: dis ? 'true' : 'false', tab: on ? '0' : '-1',
+        why: dis ? `${name} solo tiene variante oscura: elige el modo Oscuro para usarlo` : '',
+        go: () => { if (!dis) this.setState({ pal: name }); },
+        sw: `width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, ${bg} 50%, ${a} 50%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); ${dis ? 'opacity: .45;' : ''}`,
+        style: `height: 28px; display: inline-flex; align-items: center; gap: 7px; padding: 0 10px 0 7px; border-radius: 999px; font-size: var(--fs-sm); background: ${on ? 'var(--accent-soft)' : 'transparent'}; color: ${dis ? 'var(--text-dim)' : on ? 'var(--accent-text)' : 'var(--text)'}; font-weight: ${on ? 600 : 400}; border: 1px ${dis ? 'dashed' : 'solid'} ${on ? 'var(--accent)' : 'var(--border-strong)'}` };
+    });
+    const density = s.density ?? 'Cómoda';
+    const MOD = { Alt: ['⌥', 1], 'Mayús': ['⇧', 2], Ctrl: ['⌘', 3] };
+    const fmt = (k) => { const ks = k.endsWith('++') ? [...k.slice(0, -2).split('+'), '+'] : k.split('+'); return mac ? ks.filter((x) => MOD[x]).map((x) => MOD[x][0]).join('') + ks.filter((x) => !MOD[x]).join('') : ks.join('+'); };
+    return {
+      os, theme, styles, palettes,
+      palHelp: light ? 'Ciruela, Pizarra y Terminal solo tienen variante oscura: elige el modo Oscuro para usarlos.'
+        : 'El estilo define la forma y la tipografía; el tema de color cambia solo los colores.',
+      modes: segs(['Sistema', 'Claro', 'Oscuro'], mode, 'mode'),
+      modeHelp: mode === 'Sistema' ? `Sigue al sistema; ahora está en claro.` : `Siempre en modo ${mode.toLowerCase()}.`,
+      densities: segs(['Cómoda', 'Compacta'], density, 'density'), rowPx: density === 'Compacta' ? '24' : '28',
+      zooms: segs(['80%', '90%', '100%', '110%', '125%', '150%', '175%', '200%'], s.zoom ?? '100%', 'zoom'),
+      kIn: fmt('Ctrl++'), kOut: fmt('Ctrl+−'), kZero: fmt('Ctrl+0'),
+      fontName: `Predeterminada (${ST.find((x) => x[0] === theme)[3]})`,
+      fontHelp: theme === 'b' ? 'Nativo usa la fuente de cada sistema.' : 'Incluida en la app; funciona sin conexión.',
+      reset: () => this.setState({ style: undefined, pal: undefined, mode: undefined, density: undefined, zoom: undefined }),
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', dirty: true, color: '#2f7dd6' }, { label: 'Ajustes', kind: 'settings', active: true, href: 'SettingsAppearance.dc.html' }]
+    };
+  }
+}

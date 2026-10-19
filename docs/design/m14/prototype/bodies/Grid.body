@@ -1,0 +1,112 @@
+Rejilla de resultados
+<div class="th th-{{theme}}" role="grid" aria-label="{{label}}" aria-rowcount="{{rowCount}}" aria-colcount="{{colCount}}" aria-multiselectable="true" style="width: 100%; height: {{height}}; overflow: hidden; background: var(--content); font-size: var(--fs-md)">
+  <div role="row" style="display: grid; grid-template-columns: {{cols}}; height: 40px; align-items: stretch; border-bottom: 1px solid var(--border); background: var(--surface)">
+    <span style="display: flex; align-items: center; justify-content: center"><sc-if value="{{checks}}"><input type="checkbox" aria-label="Marcar todas" style="accent-color: var(--accent); margin: 0"></sc-if></span>
+    <sc-for list="{{heads}}" as="h" hint-placeholder-count="6">
+      <span role="columnheader" aria-sort="{{h.ariaSort}}" style="{{h.style}}">
+        <span style="display: flex; align-items: center; gap: 5px; min-width: 0; {{h.justify}}">
+          <sc-if value="{{h.key}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Clave primaria" style="color: var(--warn); flex: none"><circle cx="7.5" cy="15.5" r="4.5"></circle><path d="m10.7 12.3 9.3-9.3"></path><path d="m16 7 3 3"></path></svg></sc-if>
+          <sc-if value="{{h.isFk}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Clave foránea" style="color: var(--obj-table); flex: none"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg></sc-if>
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: var(--fs-sm); color: var(--text)">{{h.name}}</span>
+          <sc-if value="{{h.sorted}}"><span style="font-size: var(--fs-xs); color: var(--accent-text)">{{h.sort}}</span></sc-if>
+          <sc-if value="{{h.filtered}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Filtrada" style="color: var(--accent-text); flex: none"><path d="M3 5h18l-7 8v6l-4 2v-8z"></path></svg></sc-if>
+        </span>
+        <sc-if value="{{showTypes}}"><span style="font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; {{h.typeAlign}}">{{h.typeLabel}}</span></sc-if>
+      </span>
+    </sc-for>
+  </div>
+  <sc-if value="{{filters}}" hint-placeholder-val="{{ false }}">
+    <div role="row" style="display: grid; grid-template-columns: {{cols}}; height: 32px; align-items: center; border-bottom: 1px solid var(--border); background: var(--surface)">
+      <span></span>
+      <sc-for list="{{heads}}" as="h" hint-placeholder-count="6">
+        <span style="padding: 0 6px"><input class="{{h.filterClass}}" value="{{h.filter}}" placeholder="Buscar" aria-label="Buscar en {{h.name}} (página cargada)" style="width: 100%; height: 24px; font-size: var(--fs-sm)"></span>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{loading}}">
+    <sc-for list="{{skeleton}}" as="sk" hint-placeholder-count="8">
+      <div aria-hidden="true" style="display: grid; grid-template-columns: {{cols}}; height: {{rowH}}; align-items: center; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent)">
+        <span></span>
+        <sc-for list="{{sk.cells}}" as="c"><span style="padding: 0 10px"><span style="{{c}}"></span></span></sc-for>
+      </div>
+    </sc-for>
+  </sc-if>
+  <sc-if value="{{ready}}">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+      <div role="row" aria-selected="{{r.marked}}" style="{{r.style}}">
+        <span style="{{r.gutter}}"><sc-if value="{{r.checkOn}}"><input type="checkbox" checked aria-label="Marcar fila {{r.n}}" style="accent-color: var(--accent); margin: 0"></sc-if><sc-if value="{{r.checkOff}}"><input type="checkbox" aria-label="Marcar fila {{r.n}}" style="accent-color: var(--accent); margin: 0"></sc-if><sc-if value="{{r.hasGlyph}}"><span style="{{r.glyphStyle}}" aria-label="{{r.glyphLabel}}">{{r.glyph}}</span></sc-if><sc-if value="{{r.showNum}}"><span>{{r.n}}</span></sc-if></span>
+        <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="6">
+          <span role="gridcell" aria-selected="{{c.sel}}" title="{{c.title}}" style="{{c.style}}">
+            <sc-if value="{{c.isNull}}"><span style="font-style: italic; color: var(--null); font-size: var(--fs-sm); font-family: var(--font-ui)">NULL</span></sc-if>
+            <sc-if value="{{c.isEmpty}}"><span style="color: var(--text-faint); font-family: var(--font-mono); font-size: var(--fs-sm)">''</span></sc-if>
+            <sc-if value="{{c.plain}}"><span style="overflow: hidden; text-overflow: ellipsis">{{c.v}}</span></sc-if>
+            <sc-if value="{{c.showOld}}"><span style="font-size: 11px; color: var(--text-dim); text-decoration: line-through; margin-left: 6px">{{c.old}}</span></sc-if>
+            <sc-if value="{{c.fkLink}}"><a href="RelatedData.dc.html" aria-label="Ver la fila referenciada (Ctrl+B)" style="margin-left: 6px; display: flex; color: var(--obj-table)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg></a></sc-if>
+            <sc-if value="{{c.dirty}}"><span aria-label="Modificada" style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 7px solid var(--warn); border-left: 7px solid transparent"></span></sc-if>
+          </span>
+        </sc-for>
+      </div>
+    </sc-for>
+  </sc-if>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"columns":{"editor":null,"tsType":"Array<{name:string;type:string;kind:string;w?:string;key?:boolean;fk?:string;sort?:string;filter?:string}>"},"rows":{"editor":null,"tsType":"Array<Array<string|number|null>>"},"filters":{"editor":"boolean","default":false},"checks":{"editor":"boolean","default":false},"marked":{"editor":null},"selected":{"editor":null,"tsType":"{r:number,c:number}"},"range":{"editor":null,"tsType":"{r1:number,c1:number,r2:number,c2:number}"},"edited":{"editor":null,"tsType":"Array<{r:number,c:number,old:string}>"},"showOld":{"editor":"boolean","default":false},"rowState":{"editor":null,"tsType":"Record<number,string>"},"loading":{"editor":"boolean","default":false},"showTypes":{"editor":"boolean","default":true},"density":{"editor":"enum","options":["normal","compacta"],"default":"normal"},"height":{"editor":"text","default":"100%"},"label":{"editor":"text","default":"Resultados"},"$preview":{"width":968,"height":420}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const columns = p.columns ?? [
+      { name: 'id', type: 'integer', kind: 'num', w: '72px', key: true, sort: '↑' }, { name: 'nombre', type: 'text', kind: 'text', w: '150px' },
+      { name: 'email', type: 'text', kind: 'text', w: '200px' }, { name: 'ciudad', type: 'text', kind: 'text', w: '140px' },
+      { name: 'saldo', type: 'numeric(10,2)', kind: 'num', w: '110px' }, { name: 'activo', type: 'boolean', kind: 'bool', w: '80px' }, { name: 'alta', type: 'date', kind: 'date', w: '1fr' }];
+    const rows = p.rows ?? [[1, 'María López', 'maria.lopez@correo.mx', 'Hermosillo', '1250.00', 'true', '2023-02-14'], [2, 'Juan Pérez', 'jperez@correo.mx', 'Nogales', '980.50', 'true', '2023-03-01'], [3, 'Ana Gómez', 'ana.gomez@correo.mx', 'Guaymas', null, 'false', '2023-05-22']];
+    const marked = p.marked ?? [];
+    const sel = p.selected ?? null;
+    const rg = p.range ?? null;
+    const edited = p.edited ?? [];
+    const rs = p.rowState ?? {};
+    const checks = !!p.checks;
+    const h = (p.density ?? 'normal') === 'compacta' ? 24 : 28;
+    const cols = '48px ' + columns.map((c) => c.w ?? '1fr').join(' ');
+    const heads = columns.map((c) => ({
+      name: c.name, key: !!c.key, isFk: !!c.fk, sort: c.sort ?? '', sorted: !!c.sort, filtered: !!c.filter, filter: c.filter ?? '',
+      ariaSort: c.sort === '↑' ? 'ascending' : c.sort === '↓' ? 'descending' : 'none',
+      filterClass: c.filter ? 'field is-focus' : 'field',
+      typeLabel: c.fk ? `${c.type} → ${c.fk}` : c.type,
+      justify: c.kind === 'num' ? 'justify-content: flex-end;' : '', typeAlign: c.kind === 'num' ? 'text-align: right;' : '',
+      style: `display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 10px; border-left: 1px solid var(--border); min-width: 0; overflow: hidden` }));
+    const inRange = (i, j) => rg && i >= Math.min(rg.r1, rg.r2) && i <= Math.max(rg.r1, rg.r2) && j >= Math.min(rg.c1, rg.c2) && j <= Math.max(rg.c1, rg.c2);
+    const glyphs = { added: ['+', 'var(--ok)', 'Fila nueva'], removed: ['−', 'var(--danger)', 'Fila eliminada'], changed: ['~', 'var(--warn)', 'Fila modificada'] };
+    const rowsOut = rows.map((r, i) => {
+      const state = rs[i] ?? rs[String(i)];
+      const isMarked = marked.includes(i);
+      const hasEdit = edited.some((e) => e.r === i);
+      const g = glyphs[state] ?? (hasEdit ? glyphs.changed : null);
+      const bg = state === 'added' ? 'var(--ok-soft)' : state === 'removed' ? 'var(--danger-soft)' : isMarked ? 'var(--sel)' : (i % 2 ? 'var(--zebra)' : 'transparent');
+      return {
+        n: i + 1, marked: isMarked ? 'true' : 'false', checkOn: checks && isMarked, checkOff: checks && !isMarked, hasGlyph: !!g && !checks, showNum: !g && !checks,
+        glyph: g ? g[0] : '', glyphLabel: g ? g[2] : '', glyphStyle: g ? `font-weight: 700; font-size: 14px; color: ${g[1]}` : '',
+        style: `display: grid; grid-template-columns: ${cols}; height: ${h}px; align-items: stretch; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); background: ${bg}; ${isMarked ? 'box-shadow: inset 3px 0 0 var(--accent);' : ''} ${state === 'removed' ? 'text-decoration: line-through; color: var(--text-dim);' : ''}`,
+        gutter: 'display: flex; align-items: center; justify-content: center; font-size: var(--fs-xs); color: var(--text-dim); font-variant-numeric: tabular-nums',
+        cells: r.map((v, j) => {
+          const c = columns[j] ?? { kind: 'text' };
+          const isSel = sel && sel.r === i && sel.c === j;
+          const isRg = inRange(i, j);
+          const ed = edited.find((e) => e.r === i && e.c === j);
+          const num = c.kind === 'num';
+          const isNull = v === null; const isEmpty = v === '';
+          return {
+            v: isNull ? '' : String(v), isNull, isEmpty, plain: !isNull && !isEmpty, sel: isSel || isRg ? 'true' : 'false',
+            old: ed ? ed.old : '', showOld: !!ed && !!p.showOld, dirty: !!ed, title: ed ? `Valor original: ${ed.old}` : '',
+            fkLink: !!c.fk && (isSel || (sel && sel.r === i)),
+            style: `position: relative; height: 100%; display: flex; align-items: center; ${num ? 'justify-content: flex-end; font-variant-numeric: tabular-nums;' : ''} padding: 0 10px; white-space: nowrap; overflow: hidden; font-family: ${num || c.kind === 'date' ? 'var(--font-mono)' : 'var(--font-ui)'}; font-size: ${num || c.kind === 'date' ? 'var(--fs-sm)' : 'var(--fs-md)'}; color: var(--text); ${isRg ? 'background: var(--sel);' : ''} ${ed ? 'background: var(--warn-soft);' : ''} ${isSel ? 'box-shadow: inset 0 0 0 2px var(--accent);' : ''}`
+          };
+        })
+      };
+    });
+    const skeleton = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ cells: columns.map((c, j) => `display: block; height: 10px; width: ${40 + ((i * 7 + j * 13) % 50)}%; border-radius: 4px; background: var(--hover)`) }));
+    return { theme: p.theme ?? 'b', label: p.label ?? 'Resultados', height: p.height ?? '100%', cols, heads, rows: rowsOut,
+      filters: !!p.filters, checks, loading: !!p.loading, ready: !p.loading, skeleton, rowH: `${h}px`,
+      showTypes: p.showTypes ?? true, rowCount: String(rows.length), colCount: String(columns.length) };
+  }
+}
