@@ -5,6 +5,7 @@ import {
   pageHasMore,
   refreshAction,
   refreshBlock,
+  rerunnable,
 } from "../../src/utils/gridPaging";
 
 describe("nextOffset", () => {
@@ -133,5 +134,38 @@ describe("pageStep (issue #478)", () => {
 
   it("cannot page a script (no pageSql, no preview)", () => {
     expect(pageStep({ pageSize: 100, offset: 0 }, 1)).toBeNull();
+  });
+});
+
+describe("never re-runs a write (F5, page turn, export)", () => {
+  it("only plain reads are rerunnable", () => {
+    expect(rerunnable("SELECT * FROM t")).toBe(true);
+    expect(rerunnable("UPDATE t SET a = 1")).toBe(false);
+    expect(rerunnable("DELETE FROM t")).toBe(false);
+    expect(rerunnable("SELECT * FROM t FOR UPDATE")).toBe(false);
+    // Fail closed: a CTE can wrap a write.
+    expect(rerunnable("WITH d AS (DELETE FROM t RETURNING *) SELECT * FROM d")).toBe(false);
+    expect(rerunnable(undefined)).toBe(false);
+    expect(rerunnable("")).toBe(false);
+  });
+
+  it("refresh does nothing for an UPDATE or DELETE and says why", () => {
+    const upd = { pageSql: "UPDATE t SET a = 1 RETURNING *", offset: 0 };
+    expect(refreshAction(upd)).toBeNull();
+    expect(refreshAction({ pageSql: "delete from t", offset: 0 })).toBeNull();
+    expect(refreshBlock(upd, { editing: false, loading: false })).toBe("writes");
+  });
+
+  it("a table preview is still refreshed (it regenerates a SELECT)", () => {
+    expect(refreshBlock({ preview: {}, pageSql: "x", offset: 0 }, { editing: false, loading: false }))
+      .toBeNull();
+  });
+
+  it("no page turn re-runs a write; memory and the open cursor still serve", () => {
+    const page = { rows: [] };
+    const w = { pageSize: 100, offset: 0, pages: [page], cursor: false, pageSql: "UPDATE t SET a = 1 RETURNING *" };
+    expect(pageStep(w, 1)).toBeNull();
+    expect(pageStep({ ...w, cursor: true }, 1)).toEqual({ kind: "cursor", index: 1, offset: 100 });
+    expect(pageStep({ ...w, offset: 100, pages: [page, page] }, -1)).toEqual({ kind: "cached", index: 0 });
   });
 });

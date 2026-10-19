@@ -235,6 +235,7 @@ import {
   contiguousPages,
   refreshAction,
   refreshBlock,
+  rerunnable,
 } from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
@@ -2654,7 +2655,8 @@ export function App() {
       });
     } catch (err) {
       setResults(tabId, { loading: false, cursor: false });
-      if (r.pageSql) {
+      // The fallback re-runs the statement: only ever a read.
+      if (rerunnable(r.pageSql)) {
         void run(r.pageSql, r.ranScope ?? "document", index * size, tabId);
       } else {
         setResults(tabId, { error: errorText(err) });
@@ -4235,7 +4237,8 @@ export function App() {
         filters[tabId]?.applied ?? undefined,
       );
     }
-    return r.pageSql ?? null;
+    // Re-reading an UPDATE … RETURNING would write again.
+    return rerunnable(r.pageSql) ? r.pageSql : null;
   };
 
   /**
