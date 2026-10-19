@@ -229,12 +229,20 @@ export async function runImport(
   mapping: ColumnMapping,
   policy: ErrorPolicy,
   ops: ImportOps,
+  /** Rows written so far (`done` of `total`), and a Cancel: an aborted run
+      rolls the transaction back and rejects with the signal's reason. */
+  run: { onProgress?: (done: number, total: number) => void; signal?: AbortSignal } = {},
 ): Promise<ImportSummary> {
   const errors: ImportError[] = [];
   let inserted = 0;
 
   await ops.begin();
   for (let i = 0; i < parsed.rows.length; i++) {
+    run.onProgress?.(i, parsed.rows.length);
+    if (run.signal?.aborted) {
+      await ops.rollback();
+      run.signal.throwIfAborted();
+    }
     const values = buildRowValues(mapping, parsed.headers, parsed.rows[i]);
     try {
       await ops.insert(values);

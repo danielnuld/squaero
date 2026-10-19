@@ -73,6 +73,16 @@ function installBridge() {
         return ok(describeResult());
       case "row.insert":
         return ok({ sql: "INSERT ...", rowsAffected: 1 });
+      case "query.run": // the whole source table, three rows (two loaded)
+        return ok({
+          columns: [
+            { name: "id", type: "int" },
+            { name: "name", type: "text" },
+          ],
+          rows: [["1", "alice"], ["2", "bob"], ["3", "carol"]],
+          truncated: false,
+          rowsAffected: 0,
+        });
       default: // tx.*
         return ok({ ok: true });
     }
@@ -84,7 +94,7 @@ const conns: Connection[] = [
   { id: "d2", name: "Prod", driver: "sqlite", params: { path: "/prod.db" } },
 ];
 
-function mount() {
+function mount(whole?: { defId: string; db?: string }) {
   host = document.createElement("div");
   document.body.appendChild(host);
   createRoot((d) => {
@@ -94,6 +104,7 @@ function mount() {
         <TransferWizard
           sourceResult={sourceResult}
           sourceTable="users"
+          whole={whole}
           connections={conns}
           onClose={() => {}}
         />
@@ -144,6 +155,35 @@ describe("TransferWizard", () => {
     expect(firstInsert.values).toEqual({ id: "1", name: "alice" });
     expect(host!.textContent).toContain("transferida");
     expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Transferir");
+  });
+
+  it("copies the whole source table by default when it can read it", async () => {
+    const calls = installBridge();
+    mount({ defId: "d2", db: "main" });
+    const radios = host!.querySelectorAll<HTMLInputElement>("input[name=tscope]");
+    expect(radios[0].checked).toBe(true);
+    expect(radios[1].parentElement!.textContent).toContain("Solo las filas cargadas (2)");
+    clickButton("Siguiente");
+    await flush();
+    clickButton("Transferir toda la tabla a Prod");
+    for (let i = 0; i < 10; i++) await flush();
+
+    const read = calls.find((c) => c.method === "query.run")!.params;
+    expect(read.sql).toBe('SELECT * FROM "main"."users"');
+    expect(calls.filter((c) => c.method === "row.insert")).toHaveLength(3);
+    expect(host!.textContent).toContain("Se leyeron 3 filas del origen.");
+  });
+
+  it("can still copy only the loaded rows", async () => {
+    const calls = installBridge();
+    mount({ defId: "d2" });
+    host!.querySelectorAll<HTMLInputElement>("input[name=tscope]")[1].click();
+    clickButton("Siguiente");
+    await flush();
+    clickButton("Transferir 2 filas a Prod");
+    for (let i = 0; i < 5; i++) await flush();
+    expect(calls.some((c) => c.method === "query.run")).toBe(false);
+    expect(calls.filter((c) => c.method === "row.insert")).toHaveLength(2);
   });
 
   it("goes back to the target with Atrás, keeping what was typed", async () => {

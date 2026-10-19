@@ -157,6 +157,26 @@ describe("runImport", () => {
     expect(calls).toContain("rollback");
     expect(calls).not.toContain("commit");
   });
+
+  it("reports progress row by row", async () => {
+    const { ops } = fakeOps();
+    const seen: [number, number][] = [];
+    await runImport(parsed, mapping, "skip", ops, { onProgress: (d, n) => seen.push([d, n]) });
+    expect(seen).toEqual([[0, 3], [1, 3], [2, 3]]);
+  });
+
+  it("cancelled midway, rolls back and rejects without committing", async () => {
+    const { ops, calls } = fakeOps();
+    const ctl = new AbortController();
+    const run = runImport(parsed, mapping, "skip", ops, {
+      signal: ctl.signal,
+      onProgress: (d) => d === 1 && ctl.abort(),
+    });
+    await expect(run).rejects.toBeDefined();
+    expect(calls.filter((c) => c === "insert")).toHaveLength(1);
+    expect(calls).toContain("rollback");
+    expect(calls).not.toContain("commit");
+  });
 });
 
 // Issue #383: rows pasted from a spreadsheet. The clipboard's text/plain is TSV
