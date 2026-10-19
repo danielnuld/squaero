@@ -61,6 +61,7 @@
   --r-sm: 6px;
   --r-md: 8px;
   --r-lg: 12px;
+  --label-case: none;
   --accent-soft: rgba(15, 123, 114, 0.1);
   --error-soft: rgba(180, 42, 37, 0.1);
   --warn-soft: rgba(143, 68, 0, 0.1);
@@ -699,9 +700,8 @@ body {
 .sidebar-header {
   padding: var(--sp-3) var(--sp-4);
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
   font-size: var(--fs-sm);
-  letter-spacing: 0.04em;
   color: var(--text-dim);
   border-bottom: 1px solid var(--border);
 }
@@ -962,8 +962,7 @@ body {
   margin: 0;
   padding: var(--sp-3) var(--sp-4) var(--sp-2);
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -1020,8 +1019,7 @@ body {
 .connsearch-open {
   flex-shrink: 0;
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--number);
   background: color-mix(in srgb, var(--number) 16%, transparent);
   padding: 1px var(--sp-2);
@@ -1083,8 +1081,7 @@ body {
   display: inline-block;
   font-size: var(--fs-micro);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
   color: var(--accent-fg);
   background: var(--accent);
   padding: var(--sp-1) var(--sp-3);
@@ -2265,6 +2262,7 @@ body {
   margin: 0 0 var(--sp-2);
   font-size: var(--fs-sm);
   font-weight: 600;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -2995,8 +2993,7 @@ button.status-chip:not(:disabled):hover {
 
 .cf-optional {
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -3195,8 +3192,7 @@ button.status-chip:not(:disabled):hover {
 .cf-card-title {
   margin: 0;
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -3302,8 +3298,7 @@ button.status-chip:not(:disabled):hover {
   border-radius: var(--r-sm);
   color: var(--text-dim);
   font-size: var(--fs-sm);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
 }
 
 .conn-group > summary::-webkit-details-marker {
@@ -3749,8 +3744,7 @@ button.danger-text {
   font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
 }
 
 .field > span {
@@ -4641,8 +4635,7 @@ button.btn-danger:disabled {
 .sidebar-section-title {
   font-size: var(--fs-sm);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   padding: var(--sp-3) var(--sp-4) var(--sp-2);
 }
@@ -5294,8 +5287,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .grid-inserts-title {
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--fg-dim);
   padding: var(--sp-2) var(--sp-3);
 }
@@ -5614,8 +5606,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .rd-edited-tag {
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  text-transform: var(--label-case);
   color: var(--accent-text);
 }
 
@@ -5721,8 +5712,7 @@ button.grid-action.danger:hover:not(:disabled) {
   cursor: default;
   font: inherit;
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   padding: var(--sp-2) var(--sp-2);
   border-radius: var(--r-sm);
 }
@@ -6532,8 +6522,7 @@ button.grid-action.danger:hover:not(:disabled) {
 .settings-section h3 {
   margin: 0;
   font-size: var(--fs-base);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-2);
@@ -6979,6 +6968,7 @@ button.grid-action.danger:hover:not(:disabled) {
   margin: 0 0 var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: 600;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -7069,8 +7059,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .cmdk-group-label {
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   padding: var(--sp-3) var(--sp-3) var(--sp-2);
 }
@@ -7634,8 +7623,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .related-side-title {
   font-size: var(--fs-sm);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   padding: 0 var(--sp-2) var(--sp-2);
 }
@@ -7830,8 +7818,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border-radius: var(--r-sm);
   font-size: var(--fs-micro);
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
 }
 
 .col-ref-mark {

@@ -168,6 +168,19 @@ describe("parseThemeJson / serializeTheme", () => {
     expect(parseThemeJson(serializeTheme(rosa)).theme).toEqual(rosa);
   });
 
+  // Issue #696: C · Editorial's lowercase labels, as theme data.
+  it("accepts only lowercase as a label case, and round-trips it", () => {
+    const d = valid();
+    d.labelCase = "lowercase";
+    expect(validateTheme(d)).toEqual([]);
+    d.labelCase = "uppercase";
+    expect(validateTheme(d)).toEqual([{ code: "type", path: "labelCase", value: "uppercase" }]);
+    expect(serializeTheme(indigo)).not.toContain("labelCase");
+    const editorial = BUILTIN_THEMES.find((t) => t.id === "editorial")!;
+    expect(JSON.parse(serializeTheme(editorial)).labelCase).toBe("lowercase");
+    expect(parseThemeJson(serializeTheme(editorial)).theme).toEqual(editorial);
+  });
+
   it("writes monoUi only when set", () => {
     expect(serializeTheme(indigo)).not.toContain("monoUi");
     const terminal = BUILTIN_THEMES.find((t) => t.id === "terminal")!;
@@ -205,6 +218,16 @@ describe("themeVariables / themeCss", () => {
   it("derives the soft tints from their colours, by mode", () => {
     expect(themeVariables(indigo, "light")["--accent-soft"]).toBe("rgba(91, 91, 214, 0.1)");
     expect(themeVariables(indigo, "dark")["--error-soft"]).toBe("rgba(240, 138, 138, 0.14)");
+  });
+
+  it("sets --label-case: lowercase for C · Editorial only, none elsewhere", () => {
+    for (const t of BUILTIN_THEMES) {
+      for (const mode of ["light", "dark"] as const) {
+        expect(themeVariables(t, mode)["--label-case"], t.id).toBe(
+          t.id === "editorial" ? "lowercase" : "none",
+        );
+      }
+    }
   });
 
   it("puts the UI in monospace for a monoUi theme", () => {
