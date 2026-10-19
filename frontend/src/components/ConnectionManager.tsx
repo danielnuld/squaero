@@ -10,6 +10,7 @@ import {
 import { loadCollapsedGroups, saveCollapsedGroups } from "../utils/connectionStore";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Props for the connection list + CRUD. Opening, closing and reconnecting are
 // NOT here: they belong to the sidebar's bar and its search (issue #525).
@@ -114,11 +115,20 @@ export function ConnectionManager(props: ConnectionManagerProps) {
         </span>
       </button>
       <div class="conn-actions">
-        <button title={t("common.edit")} onClick={() => props.onEdit(c)}>
-          ✎
+        <button
+          title={t("common.edit")}
+          aria-label={t("common.edit")}
+          onClick={() => props.onEdit(c)}
+        >
+          <Icon name="edit" size={14} />
         </button>
-        <button class="danger" title={t("common.delete")} onClick={() => props.onDelete(c.id)}>
-          🗑
+        <button
+          class="danger"
+          title={t("common.delete")}
+          aria-label={t("common.delete")}
+          onClick={() => props.onDelete(c.id)}
+        >
+          <Icon name="trash" size={14} />
         </button>
       </div>
     </li>
@@ -127,17 +137,17 @@ export function ConnectionManager(props: ConnectionManagerProps) {
   return (
     <div class="conn-manager">
       <button class="conn-new" onClick={props.onNew}>
-        + {t("conn.new")}
+        <Icon name="plus" size={14} /> {t("conn.new")}
       </button>
 
       <div class="conn-io">
         <Show when={props.connections.length > 0}>
           <button class="conn-io-btn" onClick={() => setShowExport((v) => !v)}>
-            ⬆ {t("conn.export")}
+            <Icon name="export" size={14} /> {t("conn.export")}
           </button>
         </Show>
         <button class="conn-io-btn" onClick={() => fileInput?.click()}>
-          ⬇ {t("conn.import")}
+          <Icon name="import" size={14} /> {t("conn.import")}
         </button>
         <input
           ref={fileInput}

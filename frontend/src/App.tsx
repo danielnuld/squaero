@@ -319,7 +319,7 @@ import { sourceLabel } from "./utils/resultFacts";
 import { summarizeCells } from "./utils/cellSummary";
 import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
-import { IconSearch } from "./components/icons";
+import { Icon, IconSearch } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
 import {
@@ -4623,7 +4623,7 @@ export function App() {
                       aria-label={t("tab.closeTitle")}
                       onClick={(e) => removeTab(tab.id, e)}
                     >
-                      ×
+                      <Icon name="close" size={12} />
                     </button>
                   </div>
                 )}
@@ -4634,7 +4634,7 @@ export function App() {
                 aria-label={t("toolbar.newQuery.title")}
                 onClick={newTab}
               >
-                +
+                <Icon name="plus" size={14} />
               </button>
             </div>
             <span class="tabbar-spacer" />
@@ -4645,7 +4645,7 @@ export function App() {
               aria-label={t("toolbar.tools")}
               onClick={() => patchSettings({ toolStrip: !settings().toolStrip })}
             >
-              ⋯
+              <Icon name="more" />
             </button>
           </div>
 
@@ -4831,7 +4831,7 @@ export function App() {
                       aria-label={t("hist.recentTitle")}
                       onClick={(e) => openRecentHistory(e, tab())}
                     >
-                      ▾
+                      <Icon name="chevron-down" size={12} />
                     </button>
                     <button
                       class="status-btn"
@@ -5604,7 +5604,7 @@ export function App() {
               aria-label={t("panel.close")}
               onClick={() => setSnipToast(null)}
             >
-              ×
+              <Icon name="close" size={12} />
             </button>
           </div>
         )}
@@ -5659,7 +5659,7 @@ export function App() {
               aria-label={t("panel.close")}
               onClick={() => setExportStatus(null)}
             >
-              ×
+              <Icon name="close" size={12} />
             </button>
           </div>
         )}
@@ -5675,7 +5675,7 @@ export function App() {
               aria-label={t("panel.close")}
               onClick={() => setLocalWarn(null)}
             >
-              ×
+              <Icon name="close" size={12} />
             </button>
           </div>
         )}
@@ -5694,7 +5694,7 @@ export function App() {
               aria-label={t("panel.close")}
               onClick={() => setRunToast(null)}
             >
-              ×
+              <Icon name="close" size={12} />
             </button>
           </div>
         )}
@@ -5710,7 +5710,7 @@ export function App() {
               aria-label={t("panel.close")}
               onClick={() => setCacheNotice(null)}
             >
-              ×
+              <Icon name="close" size={12} />
             </button>
           </div>
         )}
@@ -5734,7 +5734,7 @@ export function App() {
             aria-label={t("panel.close")}
             onClick={() => setConnError(null)}
           >
-            ×
+            <Icon name="close" size={12} />
           </button>
         </div>
       </Show>

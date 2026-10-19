@@ -23,6 +23,7 @@ import { parseTreeRows, schemaTree } from "../utils/schema";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
 import { Dropdown } from "./Dropdown";
@@ -394,7 +395,7 @@ export function UserManager(props: {
                         requestDropUser(u);
                       }}
                     >
-                      🗑
+                      <Icon name="trash" size={14} />
                     </button>
                   </li>
                 )}

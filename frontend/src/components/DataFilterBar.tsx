@@ -1,5 +1,6 @@
 import { For, Show } from "solid-js";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import {
   OPERATORS,
   isNullaryOp,
@@ -132,7 +133,7 @@ export function DataFilterBar(props: {
           onClick={props.onToggleCollapsed}
         >
           <span class="filterbar-chev" aria-hidden="true">
-            {props.state.collapsed ? "▸" : "▾"}
+            <Icon name={props.state.collapsed ? "chevron-right" : "chevron-down"} size={12} />
           </span>
           {t("filter.title")}
         </button>
@@ -239,7 +240,7 @@ export function DataFilterBar(props: {
                       title={t("filter.removeCond")}
                       onClick={() => props.onRemove(i())}
                     >
-                      ×
+                      <Icon name="close" size={12} />
                     </button>
 
                     {/* Each gap toggles how the next row joins this one (#646). */}
@@ -298,7 +299,7 @@ export function DataFilterBar(props: {
                     aria-label={t("filter.removeSort")}
                     onClick={() => props.onRemoveSort(i())}
                   >
-                    ×
+                    <Icon name="close" size={12} />
                   </button>
                 </span>
               )}

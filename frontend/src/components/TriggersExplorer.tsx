@@ -10,7 +10,7 @@ import {
 } from "../utils/triggers";
 import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
 import { runnableRoutineDdl } from "../utils/routineDdl";
-import { objectBadge } from "../utils/objectIcons";
+import { ObjectIcon } from "./icons";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 
@@ -235,9 +235,7 @@ export function TriggersExplorer(props: {
                               class={`routine-item ${sameRef(selected(), r()) ? "active" : ""}`}
                               onClick={() => select(row, r())}
                             >
-                              <span class={`objtree-badge ${objectBadge(kind()).className}`}>
-                                {objectBadge(kind()).text}
-                              </span>
+                              <ObjectIcon kind={kind()} size={14} />
                               <span class="routine-name">
                                 {nameIdx() >= 0 ? row[nameIdx()] : r().name}
                                 <Show when={r().table}>

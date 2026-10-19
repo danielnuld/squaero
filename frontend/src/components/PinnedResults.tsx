@@ -3,6 +3,7 @@ import type { ResultSet } from "../utils/query";
 import type { ResultComparison } from "../utils/resultCompare";
 import { formatClock } from "../utils/duration";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Pinned results and their comparison (issue #669). Presentational: the
 // workspace owns the pins, what is on screen and the comparison itself.
@@ -63,7 +64,7 @@ export function PinStrip(props: {
               aria-label={t("pin.unpin")}
               onClick={() => props.onClose(p.id)}
             >
-              ✕
+              <Icon name="close" size={12} />
             </button>
           </span>
         )}
@@ -92,7 +93,7 @@ export function PinNote(props: {
       </span>
       <span class="toolbar-spacer" />
       <button class="edit-btn edit-btn-menu" aria-haspopup="menu" onClick={(e) => props.onCompare(e)}>
-        {t("pin.compare")} <span class="eb-caret" aria-hidden="true">▾</span>
+        {t("pin.compare")} <Icon name="chevron-down" size={12} class="eb-caret" />
       </button>
       <button class="edit-btn" onClick={props.onClose}>
         {t("pin.unpin")}

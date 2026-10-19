@@ -20,6 +20,7 @@ import {
   type ForeignKeyQuery,
 } from "../utils/foreignKeys";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Entity-relationship diagram (issue #145): lay every table out as a box with its
 // columns and draw foreign-key edges. Relationships come from the engine's REAL
@@ -252,9 +253,13 @@ export function ErDiagram(props: {
         <Show when={!loading() && tables().length > 0}>
           {/* The canvas's own controls: they act on what is drawn, so they lead
               the bar rather than sitting with the status. */}
-          <button class="edit-btn" title={t("er.zoomOut")} onClick={() => zoomBy(1 / 1.2)}>−</button>
+          <button class="edit-btn" title={t("er.zoomOut")} aria-label={t("er.zoomOut")} onClick={() => zoomBy(1 / 1.2)}>
+            <Icon name="minus" size={14} />
+          </button>
           <span class="panel-zoom">{Math.round(zoom() * 100)}%</span>
-          <button class="edit-btn" title={t("er.zoomIn")} onClick={() => zoomBy(1.2)}>+</button>
+          <button class="edit-btn" title={t("er.zoomIn")} aria-label={t("er.zoomIn")} onClick={() => zoomBy(1.2)}>
+            <Icon name="plus" size={14} />
+          </button>
           <button class="edit-btn" title={t("er.relayoutTitle")} onClick={relayout}>{t("er.relayout")}</button>
         </Show>
       }
