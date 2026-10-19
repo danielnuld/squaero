@@ -99,3 +99,13 @@ describe("load/save locale", () => {
     expect(() => saveLocale("es", throwing)).not.toThrow();
   });
 });
+
+describe("tn", () => {
+  it("picks the .one message for 1 and the plain one otherwise", async () => {
+    const { setLocale, tn } = await import("../../src/utils/i18n");
+    setLocale("es");
+    expect(tn("struct.nColumns", 1)).toBe("1 columna");
+    expect(tn("struct.nColumns", 3)).toBe("3 columnas");
+    expect(tn("struct.nColumns", 0)).toBe("0 columnas");
+  });
+});
