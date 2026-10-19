@@ -10483,3 +10483,59 @@ ul.sidebar-tree {
   height: 100%;
   background: var(--accent);
 }
+
+/* Users: grants read as scope → privilege chips; column scope. */
+.um-raw-toggle {
+  align-self: flex-start;
+  margin-bottom: var(--sp-3);
+}
+
+.um-grants {
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.um-grant {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.um-grant + .um-grant {
+  border-top: 1px solid var(--border);
+}
+
+.um-grant-scope {
+  flex: none;
+  width: 14rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  overflow-wrap: anywhere;
+}
+
+.um-grant-privs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.um-priv-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.um-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
