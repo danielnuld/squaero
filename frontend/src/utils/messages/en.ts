@@ -1006,6 +1006,8 @@ export const en: Record<string, string> = {
   "td.create": "Create table",
   "td.creating": "Creating…",
   "td.applyChanges": "Apply changes",
+  "td.applyDropping.one": "Apply and delete 1 column…",
+  "td.applyDropping.other": "Apply and delete {n} columns…",
   "td.applying": "Applying…",
 
   // index & constraint manager (IndexManager.tsx)
@@ -1844,6 +1846,12 @@ export const en: Record<string, string> = {
   "confirm.restore.message.other": "The {n} statements in {file} will run on {target}, one by one. If one fails it stops, and what already ran stays applied.",
   "confirm.restore.button.one": "Restore 1 statement",
   "confirm.restore.button.other": "Restore {n} statements",
+  "confirm.dropColumns.title.one": "Delete the column {names} from {table}?",
+  "confirm.dropColumns.title.other": "Delete {n} columns from {table}?",
+  "confirm.dropColumns.message.one": "Column {names} and all its data will be deleted. This cannot be undone.",
+  "confirm.dropColumns.message.other": "Columns {names} and all their data will be deleted. This cannot be undone.",
+  "confirm.dropColumns.button.one": "Delete column {names}",
+  "confirm.dropColumns.button.other": "Delete {n} columns",
   "vars.missing": "{token} needs a value",
   "confirm.kind.index": "the index",
   "confirm.kind.constraint": "the constraint",

@@ -53,6 +53,16 @@ export function clearHistoryConfirm(n: number): ConfirmText {
   };
 }
 
+/** Dropping columns from the table designer: names every column that goes. */
+export function dropColumnsConfirm(table: string, columns: readonly string[]): ConfirmText {
+  const p = { table, names: columns.join(", ") };
+  return {
+    title: countText("confirm.dropColumns.title", columns.length, p),
+    message: countText("confirm.dropColumns.message", columns.length, p),
+    confirm: countText("confirm.dropColumns.button", columns.length, p),
+  };
+}
+
 /** Running a .sql file over a database (audit A-10): file, size and target. */
 export function restoreConfirm(file: string, statements: number, target: string): ConfirmText {
   return {

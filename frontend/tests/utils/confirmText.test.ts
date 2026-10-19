@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
   clearHistoryConfirm,
   countText,
+  dropColumnsConfirm,
   dropConfirm,
   isDestructiveSql,
   killSessionConfirm,
@@ -92,5 +93,21 @@ describe("needsTypedName", () => {
     expect(needsTypedName("confirm", ["INSERT INTO t VALUES (1)"])).toBe(false);
     expect(needsTypedName(undefined, ["DROP TABLE t"])).toBe(false);
     expect(needsTypedName("readOnly", ["DROP TABLE t"])).toBe(false);
+  });
+});
+
+describe("dropColumnsConfirm", () => {
+  it("names the one column and the table", () => {
+    const c = dropColumnsConfirm("clientes", ["email"]);
+    expect(c.title).toBe("¿Eliminar la columna email de clientes?");
+    expect(c.message).toContain("la columna email y todos sus datos");
+    expect(c.confirm).toBe("Eliminar columna email");
+  });
+
+  it("counts several and lists every one", () => {
+    const c = dropColumnsConfirm("clientes", ["email", "telefono"]);
+    expect(c.title).toBe("¿Eliminar 2 columnas de clientes?");
+    expect(c.message).toContain("las columnas email, telefono");
+    expect(c.confirm).toBe("Eliminar 2 columnas");
   });
 });
