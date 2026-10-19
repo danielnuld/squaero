@@ -36,8 +36,6 @@ export function EditorToolbar(props: {
   manual?: boolean;
   /** Switches the connection to manual mode; absent when it has no transactions. */
   onUseManual?: () => void;
-  /** Shown at the end of the bar instead of nothing (the snippet name field). */
-  children?: JSX.Element;
 }) {
   const keys = (k: string) => (k ? formatKeys(k, props.isMac ? "macos" : "windows") : undefined);
 
@@ -134,7 +132,6 @@ export function EditorToolbar(props: {
         {props.tx}
       </Show>
       <span class="toolbar-spacer" />
-      {props.children}
       <button
         class="edit-btn"
         aria-haspopup="menu"

@@ -8,6 +8,19 @@ import { analyzeSql } from "./sqlScope";
 import type { EditorSchema } from "./sqlEditor";
 
 /**
+ * True when the engine refused because something else holds a lock (audit
+ * A-07): SQLite's "database is locked"/"busy", MySQL's lock wait timeout and
+ * deadlock, PostgreSQL's "could not obtain lock"/lock timeout, SQL Server's
+ * 1222, Informix's -244/-154 ISAM 107/113. Often a transaction left open in
+ * another tab — which the panel then asks about.
+ */
+export function isLockError(message: string | null | undefined): boolean {
+  return /database (?:table )?is locked|SQLITE_BUSY|database is busy|lock wait timeout|deadlock|could not obtain lock|lock timeout|lock request time out|ISAM -?1(?:07|13)\b/i.test(
+    message ?? "",
+  );
+}
+
+/**
  * The engine's error code as its message states it, or null. The core sends
  * the driver's text only (no code field, docs/IPC.md), so this reads what the
  * drivers put there: Informix's SQLCA ("SQLCODE -206, ISAM -111, SQLSTATE
