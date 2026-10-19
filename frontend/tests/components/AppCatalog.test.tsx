@@ -7,6 +7,7 @@ import { EditorView } from "@codemirror/view";
 import { completionStatus, currentCompletions, startCompletion } from "@codemirror/autocomplete";
 import { App } from "../../src/App";
 import { openQueryTab } from "./appHelpers";
+import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 
 let treeCalls: string[] = [];
 let dispose: (() => void) | null = null;
@@ -43,6 +44,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  closeContextMenu();
   dispose?.();
   dispose = null;
   host?.remove();
@@ -77,5 +79,38 @@ describe("App — catalog for completion (A-06)", () => {
       await new Promise((r) => setTimeout(r, 5));
     }
     expect(currentCompletions(view.state).map((c) => c.label)).toContain("clientes");
+  });
+
+  it("lists the open connections with the databases, the saved ones, and «Conectar a otra…» (R-02)", async () => {
+    localStorage.setItem(
+      "quaero.connections",
+      JSON.stringify([
+        { id: "k1", name: "local", driver: "sqlite", params: { path: ":memory:" } },
+        { id: "k2", name: "otra", driver: "sqlite", params: { path: ":memory:" } },
+      ]),
+    );
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <App />, host!);
+    });
+    (host.querySelector(".connbar-add") as HTMLElement).click();
+    (host.querySelector(".connsearch-hit") as HTMLElement).click();
+    await settle();
+    openQueryTab(host);
+    await settle();
+    (host.querySelector(".editor-conn") as HTMLElement).click();
+    const items = contextMenu()!.items;
+    expect(items[0].heading).toBe("Conexiones abiertas");
+    expect(items.find((i) => i.label === "main")).toMatchObject({ checked: true });
+    expect(items.some((i) => i.heading === "Guardadas · sin conectar")).toBe(true);
+    expect(items.find((i) => i.label === "otra")!.hint).toBe("conectar");
+    closeContextMenu();
+    expect(host.querySelector(".connsearch-hit")).toBeNull();
+    (host.querySelector(".editor-conn") as HTMLElement).click();
+    contextMenu()!.items.find((i) => i.label === "Conectar a otra…")!.action!();
+    await settle();
+    expect(host.querySelector(".connsearch-hit")).not.toBeNull();
   });
 });

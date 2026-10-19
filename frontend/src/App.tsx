@@ -3141,31 +3141,60 @@ export function App() {
 
   // The connection selector: the tab's databases (on the focused connection,
   // which owns the working-database list), then the other open connections.
+  // The editor's connection selector (R-02, M14 EditorConnectionMenu): every
+  // open connection, the focused one with its databases as choices, then the
+  // saved ones not connected, and «Conectar a otra…».
   const editorConnItems = (tab: Tab): MenuItem[] => {
     const conn = tabConn(tab);
+    const use = (defId: string) => {
+      if (defId !== conn?.defId) setTabs((st) => bindTabConn(st, tab.id, defId));
+      setFocusedDefId(defId);
+    };
     const items: MenuItem[] = [];
-    if (conn && conn.defId === focusedDefId() && databases().length > 0) {
-      items.push({ label: t("editor.connMenuDbs"), heading: true });
-      for (const db of databases()) {
-        items.push({ label: db, checked: db === activeDb(), action: () => selectDb(db) });
+    if (openConns().length > 0) items.push({ heading: true, label: t("editor.connMenuOpen") });
+    for (const o of openConns()) {
+      const engine = driverSchema(o.driver)?.label ?? o.driver;
+      const mine = o.defId === conn?.defId;
+      // Databases are listed for the focused connection, the one they belong to.
+      if (o.defId === focusedDefId() && databases().length > 0) {
+        items.push({ heading: true, label: `${o.name} · ${engine}` });
+        for (const db of databases()) {
+          items.push({
+            label: db,
+            checked: mine && db === activeDb(),
+            action: () => {
+              use(o.defId);
+              selectDb(db);
+            },
+          });
+        }
+      } else {
+        items.push({ label: o.name, hint: engine, checked: mine, action: () => use(o.defId) });
       }
     }
-    const others = openConns().filter((o) => o.defId !== conn?.defId);
-    if (others.length > 0) {
-      if (items.length) items.push({ separator: true });
-      items.push({ label: t("editor.connMenuConns"), heading: true });
-      for (const o of others) {
+    const saved = connections().filter((c) => !openConns().some((o) => o.defId === c.id));
+    if (items.length) items.push({ separator: true });
+    if (saved.length > 0) {
+      items.push({ heading: true, label: t("editor.connMenuSaved") });
+      for (const c of saved) {
         items.push({
-          label: o.name,
-          hint: driverSchema(o.driver)?.label ?? o.driver,
-          action: () => {
-            setTabs((st) => bindTabConn(st, tab.id, o.defId));
-            setFocusedDefId(o.defId);
-          },
+          label: c.name,
+          hint: t("editor.connMenuConnect"),
+          action: () =>
+            void onConnect(c).then(() => {
+              if (openConns().some((o) => o.defId === c.id)) use(c.id);
+            }),
         });
       }
     }
-    if (items.length === 0) items.push({ label: conn ? conn.name : t("editor.noConn"), disabled: true });
+    items.push({
+      label: t("editor.connMenuOther"),
+      action: () => {
+        setSide((s) => ({ ...s, panel: "explorer" }));
+        setConnectTick((n) => n + 1);
+      },
+    });
+    items.push({ separator: true }, { note: t("editor.connMenuNote") });
     return items;
   };
 
