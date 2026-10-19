@@ -337,6 +337,18 @@ describe("drainQuery (issue #479)", () => {
     await drainQuery("c1", "SELECT id FROM t", 2, (rows) => seen.push(rows));
     expect(seen).toEqual([2, 3]);
   });
+
+  it("stops between pages when its signal aborts, closing the cursor", async () => {
+    const { methods } = bridge([
+      { rows: [["1"], ["2"]], truncated: true, cursor: true },
+      { rows: [["3"]], truncated: false },
+    ]);
+    const ctl = new AbortController();
+    await expect(
+      drainQuery("c1", "SELECT id FROM t", 2, () => ctl.abort(), ctl.signal),
+    ).rejects.toBeDefined();
+    expect(methods).toEqual(["query.run", "query.cursorClose"]);
+  });
 });
 
 describe("queryNext", () => {

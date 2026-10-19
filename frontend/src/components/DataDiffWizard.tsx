@@ -1,25 +1,35 @@
 import { Show, createSignal, onCleanup } from "solid-js";
 import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
-import { runQuery, QueryError, type ResultSet } from "../utils/query";
+import { drainQuery, QueryError } from "../utils/query";
 import { qualifiedName } from "../utils/schema";
 import { openSaved, closeConnection } from "../utils/conn";
-import { runPlanItem, txBegin, txCommit, txRollback } from "../utils/edit";
-import { diffData, dataDiffEmpty, diffToPlan } from "../utils/dataDiff";
+import { runPlanItem, txBegin, txCommit, txRollback, type EditTarget } from "../utils/edit";
+import { diffData, dataDiffCounts, diffToPlan } from "../utils/dataDiff";
 import type { Connection } from "../utils/connections";
 import { t } from "../utils/i18n";
 import type { PlanItem } from "../utils/editSession";
 import { Dropdown } from "./Dropdown";
+import { ConfirmDialog } from "./ConfirmDialog";
+
+// Rows per page while reading each whole table.
+const PAGE = 5000;
 
 /**
- * Data diff / sync wizard (#35). Compares the current table's rows (source) with
- * the same table on a chosen target connection, keyed by primary key, and
- * derives the INSERT/UPDATE/DELETE that make the target match the source. The SQL
- * is previewed before applying; applying runs it on the target inside a
- * transaction (reusing the row.* path). Bounded to the loaded rows on each side.
+ * Data diff / sync wizard (#35). Reads the WHOLE table on both sides — the
+ * source from its own saved connection, the target from the chosen one — page by
+ * page with progress and Cancel, compares by primary key, and derives the
+ * INSERT/UPDATE/DELETE that make the target match the source. Comparing only the
+ * rows on screen would DELETE real target rows past the page (issue #761), so it
+ * never does. The SQL is previewed; applying asks first, naming the target and
+ * the count per kind, then runs it on the target in a transaction (row.* path).
+ *
+ * ponytail: both tables are held in memory while diffing; a keyset walk over
+ * both sides ordered by PK would bound that if huge tables become the norm.
  */
 export function DataDiffWizard(props: {
-  sourceResult: ResultSet;
+  /** The saved connection the source table belongs to. */
+  sourceDefId?: string;
   source: { table: string; db?: string; schema?: string };
   pk: string[];
   connections: Connection[];
@@ -28,19 +38,34 @@ export function DataDiffWizard(props: {
   const [targetDefId, setTargetDefId] = createSignal(props.connections[0]?.id ?? "");
   const [targetDb, setTargetDb] = createSignal(props.source.db ?? "");
   const [plan, setPlan] = createSignal<PlanItem[] | null>(null);
+  const [counts, setCounts] = createSignal({ inserts: 0, updates: 0, deletes: 0, source: 0, target: 0 });
   const [preview, setPreview] = createSignal<string[]>([]);
   const [busy, setBusy] = createSignal(false);
+  const [progress, setProgress] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [applied, setApplied] = createSignal<string | null>(null);
+  const [confirming, setConfirming] = createSignal(false);
+  const [confirmError, setConfirmError] = createSignal<string | null>(null);
+  // What the plan was computed against, frozen: the confirmation names it and
+  // apply writes to it, even if the target fields are edited afterwards.
+  const [planTarget, setPlanTarget] = createSignal<{ name: string; ref: string; target: EditTarget }>({
+    name: "",
+    ref: "",
+    target: { table: props.source.table },
+  });
 
   let targetConnId: string | null = null;
+  let reading: AbortController | null = null;
   const closeTarget = () => {
     if (targetConnId) {
       void closeConnection(targetConnId);
       targetConnId = null;
     }
   };
-  onCleanup(closeTarget);
+  onCleanup(() => {
+    reading?.abort();
+    closeTarget();
+  });
 
   const errMsg = (e: unknown) => (e instanceof QueryError ? e.message : String(e));
   const target = () => ({
@@ -48,45 +73,69 @@ export function DataDiffWizard(props: {
     db: targetDb() || undefined,
     schema: props.source.schema,
   });
-
-  const targetEngine = () =>
-    props.connections.find((c) => c.id === targetDefId())?.driver ?? "";
-  const qualifiedTarget = () =>
-    qualifiedName({ db: targetDb(), name: props.source.table }, targetEngine());
+  const defOf = (id?: string) => props.connections.find((c) => c.id === id);
+  const refOf = (engine: string, db?: string) =>
+    qualifiedName({ db, schema: props.source.schema, name: props.source.table }, engine);
+  const selectAll = (engine: string, db?: string) => `SELECT * FROM ${refOf(engine, db)}`;
 
   const compare = async () => {
-    const def = props.connections.find((c) => c.id === targetDefId());
+    const def = defOf(targetDefId());
+    const srcDef = defOf(props.sourceDefId);
     if (!def) {
       setError(t("ssync.pickTarget"));
       return;
     }
+    if (!srcDef) {
+      setError(t("ddiff.noSource"));
+      return;
+    }
+    const ctl = new AbortController();
+    reading = ctl;
     setBusy(true);
     setError(null);
     setPlan(null);
     setApplied(null);
+    let sourceConnId: string | null = null;
     try {
       closeTarget();
-      targetConnId = await openSaved(def);
-      const targetRows = await runQuery(
-        targetConnId,
-        `SELECT * FROM ${qualifiedTarget()}`,
+      // Its own session: the grid's tab keeps its cursor on the workspace one.
+      sourceConnId = await openSaved(srcDef);
+      const src = await drainQuery(
+        sourceConnId,
+        selectAll(srcDef.driver, props.source.db),
+        PAGE,
+        (n) => setProgress(t("ddiff.readingSource", { n })),
+        ctl.signal,
       );
-      const diff = diffData(props.sourceResult, targetRows, props.pk);
-      const items = diffToPlan(diff);
+      targetConnId = await openSaved(def);
+      const tgt = await drainQuery(
+        targetConnId,
+        selectAll(def.driver, targetDb() || undefined),
+        PAGE,
+        (n) => setProgress(t("ddiff.readingTarget", { n })),
+        ctl.signal,
+      );
+      const diff = diffData(src, tgt, props.pk);
+      const types = Object.fromEntries(src.columns.map((c) => [c.name, c.type]));
+      const items = diffToPlan(diff, types);
       // Gather the exact SQL for each op (preview) on the target.
+      setProgress(t("ddiff.preparing"));
       const sqls: string[] = [];
       for (const item of items) {
+        ctl.signal.throwIfAborted();
         const r = await runPlanItem(targetConnId, target(), item, true);
         sqls.push(r.sql);
       }
       setPreview(sqls);
+      setCounts({ ...dataDiffCounts(diff), source: src.rows.length, target: tgt.rows.length });
+      setPlanTarget({ name: def.name, ref: refOf(def.driver, targetDb() || undefined), target: target() });
       setPlan(items);
-      if (dataDiffEmpty(diff)) {
-        setError(null);
-      }
     } catch (err) {
-      setError(errMsg(err));
+      setError(ctl.signal.aborted ? t("ddiff.cancelled") : errMsg(err));
     } finally {
+      if (sourceConnId) void closeConnection(sourceConnId);
+      if (reading === ctl) reading = null;
+      setProgress(null);
       setBusy(false);
     }
   };
@@ -96,24 +145,25 @@ export function DataDiffWizard(props: {
     if (!items || items.length === 0 || !targetConnId) return;
     const connId = targetConnId;
     setBusy(true);
-    setError(null);
+    setConfirmError(null);
     try {
       await withWriteConsent(connId, preview(), async () => {
         await txBegin(connId);
         try {
           for (const item of items) {
-            await runPlanItem(connId, target(), item, false);
+            await runPlanItem(connId, planTarget().target, item, false);
           }
           await txCommit(connId);
           setApplied(t("ddiff.applied", { n: items.length }));
           setPlan(null);
+          setConfirming(false);
         } catch (err) {
           await txRollback(connId).catch(() => {});
           throw err;
         }
       });
     } catch (err) {
-      setError(t("ssync.applyError", { reason: errMsg(err) }));
+      setConfirmError(t("ssync.applyError", { reason: errMsg(err) }));
     } finally {
       setBusy(false);
     }
@@ -122,11 +172,7 @@ export function DataDiffWizard(props: {
   return (
     <Panel wide onClose={props.onClose}>
         <h2>{t("ddiff.title", { name: props.source.table })}</h2>
-        <p class="import-subtitle">
-          {t(props.sourceResult.truncated ? "ddiff.sourceTruncated" : "ddiff.source", {
-            n: props.sourceResult.rows.length,
-          })}
-        </p>
+        <p class="import-subtitle">{t("ddiff.scope")}</p>
 
         <div class="import-field">
           <label>
@@ -151,6 +197,13 @@ export function DataDiffWizard(props: {
           </button>
         </div>
 
+        <Show when={progress()}>
+          <p class="import-subtitle" role="status">
+            {progress()}{" "}
+            <button onClick={() => reading?.abort()}>{t("common.cancel")}</button>
+          </p>
+        </Show>
+
         <Show when={error()}>
           <div class="grid-error" role="alert">
             {error()}
@@ -161,7 +214,13 @@ export function DataDiffWizard(props: {
           {(items) => (
             <>
               <div class="import-subtitle">
-                {t("ddiff.opsToMatch", { n: items().length })}
+                {t("ddiff.summary", {
+                  source: counts().source,
+                  target: counts().target,
+                  ins: counts().inserts,
+                  upd: counts().updates,
+                  del: counts().deletes,
+                })}
               </div>
               <Show
                 when={items().length > 0}
@@ -180,11 +239,38 @@ export function DataDiffWizard(props: {
         <div class="modal-actions">
           <button onClick={props.onClose}>{t("common.close")}</button>
           <Show when={plan() && plan()!.length > 0 && !applied()}>
-            <button class="primary" disabled={busy()} onClick={apply}>
-              {busy() ? t("ssync.applying") : t("ddiff.apply", { n: plan()!.length })}
+            <button
+              class="primary"
+              disabled={busy()}
+              onClick={() => {
+                setConfirmError(null);
+                setConfirming(true);
+              }}
+            >
+              {t("ddiff.apply", { n: plan()!.length })}
             </button>
           </Show>
         </div>
+
+        <Show when={confirming() && plan()}>
+          <ConfirmDialog
+            title={t("ddiff.confirmTitle")}
+            message={t("ddiff.confirmMessage", {
+              target: `${planTarget().name} › ${planTarget().ref}`,
+              ins: counts().inserts,
+              upd: counts().updates,
+              del: counts().deletes,
+            })}
+            confirmLabel={t("ddiff.confirmApply", {
+              n: plan()!.length,
+              target: planTarget().name,
+            })}
+            busy={busy()}
+            error={confirmError()}
+            onConfirm={apply}
+            onCancel={() => setConfirming(false)}
+          />
+        </Show>
     </Panel>
   );
 }

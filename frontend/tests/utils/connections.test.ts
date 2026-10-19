@@ -88,6 +88,7 @@ import {
   nextConnectionId,
   upsertConnection,
   removeConnection,
+  restoreConnection,
   serializeConnections,
   parseConnections,
   withSshTunnel,
@@ -368,6 +369,36 @@ describe("upsertConnection / removeConnection", () => {
   });
   it("removes by id", () => {
     expect(removeConnection([sqliteConn(), pgConn()], "conn-1")).toEqual([pgConn()]);
+  });
+});
+
+describe("restoreConnection (undo a delete, #762)", () => {
+  const full: Connection = {
+    id: "k2",
+    name: "Ventas",
+    driver: "postgres",
+    params: { host: "db", user: "u", password: "s3cret", ssh_host: "bastion", ssh_password: "t" },
+    group: "Producción",
+    color: "#d33",
+    safeMode: "confirm",
+    keepAlive: 60,
+  };
+  const list: Connection[] = [
+    { id: "k1", name: "a", driver: "sqlite", params: {} },
+    full,
+    { id: "k3", name: "c", driver: "sqlite", params: {} },
+  ];
+
+  it("restores exactly what was deleted, at its old position", () => {
+    const index = list.findIndex((c) => c.id === "k2");
+    const after = removeConnection(list, "k2");
+    expect(restoreConnection(after, full, index)).toEqual(list);
+  });
+  it("clamps an index past the end (the list shrank meanwhile)", () => {
+    expect(restoreConnection([], full, 5)).toEqual([full]);
+  });
+  it("never duplicates an id that is back in the list", () => {
+    expect(restoreConnection(list, full, 0)).toBe(list);
   });
 });
 

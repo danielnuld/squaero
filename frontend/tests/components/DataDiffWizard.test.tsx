@@ -26,7 +26,9 @@ afterEach(() => {
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-const sourceResult: ResultSet = {
+// The source table comes in two pages over the cursor: the wizard must read
+// both before diffing, or row 3 would look missing and nothing would add it.
+const sourcePage1: ResultSet = {
   columns: [
     { name: "id", type: "int" },
     { name: "name", type: "text" },
@@ -34,11 +36,12 @@ const sourceResult: ResultSet = {
   rows: [
     ["1", "alice"],
     ["2", "roberto"], // changed vs target
-    ["3", "carol"], // new vs target
   ],
-  truncated: false,
+  truncated: true,
+  cursor: true,
   rowsAffected: 0,
 };
+const sourcePage2: ResultSet = { ...sourcePage1, rows: [["3", "carol"]], truncated: false, cursor: false };
 
 // Target has id 1 (same), id 2 (name=bob -> update), id 4 (only target -> delete).
 const targetRows: ResultSet = {
@@ -57,17 +60,21 @@ const targetRows: ResultSet = {
 
 function installBridge() {
   const calls: { method: string; params: any }[] = [];
+  let opened = 0;
   (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
     const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
     calls.push({ method: req.method, params: req.params });
     const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
     switch (req.method) {
       case "conn.open":
-        return ok({ connId: "c2" });
+        opened += 1;
+        return ok({ connId: opened === 1 ? "src" : "tgt" });
       case "conn.close":
         return ok({ closed: true });
       case "query.run":
-        return ok(targetRows);
+        return ok(req.params.connId === "src" ? sourcePage1 : targetRows);
+      case "query.next":
+        return ok(sourcePage2);
       case "row.insert":
       case "row.update":
       case "row.delete":
@@ -80,7 +87,8 @@ function installBridge() {
 }
 
 const conns: Connection[] = [
-  { id: "d2", name: "Prod", driver: "sqlite", params: { path: "/prod.db" } },
+  { id: "d1", name: "Ventas", driver: "sqlite", params: { path: "/ventas.db" } },
+  { id: "d2", name: "Ventas copia", driver: "sqlite", params: { path: "/copia.db" } },
 ];
 
 function mount() {
@@ -91,10 +99,10 @@ function mount() {
     render(
       () => (
         <DataDiffWizard
-          sourceResult={sourceResult}
-          source={{ table: "users", db: "main" }}
+          sourceDefId="d1"
+          source={{ table: "clientes", db: "main" }}
           pk={["id"]}
-          connections={conns}
+          connections={[conns[1], conns[0]]}
           onClose={() => {}}
         />
       ),
@@ -104,47 +112,73 @@ function mount() {
 }
 
 function clickButton(label: string) {
-  const btn = [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
+  const btn = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
     (b) => b.textContent?.trim() === label,
   );
   btn!.click();
 }
 
+const settle = async () => {
+  for (let i = 0; i < 10; i++) await flush();
+};
+
+const writes = (calls: { method: string; params: any }[]) =>
+  calls.filter((c) => c.method.startsWith("row.") && c.params.preview !== true);
+
 describe("DataDiffWizard", () => {
-  it("diffs by PK and previews insert/update/delete, then applies in a transaction", async () => {
+  it("reads the whole source table, not just the first page", async () => {
     const calls = installBridge();
     mount();
     clickButton("Comparar");
-    await flush();
-    await flush();
+    await settle();
 
-    // Preview shows one op of each kind (via row.* preview).
-    const previewCalls = calls.filter(
-      (c) => ["row.insert", "row.update", "row.delete"].includes(c.method),
-    );
-    expect(previewCalls.every((c) => c.params.preview === true)).toBe(true);
-    expect(calls.some((c) => c.method === "row.insert")).toBe(true);
-    expect(calls.some((c) => c.method === "row.update")).toBe(true);
-    expect(calls.some((c) => c.method === "row.delete")).toBe(true);
-    expect(host!.textContent).toContain("3 operación");
+    expect(calls.some((c) => c.method === "query.next" && c.params.connId === "src")).toBe(true);
+    // id 3 lives on the second source page: it is an insert, never a delete.
+    const inserts = calls.filter((c) => c.method === "row.insert");
+    expect(inserts.map((c) => c.params.values.id)).toEqual(["3"]);
+    const deletes = calls.filter((c) => c.method === "row.delete");
+    expect(deletes.map((c) => c.params.where.id)).toEqual(["4"]);
+    // Typed literals: the written columns carry their neutral types.
+    expect(inserts[0].params.setTypes).toEqual({ id: "int", name: "text" });
+    expect(host!.textContent).toContain("1 INSERT · 1 UPDATE · 1 DELETE");
+  });
 
-    // Apply runs the plan for real inside a transaction.
-    const before = calls.length;
+  it("asks before applying, naming the target and the count per kind", async () => {
+    const calls = installBridge();
+    mount();
+    clickButton("Comparar");
+    await settle();
+
     clickButton("Aplicar (3)");
-    await flush();
-    const applyCalls = calls.slice(before);
-    const methods = applyCalls.map((c) => c.method);
-    expect(methods).toContain("tx.begin");
-    expect(methods.filter((m) => m === "row.insert").length).toBe(1);
-    expect(methods.filter((m) => m === "row.update").length).toBe(1);
-    expect(methods.filter((m) => m === "row.delete").length).toBe(1);
+    await settle();
+    const dialog = document.querySelector('[role="dialog"]')!;
+    expect(dialog.textContent).toContain("Ventas copia › \"main\".\"clientes\"");
+    expect(dialog.textContent).toContain("1 INSERT · 1 UPDATE · 1 DELETE");
+    expect(writes(calls)).toEqual([]);
+
+    // Cancel writes nothing.
+    clickButton("Cancelar");
+    await settle();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(writes(calls)).toEqual([]);
+  });
+
+  it("applies the plan in a transaction once confirmed", async () => {
+    const calls = installBridge();
+    mount();
+    clickButton("Comparar");
+    await settle();
+    clickButton("Aplicar (3)");
+    await settle();
+
+    const before = calls.length;
+    clickButton("Aplicar 3 cambio(s) en Ventas copia");
+    await settle();
+    const methods = calls.slice(before).map((c) => c.method);
+    expect(methods[0]).toBe("tx.begin");
     expect(methods).toContain("tx.commit");
-    // The applied ops are not previews.
-    expect(
-      applyCalls
-        .filter((c) => c.method.startsWith("row."))
-        .every((c) => c.params.preview !== true),
-    ).toBe(true);
+    expect(writes(calls).map((c) => c.method)).toEqual(["row.insert", "row.update", "row.delete"]);
+    expect(writes(calls).every((c) => c.params.connId === "tgt")).toBe(true);
     expect(host!.textContent).toContain("aplicada");
   });
 });
