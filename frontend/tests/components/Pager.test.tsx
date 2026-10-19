@@ -84,3 +84,55 @@ describe("Pager", () => {
     expect(h.onNext).toHaveBeenCalledOnce();
   });
 });
+
+describe("Pager page size (A-20, R-38)", () => {
+  const mountSized = (paused = false) => {
+    const onPageSize = vi.fn();
+    const view = pagerView({ offset: 0, rows: 500, size: 500, total: null, more: true, paused });
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    dispose = render(
+      () => (
+        <Pager
+          view={view}
+          total={null}
+          counting={false}
+          paused={paused}
+          onPrev={() => {}}
+          onNext={() => {}}
+          pageSize={500}
+          onPageSize={onPageSize}
+        />
+      ),
+      host,
+    );
+    return onPageSize;
+  };
+  const combo = () => host!.querySelector<HTMLButtonElement>('[role="combobox"]');
+
+  it("shows the current size and offers 100/500/1000/5000", () => {
+    const onPageSize = mountSized();
+    expect(combo()!.getAttribute("aria-label")).toBe("Filas por página");
+    expect(combo()!.textContent).toContain("500 por página");
+    combo()!.click();
+    const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+    expect(options.map((o) => o.textContent)).toEqual([
+      "100 por página",
+      "500 por página",
+      "1000 por página",
+      "5000 por página",
+    ]);
+    options[3].click();
+    expect(onPageSize).toHaveBeenCalledWith(5000);
+  });
+
+  it("is held still while edits are pending", () => {
+    mountSized(true);
+    expect(combo()!.disabled).toBe(true);
+  });
+
+  it("is absent without a handler (a query's pager)", () => {
+    mount(null);
+    expect(host!.querySelector('[role="combobox"]')).toBeNull();
+  });
+});

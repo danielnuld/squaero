@@ -1,7 +1,8 @@
 import { Show } from "solid-js";
-import type { PagerView } from "../utils/pager";
+import { PAGE_SIZES, type PagerView } from "../utils/pager";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
+import { Dropdown } from "./Dropdown";
 
 // The footer under a table's rows (issues #688, A-20, R-38): which rows are on
 // screen, «Contar total» to learn of how many, and first/previous/next/last.
@@ -21,6 +22,9 @@ export function Pager(props: {
   onPrev: () => void;
   onNext: () => void;
   onLast?: () => void;
+  /** Rows per page; with `onPageSize`, a selector of PAGE_SIZES (A-20, R-38). */
+  pageSize?: number;
+  onPageSize?: (size: number) => void;
 }) {
   const range = () =>
     props.total === null
@@ -38,6 +42,22 @@ export function Pager(props: {
         <span class="pager-paused">{t("result.pagingPaused")}</span>
       </Show>
       <span class="toolbar-spacer" />
+      <Show when={props.onPageSize && props.pageSize}>
+        {(size) => (
+          <Dropdown
+            class="pager-size"
+            aria-label={t("pager.size")}
+            title={t("pager.size")}
+            value={String(size())}
+            disabled={props.paused}
+            options={PAGE_SIZES.map((n) => ({
+              value: String(n),
+              label: t("pager.sizeOption", { n }),
+            }))}
+            onChange={(v) => props.onPageSize!(Number(v))}
+          />
+        )}
+      </Show>
       <span class="seg" role="group" aria-label={t("pager.pages")}>
         <Show when={props.onFirst}>
           <button class="seg-btn" aria-label={t("pager.first")} title={t("pager.first")} disabled={!props.view.canFirst} onClick={() => props.onFirst!()}>

@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { pagerView, type PagerInput } from "../../src/utils/pager";
+import {
+  pagerView,
+  PAGE_SIZES,
+  DEFAULT_PAGE_SIZE,
+  parsePageSize,
+  offsetForPageSize,
+  type PagerInput,
+} from "../../src/utils/pager";
 
 const base: PagerInput = { offset: 0, rows: 1000, size: 1000, total: null, more: true, paused: false };
 
@@ -43,5 +50,40 @@ describe("pagerView", () => {
       canNext: false,
       canLast: false,
     });
+  });
+});
+
+describe("page size (A-20, R-38)", () => {
+  it("offers the four sizes, 1000 by default", () => {
+    expect([...PAGE_SIZES]).toEqual([100, 500, 1000, 5000]);
+    expect(DEFAULT_PAGE_SIZE).toBe(1000);
+  });
+
+  it("reads back a remembered size", () => {
+    expect(parsePageSize("500")).toBe(500);
+    expect(parsePageSize("5000")).toBe(5000);
+  });
+
+  it("falls back to the default for anything not offered", () => {
+    expect(parsePageSize(null)).toBe(1000);
+    expect(parsePageSize(undefined)).toBe(1000);
+    expect(parsePageSize("")).toBe(1000);
+    expect(parsePageSize("250")).toBe(1000);
+    expect(parsePageSize("abc")).toBe(1000);
+    expect(parsePageSize("-100")).toBe(1000);
+  });
+
+  it("keeps the first row on screen when the size changes", () => {
+    expect(offsetForPageSize(0, 500)).toBe(0);
+    expect(offsetForPageSize(1000, 500)).toBe(1000);
+    expect(offsetForPageSize(1000, 5000)).toBe(0);
+    expect(offsetForPageSize(2000, 1000)).toBe(2000);
+    expect(offsetForPageSize(1500, 1000)).toBe(1000);
+    expect(offsetForPageSize(300, 100)).toBe(300);
+  });
+
+  it("clamps a negative offset or a degenerate size", () => {
+    expect(offsetForPageSize(-5, 100)).toBe(0);
+    expect(offsetForPageSize(7, 0)).toBe(7);
   });
 });
