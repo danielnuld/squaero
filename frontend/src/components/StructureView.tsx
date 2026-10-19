@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onMount } from "solid-js";
+import { ObjectViewSwitch, type ObjectView } from "./ObjectToolbar";
 import { withWriteConsent } from "../utils/transport";
 import { schemaDescribe, schemaDdl, qualifiedName } from "../utils/schema";
 import { runQuery, type ResultSet } from "../utils/query";
@@ -33,6 +34,14 @@ export function StructureView(props: {
   onClose: () => void;
   /** Called after a successful view apply, so the tree/data can refresh. */
   onApplied?: () => void;
+  /** The section to open on; absent → a view's definition, else its columns. */
+  initialSection?: "structure" | "definition";
+  /**
+   * Datos · Estructura · Índices · DDL (issue #688). Given, the panel shows the
+   * shared object switch instead of its own two-way toggle, and hands the
+   * views it does not hold (data, indexes) to this.
+   */
+  onView?: (view: ObjectView) => void;
 }) {
   const [columns, setColumns] = createSignal<ResultSet | null>(null);
   const [ddl, setDdl] = createSignal("");
@@ -52,8 +61,14 @@ export function StructureView(props: {
   // Which section is on screen. A view lands on its definition: the columns of
   // a view are derived from it, and reaching the query was the whole complaint.
   const [section, setSection] = createSignal<"structure" | "definition">(
-    props.kind === "view" ? "definition" : "structure",
+    props.initialSection ?? (props.kind === "view" ? "definition" : "structure"),
   );
+  const pickView = (view: ObjectView) => {
+    if (view === "ddl") setSection("definition");
+    // Leaving mid-edit would drop the draft silently.
+    else if (view === "structure") !editing() && setSection("structure");
+    else props.onView?.(view);
+  };
   const defLabel = () => (isView() ? t("struct.definition") : t("struct.ddl"));
 
   const loadDdl = async () => {
@@ -162,7 +177,13 @@ export function StructureView(props: {
         <>
           {/* Same section switch the routine and trigger explorers use, so a
               panel with two faces looks the same wherever it appears (#372). */}
-          <div class="obj-kind-toggle" role="tablist">
+          <Show when={props.onView}>
+            <ObjectViewSwitch
+              current={section() === "structure" ? "structure" : "ddl"}
+              onPick={pickView}
+            />
+          </Show>
+          <div class="obj-kind-toggle" role="tablist" hidden={!!props.onView}>
             <button
               class={`edit-btn ${section() === "structure" ? "active" : ""}`}
               role="tab"

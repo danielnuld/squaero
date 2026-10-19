@@ -135,7 +135,8 @@ export function cell(page: Page, value: string) {
  * `nameFragment`, so that row's cells are the only ones on screen.
  */
 export async function editRow(page: Page, nameFragment: string): Promise<void> {
-  await page.getByRole("button", { name: "Editar", exact: true }).click();
+  // Edited in place (#688): a double click on a cell opens the edit session.
+  await page.getByRole("gridcell").filter({ hasText: nameFragment }).first().dblclick();
   // Filtering is by substring, so an id of "1" would also match 11, 12, 21… — narrow
   // on a name fragment instead, and one that survives the edit so the row does not
   // vanish from under the test halfway through.

@@ -24,12 +24,11 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (name) => {
     await runSql(page, `select ID, NOMBRE from ${table} t where t.id = 1 order by id;`);
     await expect(page.getByText("Nogales", { exact: true })).toBeVisible();
 
-    const edit = page.getByRole("button", { name: "Editar", exact: true });
-    await expect(edit).toBeEnabled();
-    await edit.click();
+    // Edited in place (#688): a double click on a cell opens the edit session.
+    await page.getByRole("gridcell").filter({ hasText: "Nogales" }).first().dblclick();
 
     await page.getByRole("textbox", { name: /^nombre$/i }).fill("Nogales editado");
-    const confirm = page.getByRole("button", { name: /Confirmar \(1\)/ });
+    const confirm = page.getByRole("button", { name: /Guardar \(1\)/ });
     await expect(confirm).toBeEnabled();
     await confirm.click();
     await expect(page.getByText(/UPDATE .*e2e_items/i)).toBeVisible();
@@ -48,8 +47,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (name) => {
     await runSql(page, "SELECT nombre FROM e2e_items WHERE id = 2");
     await expect(page.getByText(app.engine.encodingRows.discriminator, { exact: true })).toBeVisible();
 
-    const edit = page.getByRole("button", { name: "Editar", exact: true });
-    await expect(edit).toBeDisabled();
-    await expect(edit).toHaveAccessibleDescription(/no incluye la clave primaria/);
+    // No Editar button to disable (#688): the toolbar says it in words.
+    await expect(page.getByRole("note").filter({ hasText: /no incluye la clave primaria/ })).toBeVisible();
   });
 });

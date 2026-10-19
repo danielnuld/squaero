@@ -334,7 +334,7 @@ import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionManager } from "./components/ConnectionManager";
-import { ObjectToolbar } from "./components/ObjectToolbar";
+import { ObjectToolbar, type ObjectView } from "./components/ObjectToolbar";
 import { DocTabs } from "./components/DocTabs";
 import { tabIcon } from "./utils/tabStrip";
 import { ResultTabs } from "./components/ResultTabs";
@@ -560,6 +560,9 @@ export function App() {
   // How much of a query tab the editor takes (issue #423). Dragged, not fixed:
   // a procedure's definition needs the height that an empty grid was holding.
   const [editorPct, setEditorPct] = createSignal(EDITOR_PCT_DEFAULT);
+  // The grid's page search row ("Buscar en la página", #690), driven by the
+  // toolbar button and by the grid's own Ctrl+F.
+  const [gridSearch, setGridSearch] = createSignal(false);
   let panesEl: HTMLDivElement | undefined;
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
@@ -4248,15 +4251,45 @@ export function App() {
   };
 
   // Open a table's structure (columns + DDL) as a tool tab.
-  const openStructure = (node: TreeNode) => {
+  const openStructure = (node: TreeNode, section?: "structure" | "definition") => {
     if (active()) {
       recordRecent(node);
       syncWorkingDb(node.db);
       showTool("structure", t("tab.structure", { name: node.label }), {
         key: `struct:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
-        params: { node },
+        params: { node, section },
       });
     }
+  };
+
+  // Datos · Estructura · Índices · DDL (issue #688): the same switch on every
+  // tab of a table, each view opening (or focusing) its own tab.
+  const showObjectView = (node: TreeNode, view: ObjectView) => {
+    if (view === "data") openData(node);
+    else if (view === "indexes") openIndexes(node);
+    else openStructure(node, view === "ddl" ? "definition" : "structure");
+  };
+  /** The tree node a data tab browses: the tree's own when it is loaded. */
+  const dataTabNode = (tabId: number): TreeNode | null => {
+    const p = results[tabId]?.preview?.parts;
+    if (!p) return null;
+    const scope = p.schema ?? p.db;
+    return (
+      objectNodeFor(focusedObjects(), scope ? `${scope}.${p.name}` : p.name) ?? {
+        key: `obj:${p.db ?? ""}.${p.schema ?? ""}.${p.name}`,
+        label: p.name,
+        kind: "table",
+        db: p.db,
+        schema: p.schema,
+      }
+    );
+  };
+  // A new row opens the edit session first: there is no Editar button (#688).
+  const addRowInPlace = async () => {
+    const tab = current();
+    if (!tab) return;
+    if (!currentEdit().editing) await beginEdit();
+    if (edits[tab.id]?.editing) onAddInsert();
   };
 
   // Go to definition from the editor (issue #663): a table or view opens its
@@ -4939,13 +4972,12 @@ export function App() {
                       exportFormats={EXPORT_FORMATS}
                       onRefresh={() => reloadCurrent(tab().id)}
                       refreshBlocked={refreshBlockedReason(tab().id)}
-                      onEdit={beginEdit}
+                      onAddRow={() => void addRowInPlace()}
                       onImport={() => openImport()}
                       onGenerate={openGen}
                       onSchemaSync={openSchemaSync}
                       onDataSync={openDataSync}
                       onTransfer={openTransfer}
-                      onAddRow={onAddInsert}
                       onConfirm={confirmEdit}
                       onDiscard={discardEdit}
                       onChart={openChart}
@@ -4955,31 +4987,43 @@ export function App() {
                       pinBlocked={pinBlocked()}
                       onCompare={(e) => openCompareMenu(e, "current")}
                       onExport={(fmt) => void doExport(fmt as AnyExportFormat)}
-                    >
-                      {/* A data tab has no editor bar to hold these, so they
-                          ride in the action bar rather than in a band of their
-                          own above it (issue #386). */}
-                      <Show when={isDataTab(tab().id)}>
-                        <span class="toolbar-sep" aria-hidden="true" />
-                        <button class="edit-btn" title={t("editor.planTitle")} onClick={explainActive}>
-                          {t("editor.plan")}
-                        </button>
-                        <button
-                          class="edit-btn"
-                          title={t("editor.historyTitle")}
-                          onClick={() => showTool("history", t("editor.history"), { key: "history" })}
-                        >
-                          {t("editor.history")}
-                        </button>
-                        <button
-                          class="edit-btn"
-                          title={t("editor.snippetsTitle")}
-                          onClick={() => showTool("snippets", t("editor.snippets"), { key: "snippets" })}
-                        >
-                          {t("editor.snippets")}
-                        </button>
-                      </Show>
-                    </ObjectToolbar>
+                      searchOpen={gridSearch()}
+                      onSearch={() => setGridSearch((v) => !v)}
+                      editHint={t("objbar.editHint")}
+                      filterOpen={isDataTab(tab().id) && !filterOf(tab().id).collapsed}
+                      onFilter={
+                        isDataTab(tab().id)
+                          ? () => withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
+                          : undefined
+                      }
+                      onView={
+                        isDataTab(tab().id)
+                          ? (view) => {
+                              const node = dataTabNode(tab().id);
+                              const defId = tab().connDefId;
+                              if (!node) return;
+                              if (defId) inConn(defId, showObjectView)(node, view);
+                              else showObjectView(node, view);
+                            }
+                          : undefined
+                      }
+                      /* A data tab has no editor bar to hold these (issue #386). */
+                      moreItems={
+                        isDataTab(tab().id)
+                          ? [
+                              { label: t("editor.plan"), action: explainActive },
+                              {
+                                label: t("editor.history"),
+                                action: () => showTool("history", t("editor.history"), { key: "history" }),
+                              },
+                              {
+                                label: t("editor.snippets"),
+                                action: () => showTool("snippets", t("editor.snippets"), { key: "snippets" }),
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
                   </Show>
                   <Show when={currentEdit().preview}>
                     {(sqls) => (
@@ -5087,6 +5131,8 @@ export function App() {
                             }
                             fk={currentFk()}
                             showOldValues={settings().showOldValues}
+                            searchOpen={gridSearch()}
+                            onSearchOpenChange={setGridSearch}
                             edit={
                               currentEditable()
                                 ? {
@@ -5298,6 +5344,18 @@ export function App() {
                     schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
                     onChanged={reloadTree}
+                    onView={(view) => {
+                      const p = tt().params as { table: string; db?: string; schema?: string };
+                      const node: TreeNode = {
+                        key: `obj:${p.db ?? ""}.${p.schema ?? ""}.${p.table}`,
+                        label: p.table,
+                        kind: "table",
+                        db: p.db,
+                        schema: p.schema,
+                      };
+                      if (tt().connDefId) inConn(tt().connDefId!, showObjectView)(node, view);
+                      else showObjectView(node, view);
+                    }}
                   />
                 </Match>
                 <Match when={tt().tool === "structure"}>
@@ -5310,6 +5368,12 @@ export function App() {
                     engine={activeDialect()}
                     onClose={() => closeTool(tt().id)}
                     onApplied={reloadTree}
+                    initialSection={(tt().params as { section?: "structure" | "definition" }).section}
+                    onView={(view) => {
+                      const node = (tt().params as { node: TreeNode }).node;
+                      if (tt().connDefId) inConn(tt().connDefId!, showObjectView)(node, view);
+                      else showObjectView(node, view);
+                    }}
                   />
                 </Match>
                 <Match when={tt().tool === "schemaSync"}>

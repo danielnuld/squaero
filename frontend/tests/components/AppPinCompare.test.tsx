@@ -114,8 +114,11 @@ const openWithRows = async () => {
   expect(host.querySelectorAll(".grid-rows .grid-row").length).toBe(3);
 };
 
+/** By visible text, or by name for the toolbar's icon-only tools (#688). */
 const button = (text: string) =>
-  [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.includes(text));
+  [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
+    (b) => b.textContent?.includes(text) || b.getAttribute("aria-label") === text,
+  );
 
 describe("App — pinning and comparing results (issue #669)", () => {
   it("keeps a pinned result across the next run and compares it by key", async () => {
