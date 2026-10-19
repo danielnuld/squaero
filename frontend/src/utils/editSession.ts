@@ -81,6 +81,27 @@ export function setCell(
   return { ...state, edits: { ...state.edits, [rowIndex]: rowEdits } };
 }
 
+/** Drop the pending edit of one cell, so it shows (and saves) its original
+    value again. A row left with no edits leaves the set. Immutable. */
+export function revertCell(state: PendingChanges, rowIndex: number, column: string): PendingChanges {
+  const rowEdits = state.edits[rowIndex];
+  if (!rowEdits || !(column in rowEdits)) return state;
+  const rest = { ...rowEdits };
+  delete rest[column];
+  const edits = { ...state.edits };
+  if (Object.keys(rest).length > 0) edits[rowIndex] = rest;
+  else delete edits[rowIndex];
+  return { ...state, edits };
+}
+
+/** Drop every pending edit of one row, and its staged deletion. Immutable. */
+export function revertRow(state: PendingChanges, rowIndex: number): PendingChanges {
+  if (!(rowIndex in state.edits) && !state.deletes.includes(rowIndex)) return state;
+  const edits = { ...state.edits };
+  delete edits[rowIndex];
+  return { ...state, edits, deletes: state.deletes.filter((r) => r !== rowIndex) };
+}
+
 /** Toggle whether an existing row is marked for deletion. Immutable. */
 export function toggleDelete(state: PendingChanges, rowIndex: number): PendingChanges {
   const has = state.deletes.includes(rowIndex);

@@ -6,6 +6,7 @@ import type { ResultSet } from "../../src/utils/query";
 import {
   emptyPending,
   setCell,
+  revertCell,
   toggleDelete,
   setInsertCell,
   addInsert,
@@ -33,6 +34,7 @@ let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
 
 afterEach(() => {
+  onRequest = undefined;
   dispose?.();
   dispose = null;
   host?.remove();
@@ -48,12 +50,17 @@ function searchBox(i: number): HTMLInputElement {
   return host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[i];
 }
 
-/** Mount ResultGrid in edit mode over `result`, with pending changes held in a
-    signal so the grid re-renders as a user's edits accumulate. */
-function mountEditable(initial: PendingChanges = emptyPending()) {
+/** What the grid's onRequestEdit does in the next mountEditable (none → no-op). */
+let onRequest: (() => void | Promise<void>) | undefined;
+
+/** Mount ResultGrid over `result`, in edit mode unless `startActive` is false,
+    with pending changes held in a signal so the grid re-renders as a user's
+    edits accumulate. */
+function mountEditable(initial: PendingChanges = emptyPending(), startActive = true) {
   host = document.createElement("div");
   document.body.appendChild(host);
   const [pending, setPending] = createSignal(initial);
+  const [active, setActive] = createSignal(startActive);
   createRoot((d) => {
     dispose = d;
     render(
@@ -62,10 +69,12 @@ function mountEditable(initial: PendingChanges = emptyPending()) {
           result={result}
           loading={false}
           error={null}
+          onRequestEdit={() => onRequest?.()}
           edit={{
-            active: true,
+            active: active(),
             pending: pending(),
             onEditCell: (r, c, v) => setPending((p) => setCell(p, r, c, v)),
+            onRevertCell: (r, c) => setPending((p) => revertCell(p, r, c)),
             onToggleDelete: (r) => setPending((p) => toggleDelete(p, r)),
             onInsertCell: (i, c, v) => setPending((p) => setInsertCell(p, i, c, v)),
             onRemoveInsert: () => {},
@@ -75,7 +84,12 @@ function mountEditable(initial: PendingChanges = emptyPending()) {
       host!,
     );
   });
-  return { pending };
+  return { pending, setActive };
+}
+
+/** Choose row `i` in an open foreign-key browser. */
+function pickFkRow(dialog: Element, i: number) {
+  dialog.querySelectorAll<HTMLButtonElement>(".fk-pick")[i].click();
 }
 
 /** Set an input's value and fire the `input` event Solid listens for. */
@@ -84,36 +98,141 @@ function type(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+/** Double-click a body cell to open its editor; returns the editor's input. */
+function openCell(r: number, c: number): HTMLInputElement {
+  host!
+    .querySelector(`.grid-rows [data-cell="${r}-${c}"]`)!
+    .dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  const el = host!.querySelector(`.grid-rows [data-cell="${r}-${c}"]`)!;
+  return (el.tagName === "INPUT" ? el : el.querySelector("input")) as HTMLInputElement;
+}
+
+/** Select a body cell with a click. */
+function selectAt(r: number, c: number) {
+  host!
+    .querySelector(`.grid-rows [data-cell="${r}-${c}"]`)!
+    .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+}
+
+/** A key on the grid surface; false when the grid called preventDefault. */
+function gridKey(init: KeyboardEventInit) {
+  return host!
+    .querySelector(".grid-scroll")!
+    .dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+}
+
+/** A key in an input (the cell editor). */
+function inputKey(input: HTMLElement, init: KeyboardEventInit) {
+  return input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+}
+
+const editors = () => host!.querySelectorAll<HTMLInputElement>(".grid-rows .cell-input");
+
 describe("ResultGrid edit mode", () => {
-  it("renders editable inputs for every cell", () => {
+  it("keeps every cell as typed text until one is opened, and only that one is an input", () => {
     mountEditable();
-    const inputs = host!.querySelectorAll<HTMLInputElement>(".cell-input");
-    // 2 rows x 2 columns.
-    expect(inputs.length).toBe(4);
-    expect(inputs[0].value).toBe("1");
-    expect(inputs[1].value).toBe("alice");
+    expect(editors().length).toBe(0);
+    // Type colours survive the edit session (A-12).
+    expect(host!.querySelector('[data-cell="0-0"]')!.classList.contains("cell-number")).toBe(true);
+    const input = openCell(0, 1);
+    expect(editors().length).toBe(1);
+    expect(input.value).toBe("alice");
+    expect(host!.querySelector('[data-cell="1-1"]')!.classList.contains("cell-text")).toBe(true);
   });
 
-  it("records a cell edit and reflects it in the input", () => {
+  it("records an edit; Enter closes the editor, moves down and the cell shows it changed", () => {
     const { pending } = mountEditable();
-    const inputs = host!.querySelectorAll<HTMLInputElement>(".cell-input");
-    type(inputs[1], "robert"); // row 0, column "name"
+    const input = openCell(0, 1);
+    type(input, "robert");
     expect(pending().edits).toEqual({ 0: { name: "robert" } });
-    // After the edit, the grid shows the pending value.
-    const after = host!.querySelectorAll<HTMLInputElement>(".cell-input");
-    expect(after[1].value).toBe("robert");
+    expect(inputKey(input, { key: "Enter" })).toBe(false);
+    expect(editors().length).toBe(0);
+    const cell = host!.querySelector('[data-cell="0-1"]')!;
+    expect(cell.textContent).toBe("robert");
+    expect(cell.classList.contains("cell-dirty")).toBe(true);
+    expect(cell.getAttribute("title")).toBe("Valor original: alice");
+    expect(host!.querySelector('[data-cell="1-1"]')!.classList.contains("cell-selected")).toBe(true);
   });
 
-  it("toggles a row for deletion, marking it and disabling its inputs", () => {
+  it("Tab confirms and moves right", () => {
+    mountEditable();
+    const input = openCell(1, 0);
+    inputKey(input, { key: "Tab" });
+    expect(editors().length).toBe(0);
+    expect(host!.querySelector('[data-cell="1-1"]')!.classList.contains("cell-selected")).toBe(true);
+  });
+
+  it("Esc puts back the value the cell had when its editor opened", () => {
+    const { pending } = mountEditable(setCell(emptyPending(), 1, "name", "bea"));
+    type(openCell(0, 1), "zzz");
+    inputKey(editors()[0], { key: "Escape" });
+    expect(pending().edits).toEqual({ 1: { name: "bea" } });
+    expect(host!.querySelector('[data-cell="0-1"]')!.textContent).toBe("alice");
+    // A cell already changed goes back to that change, not to the original.
+    type(openCell(1, 1), "otra");
+    inputKey(editors()[0], { key: "Escape" });
+    expect(pending().edits).toEqual({ 1: { name: "bea" } });
+  });
+
+  it("F2 and Enter open the selected cell; a typed character replaces its value", () => {
     const { pending } = mountEditable();
-    const del = host!.querySelector<HTMLButtonElement>("button.grid-action.danger")!;
-    del.click();
+    selectAt(1, 1);
+    expect(gridKey({ key: "F2" })).toBe(false);
+    expect(editors()[0].value).toBe("bob");
+    inputKey(editors()[0], { key: "Escape" });
+    gridKey({ key: "Enter" });
+    expect(editors().length).toBe(1);
+    inputKey(editors()[0], { key: "Escape" });
+    expect(gridKey({ key: "q" })).toBe(false);
+    expect(editors()[0].value).toBe("q");
+    expect(pending().edits).toEqual({ 1: { name: "q" } });
+  });
+
+  it("writes NULL with Ctrl+Shift+N, from the grid and from the editor", () => {
+    const { pending } = mountEditable();
+    selectAt(0, 1);
+    expect(gridKey({ key: "N", ctrlKey: true, shiftKey: true })).toBe(false);
+    expect(pending().edits).toEqual({ 0: { name: null } });
+    expect(host!.querySelector('[data-cell="0-1"] .cell-null-tag')).not.toBeNull();
+    const input = openCell(1, 1);
+    inputKey(input, { key: "n", ctrlKey: true, shiftKey: true });
+    expect(pending().edits[1]).toEqual({ name: null });
+    expect(editors().length).toBe(0);
+  });
+
+  it("says what is being edited: the value before, the type and the keys", () => {
+    mountEditable();
+    expect(host!.querySelector(".grid-edit-hint")).toBeNull();
+    openCell(0, 1);
+    const hint = host!.querySelector(".grid-edit-hint")!.textContent!;
+    expect(hint).toContain("Editando name de la fila 1");
+    expect(hint).toContain("Antes: alice · text");
+    expect(hint).toContain("Esc revierte la celda");
+  });
+
+  it("opens the edit session first when the table is editable but not edited", async () => {
+    const { pending, setActive } = mountEditable(emptyPending(), false);
+    let asked = 0;
+    onRequest = async () => {
+      asked += 1;
+      setActive(true);
+    };
+    selectAt(0, 1);
+    gridKey({ key: "z" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(asked).toBe(1);
+    expect(pending().edits).toEqual({ 0: { name: "z" } });
+    expect(editors()[0].value).toBe("z");
+  });
+
+  it("toggles a row for deletion, and a deleted row's cells do not open", () => {
+    const { pending } = mountEditable();
+    host!.querySelector<HTMLButtonElement>("button.grid-action.danger")!.click();
     expect(pending().deletes).toEqual([0]);
     expect(host!.querySelector(".row-deleted")).not.toBeNull();
-    const firstRowInputs = host!
-      .querySelectorAll(".grid-row")[0]
-      .querySelectorAll<HTMLInputElement>(".cell-input");
-    expect(firstRowInputs[0].disabled).toBe(true);
+    openCell(0, 1);
+    expect(editors().length).toBe(0);
   });
 
   it("renders inserted rows and edits their cells", () => {
@@ -195,8 +314,7 @@ describe("ResultGrid edit mode", () => {
     });
     // Sort ascending by id -> displayed order is original row 1 ("1"), then 0 ("2").
     host!.querySelectorAll<HTMLDivElement>(".grid-head-sort")[0].click();
-    const firstRow = host!.querySelectorAll(".grid-rows .grid-row")[0];
-    const nameInput = firstRow.querySelectorAll<HTMLInputElement>(".cell-input")[1];
+    const nameInput = openCell(0, 1);
     expect(nameInput.value).toBe("b"); // original row 1 is displayed first
     type(nameInput, "B!");
     // The edit is recorded against original index 1, not display position 0.
@@ -240,9 +358,8 @@ describe("ResultGrid edit mode", () => {
         host!,
       );
     });
-    const inputs = host!.querySelectorAll<HTMLInputElement>(".grid-rows .cell-input");
-    expect(inputs[1].value).toBe("1"); // row 0 activo=true -> 1
-    expect(inputs[3].value).toBe(""); // row 1 activo=NULL -> empty, not "0"
+    expect(openCell(0, 1).value).toBe("1"); // row 0 activo=true -> 1
+    expect(openCell(1, 1).value).toBe(""); // row 1 activo=NULL -> empty, not "0"
   });
 
   it("shows the referenced table's rows from a foreign-key cell, and picks one", () => {
@@ -284,9 +401,13 @@ describe("ResultGrid edit mode", () => {
         host!,
       );
     });
-    // The FK column has a visible toggle; the plain column does not.
+    // Only the open cell is a picker: none until one is opened.
+    expect(host.querySelectorAll(".grid-rows .fk-toggle").length).toBe(0);
+    openCell(1, 1);
+    expect(host.querySelectorAll(".grid-rows .fk-toggle").length).toBe(0); // not an FK column
+    openCell(0, 0);
     const toggles = host.querySelectorAll<HTMLButtonElement>(".grid-rows .fk-toggle");
-    expect(toggles.length).toBe(2); // one per row, only on the FK column
+    expect(toggles.length).toBe(1);
     // Nothing is shown until it is opened — then the referenced table's rows are.
     // The dialog is portalled OUT of the grid (a transformed ancestor would break
     // a positioned popup), so it is looked up in the document, not in `host`.
@@ -294,17 +415,42 @@ describe("ResultGrid edit mode", () => {
     toggles[0].click();
     const dialog = document.querySelector(".fk-browser")!;
     expect(dialog).not.toBeNull();
-    const cells = [...dialog.querySelectorAll("tbody tr")].map((tr) =>
-      [...tr.querySelectorAll("td")].slice(1).map((td) => td.textContent),
-    );
-    expect(cells).toEqual([
-      ["1", "Ferretería López"],
-      ["2", "Aceros SA"],
-    ]);
-    // Picking a row writes its key into the pending edit for that row/column.
-    dialog.querySelectorAll<HTMLButtonElement>(".fk-pick")[1].click();
+    pickFkRow(dialog, 1);
     expect(pending().edits).toEqual({ 0: { id: "2" } });
     expect(document.querySelector(".fk-browser")).toBeNull(); // and it closes
+  });
+
+  it("opens the foreign-key browser straight away with Alt+Down", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={result}
+            loading={false}
+            error={null}
+            fk={{ id: { toTable: "clientes", toColumn: "num", columns: [{ name: "num", type: "int" }], rows: [["1"]] } }}
+            edit={{
+              active: true,
+              pending: emptyPending(),
+              onEditCell: () => {},
+              onToggleDelete: () => {},
+              onInsertCell: () => {},
+              onRemoveInsert: () => {},
+            }}
+          />
+        ),
+        host!,
+      );
+    });
+    selectAt(0, 1);
+    expect(gridKey({ key: "ArrowDown", altKey: true })).toBe(true); // not an FK column
+    selectAt(0, 0);
+    expect(gridKey({ key: "ArrowDown", altKey: true })).toBe(false);
+    expect(document.querySelector(".fk-browser")).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   });
 
   it("is read-only (no inputs) when edit is inactive", () => {
@@ -528,6 +674,17 @@ describe("ResultGrid selection + keyboard + bit display", () => {
   };
 
   function mountRO(opts: { onRequestEdit?: () => void } = {}) {
+    // An editable table that is not being edited: what asking is for.
+    const edit = opts.onRequestEdit
+      ? {
+          active: false,
+          pending: emptyPending(),
+          onEditCell: () => {},
+          onToggleDelete: () => {},
+          onInsertCell: () => {},
+          onRemoveInsert: () => {},
+        }
+      : undefined;
     host = document.createElement("div");
     document.body.appendChild(host);
     createRoot((d) => {
@@ -539,6 +696,7 @@ describe("ResultGrid selection + keyboard + bit display", () => {
             loading={false}
             error={null}
             onRequestEdit={opts.onRequestEdit}
+            edit={edit}
           />
         ),
         host!,
@@ -1078,6 +1236,7 @@ describe("ResultGrid row keys", () => {
     onCopyRows?: (rows: number[]) => void;
     onDuplicateRows?: (rows: number[]) => void;
     edit?: import("../../src/components/ResultGrid").GridEdit;
+    onRequestEdit?: () => void;
   } = {}) {
     marked = [];
     host = document.createElement("div");
@@ -1138,7 +1297,22 @@ describe("ResultGrid row keys", () => {
     expect(deleted).toEqual([0, 2]);
   });
 
-  it("ignores Delete outside edit mode", () => {
+  it("opens the edit session first on Delete when the table is editable", async () => {
+    let deleted: number[] | null = null;
+    const [active, setActive] = createSignal(false);
+    mountKeys({
+      get edit() {
+        return editWith(active(), (rows) => (deleted = rows));
+      },
+      onRequestEdit: () => setActive(true),
+    });
+    click(1);
+    expect(key({ key: "Delete" })).toBe(false);
+    await Promise.resolve();
+    expect(deleted).toEqual([1]);
+  });
+
+  it("ignores Delete when the table cannot be edited", () => {
     let calls = 0;
     mountKeys({ edit: editWith(false, () => calls++) });
     click(1);
