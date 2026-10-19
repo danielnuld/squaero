@@ -936,6 +936,7 @@ export const es: Record<string, string> = {
   "td.colAiTitle": "Autoincremental",
   "td.colDefault": "Default",
   "td.namePlaceholder": "nombre",
+  "td.noDefault": "(sin valor por defecto)",
   "td.pkLocked": "La clave primaria no se modifica al alterar",
   "td.aiLocked": "El autoincremental no se modifica al alterar",
   "td.removeColumn": "Quitar columna",

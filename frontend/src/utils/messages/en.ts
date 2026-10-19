@@ -933,6 +933,7 @@ export const en: Record<string, string> = {
   "td.colAiTitle": "Auto-increment",
   "td.colDefault": "Default",
   "td.namePlaceholder": "name",
+  "td.noDefault": "(no default)",
   "td.pkLocked": "The primary key is not changed when altering",
   "td.aiLocked": "Auto-increment is not changed when altering",
   "td.removeColumn": "Remove column",
