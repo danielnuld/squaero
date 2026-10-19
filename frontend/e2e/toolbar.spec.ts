@@ -6,7 +6,7 @@
 // destination is reachable by an accessible name, with decorative SVG icons
 // rather than emoji that announce themselves.
 
-import { connect, openTool } from "./support/app-actions";
+import { connect, openFixtureTable, openTool } from "./support/app-actions";
 import { describeEngine, expect, test } from "./support/fixtures";
 
 /** The tools, by the accessible name a user hears. */
@@ -36,6 +36,23 @@ describeEngine("sqlite", () => {
     // so they focus a single panel rather than piling up duplicates.
     await expect(page.getByRole("button", { name: /Cerrar pestaña/ }).nth(1)).toBeVisible();
     await expect(page.getByText("Snippets").first()).toBeVisible();
+  });
+
+  test("a data tab's Más menu opens the tool it names", async ({ app }) => {
+    const { page } = app;
+    await app.open();
+    await connect(app);
+    await openFixtureTable(app);
+
+    // It did nothing once: switching to the tool's tab re-ran a memo the data
+    // tab owned and Solid threw "Stale read from <Show>".
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.getByRole("toolbar", { name: "Acciones del objeto" }).getByRole("button", { name: "Más acciones" }).click();
+    await page.getByRole("menuitem", { name: "Sincronizar estructura…" }).click();
+
+    await expect(page.getByRole("tab", { name: "Sincronizar estructura" })).toBeVisible();
+    expect(errors).toEqual([]);
   });
 
   test("the search button opens the palette the tools also live in", async ({ app }) => {
