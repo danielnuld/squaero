@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { withWriteConsent } from "../utils/transport";
 import { createStore } from "solid-js/store";
 import { schemaDescribe } from "../utils/schema";
@@ -13,15 +13,19 @@ import {
   maxSql,
   nextSequenceStart,
   GEN_KINDS,
+  TEMPLATE_TOKENS,
   type ColumnGen,
   type GenKind,
 } from "../utils/dataGen";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { Dropdown } from "./Dropdown";
-import { RowErrorPolicy, Wizard, WizardField } from "./Wizard";
+import { RowErrorPolicy, Wizard, WizardField, WizardSummary } from "./Wizard";
 import { countText } from "../utils/confirmText";
-import { runImport, type ErrorPolicy, type ImportOps, type ImportSummary } from "../utils/importers";
+import { runImport, type ErrorPolicy, type ImportError, type ImportOps, type ImportSummary } from "../utils/importers";
+import { RunErrors, RunProgress } from "./RunProgress";
+import { TablePreview } from "./TablePreview";
+import { formatElapsed } from "../utils/duration";
 
 const PREVIEW_ROWS = 5;
 const PREVIEW_SEED = 0x9e3779b9; // stable preview independent of the real run
@@ -44,9 +48,14 @@ export function DataGenerator(props: {
   const [gens, setGens] = createStore<ColumnGen[]>([]);
   const [count, setCount] = createSignal(10);
   const [loaded, setLoaded] = createSignal(false);
-  const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  const [summary, setSummary] = createSignal<ImportSummary | null>(null);
+  const [summary, setSummary] = createSignal<(ImportSummary & { ms: number }) | null>(null);
+  /** The run in flight, for the progress view. */
+  const [running, setRunning] = createSignal<{ startedAt: number; done: number; total: number; errors: ImportError[] } | null>(null);
+  /** «Otra muestra» draws the preview from the next seed. */
+  const [seed, setSeed] = createSignal(PREVIEW_SEED);
+  let ctl: AbortController | null = null;
+  onCleanup(() => ctl?.abort());
   // Generating into a table with data hits its keys more often than an import
   // does, so the safe default is all or nothing.
   const [policy, setPolicy] = createSignal<ErrorPolicy>("abort");
@@ -97,7 +106,7 @@ export function DataGenerator(props: {
   // Deterministic preview (fixed seed) so the sample is stable as the form is
   // edited; the real run uses Math.random for varied data.
   const preview = createMemo(() =>
-    generateRows([...gens], Math.min(clampCount(count()), PREVIEW_ROWS), makeRng(PREVIEW_SEED)),
+    generateRows([...gens], Math.min(clampCount(count()), PREVIEW_ROWS), makeRng(seed())),
   );
   const activeCols = createMemo(() => gens.filter((g) => g.kind !== "skip").map((g) => g.column));
 
@@ -121,35 +130,45 @@ export function DataGenerator(props: {
         await rowInsert(props.connId, props.target, values, false);
       },
     };
-    setBusy(true);
+    const run = new AbortController();
+    ctl = run;
+    const startedAt = Date.now();
+    setRunning({ startedAt, done: 0, total: rows.length, errors: [] });
     setError(null);
     try {
       const result = await withWriteConsent(
         props.connId,
         [`INSERT INTO ${props.target.table} … (${rows.length})`],
-        () => runImport(table, mapping, policy(), ops),
+        () =>
+          runImport(table, mapping, policy(), ops, {
+            onProgress: (done) => setRunning((r) => r && { ...r, done }),
+            onError: (e) => setRunning((r) => r && { ...r, errors: [...r.errors, e] }),
+            signal: run.signal,
+          }),
       );
-      setSummary(result);
+      setSummary({ ...result, ms: Date.now() - startedAt });
       if (result.inserted > 0) props.onGenerated?.();
     } catch (err) {
-      setError(errorText(err));
+      setError(run.signal.aborted ? t("dg.cancelled") : errorText(err));
     } finally {
-      setBusy(false);
+      if (ctl === run) ctl = null;
+      setRunning(null);
     }
   };
+  const errorsOf = (errs: ImportError[]) =>
+    errs.map((e) => ({ where: t("imp.rowN", { n: e.row + 1 }), message: e.message }));
+  const policyText = () => (policy() === "skip" ? t("dg.policySkipNote") : t("imp.policyAbortNote"));
 
   return (
-    <Panel title={t("dg.title")} wide onClose={props.onClose} dirty={busy()}>
+    <Panel title={t("dg.title")} wide onClose={props.onClose} dirty={!!running()}>
       <Wizard
         title={t("dg.heading", { name: props.target.table })}
         subtitle={t("dg.subtitle")}
         steps={[t("dg.step.configure"), t("dg.step.result")]}
-        step={summary() ? 1 : 0}
+        step={summary() || running() ? 1 : 0}
         error={error()}
-        busy={busy()}
-        busyLabel={t("dg.generating")}
         primary={
-          summary()
+          summary() || running()
             ? undefined
             : {
                 label: countText("dg.generateN", clampCount(count())),
@@ -157,31 +176,53 @@ export function DataGenerator(props: {
                 disabled: !loaded() || activeCols().length === 0,
               }
         }
-        cancelLabel={summary() ? t("common.close") : undefined}
-        onCancel={props.onClose}
+        cancelLabel={running() ? t("dg.cancelRun") : summary() ? t("common.close") : undefined}
+        onCancel={running() ? () => ctl?.abort() : props.onClose}
       >
-        <Show
-          when={!summary()}
-          fallback={
-            <div class="import-summary">
-              <p>
-                <strong>{summary()!.inserted}</strong> {t("dg.generated")}
-                {summary()!.aborted
-                  ? t("imp.aborted")
-                  : summary()!.errors.length > 0
-                    ? t("imp.withErrors", { n: summary()!.errors.length })
-                    : ""}
+        <Show when={running()}>
+          {(r) => (
+            <RunProgress
+              title={t("dg.running", { table: props.target.table })}
+              done={r().done}
+              total={r().total}
+              unit="rows"
+              startedAt={r().startedAt}
+              counts={[
+                { label: countText("imp.insertedN", r().done - r().errors.length) },
+                ...(r().errors.length > 0
+                  ? [{ label: countText("imp.failedN", r().errors.length), tone: "error" as const }]
+                  : []),
+              ]}
+              errors={errorsOf(r().errors)}
+              errorPolicy={policyText()}
+              note={t("imp.cancelNote", { table: props.target.table })}
+            />
+          )}
+        </Show>
+        <Show when={summary()}>
+          {(sum) => (
+            <>
+              <p role="status">
+                {sum().aborted
+                  ? t("imp.abortedResult", { table: props.target.table })
+                  : t("dg.doneResult", { table: props.target.table })}
               </p>
-              <Show when={summary()!.errors.length > 0}>
-                <ul class="import-errors">
-                  <For each={summary()!.errors.slice(0, 20)}>
-                    {(e) => <li>{t("imp.rowError", { row: e.row + 1, message: e.message })}</li>}
-                  </For>
-                </ul>
-              </Show>
-            </div>
-          }
-        >
+              <WizardSummary
+                stats={[
+                  { value: sum().inserted, label: t("dg.stat.inserted") },
+                  { value: sum().errors.length, label: t("imp.stat.failed"), error: sum().errors.length > 0 },
+                  { value: formatElapsed(sum().ms), label: t("imp.stat.time") },
+                ]}
+              />
+              <RunErrors
+                errors={errorsOf(sum().errors)}
+                title={countText("imp.failedRows", sum().errors.length)}
+                policy={sum().aborted ? t("imp.policyAbortNote") : t("dg.policySkipNote")}
+              />
+            </>
+          )}
+        </Show>
+        <Show when={!summary() && !running()}>
           <div class="wiz-form">
             <WizardField label={t("dg.rowCount")} help={t("dg.rowCountHelp")}>
               <input
@@ -242,6 +283,15 @@ export function DataGenerator(props: {
                         <Show when={g.kind === "list"}>
                           <input class="td-in dg-wide" placeholder={t("dg.listPlaceholder")} value={g.list} onInput={(e) => patch(i(), "list", e.currentTarget.value)} />
                         </Show>
+                        <Show when={g.kind === "text"}>
+                          <input
+                            class="td-in dg-wide"
+                            aria-label={t("dg.templateFor", { name: g.column })}
+                            title={t("dg.templateHelp", { tokens: TEMPLATE_TOKENS.join(" ") })}
+                            value={g.template}
+                            onInput={(e) => patch(i(), "template", e.currentTarget.value)}
+                          />
+                        </Show>
                         <Show when={g.kind === "fixed"}>
                           <input class="td-in dg-wide" placeholder={t("dg.fixedPlaceholder")} value={g.fixed} onInput={(e) => patch(i(), "fixed", e.currentTarget.value)} />
                         </Show>
@@ -252,24 +302,15 @@ export function DataGenerator(props: {
               </tbody>
             </table>
 
-            <h3 class="import-subtitle">{t("dg.preview", { shown: preview().length, total: clampCount(count()) })}</h3>
-            <div class="import-preview-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <For each={activeCols()}>{(c) => <th>{c}</th>}</For>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={preview()}>
-                    {(row) => (
-                      <tr>
-                        <For each={activeCols()}>{(c) => <td>{row[c] ?? "∅"}</td>}</For>
-                      </tr>
-                    )}
-                  </For>
-                </tbody>
-              </table>
+            <p class="help">{t("dg.templateHelp", { tokens: TEMPLATE_TOKENS.join(" ") })}</p>
+            <TablePreview
+              title={t("dg.preview", { shown: preview().length, total: clampCount(count()) })}
+              table={{ headers: activeCols(), rows: preview().map((r) => activeCols().map((c) => r[c] ?? null)) }}
+            />
+            <div>
+              <button type="button" class="btn" onClick={() => setSeed((s) => s + 1)}>
+                {t("dg.anotherSample")}
+              </button>
             </div>
           </Show>
         </Show>

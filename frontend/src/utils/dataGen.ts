@@ -54,6 +54,9 @@ export interface ColumnGen {
   list: string;
   /** Constant for "fixed". */
   fixed: string;
+  /** Pattern for "text": literal text with {nombre}, {apellido}, {email},
+      {ciudad}, {palabra}, {n} (the row number) and {#} (a digit). */
+  template: string;
 }
 
 const WORDS = [
@@ -65,6 +68,55 @@ const WORDS = [
 function isoDaysAgo(days: number): string {
   const d = new Date(Date.now() - days * 86400000);
   return d.toISOString().slice(0, 10);
+}
+
+// Sample data for text templates. Data, not interface text: it reads the
+// same whatever the UI language.
+const FIRST = ["María", "José", "Ana", "Luis", "Carmen", "Jorge", "Lucía", "Pedro", "Sofía", "Miguel", "Laura", "Diego"];
+const LAST = ["López", "García", "Martínez", "Hernández", "Pérez", "Ochoa", "Méndez", "Ruiz", "Castro", "Romero"];
+const CITIES = ["Hermosillo", "Nogales", "Guadalajara", "Monterrey", "Puebla", "Mérida", "Tijuana", "Oaxaca"];
+
+/** The tokens a text template understands, for the help line. */
+export const TEMPLATE_TOKENS = ["{nombre}", "{apellido}", "{email}", "{ciudad}", "{palabra}", "{n}", "{#}"];
+
+/** A plausible template for a text column, from its name. */
+export function defaultTemplate(column: string): string {
+  const c = column.toLowerCase();
+  if (/mail|correo/.test(c)) return "{email}";
+  if (/apellido|surname|last_?name/.test(c)) return "{apellido}";
+  if (/nombre|name/.test(c)) return "{nombre} {apellido}";
+  if (/ciudad|city|municipio/.test(c)) return "{ciudad}";
+  if (/tel|phone|movil|celular/.test(c)) return "662 {#}{#}{#} {#}{#}{#}{#}";
+  return "{palabra} {palabra}";
+}
+
+/** «María» → «maria»: a name as the user part of an address. */
+const asciiLower = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/**
+ * Fill a text template for row `rowIndex`. Unknown {tokens} stay as written,
+ * so a typo shows in the preview instead of vanishing.
+ */
+export function fillTemplate(template: string, rowIndex: number, rng: Rng): string {
+  const pick = <T>(xs: T[]) => xs[Math.floor(rng() * xs.length)];
+  return template.replace(/\{(nombre|apellido|email|ciudad|palabra|n|#)\}/g, (_, token: string) => {
+    switch (token) {
+      case "nombre":
+        return pick(FIRST);
+      case "apellido":
+        return pick(LAST);
+      case "email":
+        return `${asciiLower(pick(FIRST))}.${asciiLower(pick(LAST))}${rowIndex + 1}@correo.mx`;
+      case "ciudad":
+        return pick(CITIES);
+      case "palabra":
+        return pick(WORDS);
+      case "n":
+        return String(rowIndex + 1);
+      default:
+        return String(Math.floor(rng() * 10));
+    }
+  });
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -92,6 +144,7 @@ export function defaultGen(column: string, type: string, isPk = false): ColumnGe
     to: isoDaysAgo(0),
     list: "",
     fixed: "",
+    template: defaultTemplate(column),
   };
   // Match tolerantly: describe reports the engine's own type name (int / integer
   // / bigint / serial, float / double / decimal, datetime / timestamp, …).
@@ -122,11 +175,8 @@ export function generateValue(g: ColumnGen, rowIndex: number, rng: Rng): string 
       if (opts.length === 0) return null;
       return opts[Math.floor(rng() * opts.length)];
     }
-    case "text": {
-      const w1 = WORDS[Math.floor(rng() * WORDS.length)];
-      const w2 = WORDS[Math.floor(rng() * WORDS.length)];
-      return `${w1} ${w2}`;
-    }
+    case "text":
+      return fillTemplate(g.template, rowIndex, rng);
     case "date": {
       const t = g.type.toLowerCase();
       const isDateTime = /timestamp|datetime/.test(t);

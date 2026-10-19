@@ -8,6 +8,9 @@ import {
   type ColumnGen,
   maxSql,
   nextSequenceStart,
+  defaultTemplate,
+  fillTemplate,
+  TEMPLATE_TOKENS,
 } from "../../src/utils/dataGen";
 
 /** A ColumnGen with the given overrides on top of a text default. */
@@ -142,5 +145,33 @@ describe("nextSequenceStart", () => {
     expect(nextSequenceStart(undefined)).toBe(1);
     expect(nextSequenceStart("")).toBe(1);
     expect(nextSequenceStart("abc")).toBe(1);
+  });
+});
+
+describe("text templates (#692)", () => {
+  it("picks a template from the column name", () => {
+    expect(defaultTemplate("email")).toBe("{email}");
+    expect(defaultTemplate("correo_contacto")).toBe("{email}");
+    expect(defaultTemplate("nombre")).toBe("{nombre} {apellido}");
+    expect(defaultTemplate("apellido")).toBe("{apellido}");
+    expect(defaultTemplate("city")).toBe("{ciudad}");
+    expect(defaultTemplate("telefono")).toMatch(/^662 /);
+    expect(defaultTemplate("notas")).toBe("{palabra} {palabra}");
+    expect(defaultGen("email", "text").template).toBe("{email}");
+  });
+
+  it("fills the tokens and leaves the rest as written", () => {
+    const rng = makeRng(1);
+    expect(fillTemplate("cliente {n}", 4, rng)).toBe("cliente 5");
+    expect(fillTemplate("{#}{#}", 0, rng)).toMatch(/^\d\d$/);
+    expect(fillTemplate("{desconocido}", 0, rng)).toBe("{desconocido}");
+    expect(fillTemplate("{email}", 2, makeRng(3))).toMatch(/^[a-z]+\.[a-z]+3@correo\.mx$/);
+    expect(fillTemplate("{nombre} {apellido} de {ciudad}", 0, makeRng(9))).toMatch(/^\S+ \S+ de \S+$/);
+    expect(TEMPLATE_TOKENS).toContain("{palabra}");
+  });
+
+  it("a text column generates from its template", () => {
+    const g = { ...defaultGen("c", "text"), template: "x{n}" };
+    expect(generateValue(g, 6, makeRng(1))).toBe("x7");
   });
 });
