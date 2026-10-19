@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal, createEffect } from "solid-js";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import { objectListFor, formatBytes } from "../utils/objectList";
-import { objectBadge } from "../utils/objectIcons";
+import { ObjectIcon } from "./icons";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 
@@ -174,7 +174,6 @@ export function ObjectListView(props: {
                     const ti = colIndex("tipo");
                     const type =
                       ti >= 0 ? String(result()!.rows[rowIdx][ti]) : "table";
-                    const badge = objectBadge(type);
                     return (
                       <tr
                         class="objlist-row"
@@ -186,9 +185,7 @@ export function ObjectListView(props: {
                             <td class={c.numeric ? "num" : ""}>
                               <Show when={i() === 0} fallback={cell(rowIdx, c.key)}>
                                 <span class="objlist-name">
-                                  <span class={`objtree-badge ${badge.className}`}>
-                                    {badge.text}
-                                  </span>
+                                  <ObjectIcon kind={type} size={14} />
                                   {cell(rowIdx, c.key)}
                                 </span>
                               </Show>

@@ -2,6 +2,7 @@ import { Show, createSignal } from "solid-js";
 import { FkBrowser } from "./FkBrowser";
 import { fkHint, type FkLookup } from "../utils/fkLookup";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // The value editor for a foreign-key cell (issue #300): a free-text input — a FK
 // is still just a value, and a valid one can always be typed — plus a visible
@@ -39,7 +40,7 @@ export function FkPicker(props: {
         title={t("fk.open", { table: props.lookup.toTable })}
         onClick={() => setBrowsing(true)}
       >
-        ⋯
+        <Icon name="more" size={14} />
       </button>
 
       <Show when={browsing()}>

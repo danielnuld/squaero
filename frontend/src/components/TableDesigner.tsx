@@ -19,6 +19,7 @@ import {
 } from "../utils/tableDesign";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Table designer (issue #136). Two modes selected by the `table` prop:
 //  • create — a blank form → CREATE TABLE (phase 1);
@@ -289,10 +290,11 @@ export function TableDesigner(props: {
                   <button
                     class="grid-action danger"
                     title={t("td.removeColumn")}
+                    aria-label={t("td.removeColumn")}
                     disabled={columns.length <= 1}
                     onClick={() => removeColumn(i())}
                   >
-                    ✕
+                    <Icon name="close" size={12} />
                   </button>
                 </td>
               </tr>

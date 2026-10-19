@@ -2,6 +2,7 @@ import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { engineMonogram, type Connection } from "../utils/connections";
 import { ConnectionSearch } from "./ConnectionSearch";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import type { SafeMode } from "../utils/safeMode";
 
 /** One open connection, as the bar draws it. */
@@ -104,7 +105,7 @@ export function ConnectionBar(props: {
           aria-label={t("connbar.add")}
           onClick={() => (searching() ? setSearching(false) : openSearch())}
         >
-          +
+          <Icon name="plus" size={14} />
         </button>
       </div>
 
@@ -188,7 +189,7 @@ export function ConnectionBar(props: {
                         disabled={props.connectingId !== null}
                         onClick={() => props.onReconnectConn(row.defId)}
                       >
-                        ↻
+                        <Icon name="refresh" size={14} />
                       </button>
                     </Show>
                     <button
@@ -198,7 +199,7 @@ export function ConnectionBar(props: {
                       disabled={props.connectingId !== null}
                       onClick={() => props.onDisconnect(row.defId)}
                     >
-                      ⏏
+                      <Icon name="disconnect" size={14} />
                     </button>
                   </div>
                 </li>
@@ -246,7 +247,7 @@ export function SafeBadge(props: { mode?: SafeMode }) {
         const label = () => t(mode() === "readOnly" ? "safe.badgeReadOnly" : "safe.badgeConfirm");
         return (
           <span class={`safe-badge safe-${mode()}`} title={label()} aria-label={label()}>
-            {mode() === "readOnly" ? "🔒" : "⚠"}
+            <Icon name={mode() === "readOnly" ? "lock" : "warning"} size={12} />
           </span>
         );
       }}

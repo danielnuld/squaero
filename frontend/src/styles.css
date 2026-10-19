@@ -3848,42 +3848,30 @@ button.primary:hover:not(:disabled) {
 }
 
 .objtree-caret {
-  width: 0.9em;
+  width: 12px;
   color: var(--text-dim);
   flex-shrink: 0;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* Object-type icon (#683): one of the set, drawn in its kind's identity
+   colour so the type reads at a glance in the tree, object lists and tabs. */
 .objtree-badge {
-  font-size: var(--fs-micro);
-  text-transform: uppercase;
-  font-weight: 700;
-  padding: 1px var(--sp-2);
-  border-radius: var(--r-sm);
   flex-shrink: 0;
-  color: var(--obj-ink);
+  color: var(--text-dim);
 }
-
-/* Per-type identity colours (design proposal). One vivid hue per kind so
-   the object type reads at a glance in the tree, object lists and tabs. */
-.objtree-badge.kind-database { background: var(--obj-database); }
-.objtree-badge.kind-schema { background: var(--obj-schema); }
-.objtree-badge.kind-table { background: var(--obj-table); }
-.objtree-badge.kind-view { background: var(--obj-view); }
+.objtree-badge.kind-database { color: var(--obj-database); }
+.objtree-badge.kind-schema { color: var(--obj-schema); }
+.objtree-badge.kind-table { color: var(--obj-table); }
+.objtree-badge.kind-view { color: var(--obj-view); }
 /* Routine/trigger/event leaves (listed on demand, #135 phase 2). */
 .objtree-badge.kind-routine,
-.objtree-badge.kind-procedure { background: var(--obj-procedure); }
-.objtree-badge.kind-function { background: var(--obj-function); }
-.objtree-badge.kind-trigger { background: var(--obj-trigger); }
-.objtree-badge.kind-event { background: var(--obj-event); }
-.objtree-badge.kind-unknown { background: var(--text-dim); }
-/* Type folder (Tablas/Vistas): a neutral count chip. */
-.objtree-badge.kind-group {
-  background: var(--text-dim);
-  color: var(--bg);
-  min-width: 1.4em;
-  text-align: center;
-}
+.objtree-badge.kind-procedure { color: var(--obj-procedure); }
+.objtree-badge.kind-function { color: var(--obj-function); }
+.objtree-badge.kind-trigger { color: var(--obj-trigger); }
+.objtree-badge.kind-event { color: var(--obj-event); }
 
 .objtree-label {
   overflow: hidden;
@@ -3893,16 +3881,6 @@ button.primary:hover:not(:disabled) {
 .objtree-loading {
   color: var(--text-dim);
   margin-left: auto;
-}
-
-/* Type-folder glyph (Tablas/Vistas/…) + right-aligned count (design proposal
-   move 2): folders read like a Navicat navigator, colored per object type. */
-.objtree-folder-ic {
-  flex-shrink: 0;
-  width: 1.15em;
-  text-align: center;
-  font-size: var(--fs-md);
-  line-height: 1;
 }
 
 .objtree-count {
@@ -4124,15 +4102,20 @@ button.primary:hover:not(:disabled) {
   color: var(--accent-text);
 }
 
-/* Leading glyph + dropdown caret on toolbar buttons (phase 8). The glyph is a
+/* Any icon of the set (#683) sitting in a line of text: centred on it, and
+   never squeezed by a flex row. */
+svg.icon {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* Leading icon + dropdown caret on toolbar buttons (phase 8). The icon is a
    light visual cue; the caret marks a button that opens a menu. */
 .eb-ic {
-  font-size: var(--fs-base);
   opacity: 0.8;
 }
 
 .eb-caret {
-  font-size: var(--fs-micro);
   color: var(--text-dim);
 }
 

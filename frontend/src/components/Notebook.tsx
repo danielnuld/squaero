@@ -30,6 +30,7 @@ import {
   type CellKind,
 } from "../utils/notebook";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import { Dropdown } from "./Dropdown";
 
 interface CellResult {
@@ -254,8 +255,13 @@ export function Notebook(props: {
                 value={p.value}
                 onInput={(e) => setParam(i(), "value", e.currentTarget.value)}
               />
-              <button class="status-btn" title={t("nb.remove")} onClick={() => removeParam(i())}>
-                ✕
+              <button
+                class="status-btn"
+                title={t("nb.remove")}
+                aria-label={t("nb.remove")}
+                onClick={() => removeParam(i())}
+              >
+                <Icon name="close" size={12} />
               </button>
             </div>
           )}
@@ -301,16 +307,23 @@ export function Notebook(props: {
                     {t("editor.format")}
                   </button>
                 </Show>
-                <button class="status-btn" title={t("nb.moveUp")} disabled={idx === 0} onClick={() => move(cell().id, -1)}>
-                  ↑
+                <button
+                  class="status-btn"
+                  title={t("nb.moveUp")}
+                  aria-label={t("nb.moveUp")}
+                  disabled={idx === 0}
+                  onClick={() => move(cell().id, -1)}
+                >
+                  <Icon name="arrow-up" size={14} />
                 </button>
                 <button
                   class="status-btn"
                   title={t("nb.moveDown")}
+                  aria-label={t("nb.moveDown")}
                   disabled={idx === current().cells.length - 1}
                   onClick={() => move(cell().id, 1)}
                 >
-                  ↓
+                  <Icon name="arrow-down" size={14} />
                 </button>
                 <button class="status-btn" title={t("nb.addSqlBelow")} onClick={() => addCell(cell().id, "sql")}>
                   +SQL
@@ -321,10 +334,11 @@ export function Notebook(props: {
                 <button
                   class="status-btn"
                   title={t("nb.deleteCell")}
+                  aria-label={t("nb.deleteCell")}
                   disabled={current().cells.length <= 1}
                   onClick={() => deleteCell(cell().id)}
                 >
-                  🗑
+                  <Icon name="trash" size={14} />
                 </button>
               </div>
 

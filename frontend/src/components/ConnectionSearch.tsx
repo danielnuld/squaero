@@ -2,6 +2,7 @@ import { For, Show, createMemo, createSignal } from "solid-js";
 import { driverSchema, engineMonogram, type Connection } from "../utils/connections";
 import { searchGroups } from "../utils/connectionSearch";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Opening a saved connection (issue #525). The bar lists what is already open;
 // this is how another one is found and opened. It used to be the whole manager
@@ -146,7 +147,7 @@ export function ConnectionSearch(props: {
 
       <div class="connsearch-foot">
         <button class="conn-io-btn" onClick={() => props.onNew()}>
-          + {t("conn.new")}
+          <Icon name="plus" size={14} /> {t("conn.new")}
         </button>
         <button class="conn-io-btn" onClick={() => props.onImport()}>
           {t("conn.import")}

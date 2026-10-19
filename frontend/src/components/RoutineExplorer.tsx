@@ -10,7 +10,8 @@ import {
 } from "../utils/routines";
 import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
 import { runnableRoutineDdl } from "../utils/routineDdl";
-import { objectBadge, routineKind } from "../utils/objectIcons";
+import { routineKind } from "../utils/objectIcons";
+import { ObjectIcon } from "./icons";
 import { Panel } from "./Panel";
 import { locale, t } from "../utils/i18n";
 
@@ -208,11 +209,7 @@ export function RoutineExplorer(props: {
                               class={`routine-item ${sameRef(selected(), r()) ? "active" : ""}`}
                               onClick={() => select(r())}
                             >
-                              <span
-                                class={`objtree-badge ${objectBadge(routineKind(r().type)).className}`}
-                              >
-                                {objectBadge(routineKind(r().type)).text}
-                              </span>
+                              <ObjectIcon kind={routineKind(r().type)} size={14} />
                               <span class="routine-name">
                                 {nameIdx() >= 0 ? row[nameIdx()] : r().name}
                               </span>

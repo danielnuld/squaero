@@ -5,6 +5,7 @@ import type { ResultColumn } from "../utils/query";
 import { fkHint, type FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Row form/detail view (issue #133): shows a single row as a field-by-field form,
 // which reads far better than a wide grid row for many columns or long / JSON
@@ -52,17 +53,17 @@ export function RowDetail(props: {
       <div class="rd-head">
         <h2>{t("rd.title")}</h2>
         <div class="rd-nav">
-          <button class="rd-nav-btn" disabled={!canPrev()} title={t("rd.prev")} onClick={props.onPrev}>
-            ‹
+          <button class="rd-nav-btn" disabled={!canPrev()} title={t("rd.prev")} aria-label={t("rd.prev")} onClick={props.onPrev}>
+            <Icon name="chevron-left" size={14} />
           </button>
           <span class="rd-pos">
             {t("rd.position", { i: props.rowIndex + 1, total: props.total })}
           </span>
-          <button class="rd-nav-btn" disabled={!canNext()} title={t("rd.next")} onClick={props.onNext}>
-            ›
+          <button class="rd-nav-btn" disabled={!canNext()} title={t("rd.next")} aria-label={t("rd.next")} onClick={props.onNext}>
+            <Icon name="chevron-right" size={14} />
           </button>
-          <button class="rd-nav-btn rd-close" title={t("rd.closeTitle")} onClick={props.onClose}>
-            ✕
+          <button class="rd-nav-btn rd-close" title={t("rd.closeTitle")} aria-label={t("rd.closeTitle")} onClick={props.onClose}>
+            <Icon name="close" size={14} />
           </button>
         </div>
       </div>

@@ -26,8 +26,8 @@ import { engineFamily } from "../utils/engineFamily";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
-import { objectBadge, routineKind } from "../utils/objectIcons";
-import { IconTools } from "./icons";
+import { routineKind } from "../utils/objectIcons";
+import { Icon, IconTools, ObjectIcon } from "./icons";
 import { t, locale } from "../utils/i18n";
 
 // A group folder's label is an i18n key ("tree.tables"); real object nodes carry
@@ -43,27 +43,14 @@ function isObjectLeaf(kind: TreeNode["kind"]): boolean {
   return kind === "routine" || kind === "trigger" || kind === "event";
 }
 
-// Badge for a tree node, resolved from the canonical icon set (#185). Object-type
-// folders (group) show a neutral count chip; a routine leaf refines its badge to
-// procedure/function from the type it was listed with.
-function nodeBadge(node: TreeNode): { text: string; className: string } {
-  if (node.kind === "routine") return objectBadge(routineKind(node.objType));
-  return objectBadge(node.kind);
+// Object kind whose icon a tree node shows (#185, #683). A routine leaf refines
+// it to procedure/function from the type it was listed with; a type folder
+// (Tablas/Vistas/…) shows the icon of what it holds, plus a right-aligned count.
+function nodeKind(node: TreeNode): string {
+  if (node.kind === "routine") return routineKind(node.objType);
+  if (node.kind === "group") return node.groupKind ?? "table";
+  return node.kind;
 }
-
-// Colored glyph for a type folder (Tablas/Vistas/…), matching the per-type
-// palette (design proposal, move 2). Folders show this icon + a right-aligned
-// count instead of a text badge, so the tree reads like a Navicat navigator.
-const FOLDER_ICONS: Record<string, string> = {
-  table: "▦",
-  view: "◈",
-  procedure: "▶",
-  function: "ƒ",
-  trigger: "⟲",
-  event: "◷",
-};
-const folderKind = (node: TreeNode): string => node.groupKind ?? "table";
-const folderGlyph = (node: TreeNode): string => FOLDER_ICONS[folderKind(node)] ?? "▸";
 
 // Lazy, virtualized object tree. Children of a container are fetched from the
 // core only when it is expanded (schema.tree), and the visible (expanded) nodes
@@ -763,7 +750,7 @@ export function ObjectTree(props: {
             onClick={() => props.onToggleCollapse!()}
           >
             <span class="objtree-caret" aria-hidden="true">
-              {props.collapsed ? "▸" : "▾"}
+              <Icon name={props.collapsed ? "chevron-right" : "chevron-down"} size={12} />
             </span>
             <Show when={props.accent}>
               <span class="conn-color" style={{ background: props.accent }} />
@@ -791,7 +778,7 @@ export function ObjectTree(props: {
               aria-label={t("tree.refresh")}
               onClick={() => props.onRefresh!()}
             >
-              ⟳
+              <Icon name="refresh" />
             </button>
           </Show>
           <Show when={props.connId && props.onDisconnect}>
@@ -804,7 +791,7 @@ export function ObjectTree(props: {
               aria-label={t("conn.disconnectOf", { name: props.title ?? "" })}
               onClick={() => props.onDisconnect!()}
             >
-              ⏏
+              <Icon name="disconnect" />
             </button>
           </Show>
         </div>
@@ -839,7 +826,7 @@ export function ObjectTree(props: {
           />
           <Show when={filter()}>
             <button class="objtree-filter-clear" title={t("tree.clearFilter")} aria-label={t("tree.clearFilter")} onClick={() => onFilterInput("")}>
-              ✕
+              <Icon name="close" size={12} />
             </button>
           </Show>
         </div>
@@ -908,24 +895,11 @@ export function ObjectTree(props: {
                     title={nodeLabel(node)}
                   >
                     <span class="objtree-caret" aria-hidden="true">
-                      {node.expandable ? (node.expanded ? "▾" : "▸") : ""}
+                      <Show when={node.expandable}>
+                        <Icon name={node.expanded ? "chevron-down" : "chevron-right"} size={12} />
+                      </Show>
                     </span>
-                    <Show
-                      when={node.kind === "group"}
-                      fallback={
-                        <span class={`objtree-badge ${nodeBadge(node).className}`}>
-                          {nodeBadge(node).text}
-                        </span>
-                      }
-                    >
-                      <span
-                        class="objtree-folder-ic"
-                        style={{ color: `var(--obj-${folderKind(node)})` }}
-                        aria-hidden="true"
-                      >
-                        {folderGlyph(node)}
-                      </span>
-                    </Show>
+                    <ObjectIcon kind={nodeKind(node)} size={15} />
                     <span class="objtree-label">{nodeLabel(node)}</span>
                     <Show when={node.kind === "group"}>
                       <span class="objtree-count">

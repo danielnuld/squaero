@@ -68,6 +68,7 @@ import {
 } from "../utils/cellColors";
 import type { CellKind } from "../utils/format";
 import { locale, setLocale, LOCALES, t } from "../utils/i18n";
+import { Icon } from "./icons";
 import { hasShellMenu } from "../utils/nativeMenu";
 
 // Settings + About panel (issue #181), opened as a tool tab. Fully controlled:
@@ -649,16 +650,17 @@ export function SettingsPanel(props: {
                               column that has gone invisible looks like a bug. */}
                           <Show when={!readable()}>
                             <span class="type-color-warn" title={t("settings.lowContrast")}>
-                              ⚠
+                              <Icon name="warning" size={14} />
                             </span>
                           </Show>
                           <Show when={props.cellColors[kind] !== undefined}>
                             <button
                               class="type-color-reset"
                               title={t("settings.resetColor", { kind: t(KIND_LABEL[kind]) })}
+                              aria-label={t("settings.resetColor", { kind: t(KIND_LABEL[kind]) })}
                               onClick={() => props.onSetCellColor(kind, null)}
                             >
-                              ⟲
+                              <Icon name="undo" size={14} />
                             </button>
                           </Show>
                         </div>
