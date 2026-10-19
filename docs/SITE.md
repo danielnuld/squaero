@@ -61,7 +61,7 @@ site/
   release.js          # versión, enlaces de descarga y SO detectado
   assets/             # isotipo y favicons (de assets/brand/)
   fonts/              # woff2 + licencias OFL
-  img/                # vista previa social y capturas del manual
+  img/                # vista previa social y capturas (AVIF, WebP y PNG)
   video/              # demo antigua (ya no la usa la landing; la regenera pnpm video)
   .nojekyll
 ```
@@ -117,8 +117,9 @@ con el mismo aspecto que en la app, y la tabla de atajos sigue
 `frontend/src/utils/shortcuts.ts`.
 
 Está **solo en español**; la versión EN se traduce cuando el contenido se
-estabilice. Las capturas (`../img/`) son las del diseño anterior hasta que #753
-traiga las del rediseño M14.
+estabilice. Cada captura va en su sección como `<figure>` con un `<picture>`
+(AVIF, WebP y el PNG de respaldo), `loading="lazy"`, `width`/`height` y un `alt`
+que dice lo que se ve.
 
 ## Editar y previsualizar
 
@@ -126,9 +127,15 @@ Edita el HTML directamente. Previsualiza con
 `python -m http.server -d site 8080` → http://localhost:8080 (abrir los archivos
 con `file://` también sirve, salvo la consulta a GitHub).
 
-Las capturas se **regeneran**, no se editan a mano: `cd frontend && pnpm media`
-(ver `frontend/e2e/media/screenshots.spec.ts`) y luego
-`cp assets/media/screenshot-*.png site/img/`.
+Las capturas se **regeneran**, no se editan a mano, con un solo comando:
+
+```
+docker start quaero-demo-mysql && cd frontend && pnpm media
+```
+
+Escribe los PNG en `assets/media/` (los usa el README) y sus copias AVIF/WebP/PNG
+en `site/img/` (`scripts/site-images.mjs`, con ffmpeg). Detalles y requisitos en
+[`frontend/e2e/README.md`](../frontend/e2e/README.md#media-capture).
 
 ## Publicar (sin Actions)
 
@@ -155,10 +162,9 @@ volver a enlazar con un `<video controls>` cuando haya una del rediseño.
 
 ## Pendiente
 
-- **#753** Capturas del rediseño M14 (landing y manual) y de los cuatro estilos.
+- Vídeo demo del rediseño (#753): `pnpm video` sigue grabando el flujo anterior.
 - Manual en inglés.
 - Lighthouse (#755) se midió a mano, en móvil y servido en local (Lighthouse
   12.6, octubre de 2026): landing ES y EN 98 / 100 / 100 / 100 (rendimiento,
   accesibilidad, buenas prácticas, SEO), manual 99 / 100 / 100 / 100, privacidad
-  100 en las cuatro. No hay un job que lo vigile. Las capturas del manual siguen
-  en PNG; pasarán a WebP/AVIF con las nuevas de #753.
+  100 en las cuatro. No hay un job que lo vigile.

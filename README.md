@@ -111,7 +111,10 @@ engine never touches the core. See [how to write a driver](docs/WRITING_A_DRIVER
   on-device model, filter a table by asking. Being prepared for the App Store.
 
 <p align="center">
-  <img src="assets/media/screenshot-initial-dark.png" alt="Squaero — initial screen" width="820">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/media/screenshot-main-quiet.png">
+    <img src="assets/media/screenshot-main-nativo.png" alt="Squaero — a query on a MySQL demo database, with the object tree and the result grid" width="820">
+  </picture>
 </p>
 
 ## Install

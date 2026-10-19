@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 // from playwright.config.ts: this is a release chore, not a test, and the test suite
 // should neither run it nor report it as skipped.
 //
-//   pnpm media        (needs the MySQL container: docker start quaero-my-test)
+//   pnpm media        (needs the demo MySQL: docker start quaero-demo-mysql)
 //
 // The viewport is the size the published images already are, so replacing them does
 // not reflow the README or the site's cards.
@@ -23,6 +23,13 @@ export default defineConfig({
     viewport: { width: 1360, height: 860 },
     // A fixed scale keeps the images the same pixel size on any machine.
     deviceScaleFactor: 1,
+    // The browser's own strings (a file input's "Choose File") in the language of
+    // the shots.
+    locale: "es-ES",
+    // The full Chromium, not the headless shell: the shell carries no locales
+    // and draws every native control in English.
+    channel: "chromium",
+    launchOptions: { args: ["--lang=es-ES"] },
   },
 
   webServer: {

@@ -2846,6 +2846,27 @@ export function App() {
     showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
   };
 
+  // A data tab's extra entries in the result toolbar's Más menu: the editor
+  // actions it has no bar of its own for. A function rather than a conditional
+  // inline in the JSX prop: Solid compiles an inline ternary there into a memo
+  // owned by the tab's <Show>, which re-ran when a menu action switched to
+  // another tab and threw "Stale read from <Show>" — so every Más action that
+  // opens a tool (Transferir, Sincronizar…) did nothing.
+  const dataTabMoreItems = (tabId: number): MenuItem[] | undefined =>
+    isDataTab(tabId)
+      ? [
+          { label: t("editor.plan"), action: explainActive },
+          {
+            label: t("editor.history"),
+            action: () => showTool("history", t("editor.history"), { key: "history" }),
+          },
+          {
+            label: t("editor.snippets"),
+            action: () => showTool("snippets", t("editor.snippets"), { key: "snippets" }),
+          },
+        ]
+      : undefined;
+
   // EXPLAIN an arbitrary statement (e.g. a slow query, issue #180) as a visual plan.
   const explainSql = (sql: string) => showExplainPlan(sql);
 
@@ -5197,21 +5218,7 @@ export function App() {
                           : undefined
                       }
                       /* A data tab has no editor bar to hold these (issue #386). */
-                      moreItems={
-                        isDataTab(tab().id)
-                          ? [
-                              { label: t("editor.plan"), action: explainActive },
-                              {
-                                label: t("editor.history"),
-                                action: () => showTool("history", t("editor.history"), { key: "history" }),
-                              },
-                              {
-                                label: t("editor.snippets"),
-                                action: () => showTool("snippets", t("editor.snippets"), { key: "snippets" }),
-                              },
-                            ]
-                          : undefined
-                      }
+                      moreItems={dataTabMoreItems(tab().id)}
                     />
                   </Show>
                   <Show when={currentEdit().preview}>

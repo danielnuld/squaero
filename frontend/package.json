@@ -15,7 +15,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:install": "playwright install chromium",
-    "media": "playwright test --config=playwright.media.config.ts screenshots.spec.ts",
+    "media": "playwright test --config=playwright.media.config.ts screenshots.spec.ts && node ../scripts/site-images.mjs",
     "visual": "playwright test --config=playwright.visual.config.ts",
     "visual:update": "playwright test --config=playwright.visual.config.ts --update-snapshots",
     "video": "playwright test --config=playwright.media.config.ts video.spec.ts && node e2e/media/build-video.mjs"

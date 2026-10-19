@@ -23,11 +23,9 @@ difusión.
 | Archivo | Uso | Estado |
 |---|---|---|
 | `social-preview.png` (1280×640) | Social preview de GitHub + hero del README/landing. | ✅ Final |
+| `screenshot-main-{nativo,quiet,editorial,rosa}.png` (1360×860) | La ventana de trabajo (árbol + editor + resultado) en cada estilo de M14. README (B claro, A oscuro). | ✅ |
+| `screenshot-*.png` restantes (1360×860) | Una por sección del manual (editor, modo seguro, transacción, datos, herramientas, comparar esquemas…). Datos de demostración. | ✅ |
 | `social-preview.html` | Fuente editable del banner (self-contained; ver cómo regenerar abajo). | ✅ Fuente |
-| `screenshot-initial-dark.png` (1280×800) | Captura oficial de la pantalla inicial (tema oscuro). | ✅ |
-| `screenshot-app-dark.png` / `screenshot-app-light.png` (1360×860) | App real: explorador por tipo + editor SQL + rejilla con datos. Ambos temas. Showcase de la landing (#202). Datos de demostración (ficticios). | ✅ |
-| `screenshot-{er,builder,monitor,charts,users}.png` (1360×860) | Capturas por módulo (Diagrama ER, constructor visual, monitor, gráficos, usuarios). Galería de la landing (#202). Datos de demostración. | ✅ |
-| Módulos restantes (triggers, rutinas, import/export, detalle de fila…) | README/landing. | ⏳ Pendiente |
 
 ## Configurar el social preview en GitHub
 
@@ -51,32 +49,12 @@ msedge --headless --disable-gpu --force-device-scale-factor=1 \
 
 (Sirve cualquier navegador headless o rasterizador HTML equivalente.)
 
-## Checklist de encuadre para las capturas curadas
+## Capturas de la app
 
-Para mantener el set homogéneo entre versiones, capturar **todas** con el mismo
-marco:
-
-- **Resolución:** ventana **1280×800**, factor de escala 1, sin barras de
-  desplazamiento (`--hide-scrollbars`). Recortar exactamente a la ventana.
-- **Temas:** cada pantalla en **oscuro y claro** (alternar con el botón de tema
-  de la barra de estado). Mismo estado/datos en ambas.
-- **Datos:** usar una base de datos de demo con datos realistas pero neutros
-  (p.ej. `shop`: `customers`, `orders`, `products`), nunca datos sensibles.
-- **Idioma de la UI:** español (por defecto).
-- **Cursor y menús:** sin menús contextuales abiertos ni tooltips a medias,
-  salvo que la captura sea específicamente de esa función.
-
-Pantallas a incluir (una por función, oscuro + claro):
-
-1. **Editor + grid** con una consulta ejecutada y resultados (la pantalla estrella).
-2. **Diagrama ER** con varias tablas y relaciones.
-3. **Constructor visual de consultas** con condiciones y vista previa del SQL.
-4. **Monitor de servidor** con la lista de procesos.
-5. **Árbol de objetos agrupado** (Tablas/Vistas/Procedimientos…) expandido.
-
-> Las capturas 1–5 requieren datos reales; se toman contra un servidor de demo
-> ejecutando la app real (ver [quaero-local-run] / la skill `run`). Nombrarlas
-> `screenshot-<pantalla>-<tema>.png` (p.ej. `screenshot-editor-grid-dark.png`).
+No se toman a mano: `cd frontend && pnpm media` las regenera todas contra la base
+de demostración (`e2e/support/demo.ts`), en español, a 1360×860 y escala 1, y
+escribe sus copias AVIF/WebP en `site/img/`. El detalle está en
+[`frontend/e2e/README.md`](../../frontend/e2e/README.md#media-capture).
 
 ## GIF/webm del flujo principal (opcional)
 
