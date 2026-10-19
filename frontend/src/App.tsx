@@ -851,8 +851,7 @@ export function App() {
   const shortcuts = createMemo(() => effectiveShortcuts(shortcutOverrides()));
   /** An action's binding as the user reads it, or undefined when it has none. */
   const shortcutKeys = (id: ActionId): string | undefined => {
-    const keys = shortcuts().find((x) => x.id === id)?.keys;
-    return keys ? displayKeys(keys, isMac()) : undefined;
+    return keysOf(id, shortcuts(), currentOs()) || undefined;
   };
   const setShortcutOverrides = (o: ShortcutOverrides) => {
     setShortcutOverridesSignal(o);

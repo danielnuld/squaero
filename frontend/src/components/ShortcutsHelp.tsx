@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 import { SHORTCUTS, formatKeys, keyParams, shortcutText, type ActionId, type Shortcut } from "../utils/shortcuts";
 import { SHORTCUT_GROUPS, groupShortcuts, type ShortcutGroup } from "../utils/shortcutGroups";
+import type { Os } from "../utils/dialog";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 
@@ -21,7 +22,7 @@ export function ShortcutsHelp(props: {
   onCustomize?: () => void;
   onClose: () => void;
 }) {
-  const os = () => (props.isMac ? "macos" : "windows") as const;
+  const os = (): Os => (props.isMac ? "macos" : "windows");
   const [query, setQuery] = createSignal("");
   const [group, setGroup] = createSignal<ShortcutGroup | "all">("all");
   const groups = () =>

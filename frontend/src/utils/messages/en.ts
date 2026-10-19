@@ -203,7 +203,7 @@ export const en: Record<string, string> = {
   "vars.hintOne": "The statement has 1 variable. Values are remembered in this tab.",
   "vars.hintMany": "The statement has {n} variables. Values are remembered in this tab.",
   "vars.quotes": "Text is sent as parameters: no quotes needed.",
-  "vars.keys": "Enter runs · Esc cancels",
+  "vars.keys": "{enter} runs · {esc} cancels",
   "vars.valueHint": "value",
   "vars.rawHint": "text, as typed",
   "vars.button": "Variables",
@@ -263,7 +263,7 @@ export const en: Record<string, string> = {
   "complete.kind.join": "condition",
   "complete.tableInfo": "table · {n} columns",
   "complete.tableInfoOne": "table · 1 column",
-  "complete.footer": "↑ ↓ move · Enter or Tab insert · Esc close",
+  "complete.footer": "↑ ↓ move · {enter} or {tab} insert · {esc} close",
   // open and save the editor SQL as a file (#553)
   "editor.openFile": "Open .sql",
   "editor.openFileTitle": "Open a .sql file in a new tab",

@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 
 import { t } from "../utils/i18n";
+import { keyParams } from "../utils/shortcuts";
 import { Dialog } from "./Dialog";
 import type { SqlVariable, VarValue, VarValues } from "../utils/sqlVariables";
 
@@ -56,7 +57,7 @@ export function VariablesDialog(props: {
       class="vars-dialog"
       onCancel={props.onCancel}
       primary={{ label: t("editor.run"), onClick: run }}
-      helpers={<span class="help">{t("vars.keys")}</span>}
+      helpers={<span class="help">{t("vars.keys", keyParams({ enter: "Enter", esc: "Esc" }))}</span>}
     >
       <p class="vars-hint">
         {props.variables.length === 1

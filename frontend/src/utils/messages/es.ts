@@ -206,7 +206,7 @@ export const es: Record<string, string> = {
   "vars.hintOne": "La sentencia lleva 1 variable. Los valores se recuerdan en esta pestaña.",
   "vars.hintMany": "La sentencia lleva {n} variables. Los valores se recuerdan en esta pestaña.",
   "vars.quotes": "Los textos se envían como parámetros: no hace falta poner comillas.",
-  "vars.keys": "Intro ejecutar · Esc cancelar",
+  "vars.keys": "{enter} ejecutar · {esc} cancelar",
   "vars.valueHint": "valor",
   "vars.rawHint": "texto, tal cual",
   "vars.button": "Variables",
@@ -266,7 +266,7 @@ export const es: Record<string, string> = {
   "complete.kind.join": "condición",
   "complete.tableInfo": "tabla · {n} columnas",
   "complete.tableInfoOne": "tabla · 1 columna",
-  "complete.footer": "↑ ↓ moverse · Intro o Tab insertar · Esc cerrar",
+  "complete.footer": "↑ ↓ moverse · {enter} o {tab} insertar · {esc} cerrar",
   // abrir y guardar el SQL del editor como archivo (#553)
   "editor.openFile": "Abrir .sql",
   "editor.openFileTitle": "Abrir un archivo .sql en una pestaña nueva",

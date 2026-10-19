@@ -639,7 +639,7 @@ describe("SettingsPanel — M14 rows", () => {
     clickChip("Retomar la sesión");
     expect(onSetSettings).toHaveBeenCalledWith({ startup: "resume" });
     goto("Editor");
-    expect(host!.textContent).toContain("Ctrl+Enter ejecuta");
+    expect(host!.textContent).toContain("Ctrl+Intro ejecuta");
     clickChip("Script completo");
     expect(onSetSettings).toHaveBeenCalledWith({ runKeyScope: "script" });
     const box = [...host!.querySelectorAll<HTMLLabelElement>(".settings-check")].find((l) =>
@@ -694,11 +694,11 @@ describe("SettingsPanel — navigation, shortcuts list and About (M14)", () => {
     goto("Atajos de teclado");
     expect([...host!.querySelectorAll(".shortcuts-group h4")].map((h) => h.textContent)).toContain("Pestañas");
     const input = host!.querySelector<HTMLInputElement>(".settings-section .shortcuts-search")!;
-    input.value = "cerrar la pestaña";
+    input.value = "cerrar la pestaña activa";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     const rows = [...host!.querySelectorAll(".settings-shortcuts tr")];
     expect(rows).toHaveLength(1);
-    (rows[0].querySelector('[aria-label^="Dejar sin atajo"]') as HTMLButtonElement).click();
+    (rows[0].querySelector('[aria-label^="Quitar el atajo"]') as HTMLButtonElement).click();
     expect(onSetShortcutOverrides).toHaveBeenCalledWith({ "close-tab": "" });
   });
 
