@@ -50,7 +50,7 @@ describe("styles.css scales", () => {
   it("defines every scale it claims", () => {
     for (const token of [
       "--sp-1", "--sp-2", "--sp-3", "--sp-4", "--sp-5", "--sp-6",
-      "--r-sm", "--r-md", "--r-pill",
+      "--r-sm", "--r-md", "--r-lg", "--r-pill",
       "--fs-micro", "--fs-sm", "--fs-base", "--fs-md", "--fs-lg",
       "--h-micro", "--h-sm", "--h-md",
       "--band-sm", "--band-md", "--band-lg",
@@ -73,7 +73,7 @@ describe("styles.css scales", () => {
 
   it("rounds every corner from the radius scale", () => {
     const literals = declarations(RULES, "border-radius").filter(
-      (v) => !/^(0|(var\(--r-(sm|md|pill)\)\s*)+0?\s*0?)$/.test(v),
+      (v) => !/^(0|(var\(--r-(sm|md|lg|pill)\)\s*)+0?\s*0?)$/.test(v),
     );
     expect(literals).toEqual([]);
   });

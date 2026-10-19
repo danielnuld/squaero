@@ -5571,6 +5571,7 @@ export function App() {
                     onSetThemeId={setThemeChoice}
                     onImportTheme={importTheme}
                     onRemoveTheme={removeTheme}
+                    resolvedMode={resolved()}
                     historyLimit={historyLimit()}
                     onSetHistoryLimit={changeHistoryLimit}
                     settings={settings()}

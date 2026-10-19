@@ -100,7 +100,7 @@ describe("config bundle", () => {
       settings: { ...DEFAULT_SETTINGS, zoom: 150 },
       shortcuts: {},
       theme: "system",
-      themeId: "indigo",
+      themeId: "nativo",
       historyLimit: DEFAULT_HISTORY_LIMIT,
       locale: null,
     });
@@ -119,7 +119,7 @@ describe("config bundle", () => {
     expect(parsed.settings.zoom).toBe(DEFAULT_SETTINGS.zoom);
     expect(parsed.shortcuts).toEqual({});
     expect(parsed.theme).toBe("system");
-    expect(parsed.themeId).toBe("indigo");
+    expect(parsed.themeId).toBe("nativo");
     expect(parsed.historyLimit).toBe(10);
     expect(parsed.locale).toBeNull();
   });

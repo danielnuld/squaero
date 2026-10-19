@@ -33,7 +33,8 @@ const LEGACY_DARK_ONLY = ["ciruela", "pizarra", "terminal"];
  * are paired with the default light palette now, so a user who had one of them
  * is moved to dark mode: that IS what they were seeing (the preference was
  * overridden), and keeping their preference would change the app's look on the
- * day of the update. Unknown or absent → the brand default, mode untouched.
+ * day of the update. Unknown or absent → the default (B · Nativo since #747),
+ * mode untouched. A theme id already stored is never touched (loadThemeChoice).
  */
 export function migrateLegacyChoice(skin: string | null | undefined, mode: ThemePref): ThemeChoice {
   if (typeof skin !== "string" || !isBuiltinTheme(skin)) return { themeId: DEFAULT_THEME_ID, mode };
