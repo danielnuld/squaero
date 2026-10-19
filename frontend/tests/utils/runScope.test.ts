@@ -9,6 +9,7 @@ import {
   type RunInfo,
   isCommentOnly,
   runnableStatements,
+  keyRunScope,
   firstWrite,
 } from "../../src/utils/runScope";
 
@@ -427,5 +428,25 @@ describe("firstWrite (M14 run menu warning)", () => {
   it("counts a WITH that wraps a write, and DDL", () => {
     expect(firstWrite("WITH x AS (SELECT 1) DELETE FROM t")!.verb).toBe("WITH");
     expect(firstWrite("CREATE TABLE t (a int)")!.verb).toBe("CREATE");
+  });
+});
+
+describe("Ctrl+Intro ejecuta… (Ajustes › Editor)", () => {
+  const info: RunInfo = { hasSelection: false, statement: { first: 1, last: 1 }, statements: 3 };
+  it("runs the selection first, then the statement or the script as chosen", () => {
+    expect(keyRunScope(true, "script")).toBe("selection");
+    expect(keyRunScope(false)).toBe("statement");
+    expect(keyRunScope(false, "script")).toBe("document");
+  });
+
+  it("names the script on the button and checks it in the menu with Ctrl+Enter", () => {
+    expect(runButtonLabel(info, "script")).toBe("editor.runScript");
+    expect(runButtonLabel({ ...info, hasSelection: true }, "script")).toBe("editor.runSelection");
+    const choices = runChoices(info, "script");
+    expect(choices.map((c) => [c.scope, c.current, c.keys])).toEqual([
+      ["statement", false, ""],
+      ["selection", false, ""],
+      ["document", true, "Mod+Enter"],
+    ]);
   });
 });

@@ -2249,6 +2249,19 @@ export function App() {
   // Sequentially, because onConnect refuses a second open while one is in
   // flight; the active tab's connection is opened last (restoreConnIds), so the
   // focus ends where the user left it.
+  // «Al abrir Squaero» (Ajustes › General): resume without asking, or start
+  // blank — the saved session then waits, as after «Ahora no», until new work
+  // takes its place. «Preguntar» keeps the offer.
+  onMount(() => {
+    if (!pendingRestore()) return;
+    const mode = settings().startup;
+    if (mode === "resume") void resumeSession();
+    else if (mode === "blank") {
+      setRestoreDeferred(true);
+      setPendingRestore(null);
+    }
+  });
+
   const resumeSession = async () => {
     const saved = pendingRestore();
     setPendingRestore(null);
@@ -5829,6 +5842,8 @@ export function App() {
                     onFormat={() => setFormatTick((n) => n + 1)}
                     moreItems={(e) => editorMoreItems(e, tab())}
                     manual={txOf(tabConn(tab())).manual}
+                    keyScope={settings().runKeyScope}
+                    minimal={!settings().docBar}
                     onUseManual={
                       tabConn(tab()) && !txUnsupported(tabConn(tab()))
                         ? () => toggleTxMode(tabConn(tab()))
@@ -5924,6 +5939,8 @@ export function App() {
                     onGoToObject={(target) => void goToObject(target)}
                     templates={editorTemplates()}
                     onLocalHistory={() => openLocalHistory(tab().id)}
+                    keyScope={settings().runKeyScope}
+                    highlightRun={settings().highlightRun}
                   />
                   </Show>
                 </div>

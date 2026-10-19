@@ -32,6 +32,10 @@ export function EditorToolbar(props: {
   tx?: JSX.Element;
   /** The «Más» menu; gets the click so an entry can open a menu of its own there. */
   moreItems: (e: MouseEvent) => MenuItem[];
+  /** What Ctrl/Cmd+Enter runs with nothing selected (Ajustes › Editor). */
+  keyScope?: "statement" | "script";
+  /** «Barra del documento» off (R-40): only the connection, Ejecutar and Más. */
+  minimal?: boolean;
   /** The connection runs in manual transaction mode: nothing commits on its own. */
   manual?: boolean;
   /** Switches the connection to manual mode; absent when it has no transactions. */
@@ -43,7 +47,7 @@ export function EditorToolbar(props: {
   // the script writes and each statement commits on its own, a warning that
   // says which statement and offers manual mode (M14 EditorRunMenu).
   const scopeMenu = (e: MouseEvent) => {
-    const items: MenuItem[] = runChoices(props.info).map((c) => ({
+    const items: MenuItem[] = runChoices(props.info, props.keyScope).map((c) => ({
       label: t(c.label),
       hint: [t(c.hint.key, c.hint.params), keys(c.keys)].filter(Boolean).join(" · "),
       disabled: c.disabled,
@@ -97,10 +101,10 @@ export function EditorToolbar(props: {
           <span class="editor-run">
             <button
               class="edit-btn edit-btn-primary editor-run-main"
-              title={t(props.info.hasSelection ? "editor.runSelectionTitle" : "editor.runStatementTitle", { keys: keys("Mod+Enter")! })}
+              title={t(`${runButtonLabel(props.info, props.keyScope)}Title`, { keys: keys("Mod+Enter")! })}
               onClick={() => props.onRun()}
             >
-              <Icon name="play" size={14} class="eb-ic" /> {t(runButtonLabel(props.info))}
+              <Icon name="play" size={14} class="eb-ic" /> {t(runButtonLabel(props.info, props.keyScope))}
             </button>
             <button
               class="edit-btn edit-btn-primary editor-run-scope"
@@ -123,13 +127,15 @@ export function EditorToolbar(props: {
           <Icon name="stop" size={14} class="eb-ic" /> {t("editor.stop")}
         </button>
       </Show>
-      <span class="toolbar-sep" aria-hidden="true" />
-      <button class="edit-btn" title={t("editor.formatTitle", { keys: keys("Mod+Shift+F")! })} onClick={() => props.onFormat()}>
-        <Icon name="format" size={14} class="eb-ic" /> {t("editor.format")}
-      </button>
-      <Show when={props.tx}>
+      <Show when={!props.minimal}>
         <span class="toolbar-sep" aria-hidden="true" />
-        {props.tx}
+        <button class="edit-btn" title={t("editor.formatTitle", { keys: keys("Mod+Shift+F")! })} onClick={() => props.onFormat()}>
+          <Icon name="format" size={14} class="eb-ic" /> {t("editor.format")}
+        </button>
+        <Show when={props.tx}>
+          <span class="toolbar-sep" aria-hidden="true" />
+          {props.tx}
+        </Show>
       </Show>
       <span class="toolbar-spacer" />
       <button

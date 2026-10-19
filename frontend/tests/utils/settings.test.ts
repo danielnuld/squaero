@@ -12,6 +12,8 @@ import {
   MAX_LOCAL_VERSIONS,
   MAX_LOCAL_DAYS,
   migrateDensity,
+  cleanNullText,
+  MAX_NULL_TEXT,
 } from "../../src/utils/settings";
 
 describe("clampSlowThreshold", () => {
@@ -28,13 +30,11 @@ describe("clampSlowThreshold", () => {
 });
 
 describe("rowHeightFor (per style and density, issue #540)", () => {
-  it("gives each style its own pair of heights", () => {
-    expect(rowHeightFor("registro", "comfortable")).toBe(28);
-    expect(rowHeightFor("registro", "compact")).toBe(24);
-    expect(rowHeightFor("hoja", "comfortable")).toBe(22);
-    expect(rowHeightFor("hoja", "compact")).toBe(20);
-    expect(rowHeightFor("informe", "comfortable")).toBe(32);
-    expect(rowHeightFor("informe", "compact")).toBe(28);
+  it("takes the height from the density alone, whatever the style (R-40)", () => {
+    for (const style of ["registro", "hoja", "informe"] as const) {
+      expect(rowHeightFor(style, "comfortable")).toBe(28);
+      expect(rowHeightFor(style, "compact")).toBe(24);
+    }
   });
 
   // A virtualized list punishes a mismatch: rows that measure one thing and
@@ -226,7 +226,38 @@ describe("parseSettings typography (issue #681)", () => {
   it("rowHeightFor grows with the scale and stays whole", () => {
     expect(rowHeightFor("registro", "comfortable", 1)).toBe(28);
     expect(rowHeightFor("registro", "comfortable", 1.25)).toBe(35);
-    expect(rowHeightFor("hoja", "compact", 0.8)).toBe(16);
-    expect(rowHeightFor("informe", "comfortable", 1.1)).toBe(35);
+    expect(rowHeightFor("hoja", "compact", 0.8)).toBe(19);
+    expect(rowHeightFor("informe", "comfortable", 1.1)).toBe(31);
+  });
+});
+
+describe("M14 settings: startup, run key, highlight, numbers, NULL, header, document bar", () => {
+  it("defaults keep today's behaviour", () => {
+    expect(DEFAULT_SETTINGS).toMatchObject({
+      startup: "ask",
+      runKeyScope: "statement",
+      highlightRun: true,
+      numberFormat: "raw",
+      nullText: "NULL",
+      headerTypes: true,
+      docBar: true,
+    });
+  });
+
+  it("reads valid values and drops unknown ones", () => {
+    const s = parseSettings(
+      JSON.stringify({ startup: "resume", runKeyScope: "script", highlightRun: false, numberFormat: "regional", headerTypes: false, docBar: false }),
+    );
+    expect(s).toMatchObject({ startup: "resume", runKeyScope: "script", highlightRun: false, numberFormat: "regional", headerTypes: false, docBar: false });
+    const bad = parseSettings(JSON.stringify({ startup: "later", runKeyScope: 1, numberFormat: "fancy", docBar: "no" }));
+    expect(bad).toMatchObject({ startup: "ask", runKeyScope: "statement", numberFormat: "raw", docBar: true });
+  });
+
+  it("cleans the NULL text: trimmed, bounded, never blank", () => {
+    expect(cleanNullText("  (nulo) ")).toBe("(nulo)");
+    expect(cleanNullText("")).toBe("NULL");
+    expect(cleanNullText(42)).toBe("NULL");
+    expect(cleanNullText("x".repeat(40))).toHaveLength(MAX_NULL_TEXT);
+    expect(parseSettings(JSON.stringify({ nullText: "   " })).nullText).toBe("NULL");
   });
 });

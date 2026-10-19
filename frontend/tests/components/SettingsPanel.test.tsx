@@ -168,12 +168,12 @@ describe("SettingsPanel", () => {
     expect(onSetSettings).toHaveBeenCalledWith({ gridStyle: "hoja" });
   });
 
-  // The names alone say nothing: "Informe" does not announce that it will group
-  // thousands, which is the part worth warning about.
+  // The names alone say nothing: "Informe" does not announce that it writes
+  // dates out, which is the part worth warning about.
   it("describes the style that is selected, and follows the selection", () => {
     mount({ settings: { ...DEFAULT_SETTINGS, gridStyle: "informe" } });
     goto("Rejilla");
-    expect(host!.textContent).toMatch(/Separa los miles/);
+    expect(host!.textContent).toMatch(/fechas como «14 feb 2023»/);
 
     dispose?.();
     host?.remove();
@@ -623,5 +623,46 @@ describe("SettingsPanel — themes", () => {
     expect(onImportTheme).toHaveBeenCalledTimes(1);
     expect(host!.textContent).toContain("«Mine» tiene pares por debajo de WCAG AA:");
     expect(host!.textContent).toMatch(/dark: --text-dim sobre --bg da [\d.]+:1 \(mínimo 4.5:1\)/);
+  });
+});
+
+describe("SettingsPanel — M14 rows", () => {
+  it("sets what happens on opening, what Ctrl+Intro runs and the highlight", () => {
+    const onSetSettings = vi.fn();
+    mount({ onSetSettings });
+    goto("General");
+    clickChip("Retomar la sesión");
+    expect(onSetSettings).toHaveBeenCalledWith({ startup: "resume" });
+    goto("Editor");
+    expect(host!.textContent).toContain("Ctrl+Enter ejecuta");
+    clickChip("Script completo");
+    expect(onSetSettings).toHaveBeenCalledWith({ runKeyScope: "script" });
+    const box = [...host!.querySelectorAll<HTMLLabelElement>(".settings-check")].find((l) =>
+      l.textContent?.includes("Resaltar lo que se va a ejecutar"),
+    )!;
+    box.querySelector("input")!.click();
+    expect(onSetSettings).toHaveBeenCalledWith({ highlightRun: false });
+  });
+
+  it("sets the number format, the NULL text and the header's type line", () => {
+    const onSetSettings = vi.fn();
+    mount({ onSetSettings });
+    goto("Rejilla");
+    expect(host!.textContent).toContain("sin separador de miles");
+    clickChip("Formato regional");
+    expect(onSetSettings).toHaveBeenCalledWith({ numberFormat: "regional" });
+    const input = [...host!.querySelectorAll<HTMLLabelElement>(".settings-row")]
+      .find((l) => l.textContent?.startsWith("Texto de NULL"))!
+      .querySelector("input")!;
+    input.value = "  (nulo) ";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(onSetSettings).toHaveBeenCalledWith({ nullText: "(nulo)" });
+    expect(host!.textContent).toContain("Mostrar el tipo bajo el nombre de la columna");
+  });
+
+  it("finds the new rows by their words", () => {
+    mount();
+    search("barra del documento");
+    expect(headings()).toEqual(["Ventana"]);
   });
 });

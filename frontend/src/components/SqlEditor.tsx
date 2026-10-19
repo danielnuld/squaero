@@ -1,4 +1,4 @@
-import { onCleanup, onMount, createEffect, createMemo } from "solid-js";
+import { onCleanup, onMount, createEffect, createMemo, on } from "solid-js";
 import { keyLabel } from "../utils/shortcuts";
 import { EditorState, Compartment, RangeSet, StateEffect, StateField, type Text } from "@codemirror/state";
 import {
@@ -58,6 +58,8 @@ import {
   errorOffset,
   pickRunTarget,
   firstWrite,
+  keyRunScope,
+  runButtonLabel,
   runnableStatements,
   statementAt,
   type RunInfo,
@@ -309,6 +311,11 @@ export function SqlEditor(props: {
   /** Templates in force (issue #665): an abbreviation + Tab, or picking it from
       the completion list, expands it with Tab-navigable placeholders. */
   templates?: SqlTemplate[];
+  /** What Ctrl/Cmd+Enter runs with nothing selected (Ajustes › Editor):
+      the statement under the cursor (default) or the whole script. */
+  keyScope?: "statement" | "script";
+  /** Highlight the statement the next run will execute; on unless false. */
+  highlightRun?: boolean;
   /** Opens this tab's local history (issue #674); the menu offers it when given. */
   onLocalHistory?: () => void;
 }) {
@@ -347,6 +354,8 @@ export function SqlEditor(props: {
     // Highlighted only when it tells something: a selection is already shown,
     // and a lone statement is the whole editor.
     const marks =
+      props.highlightRun !== false &&
+      props.keyScope !== "script" &&
       info.statement && !info.hasSelection && info.statements > 1
         ? lineMarks(state.doc, info.statement.first, info.statement.last, runLine, runGutter)
         : noMarks;
@@ -522,7 +531,8 @@ export function SqlEditor(props: {
     if (!view) return;
     const { doc, selection } = view.state;
     const { from, to } = selection.main;
-    const target = pickRunTarget(doc.toString(), from, to, scope, props.dialect);
+    const want = scope ?? keyRunScope(from !== to, props.keyScope);
+    const target = pickRunTarget(doc.toString(), from, to, want, props.dialect);
     props.onRun(target.text, target.scope);
   };
 
@@ -714,6 +724,16 @@ export function SqlEditor(props: {
   // Toolbar Run requests arrive as a bumped counter and run what was asked —
   // without a scope, exactly what Ctrl/Cmd+Enter would. The editor keeps its
   // selection when focus moves to the button, so runFromView still sees it.
+  // A change of what is highlighted (Ajustes › Editor) redraws the marks now:
+  // the field only recomputes on an edit or a cursor move.
+  createEffect(
+    on(
+      () => [props.highlightRun, props.keyScope],
+      () => view?.dispatch({ selection: view.state.selection }),
+      { defer: true },
+    ),
+  );
+
   let lastRunTick = props.runRequest?.tick ?? 0;
   createEffect(() => {
     const req = props.runRequest;
@@ -834,7 +854,7 @@ export function SqlEditor(props: {
     return [
       { label: t("editor.format"), action: doFormat, disabled: !hasText },
       {
-        label: hasSelection ? t("editor.runSelection") : t("editor.runStatement"),
+        label: t(runButtonLabel({ hasSelection, statement: null, statements: 0 }, props.keyScope)),
         action: () => runFromView(),
         disabled: !hasText,
       },
