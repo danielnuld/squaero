@@ -2,7 +2,7 @@ import { Show, createSignal, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
-import { drainQuery, QueryError } from "../utils/query";
+import { drainQuery, QueryError, type ResultSet } from "../utils/query";
 import { qualifiedName } from "../utils/schema";
 import { openSaved, closeConnection } from "../utils/conn";
 import { runPlanItem, txBegin, txCommit, txRollback, type EditTarget } from "../utils/edit";
@@ -16,6 +16,11 @@ import { Dropdown } from "./Dropdown";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Wizard, WizardField } from "./Wizard";
 import { countText } from "../utils/confirmText";
+import { diffRows, equalCount, type DiffRow } from "../utils/dataDiffRows";
+import { TablePreview } from "./TablePreview";
+import { RunProgress } from "./RunProgress";
+import { copyText } from "../utils/rowCopy";
+import { Icon } from "./icons";
 
 // Rows per page while reading each whole table.
 const PAGE = 5000;
@@ -47,6 +52,12 @@ export function DataDiffWizard(props: {
   const [ops, setOps] = createStore<SyncOps>({ ...DEFAULT_SYNC_OPS });
   const [counts, setCounts] = createSignal({ inserts: 0, updates: 0, deletes: 0, source: 0, target: 0 });
   const [preview, setPreview] = createSignal<string[]>([]);
+  /** The review grid: one line per change, and the source rows left as they are. */
+  const [changes, setChanges] = createSignal<DiffRow[]>([]);
+  const [equal, setEqual] = createSignal(0);
+  /** The apply in flight: how many operations are done, for the progress view. */
+  const [applying, setApplying] = createSignal<{ startedAt: number; done: number } | null>(null);
+  let applyCtl: AbortController | null = null;
   const [busy, setBusy] = createSignal(false);
   const [progress, setProgress] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
@@ -71,6 +82,7 @@ export function DataDiffWizard(props: {
   };
   onCleanup(() => {
     reading?.abort();
+    applyCtl?.abort();
     closeTarget();
   });
 
@@ -124,7 +136,8 @@ export function DataDiffWizard(props: {
         (n) => setProgress(t("ddiff.readingTarget", { n })),
         ctl.signal,
       );
-      const diff = pickOps(diffData(src, tgt, props.pk), { ...ops });
+      const full = diffData(src, tgt, props.pk);
+      const diff = pickOps(full, { ...ops });
       const types = Object.fromEntries(src.columns.map((c) => [c.name, c.type]));
       const items = diffToPlan(diff, types);
       // Gather the exact SQL for each op (preview) on the target.
@@ -136,6 +149,9 @@ export function DataDiffWizard(props: {
         sqls.push(r.sql);
       }
       setPreview(sqls);
+      setChanges(diffRows(diff, tgt, props.pk, src.columns.map((c) => c.name)));
+      // Equal means equal in the whole comparison, not only among the ticked kinds.
+      setEqual(equalCount(src.rows.length, full));
       setCounts({ ...dataDiffCounts(diff), source: src.rows.length, target: tgt.rows.length });
       setPlanTarget({ name: def.name, ref: refOf(def.driver, targetDb() || undefined), target: target() });
       setPlan(items);
@@ -151,38 +167,66 @@ export function DataDiffWizard(props: {
 
   const apply = async () => {
     const items = plan();
-    if (!items || items.length === 0 || !targetConnId) return;
+    // A read-only target only gets the script (audit P1).
+    if (!items || items.length === 0 || !targetConnId || readOnly()) return;
     const connId = targetConnId;
-    setBusy(true);
+    const ctl = new AbortController();
+    applyCtl = ctl;
     setConfirmError(null);
+    setError(null);
     try {
       await withWriteConsent(connId, preview(), async () => {
+        setConfirming(false);
+        setApplying({ startedAt: Date.now(), done: 0 });
         await txBegin(connId);
         try {
-          for (const item of items) {
+          for (const [i, item] of items.entries()) {
+            ctl.signal.throwIfAborted();
             await runPlanItem(connId, planTarget().target, item, false);
+            setApplying((a) => a && { ...a, done: i + 1 });
           }
           await txCommit(connId);
-          setApplied(t("ddiff.applied", { n: items.length }));
+          setApplied(countText("ddiff.appliedN", items.length, { target: planTarget().name }));
           setPlan(null);
-          setConfirming(false);
         } catch (err) {
           await txRollback(connId).catch(() => {});
           throw err;
         }
       });
     } catch (err) {
-      setConfirmError(t("ssync.applyError", { reason: errMsg(err) }));
+      setError(ctl.signal.aborted ? t("ddiff.applyCancelled") : t("ssync.applyError", { reason: errMsg(err) }));
     } finally {
-      setBusy(false);
+      if (applyCtl === ctl) applyCtl = null;
+      setApplying(null);
     }
   };
 
-  // 0 what to compare, 1 the operations and their SQL, 2 applied.
-  const step = () => (applied() ? 2 : plan() ? 1 : 0);
+  /** The change lines as the shared grid's result: operation, key, column, now → then. */
+  const changesResult = (): ResultSet => ({
+    columns: [
+      { name: t("ddiff.col.op"), type: "text" },
+      ...props.pk.map((name) => ({ name, type: "text" })),
+      { name: t("ddiff.col.column"), type: "text" },
+      { name: t("ddiff.col.from"), type: "text" },
+      { name: t("ddiff.col.to"), type: "text" },
+    ],
+    rows: changes().map((r) => [
+      r.op,
+      ...r.key,
+      r.column ?? t(r.op === "INSERT" ? "ddiff.newRow" : "ddiff.deletedRow"),
+      // A whole row has no «before» (insert) or «after» (delete): blank, not NULL.
+      r.op === "INSERT" ? "" : r.from,
+      r.op === "DELETE" ? "" : r.to,
+    ]),
+    truncated: false,
+    rowsAffected: 0,
+  });
+
+  // 0 what to compare, 1 the operations and their SQL, 2 applying / applied.
+  const step = () => (applied() || applying() ? 2 : plan() ? 1 : 0);
 
   return (
-    <Panel wide onClose={props.onClose} dirty={busy() || (!!plan() && !applied())}>
+    <Panel wide onClose={props.onClose} dirty={busy() || !!applying() || (!!plan() && !applied())}>
       <Wizard
         title={t("ddiff.title", { name: props.source.table })}
         subtitle={t("ddiff.subtitle")}
@@ -207,8 +251,8 @@ export function DataDiffWizard(props: {
                 }
               : undefined
         }
-        cancelLabel={step() === 0 ? undefined : t("common.close")}
-        onCancel={props.onClose}
+        cancelLabel={applying() ? t("ddiff.cancelRun") : step() === 0 ? undefined : t("common.close")}
+        onCancel={applying() ? () => applyCtl?.abort() : props.onClose}
         helpers={
           <Show when={step() === 1 && preview().length > 0}>
             <button
@@ -292,27 +336,63 @@ export function DataDiffWizard(props: {
                   {t("wiz.readOnlyScript", { name: planTarget().name })}
                 </p>
               </Show>
+              <p class="help">
+                {t("ddiff.equalLine", {
+                  pk: props.pk.join(", "),
+                  source: counts().source,
+                  target: counts().target,
+                  equal: equal(),
+                })}
+              </p>
               <Show when={items().length > 0} fallback={<p>{t("ddiff.alreadyMatch")}</p>}>
+                <TablePreview
+                  title={countText("ddiff.changesN", changes().length)}
+                  table={changesResult()}
+                />
+                <div class="colmap-head">
+                  <h3>{countText("ddiff.sqlN", preview().length)}</h3>
+                  <span class="help">{t("ddiff.sqlHelp")}</span>
+                  <span class="toolbar-spacer" />
+                  <button type="button" class="btn" onClick={() => copyText(preview().join(";\n"))}>
+                    <Icon name="copy" size={14} />
+                    {t("ssync.copyScript")}
+                  </button>
+                </div>
                 <pre class="ddl-text preview-sql">{preview().join(";\n")}</pre>
               </Show>
             </>
           )}
         </Show>
 
+        <Show when={applying()}>
+          {(a) => (
+            <RunProgress
+              title={t("ddiff.applyingIn", { target: planTarget().name })}
+              done={a().done}
+              total={plan()?.length ?? null}
+              unit="statements"
+              startedAt={a().startedAt}
+              note={t("ddiff.cancelNote", { target: planTarget().name })}
+            />
+          )}
+        </Show>
         <Show when={applied()}>
-          <p class="import-applied">{applied()}</p>
+          <p class="import-applied" role="status">
+            {applied()}
+          </p>
         </Show>
       </Wizard>
 
       <Show when={confirming() && plan()}>
         <ConfirmDialog
-          title={t("ddiff.confirmTitle")}
+          title={countText("ddiff.confirmTitleN", plan()!.length, { target: planTarget().name })}
           message={t("ddiff.confirmMessage", {
             target: `${planTarget().name} › ${planTarget().ref}`,
             ins: counts().inserts,
             upd: counts().updates,
             del: counts().deletes,
           })}
+          sql={preview().join(";\n")}
           confirmLabel={countText("ddiff.applyN", plan()!.length, { target: planTarget().name })}
           busy={busy()}
           error={confirmError()}

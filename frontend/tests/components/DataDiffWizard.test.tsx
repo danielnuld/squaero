@@ -192,7 +192,38 @@ describe("DataDiffWizard", () => {
     expect(methods).toContain("tx.commit");
     expect(writes(calls).map((c) => c.method)).toEqual(["row.insert", "row.update", "row.delete"]);
     expect(writes(calls).every((c) => c.params.connId === "tgt")).toBe(true);
-    expect(host!.textContent).toContain("aplicada");
+    expect(host!.textContent).toContain("3 cambios aplicados en Ventas copia");
+  });
+});
+
+// #692 (P5): the review grid, «n iguales», the confirmation with its SQL.
+describe("DataDiffWizard — review and confirm", () => {
+  it("lists every change in the shared grid: operation, key, column, now and then", async () => {
+    installBridge();
+    mount();
+    clickButton("Comparar");
+    await settle();
+    const rows = [...host!.querySelectorAll(".wiz-preview .grid-rows [role=row]")].map((r) =>
+      [...r.querySelectorAll("[role=gridcell]:not(.grid-mark)")].map((c) => c.textContent),
+    );
+    expect(rows).toEqual([
+      ["INSERT", "3", "(fila nueva)", "(no existe)", "carol"],
+      ["UPDATE", "2", "name", "bob", "roberto"],
+      ["DELETE", "4", "(fila eliminada)", "dave", "(se elimina)"],
+    ]);
+    expect(host!.textContent).toContain("3 filas en el origen, 3 en el destino, 1 iguales.");
+  });
+
+  it("asks «¿Aplicar n cambios en X?» and shows the SQL it will run", async () => {
+    installBridge();
+    mount();
+    clickButton("Comparar");
+    await settle();
+    document.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!.click();
+    await settle();
+    const dialog = document.querySelector('[role="alertdialog"]')!;
+    expect(dialog.querySelector("h2, .dlg-title")!.textContent).toBe("¿Aplicar 3 cambios en Ventas copia?");
+    expect(dialog.textContent).toContain("row.insert ...");
   });
 
   it("generates no DELETE unless it is ticked", async () => {
