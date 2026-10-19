@@ -1009,6 +1009,8 @@ export const es: Record<string, string> = {
   "td.create": "Crear tabla",
   "td.creating": "Creando…",
   "td.applyChanges": "Aplicar cambios",
+  "td.applyDropping.one": "Aplicar y eliminar 1 columna…",
+  "td.applyDropping.other": "Aplicar y eliminar {n} columnas…",
   "td.applying": "Aplicando…",
 
   // index & constraint manager (IndexManager.tsx)
@@ -1862,6 +1864,12 @@ export const es: Record<string, string> = {
   "confirm.restore.message.other": "Se ejecutarán las {n} sentencias de {file} sobre {target}, una a una. Si una falla, se detiene y lo ya ejecutado queda aplicado.",
   "confirm.restore.button.one": "Restaurar 1 sentencia",
   "confirm.restore.button.other": "Restaurar {n} sentencias",
+  "confirm.dropColumns.title.one": "¿Eliminar la columna {names} de {table}?",
+  "confirm.dropColumns.title.other": "¿Eliminar {n} columnas de {table}?",
+  "confirm.dropColumns.message.one": "Se eliminarán la columna {names} y todos sus datos. Esta acción no se puede deshacer.",
+  "confirm.dropColumns.message.other": "Se eliminarán las columnas {names} y todos sus datos. Esta acción no se puede deshacer.",
+  "confirm.dropColumns.button.one": "Eliminar columna {names}",
+  "confirm.dropColumns.button.other": "Eliminar {n} columnas",
   "vars.missing": "Falta un valor para {token}",
   "confirm.kind.index": "el índice",
   "confirm.kind.constraint": "la restricción",
