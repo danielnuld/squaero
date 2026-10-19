@@ -46,6 +46,12 @@ export type ActionId =
   | "set-null"
   | "row-detail"
   | "fk-picker"
+  | "copy-with-headers"
+  | "pin-result"
+  | "view-data"
+  | "view-structure"
+  | "view-indexes"
+  | "view-ddl"
   | "add-condition"
   | "filter-add-condition"
   | "select-next-occurrence"
@@ -114,6 +120,14 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "set-null", keys: "Mod+Shift+N", description: "sc.set-null", global: false },
   { id: "row-detail", keys: "Space", description: "sc.row-detail", global: false },
   { id: "fk-picker", keys: "Alt+↓", description: "sc.fk-picker", global: false },
+  { id: "copy-with-headers", keys: "Mod+Shift+C", description: "sc.copy-with-headers", global: false },
+  // Keep the result on screen aside, to compare the next run with it (#669).
+  { id: "pin-result", keys: "Mod+Shift+P", description: "sc.pin-result", global: true },
+  // Datos · Estructura · Índices · DDL of the table on screen (R-12).
+  { id: "view-data", keys: "Alt+1", description: "sc.view-data", global: true },
+  { id: "view-structure", keys: "Alt+2", description: "sc.view-structure", global: true },
+  { id: "view-indexes", keys: "Alt+3", description: "sc.view-indexes", global: true },
+  { id: "view-ddl", keys: "Alt+4", description: "sc.view-ddl", global: true },
   // The filter panel owns it (issue #462): Enter there applies the draft, so
   // Shift+Enter is the "one more line" of the same reflex. Not matched globally.
   { id: "add-condition", keys: "Shift+Enter", description: "sc.add-condition", global: false },

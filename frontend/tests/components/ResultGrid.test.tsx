@@ -1872,3 +1872,43 @@ describe("ResultGrid page search count (A-05, R-21)", () => {
     expect(terms).toEqual([{ column: "name", value: "ali" }]);
   });
 });
+
+describe("ResultGrid running state (R-01)", () => {
+  it("is busy, draws a skeleton before the first rows, and Esc cancels", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    let cancelled = 0;
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <ResultGrid result={null} loading={true} error={null} onCancel={() => cancelled++} />,
+        host!,
+      );
+    });
+    const grid = host.querySelector(".grid")!;
+    expect(grid.getAttribute("aria-busy")).toBe("true");
+    expect(host.querySelectorAll(".grid-skeleton span").length).toBeGreaterThan(0);
+    grid.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(cancelled).toBe(1);
+  });
+});
+
+describe("ResultGrid Ctrl+Shift+C", () => {
+  it("copies the selected cell's row with the column names", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    let got: [number[], boolean | undefined] | null = null;
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid result={result} loading={false} error={null} onCopyRows={(r, h) => (got = [r, h])} />
+        ),
+        host!,
+      );
+    });
+    selectAt(1, 0);
+    expect(gridKey({ key: "C", ctrlKey: true, shiftKey: true })).toBe(false);
+    expect(got).toEqual([[1], true]);
+  });
+});

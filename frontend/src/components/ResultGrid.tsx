@@ -202,7 +202,7 @@ export function ResultGrid(props: {
    * Ctrl+C on the grid (#517): the marked rows, or else the selected cell's row,
    * by index into `result.rows`. Absent → the key is left to the browser.
    */
-  onCopyRows?: (rows: number[]) => void;
+  onCopyRows?: (rows: number[], withHeader?: boolean) => void;
   /** Ctrl+D: the same rows, to add again as new pending rows. Absent → no-op. */
   onDuplicateRows?: (rows: number[]) => void;
   /**
@@ -809,6 +809,15 @@ export function ResultGrid(props: {
       }
       return;
     }
+    if (mod && e.shiftKey && !e.altKey && letter === "c") {
+      // The rows with the column names as the first line, for a spreadsheet.
+      const targets = rowTargets();
+      if (props.onCopyRows && targets.length > 0) {
+        e.preventDefault();
+        props.onCopyRows(targets, true);
+      }
+      return;
+    }
     if (mod && letter === "c" && marks().size === 0 && rangeSize() > 1) {
       // A block of cells copies as TSV, the way a spreadsheet takes it (#690).
       e.preventDefault();
@@ -933,7 +942,17 @@ export function ResultGrid(props: {
   });
 
   return (
-    <div class="grid">
+    <div
+      class="grid"
+      aria-busy={props.loading}
+      // Esc stops a running query from anywhere in the grid (R-01).
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && props.loading && props.onCancel && !props.cancelDisabledReason) {
+          e.preventDefault();
+          props.onCancel();
+        }
+      }}
+    >
       <Show when={props.error}>
         <div class="grid-error" role="alert">
           {props.error}
@@ -1633,7 +1652,7 @@ export function ResultGrid(props: {
       </Show>
 
       <Show when={props.loading}>
-        <div class="grid-empty grid-running">
+        <div class="grid-empty grid-running" role="status">
           <span>{t("grid.running")}</span>
           <Show when={props.onCancel}>
             <button
@@ -1647,6 +1666,11 @@ export function ResultGrid(props: {
             </button>
           </Show>
         </div>
+        <Show when={!props.result}>
+          <div class="grid-skeleton" aria-hidden="true">
+            <For each={[0, 1, 2, 3, 4, 5]}>{() => <span />}</For>
+          </div>
+        </Show>
       </Show>
     </div>
   );
