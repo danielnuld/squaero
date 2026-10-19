@@ -1,0 +1,70 @@
+Conexión de solo lectura
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Consulta 2 • — Producción — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="" conn-name="Producción" conn-color="#c4302b" safe="true" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <div role="toolbar" aria-label="Acciones de la consulta" style="height: 44px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid var(--border)">
+        <a href="DropdownOpen.dc.html" class="{{rc.cls}}" role="button" aria-haspopup="listbox" aria-expanded="{{rc.open}}" title="Conexión y base de esta pestaña" style="height: var(--h-control); display: inline-flex; align-items: center; gap: 7px; padding: 0 8px; text-decoration: none; font-size: var(--fs-md)"><span style="{{rc.dot}}"></span><span style="font-weight: 600">{{rc.name}}</span><span style="color: var(--text-dim)">· {{rc.db}}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m6 9 6 6 6-6"></path></svg></a>
+        <sc-if value="{{rc.safe}}"><span class="chip" title="Conexión de solo lectura" style="height: 22px; background: var(--hover); color: var(--text-dim)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Solo lectura</span></sc-if>
+        <span style="display: inline-flex; margin-left: 4px">
+          <a href="#" class="btn btn-primary" title="Ejecutar la sentencia del cursor ({{k.run}})" style="border-radius: var(--r-sm) 0 0 var(--r-sm)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"></path></svg>Ejecutar sentencia</a>
+          <a href="#" class="btn btn-primary" aria-haspopup="menu" aria-label="Alcance: sentencia actual, selección o script completo ({{k.script}})" style="border-radius: 0 var(--r-sm) var(--r-sm) 0; border-left: 1px solid color-mix(in srgb, var(--accent-fg) 40%, transparent); padding: 0 6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></a>
+        </span>
+        <button type="button" class="btn btn-icon" disabled aria-label="Detener (Esc) · no hay nada en curso" title="Detener (Esc) · no hay nada en curso" style="opacity: .45"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg></button>
+        <span style="width: 1px; height: 20px; background: var(--border); margin: 0 4px"></span>
+        <a href="#" class="btn btn-ghost" title="Formatear ({{k.fmt}})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h10"></path><path d="M4 18h14"></path></svg>Formatear</a>
+        <span class="seg" role="radiogroup" aria-label="Modo de transacción"><span role="radio" aria-checked="true" class="on">Auto</span><span role="radio" aria-checked="false">Manual</span></span>
+        <span style="flex: 1"></span>
+        <a href="TxControlsMenu.dc.html" class="btn btn-ghost" aria-haspopup="menu" title="Plan, historial, abrir y guardar .sql, snippet, variables">Más<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="19" cy="12" r="1.2"></circle></svg></a>
+      </div>
+      <div style="flex: none">
+        <dc-import name="SqlEditor" theme="{{theme}}" sql="{{sql}}" current="3" caret-line="3" run-range="3-3" height="250px" hint-size="100%,250px"></dc-import>
+      </div>
+      <div aria-hidden="true" style="height: 5px; flex: none; border-top: 1px solid var(--border); background: var(--surface)"></div>
+
+      <div role="tablist" aria-label="Paneles de resultado" style="height: 36px; flex: none; display: flex; align-items: flex-end; gap: 2px; padding: 0 8px; background: var(--surface); border-bottom: 1px solid var(--border)">
+        <span role="tab" aria-selected="false" style="height: 32px; display: flex; align-items: center; padding: 0 12px; color: var(--text-dim)">Resultado</span>
+        <span role="tab" aria-selected="true" style="position: relative; height: 32px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--r-md) var(--r-md) 0 0; background: var(--content); margin-bottom: -1px; font-weight: 600">Mensajes<span class="chip" style="height: 18px; background: var(--hover); color: var(--text-dim)">1</span></span>
+        <span role="tab" aria-selected="false" style="height: 32px; display: flex; align-items: center; padding: 0 12px; color: var(--text-dim)">Plan</span>
+      </div>
+      <div style="flex: 1; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <div role="status" style="max-width: 720px; display: flex; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-left: 3px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim); flex: none"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+            <span style="font-weight: 600">Bloqueada: Producción es de solo lectura</span>
+            <span style="color: var(--text-dim); line-height: 1.5">La sentencia escribe (DELETE), así que no se ha enviado nada al servidor. 14:16:36</span>
+            <span class="mono" style="font-size: var(--fs-sm); color: var(--text)">DELETE FROM clientes WHERE id = 1;</span>
+            <span style="display: flex; gap: 8px; margin-top: 4px">
+              <a href="DropdownOpen.dc.html" class="btn" style="font-size: var(--fs-sm)">Ejecutar en otra conexión…</a>
+              <a href="ConnectionForm.dc.html" class="btn btn-ghost" style="font-size: var(--fs-sm)">Cambiar la protección…</a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Producción" db="ventas" color="#c4302b" safe="true" info="Sentencia 3 · bloqueada · 2 ms" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const os = this.props.os ?? 'windows'; const mac = os === 'macos';
+    const K = (s) => { if (!mac) return s; const p = s.split('+'); const key = p.pop(); const sym = { Alt: '⌥', 'Mayús': '⇧', Ctrl: '⌘' }; const km = { Intro: '↩', Supr: '⌫', 'Re Pág': '⇞', 'Av Pág': '⇟' }; return ['Alt', 'Mayús', 'Ctrl'].filter((m) => p.includes(m)).map((m) => sym[m]).join('') + (km[key] ?? key); };
+    const k = { filter: K('Ctrl+Mayús+L'), sort: K('Ctrl+Mayús+O'), find: K('Ctrl+F'), row: K('Ctrl+Intro'), run: K('Ctrl+Intro'), script: K('Ctrl+Mayús+Intro'), fmt: K('Alt+Mayús+F'), stop: 'Esc',
+      open: K('Intro'), alter: 'F4', del: K('Supr'), copy: K('Ctrl+C'), ddl: K('Ctrl+Mayús+C'), refresh: mac ? '⌘R' : 'F5', newq: K('Ctrl+T'), close: K('Ctrl+W'), closeAll: K('Ctrl+Mayús+W'),
+      reopen: K('Ctrl+Mayús+T'), export: K('Ctrl+Mayús+X'), settings: K('Ctrl+,'), save: K('Ctrl+S'), more: K('Alt+M') };
+    const act = os === 'windows' ? '' : 'flex-direction: row-reverse';
+    return {
+      theme: this.props.theme ?? 'b', os, k, act,
+      rc: { name: 'Producción', db: 'ventas', safe: true, cls: 'field', open: 'false', dot: 'width: 8px; height: 8px; border-radius: 50%; background: #c4302b' },
+      sql: 'SELECT * FROM clientes WHERE id = 1;\n\nDELETE FROM clientes WHERE id = 1;',
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', color: '#2f7dd6', conn: 'Ventas' },
+        { label: 'Consulta 2', kind: 'query', active: true, dirty: true, safe: true, color: '#c4302b', conn: 'Producción', href: 'SafeModeReadonly.dc.html' }]
+    };
+  }
+}

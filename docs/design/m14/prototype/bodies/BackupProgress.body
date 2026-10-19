@@ -1,0 +1,88 @@
+Respaldando
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Respaldando (67 %) — Ventas — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+
+      <div role="toolbar" aria-label="Tipo de operación" style="height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--border)">
+        <span class="seg" role="tablist" aria-label="Operación">
+          <span role="tab" aria-selected="true" tabindex="0" class="on" style="gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="5" rx="1"></rect><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"></path><path d="M10 13h4"></path></svg>Respaldar</span>
+          <span role="tab" aria-selected="false" aria-disabled="true" tabindex="-1" title="Disponible al terminar el respaldo" style="gap: 6px; opacity: .55"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>DDL a una carpeta</span>
+          <span role="tab" aria-selected="false" aria-disabled="true" tabindex="-1" title="Disponible al terminar el respaldo" style="gap: 6px; opacity: .55"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>Restaurar</span>
+        </span>
+        <span style="flex: 1"></span>
+        <span style="font-size: var(--fs-sm); color: var(--text-dim)">Último respaldo: hoy, 09:02 · ventas_2026-10-18.sql</span>
+      </div>
+
+      <nav aria-label="Pasos" style="height: 48px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--surface); font-size: var(--fs-md)">
+        <span style="display: flex; align-items: center; gap: 8px; color: var(--text-dim)"><span style="width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>Qué respaldar</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><span style="display: flex; align-items: center; gap: 8px; color: var(--text-dim)"><span style="width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>Destino</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><span style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--accent-text)" aria-current="step"><span style="width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: flex; align-items: center; justify-content: center; font-size: var(--fs-xs)">3</span>Respaldando</span>
+      </nav>
+
+      <div style="flex: 1; min-height: 0; display: flex; gap: 32px; padding: 24px; overflow: hidden">
+        <section aria-label="Progreso del respaldo" style="flex: 1; min-width: 0; max-width: 620px; display: flex; flex-direction: column; gap: 18px">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: baseline; gap: 10px">
+              <span style="font-size: var(--fs-lg); font-weight: 600">Respaldando main en ventas_2026-10-18_1432.sql</span>
+              <span style="flex: 1"></span>
+              <span class="num" style="font-size: var(--fs-lg); font-weight: 600">67 %</span>
+            </div>
+            <div role="progressbar" aria-label="Progreso del respaldo" aria-valuemin="0" aria-valuemax="48" aria-valuenow="32" aria-valuetext="32 de 48 filas, objeto 3 de 5" style="height: 8px; border-radius: 4px; background: var(--border); overflow: hidden"><span style="display: block; width: 67%; height: 100%; background: var(--accent); border-radius: 4px"></span></div>
+            <div role="status" class="num" style="display: flex; gap: 8px; font-size: var(--fs-sm); color: var(--text-dim)"><span>Objeto 3 de 5 · pedidos</span><span>·</span><span>32 de 48 filas</span><span>·</span><span>00:02 transcurridos</span><span>·</span><span>quedan unos 2 s</span></div>
+          </div>
+          <div style="border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden">
+            <sc-for list="{{steps}}" as="o" hint-placeholder-count="5">
+              <div style="{{o.row}}">
+                <span style="{{o.icon}}">
+                  <sc-if value="{{o.done}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Terminado"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                  <sc-if value="{{o.run}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" role="img" aria-label="En curso"><path d="M21 12a9 9 0 1 1-9-9"></path></svg></sc-if>
+                  <sc-if value="{{o.wait}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" role="img" aria-label="Pendiente"><circle cx="12" cy="12" r="8"></circle></svg></sc-if>
+                </span>
+                <span style="{{o.nameStyle}}">{{o.name}}</span>
+                <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim)">{{o.sub}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <span class="help">Puedes seguir trabajando en otras pestañas: si lo haces, al terminar verás una notificación. Cancelar borra el archivo a medio escribir; la base no se modifica.</span>
+        </section>
+
+        <aside aria-label="Resumen" style="width: 260px; flex: none; align-self: start; padding: 16px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); display: flex; flex-direction: column; gap: 10px; font-size: var(--fs-sm)">
+          <span style="font-weight: 600; font-size: var(--fs-md)">Resumen</span>
+          <dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 10px">
+            <dt style="color: var(--text-dim)">Origen</dt><dd style="margin: 0; text-align: right">Ventas · main</dd>
+            <dt style="color: var(--text-dim)">Objetos</dt><dd class="num" style="margin: 0; text-align: right">4 tablas · 1 vista</dd>
+            <dt style="color: var(--text-dim)">Contenido</dt><dd style="margin: 0; text-align: right">Estructura y datos</dd>
+            <dt style="color: var(--text-dim)">Destino</dt><dd class="mono" style="margin: 0; text-align: right; font-size: var(--fs-xs); word-break: break-all">~/Respaldos/ventas_2026-10-18_1432.sql</dd>
+          </dl>
+        </aside>
+      </div>
+
+      <div style="height: 52px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 20px; border-top: 1px solid var(--border); background: var(--surface)">
+        <button type="button" class="btn" disabled="disabled" aria-disabled="true" style="opacity: .45">Atrás</button>
+        <span style="flex: 1"></span>
+        <button type="button" class="btn btn-primary" disabled="disabled" aria-disabled="true" title="Respaldando…" style="opacity: .55"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"></path></svg>Respaldando…</button>
+        <a href="BackupRestore.dc.html" class="btn focus" title="Detener el respaldo y borrar el archivo parcial (Esc)">Cancelar respaldo</a>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" color="#2f7dd6" info="Respaldando · 67 % · objeto 3 de 5" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const S = [['clientes', '12 filas', 'done'], ['detalle_pedido', '20 filas', 'done'], ['pedidos', '0 de 8 filas…', 'run'], ['productos', '8 filas', 'wait'], ['ventas_por_ciudad', 'vista · solo estructura', 'wait']];
+    const steps = S.map(([name, sub, st], i) => ({ name, sub, done: st === 'done', run: st === 'run', wait: st === 'wait',
+      icon: `width: 16px; display: flex; justify-content: center; color: ${st === 'wait' ? 'var(--text-dim)' : 'var(--accent-text)'}`,
+      nameStyle: `flex: 1; ${st === 'run' ? 'font-weight: 600;' : ''} color: ${st === 'wait' ? 'var(--text-dim)' : 'var(--text)'}`,
+      row: `height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 12px; ${i ? 'border-top: 1px solid var(--border);' : ''} ${st === 'run' ? 'background: var(--sel);' : ''}` }));
+    return {
+      theme: this.props.theme ?? 'b', os: this.props.os ?? 'windows',
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', color: '#2f7dd6' }, { label: 'Respaldo · main', kind: 'tool', active: true, running: true, href: 'BackupProgress.dc.html', color: '#2f7dd6' }],
+      steps
+    };
+  }
+}

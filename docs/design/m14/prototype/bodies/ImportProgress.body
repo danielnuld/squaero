@@ -1,0 +1,54 @@
+Importar · en curso
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Importar · clientes — Ventas — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="clientes" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 24px; border-bottom: 1px solid var(--border)">
+        <div style="min-width: 0">
+          <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">Importar a clientes</h1>
+          <div style="font-size: var(--fs-sm); color: var(--text-dim)">Desde clientes_julio.csv · 4812 filas</div>
+        </div>
+        <span style="flex: 1"></span>
+        <ol aria-label="Pasos del asistente" style="list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-md)"><li style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; background: var(--accent-soft); color: var(--accent-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span style="position: absolute; left: -9999px">Hecho:</span></span><span style="color: var(--text-dim)">Origen</span></li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><li style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; background: var(--accent-soft); color: var(--accent-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span style="position: absolute; left: -9999px">Hecho:</span></span><span style="color: var(--text-dim)">Columnas</span></li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><li aria-current="step" style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; background: var(--accent); color: var(--accent-fg)">3</span><span style="color: var(--text); font-weight: 600">Importar</span></li></ol>
+      </header>
+      <div style="flex: 1; min-height: 0; overflow: auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 24px">
+        <section style="display: flex; flex-direction: column; gap: 16px; max-width: 760px">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="display: flex; color: var(--accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-opacity=".25"></circle><path d="M21 12a9 9 0 0 0-9-9"></path></svg></span><span style="font-size: var(--fs-lg); font-weight: 600">Importando clientes_julio.csv en clientes</span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-md)"><span class="num" style="font-weight: 600">2140 de 4812 filas · 44 %</span><span style="flex: 1"></span><span class="help num">quedan unos 8 s</span></div>
+            <div role="progressbar" aria-label="Filas importadas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="44" style="height: 8px; border-radius: 999px; background: var(--hover); overflow: hidden"><div style="width: 44%; height: 100%; border-radius: 999px; background: var(--accent)"></div></div>
+          </div>
+          <div style="display: flex; gap: 24px; font-size: var(--fs-sm); color: var(--text-dim)"><span class="num"><b style="color: var(--text); font-weight: 600">2138</b> insertadas</span><span class="num"><b style="color: var(--danger); font-weight: 600">2</b> con error, omitidas</span><span class="num"><b style="color: var(--text); font-weight: 600">2672</b> pendientes</span><span class="num">00:06 transcurrido</span></div>
+        </section>
+        <section style="display: flex; flex-direction: column; gap: 8px; max-width: 760px">
+          <div style="display: flex; align-items: baseline; gap: 8px"><h2 class="lbl" style="margin: 0; font-size: var(--fs-sm)">Errores hasta ahora (2)</h2><span class="help">Si una fila falla: omitirla e importar el resto</span><span style="flex: 1"></span><a href="#" style="font-size: var(--fs-sm)">Copiar errores</a></div>
+          <div role="table" aria-label="Errores hasta ahora" style="border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden"><div role="row" style="display: grid; grid-template-columns: 64px 80px 1fr 110px; align-items: center; gap: 0 12px; padding: 0 12px; height: 30px; border-bottom: 1px solid var(--border); background: var(--surface); font-size: var(--fs-sm); font-weight: 600"><span role="columnheader">Fila</span><span role="columnheader">Columna</span><span role="columnheader">Error</span><span role="columnheader">Qué se hizo</span></div><div role="row" style="display: grid; grid-template-columns: 64px 80px 1fr 110px; align-items: center; gap: 0 12px; padding: 0 12px; min-height: 30px; "><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span class="mono" style="font-size: var(--fs-sm)">318</span></span><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span class="mono" style="font-size: var(--fs-sm)">email</span></span><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Ya existe <span class="mono" style="font-size: var(--fs-sm)">jperez@correo.mx</span> (índice único ux_clientes_email)</span><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span style="color: var(--text-dim)">Omitida</span></span></div><div role="row" style="display: grid; grid-template-columns: 64px 80px 1fr 110px; align-items: center; gap: 0 12px; padding: 0 12px; min-height: 30px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); background: var(--zebra);"><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span class="mono" style="font-size: var(--fs-sm)">1022</span></span><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span class="mono" style="font-size: var(--fs-sm)">alta</span></span><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span class="mono" style="font-size: var(--fs-sm)">31/02/2025</span> no es una fecha válida</span><span role="cell" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span style="color: var(--text-dim)">Omitida</span></span></div></div>
+        </section>
+        <div style="max-width: 760px"><div style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.45"><span style="display: flex; flex: none; margin-top: 1px; color: var(--text-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg></span><span>Todo va en una transacción: si cancelas, no se guarda ninguna fila y clientes queda como estaba. Puedes seguir trabajando en otras pestañas; te avisaremos al terminar.</span></div></div>
+      </div>
+      <footer style="height: 52px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 24px; border-top: 1px solid var(--border); background: var(--surface)">
+        <button type="button" class="btn" disabled="disabled" style="opacity: .45">Atrás</button>
+        
+        <span style="flex: 1"></span>
+        <span class="dlg-actions"><a href="ImportWizardMapping.dc.html" class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>Cancelar importación</a></span>
+      </footer>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="Importando · 2140 de 4812 filas · 44 %" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      theme: this.props.theme ?? 'b',
+      os: this.props.os ?? 'windows',
+      noLine: 0,
+      tabs: [{"label": "Consulta 1", "kind": "query", "href": "EditorResult.dc.html", "dirty": true}, {"label": "clientes", "kind": "table", "href": "DataGrid.dc.html"}, {"label": "Importar · clientes", "kind": "tool", "active": true, "href": "#", "color": "#2f7dd6", "running": true}],
+    };
+  }
+}

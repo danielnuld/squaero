@@ -1,0 +1,56 @@
+Conectado sin pestañas
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Ventas — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <div style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding-bottom: 60px">
+        <div style="width: 460px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #2f7dd6; box-shadow: 0 0 0 3px color-mix(in srgb, #2f7dd6 22%, transparent)"></span>
+            <h1 style="margin: 0; font-size: var(--fs-xl); font-weight: 600">Ventas está lista</h1>
+          </div>
+          <p style="margin: 0; color: var(--text-dim); line-height: 1.5">SQLite · <span class="mono" style="color: var(--text)">main</span>. Abre una tabla desde el explorador o escribe una consulta.</p>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px">
+            <a href="EditorEmpty.dc.html" class="btn btn-primary focus">[[query]]Nueva consulta en Ventas</a>
+            <span class="kbd">{{k.newq}}</span>
+          </div>
+
+          <div class="lbl" style="margin-top: 20px">Tablas de main</div>
+          <div role="list" style="display: flex; flex-direction: column; margin: -2px -8px 0">
+            <sc-for list="{{tables}}" as="t" hint-placeholder-count="4">
+              <a href="DataGrid.dc.html" role="listitem" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 8px; border-radius: var(--r-sm); color: var(--text); text-decoration: none">
+                [[table:15:color: var(--obj-table)]]
+                <span style="flex: 1">{{t.name}}</span>
+                <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim)">{{t.rows}}</span>
+              </a>
+            </sc-for>
+          </div>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; font-size: var(--fs-sm)">
+            <a href="ObjectList.dc.html" style="text-decoration: none">Lista de objetos</a>
+            <a href="ErDiagram.dc.html" style="text-decoration: none">Diagrama ER</a>
+            <a href="DataSearch.dc.html" style="text-decoration: none">Buscar en los datos</a>
+            <a href="NewTableDesigner.dc.html" style="text-decoration: none">Nueva tabla</a>
+            <a href="ToolsMenu.dc.html" style="text-decoration: none">Más herramientas</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" color="#2f7dd6" info="SQLite 3.46 · 4 tablas · 1 vista" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const os = this.props.os ?? 'windows';
+    return {
+      theme: this.props.theme ?? 'b', os, tabs: [], k: { newq: os === 'macos' ? '⌘T' : 'Ctrl+T' },
+      tables: [{ name: 'clientes', rows: '12 filas' }, { name: 'detalle_pedido', rows: '20 filas' }, { name: 'pedidos', rows: '8 filas' }, { name: 'productos', rows: '8 filas' }]
+    };
+  }
+}
