@@ -3,8 +3,8 @@
 //
 // Input: a directory of square PNG rasterizations of the brand mark named
 //   s<size>.png (s16.png, s32.png, ...). These come from the brand source
-//   assets/brand/quaero-mark-solid.svg — rasterize with any SVG tool, e.g.
-//   `rsvg-convert -w 256 -h 256 quaero-mark-solid.svg > s256.png`.
+//   assets/brand/quaero-mark-solid.svg (≤32) and assets/icons/quaero-app-icon.svg
+//   (≥48); scripts/render-brand.mjs renders them and runs this packer.
 //
 // Output (into the target dir, default assets/icons/):
 //   quaero.ico   — Windows multi-resolution icon (PNG-compressed entries,
@@ -22,7 +22,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-export const ICO_SIZES = [16, 32, 48, 64, 128, 256];
+export const ICO_SIZES = [16, 24, 32, 48, 64, 256];
 export const ICNS_SIZES = [16, 32, 64, 128, 256, 512];
 export const HICOLOR_SIZES = [16, 32, 48, 64, 128, 256, 512];
 
