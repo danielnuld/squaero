@@ -444,13 +444,14 @@ function nameKey(s: string): string {
 
 /**
  * «Asignar por nombre»: each target column takes the source header with the
- * same name, ignoring case, accents, spaces and underscores; a column the
- * database assigns (autoincrement) is left to it.
+ * same name, ignoring case, accents, spaces and underscores. A column the
+ * database assigns (autoincrement) is left to it unless `skipAuto` is false —
+ * a transfer copies its keys, an import lets the target number its rows.
  */
-export function mapByName(sourceHeaders: string[], targets: TargetColumn[]): ColumnMapping {
+export function mapByName(sourceHeaders: string[], targets: TargetColumn[], skipAuto = true): ColumnMapping {
   const mapping: ColumnMapping = {};
   for (const col of targets) {
-    mapping[col.name] = col.auto ? null : (sourceHeaders.find((h) => nameKey(h) === nameKey(col.name)) ?? null);
+    mapping[col.name] = col.auto && skipAuto ? null : (sourceHeaders.find((h) => nameKey(h) === nameKey(col.name)) ?? null);
   }
   return mapping;
 }
