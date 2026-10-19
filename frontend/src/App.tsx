@@ -3440,7 +3440,7 @@ export function App() {
     showTool("dataDiff", t("tab.dataSync"), {
       key: "dataDiff",
       params: {
-        sourceResult: res.result,
+        sourceDefId: tabConn(current())?.defId,
         source: { table: res.source.table, db: res.source.db, schema: res.source.schema },
         pk: res.source.pk,
       },
@@ -5384,7 +5384,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "dataDiff"}>
                   <DataDiffWizard
-                    sourceResult={(tt().params as { sourceResult: ResultSet }).sourceResult}
+                    sourceDefId={(tt().params as { sourceDefId?: string }).sourceDefId}
                     source={(tt().params as { source: EditTarget }).source}
                     pk={(tt().params as { pk: string[] }).pk}
                     connections={connections()}

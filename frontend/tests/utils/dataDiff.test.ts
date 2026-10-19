@@ -3,6 +3,7 @@ import {
   diffData,
   dataDiffEmpty,
   dataDiffCount,
+  dataDiffCounts,
   diffToPlan,
 } from "../../src/utils/dataDiff";
 import type { ResultSet } from "../../src/utils/query";
@@ -66,10 +67,42 @@ describe("diffToPlan", () => {
       updates: [{ set: { name: "r" }, where: { id: "2" } }],
       deletes: [{ where: { id: "4" } }],
     };
-    expect(diffToPlan(diff)).toEqual([
-      { kind: "insert", values: { id: "3", name: "carol" } },
-      { kind: "update", set: { name: "r" }, where: { id: "2" } },
+    expect(diffToPlan(diff).map((p) => p.kind)).toEqual(["insert", "update", "delete"]);
+  });
+
+  it("types the written columns so the driver emits typed literals (#761)", () => {
+    const diff = {
+      inserts: [{ id: "3", saldo: "10", activo: "1", alta: "2024-01-02", nota: null }],
+      updates: [{ set: { saldo: "980.5" }, where: { id: "2" } }],
+      deletes: [{ where: { id: "4" } }],
+    };
+    const types = { id: "int", saldo: "decimal", activo: "bool", alta: "date", nota: "text" };
+    expect(diffToPlan(diff, types)).toEqual([
+      { kind: "insert", values: diff.inserts[0], setTypes: types },
+      { kind: "update", set: { saldo: "980.5" }, where: { id: "2" }, setTypes: { saldo: "decimal" } },
       { kind: "delete", where: { id: "4" } },
     ]);
+  });
+});
+
+describe("compared range (#761)", () => {
+  const page = (rows: (string | null)[][], truncated: boolean): ResultSet => ({
+    ...rs(rows),
+    truncated,
+  });
+
+  it("refuses to diff a partial read on either side", () => {
+    const whole = page([["1", "a"]], false);
+    const partial = page([["1", "a"]], true);
+    expect(() => diffData(partial, whole, ["id"])).toThrow();
+    expect(() => diffData(whole, partial, ["id"])).toThrow();
+  });
+
+  it("deletes only target keys that were read and absent from the source", () => {
+    const s = rs([["1", "a"], ["2", "b"]]);
+    const t = rs([["2", "b"], ["5", "e"]]);
+    const d = diffData(s, t, ["id"]);
+    expect(d.deletes).toEqual([{ where: { id: "5" } }]);
+    expect(dataDiffCounts(d)).toEqual({ inserts: 1, updates: 0, deletes: 1 });
   });
 });

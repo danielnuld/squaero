@@ -139,7 +139,8 @@ export async function drainCursor(
  * still complete.
  *
  * `onProgress` is called with the rows gathered so far, for a UI that has to say
- * something during a long export.
+ * something during a long export. `signal` stops the walk between pages (a
+ * Cancel button): it rejects with the signal's reason and closes the cursor.
  *
  * ponytail: the rows are accumulated in memory, so exporting a huge table costs
  * a huge array. Stream page by page into the file writer if that ever bites.
@@ -149,13 +150,16 @@ export async function drainQuery(
   sql: string,
   pageSize: number,
   onProgress?: (rows: number) => void,
+  signal?: AbortSignal,
 ): Promise<ResultSet> {
+  signal?.throwIfAborted();
   const first = await runQuery(connId, sql, pageSize, 0, true);
   const rows = [...first.rows];
   let page = first;
   onProgress?.(rows.length);
   try {
     while (page.truncated) {
+      signal?.throwIfAborted();
       page = page.cursor
         ? await queryNext(connId, pageSize)
         : await runQuery(connId, sql, pageSize, rows.length);
