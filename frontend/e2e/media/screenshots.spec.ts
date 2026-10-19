@@ -272,7 +272,7 @@ test("chart of a result", async ({ page }) => {
 const TOOLS: [string, string, RegExp][] = [
   // Case-insensitive: several labels are uppercased by CSS, so the rendered text
   // and the DOM text differ.
-  ["Diagrama ER", "screenshot-er", /relaci[óo]n\(es\)/i],
+  ["Diagrama ER", "screenshot-er", /\d+ relaci(ón|ones)\b/i],
   ["Monitor de servidor", "screenshot-monitor", /sesi[óo]n\(es\)/i],
   ["Usuarios y permisos", "screenshot-users", /usuario\(s\)/i],
 ];
