@@ -5,6 +5,14 @@
 import { setLocale } from "../src/utils/i18n";
 setLocale("es");
 
+// Platform: pin Windows so dialog button order (utils/dialog.ts, issue #692) does
+// not follow the machine running the suite — jsdom derives the user agent from
+// the host, so CI on Linux would reverse every action row. Tests about macOS or
+// Linux spy on `navigator.platform` themselves.
+if (typeof window !== "undefined") {
+  Object.defineProperty(window.navigator, "platform", { get: () => "Win32", configurable: true });
+}
+
 // Test-environment polyfills. jsdom does not implement ResizeObserver, which the
 // virtualized grid uses to track its viewport height; the real webview provides
 // it. A no-op stub is enough for component tests (the grid falls back to its
