@@ -577,71 +577,6 @@ body {
   min-height: 0;
 }
 
-/* The tool strip the ⋯ button unfolds (issue #386): the same nine tools the
-   ribbon showed, at icon size, for pointing instead of naming. Folded away by
-   default — the launcher and Ctrl+K reach all of them without it. */
-.toolstrip {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-  height: var(--band-lg);
-  padding: 0 var(--sp-3);
-  background: var(--bg-elev);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  overflow-x: auto;
-}
-
-.toolstrip-btn {
-  display: grid;
-  place-items: center;
-  width: var(--band-md);
-  height: var(--h-md);
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-dim);
-  cursor: default;
-}
-
-.toolstrip-btn svg {
-  width: var(--fs-lg);
-  height: var(--fs-lg);
-  display: block;
-}
-
-.toolstrip-btn:hover:not(:disabled) {
-  background: var(--bg-elev2);
-  color: var(--text);
-}
-
-.toolstrip-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-/* The ⋯ that folds the strip in and out. */
-.tab-tools {
-  display: grid;
-  place-items: center;
-  width: var(--h-sm);
-  height: var(--h-sm);
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--fs-md);
-  cursor: default;
-  flex-shrink: 0;
-}
-
-.tab-tools:hover,
-.tab-tools[aria-expanded="true"] {
-  background: var(--bg-elev2);
-  color: var(--text);
-}
-
 /* Object-list view (design proposal, phase 3): a metadata grid of a database's
    objects with a type-filter strip. */
 .objlist-bar {
@@ -1136,13 +1071,6 @@ body {
   overflow: hidden;
 }
 
-/* The connection-color dot shown on a query tab. Since the tab lost the
-   spelled-out "(Ventas (demo))" suffix, this dot and the coloured left edge are
-   what say which server the tab is on (issue #386). */
-.tab-conn-color {
-  flex-shrink: 0;
-}
-
 /* Full-width strip at the top of the workspace in the active tab's connection
    color — the strong "which server am I on" cue (prod red, dev green). */
 .workspace-accent {
@@ -1324,12 +1252,13 @@ body {
   min-height: 0;
 }
 
-/* The one navigation band (issue #386): launcher, tabs, tool strip toggle. A
-   32px band where the ribbon (68) plus the tab bar (31) used to be. */
+/* Desktop document tabs (issue #688): the strip scrolls sideways, the active
+   tab joins the document below it, the connection colour rides the top edge
+   and the tabs it cannot show are listed by the +N button. */
 .tabbar {
   display: flex;
-  align-items: center;
-  gap: var(--sp-3);
+  align-items: flex-end;
+  gap: var(--sp-2);
   height: var(--band-md);
   padding: 0 var(--sp-3);
   background: var(--bg-elev);
@@ -1337,65 +1266,19 @@ body {
   flex-shrink: 0;
 }
 
-/* The Ctrl+K palette, given a door. It is the whole replacement for twelve
-   ribbon buttons, so it has to look like something you can click, not like a
-   hint printed on the chrome. */
-.tab-launch {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  height: var(--h-sm);
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--bg);
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: default;
-  flex-shrink: 0;
-}
-
-.tab-launch:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.tab-launch-ic {
-  display: grid;
-  place-items: center;
-  width: var(--fs-base);
-  height: var(--fs-base);
-}
-
-.tab-launch-ic svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.tab-kbd {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  padding: 0 var(--sp-2);
-  border-radius: var(--r-sm);
-  background: var(--bg-elev2);
-  color: var(--text-dim);
-}
-
-.tab-sep {
-  width: 1px;
-  height: var(--fs-lg);
-  background: var(--border);
-  flex-shrink: 0;
-}
-
 .tablist {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  align-items: flex-end;
+  gap: var(--sp-1);
   min-width: 0;
+  height: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tablist::-webkit-scrollbar {
+  display: none;
 }
 
 .tabbar-spacer {
@@ -1403,15 +1286,17 @@ body {
 }
 
 .tab {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  height: var(--h-sm);
-  padding: 0 var(--sp-3);
-  border-radius: var(--r-sm);
-  /* The connection's colour rides this edge (set inline). Reserved on every
-     tab so a tab does not shift sideways when it gains one. */
-  border-left: 3px solid transparent;
+  height: var(--h-md);
+  max-width: 260px;
+  padding: 0 var(--sp-1) 0 var(--sp-4);
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  margin-bottom: -1px;
   cursor: default;
   white-space: nowrap;
   color: var(--text-dim);
@@ -1424,65 +1309,168 @@ body {
 }
 
 .tab.active {
-  background: var(--bg-elev2);
+  background: var(--bg);
+  border-color: var(--border);
   color: var(--text);
+}
+
+/* The connection's colour on top of the tab; the accent on an active tab that
+   has none. Dimmer on the tabs in the background. */
+.tab-stripe {
+  position: absolute;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  top: -1px;
+  height: 2px;
+  border-radius: var(--r-sm);
+  background: var(--conn-accent);
+  opacity: 0.55;
+}
+
+.tab:not([style]) .tab-stripe {
+  background: transparent;
+}
+
+.tab.active .tab-stripe {
+  height: 3px;
+  opacity: 1;
+}
+
+.tab.active:not([style]) .tab-stripe {
+  background: var(--accent);
+}
+
+.tab-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.tab-icon-query {
+  color: var(--accent-text);
+}
+
+.tab-icon-table {
+  color: var(--obj-table);
+}
+
+.tab-lock {
+  display: flex;
+  color: var(--text-dim);
+}
+
+.tab-spinner {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: var(--r-pill);
+  animation: tab-spin 0.8s linear infinite;
+}
+
+@keyframes tab-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-spinner {
+    animation: none;
+  }
+}
+
+.tab-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab.active .tab-title {
   font-weight: 600;
 }
 
-.tab-title {
-  font-weight: 600;
+.tab-conn {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
 }
 
-/* Long titles (a whole SQL statement) truncate instead of stretching the bar. */
-.tab-title {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* A snippet's tab holding edits it has not saved back yet (issue #338). Purely
-   decorative: the tab's aria-label carries the same fact in words. */
-.tab-unsaved {
-  color: var(--null);
-  font-size: var(--fs-md);
-  line-height: 0;
-}
-
+/* 24 px close target. A tab with unsaved edits shows a dot in its place until
+   the pointer is over it. */
 .tab-close,
-.tab-new {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: default;
-  font-size: var(--fs-lg);
-  line-height: 1;
-  padding: 0 var(--sp-2);
+.tab-new,
+.tab-overflow,
+.tab-launch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: var(--h-sm);
+  min-width: var(--h-sm);
+  padding: 0;
+  border: 0;
   border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: default;
+  flex-shrink: 0;
 }
 
-/* Close affordance is dimmed until the tab is hovered or active, so a row of
-   tabs reads calmly (chrome visual pass). */
+.tab-new,
+.tab-overflow,
+.tab-launch {
+  align-self: center;
+}
+
+.tab-overflow,
+.tab-launch {
+  padding: 0 var(--sp-3);
+}
+
 .tab .tab-close {
-  opacity: 0.45;
-  transition: opacity var(--motion-fast);
+  opacity: 0.5;
 }
 
 .tab:hover .tab-close,
-.tab.active .tab-close {
+.tab.active .tab-close,
+.tab.is-dirty .tab-close {
   opacity: 1;
 }
 
+.tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--text-dim);
+}
+
+.tab.is-dirty .tab-x,
+.tab.is-dirty:hover .tab-dot,
+.tab.is-dirty .tab-close:focus-visible .tab-dot {
+  display: none;
+}
+
+.tab.is-dirty:hover .tab-x {
+  display: block;
+}
+
 .tab-close:hover,
-.tab-new:hover {
+.tab-new:hover,
+.tab-overflow:hover,
+.tab-launch:hover {
   background: var(--bg-elev2);
   color: var(--text);
 }
 
-.tab-new {
-  padding: var(--sp-3) var(--sp-4);
+.tab-kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev2);
   color: var(--text-dim);
 }
 
@@ -1509,10 +1497,6 @@ body {
 
 .tool-pane > h2:first-child {
   margin-top: 0;
-}
-
-.tab-tool .tab-title {
-  font-style: italic;
 }
 
 .panes {

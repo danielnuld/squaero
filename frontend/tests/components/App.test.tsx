@@ -43,27 +43,20 @@ describe("App shell", () => {
 // The navigation band (issue #386): the ribbon of 12 destinations is gone, and
 // what replaced it has to actually reach the same places.
 describe("App — one navigation band", () => {
-  it("has no ribbon; the launcher opens the palette and ⋯ folds the tools away", () => {
+  it("has no ribbon and no tool strip; the search button opens the palette", () => {
     mount();
     expect(host!.querySelector(".apptoolbar")).toBeNull();
+    // Tools live in the Herramientas menu and the palette (#688).
+    expect(host!.querySelector(".toolstrip")).toBeNull();
 
     const launch = host!.querySelector(".tab-launch") as HTMLButtonElement;
     expect(launch).not.toBeNull();
     launch.click();
     expect(host!.querySelector(".cmdk")).not.toBeNull();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-
-    // The strip shows by default: it is how someone finds out the twelve tools
-    // are there at all. ⋯ folds it away, and that choice is remembered.
-    const tools = host!.querySelector(".tab-tools") as HTMLButtonElement;
-    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(12);
-    tools.click();
-    expect(host!.querySelector(".toolstrip")).toBeNull();
-    tools.click();
-    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(12);
   });
 
-  it("does not spell the connection out on the tab", () => {
+  it("spells the connection out on the tab only when several are open", () => {
     mount();
     expect(host!.querySelector(".tab-conn")).toBeNull();
   });

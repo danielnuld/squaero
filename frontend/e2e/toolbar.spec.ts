@@ -1,16 +1,15 @@
-// The navigation band: the launcher, the tool strip, and the names they keep.
+// The tools, and the names they keep.
 //
-// The ribbon of twelve buttons this replaced (#386) had one property worth not
-// losing: every destination was reachable by an accessible name, and the icons
-// were decorative SVGs rather than emoji that announce themselves. The strip is
-// icon-ONLY now, so the name has nowhere to hide — it comes from aria-label, and
-// a missing one costs a screen-reader user the button entirely while a sighted
-// user notices nothing.
+// The ribbon of twelve buttons (#386) and then the strip of tool icons under
+// the tabs are gone (#688): tools live in the explorer's Herramientas menu, the
+// native menu bar and the Ctrl+K palette. What must not be lost is that every
+// destination is reachable by an accessible name, with decorative SVG icons
+// rather than emoji that announce themselves.
 
-import { connect } from "./support/app-actions";
+import { connect, openTool } from "./support/app-actions";
 import { describeEngine, expect, test } from "./support/fixtures";
 
-/** The tools in the strip, by the accessible name a user hears. */
+/** The tools, by the accessible name a user hears. */
 const TOOLS = [
   "Monitor de servidor",
   "Consultas lentas",
@@ -25,53 +24,13 @@ const TOOLS = [
   "Conexiones",
 ];
 
-/**
- * The one tool that belongs to no connection (issue #525): it is the list of the
- * saved ones, and it is how the first connection gets opened, so it cannot wait
- * for a connection to exist. Every other tool asks some server something.
- */
-const NEEDS_NO_CONNECTION = "Conexiones";
-
 describeEngine("sqlite", () => {
-  test("every tool in the strip has a name and an icon, and ⋯ folds it away", async ({
-    app,
-  }) => {
+  test("Snippets opens its panel from the tools menu", async ({ app }) => {
     const { page } = app;
     await app.open();
     await connect(app);
 
-    const strip = page.getByRole("toolbar", { name: "Acciones" });
-    // Shown by default: it is how someone finds out these exist at all.
-    await expect(strip).toBeVisible();
-
-    for (const name of TOOLS) {
-      const button = strip.getByRole("button", { name, exact: true });
-      await expect(button, `${name} is reachable by name`).toBeVisible();
-      await expect(button).toBeEnabled();
-      // Vector art, not a character: an emoji could not take the strip's colour.
-      await expect(button.locator("svg")).toHaveCount(1);
-      // If the icon were exposed, it would land in the accessible name too and
-      // the exact match above would already have failed.
-      await expect(button.locator("svg[aria-hidden='true']")).toHaveCount(1);
-    }
-
-    // No stragglers: if a tool is added, this test should have to say so.
-    await expect(strip.getByRole("button")).toHaveCount(TOOLS.length);
-
-    // And it folds away for anyone who wants the 40 px back.
-    await page.getByRole("button", { name: "Barra de herramientas", exact: true }).click();
-    await expect(strip).toBeHidden();
-  });
-
-  test("Snippets opens its panel from the strip", async ({ app }) => {
-    const { page } = app;
-    await app.open();
-    await connect(app);
-
-    await page
-      .getByRole("toolbar", { name: "Acciones" })
-      .getByRole("button", { name: "Snippets", exact: true })
-      .click();
+    await openTool(page, "Snippets");
 
     // It opens as a tab, the same one the editor's own button and Ctrl+J reach,
     // so they focus a single panel rather than piling up duplicates.
@@ -79,64 +38,35 @@ describeEngine("sqlite", () => {
     await expect(page.getByText("Snippets").first()).toBeVisible();
   });
 
-  test("the launcher opens the palette the strip's tools also live in", async ({ app }) => {
+  test("the search button opens the palette the tools also live in", async ({ app }) => {
     const { page } = app;
     await app.open();
     await connect(app);
 
-    // Named by its visible label, not by the title: the label is what a screen
-    // reader reads and what a sighted user clicks.
-    await page.getByRole("button", { name: /Buscar o ejecutar/ }).click();
+    await page.getByRole("button", { name: "Buscar objetos, herramientas y acciones" }).click();
 
     const palette = page.getByRole("dialog", { name: "Paleta de comandos" });
     await expect(palette).toBeVisible();
-    // Every tool the ribbon used to show is in here, which is what makes taking
-    // the ribbon away honest rather than a removal.
     for (const name of TOOLS) {
       await expect(palette.getByText(name, { exact: true }).first()).toBeVisible();
     }
   });
 
-  test("the tree's tools menu shows the same icons, not emoji", async ({ app }) => {
+  test("the tools menu shows every tool with an icon, not emoji", async ({ app }) => {
     const { page } = app;
     await app.open();
     await connect(app);
 
-    // Exact: the strip's own toggle is "Barra de herramientas", which a substring
-    // match would also find.
-    await page.getByRole("button", { name: "Herramientas", exact: true }).click();
+    await page.getByRole("button", { name: "Herramientas", exact: true }).first().click();
 
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
-
-    // The same tools as the strip, each with its own icon. The exact-name
-    // match is what proves the emoji is gone: the label used to have one glued in
-    // front of it, so the accessible name was "🖥️  Monitor de servidor" — a screen
-    // reader read the decoration aloud and this match would fail.
+    // The exact-name match is what proves no emoji is glued to the label: it
+    // would land in the accessible name and the match would fail.
     for (const name of TOOLS) {
       const item = menu.getByRole("menuitem", { name, exact: true });
       await expect(item, `${name} is in the tools menu`).toBeVisible();
       await expect(item.locator("svg")).toHaveCount(1);
     }
-  });
-
-  test("the tools stay disabled until a connection is open", async ({ app }) => {
-    const { page } = app;
-    await app.open();
-
-    const strip = page.getByRole("toolbar", { name: "Acciones" });
-    for (const name of TOOLS.filter((n) => n !== NEEDS_NO_CONNECTION)) {
-      await expect(
-        strip.getByRole("button", { name, exact: true }),
-        `${name} is disabled with no connection`,
-      ).toBeDisabled();
-    }
-
-    // And the exception stays live: with nothing connected it is the only way
-    // to reach the saved connections at all.
-    await expect(
-      strip.getByRole("button", { name: NEEDS_NO_CONNECTION, exact: true }),
-      `${NEEDS_NO_CONNECTION} is usable with no connection`,
-    ).toBeEnabled();
   });
 });

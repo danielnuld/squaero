@@ -1245,6 +1245,12 @@ export const en: Record<string, string> = {
   "valid.fieldRequired": "The “{field}” field is required.",
 
   // the last of the sweep: tab menu, tab chrome, cell-type names
+  "tabmenu.closeRight": "Close tabs to the right",
+  "tabmenu.closeAll": "Close all",
+  "tabmenu.copyName": "Copy the name",
+  "tab.running": "Running",
+  "tab.overflow": "More tabs",
+  "tab.overflowN": "{n} more tabs",
   "tabmenu.closeOthers": "Close the others",
   "lhist.title": "Local history",
   "lhist.menu": "Local history…",
@@ -1567,7 +1573,7 @@ export const en: Record<string, string> = {
   "settings.typeColors": "Colors per type",
   "settings.sampleText": "text",
   "settings.resetColors": "Reset this theme's colors",
-  "settings.toolStrip": "Tool strip under the tabs",
+  "settings.showOldValues": "Show the previous value of changed cells",
   "settings.slowThreshold": "Slow query threshold (ms)",
   "settings.historyLimit": "History limit",
   "settings.checkUpdates": "Check for updates on startup",

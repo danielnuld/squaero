@@ -9,7 +9,7 @@
 
 import type { Page } from "@playwright/test";
 
-import { connect } from "./support/app-actions";
+import { connect, openTool } from "./support/app-actions";
 import { describeEngine, test, expect, type App } from "./support/fixtures";
 import { seedSnippets } from "./support/state";
 
@@ -95,14 +95,11 @@ describeEngine("sqlite", () => {
   test("the library searches by body, opens, and stays open for the next one", async ({ app }) => {
     const { page } = app;
     await openWithSnippets(app);
-    // The tool strip only lights up with a connection open, so this is also the
+    // The tools menu only exists with a connection open, so this is also the
     // one test that walks in through the front door.
     await connect(app);
 
-    await page
-      .getByRole("toolbar", { name: "Acciones" })
-      .getByRole("button", { name: "Snippets", exact: true })
-      .click();
+    await openTool(page, "Snippets");
 
     const rows = page.getByRole("button", { name: /^(conteo|artículos por ciudad)/ });
     await expect(rows).toHaveCount(2);

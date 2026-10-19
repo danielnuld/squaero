@@ -19,13 +19,11 @@ import { bulkFill } from "./support/seed";
 describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => {
   test("connects and shows the connection as open", async ({ app }) => {
     await app.open();
-    // Before connecting the interface says so, and the tools are dead. They live
-    // in the ⋯ strip now (#386), which is folded until asked.
+    // Before connecting the interface says so, and there is no connection to
+    // offer tools for (#688: they live in each connection's Herramientas menu).
     await expect(app.page.getByText("Sin conexión")).toBeVisible();
-    const monitor = app.page
-      .getByRole("toolbar", { name: "Acciones" })
-      .getByRole("button", { name: "Monitor de servidor", exact: true });
-    await expect(monitor).toBeDisabled();
+    const tools = app.page.getByRole("button", { name: "Herramientas", exact: true });
+    await expect(tools).toHaveCount(0);
 
     await connect(app);
 
@@ -35,7 +33,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await expect(
       app.page.getByRole("button", { name: `Desconectar ${app.engine.label}` }).first(),
     ).toBeVisible();
-    await expect(monitor).toBeEnabled();
+    await expect(tools.first()).toBeVisible();
   });
 
   test("browses to the fixture table and reads its rows", async ({ app }) => {
@@ -221,11 +219,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await disconnect(app.page);
 
     await expect(app.page.getByText("Sin conexión")).toBeVisible();
-    await expect(
-      app.page
-        .getByRole("toolbar", { name: "Acciones" })
-        .getByRole("button", { name: "Monitor de servidor", exact: true }),
-    ).toBeDisabled();
+    await expect(app.page.getByRole("button", { name: "Herramientas", exact: true })).toHaveCount(0);
     expect(engineName).toBe(app.engine.name); // the block really is this engine
   });
 });

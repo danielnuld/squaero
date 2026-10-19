@@ -77,13 +77,9 @@ const connect = async (n: number) => {
   await settle();
 };
 
-/** Click a tool in the strip under the tabs, by its accessible title. */
-const openTool = (title: string) => {
-  const btn = [...host!.querySelectorAll<HTMLElement>(".toolstrip-btn")].find((b) =>
-    (b.getAttribute("title") ?? "").startsWith(title),
-  );
-  btn!.click();
-};
+/** Open a tool the way the Herramientas menu does: by its catalog id. */
+const openTool = (tool: string) =>
+  window.dispatchEvent(new CustomEvent("quaero-menu", { detail: `tool:${tool}` }));
 
 const toolTabs = () =>
   [...host!.querySelectorAll<HTMLElement>(".tab-tool .tab-title")].map((el) => el.textContent);
@@ -92,15 +88,15 @@ describe("App — a tool tab per connection", () => {
   it("opens the users panel of each connection instead of reusing the first", async () => {
     mountApp();
     await connect(0);
-    openTool("Usuarios");
+    openTool("users");
     expect(toolTabs()).toEqual(["Usuarios y permisos"]); // alone: no name to add
 
     await connect(1); // connecting the second focuses it
-    openTool("Usuarios");
+    openTool("users");
     expect(toolTabs()).toEqual(["Usuarios y permisos", "Usuarios y permisos · prod"]);
 
     // Asking the same connection again goes back to its tab, not a third one.
-    openTool("Usuarios");
+    openTool("users");
     expect(toolTabs()).toHaveLength(2);
   });
 
@@ -110,7 +106,7 @@ describe("App — a tool tab per connection", () => {
     mountApp();
     // Editing a saved connection lives in the connections tab now (issue #525),
     // not in the bar's popover — which is a search for opening one.
-    const openConns = () => openTool("Crear, editar");
+    const openConns = () => openTool("connections");
     openConns();
     await settle();
     const edit = () => host!.querySelectorAll<HTMLElement>(".conn-list button[title='Editar']");
