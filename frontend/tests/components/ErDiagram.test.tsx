@@ -167,3 +167,96 @@ describe("ErDiagram", () => {
     expect(host!.textContent).toContain("(inferidas)");
   });
 });
+
+// Audit A-31: anchored edges with the crow's-foot notation, the relation
+// switch, and boxes and a description a keyboard and a screen reader can use.
+describe("ErDiagram notation and access", () => {
+  it("draws the notation at both ends and describes the relations in words", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const rel = host!.querySelector(".er-rel")!;
+    expect(rel.querySelectorAll(".er-mark").length).toBe(2);
+    expect(rel.querySelector(".er-mark-circle")).not.toBeNull();
+    const img = host!.querySelector('g[role="img"]')!;
+    expect(img.getAttribute("aria-label")).toContain("orders.customer_id referencia a customers.id.");
+    // The FK column carries the FK icon.
+    expect(host!.querySelector(".er-col-fk")).not.toBeNull();
+  });
+
+  it("switches between the foreign keys and the inferred relations", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const radios = [...host!.querySelectorAll('[role="radio"]')] as HTMLButtonElement[];
+    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "false"]);
+    radios[1].click();
+    expect(host!.textContent).toContain("(inferidas)");
+    expect(host!.querySelector('[role="radio"][aria-checked="true"]')!.textContent).toBe("Inferidas");
+  });
+
+  it("keeps Claves foráneas off when the engine has none", async () => {
+    installBridge();
+    mount("mongodb");
+    await flush();
+    const fk = host!.querySelector('[role="radio"]') as HTMLButtonElement;
+    expect(fk.disabled).toBe(true);
+    fk.click();
+    expect(fk.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("moves a focused box with the arrows and opens it with Intro", async () => {
+    installBridge();
+    const opened: string[] = [];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <ErDiagram connId="c1" engine="mysql" db="testdb" onClose={() => {}} onOpenTable={(n) => opened.push(n)} />,
+        host!,
+      );
+    });
+    await flush();
+    const box = [...host!.querySelectorAll(".er-box")].find((b) => b.textContent?.includes("orders")) as SVGGElement;
+    expect(box.getAttribute("tabindex")).toBe("0");
+    expect(box.getAttribute("aria-label")).toContain("Tabla orders, 3 columnas, 1 relación");
+    const before = box.getAttribute("transform");
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(box.getAttribute("transform")).not.toBe(before);
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(opened).toEqual(["orders"]);
+  });
+
+  it("draws a view dashed and offers the legend and the minimap", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string; params: Record<string, unknown> };
+      const ok = (result: unknown) => ({ jsonrpc: "2.0", id: req.id, result });
+      if (req.method === "schema.tree")
+        return ok(rs([{ name: "name", type: "text" }, { name: "type", type: "text" }], [["t", "table"], ["v", "view"]]));
+      if (req.method === "schema.describe")
+        return ok(rs([{ name: "name", type: "text" }, { name: "type", type: "text" }, { name: "pk", type: "int" }], [["id", "int", "1"]]));
+      return ok(rs([{ name: "from_table", type: "text" }, { name: "to_table", type: "text" }], []));
+    };
+    mount("mysql");
+    await flush();
+    expect(host!.querySelectorAll(".er-box-bg.er-view").length).toBe(1);
+    expect(host!.querySelector(".er-legend")!.textContent).toContain("Cero o muchos (clave foránea)");
+    expect(host!.querySelector('.er-minimap[role="img"]')).not.toBeNull();
+    expect(host!.querySelector('g[role="img"]')!.getAttribute("aria-label")).toContain("La vista v no tiene relaciones.");
+  });
+});
+
+describe("ErDiagram keys", () => {
+  it("zooms with + and leaves Ctrl+0 to the interface zoom", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const box = host!.querySelector(".er-box")!;
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "+", bubbles: true }));
+    expect(host!.querySelector(".panel-zoom")!.textContent).toBe("120%");
+    const ctrl0 = new KeyboardEvent("keydown", { key: "0", ctrlKey: true, bubbles: true, cancelable: true });
+    box.dispatchEvent(ctrl0);
+    expect(ctrl0.defaultPrevented).toBe(false);
+  });
+});

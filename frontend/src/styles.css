@@ -677,6 +677,32 @@ body {
   align-items: center;
   gap: var(--sp-3);
 }
+.objlist-filter {
+  height: var(--h-sm);
+  min-width: 160px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+.objlist-row.sel td {
+  background: var(--accent-soft);
+}
+.objlist-on {
+  color: var(--text-dim);
+  margin-left: var(--sp-2);
+}
+.objlist-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
 .objlist-empty {
   padding: var(--sp-5);
   color: var(--text-dim);
@@ -4893,6 +4919,116 @@ button.btn-danger:disabled {
   font-weight: 600;
 }
 
+/* Structure sections (audit A-28): summary line, then folding sections. */
+.struct-summary {
+  margin: 0 0 var(--sp-3);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+}
+.struct-sec {
+  margin-bottom: var(--sp-4);
+}
+.struct-sec > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  list-style: none;
+  cursor: default;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.struct-sec > summary::-webkit-details-marker {
+  display: none;
+}
+.struct-sec > summary h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.struct-sec-caret {
+  color: var(--text-dim);
+  transition: transform var(--motion-fast);
+}
+.struct-sec[open] > summary .struct-sec-caret {
+  transform: rotate(90deg);
+}
+.struct-sec-ct {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.struct-sec-spacer {
+  flex: 1;
+}
+.struct-sec-body {
+  padding-top: var(--sp-2);
+}
+.struct-note {
+  margin: var(--sp-2) 0;
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+}
+.struct-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.struct-dim {
+  color: var(--text-dim);
+}
+.struct-pk {
+  font-weight: 600;
+}
+.struct-type {
+  color: var(--syntax-type);
+}
+.struct-keys {
+  font-family: var(--font-ui);
+  color: var(--text-dim);
+}
+/* A button that reads as a link: a referenced table, «Gestionar índices». */
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: default;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Read-only SQL with the editor's colours (SqlHighlight). */
+.sql-hl .tok-keyword {
+  color: var(--syntax-keyword);
+}
+.sql-hl .tok-string,
+.sql-hl .tok-string2 {
+  color: var(--syntax-string);
+}
+.sql-hl .tok-number,
+.sql-hl .tok-bool {
+  color: var(--syntax-number);
+}
+.sql-hl .tok-atom,
+.sql-hl .tok-null {
+  color: var(--syntax-null);
+}
+.sql-hl .tok-comment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+.sql-hl .tok-operator,
+.sql-hl .tok-punctuation {
+  color: var(--syntax-operator);
+}
+.sql-hl .tok-typeName {
+  color: var(--syntax-type);
+}
+.sql-hl .tok-invalid {
+  color: var(--syntax-invalid);
+}
+
 .ddl-header {
   display: flex;
   align-items: center;
@@ -6826,6 +6962,16 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 /* Entity-relationship diagram (issue #145) */
+/* ER diagram (audit A-31): boxes with rows, orthogonal edges with the
+   crow's-foot notation, dashed views, and the zoom, legend and minimap laid
+   over the canvas. */
+.er-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .er-canvas {
   flex: 1;
   min-height: 0;
@@ -6841,8 +6987,13 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .er-box-bg {
   fill: var(--bg);
-  stroke: var(--border);
+  stroke: var(--border-strong);
   stroke-width: 1;
+}
+
+.er-box-bg.er-view,
+.er-mini-box.er-view {
+  stroke-dasharray: 5 3;
 }
 
 .er-box {
@@ -6853,16 +7004,28 @@ button.grid-action.danger:hover:not(:disabled) {
   cursor: grabbing;
 }
 
-.er-box-header {
-  fill: var(--accent);
+.er-box.er-sel .er-box-bg,
+.er-box:focus-visible .er-box-bg {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.er-box-rule {
+  stroke: var(--border);
 }
 
 .er-box-title {
-  fill: var(--accent-fg);
+  fill: var(--text);
   font-size: var(--fs-base);
   font-weight: 600;
   font-family: var(--font-ui);
   pointer-events: none;
+}
+
+.er-box-count {
+  fill: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-family: var(--font-ui);
 }
 
 .er-col {
@@ -6875,19 +7038,105 @@ button.grid-action.danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
-.er-col-type {
-  fill: var(--text-dim);
+.er-col-key {
+  color: var(--syntax-number);
 }
 
-.er-edge {
+.er-col-fk {
+  color: var(--accent-text);
+}
+
+.er-col-type {
+  fill: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+}
+
+.er-edge,
+.er-legend-line,
+.er-mark {
   stroke: var(--text-dim);
   stroke-width: 1.5;
-  stroke-dasharray: 4 3;
   fill: none;
 }
 
-.er-arrow-head {
-  fill: var(--text-dim);
+.er-mark-circle {
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+  fill: var(--bg-elev);
+}
+
+.er-rel-active .er-edge,
+.er-rel-active .er-mark,
+.er-rel-active .er-mark-circle {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.er-rel-label {
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+}
+
+.er-zoom,
+.er-legend,
+.er-minimap {
+  position: absolute;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.er-zoom {
+  left: var(--sp-4);
+  bottom: var(--sp-4);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+}
+
+.er-legend {
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.er-legend > span {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.er-legend-view {
+  display: inline-block;
+  width: 28px;
+  height: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-sm);
+}
+
+.er-minimap {
+  right: var(--sp-4);
+  top: var(--sp-4);
+}
+
+.er-mini-box {
+  fill: var(--bg-elev2);
+  stroke: var(--border-strong);
+  stroke-width: 0.5;
+}
+
+.er-mini-view {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1;
 }
 
 /* Visual query builder (issue #146) */
@@ -7607,41 +7856,221 @@ button.grid-action.danger:hover:not(:disabled) {
   padding: var(--sp-3);
 }
 
-.ep-svg {
-  display: block;
+/* Execution plan (audit A-09): the analysed statement, the options bar, and
+   the tree with each node's own cost as a bar beside a detail pane. */
+.ep-query {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border);
 }
 
-.ep-edge {
-  stroke: var(--border);
-  stroke-width: 1.5;
+.ep-query-label,
+.ep-dim {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
 }
 
-.ep-node rect {
-  fill: var(--bg-elev);
-  stroke: var(--border);
-  stroke-width: 1.5;
+.ep-query-sql {
+  margin: 0;
+  max-height: 120px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  white-space: pre-wrap;
 }
 
-.ep-node.hot rect {
-  stroke: var(--error);
-  stroke-width: 2.5;
+.ep-opts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-base);
+}
+
+.ep-analyze {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.ep-legend {
+  display: inline-flex;
+  gap: var(--sp-4);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.ep-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.ep-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  border-radius: var(--r-sm);
+}
+
+.ep-swatch-cost {
+  background: var(--accent);
+}
+
+.ep-swatch-hot {
+  background: var(--error);
+}
+
+.ep-swatch-real {
+  background: var(--syntax-number);
+}
+
+.ep-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.ep-tree {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  font-size: var(--fs-base);
+}
+
+.ep-tree-head,
+.ep-item {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 140px 160px 90px;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-3);
+  min-height: var(--h-md);
+}
+
+.ep-tree-head {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.ep-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.ep-item.sel {
+  background: var(--accent-soft);
+}
+
+.ep-item .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ep-cell-op {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
 }
 
 .ep-op {
-  fill: var(--text);
-  font-size: var(--fs-base);
   font-weight: 600;
 }
 
-.ep-table {
-  fill: var(--accent);
-  font-size: var(--fs-sm);
-  font-family: var(--font-mono);
+.ep-item.hot .ep-op {
+  color: var(--accent-text);
 }
 
-.ep-meta {
-  fill: var(--text-dim);
+.ep-obj {
+  font-family: var(--font-mono);
+  color: var(--accent-text);
+}
+
+.ep-badge {
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--error);
+  color: var(--accent-fg);
   font-size: var(--fs-micro);
+}
+
+.ep-real {
+  color: var(--syntax-number);
+}
+
+.ep-cost {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.ep-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elev2);
+  overflow: hidden;
+}
+
+.ep-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.ep-item.costliest .ep-bar > span {
+  background: var(--error);
+}
+
+.ep-detail-pane {
+  width: 280px;
+  flex: none;
+  overflow: auto;
+  padding: var(--sp-3) var(--sp-4);
+  border-left: 1px solid var(--border);
+  font-size: var(--fs-base);
+}
+
+.ep-detail-title {
+  font-weight: 600;
+  margin-bottom: var(--sp-1);
+}
+
+.ep-detail-pane dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-1) var(--sp-3);
+  margin: var(--sp-3) 0;
+}
+
+.ep-detail-pane dt {
+  color: var(--text-dim);
+}
+
+.ep-detail-pane dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .ep-raw {

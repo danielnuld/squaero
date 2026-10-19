@@ -1,4 +1,5 @@
-import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onCleanup, onMount, useContext, type JSX } from "solid-js";
+import { ToolTabContext, watchToolBusy } from "../utils/toolJobs";
 import { IconRefresh } from "./icons";
 import { Dialog } from "./Dialog";
 import { t } from "../utils/i18n";
@@ -31,8 +32,11 @@ export function Panel(props: {
   status?: JSX.Element;
   /** Given, the bar ends with the refresh button. */
   onRefresh?: () => void;
-  /** Disables refresh and labels it as running. */
+  /** Disables refresh and labels it as running. Also marks the tool's tab busy. */
   refreshing?: boolean;
+  /** Work in progress that is not a refresh (a search, an import): the tab
+      shows a spinner, and its end is announced if the user has left the tab. */
+  busy?: boolean;
   /** There is work in progress (a wizard with input or results): Escape asks
       before closing instead of throwing it away (audit rule 11). */
   dirty?: boolean;
@@ -45,6 +49,9 @@ export function Panel(props: {
     else props.onClose();
   };
   onMount(() => document.addEventListener("keydown", onKey));
+  // Drawn as a tool tab: report the work in progress for its spinner.
+  const tabId = useContext(ToolTabContext);
+  if (tabId !== undefined) onCleanup(watchToolBusy(tabId, () => !!props.refreshing || !!props.busy));
   onCleanup(() => document.removeEventListener("keydown", onKey));
 
   const hasBar = () => !!props.actions || !!props.status || !!props.onRefresh;
