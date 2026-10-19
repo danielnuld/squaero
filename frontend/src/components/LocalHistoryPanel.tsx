@@ -2,6 +2,7 @@ import { Dropdown } from "./Dropdown";
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { currentOs, orderActions } from "../utils/dialog";
 import { diffLines } from "../utils/lineDiff";
 import type { TabHistory } from "../utils/localHistory";
 
@@ -129,31 +130,37 @@ export function LocalHistoryPanel(props: {
         </Show>
       </Show>
 
-      <div class="modal-actions">
-        <button
-          disabled={!version()}
-          onClick={() => {
-            const v = version();
-            if (v) props.onOpenCopy(doc()?.title ?? "", v.sql);
-          }}
-        >
-          {t("lhist.openCopy")}
-        </button>
-        <button
-          class="primary"
-          disabled={!version() || !isOpen() || identical()}
-          title={isOpen() ? undefined : t("lhist.closedHint")}
-          onClick={() => {
-            const v = version();
-            if (!v) return;
-            props.onRestore(docId(), v.sql);
-            // The restore is now the newest version; stay on it, not on
-            // whatever slid into the old position.
-            setIndex(0);
-          }}
-        >
-          {t("lhist.restore")}
-        </button>
+      {/* The action row in the OS order (#692): Restore is the primary. */}
+      <div class="panel-foot">
+        <span class="dlg-actions">
+          {orderActions(currentOs(), [
+            <button
+              class="btn-primary"
+              disabled={!version() || !isOpen() || identical()}
+              title={isOpen() ? undefined : t("lhist.closedHint")}
+              onClick={() => {
+                const v = version();
+                if (!v) return;
+                props.onRestore(docId(), v.sql);
+                // The restore is now the newest version; stay on it, not on
+                // whatever slid into the old position.
+                setIndex(0);
+              }}
+            >
+              {t("lhist.restore")}
+            </button>,
+            <button
+              class="btn"
+              disabled={!version()}
+              onClick={() => {
+                const v = version();
+                if (v) props.onOpenCopy(doc()?.title ?? "", v.sql);
+              }}
+            >
+              {t("lhist.openCopy")}
+            </button>,
+          ])}
+        </span>
       </div>
     </Panel>
   );

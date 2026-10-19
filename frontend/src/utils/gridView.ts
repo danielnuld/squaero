@@ -101,8 +101,8 @@ export function buildViewIndices(
   return idx;
 }
 
-/** Sort indicator glyph for a column header (▲/▼/empty). */
-export function sortGlyph(sort: SortState | null, col: number): string {
-  if (!sort || sort.col !== col) return "";
-  return sort.dir === "asc" ? "▲" : "▼";
+/** Sort indicator for a column header: the arrow icon's name, or null (#696). */
+export function sortIcon(sort: SortState | null, col: number): "arrow-up" | "arrow-down" | null {
+  if (!sort || sort.col !== col) return null;
+  return sort.dir === "asc" ? "arrow-up" : "arrow-down";
 }

@@ -61,6 +61,7 @@
   --r-sm: 6px;
   --r-md: 8px;
   --r-lg: 12px;
+  --label-case: none;
   --accent-soft: rgba(15, 123, 114, 0.1);
   --error-soft: rgba(180, 42, 37, 0.1);
   --warn-soft: rgba(143, 68, 0, 0.1);
@@ -119,10 +120,17 @@
   --h-sm: 24px;
   --h-md: 28px;
 
-  /* Alturas de banda: filtro / pestañas y acciones / herramientas. */
+  /* Alturas de banda: filtro / pestañas y acciones / herramientas / cabecera
+     de diálogo o panel. */
   --band-sm: 28px;
   --band-md: 32px;
   --band-lg: 40px;
+  --band-xl: 48px;
+
+  /* Densidad (issue #682): estas escalas son las de «Cómoda». «Compacta» las
+     baja un escalón y App las escribe en línea sobre la raíz
+     (typography.ts, DENSITY_SCALES): ninguna regla decide su propia
+     compacidad, todas leen las mismas variables. */
 
   /* Movimiento (issue #386). La app tenía UNA transición en 105 KB de CSS, y
      una sola es indistinguible de un descuido. La decisión, escrita: esto es una
@@ -692,9 +700,8 @@ body {
 .sidebar-header {
   padding: var(--sp-3) var(--sp-4);
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
   font-size: var(--fs-sm);
-  letter-spacing: 0.04em;
   color: var(--text-dim);
   border-bottom: 1px solid var(--border);
 }
@@ -801,7 +808,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  height: 44px;
+  height: var(--band-xl);
   padding: 0 var(--sp-2) 0 var(--sp-4);
   background: none;
   border: none;
@@ -955,8 +962,7 @@ body {
   margin: 0;
   padding: var(--sp-3) var(--sp-4) var(--sp-2);
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -1013,8 +1019,7 @@ body {
 .connsearch-open {
   flex-shrink: 0;
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--number);
   background: color-mix(in srgb, var(--number) 16%, transparent);
   padding: 1px var(--sp-2);
@@ -1076,8 +1081,7 @@ body {
   display: inline-block;
   font-size: var(--fs-micro);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
   color: var(--accent-fg);
   background: var(--accent);
   padding: var(--sp-1) var(--sp-3);
@@ -1106,9 +1110,13 @@ body {
 }
 
 /* Marks an open (connected) connection in the list. */
+/* The connected mark: a drawn dot, not a "●" glyph that changes with the font. */
 .conn-live {
-  color: var(--number);
-  font-size: var(--fs-micro);
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--ok);
   margin-left: var(--sp-2);
   vertical-align: middle;
 }
@@ -1128,7 +1136,7 @@ body {
   gap: var(--sp-3);
 }
 .color-swatch {
-  width: 24px;
+  width: var(--h-sm);
   height: var(--h-sm);
   border-radius: var(--r-pill);
   border: 1px solid var(--border);
@@ -1154,7 +1162,7 @@ body {
 }
 
 .icon-swatch {
-  min-width: 28px;
+  min-width: var(--h-md);
   height: var(--h-md);
   padding: 0 var(--sp-2);
   border: 1px solid var(--border);
@@ -2062,7 +2070,7 @@ body {
 .grid-search-close {
   margin-left: auto;
   min-width: 24px;
-  min-height: 24px;
+  min-height: var(--h-sm);
   border: none;
   background: transparent;
   color: var(--text-dim);
@@ -2258,6 +2266,7 @@ body {
   margin: 0 0 var(--sp-2);
   font-size: var(--fs-sm);
   font-weight: 600;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -2307,8 +2316,8 @@ body {
 }
 
 .welcome-action-icon {
-  width: 34px;
-  height: 34px;
+  width: var(--band-md);
+  height: var(--band-md);
   flex: none;
   box-sizing: border-box;
   display: flex;
@@ -2357,7 +2366,7 @@ body {
 }
 
 .welcome-conn {
-  min-height: 48px;
+  min-height: var(--band-xl);
 }
 
 .welcome-conn:disabled {
@@ -2376,8 +2385,8 @@ body {
 }
 
 .welcome-conn-mono {
-  width: 32px;
-  height: 32px;
+  width: var(--band-md);
+  height: var(--band-md);
   flex: none;
   display: flex;
   align-items: center;
@@ -2468,7 +2477,7 @@ body {
   align-items: center;
   gap: var(--sp-3);
   width: calc(100% + 16px);
-  height: 30px;
+  height: var(--h-md);
   margin: 0 -8px;
   padding: 0 var(--sp-3);
   border: 0;
@@ -2988,8 +2997,7 @@ button.status-chip:not(:disabled):hover {
 
 .cf-optional {
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -3188,8 +3196,7 @@ button.status-chip:not(:disabled):hover {
 .cf-card-title {
   margin: 0;
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -3295,8 +3302,7 @@ button.status-chip:not(:disabled):hover {
   border-radius: var(--r-sm);
   color: var(--text-dim);
   font-size: var(--fs-sm);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
 }
 
 .conn-group > summary::-webkit-details-marker {
@@ -3389,7 +3395,7 @@ button.status-chip:not(:disabled):hover {
   font-size: var(--fs-md);
   /* WCAG 2.2 target size (issue #762). */
   min-width: 24px;
-  min-height: 24px;
+  min-height: var(--h-sm);
 }
 
 .conn-actions button:hover {
@@ -3433,7 +3439,7 @@ button.status-chip:not(:disabled):hover {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 48px;
+  min-height: var(--band-xl);
   padding: 0 var(--sp-4) 0 var(--sp-6);
 }
 
@@ -3562,8 +3568,8 @@ button.status-chip:not(:disabled):hover {
 }
 
 .wiz-num {
-  width: 20px;
-  height: 20px;
+  width: var(--h-micro);
+  height: var(--h-micro);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3742,8 +3748,7 @@ button.danger-text {
   font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
 }
 
 .field > span {
@@ -3817,27 +3822,10 @@ button.danger-text {
   font-family: var(--font-mono);
 }
 
-/* Buttons end together at the right, the way a dialog footer reads (issue
-   #386). Wherever a panel deliberately splits them into two groups it puts a
-   flex:1 spacer between, and a spacer eats the free room before this can — so
-   this changes nothing there and everything in a full-width tool pane, where
-   the two buttons used to sit a thousand pixels apart. */
-.modal-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--sp-3);
-  margin-top: var(--sp-5);
-}
-
-/* The app's ordinary button. Was reachable only under `.modal-actions`, so a
-   button anywhere else (the filter panel's Apply, the snippet detail's Open)
-   fell back to the OS default; `.btn` and a bare `.primary` now get the look
-   wherever they sit. */
-.modal-actions button,
-/* The connection form's footer is not a .modal-actions row (it is pinned
-   outside the scrolling area), so its buttons were falling back to the OS
-   default — reported after v0.27.0 shipped. */
+/* The app's ordinary button: `.btn` and a bare `.primary` get the look
+   wherever they sit (the legacy `.modal-actions` row is gone, #696). The
+   connection form's footer is pinned outside the scrolling area and its
+   buttons once fell back to the OS default — reported after v0.27.0. */
 .cf-foot button,
 button.btn,
 button.primary {
@@ -3850,13 +3838,11 @@ button.primary {
   font: inherit;
 }
 
-.modal-actions button:hover:not(:disabled),
 .cf-foot button:hover:not(:disabled),
 button.btn:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
-.modal-actions button:disabled,
 .cf-foot button:disabled,
 button.btn:disabled,
 button.primary:disabled {
@@ -3864,29 +3850,15 @@ button.primary:disabled {
   cursor: default;
 }
 
-.modal-actions button.primary,
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-fg);
 }
 
-.modal-actions button.primary:hover:not(:disabled),
 button.primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
-}
-
-.modal-actions button.danger {
-  color: var(--error);
-}
-
-.modal-actions button.danger:hover:not(:disabled) {
-  border-color: var(--error);
-}
-
-.modal-actions button.danger:first-child {
-  margin-right: auto; /* push Cerrar to the right */
 }
 
 /* The button vocabulary of dialogs and wizards: one primary per row, a filled
@@ -4091,10 +4063,6 @@ button.btn-danger:disabled {
    body permanently unfolded. */
 /* Fills the tool pane: the library is the content of its own tab, not a dialog
    floating over one, so a leftover modal width left the rest of the pane empty. */
-.snippets .modal-actions {
-  flex: 0 0 auto;
-}
-
 .snippet-library {
   display: grid;
   grid-template-columns: minmax(0, 270px) minmax(0, 1fr);
@@ -4634,8 +4602,7 @@ button.btn-danger:disabled {
 .sidebar-section-title {
   font-size: var(--fs-sm);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   padding: var(--sp-3) var(--sp-4) var(--sp-2);
 }
@@ -4669,10 +4636,6 @@ button.btn-danger:disabled {
   flex: 1;
   min-height: 0;
   resize: none;
-}
-
-.struct-view .modal-actions {
-  flex: none;
 }
 
 .struct-table {
@@ -5287,8 +5250,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .grid-inserts-title {
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--fg-dim);
   padding: var(--sp-2) var(--sp-3);
 }
@@ -5607,8 +5569,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .rd-edited-tag {
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  text-transform: var(--label-case);
   color: var(--accent-text);
 }
 
@@ -5714,8 +5675,7 @@ button.grid-action.danger:hover:not(:disabled) {
   cursor: default;
   font: inherit;
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   padding: var(--sp-2) var(--sp-2);
   border-radius: var(--r-sm);
 }
@@ -6525,8 +6485,7 @@ button.grid-action.danger:hover:not(:disabled) {
 .settings-section h3 {
   margin: 0;
   font-size: var(--fs-base);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-2);
@@ -6972,6 +6931,7 @@ button.grid-action.danger:hover:not(:disabled) {
   margin: 0 0 var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: 600;
+  text-transform: var(--label-case);
   color: var(--text-dim);
 }
 
@@ -7062,8 +7022,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .cmdk-group-label {
   font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   padding: var(--sp-3) var(--sp-3) var(--sp-2);
 }
@@ -7627,8 +7586,7 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .related-side-title {
   font-size: var(--fs-sm);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: var(--label-case);
   color: var(--text-dim);
   padding: 0 var(--sp-2) var(--sp-2);
 }
@@ -7823,8 +7781,7 @@ button.grid-action.danger:hover:not(:disabled) {
   border-radius: var(--r-sm);
   font-size: var(--fs-micro);
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: var(--label-case);
 }
 
 .col-ref-mark {
@@ -8274,7 +8231,7 @@ button.grid-action.danger:hover:not(:disabled) {
   justify-content: center;
   gap: var(--sp-2);
   width: 60px;
-  height: 52px;
+  height: var(--band-xl);
   padding: 0;
   border: 0;
   border-radius: var(--r-md);
@@ -8386,7 +8343,7 @@ button.grid-action.danger:hover:not(:disabled) {
   align-items: center;
   gap: var(--sp-3);
   width: 100%;
-  height: 40px;
+  height: var(--band-lg);
   padding: 0 var(--sp-3) 0 var(--sp-4);
   border: 0;
   border-radius: var(--r-sm);
@@ -8424,7 +8381,7 @@ ul.sidebar-tree {
 }
 
 .objtree-header .connbar-pick {
-  height: 40px;
+  height: var(--band-lg);
   padding: 0 var(--sp-2);
 }
 
@@ -8728,7 +8685,7 @@ ul.sidebar-tree {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  height: 44px;
+  height: var(--band-xl);
   flex: none;
   padding: 0 var(--sp-3) 0 var(--sp-5);
   border-bottom: 1px solid var(--border);
@@ -8794,7 +8751,7 @@ ul.sidebar-tree {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 44px;
+  min-height: var(--band-xl);
   flex: none;
   padding: 0 var(--sp-3) 0 var(--sp-5);
   border-top: 1px solid var(--border);

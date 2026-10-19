@@ -557,6 +557,8 @@ const editorial: Theme = {
   fontUi: '"IBM Plex Sans", system-ui, sans-serif',
   fontMono: '"IBM Plex Mono", ui-monospace, monospace',
   radius: { sm: 2, md: 2, lg: 2 },
+  // Its labels in lowercase (docs/design/m14): the one style that sets them so.
+  labelCase: "lowercase",
   light: fromStyle(
     {
       chrome: "#f1ebdf",

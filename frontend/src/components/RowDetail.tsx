@@ -124,17 +124,17 @@ export function RowDetail(props: {
         </For>
       </div>
 
-      <div class="modal-actions rd-actions">
+      <div class="panel-foot rd-actions">
         <Show when={props.editable && !props.editing}>
-          <button onClick={props.onBeginEdit}>{t("common.edit")}</button>
+          <button class="btn" onClick={props.onBeginEdit}>{t("common.edit")}</button>
         </Show>
         <Show when={props.editing}>
-          <button class={props.deleted ? "" : "danger"} onClick={props.onToggleDelete}>
+          <button class={props.deleted ? "btn" : "btn danger-text"} onClick={props.onToggleDelete}>
             {props.deleted ? t("grid.undoDelete") : t("grid.deleteRow")}
           </button>
         </Show>
         <span class="toolbar-spacer" />
-        <button class="primary" onClick={props.onClose}>
+        <button class="btn-primary" onClick={props.onClose}>
           {t("panel.close")}
         </button>
       </div>

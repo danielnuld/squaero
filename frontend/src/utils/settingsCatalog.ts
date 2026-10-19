@@ -58,6 +58,11 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     ],
   },
   {
+    id: "density",
+    category: "appearance",
+    keys: ["settings.density", "settings.density.comfortable", "settings.density.compact", "settings.densityHint"],
+  },
+  {
     id: "mode",
     category: "appearance",
     keys: ["settings.mode", "settings.mode.system", "settings.mode.light", "settings.mode.dark"],
@@ -82,7 +87,6 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     category: "grid",
     keys: ["settings.gridStyle", "settings.gridStyle.registro", "settings.gridStyle.hoja", "settings.gridStyle.informe"],
   },
-  { id: "gridDensity", category: "grid", keys: ["settings.gridDensity", "settings.density.normal", "settings.density.compact"] },
   { id: "gridFont", category: "grid", keys: ["settings.typography", "settings.gridFont", "settings.gridFontSize"] },
   { id: "slowThreshold", category: "queries", keys: ["settings.slowThreshold"] },
   { id: "historyLimit", category: "queries", keys: ["settings.historyLimit"] },
@@ -119,7 +123,7 @@ export function searchSettings(
 /** Which Settings fields each section owns (the other stores are reset by their owners). */
 const SECTION_FIELDS: Partial<Record<SettingsCategory, readonly (keyof Settings)[]>> = {
   general: ["checkUpdatesOnStart"],
-  appearance: ["zoom", "uiFont", "uiFontSize"],
+  appearance: ["density", "zoom", "uiFont", "uiFontSize"],
   editor: [
     "editorFont",
     "editorFontSize",
@@ -130,7 +134,7 @@ const SECTION_FIELDS: Partial<Record<SettingsCategory, readonly (keyof Settings)
     "localHistoryVersions",
     "localHistoryDays",
   ],
-  grid: ["colorTypes", "showOldValues", "gridStyle", "gridDensity", "gridFont", "gridFontSize"],
+  grid: ["colorTypes", "showOldValues", "gridStyle", "gridFont", "gridFontSize"],
   queries: ["slowThresholdMs"],
   window: ["nativeMenu"],
 };

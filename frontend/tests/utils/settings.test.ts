@@ -11,6 +11,7 @@ import {
   clampLocalDays,
   MAX_LOCAL_VERSIONS,
   MAX_LOCAL_DAYS,
+  migrateDensity,
 } from "../../src/utils/settings";
 
 describe("clampSlowThreshold", () => {
@@ -28,11 +29,11 @@ describe("clampSlowThreshold", () => {
 
 describe("rowHeightFor (per style and density, issue #540)", () => {
   it("gives each style its own pair of heights", () => {
-    expect(rowHeightFor("registro", "normal")).toBe(28);
+    expect(rowHeightFor("registro", "comfortable")).toBe(28);
     expect(rowHeightFor("registro", "compact")).toBe(24);
-    expect(rowHeightFor("hoja", "normal")).toBe(22);
+    expect(rowHeightFor("hoja", "comfortable")).toBe(22);
     expect(rowHeightFor("hoja", "compact")).toBe(20);
-    expect(rowHeightFor("informe", "normal")).toBe(32);
+    expect(rowHeightFor("informe", "comfortable")).toBe(32);
     expect(rowHeightFor("informe", "compact")).toBe(28);
   });
 
@@ -40,7 +41,7 @@ describe("rowHeightFor (per style and density, issue #540)", () => {
   // paint another leave gaps or overlap as you scroll.
   it("is compact <= normal for every style, and always a positive number", () => {
     for (const style of ["registro", "hoja", "informe"] as const) {
-      const normal = rowHeightFor(style, "normal");
+      const normal = rowHeightFor(style, "comfortable");
       const compact = rowHeightFor(style, "compact");
       expect(compact).toBeLessThanOrEqual(normal);
       expect(compact).toBeGreaterThan(0);
@@ -48,6 +49,28 @@ describe("rowHeightFor (per style and density, issue #540)", () => {
   });
 });
 
+
+describe("density (issue #682)", () => {
+  it("defaults to comfortable", () => {
+    expect(DEFAULT_SETTINGS.density).toBe("comfortable");
+    expect(migrateDensity({})).toBe("comfortable");
+  });
+  it("migrates the grid's old setting so a stored compact choice survives", () => {
+    expect(migrateDensity({ gridDensity: "compact" })).toBe("compact");
+    expect(migrateDensity({ gridDensity: "normal" })).toBe("comfortable");
+    expect(parseSettings(JSON.stringify({ gridDensity: "compact" })).density).toBe("compact");
+  });
+  it("prefers the new key over the old one, and ignores junk", () => {
+    expect(migrateDensity({ density: "comfortable", gridDensity: "compact" })).toBe("comfortable");
+    expect(migrateDensity({ density: "huge", gridDensity: "compact" })).toBe("compact");
+    expect(migrateDensity({ density: 1, gridDensity: "tiny" })).toBe("comfortable");
+  });
+  it("drops the old key once saved", () => {
+    const out = parseSettings(JSON.stringify({ gridDensity: "compact" }));
+    expect(serializeSettings(out)).not.toContain("gridDensity");
+    expect(parseSettings(serializeSettings(out)).density).toBe("compact");
+  });
+});
 
 describe("parseSettings with a grid style (issue #540)", () => {
   // Settings saved before this existed must keep working, and land on the
@@ -84,7 +107,7 @@ describe("parseSettings", () => {
   it("round-trips a full settings object", () => {
     const s = {
       ...DEFAULT_SETTINGS,
-      gridDensity: "compact" as const,
+      density: "compact" as const,
       gridStyle: "informe" as const,
       slowThresholdMs: 1200,
       checkUpdatesOnStart: false,
@@ -121,8 +144,8 @@ describe("parseSettings", () => {
   });
 
   it("fills missing fields with defaults (partial blob)", () => {
-    const out = parseSettings(JSON.stringify({ gridDensity: "compact" }));
-    expect(out.gridDensity).toBe("compact");
+    const out = parseSettings(JSON.stringify({ density: "compact" }));
+    expect(out.density).toBe("compact");
     expect(out.slowThresholdMs).toBe(DEFAULT_SETTINGS.slowThresholdMs);
     expect(out.checkUpdatesOnStart).toBe(DEFAULT_SETTINGS.checkUpdatesOnStart);
     // A blob written before the setting existed keeps the tooltip-only look.
@@ -137,9 +160,9 @@ describe("parseSettings", () => {
 
   it("rejects ill-typed fields, clamping/falling back", () => {
     const out = parseSettings(
-      JSON.stringify({ gridDensity: "huge", slowThresholdMs: -5, checkUpdatesOnStart: "yes" }),
+      JSON.stringify({ density: "huge", slowThresholdMs: -5, checkUpdatesOnStart: "yes" }),
     );
-    expect(out.gridDensity).toBe(DEFAULT_SETTINGS.gridDensity); // unknown density
+    expect(out.density).toBe(DEFAULT_SETTINGS.density); // unknown density
     expect(out.slowThresholdMs).toBe(MIN_SLOW_MS); // clamped from -5
     expect(out.checkUpdatesOnStart).toBe(DEFAULT_SETTINGS.checkUpdatesOnStart); // not a boolean
   });
@@ -201,9 +224,9 @@ describe("parseSettings typography (issue #681)", () => {
   });
 
   it("rowHeightFor grows with the scale and stays whole", () => {
-    expect(rowHeightFor("registro", "normal", 1)).toBe(28);
-    expect(rowHeightFor("registro", "normal", 1.25)).toBe(35);
+    expect(rowHeightFor("registro", "comfortable", 1)).toBe(28);
+    expect(rowHeightFor("registro", "comfortable", 1.25)).toBe(35);
     expect(rowHeightFor("hoja", "compact", 0.8)).toBe(16);
-    expect(rowHeightFor("informe", "normal", 1.1)).toBe(35);
+    expect(rowHeightFor("informe", "comfortable", 1.1)).toBe(35);
   });
 });

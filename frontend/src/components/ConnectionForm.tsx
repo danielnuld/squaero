@@ -30,6 +30,7 @@ import { errorText } from "../utils/errors";
 import { keepAliveProbe, normalizeKeepAlive } from "../utils/reconnect";
 import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
+import { Icon } from "./icons";
 import { t } from "../utils/i18n";
 import { currentOs, orderActions } from "../utils/dialog";
 import { Dropdown } from "./Dropdown";
@@ -61,9 +62,10 @@ const STATUS_LABEL: Record<SectionStatus, string> = {
   pending: "cform.status.pending",
 };
 
-/** What goes inside the index's ring. Empty means an outline, nothing more. */
+/** What goes inside the index's ring, besides the check icon for `ok`.
+    Empty means an outline, nothing more. */
 const STATUS_MARK: Record<SectionStatus, string> = {
-  ok: "✓",
+  ok: "",
   error: "!",
   off: "",
   pending: "",
@@ -499,7 +501,7 @@ export function ConnectionForm(props: {
                         {t(SECTION_LABEL[pane.id])}
                       </span>
                       <span class="cf-index-mark" aria-hidden="true">
-                        {STATUS_MARK[status()]}
+                        {status() === "ok" ? <Icon name="check" size={10} /> : STATUS_MARK[status()]}
                       </span>
                     </button>
                   </li>
