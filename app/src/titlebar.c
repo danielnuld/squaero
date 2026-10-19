@@ -19,6 +19,7 @@ quaero_window_command quaero_window_command_parse(const char *name)
         {"double-click", QUAERO_WINDOW_DOUBLE_CLICK},
         {"system-menu", QUAERO_WINDOW_SYSTEM_MENU},
         {"snap", QUAERO_WINDOW_SNAP},
+        {"backdrop", QUAERO_WINDOW_BACKDROP},
     };
     size_t i;
     if (name == NULL) {

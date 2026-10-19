@@ -1049,9 +1049,10 @@ static void apply_startup_background(webview_t w)
 //   ("drag", "double-click", "system-menu"): a press on the bar's empty space
 //   becomes the WM_NCLBUTTONDOWN/HTCAPTION a real caption would send.
 // - Backdrop: Mica (DWMWA_SYSTEMBACKDROP_TYPE, Windows 11 22H2+) behind a
-//   web view with a clear background; the UI makes only the title bar and the
-//   side column see-through, and only in the Nativo style. Everywhere else —
-//   and on Windows 10, where the attribute is refused — the page is opaque.
+//   web view with a clear background, only while the UI asks for it — the
+//   Nativo style, which makes only the title bar and the side column
+//   see-through. Otherwise — and on Windows 10, where the attribute is
+//   refused — the window and the page are opaque as always.
 //
 // Both helper windows are layered with no redirection bitmap: they draw
 // nothing, so the web view shows through them, and they still hit-test.
@@ -1068,6 +1069,7 @@ static double g_snap_css[4] = {0, 0, 0, 0};  // x y w h of the UI's maximize but
 static bool g_snap_hover = false;
 static bool g_snap_pressed = false;
 static bool g_backdrop_mica = false;
+static bool g_backdrop_wanted = false;  // the UI's style asks for it ("backdrop")
 static int g_last_maximized = -1;
 static webview_t g_titlebar_webview = nullptr;
 
@@ -1293,6 +1295,13 @@ static void apply_backdrop(HWND hwnd, webview_t w, bool want)
     // black is "nothing" on an extended frame.
     MARGINS margins = {mica ? -1 : 0, mica ? -1 : 0, mica ? -1 : 0, mica ? -1 : 0};
     DwmExtendFrameIntoClientArea(hwnd, &margins);
+    // On an extended frame DWM draws its own caption buttons, and they show
+    // through the clear title bar behind the UI's. A window without a caption
+    // style has none to draw; it keeps its resize frame, Snap and the menu.
+    LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    SetWindowLongPtrW(hwnd, GWL_STYLE, mica ? style & ~WS_CAPTION : style | WS_CAPTION);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
     HBRUSH brush = mica ? static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)) : g_startup_brush;
     if (brush != nullptr) {
         SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, reinterpret_cast<LONG_PTR>(brush));
@@ -1316,6 +1325,12 @@ static void apply_backdrop(HWND hwnd, webview_t w, bool want)
     InvalidateRect(hwnd, nullptr, TRUE);
 }
 
+/* Mica when the UI wants it, the app's own bar is on and the UI is on screen. */
+static void update_backdrop(HWND hwnd, webview_t w)
+{
+    apply_backdrop(hwnd, w, g_frameless && g_backdrop_wanted && g_ui_visible);
+}
+
 /* Switch between the app's own bar and the system's, at once. */
 static void set_frameless(HWND hwnd, webview_t w, bool on)
 {
@@ -1327,17 +1342,13 @@ static void set_frameless(HWND hwnd, webview_t w, bool on)
     apply_menu_bar(hwnd);  // the Win32 bar comes back with the system frame
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                  SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-    if (g_ui_visible) {
-        apply_backdrop(hwnd, w, on);
-    }
+    update_backdrop(hwnd, w);
     layout_titlebar(hwnd);
 }
 
 static void titlebar_reveal(HWND hwnd, webview_t w)
 {
-    if (g_frameless) {
-        apply_backdrop(hwnd, w, true);
-    }
+    update_backdrop(hwnd, w);
     layout_titlebar(hwnd);
 }
 
@@ -1382,6 +1393,27 @@ static bool titlebar_message(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, LRESULT 
             p->rgrc[0].top = top;
             if (IsZoomed(hwnd)) {
                 p->rgrc[0].top += frame_thickness(hwnd, SM_CYFRAME);
+            }
+            return true;
+        }
+        return false;
+    case WM_GETMINMAXINFO:
+        if (g_frameless) {
+            // Without WS_CAPTION (under Mica, see apply_backdrop) Windows
+            // maximizes over the whole monitor, taskbar included. Give it what
+            // a captioned window gets: the work area, hanging over it by the
+            // frame on every side, as the WM_NCCALCSIZE above expects.
+            *result = CallWindowProcW(g_prev_wndproc, hwnd, msg, wp, lp);
+            MONITORINFO mi = {};
+            mi.cbSize = sizeof mi;
+            if (GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mi)) {
+                auto *mmi = reinterpret_cast<MINMAXINFO *>(lp);
+                const int frame = frame_thickness(hwnd, SM_CXFRAME);
+                const RECT &work = mi.rcWork;
+                mmi->ptMaxPosition.x = work.left - mi.rcMonitor.left - frame;
+                mmi->ptMaxPosition.y = work.top - mi.rcMonitor.top - frame;
+                mmi->ptMaxSize.x = work.right - work.left + 2 * frame;
+                mmi->ptMaxSize.y = work.bottom - work.top + 2 * frame;
             }
             return true;
         }
@@ -1435,6 +1467,10 @@ static void window_handler(const char *id, const char *req, void *arg)
     switch (cmd) {
     case QUAERO_WINDOW_FRAMELESS:
         set_frameless(hwnd, w, cJSON_IsTrue(cJSON_GetArrayItem(args, 1)));
+        break;
+    case QUAERO_WINDOW_BACKDROP:
+        g_backdrop_wanted = cJSON_IsTrue(cJSON_GetArrayItem(args, 1));
+        update_backdrop(hwnd, w);
         break;
     case QUAERO_WINDOW_MINIMIZE:
         ShowWindow(hwnd, SW_MINIMIZE);
