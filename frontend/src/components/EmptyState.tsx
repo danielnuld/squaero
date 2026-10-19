@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { BrandWordmark } from "./Brand";
+import { EmptyNote } from "./EmptyNote";
 import type { TreeNode } from "../utils/tree";
 import type { HistoryEntry } from "../utils/history";
 import type { Snippet } from "../utils/snippets";
@@ -12,11 +12,16 @@ import { t } from "../utils/i18n";
 // tab has no result; each action does exactly what its origin does (history →
 // new tab + run, snippet → insert at cursor, table → open its data). Purely
 // presentational — App passes the data and the same handlers those origins use.
+//
+// M14 (issue #691, EditorEmpty): the app's one empty pattern on top — a short
+// title, the two run keys in one sentence, one primary action (a snippet) —
+// then the cards, each with its way to the rest («Ver el historial», «Todos los
+// atajos»). No wordmark: the result pane is not a splash screen.
 
 const MAX_ITEMS = 5;
 
 // The shortcuts most relevant while composing a query, in a fixed useful order.
-const KEY_SHORTCUTS: Shortcut["id"][] = ["run-query", "run-script", "format-sql", "new-tab", "toggle-help"];
+const KEY_SHORTCUTS: Shortcut["id"][] = ["run-query", "run-script", "format-sql", "snippet-palette", "new-tab"];
 
 export function EmptyState(props: {
   recentTables: TreeNode[];
@@ -28,21 +33,33 @@ export function EmptyState(props: {
   onOpenTable: (node: TreeNode) => void;
   onRunHistory: (sql: string) => void;
   onInsertSnippet: (s: Snippet) => void;
+  /** The primary action: pick a snippet to insert; absent → none offered. */
+  onPickSnippet?: () => void;
+  /** «Ver el historial» under the recent queries. */
+  onHistory?: () => void;
+  /** «Todos los atajos» under the shortcuts (F1). */
+  onAllShortcuts?: () => void;
 }) {
   const shortcuts = () =>
     KEY_SHORTCUTS.map((id) => (props.shortcuts ?? SHORTCUTS).find((s) => s.id === id)).filter(
       (s): s is Shortcut => !!s,
     );
 
-  const hasAny = () =>
-    props.recentTables.length > 0 || props.history.length > 0 || props.snippets.length > 0;
+  const keysOf = (id: Shortcut["id"], fallback: string) =>
+    displayKeys((props.shortcuts ?? SHORTCUTS).find((s) => s.id === id)?.keys ?? fallback, props.isMac);
 
   return (
     <div class="empty-state">
-      <div class="empty-state-brand">
-        <BrandWordmark height={40} />
-      </div>
-      <p class="empty-state-lead">{t("empty.lead")}</p>
+      <EmptyNote
+        title={t("empty.lead")}
+        text={t("empty.keys", {
+          run: keysOf("run-query", "Mod+Enter"),
+          script: keysOf("run-script", "Mod+Shift+Enter"),
+        })}
+        action={
+          props.onPickSnippet ? { label: t("empty.pickSnippet"), onClick: props.onPickSnippet } : undefined
+        }
+      />
       <div class="empty-state-cards">
         <Show when={props.recentTables.length > 0}>
           <section class="empty-card">
@@ -79,6 +96,11 @@ export function EmptyState(props: {
                 )}
               </For>
             </ul>
+            <Show when={props.onHistory}>
+              <button class="empty-link empty-more" onClick={() => props.onHistory!()}>
+                {t("empty.allHistory")}
+              </button>
+            </Show>
           </section>
         </Show>
 
@@ -115,13 +137,13 @@ export function EmptyState(props: {
               )}
             </For>
           </ul>
+          <Show when={props.onAllShortcuts}>
+            <button class="empty-link empty-more" onClick={() => props.onAllShortcuts!()}>
+              {t("empty.allShortcuts")}
+            </button>
+          </Show>
         </section>
       </div>
-      <Show when={!hasAny()}>
-        <p class="empty-state-hint">
-          {t("empty.hint", { keys: displayKeys("Mod+Enter", props.isMac) })}
-        </p>
-      </Show>
     </div>
   );
 }

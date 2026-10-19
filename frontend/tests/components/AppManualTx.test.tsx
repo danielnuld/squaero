@@ -74,7 +74,12 @@ const txButton = (text: string) =>
   [...host!.querySelectorAll(".tx-controls button")].find((b) => b.textContent === text) as
     | HTMLButtonElement
     | undefined;
-const modeSwitch = () => host!.querySelector(".tx-mode") as HTMLButtonElement;
+// The Auto | Manual radio group (#691): the option to switch to, and the group.
+const modeRadio = (name: "Auto" | "Manual") =>
+  [...host!.querySelectorAll<HTMLButtonElement>('.tx-mode [role="radio"]')].find(
+    (b) => b.textContent === name,
+  )!;
+const modeSwitch = () => modeRadio("Auto");
 const indicator = () => host!.querySelector(".tx-open")?.textContent ?? null;
 
 const connect = async () => {
@@ -102,9 +107,11 @@ const runSql = async (sql: string) => {
 describe("App — manual transactions (issue #667)", () => {
   it("opens a transaction before the first change and commits it from the bar", async () => {
     await connect();
-    expect(modeSwitch().textContent).toBe("Auto-commit");
-    click(modeSwitch());
-    expect(modeSwitch().getAttribute("aria-pressed")).toBe("true");
+    expect(host!.querySelector(".tx-mode")!.getAttribute("role")).toBe("radiogroup");
+    expect(modeRadio("Auto").getAttribute("aria-checked")).toBe("true");
+    click(modeRadio("Manual"));
+    expect(modeRadio("Manual").getAttribute("aria-checked")).toBe("true");
+    expect(modeRadio("Auto").getAttribute("aria-checked")).toBe("false");
 
     await runSql("UPDATE t SET a = 1");
     expect(calls).toEqual(["tx.begin", "query:UPDATE t SET a = 1"]);

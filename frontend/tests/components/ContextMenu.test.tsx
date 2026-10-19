@@ -1,5 +1,4 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { ContextMenu } from "../../src/components/ContextMenu";
 import { openContextMenu, closeContextMenu, type MenuItem } from "../../src/utils/contextMenu";
@@ -18,10 +17,9 @@ afterEach(() => {
 const mount = () => {
   host = document.createElement("div");
   document.body.appendChild(host);
-  createRoot((d) => {
-    dispose = d;
-    render(() => <ContextMenu />, host!);
-  });
+  // render's own disposer: it makes its own root, so disposing an outer
+  // createRoot left every earlier test's menu mounted and listening.
+  dispose = render(() => <ContextMenu />, host);
 };
 
 const evAt = (x: number, y: number) =>
@@ -172,5 +170,87 @@ describe("ContextMenu from the keyboard", () => {
     expect(action).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(opener);
     opener.remove();
+  });
+});
+
+describe("ContextMenu submenus (audit A-14)", () => {
+  const tick = () => new Promise<void>((r) => queueMicrotask(r));
+  const key = (k: string) =>
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+  const row = (text: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".context-menu-item")].find(
+      (b) => b.textContent?.includes(text),
+    )!;
+  const items = (action = vi.fn()): MenuItem[] => [
+    { label: "Copiar", action: () => {} },
+    {
+      label: "Copiar como",
+      submenu: [
+        { label: "TSV", action },
+        { label: "Apagado", disabled: true },
+        { label: "JSON", action: () => {} },
+      ],
+    },
+    { label: "Eliminar", action: () => {} },
+  ];
+
+  it("marks the parent row as a menu opener and keeps its submenu closed", async () => {
+    mount();
+    openContextMenu(evAt(5, 5), items());
+    await tick();
+    const parent = row("Copiar como");
+    expect(parent.getAttribute("aria-haspopup")).toBe("menu");
+    expect(parent.getAttribute("aria-expanded")).toBe("false");
+    expect(host!.querySelector(".context-submenu")).toBeNull();
+  });
+
+  it("opens with ArrowRight, walks only its own rows, and closes back to the parent", async () => {
+    mount();
+    openContextMenu(evAt(5, 5), items());
+    await tick();
+    key("ArrowDown"); // Copiar → Copiar como
+    expect(document.activeElement).toBe(row("Copiar como"));
+    key("ArrowRight");
+    const sub = host!.querySelector(".context-submenu")!;
+    expect(sub.getAttribute("role")).toBe("menu");
+    expect(sub.getAttribute("aria-label")).toBe("Copiar como");
+    expect(row("Copiar como").getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(row("TSV"));
+    key("ArrowDown"); // skips the disabled row, stays inside the submenu
+    expect(document.activeElement).toBe(row("JSON"));
+    key("ArrowDown"); // wraps within the submenu, not into the top menu
+    expect(document.activeElement).toBe(row("TSV"));
+    key("ArrowLeft");
+    expect(host!.querySelector(".context-submenu")).toBeNull();
+    expect(document.activeElement).toBe(row("Copiar como"));
+  });
+
+  it("Escape inside a submenu closes only the submenu; a second Escape closes the menu", async () => {
+    mount();
+    openContextMenu(evAt(5, 5), items());
+    await tick();
+    key("ArrowDown");
+    key("ArrowRight");
+    expect(document.activeElement).toBe(row("TSV"));
+    key("Escape");
+    expect(host!.querySelector(".context-menu")).not.toBeNull();
+    expect(host!.querySelector(".context-submenu")).toBeNull();
+    key("Escape");
+    expect(host!.querySelector(".context-menu")).toBeNull();
+  });
+
+  it("opens on hover, closes when another row is hovered, and runs a submenu action", async () => {
+    mount();
+    const action = vi.fn();
+    openContextMenu(evAt(5, 5), items(action));
+    await tick();
+    row("Copiar como").dispatchEvent(new MouseEvent("mouseenter"));
+    expect(host!.querySelector(".context-submenu")).not.toBeNull();
+    row("Eliminar").dispatchEvent(new MouseEvent("mouseenter"));
+    expect(host!.querySelector(".context-submenu")).toBeNull();
+    row("Copiar como").dispatchEvent(new MouseEvent("mouseenter"));
+    row("TSV").click();
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(host!.querySelector(".context-menu")).toBeNull();
   });
 });
