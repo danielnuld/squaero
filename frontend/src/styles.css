@@ -5838,6 +5838,62 @@ button.grid-action.danger:hover:not(:disabled) {
   gap: var(--sp-3);
 }
 
+/* The apply step of structure sync: each statement with its status. */
+.stmt-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.stmt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.stmt:last-child {
+  border-bottom: 0;
+}
+
+.stmt-num {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.stmt-sql {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.stmt-status {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.stmt.is-running .stmt-status,
+.stmt.is-done .stmt-status {
+  color: var(--accent-text);
+}
+
+.stmt.is-failed .stmt-status {
+  color: var(--error);
+  white-space: normal;
+}
+
+.stmt.is-excluded,
+.stmt.is-notRun {
+  opacity: 0.6;
+}
+
 /* A wizard's closing card: the figures of what was done, then what failed. */
 .wiz-summary {
   display: grid;
