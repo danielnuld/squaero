@@ -5,7 +5,8 @@ import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
 import { completionStatus, currentCompletions, selectedCompletion, startCompletion } from "@codemirror/autocomplete";
 import { SqlEditor } from "../../src/components/SqlEditor";
-import type { RunScope } from "../../src/utils/runScope";
+import type { RunInfo, RunScope } from "../../src/utils/runScope";
+import type { ErrorMark } from "../../src/components/SqlEditor";
 import { BUILTIN_TEMPLATES, type SqlTemplate } from "../../src/utils/sqlTemplates";
 
 // Drives the real CodeMirror-backed editor in jsdom to check the format wiring
@@ -88,31 +89,57 @@ describe("SqlEditor run scope (issue #130)", () => {
     expect(ran).toEqual({ sql: "SELECT 1", scope: "selection" });
   });
 
-  it("runs the whole single-statement document with scope 'document'", () => {
+  it("runs the single statement with scope 'statement'", () => {
     let ran: { sql: string; scope?: RunScope } | null = null;
     const view = mount("SELECT * FROM t", (sql, scope) => (ran = { sql, scope }));
     view.dispatch({ selection: { anchor: 5, head: 5 } }); // caret, no selection
     modEnter(view);
-    expect(ran).toEqual({ sql: "SELECT * FROM t", scope: "document" });
+    expect(ran).toEqual({ sql: "SELECT * FROM t", scope: "statement" });
   });
 
-  it("runs the WHOLE document with several statements and no selection", () => {
-    // The cursor sitting in the first statement no longer runs only that one:
-    // Ejecutar means everything in the editor unless something is selected.
+  it("runs only the statement under the cursor when there are several (issue #691)", () => {
     let ran: { sql: string; scope?: RunScope } | null = null;
     const doc = "SELECT 1;\nSELECT 2;";
     const view = mount(doc, (sql, scope) => (ran = { sql, scope }));
-    view.dispatch({ selection: { anchor: 2, head: 2 } }); // inside "SELECT 1"
+    view.dispatch({ selection: { anchor: doc.length - 3, head: doc.length - 3 } }); // in "SELECT 2"
     modEnter(view);
+    expect(ran).toEqual({ sql: "SELECT 2", scope: "statement" });
+  });
+
+  it("runs the whole script on Ctrl/Cmd+Shift+Enter, wherever the cursor is", () => {
+    let ran: { sql: string; scope?: RunScope } | null = null;
+    const doc = "SELECT 1;\nSELECT 2;";
+    const view = mount(doc, (sql, scope) => (ran = { sql, scope }));
+    view.dispatch({ selection: { anchor: 2, head: 2 } });
+    view.contentDOM.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, shiftKey: true, bubbles: true }),
+    );
     expect(ran).toEqual({ sql: doc, scope: "document" });
+  });
+
+  it("marks the statement that will run, in the text and the gutter", () => {
+    const doc = "SELECT 1;\nSELECT a,\n  b FROM t;";
+    const view = mount(doc, () => {});
+    view.dispatch({ selection: { anchor: doc.indexOf("b FROM") } });
+    const marked = [...view.dom.querySelectorAll(".cm-line.cm-runRange")].map((l) => l.textContent);
+    expect(marked).toEqual(["SELECT a,", "  b FROM t;"]);
+    expect(view.dom.querySelectorAll(".cm-gutter-run").length).toBeGreaterThan(0);
+    // A selection is shown as itself: no band on top of it.
+    view.dispatch({ selection: { anchor: 0, head: 8 } });
+    expect(view.dom.querySelectorAll(".cm-runRange")).toHaveLength(0);
+  });
+
+  it("marks nothing when the statement is the whole editor", () => {
+    const view = mount("SELECT 1", () => {});
+    expect(view.dom.querySelectorAll(".cm-runRange")).toHaveLength(0);
   });
 });
 
-describe("SqlEditor toolbar run (runTick)", () => {
-  it("runs the current selection when runTick bumps", () => {
+describe("SqlEditor toolbar run (runRequest)", () => {
+  it("runs the current selection, then the scope asked for, when the tick bumps", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
-    const [tick, setTick] = createSignal(0);
+    const [req, setReq] = createSignal<{ tick: number; scope?: RunScope }>({ tick: 0 });
     let ran: { sql: string; scope?: RunScope } | null = null;
     createRoot((d) => {
       dispose = d;
@@ -124,7 +151,7 @@ describe("SqlEditor toolbar run (runTick)", () => {
             onChange={() => {}}
             onRun={(sql, scope) => (ran = { sql, scope })}
             dialect="sqlite"
-            runTick={tick()}
+            runRequest={req()}
           />
         ),
         host!,
@@ -132,35 +159,41 @@ describe("SqlEditor toolbar run (runTick)", () => {
     });
     const view = EditorView.findFromDOM(host!)!;
     view.dispatch({ selection: { anchor: 0, head: 8 } }); // "SELECT 1"
-    setTick(1); // toolbar Run button
+    setReq({ tick: 1 }); // toolbar Run button
     expect(ran).toEqual({ sql: "SELECT 1", scope: "selection" });
+    setReq({ tick: 2, scope: "document" }); // «Script completo» in its menu
+    expect(ran).toEqual({ sql: "SELECT 1; SELECT 2", scope: "document" });
+    setReq({ tick: 3, scope: "statement" }); // «Sentencia actual», despite the selection
+    expect(ran).toEqual({ sql: "SELECT 1", scope: "statement" });
   });
 
-  it("reports whether a selection exists via onSelectionChange", () => {
+  it("reports what a run would execute via onRunInfo", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
-    const states: boolean[] = [];
+    const states: RunInfo[] = [];
     createRoot((d) => {
       dispose = d;
       render(
         () => (
           <SqlEditor
             activeId={1}
-            sqlFor={() => "SELECT 1"}
+            sqlFor={() => "SELECT 1;\nSELECT 2;\nSELECT 3"}
             onChange={() => {}}
             onRun={() => {}}
             dialect="sqlite"
-            onSelectionChange={(has) => states.push(has)}
+            onRunInfo={(info) => states.push(info)}
           />
         ),
         host!,
       );
     });
     const view = EditorView.findFromDOM(host!)!;
+    // Reported once on mount, before anything moves.
+    expect(states[0]).toEqual({ hasSelection: false, statement: { first: 1, last: 1 }, statements: 3 });
     view.dispatch({ selection: { anchor: 0, head: 6 } }); // select "SELECT"
-    expect(states.at(-1)).toBe(true);
-    view.dispatch({ selection: { anchor: 3, head: 3 } }); // collapse the selection
-    expect(states.at(-1)).toBe(false);
+    expect(states.at(-1)!.hasSelection).toBe(true);
+    view.dispatch({ selection: { anchor: 12, head: 12 } }); // into "SELECT 2"
+    expect(states.at(-1)).toEqual({ hasSelection: false, statement: { first: 2, last: 2 }, statements: 3 });
   });
 });
 
@@ -236,18 +269,18 @@ describe("SqlEditor save-as-snippet (issue #320)", () => {
     expect(e.asked()).toEqual({ sql: "SELECT 1", scope: "selection" });
   });
 
-  it("captures the whole document when nothing is selected", () => {
+  it("captures the statement under the cursor when nothing is selected, as a run would", () => {
     const doc = "SELECT 1;\nSELECT 2;";
     const e = mount(doc);
     e.view.dispatch({ selection: { anchor: 2, head: 2 } });
     e.save();
-    expect(e.asked()).toEqual({ sql: doc, scope: "document" });
+    expect(e.asked()).toEqual({ sql: "SELECT 1", scope: "statement" });
   });
 
-  it("captures the whole document when there is one statement", () => {
+  it("captures the whole text when there is one statement", () => {
     const e = mount("SELECT * FROM t");
     e.save();
-    expect(e.asked()).toEqual({ sql: "SELECT * FROM t", scope: "document" });
+    expect(e.asked()).toEqual({ sql: "SELECT * FROM t", scope: "statement" });
   });
 
   it("does not ask again until the tick moves", () => {
@@ -624,5 +657,63 @@ describe("SqlEditor multicursor and templates (issue #665)", () => {
     key(view, { key: "Tab" });
     expect(view.state.doc.toString()).toBe("DELETE FROM table WHERE condition");
     expect(selected(view)).toEqual(["table"]);
+  });
+});
+
+describe("SqlEditor error line and gutter (issue #691)", () => {
+  const mount = (doc: string) => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const [mark, setMark] = createSignal<ErrorMark | null>(null);
+    const [reveal, setReveal] = createSignal(0);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <SqlEditor
+            activeId={1}
+            sqlFor={() => doc}
+            onChange={() => {}}
+            onRun={() => {}}
+            dialect="mysql"
+            errorMark={mark()}
+            revealErrorTick={reveal()}
+          />
+        ),
+        host!,
+      );
+    });
+    return { view: EditorView.findFromDOM(host!)!, setMark, setReveal };
+  };
+  const errorLines = (view: EditorView) =>
+    [...view.dom.querySelectorAll(".cm-line.cm-errorLine")].map((l) => l.textContent);
+
+  it("marks the line the engine blamed, inside the failed statement", () => {
+    const { view, setMark } = mount("SELECT 1;\nSELECT *\nFORM t;");
+    setMark({ sql: "SELECT *\nFORM t", line: 2 });
+    expect(errorLines(view)).toEqual(["FORM t;"]);
+    expect(view.dom.querySelectorAll(".cm-gutter-error").length).toBeGreaterThan(0);
+  });
+
+  it("marks the statement's first line when no line was named, and clears on edit", () => {
+    const { view, setMark } = mount("SELECT 1;\nSELECT *\nFORM t;");
+    setMark({ sql: "SELECT *\nFORM t", line: null });
+    expect(errorLines(view)).toEqual(["SELECT *"]);
+    view.dispatch({ changes: { from: 0, insert: "-- " } });
+    expect(errorLines(view)).toEqual([]);
+  });
+
+  it("moves the cursor to the failed line when asked", () => {
+    const doc = "SELECT 1;\nSELECT *\nFORM t;";
+    const { view, setMark, setReveal } = mount(doc);
+    setMark({ sql: "SELECT *\nFORM t", line: 2 });
+    setReveal(1);
+    expect(view.state.selection.main.head).toBe(doc.indexOf("FORM"));
+  });
+
+  it("draws a fold gutter beside the line numbers", () => {
+    const { view } = mount("SELECT 1");
+    expect(view.dom.querySelector(".cm-foldGutter")).not.toBeNull();
+    expect(view.dom.querySelector(".cm-lineNumbers")).not.toBeNull();
   });
 });

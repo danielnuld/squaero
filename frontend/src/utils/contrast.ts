@@ -42,3 +42,19 @@ export function contrastRatio(a: string, b: string): number {
 
 /** AA threshold for normal-size text. */
 export const AA_NORMAL = 4.5;
+
+/**
+ * `color-mix(in srgb, tint P%, base)` as a hex string: what a translucent band
+ * painted over `base` looks like, so text on it can be measured (issue #691,
+ * the editor's run and error bands). `weight` is the tint's share, 0–1.
+ */
+export function mixHex(tint: string, base: string, weight: number): string {
+  const a = hexToRgb(tint);
+  const b = hexToRgb(base);
+  const w = Math.min(1, Math.max(0, weight));
+  const ch = (x: number, y: number) =>
+    Math.round(x * w + y * (1 - w))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${ch(a.r, b.r)}${ch(a.g, b.g)}${ch(a.b, b.b)}`;
+}

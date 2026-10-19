@@ -379,7 +379,7 @@ describe("SettingsPanel — shortcuts", () => {
     mount({ shortcuts: effectiveShortcuts({ refresh: "Mod+R" }), shortcutOverrides: { refresh: "Mod+R" } });
     goto("Atajos de teclado");
     expect(host!.querySelectorAll(".settings-shortcuts tr").length).toBe(SHORTCUTS.length);
-    const run = rowOf("Ejecutar la consulta");
+    const run = rowOf("Ejecutar la sentencia actual, o la selección");
     expect(run.querySelector("kbd")!.textContent).toBe("Ctrl+Enter");
     expect(run.textContent).toContain("Fijo");
     expect(run.querySelector("button")).toBeNull();

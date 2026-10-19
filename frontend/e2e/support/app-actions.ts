@@ -112,9 +112,9 @@ export async function runSql(page: Page, sql: string): Promise<void> {
   await editor.click();
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(sql);
-  // Typing opens the completion popup, which swallows the click on Ejecutar.
+  // Typing opens the completion popup, which swallows the click on «Ejecutar sentencia».
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Ejecutar", exact: true }).click();
+  await page.getByRole("button", { name: "Ejecutar sentencia", exact: true }).click();
 }
 
 /**

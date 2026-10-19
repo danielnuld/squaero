@@ -3,6 +3,7 @@ import {
   hexToRgb,
   relativeLuminance,
   contrastRatio,
+  mixHex,
   AA_NORMAL,
 } from "../../src/utils/contrast";
 
@@ -57,5 +58,23 @@ describe("accent-text meets WCAG AA on elevated surfaces (issue #220)", () => {
     // Documents why the token exists: #7c7cf0 on #2e2e38 is ~3.8 < 4.5.
     expect(contrastRatio(DARK.accent, "#2e2e38")).toBeLessThan(AA_NORMAL);
     expect(contrastRatio(DARK.accent, "#2e2e38")).toBeGreaterThan(3.5);
+  });
+});
+
+describe("mixHex", () => {
+  it("mixes like color-mix in srgb", () => {
+    expect(mixHex("#ffffff", "#000000", 0.5)).toBe("#808080");
+    expect(mixHex("#ff0000", "#0000ff", 0.25)).toBe("#4000bf");
+  });
+
+  it("is the base at 0 and the tint at 1", () => {
+    expect(mixHex("#123456", "#abcdef", 0)).toBe("#abcdef");
+    expect(mixHex("#123456", "#abcdef", 1)).toBe("#123456");
+  });
+
+  it("clamps a weight out of range, and rejects a bad colour", () => {
+    expect(mixHex("#123456", "#abcdef", 2)).toBe("#123456");
+    expect(mixHex("#123456", "#abcdef", -1)).toBe("#abcdef");
+    expect(() => mixHex("red", "#000", 0.5)).toThrow();
   });
 });

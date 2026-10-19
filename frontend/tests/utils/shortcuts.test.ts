@@ -140,6 +140,12 @@ describe("SHORTCUTS table", () => {
     const run = SHORTCUTS.find((s) => s.id === "run-query");
     expect(run?.global).toBe(false);
   });
+  it("lists the editor's script run and plan for F1, never matched globally (issue #691)", () => {
+    expect(SHORTCUTS.find((s) => s.id === "run-script")).toMatchObject({ keys: "Mod+Shift+Enter", global: false });
+    expect(SHORTCUTS.find((s) => s.id === "explain")).toMatchObject({ keys: "Mod+Shift+E", global: false });
+    expect(matchShortcut(ev({ key: "Enter", ctrlKey: true, shiftKey: true }))).toBeNull();
+    expect(matchShortcut(ev({ key: "e", ctrlKey: true, shiftKey: true }))).toBeNull();
+  });
 });
 
 describe("matchShortcut — snippets (issue #320)", () => {
