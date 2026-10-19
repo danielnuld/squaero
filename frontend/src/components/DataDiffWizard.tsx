@@ -125,7 +125,7 @@ export function DataDiffWizard(props: {
         sourceConnId,
         selectAll(srcDef.driver, props.source.db),
         PAGE,
-        (n) => setProgress(t("ddiff.readingSource", { n })),
+        (n) => setProgress(countText("ddiff.readingSource", n)),
         ctl.signal,
       );
       targetConnId = await openSaved(def);
@@ -133,7 +133,7 @@ export function DataDiffWizard(props: {
         targetConnId,
         selectAll(def.driver, targetDb() || undefined),
         PAGE,
-        (n) => setProgress(t("ddiff.readingTarget", { n })),
+        (n) => setProgress(countText("ddiff.readingTarget", n)),
         ctl.signal,
       );
       const full = diffData(src, tgt, props.pk);

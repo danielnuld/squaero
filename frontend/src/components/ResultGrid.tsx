@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from "solid-js";
 import { keyLabel, keyParams } from "../utils/shortcuts";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
@@ -969,7 +970,7 @@ export function ResultGrid(props: {
             when={cols().length > 0}
             fallback={
               <div class="grid-empty">
-                {t("grid.rowsAffected", { n: result().rowsAffected })}
+                {countText("grid.rowsAffected", result().rowsAffected)}
               </div>
             }
           >

@@ -32,7 +32,7 @@ const SQL_DROP = ["ssync.dropTables", "ssync.issue.dropTableSkipped"];
 // The name of a grid style, not a word for a row.
 const STYLE_NAME = ["settings.gridStyle.registro"];
 // Quotes the "!" the grid draws on those rows.
-const LITERAL_MARK = ["compare.duplicates"];
+const LITERAL_MARK = ["compare.duplicates.one", "compare.duplicates.other"];
 
 const SHARED: Rule[] = [
   { name: "exclamation mark", test: /[!¡]/, allow: LITERAL_MARK },
@@ -75,8 +75,10 @@ const KEY_NAMES: Rule = {
   name: "key names belong in a {keys} placeholder (formatKeys)",
   test: /\b(Ctrl|Cmd|Mayús|Shift|Intro|Enter|Supr)\b|⌘/,
 };
-ES.push(KEY_NAMES);
-EN.push(KEY_NAMES);
+// Plurals go through countText's .one/.other keys (rule 9, A-26), never «fila(s)».
+const PLURAL: Rule = { name: "plural spelled with (s): use .one/.other keys", test: /\w\((s|es)\)/ };
+ES.push(KEY_NAMES, PLURAL);
+EN.push(KEY_NAMES, PLURAL);
 
 function violations(catalog: Record<string, string>, rules: Rule[]): string[] {
   const out: string[] = [];

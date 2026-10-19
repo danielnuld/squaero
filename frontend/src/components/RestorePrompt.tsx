@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { Show } from "solid-js";
 import { Dialog } from "./Dialog";
 import { t } from "../utils/i18n";
@@ -40,7 +41,7 @@ export function RestorePrompt(props: {
       }
       primary={{ label: t("restore.resume"), onClick: props.onResume }}
     >
-      <p>{t("restore.message", { n: props.tabCount })}</p>
+      <p>{countText("restore.message", props.tabCount)}</p>
       <Show when={props.connections.length > 0}>
         <p class="restore-conns">{t("restore.conns", { names: props.connections.join(", ") })}</p>
       </Show>

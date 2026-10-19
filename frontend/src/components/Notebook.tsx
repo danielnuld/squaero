@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Index, Show, createSignal, createMemo } from "solid-js";
 import { keyLabel } from "../utils/shortcuts";
 import { createStore } from "solid-js/store";
@@ -396,7 +397,7 @@ export function Notebook(props: {
                     <Show when={r().result && (r().result!.columns.length > 0)}>
                       <div class="nb-result-bar">
                         <span class="nb-result-info">
-                          {t("nb.rows", { n: r().result!.rows.length })}
+                          {countText("nb.rows", r().result!.rows.length)}
                           {r().result!.truncated ? t("nb.truncatedSuffix") : ""}
                         </span>
                         <button

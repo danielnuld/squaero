@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Show } from "solid-js";
 import { keyLabel } from "../utils/shortcuts";
 import { t } from "../utils/i18n";
@@ -71,8 +72,8 @@ export function DataFilterBar(props: {
     const { conditions, order } = summaryParts(props.state);
     if (conditions === 0 && order === 0) return t("filter.summaryAll");
     const parts: string[] = [];
-    if (conditions > 0) parts.push(t("filter.summaryConds", { n: conditions }));
-    if (order > 0) parts.push(t("filter.summarySort", { n: order }));
+    if (conditions > 0) parts.push(countText("filter.summaryConds", conditions));
+    if (order > 0) parts.push(countText("filter.summarySort", order));
     return parts.join(" · ");
   };
 
@@ -384,7 +385,7 @@ export function DataFilterBar(props: {
               {t("filter.clear")}
             </button>
             <Show when={props.loaded !== undefined}>
-              <span class="filter-count">{t("filter.loaded", { n: props.loaded ?? 0 })}</span>
+              <span class="filter-count">{countText("filter.loaded", props.loaded ?? 0)}</span>
             </Show>
           </div>
         </div>

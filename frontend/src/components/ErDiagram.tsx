@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import { Panel } from "./Panel";
@@ -266,7 +267,7 @@ export function ErDiagram(props: {
       status={
         <Show when={!loading() && tables().length > 0}>
           <span>
-            {t("er.count", { tables: tables().length, edges: edges().length })}{" "}
+            {`${countText("er.tables", tables().length)} · ${countText("er.edges", edges().length)}`}{" "}
             {realFks() ? t("er.realFks") : t("er.inferredFks")}
             {fkTruncated() ? t("er.listIncomplete") : ""}
           </span>

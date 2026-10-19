@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Show, createMemo } from "solid-js";
 import { keyParams } from "../utils/shortcuts";
 import { type RunScope } from "../utils/runScope";
@@ -120,7 +121,7 @@ export function StatusBar(props: {
       <Show when={props.txStatements != null}>
         <button
           class="status-chip status-tx"
-          title={t("tx.openTitle", { n: props.txStatements! })}
+          title={countText("tx.openTitle", props.txStatements!)}
           disabled={!props.onTxAction}
           onClick={(e) => props.onTxAction?.(e)}
         >

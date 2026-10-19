@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { Show } from "solid-js";
 import { t } from "../utils/i18n";
 import type { TxSession } from "../utils/txMode";
@@ -73,7 +74,7 @@ export function TxControls(props: {
         <span
           class="tx-open"
           role="status"
-          title={t("tx.openTitle", { n: props.session.statements })}
+          title={countText("tx.openTitle", props.session.statements)}
         >
           {t("tx.open", { n: props.session.statements })}
         </span>
