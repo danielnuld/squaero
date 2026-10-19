@@ -229,6 +229,39 @@ nothing is not a pass, and generating the first set is one click away. The first
 set is provisional — M14's redesign (#678) is still landing, and each phase that
 changes the look re-baselines as part of its PR.
 
+## Media capture
+
+The screenshots of the README, the site and the manual are shot, not drawn:
+
+```bash
+docker start quaero-demo-mysql   # first time: the docker run in e2e/support/demo.ts
+pnpm media
+```
+
+`pnpm media` runs `e2e/media/screenshots.spec.ts` (its own config,
+`playwright.media.config.ts`) against the demo database, writes the PNG sources
+to `assets/media/`, then `scripts/site-images.mjs` writes `site/img/<name>.avif`,
+`.webp` and `.png` with ffmpeg (needs it on `PATH`). One test per image, so a
+broken screen costs only its own picture. The main window is shot once per M14
+style (`screenshot-main-{nativo,quiet,editorial,rosa}`); the style is written to
+`quaero.themeId` / `quaero.theme` before load and the painted background and
+accent are checked against the theme's tokens (`e2e/support/media.ts`).
+
+- **Selectors** are roles and accessible names, collected in `e2e/support/media.ts`,
+  so a layout change means updating a label there, not rewriting the spec.
+- **Browser**: the full Chromium (`channel: "chromium"`) with `--lang=es-ES`; the
+  headless shell has no locales and draws a file input as "Choose File".
+- **Core**: like the suite, `build-x64` by default, or `QUAERO_RPC` /
+  `QUAERO_DRIVERS`. Use a MariaDB Connector/C build (`-DQUAERO_MARIADB=ON`, as
+  the release): the libmywire one (`-DQUAERO_MYWIRE=ON`) intermittently fails its
+  first login to MySQL 8.4 with "packet out of sequence from the server".
+- **Not shot**: MongoDB, the iPhone app and the MCP server (the demo is a MySQL
+  in a desktop window), and the reconnect after a dropped session (it needs the
+  server killed mid-capture).
+
+Commit the images with the change that altered the screens, after looking at
+every one of them.
+
 ## What this does NOT cover
 
 The **native shell**: the window, menus, file dialogs, `localStorage`

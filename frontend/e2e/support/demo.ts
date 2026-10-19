@@ -16,6 +16,8 @@
 import { startRpc, unwrap, type RpcClient } from "./rpc";
 
 export const DEMO_DB = "ventas";
+/** An older copy of the schema, the target of the schema-compare capture. */
+export const DEMO_DB_OLD = "ventas_v1";
 
 /** Statements that build the demo, in order. Idempotent: it drops first. */
 export const DEMO_SQL: readonly string[] = [
@@ -130,6 +132,45 @@ export const DEMO_SQL: readonly string[] = [
   `CREATE EVENT \`${DEMO_DB}\`.ev_recalculo_diario
      ON SCHEDULE EVERY 1 DAY
      DO UPDATE \`${DEMO_DB}\`.pedidos SET estado = estado WHERE 1 = 0`,
+
+  // --- two accounts with grants on the demo, for the users panel -------------
+  `DROP USER IF EXISTS 'vendedor'@'%', 'reportes'@'%'`,
+  `CREATE USER 'vendedor'@'%' IDENTIFIED BY 'demo123'`,
+  `GRANT SELECT, INSERT, UPDATE ON \`${DEMO_DB}\`.* TO 'vendedor'@'%'`,
+  `CREATE USER 'reportes'@'%' IDENTIFIED BY 'demo123'`,
+  `GRANT SELECT ON \`${DEMO_DB}\`.* TO 'reportes'@'%'`,
+
+  // --- an older copy of the schema, for the schema-compare capture ----------
+  // What `ventas` looked like a few releases ago: no `alta` column, a shorter
+  // email, no unique SKU, no order lines and no view. Comparing the two gives a
+  // migration script with one of each kind of change, not an empty diff.
+  `DROP DATABASE IF EXISTS \`${DEMO_DB_OLD}\``,
+  `CREATE DATABASE \`${DEMO_DB_OLD}\` CHARACTER SET utf8mb4`,
+  `CREATE TABLE \`${DEMO_DB_OLD}\`.clientes (
+     id INT PRIMARY KEY AUTO_INCREMENT,
+     nombre VARCHAR(60) NOT NULL,
+     email VARCHAR(60),
+     ciudad VARCHAR(40),
+     saldo DECIMAL(10,2),
+     activo BOOLEAN
+   )`,
+  `CREATE TABLE \`${DEMO_DB_OLD}\`.productos (
+     id INT PRIMARY KEY AUTO_INCREMENT,
+     sku VARCHAR(20) NOT NULL,
+     nombre VARCHAR(80) NOT NULL,
+     categoria VARCHAR(40),
+     precio DECIMAL(10,2) NOT NULL,
+     existencias INT NOT NULL
+   )`,
+  `CREATE TABLE \`${DEMO_DB_OLD}\`.pedidos (
+     id INT PRIMARY KEY AUTO_INCREMENT,
+     cliente_id INT NOT NULL,
+     fecha DATE NOT NULL,
+     estado VARCHAR(20) NOT NULL,
+     total DECIMAL(10,2),
+     CONSTRAINT fk_pedidos_cliente FOREIGN KEY (cliente_id)
+       REFERENCES \`${DEMO_DB_OLD}\`.clientes (id)
+   )`,
 ];
 
 /**
@@ -139,7 +180,8 @@ export const DEMO_SQL: readonly string[] = [
  * database would otherwise appear in the object tree of a published screenshot, and
  * a release chore should not be able to disturb the suite's data.
  *
- *   docker run -d --name quaero-demo-mysql -e MYSQL_ROOT_PASSWORD=demo123  *     -p 13307:3306 mysql:8 --event-scheduler=ON
+ *   docker run -d --name quaero-demo-mysql -e MYSQL_ROOT_PASSWORD=demo123 \
+ *     -p 13307:3306 mysql:8 --event-scheduler=ON
  */
 export const DEMO_CONNECTION = {
   id: "demo-ventas",
