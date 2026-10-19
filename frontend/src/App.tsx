@@ -234,6 +234,7 @@ import {
 } from "./utils/rowPaste";
 import { RowActionBar } from "./components/RowActionBar";
 import { PendingRowsBar } from "./components/PendingRowsBar";
+import { PendingChangesBand } from "./components/PendingChangesBand";
 import { indexListFor, uniqueSetsFrom } from "./utils/indexes";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
@@ -642,6 +643,9 @@ export function App() {
   const [gridSearch, setGridSearch] = createSignal(false);
   // Rows the page search leaves on screen, for the status bar (A-05).
   const [searchMatches, setSearchMatches] = createSignal<number | null>(null);
+  // «Mostrar valores anteriores» from the pending-changes band, on top of the
+  // setting (R-26).
+  const [showOldOverride, setShowOldOverride] = createSignal(false);
   let panesEl: HTMLDivElement | undefined;
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
@@ -5961,7 +5965,7 @@ export function App() {
                               currentEditable() && !currentEdit().editing ? beginEdit : undefined
                             }
                             fk={currentFk()}
-                            showOldValues={settings().showOldValues}
+                            showOldValues={settings().showOldValues || showOldOverride()}
                             searchOpen={gridSearch()}
                             onSearchOpenChange={setGridSearch}
                             onSearchCountChange={setSearchMatches}
@@ -6032,6 +6036,25 @@ export function App() {
                           onDuplicate={() => duplicateRows(markedRows())}
                           onPaste={pasteRowClipboard}
                           onClear={() => setClearMarksTick((n) => n + 1)}
+                        />
+                      </Show>
+                      {/* New rows have their own bar; any other change gets the
+                          band that counts it (R-26). */}
+                      <Show
+                        when={
+                          currentEdit().editing &&
+                          currentEdit().pending.inserts.length === 0 &&
+                          changeCount(currentEdit().pending) > 0 &&
+                          !currentEdit().preview
+                        }
+                      >
+                        <PendingChangesBand
+                          pending={currentEdit().pending}
+                          showOld={settings().showOldValues || showOldOverride()}
+                          busy={currentEdit().busy}
+                          onToggleOld={() => setShowOldOverride((v) => !v)}
+                          onReview={() => void confirmEdit()}
+                          onDiscard={() => void discardEdit()}
                         />
                       </Show>
                       <Show
@@ -6786,6 +6809,7 @@ export function App() {
         }
         safeMode={tabSafeMode(current())}
         txStatements={txOpenCount(tabConn(current()))}
+        pendingChanges={currentEdit().editing ? changeCount(currentEdit().pending) : 0}
         onTxAction={
           current()?.kind === "query"
             ? (e) =>

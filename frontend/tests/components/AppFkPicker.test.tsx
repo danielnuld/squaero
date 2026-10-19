@@ -289,6 +289,7 @@ describe("App — editing in place without an Editar step (R-14)", () => {
     expect(sent.some((r) => r.method === "tx.begin")).toBe(true);
     expect(host!.querySelector('.grid-rows [data-cell="0-2"] .cell-null-tag')).not.toBeNull();
     expect(host!.querySelector('.grid-rows [data-cell="0-2"]')!.classList.contains("cell-dirty")).toBe(true);
+    expect(host!.querySelector(".pending-band")!.textContent).toContain("1 cambio sin guardar");
     await menuOn("0-2", "Revertir celda");
     const cell = host!.querySelector('.grid-rows [data-cell="0-2"]')!;
     expect(cell.textContent).toBe("1520.50");

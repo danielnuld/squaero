@@ -259,6 +259,15 @@ export function hasChanges(state: PendingChanges): boolean {
 }
 
 /** Number of rows affected by the pending changes (edited + deleted + inserted). */
+/** The pending changes by kind, for the band that lists them (R-26): rows
+    changed, added and removed. Sums to changeCount. */
+export function changeKinds(state: PendingChanges): { changed: number; added: number; removed: number } {
+  const changed = Object.entries(state.edits).filter(
+    ([idx, e]) => Object.keys(e).length > 0 && !state.deletes.includes(Number(idx)),
+  ).length;
+  return { changed, added: state.inserts.length, removed: state.deletes.length };
+}
+
 export function changeCount(state: PendingChanges): number {
   const edited = Object.entries(state.edits).filter(
     ([idx, e]) =>
