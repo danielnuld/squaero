@@ -100,6 +100,11 @@ describe("ServerMonitor", () => {
     expect(killBtn.disabled).toBe(false);
     killBtn.click();
     await flush();
+    // It asks first, naming the session (audit A-10); nothing ran yet.
+    expect(calls.some((c) => (c.params as { sql?: string })?.sql?.startsWith("KILL"))).toBe(false);
+    expect(document.querySelector("[role='alertdialog'] h2")!.textContent).toContain("sesión 7");
+    confirmKill();
+    await flush();
     const killCall = calls.find(
       (c) => c.method === "query.run" && (c.params as { sql: string }).sql.startsWith("KILL"),
     );
@@ -124,8 +129,13 @@ describe("ServerMonitor", () => {
 /** The bar's kill action, which replaced the per-row buttons (#372). */
 function killButton(): HTMLButtonElement {
   return [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) =>
-    b.textContent?.includes("Matar"),
+    b.textContent?.includes("Terminar"),
   )!;
+}
+
+/** The red button of the kill confirmation. */
+function confirmKill(): void {
+  document.querySelector<HTMLButtonElement>(".dlg-actions .btn-danger")!.click();
 }
 
 // Issue #719: MongoDB lists db.currentOp() and kills with db.killOp(opid); a
@@ -169,6 +179,8 @@ describe("ServerMonitor on MongoDB", () => {
     host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
     await flush();
     killButton().click();
+    await flush();
+    confirmKill();
     await flush();
     expect(sqls).toContain("db.killOp(4711)");
     expect(sqls.filter((s) => s === "db.currentOp()").length).toBe(2); // reloaded after the kill

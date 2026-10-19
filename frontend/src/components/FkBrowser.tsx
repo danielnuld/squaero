@@ -1,8 +1,9 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import { Portal } from "solid-js/web";
 import { formatCell, cellAlign } from "../utils/format";
 import { filterRows, fkValueIndex, type FkLookup } from "../utils/fkLookup";
 import { t } from "../utils/i18n";
+import { Dialog } from "./Dialog";
 
 // The rows of a referenced table, as a real grid you can read and search, with an
 // explicit "Elegir" on every row (issue #300). This replaces an earlier floating
@@ -25,32 +26,28 @@ export function FkBrowser(props: {
   onClose: () => void;
 }) {
   const [query, setQuery] = createSignal("");
-  let filterEl: HTMLInputElement | undefined;
 
   const valueIdx = createMemo(() => fkValueIndex(props.lookup.columns, props.lookup.toColumn));
   const shown = createMemo(() => filterRows(props.lookup.rows, query()));
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.stopPropagation(); // never let Escape also close the row detail behind us
-      props.onClose();
-    }
-  };
-  onMount(() => {
-    document.addEventListener("keydown", onKeyDown, true);
-    filterEl?.focus();
-  });
-  onCleanup(() => document.removeEventListener("keydown", onKeyDown, true));
-
   return (
     <Portal>
-      <div
-        class="modal-backdrop"
-        onClick={(e) => e.target === e.currentTarget && props.onClose()}
+      {/* The shared Dialog swallows Escape in the capture phase, so it never
+          also closes the row detail behind it. */}
+      <Dialog
+        title={t("fk.title", { table: props.lookup.toTable })}
+        size="lg"
+        class="fk-browser"
+        onCancel={props.onClose}
+        cancelLabel={t("panel.close")}
+        helpers={
+          <span class="fk-browser-count">
+            {t("fk.count", { n: shown().length })}
+            <Show when={props.lookup.truncated}> · {t("fk.truncated")}</Show>
+          </span>
+        }
       >
-        <div class="modal fk-browser" role="dialog" aria-modal="true" aria-label={t("fk.title", { table: props.lookup.toTable })}>
           <div class="fk-browser-head">
-            <h2>{t("fk.title", { table: props.lookup.toTable })}</h2>
             <p class="fk-browser-sub">
               {t("fk.subtitle", {
                 table: props.lookup.toTable,
@@ -60,7 +57,6 @@ export function FkBrowser(props: {
           </div>
 
           <input
-            ref={filterEl}
             class="fk-browser-filter"
             type="search"
             placeholder={t("fk.filterPlaceholder")}
@@ -126,19 +122,7 @@ export function FkBrowser(props: {
               </table>
             </Show>
           </div>
-
-          <div class="modal-actions">
-            <span class="fk-browser-count">
-              {t("fk.count", { n: shown().length })}
-              <Show when={props.lookup.truncated}> · {t("fk.truncated")}</Show>
-            </span>
-            <span class="toolbar-spacer" />
-            <button class="primary" onClick={props.onClose}>
-              {t("panel.close")}
-            </button>
-          </div>
-        </div>
-      </div>
+      </Dialog>
     </Portal>
   );
 }

@@ -53,6 +53,7 @@ export interface ConnRowState {
   busy?: boolean;
 }
 import { t, locale } from "../utils/i18n";
+import { dropConfirm } from "../utils/confirmText";
 
 // A group folder's label is an i18n key ("tree.tables"); real object nodes carry
 // their true name. Translate only the former so object names pass through as-is.
@@ -522,7 +523,7 @@ export function ObjectTree(props: {
   // whether it is in flight. The dialog stays open on failure so the engine's
   // own complaint — a foreign key still pointing at the table, most often — is
   // read where the action was taken.
-  const [pendingDrop, setPendingDrop] = createSignal<{ name: string; sql: string } | null>(null);
+  const [pendingDrop, setPendingDrop] = createSignal<{ name: string; sql: string; kind: DropKind; where: string } | null>(null);
   const [dropping, setDropping] = createSignal(false);
   const [dropError, setDropError] = createSignal<string | null>(null);
   // MongoDB collection management besides the drop: emptying (deleteMany({})) and
@@ -652,7 +653,9 @@ export function ObjectTree(props: {
       danger: true,
       action: () => {
         setDropError(null);
-        setPendingDrop({ name: node.label, sql });
+        // Where it goes from, as the tree shows it: «Ventas › main».
+        const where = [props.title, node.db, node.schema].filter(Boolean).join(" › ");
+        setPendingDrop({ name: node.label, sql, kind, where });
       },
     });
   };
@@ -1081,10 +1084,10 @@ export function ObjectTree(props: {
       <Show when={pendingDrop()}>
         {(p) => (
           <ConfirmDialog
-            title={t("tree.dropTitle", { name: p().name })}
-            message={t("tree.dropMessage", { name: p().name })}
+            title={dropConfirm(p().kind, p().name).title}
+            message={dropConfirm(p().kind, p().name, p().where).message}
             sql={p().sql}
-            confirmLabel={t("tree.dropConfirm")}
+            confirmLabel={dropConfirm(p().kind, p().name).confirm}
             busy={dropping()}
             error={dropError()}
             onConfirm={() => void runDrop(p().sql)}

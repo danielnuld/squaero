@@ -23,6 +23,7 @@ import { parseTreeRows, schemaTree } from "../utils/schema";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
+import { dropConfirm } from "../utils/confirmText";
 import { Icon } from "./icons";
 import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
@@ -528,10 +529,10 @@ export function UserManager(props: {
       <Show when={pendingDrop()}>
         {(p) => (
           <ConfirmDialog
-            title={t("users.dropDialogTitle")}
-            message={t("users.dropMessage", { who: `${p().user.name}@${p().user.host}` })}
+            title={dropConfirm("user", `${p().user.name}@${p().user.host}`).title}
+            message={dropConfirm("user", "").message}
             sql={p().sql}
-            confirmLabel={t("users.dropDialogTitle")}
+            confirmLabel={dropConfirm("user", "").confirm}
             busy={busy()}
             error={error()}
             onConfirm={() => void confirmDropUser()}

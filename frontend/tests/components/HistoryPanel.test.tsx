@@ -64,19 +64,23 @@ describe("HistoryPanel", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("clears the history when the danger button is clicked with entries", () => {
+  it("clears the history only after confirming, naming how many queries go", () => {
     const onClear = vi.fn();
     mount({ onClear });
-    const clear = host!.querySelector(".danger") as HTMLButtonElement;
+    const clear = host!.querySelector(".danger-text") as HTMLButtonElement;
     expect(clear.disabled).toBe(false);
     clear.click();
+    expect(onClear).not.toHaveBeenCalled();
+    const confirm = host!.querySelector(".dlg-actions .btn-danger") as HTMLButtonElement;
+    expect(confirm.textContent).toMatch(/^Eliminar \d+ consultas?$/);
+    confirm.click();
     expect(onClear).toHaveBeenCalled();
   });
 
   it("shows an empty state when there is no history", () => {
     mount({ entries: [] });
     expect(host!.querySelector(".history-empty")!.textContent).toContain("Aún no has ejecutado");
-    expect((host!.querySelector(".danger") as HTMLButtonElement).disabled).toBe(true);
+    expect((host!.querySelector(".danger-text") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("shows per-entry duration and marks the slow one (#179)", () => {

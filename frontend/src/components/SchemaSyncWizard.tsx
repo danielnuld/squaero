@@ -23,6 +23,8 @@ import { saveText, sqlFileName } from "../utils/download";
 import type { Connection } from "../utils/connections";
 import { t } from "../utils/i18n";
 import { Dropdown } from "./Dropdown";
+import { Wizard, WizardField } from "./Wizard";
+import { countText, isDestructiveSql } from "../utils/confirmText";
 
 /** Display order of the difference categories. */
 const KINDS: DiffKind[] = ["table", "column", "primaryKey", "unique", "index", "foreignKey", "check", "view"];
@@ -177,166 +179,181 @@ ${scriptText(r.script)}` : "";
         })
       : `${i.object}: ${t(`ssync.issue.${i.code}`)}${i.detail ? ` (${i.detail})` : ""}`;
 
+  // 0 what to compare, 1 the differences and the script, 2 applied.
+  const step = () => (applied() ? 2 : result() ? 1 : 0);
+  const targetName = () => props.connections.find((c) => c.id === result()?.defId)?.name ?? "";
+  // A script that drops something is applied with the red button (R-15).
+  const destructive = () => executable().some(isDestructiveSql);
+
   return (
     <Panel wide onClose={props.onClose}>
-      <h2>{t("ssync.title")}</h2>
-
-      <div class="import-field">
-        <span class="import-subtitle">{t("ssync.source")}</span>{" "}
-        <label>
-          {t("ssync.db")}{" "}
-          <input
-            type="text"
-            value={sourceDb()}
-            placeholder={t("ssync.dbDefault")}
-            onInput={(e) => setSourceDb(e.currentTarget.value)}
-          />
-        </label>{" "}
-        <label>
-          {t("ssync.schema")}{" "}
-          <input
-            type="text"
-            value={sourceSchema()}
-            placeholder={t("ssync.dbDefault")}
-            onInput={(e) => setSourceSchema(e.currentTarget.value)}
-          />
-        </label>
-      </div>
-
-      <div class="import-field">
-        <label>
-          {t("ssync.target")}{" "}
-          <Dropdown
-            value={targetDefId()}
-            options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
-            onChange={(v) => setTargetDefId(v)}
-          />
-        </label>{" "}
-        <label>
-          {t("ssync.db")}{" "}
-          <input
-            type="text"
-            value={targetDb()}
-            placeholder={t("ssync.dbDefault")}
-            onInput={(e) => setTargetDb(e.currentTarget.value)}
-          />
-        </label>{" "}
-        <label>
-          {t("ssync.schema")}{" "}
-          <input
-            type="text"
-            value={targetSchema()}
-            placeholder={t("ssync.dbDefault")}
-            onInput={(e) => setTargetSchema(e.currentTarget.value)}
-          />
-        </label>
-      </div>
-
-      <div class="import-field">
-        <label class="import-check">
-          <input
-            type="checkbox"
-            checked={dropTables()}
-            onChange={(e) => setDropTables(e.currentTarget.checked)}
-          />
-          {t("ssync.dropTables")}
-        </label>{" "}
-        <button class="edit-btn" disabled={busy()} onClick={compare}>
-          {t("ssync.compare")}
-        </button>
-      </div>
-
-      <Show when={error()}>
-        <div class="grid-error" role="alert">
-          {error()}
-        </div>
-      </Show>
-
-      <Show when={result()}>
-        {(r) => {
-          const unsupported = () => r().script.issues.filter((i) => i.kind === "unsupported");
-          const notes = () => r().script.issues.filter((i) => i.kind === "note");
-          return (
-            <>
-              <div class="import-subtitle">{t("ssync.differences", { n: r().items.length })}</div>
-              <Show when={!r().empty} fallback={<p>{t("ssync.alreadyMatch")}</p>}>
-                <ul class="ssync-diff">
-                  <For each={KINDS.filter((k) => r().items.some((i) => i.kind === k))}>
-                    {(kind) => (
-                      <li>
-                        <strong>{t(`ssync.kind.${kind}`)}</strong>
-                        <ul>
-                          <For each={r().items.filter((i) => i.kind === kind)}>
-                            {(i) => (
-                              <li>
-                                <code>
-                                  {SIGN[i.change]} {i.name}
-                                </code>
-                                {i.detail ? ` — ${i.detail}` : ""}
-                              </li>
-                            )}
-                          </For>
-                        </ul>
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
-
-              <Show when={unsupported().length > 0}>
-                <div class="import-subtitle">{t("ssync.unsupported", { n: unsupported().length })}</div>
-                <ul class="import-errors" role="alert">
-                  <For each={unsupported()}>{(i) => <li>{issueText(i)}</li>}</For>
-                </ul>
-              </Show>
-
-              <Show when={notes().length > 0}>
-                <div class="import-subtitle">{t("ssync.notes")}</div>
-                <ul class="ssync-notes">
-                  <For each={notes()}>{(i) => <li>{issueText(i)}</li>}</For>
-                </ul>
-              </Show>
-
-              <Show when={r().script.statements.length > 0}>
-                <div class="import-subtitle">
-                  {t("ssync.migrationSql", { n: executable().length })}
-                </div>
-                <pre class="ddl-text preview-sql ssync-script" aria-label={t("ssync.script")}>
-                  {text()}
-                </pre>
-              </Show>
-            </>
-          );
-        }}
-      </Show>
-
-      <Show when={applied()}>
-        <p class="import-applied">{applied()}</p>
-      </Show>
-
-      <div class="modal-actions">
-        <button onClick={props.onClose}>{t("common.close")}</button>
-        <Show when={result() && result()!.script.statements.length > 0}>
-          <button onClick={() => props.onOpenSql(text(), result()!.defId)}>
-            {t("ssync.openInEditor")}
-          </button>
-          <button onClick={() => void saveText(sqlFileName("migration"), text(), "application/sql")}>
-            {t("ssync.saveSql")}
-          </button>
+      <Wizard
+        title={t("ssync.title")}
+        subtitle={t("ssync.subtitle")}
+        steps={[t("ssync.step.compare"), t("ssync.step.review"), t("ssync.step.apply")]}
+        step={step()}
+        error={confirming() ? null : error()}
+        busy={busy()}
+        busyLabel={step() === 0 ? t("ssync.comparing") : t("ssync.applying")}
+        onBack={step() === 1 ? () => setResult(null) : undefined}
+        primary={
+          step() === 0
+            ? { label: t("ssync.compare"), onClick: () => void compare(), disabled: !targetDefId() }
+            : step() === 1 && executable().length > 0
+              ? {
+                  label: countText("ssync.applyN", executable().length, { target: targetName() }),
+                  onClick: () => setConfirming(true),
+                  danger: destructive(),
+                }
+              : undefined
+        }
+        cancelLabel={step() === 0 ? undefined : t("common.close")}
+        onCancel={props.onClose}
+        helpers={
+          <Show when={step() === 1 && result()!.script.statements.length > 0}>
+            <button type="button" class="btn" onClick={() => props.onOpenSql(text(), result()!.defId)}>
+              {t("ssync.openInEditor")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              onClick={() => void saveText(sqlFileName("migration"), text(), "application/sql")}
+            >
+              {t("ssync.saveSql")}
+            </button>
+          </Show>
+        }
+      >
+        <Show when={step() === 0}>
+          <h3>{t("ssync.sourceHeading")}</h3>
+          <div class="wiz-form">
+            <WizardField label={t("wiz.db")} help={t("ssync.sourceHelp")}>
+              <input
+                type="text"
+                value={sourceDb()}
+                placeholder={t("ssync.dbDefault")}
+                onInput={(e) => setSourceDb(e.currentTarget.value)}
+              />
+            </WizardField>
+            <WizardField label={t("ssync.schema")}>
+              <input
+                type="text"
+                value={sourceSchema()}
+                placeholder={t("ssync.dbDefault")}
+                onInput={(e) => setSourceSchema(e.currentTarget.value)}
+              />
+            </WizardField>
+          </div>
+          <h3>{t("ssync.targetHeading")}</h3>
+          <div class="wiz-form">
+            <WizardField label={t("ssync.target")} help={t("ssync.targetHelp")}>
+              <Dropdown
+                value={targetDefId()}
+                options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+                onChange={(v) => setTargetDefId(v)}
+              />
+            </WizardField>
+            <WizardField label={t("wiz.db")}>
+              <input
+                type="text"
+                value={targetDb()}
+                placeholder={t("ssync.dbDefault")}
+                onInput={(e) => setTargetDb(e.currentTarget.value)}
+              />
+            </WizardField>
+            <WizardField label={t("ssync.schema")}>
+              <input
+                type="text"
+                value={targetSchema()}
+                placeholder={t("ssync.dbDefault")}
+                onInput={(e) => setTargetSchema(e.currentTarget.value)}
+              />
+            </WizardField>
+            <div class="wiz-row">
+              <span class="wiz-label">{t("ssync.extraTables")}</span>
+              <label class="wiz-ctl import-check">
+                <input
+                  type="checkbox"
+                  checked={dropTables()}
+                  onChange={(e) => setDropTables(e.currentTarget.checked)}
+                />
+                {t("ssync.dropTables")}
+              </label>
+            </div>
+          </div>
         </Show>
-        <Show when={executable().length > 0 && !applied()}>
-          <button class="primary" disabled={busy()} onClick={() => setConfirming(true)}>
-            {t("ssync.apply")}
-          </button>
+
+        <Show when={step() === 1 && result()}>
+          {(r) => {
+            const unsupported = () => r().script.issues.filter((i) => i.kind === "unsupported");
+            const notes = () => r().script.issues.filter((i) => i.kind === "note");
+            return (
+              <>
+                <p class="wiz-sub">{t("ssync.direction", { target: r().target })}</p>
+                <h3>{t("ssync.differences", { n: r().items.length })}</h3>
+                <Show when={!r().empty} fallback={<p>{t("ssync.alreadyMatch")}</p>}>
+                  <ul class="ssync-diff">
+                    <For each={KINDS.filter((k) => r().items.some((i) => i.kind === k))}>
+                      {(kind) => (
+                        <li>
+                          <strong>{t(`ssync.kind.${kind}`)}</strong>
+                          <ul>
+                            <For each={r().items.filter((i) => i.kind === kind)}>
+                              {(i) => (
+                                <li>
+                                  <code>
+                                    {SIGN[i.change]} {i.name}
+                                  </code>
+                                  {i.detail ? ` — ${i.detail}` : ""}
+                                </li>
+                              )}
+                            </For>
+                          </ul>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
+
+                <Show when={unsupported().length > 0}>
+                  <h3>{t("ssync.unsupported", { n: unsupported().length })}</h3>
+                  <ul class="import-errors" role="alert">
+                    <For each={unsupported()}>{(i) => <li>{issueText(i)}</li>}</For>
+                  </ul>
+                </Show>
+
+                <Show when={notes().length > 0}>
+                  <h3>{t("ssync.notes")}</h3>
+                  <ul class="ssync-notes">
+                    <For each={notes()}>{(i) => <li>{issueText(i)}</li>}</For>
+                  </ul>
+                </Show>
+
+                <Show when={r().script.statements.length > 0}>
+                  <h3>{t("ssync.migrationSql", { n: executable().length })}</h3>
+                  <Show when={destructive()}>
+                    <p class="field-error">{t("ssync.losesData")}</p>
+                  </Show>
+                  <pre class="ddl-text preview-sql ssync-script" aria-label={t("ssync.script")}>
+                    {text()}
+                  </pre>
+                </Show>
+              </>
+            );
+          }}
         </Show>
-      </div>
+
+        <Show when={applied()}>
+          <p class="import-applied">{applied()}</p>
+        </Show>
+      </Wizard>
 
       <Show when={confirming()}>
         <ConfirmDialog
-          title={t("ssync.confirmTitle")}
+          title={t("ssync.confirmTitle", { target: targetName() })}
           message={t("ssync.confirmMessage", { n: executable().length })}
           sql={executable().join("\n")}
-          confirmLabel={busy() ? t("ssync.applying") : t("ssync.confirmApply")}
+          confirmLabel={countText("ssync.applyN", executable().length, { target: targetName() })}
           busy={busy()}
           error={error()}
           onConfirm={() => void apply()}

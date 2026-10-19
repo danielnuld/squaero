@@ -126,8 +126,9 @@ describe("App — deleting a saved connection (issue #762)", () => {
     await openManager();
     await deleteFromMenu("local");
 
-    const dialog = document.querySelector('[role="dialog"]')!;
-    expect(dialog.textContent).toContain("«local» está abierta");
+    const dialog = document.querySelector('[role="alertdialog"]')!;
+    expect(dialog.querySelector("h2")!.textContent).toBe("¿Eliminar la conexión «local»?");
+    expect(dialog.textContent).toContain("Está abierta");
     expect(calls).not.toContain("conn.close");
     expect(stored()).toBe(SAVED_JSON);
 

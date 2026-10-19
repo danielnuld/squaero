@@ -392,7 +392,6 @@ textarea,
 .grid-error,
 .objlist-error,
 .objtree-error,
-.update-error,
 .pending-notice,
 .cf-notice,
 .form-errors,
@@ -1072,31 +1071,7 @@ body {
   flex: none;
 }
 
-/* Startup update modal (autoupdater). */
-.update-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--sp-6);
-}
-.update-modal {
-  background: var(--bg-overlay);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-lg);
-  width: min(560px, 100%);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.update-head {
-  padding: var(--sp-5) var(--sp-6) var(--sp-3);
-}
+/* Startup update dialog (autoupdater), on the shared Dialog (#692). */
 .update-badge {
   display: inline-block;
   font-size: var(--fs-micro);
@@ -1108,19 +1083,9 @@ body {
   padding: var(--sp-1) var(--sp-3);
   border-radius: var(--r-pill);
 }
-.update-head h2 {
-  margin: var(--sp-3) 0 var(--sp-2);
-  font-size: var(--fs-lg);
-}
 .update-sub {
-  margin: 0;
   color: var(--text-dim);
   font-size: var(--fs-base);
-}
-.update-notes {
-  padding: 0 var(--sp-6);
-  overflow: auto;
-  flex: 1;
 }
 .update-notes pre {
   white-space: pre-wrap;
@@ -1129,25 +1094,15 @@ body {
   font-size: var(--fs-base);
   line-height: 1.5;
   color: var(--text);
-  margin: var(--sp-3) 0;
+  margin: 0;
 }
 .update-actions {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-5) var(--sp-6);
-  border-top: 1px solid var(--border);
-  /* The footer sits flush against its separator; the shared rule's top margin
-     would push it away from the border. */
-  margin-top: 0;
 }
 .update-skip {
   color: var(--text-dim);
-}
-.update-error {
-  color: var(--error);
-  font-size: var(--fs-base);
-  margin: 0 var(--sp-6);
 }
 
 /* Marks an open (connected) connection in the list. */
@@ -3148,31 +3103,291 @@ kbd {
 }
 
 
-/* Connection form modal */
-.modal-backdrop {
+/* --- The one dialog (issue #692) -------------------------------------------
+   Dialog.tsx: a scrim, a box with a title row, a body and a footer whose action
+   row is already in the OS order (utils/dialog.ts). Three widths. */
+.dlg-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  background: rgba(20, 24, 28, 0.32);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  padding: var(--sp-6);
 }
 
-.modal {
+.dlg {
   background: var(--bg-overlay);
+  color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: var(--sp-5);
-  width: min(440px, 92vw);
-  max-height: 90vh;
-  overflow: auto;
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-.modal h2 {
-  margin: 0 0 var(--sp-4);
+.dlg-sm { width: 400px; }
+.dlg-md { width: 520px; }
+.dlg-lg { width: 720px; }
+
+.dlg-h {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 48px;
+  padding: 0 var(--sp-4) 0 var(--sp-6);
+}
+
+.dlg-h h2 {
+  flex: 1;
+  margin: 0;
   font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.dlg-close {
+  width: var(--h-sm);
+  height: var(--h-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.dlg-close:hover:not(:disabled) {
+  background: var(--bg-elev);
+  color: var(--text);
+}
+
+.dlg-b {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-2) var(--sp-6) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.dlg-b > p {
+  margin: 0;
+}
+
+.dlg-f {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
+.dlg-spacer {
+  flex: 1;
+}
+
+.dlg-actions {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+/* A labelled field inside a dialog body: label above, help or error below. */
+.dlg-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.dlg-field > span {
+  color: var(--text-dim);
+}
+
+/* --- The one wizard (issue #692) -------------------------------------------
+   Wizard.tsx inside a tool tab: the head with the numbered steps, a form whose
+   labels share one 160px column and whose fields stop at 360px, and a footer
+   pinned to the bottom of the tab — [Atrás] … [primary] [Cancelar]. The tab's
+   own padding is taken back so the footer can run edge to edge. */
+.tool-pane:has(> .wiz) {
+  padding: 0;
+  overflow: hidden;
+}
+
+.wiz {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wiz-head {
+  flex: none;
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.wiz-head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.wiz-sub {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-dim);
+}
+
+.wiz-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  margin: var(--sp-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiz-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-dim);
+}
+
+.wiz-step.is-current {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.wiz-num {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+}
+
+.wiz-step.is-current .wiz-num {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.wiz-step.is-done .wiz-num {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.wiz-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-5) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.wiz-body > .seg {
+  align-self: flex-start;
+}
+
+.wiz-body > p,
+.wiz-body > h3 {
+  margin: 0;
+}
+
+.wiz-body > h3 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.wiz-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
+/* The form grid: labels in one column, fields in the other. */
+.wiz-form {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 360px);
+  gap: var(--sp-3) var(--sp-4);
+  align-items: center;
+}
+
+.wiz-row,
+.wiz-field {
+  display: contents;
+}
+
+.wiz-label {
+  grid-column: 1;
+  color: var(--text-dim);
+}
+
+.wiz-ctl {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.wiz-ctl > input:not([type="checkbox"]):not([type="radio"]),
+.wiz-ctl > .dropdown {
+  flex: 1;
+  min-width: 0;
+}
+
+.wiz-help {
+  grid-column: 2;
+  margin: -4px 0 0;
+}
+
+.wiz-radios {
+  flex-wrap: wrap;
+}
+
+.wiz-radios label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.help {
+  font-size: var(--fs-base);
+  color: var(--text-dim);
+}
+
+/* The footer row of a tool panel (former .modal-actions inside a tab): its
+   buttons at the end, in the OS order when there is a primary and a cancel. */
+.panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+/* A secondary button whose action destroys something it asks about first. */
+button.danger-text {
+  color: var(--error);
 }
 
 /* The connections the restore prompt would reopen: secondary to the choice. */
@@ -3380,6 +3595,44 @@ button.primary:hover:not(:disabled) {
   margin-right: auto; /* push Cerrar to the right */
 }
 
+/* The button vocabulary of dialogs and wizards: one primary per row, a filled
+   red one for what destroys (audit A-25: not red text on grey). */
+button.btn-primary,
+button.btn-danger {
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-4);
+  font: inherit;
+  font-weight: 600;
+  cursor: default;
+}
+
+button.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+button.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button.btn-danger {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--error-fg);
+}
+
+button.btn-danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+button.btn-primary:disabled,
+button.btn-danger:disabled {
+  opacity: 0.55;
+}
+
 /* Query history panel (issue #128) */
 .history-controls {
   display: flex;
@@ -3493,10 +3746,6 @@ button.primary:hover:not(:disabled) {
   color: var(--text-dim);
   padding: var(--sp-5) var(--sp-2);
   text-align: center;
-}
-
-.modal-actions-spacer {
-  flex: 1;
 }
 
 /* Local history of the editor tabs (issue #674): the versions on the left, the
@@ -4101,11 +4350,6 @@ button.primary:hover:not(:disabled) {
   letter-spacing: 0.05em;
   color: var(--text-dim);
   padding: var(--sp-3) var(--sp-4) var(--sp-2);
-}
-
-/* Structure view (modal) */
-.modal-wide {
-  width: min(720px, 94vw);
 }
 
 /* Cap the column list so a table with many columns leaves room for the DDL
@@ -4891,10 +5135,10 @@ button.grid-action.danger:hover:not(:disabled) {
   resize: vertical;
 }
 
+/* Sentence case, not small caps (M14: hierarchy by weight and tone). */
 .import-subtitle {
-  font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-base);
+  font-weight: 600;
   color: var(--fg-dim);
   margin: var(--sp-3) 0 var(--sp-2);
 }
@@ -6849,14 +7093,10 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 /* Lo que va a pasar al pulsar Instalar (issue #485): la ventana se cierra sola
-   y vuelve. Va bajo los botones, en tono secundario, porque es una consecuencia
-   y no una acción. */
+   y vuelve. Va en tono secundario, porque es una consecuencia y no una acción. */
 .update-note {
-  margin: var(--sp-2) 0 0;
   color: var(--text-dim);
   font-size: var(--fs-sm);
-  flex-basis: 100%;
-  text-align: right;
 }
 
 /* Colours per data type, in the settings panel (issue #483). A row is the
@@ -6934,10 +7174,6 @@ button.grid-action.danger:hover:not(:disabled) {
    The grid of three columns keeps the boxes aligned however long the names are,
    which is what makes a dozen variables readable as a form rather than a list of
    sentences. */
-.vars-dialog {
-  width: min(560px, 92vw);
-}
-
 .vars-hint {
   margin: 0 0 var(--sp-3);
   color: var(--text-dim);
@@ -6978,6 +7214,16 @@ button.grid-action.danger:hover:not(:disabled) {
 /* Keeps a raw variable's row aligned with the ones that carry the switch. */
 .vars-null-gap {
   display: block;
+}
+
+/* «Falta un valor para …» under its box (audit A-35), in the box's column. */
+.vars-error {
+  grid-column: 2 / 4;
+  margin-top: 0;
+}
+
+.vars-input.input-invalid {
+  border-color: var(--error);
 }
 
 /* Progress inside a toast (issue #479). The indeterminate variant animates a
@@ -7051,6 +7297,10 @@ button.grid-action.danger:hover:not(:disabled) {
 /* --- Datos relacionados (issue #310) ------------------------------------
    Modal maestro-detalle: la lista de tablas dependientes va en una columna
    angosta y el resultado —lo que se vino a ver— se lleva el resto. */
+.related-modal .dlg-b {
+  padding: 0;
+}
+
 .related-modal {
   width: min(980px, 94vw);
   max-height: 94vh;
@@ -7065,35 +7315,6 @@ button.grid-action.danger:hover:not(:disabled) {
   resize: both;
   min-width: 480px;
   max-width: 96vw;
-}
-
-.related-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-5);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-elev2);
-}
-
-.related-head h2 {
-  margin: 0;
-  font-size: var(--fs-lg);
-}
-
-.related-close {
-  background: none;
-  border: 1px solid transparent;
-  color: var(--text-dim);
-  cursor: default;
-  border-radius: var(--r-sm);
-  padding: var(--sp-1) var(--sp-3);
-}
-
-.related-close:hover {
-  background: var(--bg-elev);
-  color: var(--text);
-  border-color: var(--border);
 }
 
 .related-body {
@@ -7242,13 +7463,6 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .related-unsupported {
   padding: var(--sp-6) var(--sp-5);
-}
-
-.related-actions {
-  padding: var(--sp-3) var(--sp-5);
-  border-top: 1px solid var(--border);
-  background: var(--bg-elev2);
-  margin: 0;
 }
 
 .related-rows {

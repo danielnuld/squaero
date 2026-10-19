@@ -181,12 +181,16 @@ describe("SchemaSyncWizard", () => {
     await compare();
     const before = calls.length;
 
-    clickButton("Aplicar en destino");
+    // The script drops a column, so the wizard's verb is the red one, with
+    // the count and the target (audit R-15).
+    const primary = host!.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!;
+    expect(primary.textContent).toMatch(/^Aplicar 3 sentencias en /);
+    primary.click();
     await flush();
     expect(calls.length).toBe(before); // nothing runs until confirmed
-    expect(host!.querySelector('[role="dialog"], .confirm-dialog, .modal')).not.toBeNull();
+    expect(host!.querySelector(".confirm-dialog")).not.toBeNull();
 
-    clickButton("Aplicar");
+    host!.querySelector<HTMLButtonElement>(".confirm-dialog .btn-danger")!.click();
     for (let i = 0; i < 5; i++) await flush();
 
     const after = calls.slice(before);
@@ -200,6 +204,7 @@ describe("SchemaSyncWizard", () => {
     ]);
     expect(methods).toContain("tx.commit");
     expect(host!.textContent).toContain("aplicada");
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Aplicar");
   });
 
   it("asks for a schema when the container lists schemas instead of tables", async () => {

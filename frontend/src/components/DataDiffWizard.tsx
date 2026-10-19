@@ -11,6 +11,8 @@ import { t } from "../utils/i18n";
 import type { PlanItem } from "../utils/editSession";
 import { Dropdown } from "./Dropdown";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { Wizard, WizardField } from "./Wizard";
+import { countText } from "../utils/confirmText";
 
 // Rows per page while reading each whole table.
 const PAGE = 5000;
@@ -169,51 +171,71 @@ export function DataDiffWizard(props: {
     }
   };
 
+  // 0 what to compare, 1 the operations and their SQL, 2 applied.
+  const step = () => (applied() ? 2 : plan() ? 1 : 0);
+
   return (
     <Panel wide onClose={props.onClose}>
-        <h2>{t("ddiff.title", { name: props.source.table })}</h2>
-        <p class="import-subtitle">{t("ddiff.scope")}</p>
-
-        <div class="import-field">
-          <label>
-            {t("ssync.target")}{" "}
-            <Dropdown
-              value={targetDefId()}
-              options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
-              onChange={(v) => setTargetDefId(v)}
-            />
-          </label>{" "}
-          <label>
-            {t("ssync.db")}{" "}
-            <input
-              type="text"
-              value={targetDb()}
-              placeholder={t("ssync.dbDefault")}
-              onInput={(e) => setTargetDb(e.currentTarget.value)}
-            />
-          </label>{" "}
-          <button class="edit-btn" disabled={busy()} onClick={compare}>
-            {t("ssync.compare")}
-          </button>
-        </div>
-
-        <Show when={progress()}>
-          <p class="import-subtitle" role="status">
-            {progress()}{" "}
-            <button onClick={() => reading?.abort()}>{t("common.cancel")}</button>
-          </p>
-        </Show>
-
-        <Show when={error()}>
-          <div class="grid-error" role="alert">
-            {error()}
+      <Wizard
+        title={t("ddiff.title", { name: props.source.table })}
+        subtitle={t("ddiff.subtitle")}
+        steps={[t("ssync.step.compare"), t("ssync.step.review"), t("ssync.step.apply")]}
+        step={step()}
+        error={error()}
+        busy={busy()}
+        busyLabel={step() === 0 ? t("ssync.comparing") : t("ssync.applying")}
+        onBack={step() === 1 ? () => setPlan(null) : undefined}
+        primary={
+          step() === 0
+            ? { label: t("ssync.compare"), onClick: () => void compare(), disabled: !targetDefId() }
+            : step() === 1 && plan()!.length > 0
+              ? {
+                  label: countText("ddiff.applyN", plan()!.length, { target: planTarget().name }),
+                  onClick: () => {
+                    setConfirmError(null);
+                    setConfirming(true);
+                  },
+                  // Deleting target rows is what loses data (#761).
+                  danger: counts().deletes > 0,
+                }
+              : undefined
+        }
+        cancelLabel={step() === 0 ? undefined : t("common.close")}
+        onCancel={props.onClose}
+      >
+        <Show when={step() === 0}>
+          <p class="help">{t("ddiff.scope")}</p>
+          <div class="wiz-form">
+            <WizardField label={t("ssync.target")} help={t("ddiff.targetHelp")}>
+              <Dropdown
+                value={targetDefId()}
+                options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+                onChange={(v) => setTargetDefId(v)}
+              />
+            </WizardField>
+            <WizardField label={t("wiz.db")}>
+              <input
+                type="text"
+                value={targetDb()}
+                placeholder={t("ssync.dbDefault")}
+                onInput={(e) => setTargetDb(e.currentTarget.value)}
+              />
+            </WizardField>
           </div>
+          <Show when={progress()}>
+            <p class="import-subtitle" role="status">
+              {progress()}{" "}
+              <button type="button" class="btn" onClick={() => reading?.abort()}>
+                {t("common.cancel")}
+              </button>
+            </p>
+          </Show>
         </Show>
 
-        <Show when={plan()}>
+        <Show when={step() === 1 && plan()}>
           {(items) => (
             <>
-              <div class="import-subtitle">
+              <h3>
                 {t("ddiff.summary", {
                   source: counts().source,
                   target: counts().target,
@@ -221,11 +243,8 @@ export function DataDiffWizard(props: {
                   upd: counts().updates,
                   del: counts().deletes,
                 })}
-              </div>
-              <Show
-                when={items().length > 0}
-                fallback={<p>{t("ddiff.alreadyMatch")}</p>}
-              >
+              </h3>
+              <Show when={items().length > 0} fallback={<p>{t("ddiff.alreadyMatch")}</p>}>
                 <pre class="ddl-text preview-sql">{preview().join(";\n")}</pre>
               </Show>
             </>
@@ -235,42 +254,24 @@ export function DataDiffWizard(props: {
         <Show when={applied()}>
           <p class="import-applied">{applied()}</p>
         </Show>
+      </Wizard>
 
-        <div class="modal-actions">
-          <button onClick={props.onClose}>{t("common.close")}</button>
-          <Show when={plan() && plan()!.length > 0 && !applied()}>
-            <button
-              class="primary"
-              disabled={busy()}
-              onClick={() => {
-                setConfirmError(null);
-                setConfirming(true);
-              }}
-            >
-              {t("ddiff.apply", { n: plan()!.length })}
-            </button>
-          </Show>
-        </div>
-
-        <Show when={confirming() && plan()}>
-          <ConfirmDialog
-            title={t("ddiff.confirmTitle")}
-            message={t("ddiff.confirmMessage", {
-              target: `${planTarget().name} › ${planTarget().ref}`,
-              ins: counts().inserts,
-              upd: counts().updates,
-              del: counts().deletes,
-            })}
-            confirmLabel={t("ddiff.confirmApply", {
-              n: plan()!.length,
-              target: planTarget().name,
-            })}
-            busy={busy()}
-            error={confirmError()}
-            onConfirm={apply}
-            onCancel={() => setConfirming(false)}
-          />
-        </Show>
+      <Show when={confirming() && plan()}>
+        <ConfirmDialog
+          title={t("ddiff.confirmTitle")}
+          message={t("ddiff.confirmMessage", {
+            target: `${planTarget().name} › ${planTarget().ref}`,
+            ins: counts().inserts,
+            upd: counts().updates,
+            del: counts().deletes,
+          })}
+          confirmLabel={countText("ddiff.applyN", plan()!.length, { target: planTarget().name })}
+          busy={busy()}
+          error={confirmError()}
+          onConfirm={apply}
+          onCancel={() => setConfirming(false)}
+        />
+      </Show>
     </Panel>
   );
 }

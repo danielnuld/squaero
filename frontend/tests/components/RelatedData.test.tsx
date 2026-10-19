@@ -19,7 +19,7 @@ afterEach(() => {
   host = null;
   // The dialog lives in a Portal, outside the host: disposing the root leaves
   // its container in the body, and the next mount would find both.
-  document.querySelectorAll(".modal-backdrop").forEach((n) => n.parentElement?.remove());
+  document.querySelectorAll(".dlg-scrim").forEach((n) => n.parentElement?.remove());
 });
 
 const query: RelatedQuery = {
@@ -64,7 +64,7 @@ const mount = () => {
 };
 
 const actions = () =>
-  Array.from(document.querySelectorAll<HTMLButtonElement>(".related-actions button"));
+  Array.from(document.querySelectorAll<HTMLButtonElement>(".dlg-f button"));
 
 describe("RelatedData carry-out", () => {
   it("offers one way out, not two", () => {
@@ -85,7 +85,7 @@ describe("RelatedData carry-out", () => {
 describe("RelatedData size", () => {
   it("stays open when a drag that started inside ends on the backdrop", () => {
     const { closed } = mount();
-    const backdrop = document.querySelector<HTMLElement>(".modal-backdrop")!;
+    const backdrop = document.querySelector<HTMLElement>(".dlg-scrim")!;
     const dialog = document.querySelector<HTMLElement>(".related-modal")!;
     // Dragging the resize corner ends past the dialog's edge, and the click that
     // follows is reported on the backdrop.

@@ -1,4 +1,5 @@
-import { Show, onCleanup, onMount } from "solid-js";
+import { Show } from "solid-js";
+import { Dialog } from "./Dialog";
 import { t } from "../utils/i18n";
 
 // The choice at startup (issue #465): pick up the last session, or start clean.
@@ -23,36 +24,19 @@ export function RestorePrompt(props: {
 }) {
   // Escape starts clean: the safe half of the choice is the one that throws
   // nothing away — the saved workspace is still on disk until the first edit.
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
-    e.preventDefault();
-    e.stopPropagation();
-    props.onBlank();
-  };
-  let resumeBtn: HTMLButtonElement | undefined;
-  onMount(() => {
-    document.addEventListener("keydown", onKeyDown, true);
-    resumeBtn?.focus();
-  });
-  onCleanup(() => document.removeEventListener("keydown", onKeyDown, true));
-
   return (
-    <div class="modal-backdrop">
-      <div class="modal restore-prompt" role="dialog" aria-modal="true" aria-labelledby="restore-title">
-        <h2 id="restore-title">{t("restore.title")}</h2>
-        <p>{t("restore.message", { n: props.tabCount })}</p>
-        <Show when={props.connections.length > 0}>
-          <p class="restore-conns">
-            {t("restore.conns", { names: props.connections.join(", ") })}
-          </p>
-        </Show>
-        <div class="modal-actions">
-          <button onClick={props.onBlank}>{t("restore.blank")}</button>
-          <button class="primary" ref={resumeBtn} onClick={props.onResume}>
-            {t("restore.resume")}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Dialog
+      title={t("restore.title")}
+      size="sm"
+      class="restore-prompt"
+      onCancel={props.onBlank}
+      cancelLabel={t("restore.blank")}
+      primary={{ label: t("restore.resume"), onClick: props.onResume }}
+    >
+      <p>{t("restore.message", { n: props.tabCount })}</p>
+      <Show when={props.connections.length > 0}>
+        <p class="restore-conns">{t("restore.conns", { names: props.connections.join(", ") })}</p>
+      </Show>
+    </Dialog>
   );
 }

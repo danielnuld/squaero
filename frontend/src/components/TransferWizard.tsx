@@ -19,6 +19,8 @@ import {
 } from "../utils/importers";
 import type { Connection } from "../utils/connections";
 import { Dropdown } from "./Dropdown";
+import { RowErrorPolicy, Wizard, WizardField } from "./Wizard";
+import { countText } from "../utils/confirmText";
 
 const OMIT = "";
 
@@ -134,125 +136,103 @@ export function TransferWizard(props: {
     }
   };
 
+  // 0 where to, 1 columns, 2 the result.
+  const step = () => (summary() ? 2 : destCols() ? 1 : 0);
+  const destName = () => props.connections.find((c) => c.id === destDefId())?.name ?? "";
+
   return (
     <Panel wide onClose={props.onClose}>
-        <h2>{t("tw.title", { name: props.sourceTable })}</h2>
-        <p class="import-subtitle">
-          {t(props.sourceResult.truncated ? "ddiff.sourceTruncated" : "ddiff.source", {
-            n: props.sourceResult.rows.length,
-          })}
-        </p>
-
-        <Show when={error()}>
-          <div class="grid-error" role="alert">
-            {error()}
-          </div>
-        </Show>
-
-        <Show
-          when={!summary()}
-          fallback={
-            <div class="import-summary">
-              <p>
-                <strong>{summary()!.inserted}</strong> {t("imp.transferred")}
-                {summary()!.aborted
-                  ? t("imp.aborted")
-                  : summary()!.errors.length > 0
-                    ? t("imp.withErrors", { n: summary()!.errors.length })
-                    : t("imp.done")}
-              </p>
-              <div class="modal-actions">
-                <button class="primary" onClick={props.onClose}>
-                  {t("common.close")}
-                </button>
-              </div>
-            </div>
-          }
-        >
-          <div class="import-field">
-            <label>
-              {t("ssync.target")}{" "}
+      <Wizard
+        title={t("tw.title", { name: props.sourceTable })}
+        subtitle={t(props.sourceResult.truncated ? "ddiff.sourceTruncated" : "ddiff.source", {
+          n: props.sourceResult.rows.length,
+        })}
+        steps={[t("tw.step.target"), t("tw.step.columns"), t("tw.step.transfer")]}
+        step={step()}
+        error={error()}
+        busy={busy()}
+        busyLabel={step() === 0 ? t("tw.preparing") : t("tw.transferring")}
+        onBack={step() === 1 ? () => setDestCols(null) : undefined}
+        primary={
+          step() === 0
+            ? { label: t("wiz.next"), onClick: () => void prepare(), disabled: !destDefId() || !destTable().trim() }
+            : step() === 1
+              ? {
+                  label: countText("tw.transferN", props.sourceResult.rows.length, { target: destName() }),
+                  onClick: () => void transfer(),
+                  disabled: !hasMapping(mapping()),
+                }
+              : undefined
+        }
+        cancelLabel={step() === 2 ? t("common.close") : undefined}
+        onCancel={props.onClose}
+      >
+        <Show when={step() === 0}>
+          <div class="wiz-form">
+            <WizardField label={t("tw.targetConn")} help={t("tw.targetHelp")}>
               <Dropdown
                 value={destDefId()}
                 options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
                 onChange={(v) => setDestDefId(v)}
               />
-            </label>{" "}
-            <label>
-              {t("ssync.db")}{" "}
+            </WizardField>
+            <WizardField label={t("wiz.db")}>
               <input
                 type="text"
                 value={destDb()}
                 placeholder={t("ssync.dbDefault")}
                 onInput={(e) => setDestDb(e.currentTarget.value)}
               />
-            </label>{" "}
-            <label>
-              {t("tw.table")}{" "}
-              <input
-                type="text"
-                value={destTable()}
-                onInput={(e) => setDestTable(e.currentTarget.value)}
-              />
-            </label>{" "}
-            <button class="edit-btn" disabled={busy()} onClick={prepare}>
-              {t("tw.prepare")}
-            </button>
-          </div>
-
-          <Show when={destCols()}>
-            <div class="import-mapping">
-              <div class="import-subtitle">{t("imp.mappingTarget")}</div>
-              <For each={destCols()!}>
-                {(col) => (
-                  <div class="map-row">
-                    <span class="map-target">{col}</span>
-                    <span class="map-arrow">←</span>
-                    <Dropdown
-                      value={mapping()[col] ?? OMIT}
-                      options={[{ value: OMIT, label: t("imp.omit") }, ...sourceHeaders().map((h) => ({ value: h, label: h }))]}
-                      onChange={(v) => setColumn(col, v)}
-                      class="map-select"
-                    />
-                  </div>
-                )}
-              </For>
-            </div>
-
-            <div class="import-policy">
-              <span class="import-subtitle">{t("imp.onRowError")}</span>
-              <label>
-                <input
-                  type="radio"
-                  name="tpolicy"
-                  checked={policy() === "skip"}
-                  onChange={() => setPolicy("skip")}
-                />{" "}
-                {t("imp.skipRest")}
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="tpolicy"
-                  checked={policy() === "abort"}
-                  onChange={() => setPolicy("abort")}
-                />{" "}
-                {t("imp.abortAll")}
-              </label>
-            </div>
-          </Show>
-
-          <div class="modal-actions">
-            <button onClick={props.onClose}>{t("common.cancel")}</button>
-            <button
-              class="primary"
-              disabled={busy() || !destCols() || !hasMapping(mapping())}
-              onClick={transfer}
-            >
-              {busy() ? t("tw.transferring") : t("tw.transfer")}
-            </button>
+            </WizardField>
+            <WizardField label={t("tw.table")} help={t("tw.tableHelp")}>
+              <input type="text" value={destTable()} onInput={(e) => setDestTable(e.currentTarget.value)} />
+            </WizardField>
           </div>
         </Show>
+
+        <Show when={step() === 1 && destCols()}>
+          {(cols) => (
+            <>
+              <h3>{t("imp.mappingTarget")}</h3>
+              <div class="import-mapping">
+                <For each={cols()}>
+                  {(col) => (
+                    <div class="map-row">
+                      <span class="map-target">{col}</span>
+                      <span class="map-arrow">←</span>
+                      <Dropdown
+                        value={mapping()[col] ?? OMIT}
+                        options={[{ value: OMIT, label: t("imp.omit") }, ...sourceHeaders().map((h) => ({ value: h, label: h }))]}
+                        onChange={(v) => setColumn(col, v)}
+                        class="map-select"
+                      />
+                    </div>
+                  )}
+                </For>
+              </div>
+              <div class="wiz-form">
+                <RowErrorPolicy name="tpolicy" value={policy()} onChange={setPolicy} />
+              </div>
+              <p class="help">{t("imp.txHelp")}</p>
+            </>
+          )}
+        </Show>
+
+        <Show when={summary()}>
+          {(sum) => (
+            <div class="import-summary">
+              <p>
+                <strong>{sum().inserted}</strong> {t("imp.transferred")}
+                {sum().aborted
+                  ? t("imp.aborted")
+                  : sum().errors.length > 0
+                    ? t("imp.withErrors", { n: sum().errors.length })
+                    : t("imp.done")}
+              </p>
+            </div>
+          )}
+        </Show>
+      </Wizard>
     </Panel>
   );
 }
