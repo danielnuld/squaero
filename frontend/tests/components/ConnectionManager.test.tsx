@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { ConnectionManager } from "../../src/components/ConnectionManager";
 import type { Connection } from "../../src/utils/connections";
+import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 
 // The saved connections as their own tab (issue #525): create, edit, group,
 // delete, import, export. Opening, closing and reconnecting are NOT here — they
@@ -102,12 +103,20 @@ describe("ConnectionManager", () => {
     expect(host!.querySelector(".conn-live")).not.toBeNull();
   });
 
-  it("deletes from its own row", () => {
-    const { onDelete } = mount(null);
-    [...host!.querySelectorAll<HTMLButtonElement>("button")]
-      .filter((b) => b.title === "Eliminar")[0]
-      .click();
+  it("deletes from the row's menu, last and in danger colour, away from Edit (#762)", () => {
+    const { onDelete, onEdit } = mount(null);
+    const buttons = [...host!.querySelectorAll<HTMLButtonElement>(".conn-actions button")];
+    // No bare delete icon beside the pencil any more.
+    expect(buttons.some((b) => b.title === "Eliminar")).toBe(false);
+    buttons.find((b) => b.title === "Más acciones: Prod")!.click();
+    const items = contextMenu()!.items;
+    const last = items[items.length - 1];
+    expect(last).toMatchObject({ label: "Eliminar…", danger: true });
+    expect(items[items.length - 2].separator).toBe(true);
+    last.action!();
     expect(onDelete).toHaveBeenCalledWith("a");
+    expect(onEdit).not.toHaveBeenCalled();
+    closeContextMenu();
   });
 
   it("exports without passwords by default and only warns on opt-in (#188)", () => {

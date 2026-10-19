@@ -748,6 +748,19 @@ export function removeConnection(list: Connection[], id: string): Connection[] {
 }
 
 /**
+ * Undo a removal (issue #762): put the very object that was removed back at its
+ * old position, so every field comes back — password, SSH tunnel, group, colour,
+ * safe mode — and the order too. A list that meanwhile gained a connection with
+ * the same id (a new one reusing the freed id) is left as it is.
+ */
+export function restoreConnection(list: Connection[], conn: Connection, index: number): Connection[] {
+  if (list.some((c) => c.id === conn.id)) return list;
+  const next = list.slice();
+  next.splice(Math.max(0, Math.min(index, next.length)), 0, conn);
+  return next;
+}
+
+/**
  * Serializes connections for storage. Passwords ARE persisted (plaintext), by
  * maintainer decision, so a saved connection reconnects without re-typing them
  * — the convenience matters for daily use on a single-user desktop. `stripSecrets`
