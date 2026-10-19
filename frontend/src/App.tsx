@@ -358,6 +358,9 @@ import { loadSideState, railClick, saveSideState } from "./utils/sidePanel";
 import { tabIcon } from "./utils/tabStrip";
 import { ResultTabs, type ResultView } from "./components/ResultTabs";
 import { ResultMessages } from "./components/ResultMessages";
+import { ErrorHints } from "./components/ErrorHints";
+import { engineErrorCode, didYouMean } from "./utils/errorHints";
+import { editorSchema } from "./utils/sqlEditor";
 import { runMessages, appendMessages, type RunMessage } from "./utils/runMessages";
 import {
   PinStrip,
@@ -5524,6 +5527,17 @@ export function App() {
                             result={currentResult().result}
                             loading={currentResult().loading}
                             error={currentResult().error}
+                            errorExtra={
+                              <ErrorHints
+                                code={engineErrorCode(currentResult().error)}
+                                hint={didYouMean(
+                                  currentResult().error,
+                                  currentResult().errorSql ?? "",
+                                  editorSchema(sqlSchema()),
+                                  activeDialect(),
+                                )}
+                              />
+                            }
                             rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             emptyState={
