@@ -10,6 +10,8 @@ import {
   closeTab,
   closeOtherTabs,
   closeTabsToRight,
+  closeAllTabs,
+  closedQueryTabs,
   closeTabsForConn,
   updateTabSql,
   bindTabConn,
@@ -641,5 +643,22 @@ describe("the title counter of a fresh session", () => {
     const round = parseWorkspace(serializeWorkspace(addTab(addTab(emptySession(saved)))))!;
     expect(round.num).toBe(2);
     expect(addTab(round).tabs.at(-1)!.title).toBe("Consulta 3");
+  });
+});
+
+describe("closeAllTabs / closedQueryTabs (Ctrl+Mayús+W / T)", () => {
+  it("closes every tab", () => {
+    expect(closeAllTabs(addTab(addTab(empty)))).toMatchObject({ tabs: [], activeId: 0 });
+  });
+
+  it("lists the written query tabs that went away, and only those", () => {
+    let prev = addTab(addTab(addTab(addTab(empty)))); // 1..4
+    prev = updateTabSql(updateTabSql(updateTabSql(prev, 1, "select 1"), 2, "select 2"), 3, "select 3");
+    prev = setObjectKey(prev, 3, "table:x"); // an object's tab: its SQL is generated
+    const next = closeTab(closeTab(closeTab(closeTab(prev, 2), 3), 4), 99);
+    // 2 is a closed written query; 3 is an object tab; 4 is empty; 1 stays.
+    expect(closedQueryTabs(prev, next).map((t) => t.id)).toEqual([2]);
+    expect(closedQueryTabs(prev, prev)).toEqual([]);
+    expect(closedQueryTabs(prev, closeAllTabs(prev)).map((t) => t.sql)).toEqual(["select 1", "select 2"]);
   });
 });

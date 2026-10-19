@@ -1,3 +1,5 @@
+import { Segmented } from "./Segmented";
+import type { Os } from "../utils/dialog";
 import { createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js";
 import { Panel } from "./Panel";
 import { BrandWordmark } from "./Brand";
@@ -30,7 +32,10 @@ import {
 import {
   clearOverride,
   comboFromEvent,
-  displayKeys,
+  formatKeys,
+  keyParams,
+  keysOf,
+  shortcutText,
   findConflicts,
   isRebindable,
   setOverride,
@@ -284,7 +289,8 @@ export function SettingsPanel(props: {
   // closes the tab.
   const [capturing, setCapturing] = createSignal<ActionId | null>(null);
   const [scMessage, setScMessage] = createSignal<string | null>(null);
-  const actionName = (sc: Shortcut) => t(sc.description);
+  const os = (): Os => (props.isMac ? "macos" : "windows");
+  const actionName = (sc: Shortcut) => shortcutText(sc, props.isMac ? "macos" : "windows");
   const onCapture = (sc: Shortcut, e: KeyboardEvent) => {
     if (capturing() !== sc.id) return;
     e.preventDefault();
@@ -298,14 +304,14 @@ export function SettingsPanel(props: {
     setCapturing(null);
     const err = validateCombo(keys);
     if (err) {
-      setScMessage(t(`settings.sc.err.${err}`));
+      setScMessage(t(`settings.sc.err.${err}`, keyParams({ mod: "Mod", alt: "Alt" }, os())));
       return;
     }
     const conflicts = findConflicts(keys, sc.id, props.shortcuts);
     if (conflicts.length > 0) {
       setScMessage(
         t("settings.sc.conflict", {
-          keys: displayKeys(keys, props.isMac),
+          keys: formatKeys(keys, props.isMac ? "macos" : "windows"),
           actions: conflicts.map(actionName).join(", "),
         }),
       );
@@ -324,20 +330,13 @@ export function SettingsPanel(props: {
   ) => (
     <div class="settings-row">
       <span class="settings-label">{label}</span>
-      <div class="settings-choice" role="radiogroup" aria-label={label}>
-        <For each={opts}>
-          {(o) => (
-            <button
-              class={`chip ${current() === o ? "active" : ""}`}
-              role="radio"
-              aria-checked={current() === o}
-              onClick={() => pick(o)}
-            >
-              {name(o)}
-            </button>
-          )}
-        </For>
-      </div>
+      <Segmented
+        class="settings-choice"
+        label={label}
+        options={opts.map((o) => ({ value: o, label: name(o) }))}
+        value={current()}
+        onChange={pick}
+      />
     </div>
   );
 
@@ -410,20 +409,13 @@ export function SettingsPanel(props: {
         {row("language", () => (
           <div class="settings-row">
             <span class="settings-label">{t("common.language")}</span>
-            <div class="settings-choice" role="radiogroup" aria-label={t("common.language")}>
-              <For each={LOCALES}>
-                {(l) => (
-                  <button
-                    class={`chip ${locale() === l ? "active" : ""}`}
-                    role="radio"
-                    aria-checked={locale() === l}
-                    onClick={() => setLocale(l)}
-                  >
-                    {t(`lang.${l}`)}
-                  </button>
-                )}
-              </For>
-            </div>
+            <Segmented
+              class="settings-choice"
+              label={t("common.language")}
+              options={LOCALES.map((l) => ({ value: l, label: t(`lang.${l}`) }))}
+              value={locale()}
+              onChange={setLocale}
+            />
           </div>
         ))}
         {row("checkUpdates", () => check("checkUpdatesOnStart", t("settings.checkUpdates")))}
@@ -538,21 +530,13 @@ export function SettingsPanel(props: {
           <>
             <div class="settings-row">
               <span class="settings-label">{t("settings.theme")}</span>
-              <div class="settings-choice" role="radiogroup" aria-label={t("settings.theme")}>
-                <For each={otherThemes()}>
-                  {(th) => (
-                    <button
-                      class={`chip ${props.themeId === th.id ? "active" : ""}`}
-                      role="radio"
-                      aria-checked={props.themeId === th.id}
-                      title={themeName(th)}
-                      onClick={() => props.onSetThemeId(th.id)}
-                    >
-                      {themeName(th)}
-                    </button>
-                  )}
-                </For>
-              </div>
+              <Segmented
+                class="settings-choice"
+                label={t("settings.theme")}
+                options={otherThemes().map((th) => ({ value: th.id, label: themeName(th), title: themeName(th) }))}
+                value={props.themeId}
+                onChange={props.onSetThemeId}
+              />
             </div>
             <div class="settings-row settings-theme-actions">
               <button class="edit-btn" onClick={() => fileInput.click()}>
@@ -627,7 +611,13 @@ export function SettingsPanel(props: {
             {chips(t("settings.zoom"), ZOOM_STEPS, () => props.settings.zoom, (z) => `${z}%`, (z) =>
               props.onSetSettings({ zoom: z }),
             )}
-            <p class="settings-hint">{t("settings.zoomHint")}</p>
+            <p class="settings-hint">
+              {t("settings.zoomHint", {
+                zoomIn: keysOf("zoom-in", props.shortcuts, os()),
+                zoomOut: keysOf("zoom-out", props.shortcuts, os()),
+                zoomReset: keysOf("zoom-reset", props.shortcuts, os()),
+              })}
+            </p>
           </>
         ))}
         {row("uiFont", () => (
@@ -828,7 +818,7 @@ export function SettingsPanel(props: {
     shortcuts: () =>
       row("shortcuts", () => (
         <>
-          <p class="settings-hint">{t("settings.sc.hint")}</p>
+          <p class="settings-hint">{t("settings.sc.hint", keyParams({ esc: "Esc" }, os()))}</p>
           <table class="shortcuts-list settings-shortcuts">
             <tbody>
               <For each={props.shortcuts}>
@@ -836,14 +826,16 @@ export function SettingsPanel(props: {
                   const overridden = () => props.shortcutOverrides[sc.id] !== undefined;
                   return (
                     <tr>
-                      <td>{t(sc.description)}</td>
+                      <td>{actionName(sc)}</td>
                       <td class="keys">
-                        <kbd>{displayKeys(sc.keys, props.isMac)}</kbd>
+                        <Show when={sc.keys} fallback={<span class="sc-none">{t("settings.sc.none")}</span>}>
+                          <kbd>{formatKeys(sc.keys, props.isMac ? "macos" : "windows")}</kbd>
+                        </Show>
                         <Show when={overridden()}>
                           <span class="settings-badge">{t("settings.sc.custom")}</span>
                         </Show>
                         <Show when={!isRebindable(sc)}>
-                          <span class="settings-badge" title={t("settings.sc.hint")}>
+                          <span class="settings-badge" title={t("settings.sc.hint", keyParams({ esc: "Esc" }, os()))}>
                             {t("settings.sc.fixed")}
                           </span>
                         </Show>
@@ -862,6 +854,15 @@ export function SettingsPanel(props: {
                           >
                             {capturing() === sc.id ? t("settings.sc.pressKeys") : t("settings.sc.change")}
                           </button>
+                          <Show when={sc.keys}>
+                            <button
+                              class="edit-btn"
+                              aria-label={t("settings.sc.unbindOne", { action: actionName(sc) })}
+                              onClick={() => props.onSetShortcutOverrides(setOverride(props.shortcutOverrides, sc.id, ""))}
+                            >
+                              {t("settings.sc.unbind")}
+                            </button>
+                          </Show>
                           <Show when={overridden()}>
                             <button
                               class="edit-btn"

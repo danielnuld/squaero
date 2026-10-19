@@ -46,7 +46,7 @@ describe("EmptyState", () => {
       "Ejecuta una consulta para ver resultados",
     );
     expect(host!.querySelector(".empty-note")!.textContent).toContain(
-      "Ctrl+Enter ejecuta la sentencia donde está el cursor (o la selección); Ctrl+Shift+Enter ejecuta el script completo.",
+      "Ctrl+Intro ejecuta la sentencia donde está el cursor (o la selección); Ctrl+Mayús+Intro ejecuta el script completo.",
     );
     expect(host!.querySelector(".empty-shortcuts")).not.toBeNull();
     expect(host!.textContent).toContain("Ejecutar la sentencia actual, o la selección");

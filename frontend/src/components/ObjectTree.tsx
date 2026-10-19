@@ -29,8 +29,7 @@ import {
   updateSql,
   type TableRef,
 } from "../utils/tableSql";
-import { countText } from "../utils/confirmText";
-import { displayKeys } from "../utils/shortcuts";
+import { formatKeys } from "../utils/shortcuts";
 import { currentOs } from "../utils/dialog";
 import { treeKey, type ConnMetaCache } from "../utils/metaCache";
 import { timeAgo } from "../utils/history";
@@ -71,7 +70,7 @@ export interface ConnRowState {
   busy?: boolean;
 }
 import { t, locale } from "../utils/i18n";
-import { dropConfirm, dropConsequences, type DropFacts } from "../utils/confirmText";
+import { countText, dropConfirm, dropConsequences, type DropFacts } from "../utils/confirmText";
 import { objectCountQuery } from "../utils/pagination";
 import { withConfirmedWrites } from "../utils/transport";
 
@@ -105,7 +104,7 @@ function nodeKind(node: TreeNode): string {
 const isRelation = (kind: TreeNode["kind"]) => kind === "table" || kind === "view";
 
 /** A key as this OS spells it, for a menu hint. */
-const keyHint = (keys: string) => displayKeys(keys, currentOs() === "macos");
+const keyHint = (keys: string) => formatKeys(keys, currentOs());
 
 // Lazy, virtualized object tree. Children of a container are fetched from the
 // core only when it is expanded (schema.tree), and the visible (expanded) nodes
@@ -1216,7 +1215,7 @@ export function ObjectTree(props: {
             </button>
             <div class="objtree-actions">
               <Show when={c().txStatements !== undefined}>
-                <span class="conn-tx" title={t("tx.openTitle", { n: c().txStatements! })}>
+                <span class="conn-tx" title={countText("tx.openTitle", c().txStatements!)}>
                   {t("tx.connMark")}
                 </span>
               </Show>

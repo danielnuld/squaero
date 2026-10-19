@@ -61,15 +61,22 @@ describe("buildMenuModel", () => {
   });
 
   it("shows each shortcut's keys in the platform's spelling", () => {
+    // The menu's translator names the keys too (here it echoes the catalog key).
     const run = items(ALL).find((i) => i.id === "run-query")!;
-    expect(run.accel).toBe("Ctrl+Enter");
-    expect(items({ ...ALL, isMac: true }).find((i) => i.id === "run-query")!.accel).toBe("⌘+Enter");
+    expect(run.accel).toBe("Ctrl+key.enter");
+    expect(items({ ...ALL, isMac: true }).find((i) => i.id === "run-query")!.accel).toBe("⌘↩");
     expect(items(ALL).find((i) => i.id === "refresh")!.accel).toBe("F5");
     // The script and the plan are the editor's keys too (issue #691).
-    expect(items(ALL).find((i) => i.id === "run-script")!.accel).toBe("Ctrl+Shift+Enter");
-    expect(items(ALL).find((i) => i.id === "explain")!.accel).toBe("Ctrl+Shift+E");
-    // Palette-only actions have no key, so no accelerator text.
-    expect(items(ALL).find((i) => i.id === "act:settings")!.accel).toBeUndefined();
+    expect(items(ALL).find((i) => i.id === "run-script")!.accel).toBe("Ctrl+key.shift+key.enter");
+    expect(items(ALL).find((i) => i.id === "explain")!.accel).toBe("Ctrl+key.shift+E");
+    // A palette action lends the keys of its shortcut (Ctrl+,); the theme has none.
+    expect(items(ALL).find((i) => i.id === "act:settings")!.accel).toBe("Ctrl+,");
+    expect(items(ALL).find((i) => i.id === "toggle-theme")!.accel).toBeUndefined();
+  });
+
+  it("shows the keys in force, not the defaults", () => {
+    const shortcuts = SHORTCUTS.map((sc) => (sc.id === "refresh" ? { ...sc, keys: "Mod+R" } : sc));
+    expect(items({ ...ALL, shortcuts }).find((i) => i.id === "refresh")!.accel).toBe("Ctrl+R");
   });
 
   it("disables what needs a connection, a database or a tab", () => {

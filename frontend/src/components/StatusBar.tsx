@@ -1,4 +1,6 @@
+import { countText } from "../utils/confirmText";
 import { For, Show, createMemo } from "solid-js";
+import { keyParams } from "../utils/shortcuts";
 import { type RunScope } from "../utils/runScope";
 import { formatClock, formatDuration } from "../utils/duration";
 import { t } from "../utils/i18n";
@@ -87,7 +89,7 @@ export function StatusBar(props: {
       .join(" · ");
 
   return (
-    <footer class="statusbar">
+    <footer class="statusbar" role="status" aria-label={t("status.label")}>
       <span class="status-item status-conn">
         <span
           class={`conn-dot ${props.connection ? (props.connection.lost ? "lost" : "on") : "off"}`}
@@ -119,7 +121,7 @@ export function StatusBar(props: {
       <Show when={props.txStatements != null}>
         <button
           class="status-chip status-tx"
-          title={t("tx.openTitle", { n: props.txStatements! })}
+          title={countText("tx.openTitle", props.txStatements!)}
           disabled={!props.onTxAction}
           onClick={(e) => props.onTxAction?.(e)}
         >
@@ -158,13 +160,13 @@ export function StatusBar(props: {
               return <span class="status-item">{t("status.columns", { n: props.columnCount! })}</span>;
             case "marked":
               return (
-                <span class="status-item" title={t("status.markedTitle")}>
+                <span class="status-item" title={t("status.markedTitle", keyParams({ mod: "Mod", shift: "Shift", all: "Mod+A" }))}>
                   {t("status.marked", { n: props.markedCount! })}
                 </span>
               );
             case "summary":
               return (
-                <span class="status-item" title={t("status.summaryTitle")}>
+                <span class="status-item" title={t("status.summaryTitle", keyParams({ mod: "Mod", shift: "Shift" }))}>
                   {summaryText(props.summary!)}
                 </span>
               );

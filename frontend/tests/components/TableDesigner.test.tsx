@@ -164,7 +164,7 @@ describe("TableDesigner — alter mode", () => {
     await flush();
 
     const nameRow = host!.querySelectorAll("table.td-table tbody tr")[1];
-    (nameRow.querySelector('button[aria-label="Quitar columna"]') as HTMLButtonElement).click();
+    (nameRow.querySelector('button[aria-label^="Quitar la columna"]') as HTMLButtonElement).click();
 
     const apply = [...host!.querySelectorAll(".td-toolbar button")].find((b) =>
       b.textContent?.includes("Aplicar y eliminar 1 columna"),
@@ -290,5 +290,19 @@ describe("TableDesigner — toolbar and changes", () => {
     mount(() => <TableDesigner connId="c1" engine="sqlite" table="users" onClose={() => {}} />);
     await flush();
     expect(host!.textContent).toContain("SQLite solo admite añadir y renombrar columnas");
+  });
+});
+
+// Audit P4: every per-row control has a name, and the remove button says which column.
+describe("TableDesigner — accessible names", () => {
+  it("names each row's controls after the column they edit", () => {
+    installBridge();
+    mount(() => <TableDesigner connId="c1" engine="mysql" container="testdb" onClose={() => {}} />);
+    const row = host!.querySelector(".td-table tbody tr")!;
+    const names = [...row.querySelectorAll("input, button")].map((el) => el.getAttribute("aria-label"));
+    expect(names.every((n) => !!n)).toBe(true);
+    const col = (row.querySelector(".td-in") as HTMLInputElement).value;
+    expect(names).toContain(`Tipo · ${col}`);
+    expect(names).toContain(`Quitar la columna ${col}`);
   });
 });

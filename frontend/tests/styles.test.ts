@@ -333,3 +333,52 @@ describe("styles.css desktop behaviour", () => {
     expect(RULES).toContain("scrollbar-color: var(--border) transparent;");
   });
 });
+
+// Audit P4 (R-10, R-27, A-23, A-24, R-30): the accessibility floor.
+describe("accessibility floor", () => {
+  /** The body of the first rule whose selector list ends with `selector`. */
+  const ruleBody = (selector: string): string => {
+    const at = RULES.indexOf(`${selector} {\n`);
+    expect(at, `${selector} has no rule`).toBeGreaterThanOrEqual(0);
+    return RULES.slice(at, RULES.indexOf("}", at));
+  };
+
+  it("sets no text under 11px", () => {
+    expect(CSS).toMatch(/ {2}--fs-micro: 11px;/);
+    expect(CSS).not.toMatch(/font-size:\s*(?:[0-9]|10)px/);
+  });
+
+  it("draws the edge of every text field, dropdown and button with the 3:1 border", () => {
+    for (const sel of [".field textarea", ":where(.dropdown)", ".field .dropdown", ".td-in", ".rd-nav-btn", ".grid-filter-input"]) {
+      expect(ruleBody(sel), sel).toMatch(/border: 1px solid var\(--border-strong\);/);
+    }
+    // .edit-btn and .td-in are in those selector lists.
+    expect(RULES).toMatch(/\.edit-btn,\n\.panel-icon-btn,\n\.rd-nav-btn \{/);
+    expect(RULES).toMatch(/\.td-in,\n\.field input,/);
+  });
+
+  it("gives the explorer's and the toasts' icon buttons a 24px target", () => {
+    expect(CSS).toContain("  --target-min: 24px;");
+    for (const sel of [".objtree-refresh", ".app-toast-close"]) {
+      const body = ruleBody(sel);
+      expect(body, sel).toContain("min-width: var(--target-min);");
+      expect(body, sel).toContain("min-height: var(--target-min);");
+    }
+  });
+
+  it("keeps the toasts above the grid's pagination", () => {
+    expect(ruleBody(".app-toast")).toContain("bottom: 64px;");
+  });
+});
+
+describe("label case escape (R-39)", () => {
+  it("lets data-case=keep opt out of --label-case", () => {
+    expect(RULES).toMatch(/\[data-case="keep"\] \{\n {2}text-transform: none !important;\n\}/);
+  });
+  it("keeps the user's group names as typed", () => {
+    for (const f of ["ConnectionManager.tsx", "ConnectionSearch.tsx"]) {
+      const src = readFileSync(resolve(process.cwd(), "src/components", f), "utf8");
+      expect(src, f).toMatch(/class="conn(search)?-group(-name)?" data-case="keep"/);
+    }
+  });
+});

@@ -182,7 +182,7 @@ describe("The snippet palette (Ctrl+J)", () => {
     const groups = [...host!.querySelectorAll(".cmdk-group-label")].map((g) => g.textContent);
     expect(groups).toEqual(["Snippets"]);
     expect(host!.querySelector(".cmdk-preview")?.textContent).toBe("SELECT * FROM cuadernos");
-    expect(host!.querySelector(".cmdk-footer")?.textContent).toContain("Shift+Enter");
+    expect(host!.querySelector(".cmdk-footer")?.textContent).toContain("Mayús+Intro");
   });
 
   it("says the set is empty instead of showing an empty list", () => {

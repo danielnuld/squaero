@@ -6,6 +6,8 @@
 //   Shift+F12 / Alt+F7   find usages (F3 / Shift+F3 step through them, Esc clears)
 //   F2 / Shift+F6        rename
 
+import { countText } from "../utils/confirmText";
+import { keyLabel } from "../utils/shortcuts";
 import { Prec, StateEffect, StateField, type Extension } from "@codemirror/state";
 import { Decoration, EditorView, keymap, showDialog, type DecorationSet } from "@codemirror/view";
 import { analyzeSql } from "../utils/sqlScope";
@@ -134,7 +136,7 @@ export function sqlNavigation(opts: NavigationOptions) {
       content: (v) => {
         const form = document.createElement("form");
         const text = document.createElement("span");
-        text.textContent = t("editor.usages.count", { n: ranges.length, name: symbolName(sym) });
+        text.textContent = countText("editor.usages.count", ranges.length, { name: symbolName(sym), back: keyLabel("Shift+F3") });
         const button = (label: string, dir: 1 | -1) => {
           const b = document.createElement("button");
           b.type = "button";

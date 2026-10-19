@@ -1,5 +1,5 @@
-import { For } from "solid-js";
-import { SHORTCUTS, displayKeys, type Shortcut } from "../utils/shortcuts";
+import { For, Show } from "solid-js";
+import { SHORTCUTS, formatKeys, shortcutText, type Shortcut } from "../utils/shortcuts";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 
@@ -21,9 +21,11 @@ export function ShortcutsHelp(props: {
             <For each={props.shortcuts ?? SHORTCUTS}>
               {(s) => (
                 <tr>
-                  <td>{t(s.description)}</td>
+                  <td>{shortcutText(s, props.isMac ? "macos" : "windows")}</td>
                   <td class="keys">
-                    <kbd>{displayKeys(s.keys, props.isMac)}</kbd>
+                    <Show when={s.keys} fallback={<span class="sc-none">{t("settings.sc.none")}</span>}>
+                      <kbd>{formatKeys(s.keys, props.isMac ? "macos" : "windows")}</kbd>
+                    </Show>
                   </td>
                 </tr>
               )}

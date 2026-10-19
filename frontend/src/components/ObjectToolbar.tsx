@@ -1,4 +1,5 @@
 import { For, Show, type JSX } from "solid-js";
+import { keyLabel } from "../utils/shortcuts";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { toolbarLayout, type ToolbarAction } from "../utils/objectToolbar";
 import { t } from "../utils/i18n";
@@ -203,7 +204,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
       }),
     search: () =>
       ghost("search", t("objbar.search"), {
-        title: t("objbar.searchTitle"),
+        title: t("objbar.searchTitle", { keys: keyLabel("Mod+F") }),
         "aria-pressed": !!props.searchOpen,
         onClick: () => props.onSearch?.(),
       }),

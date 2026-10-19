@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { Panel } from "./Panel";
@@ -159,7 +160,7 @@ export function QueryBuilder(props: {
       onClose={props.onClose}
       status={
         <Show when={!loading() && tables().length > 0}>
-          {t("qb.tableCount", { n: tables().length })}
+          {countText("qb.tableCount", tables().length)}
         </Show>
       }
     >

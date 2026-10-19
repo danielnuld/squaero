@@ -1,4 +1,6 @@
+import { countText } from "../utils/confirmText";
 import { For, Show } from "solid-js";
+import { keyLabel } from "../utils/shortcuts";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 import {
@@ -70,8 +72,8 @@ export function DataFilterBar(props: {
     const { conditions, order } = summaryParts(props.state);
     if (conditions === 0 && order === 0) return t("filter.summaryAll");
     const parts: string[] = [];
-    if (conditions > 0) parts.push(t("filter.summaryConds", { n: conditions }));
-    if (order > 0) parts.push(t("filter.summarySort", { n: order }));
+    if (conditions > 0) parts.push(countText("filter.summaryConds", conditions));
+    if (order > 0) parts.push(countText("filter.summarySort", order));
     return parts.join(" · ");
   };
 
@@ -328,7 +330,7 @@ export function DataFilterBar(props: {
               reach for folded, this one is where the eye already is once the
               list is long (issue #462). */}
           <div class="filter-actions">
-            <button class="status-btn tool" onClick={addCond} title={t("filter.addCondHint")}>
+            <button class="status-btn tool" onClick={addCond} title={t("filter.addCondHint", { keys: keyLabel("Shift+Enter") })}>
               {t("filter.addCond")}
             </button>
           </div>
@@ -376,14 +378,14 @@ export function DataFilterBar(props: {
           </Show>
 
           <div class="filter-apply">
-            <button class="primary" title={t("filter.applyKeys")} onClick={props.onApply}>
+            <button class="primary" title={t("filter.applyKeys", { keys: keyLabel("Mod+Enter") })} onClick={props.onApply}>
               {t("filter.apply")}
             </button>
             <button class="status-btn" onClick={props.onClear}>
               {t("filter.clear")}
             </button>
             <Show when={props.loaded !== undefined}>
-              <span class="filter-count">{t("filter.loaded", { n: props.loaded ?? 0 })}</span>
+              <span class="filter-count">{countText("filter.loaded", props.loaded ?? 0)}</span>
             </Show>
           </div>
         </div>
