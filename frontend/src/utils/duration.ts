@@ -38,3 +38,18 @@ export function formatClock(ts: number): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
+
+/**
+ * A running clock for a query in flight (issue #691, R-01): `mm:ss`, and
+ * `h:mm:ss` from an hour on. It ticks, so it never changes unit mid-run the way
+ * formatDuration does. Negative/NaN render as "00:00": a clock that has not
+ * started yet.
+ */
+export function formatElapsed(ms: number): string {
+  const total = Number.isFinite(ms) && ms > 0 ? Math.floor(ms / 1000) : 0;
+  const p = (n: number) => String(n).padStart(2, "0");
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0 ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
+}

@@ -65,3 +65,16 @@ export function errorText(err: unknown): string {
   const f = describeError(err);
   return f.detail ? `${f.title} (${f.detail})` : f.title;
 }
+
+/**
+ * The line an engine blames in its error message, 1-based within the statement
+ * that was sent (issue #691: the error panel links to it). MySQL says "at line
+ * 3", PostgreSQL "LINE 3:", SQL Server "Line 3", and a Spanish server "línea 3".
+ * Null when the message names no line — SQLite and Informix never do — so the
+ * caller points at the statement as a whole instead of guessing.
+ */
+export function errorLine(message: string | null | undefined): number | null {
+  const m = /\bl(?:ine|ínea)\s+(\d+)\b/i.exec(message ?? "");
+  const n = m ? Number(m[1]) : 0;
+  return n >= 1 ? n : null;
+}

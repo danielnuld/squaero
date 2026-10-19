@@ -230,7 +230,8 @@ export const es: Record<string, string> = {
   "snip.nameHint": "Enter para guardar · Esc para cancelar",
   "snip.fallbackName": "consulta",
   "snip.scope.selection": "selección",
-  "snip.scope.document": "documento",
+  "snip.scope.statement": "sentencia",
+  "snip.scope.document": "script",
   "snip.saved": "Guardado «{name}» ({scope})",
   "snip.updated": "Actualizado «{name}» ({scope})",
   "snip.savedRenamed": "Ya existía ese nombre: guardado como «{name}» ({scope})",
@@ -1383,7 +1384,8 @@ export const es: Record<string, string> = {
 
   // run scope indicator (issue #130)
   "scope.selection": "selección",
-  "scope.document": "documento",
+  "scope.statement": "sentencia",
+  "scope.document": "script",
 
   // iPhone app (issue #576): what only iOS says. Desktop never shows these.
   "ios.tab.connections": "Conexiones",

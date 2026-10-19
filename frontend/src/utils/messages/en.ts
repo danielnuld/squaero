@@ -227,7 +227,8 @@ export const en: Record<string, string> = {
   "snip.nameHint": "Enter to save · Esc to cancel",
   "snip.fallbackName": "query",
   "snip.scope.selection": "selection",
-  "snip.scope.document": "document",
+  "snip.scope.statement": "statement",
+  "snip.scope.document": "script",
   "snip.saved": "Saved “{name}” ({scope})",
   "snip.updated": "Updated “{name}” ({scope})",
   "snip.savedRenamed": "That name was taken: saved as “{name}” ({scope})",
@@ -1368,7 +1369,8 @@ export const en: Record<string, string> = {
 
   // run scope indicator
   "scope.selection": "selection",
-  "scope.document": "document",
+  "scope.statement": "statement",
+  "scope.document": "script",
 
   // iPhone app (issue #576): what only iOS says. Desktop never shows these.
   "ios.tab.connections": "Connections",

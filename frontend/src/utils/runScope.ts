@@ -1,28 +1,33 @@
-// Decide what SQL to run when the user presses Ctrl/Cmd+Enter (issue #130).
-// Pure logic, no CodeMirror dependency: the editor passes in the document text
-// and the current selection range, and gets back the text to execute plus a
-// scope tag used to tell the user what actually ran.
+// Decide what SQL to run (issues #130, #691). Pure logic, no CodeMirror
+// dependency: the editor passes in the document text and the current selection
+// range, and gets back the text to execute, where it sits in the document (so
+// the editor can highlight what will run) and a scope tag that names it.
 //
-// Two rules, and only two:
-//   - A non-empty selection runs verbatim ("selección").
-//   - Otherwise the whole document runs ("documento"), however many statements
-//     it holds — they go to the engine one by one and each gets its own result
-//     tab (issue #450).
+// Three scopes, chosen explicitly (M14, R-04):
+//   - "selection": a non-empty selection runs verbatim.
+//   - "statement": the statement under the cursor.
+//   - "document": the whole script, however many statements it holds — they go
+//     to the engine one by one and each gets its own result tab (issue #450).
 //
-// It used to run the STATEMENT UNDER THE CURSOR whenever the document held more
-// than one, which is what a scratch buffer of queries wants but not what the
-// button says: writing three queries and pressing Ejecutar ran one of them,
-// with nothing to say the other two had been skipped. Running a single
-// statement on purpose is what selecting it is for.
+// Ctrl/Cmd+Enter asks for no scope in particular and gets the selection, else
+// the statement under the cursor. That rule was dropped once (writing three
+// queries and pressing «Ejecutar» ran one of them, with nothing to say the
+// other two had been skipped); it is back because the button now NAMES the
+// scope («Ejecutar sentencia») and the editor highlights the statement that
+// will run, so nothing is skipped in silence. The whole script is one explicit
+// step away: Ctrl/Cmd+Shift+Enter or the run button's menu.
 
 import { engineFamily } from "./engineFamily";
 
-export type RunScope = "selection" | "document";
+export type RunScope = "selection" | "statement" | "document";
 
 export interface RunTarget {
   /** The raw SQL slice to execute; the caller trims/validates it. */
   text: string;
   scope: RunScope;
+  /** Where `text` sits in the document: `doc.slice(from, to) === text`. */
+  from: number;
+  to: number;
 }
 
 /** A top-level statement segment, as a half-open range into the source. */
@@ -215,18 +220,56 @@ export function runnableStatements(sql: string, engine?: string): string[] {
 }
 
 /**
+ * The statement under the cursor at `pos`, as a range with the surrounding
+ * whitespace trimmed (the closing `;` excluded). A cursor right after a `;`, or
+ * on a blank line or comment between statements, belongs to the statement
+ * before it — the one just written — else to the next. Null when the document
+ * holds nothing runnable.
+ */
+export function statementAt(
+  doc: string,
+  pos: number,
+  engine?: string,
+): { from: number; to: number } | null {
+  const ranges = splitStatements(doc, engine)
+    .filter((s) => !isCommentOnly(s.text, engine))
+    .map((s) => {
+      const lead = s.text.length - s.text.trimStart().length;
+      return { from: s.from + lead, to: s.from + s.text.trimEnd().length };
+    });
+  if (ranges.length === 0) return null;
+  // `to + 1` takes in the `;` that closes it: the cursor right after it.
+  const inside = ranges.find((r) => pos >= r.from && pos <= r.to + 1);
+  if (inside) return inside;
+  const before = ranges.filter((r) => r.to < pos);
+  return before.length ? before[before.length - 1] : ranges[0];
+}
+
+/**
  * Choose the SQL to execute given the document and the selection range. Ranges
  * are character offsets; `selFrom === selTo` means no selection.
  *
- * `scopeLabel` used to live below this: a hardcoded Spanish label with no
- * caller, since the status bar and the snippet banner both translate the scope
- * through i18n. It went with the statement rule.
+ * `want` names the scope; omitted (Ctrl/Cmd+Enter) it is the selection when
+ * there is one, else the statement under the cursor. Asking for the selection
+ * with nothing selected gets the statement: the menu disables that entry, and
+ * running nothing is never what was meant. A document with nothing runnable
+ * yields the whole (blank) document, which the caller rejects as empty.
  */
-export function pickRunTarget(doc: string, selFrom: number, selTo: number): RunTarget {
-  if (selFrom !== selTo) {
-    const from = Math.min(selFrom, selTo);
-    const to = Math.max(selFrom, selTo);
-    return { text: doc.slice(from, to), scope: "selection" };
+export function pickRunTarget(
+  doc: string,
+  selFrom: number,
+  selTo: number,
+  want?: RunScope,
+  engine?: string,
+): RunTarget {
+  const from = Math.min(selFrom, selTo);
+  const to = Math.max(selFrom, selTo);
+  const whole: RunTarget = { text: doc, scope: "document", from: 0, to: doc.length };
+  if (want === "document") return whole;
+  if (from !== to && want !== "statement") {
+    return { text: doc.slice(from, to), scope: "selection", from, to };
   }
-  return { text: doc, scope: "document" };
+  const stmt = statementAt(doc, from, engine);
+  if (!stmt) return whole;
+  return { text: doc.slice(stmt.from, stmt.to), scope: "statement", ...stmt };
 }
