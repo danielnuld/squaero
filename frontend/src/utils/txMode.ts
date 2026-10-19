@@ -97,9 +97,19 @@ export interface TxSession {
   open: boolean;
   /** Statements run inside the open transaction. */
   statements: number;
+  /** Those statements, oldest first, with the rows each changed when known —
+      what the transaction band lists and the disconnect prompt names (M14). */
+  log?: TxEntry[];
 }
 
-export const idleTx = (manual = false): TxSession => ({ manual, open: false, statements: 0 });
+/** One statement of the open transaction. */
+export interface TxEntry {
+  sql: string;
+  /** Rows it changed; null when the engine did not say. */
+  rows: number | null;
+}
+
+export const idleTx = (manual = false): TxSession => ({ manual, open: false, statements: 0, log: [] });
 
 /** What running one statement takes. */
 export type TxStep =
@@ -142,6 +152,8 @@ export interface TxEffects<R> {
   empty: () => R;
   /** The engine committed the open transaction by itself (MySQL DDL). */
   onImplicitCommit?: () => void;
+  /** Rows a statement's result changed, for the log; absent: not known. */
+  rows?: (r: R) => number | null;
 }
 
 /** Thrown for a BEGIN while a transaction is open. */
@@ -168,34 +180,42 @@ export async function runInTx<R>(sql: string, engine: string, fx: TxEffects<R>):
     } catch (err) {
       // A failed rollback leaves nothing to end (the core clears its flag too);
       // a failed begin or commit leaves things as they were.
-      if (step.verb === "rollback") fx.set({ ...s, open: false, statements: 0 });
+      if (step.verb === "rollback") fx.set({ ...s, open: false, statements: 0, log: [] });
       throw err;
     }
-    fx.set({ ...s, open: step.verb === "begin", statements: 0 });
+    fx.set({ ...s, open: step.verb === "begin", statements: 0, log: [] });
     return fx.empty();
   }
   let cur = s;
   if (step.beginFirst) {
     await fx.tx("begin");
-    cur = { ...s, open: true, statements: 0 };
+    cur = { ...s, open: true, statements: 0, log: [] };
     fx.set(cur);
   }
   let ok = false;
+  let rows: number | null = null;
   try {
     const r = await fx.query();
     ok = true;
+    rows = fx.rows?.(r) ?? null;
     return r;
   } finally {
     if (step.implicitCommit) {
       // MySQL already committed; this only ends the core's bookkeeping of a
       // transaction tx.begin opened (a COMMIT with none open is a no-op there).
       await fx.tx("commit").catch(() => {});
-      fx.set({ ...cur, open: false, statements: 0 });
+      fx.set({ ...cur, open: false, statements: 0, log: [] });
       fx.onImplicitCommit?.();
     } else if (step.opens) {
-      if (ok) fx.set({ ...cur, open: true, statements: 0 });
+      if (ok) fx.set({ ...cur, open: true, statements: 0, log: [] });
     } else if (cur.open) {
-      fx.set({ ...cur, statements: cur.statements + 1 });
+      // A failed statement is still part of the transaction's story (engines
+      // like PostgreSQL abort it): listed, with no row count.
+      fx.set({
+        ...cur,
+        statements: cur.statements + 1,
+        log: [...(cur.log ?? []), { sql: sql.trim(), rows }],
+      });
     }
   }
 }

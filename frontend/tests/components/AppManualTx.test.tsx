@@ -70,8 +70,9 @@ const settle = async () => {
 };
 
 const click = (el: Element | null | undefined) => (el as HTMLElement).click();
+// Commit / Revertir live in the open-transaction band over the results (M14).
 const txButton = (text: string) =>
-  [...host!.querySelectorAll(".tx-controls button")].find((b) => b.textContent === text) as
+  [...host!.querySelectorAll(".tx-band button")].find((b) => b.textContent?.startsWith(text)) as
     | HTMLButtonElement
     | undefined;
 // The Auto | Manual radio group (#691): the option to switch to, and the group.
@@ -80,7 +81,7 @@ const modeRadio = (name: "Auto" | "Manual") =>
     (b) => b.textContent === name,
   )!;
 const modeSwitch = () => modeRadio("Auto");
-const indicator = () => host!.querySelector(".tx-open")?.textContent ?? null;
+const indicator = () => host!.querySelector(".tx-band-title")?.textContent ?? null;
 
 const connect = async () => {
   host = document.createElement("div");
@@ -115,14 +116,15 @@ describe("App — manual transactions (issue #667)", () => {
 
     await runSql("UPDATE t SET a = 1");
     expect(calls).toEqual(["tx.begin", "query:UPDATE t SET a = 1"]);
-    expect(indicator()).toBe("En transacción · 1");
+    expect(indicator()).toBe("Transacción abierta · 1 sentencia");
+    expect(host!.querySelector(".tx-band-list li")?.textContent).toBe("UPDATE t SET a = 11 fila");
     expect(host!.querySelector(".status-tx")?.textContent).toBe("En transacción · 1");
     expect(host!.querySelector(".conn-tx")).not.toBeNull();
     // Leaving manual mode now would strand the transaction.
     expect(modeSwitch().disabled).toBe(true);
 
     calls = [];
-    click(txButton("Confirmar"));
+    click(txButton("Commit"));
     await settle();
     expect(calls).toEqual(["tx.commit"]);
     expect(indicator()).toBeNull();
@@ -133,7 +135,7 @@ describe("App — manual transactions (issue #667)", () => {
     await connect();
     await runSql("BEGIN");
     expect(calls).toEqual(["tx.begin"]); // tx.begin ran in its place
-    expect(indicator()).toBe("En transacción · 0");
+    expect(indicator()).toBe("Transacción abierta · 0 sentencias");
     await runSql("COMMIT;");
     expect(calls).toEqual(["tx.begin", "tx.commit"]);
     expect(indicator()).toBeNull();
@@ -142,14 +144,18 @@ describe("App — manual transactions (issue #667)", () => {
   it("asks before disconnecting with a transaction open", async () => {
     await connect();
     await runSql("BEGIN");
+    await runSql("DELETE FROM t");
     calls = [];
     click(host!.querySelector(".connbar-eject"));
     await settle();
     const dialog = document.querySelector(".confirm-dialog");
     expect(dialog?.textContent).toContain("Transacción sin confirmar");
+    // It names what would be lost, and its buttons say what each one does.
+    expect(dialog?.textContent).toContain("DELETE FROM t");
+    expect([...dialog!.querySelectorAll("button")].map((b) => b.textContent)).toContain("Commit y desconectar");
     expect(calls).toEqual([]); // nothing closed yet
 
-    click([...dialog!.querySelectorAll("button")].find((b) => b.textContent === "Revertir"));
+    click([...dialog!.querySelectorAll("button")].find((b) => b.textContent === "Revertir y desconectar"));
     await settle();
     expect(calls).toEqual(["tx.rollback", "conn.close"]);
     expect(document.querySelector(".confirm-dialog")).toBeNull();

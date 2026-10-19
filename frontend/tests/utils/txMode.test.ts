@@ -7,6 +7,7 @@ import {
   runInTx,
   idleTx,
   TxAlreadyOpenError,
+  type TxEffects,
   type TxSession,
   type TxVerb,
 } from "../../src/utils/txMode";
@@ -154,7 +155,7 @@ function effects(start: TxSession, fail: { query?: boolean; tx?: TxVerb } = {}) 
   const log: string[] = [];
   let state = start;
   let implicit = 0;
-  const fx = {
+  const fx: TxEffects<string> = {
     get: () => state,
     set: (s: TxSession) => {
       state = s;
@@ -196,13 +197,28 @@ describe("runInTx", () => {
     await runInTx("UPDATE t SET a = 1", "sqlite", e.fx);
     await runInTx("UPDATE t SET a = 2", "sqlite", e.fx);
     expect(e.log).toEqual(["begin", "query", "query"]);
-    expect(e.state()).toEqual({ manual: true, open: true, statements: 2 });
+    expect(e.state()).toEqual({
+      manual: true,
+      open: true,
+      statements: 2,
+      log: [
+        { sql: "UPDATE t SET a = 1", rows: null },
+        { sql: "UPDATE t SET a = 2", rows: null },
+      ],
+    });
   });
 
   it("counts a statement that failed inside the transaction, which stays open", async () => {
     const e = effects(idleTx(true), { query: true });
     await expect(runInTx("UPDATE x", "sqlite", e.fx)).rejects.toThrow("syntax error");
-    expect(e.state()).toEqual({ manual: true, open: true, statements: 1 });
+    expect(e.state()).toEqual({ manual: true, open: true, statements: 1, log: [{ sql: "UPDATE x", rows: null }] });
+  });
+
+  it("logs the rows each statement changed when the caller can tell", async () => {
+    const e = effects(idleTx(true));
+    e.fx.rows = (r) => (r === "rows" ? 4 : null);
+    await runInTx("  DELETE FROM t;  ", "sqlite", e.fx);
+    expect(e.state().log).toEqual([{ sql: "DELETE FROM t;", rows: 4 }]);
   });
 
   it("does not run the statement when the begin fails", async () => {
@@ -222,7 +238,7 @@ describe("runInTx", () => {
   it("a failed commit leaves the transaction open; a failed rollback ends it", async () => {
     const c = effects({ manual: true, open: true, statements: 3 }, { tx: "commit" });
     await expect(runInTx("COMMIT", "sqlite", c.fx)).rejects.toThrow();
-    expect(c.state()).toEqual({ manual: true, open: true, statements: 3 });
+    expect(c.state()).toMatchObject({ manual: true, open: true, statements: 3 });
     const r = effects({ manual: true, open: true, statements: 3 }, { tx: "rollback" });
     await expect(runInTx("ROLLBACK", "sqlite", r.fx)).rejects.toThrow();
     expect(r.state()).toEqual(idleTx(true));
@@ -233,7 +249,7 @@ describe("runInTx", () => {
     await runInTx("BEGIN", "sqlite", e.fx);
     await runInTx("DELETE FROM t", "sqlite", e.fx);
     expect(e.log).toEqual(["begin", "query"]);
-    expect(e.state()).toEqual({ manual: false, open: true, statements: 1 });
+    expect(e.state()).toEqual({ manual: false, open: true, statements: 1, log: [{ sql: "DELETE FROM t", rows: null }] });
   });
 
   it("refuses a second BEGIN without sending anything", async () => {
@@ -246,7 +262,7 @@ describe("runInTx", () => {
     const ok = effects(idleTx());
     await runInTx("BEGIN IMMEDIATE", "sqlite", ok.fx);
     expect(ok.log).toEqual(["query"]);
-    expect(ok.state()).toEqual({ manual: false, open: true, statements: 0 });
+    expect(ok.state()).toEqual({ manual: false, open: true, statements: 0, log: [] });
     const bad = effects(idleTx(), { query: true });
     await expect(runInTx("BEGIN IMMEDIATE", "sqlite", bad.fx)).rejects.toThrow();
     expect(bad.state()).toEqual(idleTx());

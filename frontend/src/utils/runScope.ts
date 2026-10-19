@@ -18,6 +18,8 @@
 // step away: Ctrl/Cmd+Shift+Enter or the run button's menu.
 
 import { engineFamily } from "./engineFamily";
+import { classifySql } from "./safeMode";
+import { classifyTxStatement } from "./txMode";
 
 export type RunScope = "selection" | "statement" | "document";
 
@@ -296,6 +298,24 @@ export function errorOffset(doc: string, sql: string, line: number | null): numb
   return pos;
 }
 
+/**
+ * The first statement of a script that changes something (M14 EditorRunMenu):
+ * its leading verb, upper case, and where it starts. BEGIN/COMMIT/ROLLBACK end
+ * or open a transaction, they write nothing themselves. Null: the script only
+ * reads. Fail-closed like safe mode: what cannot be proven a read is a write.
+ */
+export function firstWrite(doc: string, engine?: string): { verb: string; from: number } | null {
+  for (const s of splitStatements(doc, engine)) {
+    if (isCommentOnly(s.text, engine)) continue;
+    if (classifySql(s.text, engine) !== "write" || classifyTxStatement(s.text)) continue;
+    // Past the comments and blank lines that lead the statement.
+    const body = s.text.replace(/^(?:\s|--[^\n]*|\/\*[\s\S]*?\*\/)+/, "");
+    const verb = /^[A-Za-z_]+/.exec(body)?.[0].toUpperCase() ?? body.slice(0, 12);
+    return { verb, from: s.from + s.text.length - body.length };
+  }
+  return null;
+}
+
 /** What a run would execute right now, as the editor reports it (issue #691). */
 export interface RunInfo {
   hasSelection: boolean;
@@ -303,6 +323,8 @@ export interface RunInfo {
   statement: { first: number; last: number } | null;
   /** Runnable statements in the whole document. */
   statements: number;
+  /** The script's first write: its verb and line (1-based); null/absent: none. */
+  firstWrite?: { verb: string; line: number } | null;
 }
 
 /** One entry of the run button's menu: a scope, and what it would run now. */

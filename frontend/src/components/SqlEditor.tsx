@@ -56,6 +56,7 @@ import { editorDialect } from "../utils/sqlDialect";
 import {
   errorOffset,
   pickRunTarget,
+  firstWrite,
   runnableStatements,
   statementAt,
   type RunInfo,
@@ -249,8 +250,12 @@ export function SqlEditor(props: {
       cursor; on Ctrl/Cmd+Shift+Enter: the whole script (issues #130, #691).
       `scope` says which. */
   onRun: (sql: string, scope?: RunScope) => void;
-  /** Fired on Ctrl/Cmd+Shift+E to show the query plan (EXPLAIN, issue #131). */
-  onExplain?: () => void;
+  /** Fired on Ctrl/Cmd+Shift+E, or an `explainTick`, to show the plan (EXPLAIN,
+      issue #131) of what a run would execute now: the selection, else the
+      statement under the cursor — not the whole script (M14). */
+  onExplain?: (sql: string) => void;
+  /** Bumping this number asks for the plan of the current statement. */
+  explainTick?: number;
   /** Active engine name, used to pick the SQL dialect when formatting. */
   dialect?: string;
   /** Bumping this number requests a format of the current document. */
@@ -336,6 +341,8 @@ export function SqlEditor(props: {
       },
       statements: runnableStatements(doc, props.dialect).length,
     };
+    const write = firstWrite(doc, props.dialect);
+    info.firstWrite = write && { verb: write.verb, line: state.doc.lineAt(write.from).number };
     // Highlighted only when it tells something: a selection is already shown,
     // and a lone statement is the whole editor.
     const marks =
@@ -480,6 +487,13 @@ export function SqlEditor(props: {
     props.onRun(target.text, target.scope);
   };
 
+  const explainFromView = () => {
+    if (!view) return;
+    const { doc, selection } = view.state;
+    const { from, to } = selection.main;
+    props.onExplain?.(pickRunTarget(doc.toString(), from, to, undefined, props.dialect).text);
+  };
+
   const emitCursor = (state: EditorState) => {
     const head = state.selection.main.head;
     const line = state.doc.lineAt(head);
@@ -557,7 +571,7 @@ export function SqlEditor(props: {
               key: "Mod-Shift-e",
               preventDefault: true,
               run: () => {
-                props.onExplain?.();
+                explainFromView();
                 return true;
               },
             },
@@ -703,6 +717,14 @@ export function SqlEditor(props: {
     const { from, to } = selection.main;
     const target = pickRunTarget(doc.toString(), from, to, undefined, props.dialect);
     props.onSaveRequest?.(target.text, target.scope);
+  });
+
+  let lastExplainTick = props.explainTick ?? 0;
+  createEffect(() => {
+    const tick = props.explainTick ?? 0;
+    if (tick === lastExplainTick) return;
+    lastExplainTick = tick;
+    explainFromView();
   });
 
   // Find requests (Ctrl/Cmd+F) arrive as a bumped counter: focus the editor and

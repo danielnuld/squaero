@@ -146,6 +146,19 @@ describe("App — result pane views (#691)", () => {
     expect(host!.textContent).not.toContain("Plan de ejecución");
   });
 
+  it("explains only the statement under the cursor, not the whole script (M14)", async () => {
+    await connect();
+    const view = EditorView.findFromDOM(host!)!;
+    const doc = "SELECT 1;\nSELECT * FROM t;\nDELETE FROM t";
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: doc }, selection: { anchor: 12 } });
+    click(host!.querySelector('[aria-label^="Más"]'));
+    click([...document.querySelectorAll(".context-menu-item")].find((b) => b.textContent?.startsWith("Plan")));
+    await settle();
+    const explains = calls.filter((c) => c.startsWith("query:EXPLAIN"));
+    expect(explains.length).toBeGreaterThan(0);
+    expect(explains.every((c) => c.includes("SELECT * FROM t") && !c.includes("DELETE"))).toBe(true);
+  });
+
   it("stops the running query on Ctrl+Break (#691)", async () => {
     await connect();
     const ctrlBreak = () =>
@@ -160,7 +173,8 @@ describe("App — result pane views (#691)", () => {
     ctrlBreak();
     await settle();
     expect(calls).toContain("op.cancel");
-    expect(host!.querySelector(".editor-stop")!.classList.contains("is-running")).toBe(false);
+    expect(host!.querySelector(".editor-stop")).toBeNull();
+    expect(host!.querySelector(".editor-run-main")).not.toBeNull();
   });
 
   it("says where a write stands and links to its history entry (#691)", async () => {
