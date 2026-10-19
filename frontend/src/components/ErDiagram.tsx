@@ -362,15 +362,23 @@ export function ErDiagram(props: {
                       </text>
                       <For each={t.columns}>
                         {(col, i) => (
-                          <text
-                            class={`er-col ${col.pk ? "er-col-pk" : ""}`}
-                            x="8"
-                            y={HEADER_H + i() * ROW_H + ROW_H / 2 + 4}
-                          >
-                            {col.pk ? "★ " : ""}
-                            {col.name}
-                            <tspan class="er-col-type"> {col.type}</tspan>
-                          </text>
+                          <>
+                            {/* The primary key's mark is the app's key icon,
+                                not a "★" glyph (#696). */}
+                            <Show when={col.pk}>
+                              <g transform={`translate(6, ${HEADER_H + i() * ROW_H + ROW_H / 2 - 5})`}>
+                                <Icon name="key" size={10} class="er-col-key" />
+                              </g>
+                            </Show>
+                            <text
+                              class={`er-col ${col.pk ? "er-col-pk" : ""}`}
+                              x={col.pk ? 20 : 8}
+                              y={HEADER_H + i() * ROW_H + ROW_H / 2 + 4}
+                            >
+                              {col.name}
+                              <tspan class="er-col-type"> {col.type}</tspan>
+                            </text>
+                          </>
                         )}
                       </For>
                     </g>

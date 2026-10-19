@@ -7,7 +7,7 @@ import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../uti
 import {
   buildViewIndices,
   cycleSort,
-  sortGlyph,
+  sortIcon,
   type SortState,
   type ColumnFilters,
 } from "../utils/gridView";
@@ -985,11 +985,21 @@ export function ResultGrid(props: {
                           <span class={`col-name ${isReferenced(col.name) ? "col-referenced" : ""}`}>
                             {col.name}
                           </span>
-                          <span class="col-sort" aria-hidden="true">
-                            {props.onSortColumn
-                              ? { ascending: "▲", descending: "▼", none: "" }[sortDirOf(ci())]
-                              : sortGlyph(sort(), ci())}
-                          </span>
+                          <Show
+                            when={
+                              props.onSortColumn
+                                ? ({ ascending: "arrow-up", descending: "arrow-down", none: null } as const)[
+                                    sortDirOf(ci())
+                                  ]
+                                : sortIcon(sort(), ci())
+                            }
+                          >
+                            {(name) => (
+                              <span class="col-sort" aria-hidden="true">
+                                <Icon name={name()} size={10} />
+                              </span>
+                            )}
+                          </Show>
                           <Show when={(filters()[ci()] ?? "").trim() !== ""}>
                             <span class="col-search-mark" title={t("grid.searchedColumn")}>
                               <IconSearch />

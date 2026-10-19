@@ -209,16 +209,16 @@ export function DataSearchPanel(props: {
             </For>
           </div>
         </Show>
-        <div class="modal-actions">
+        <div class="panel-foot">
           <Show
             when={busy()}
             fallback={
-              <button class="primary" disabled={chosen().length === 0 || !props.connId} onClick={() => void start()}>
+              <button class="btn-primary" disabled={chosen().length === 0 || !props.connId} onClick={() => void start()}>
                 {t("ds.start")}
               </button>
             }
           >
-            <button onClick={cancel}>{t("common.cancel")}</button>
+            <button class="btn" onClick={cancel}>{t("common.cancel")}</button>
           </Show>
         </div>
         <Show when={shown().length > 0}>
