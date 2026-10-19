@@ -1,7 +1,8 @@
 // Fills the download section from the latest GitHub release: the version, and
 // each button pointing straight at its file. Without JavaScript, or if GitHub
 // does not answer, the buttons keep linking to the releases page.
-// The hero's main button follows the visitor's system (Windows, Mac or Linux).
+// The hero's main button follows the visitor's system (Windows, Mac or Linux),
+// and that system's download card is highlighted.
 (function () {
   var me = document.currentScript;
   var fill = function (tpl, v) { return tpl.replace("{v}", v); };
@@ -15,6 +16,8 @@
     primary.textContent = me.getAttribute("data-" + os + "-first");
     other.textContent = me.getAttribute("data-" + os + "-other");
   }
+  var card = document.querySelector('[data-os="' + os + '"]');
+  if (card) card.classList.add("is-detected");
   var suffix = { win: "-x64.msi", mac: "-arm64.dmg", linux: "_amd64.deb" }[os];
 
   fetch("https://api.github.com/repos/danielnuld/squaero/releases/latest")
@@ -40,7 +43,7 @@
       if (primary && hit) primary.href = hit.browser_download_url;
       if (v) {
         var line = document.querySelector("[data-version-line]");
-        if (line) line.textContent = fill(me.getAttribute("data-version-label"), v) + ". " + line.textContent;
+        if (line) line.textContent = fill(me.getAttribute("data-version-label"), v) + " · " + line.textContent;
         var title = document.querySelector("[data-dl-title]");
         if (title) title.textContent = fill(me.getAttribute("data-title"), v);
       }
