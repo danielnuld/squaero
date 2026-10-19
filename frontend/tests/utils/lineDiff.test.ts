@@ -51,3 +51,25 @@ describe("diffLines", () => {
     expect(diffLines(a, b)).toBeNull();
   });
 });
+
+import { sideBySide, diffSummary } from "../../src/utils/lineDiff";
+
+describe("sideBySide / diffSummary", () => {
+  it("pairs a removal run with the additions that replace it", () => {
+    const lines = diffLines("a\nb\nc\nd", "a\nB\nc\nd\ne")!;
+    const rows = sideBySide(lines);
+    expect(rows.map((r) => [r.left?.text ?? null, r.right?.text ?? null])).toEqual([
+      ["a", "a"],
+      ["b", "B"],
+      ["c", "c"],
+      ["d", "d"],
+      [null, "e"],
+    ]);
+    expect(rows[4].right).toEqual({ no: 5, text: "e", kind: "add" });
+    expect(diffSummary(lines)).toEqual({ added: 2, removed: 1 });
+  });
+  it("leaves the right blank when lines only go", () => {
+    const rows = sideBySide(diffLines("a\nb", "a")!);
+    expect(rows[1]).toEqual({ left: { no: 2, text: "b", kind: "del" }, right: null });
+  });
+});
