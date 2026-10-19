@@ -214,9 +214,9 @@ export function DataDiffWizard(props: {
       r.op,
       ...r.key,
       r.column ?? t(r.op === "INSERT" ? "ddiff.newRow" : "ddiff.deletedRow"),
-      // A whole row has no «before» (insert) or «after» (delete): blank, not NULL.
-      r.op === "INSERT" ? "" : r.from,
-      r.op === "DELETE" ? "" : r.to,
+      // A whole row has no «before» (insert) or «after» (delete): said, not NULL.
+      r.op === "INSERT" ? t("ddiff.absent") : r.from,
+      r.op === "DELETE" ? t("ddiff.removed") : r.to,
     ]),
     truncated: false,
     rowsAffected: 0,

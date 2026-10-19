@@ -166,7 +166,7 @@ describe("TableDesigner — alter mode", () => {
     const nameRow = host!.querySelectorAll("table.td-table tbody tr")[1];
     (nameRow.querySelector('button[aria-label="Quitar columna"]') as HTMLButtonElement).click();
 
-    const apply = [...host!.querySelectorAll(".panel-foot button")].find((b) =>
+    const apply = [...host!.querySelectorAll(".td-toolbar button")].find((b) =>
       b.textContent?.includes("Aplicar y eliminar 1 columna"),
     ) as HTMLButtonElement;
     expect(apply.classList.contains("btn-danger")).toBe(true);

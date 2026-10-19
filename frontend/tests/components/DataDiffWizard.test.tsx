@@ -201,6 +201,7 @@ describe("DataDiffWizard — review and confirm", () => {
   it("lists every change in the shared grid: operation, key, column, now and then", async () => {
     installBridge();
     mount();
+    tickDelete();
     clickButton("Comparar");
     await settle();
     const rows = [...host!.querySelectorAll(".wiz-preview .grid-rows [role=row]")].map((r) =>
@@ -217,6 +218,7 @@ describe("DataDiffWizard — review and confirm", () => {
   it("asks «¿Aplicar n cambios en X?» and shows the SQL it will run", async () => {
     installBridge();
     mount();
+    tickDelete();
     clickButton("Comparar");
     await settle();
     document.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!.click();
@@ -262,5 +264,19 @@ describe("DataDiffWizard — review and confirm", () => {
     expect([...document.querySelectorAll(".wiz-foot button")].some((b) => b.textContent?.startsWith("Aplicar"))).toBe(false);
     expect([...document.querySelectorAll(".wiz-foot button")].some((b) => b.textContent === "Guardar .sql")).toBe(true);
     expect(writes(calls)).toEqual([]);
+  });
+});
+
+describe("DataDiffWizard — review follows the ticked operations", () => {
+  it("leaves the unticked DELETE out of the grid, but still counts equal rows over the whole table", async () => {
+    installBridge();
+    mount();
+    clickButton("Comparar");
+    await settle();
+    const ops = [...host!.querySelectorAll(".wiz-preview .grid-rows [role=row]")].map(
+      (r) => r.querySelector("[role=gridcell]:not(.grid-mark)")!.textContent,
+    );
+    expect(ops).toEqual(["INSERT", "UPDATE"]);
+    expect(host!.textContent).toContain("1 iguales.");
   });
 });
