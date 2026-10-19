@@ -180,3 +180,15 @@ describe("ConnectionSearch", () => {
     expect(host!.querySelector(".connsearch-empty")!.textContent).toContain("No hay conexiones");
   });
 });
+
+describe("ConnectionSearch — environment (R-06)", () => {
+  it("shows the environment and protection of each hit", () => {
+    mount({ connections: [{ ...conns[0], env: "prod", safeMode: "confirm" }, conns[2]] });
+    const hits = [...host!.querySelectorAll(".connsearch-hit")];
+    const ventas = hits.find((h) => h.textContent!.includes("Ventas"))!;
+    const notas = hits.find((h) => h.textContent!.includes("Notas"))!;
+    expect(ventas.querySelector(".env-chip")!.textContent).toBe("Producción");
+    expect(ventas.querySelector(".safe-chip")!.textContent).toBe("Confirma escrituras");
+    expect(notas.querySelector(".env-chip")).toBeNull();
+  });
+});

@@ -19,7 +19,12 @@ export type ObjectKind =
   | "function"
   | "routine"
   | "trigger"
-  | "event";
+  | "event"
+  // A table's own levels (audit A-16).
+  | "column"
+  | "key"
+  | "fk"
+  | "index";
 
 /** How to render a badge: its icon and its CSS colour class. */
 export interface ObjectBadge {
@@ -39,6 +44,10 @@ const BADGES: Record<ObjectKind, ObjectBadge> = {
   routine: { icon: "procedure", className: "kind-procedure" },
   trigger: { icon: "trigger", className: "kind-trigger" },
   event: { icon: "event", className: "kind-event" },
+  column: { icon: "column", className: "kind-column" },
+  key: { icon: "key", className: "kind-key" },
+  fk: { icon: "fk", className: "kind-fk" },
+  index: { icon: "sort", className: "kind-index" },
 };
 
 /** The badge for a canonical object kind. Unknown kinds fall back to a neutral

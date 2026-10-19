@@ -2621,6 +2621,14 @@ body {
   background: var(--bg-elev);
 }
 
+/* A section title inside a menu (tools groups, «Zona de peligro»). */
+.context-menu-heading {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
 /* Status bar */
 /* The bar that swallowed the pager and the information pane (issue #386): one
    28 px band at the bottom instead of three totalling 98 px. */
@@ -3284,7 +3292,7 @@ button.status-chip:not(:disabled):hover {
 .conn-tab {
   padding: var(--sp-4);
   overflow: auto;
-  max-width: 720px;
+  max-width: 1100px;
 }
 
 /* Connection manager (sidebar) */
@@ -3427,6 +3435,105 @@ button.status-chip:not(:disabled):hover {
 
 .conn-actions button:hover {
   color: var(--text);
+}
+
+/* The connections tab as a table (R-06): Nombre · Destino · Entorno ·
+   Protección · Último uso · Acciones. */
+.conn-head,
+.conn-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) 110px 170px 90px auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.conn-head {
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.conn-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+}
+.conn-target {
+  font-family: var(--font-mono);
+}
+.conn-none,
+.conn-when {
+  color: var(--text-dim);
+}
+.conn-actions .conn-connect {
+  color: var(--text);
+  padding: 0 var(--sp-3);
+}
+.conn-search {
+  max-width: 320px;
+}
+
+/* The connection is gone (R-05): a band inside the document. */
+.conn-lost-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--error) 10%, var(--bg));
+  font-size: var(--fs-sm);
+}
+.conn-lost-band svg {
+  color: var(--error);
+}
+.conn-lost-title {
+  font-weight: 600;
+}
+.conn-lost-retry {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* «Tipo de entorno» and the protection, spelled out (R-06). Neutral: a safe
+   state is not an error. */
+.conn-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+.env-chip,
+.safe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.env-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--conn-accent);
+}
+.safe-chip.safe-confirm svg {
+  color: var(--warn);
+}
+.welcome-table-rows {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.welcome-home-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
 }
 
 
@@ -4622,6 +4729,47 @@ button.btn-danger:disabled {
 .objtree-badge.kind-function { color: var(--obj-function); }
 .objtree-badge.kind-trigger { color: var(--obj-trigger); }
 .objtree-badge.kind-event { color: var(--obj-event); }
+/* A table's columns, keys and indexes (audit A-16). */
+.objtree-badge.kind-column,
+.objtree-badge.kind-index { color: var(--text-dim); }
+.objtree-badge.kind-key { color: var(--warn); }
+.objtree-badge.kind-fk { color: var(--obj-table); }
+/* The tree while its first level loads (TreeLoading). */
+.objtree-skeleton {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-2) 0;
+}
+.objtree-skeleton-row {
+  display: flex;
+  align-items: center;
+  height: var(--h-sm);
+}
+.objtree-skeleton-bar {
+  height: 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg-elev);
+}
+.objtree-connecting {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+.objtree-connecting-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.objtree-meta {
+  margin-left: auto;
+  padding-left: var(--sp-2);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 
 .objtree-label {
   overflow: hidden;
@@ -6469,47 +6617,11 @@ button.grid-action.danger:hover:not(:disabled) {
   word-break: break-word;
 }
 
-/* Working-database selector (sidebar) */
-.sidebar-db {
-  padding: var(--sp-3) var(--sp-4) var(--sp-3);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
 
-.sidebar-db label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
 
-.sidebar-db label > span {
-  font-size: var(--fs-sm);
-  color: var(--text-dim);
-  white-space: nowrap;
-}
 
-/* Themed working-database selector (issue: sidebar visual pass). The native
-   <select> rendered with the OS chrome (white box, native arrow) which clashed
-   with both themes; restyle it to match the object-filter input, with a custom
-   caret drawn as an inline SVG (a neutral grey that reads on both palettes). */
-.sidebar-db .map-select {
-  width: 100%;
-  padding: var(--sp-3) var(--sp-6) var(--sp-3) var(--sp-3);
-  font-size: var(--fs-base);
-  color: var(--text);
-  background-color: var(--bg-elev2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  cursor: default;
-}
 
-.sidebar-db .map-select:hover {
-  border-color: var(--text-dim);
-}
 
-.sidebar-db .map-select:focus {
-  border-color: var(--accent);
-}
 
 /* Settings + About panel (issue #181) */
 .settings-body {
@@ -8503,23 +8615,8 @@ ul.sidebar-tree {
   color: var(--accent-text);
 }
 
-/* The working database, as one compact line under its connection's row. */
-.sidebar-db {
-  padding: 0 var(--sp-3) var(--sp-2) var(--sp-6);
-  border-bottom: 0;
-}
 
-.sidebar-db label {
-  flex-direction: row;
-  align-items: center;
-}
 
-.sidebar-db .map-select {
-  flex: 1;
-  min-width: 0;
-  padding-top: var(--sp-1);
-  padding-bottom: var(--sp-1);
-}
 
 /* The pager under a table's rows (issue #688). */
 .pager {

@@ -3,6 +3,7 @@ import { driverSchema, engineMonogram, type Connection } from "../utils/connecti
 import { searchGroups } from "../utils/connectionSearch";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
+import { EnvChip, SafeChip } from "./ConnChips";
 
 // Opening a saved connection (issue #525). The bar lists what is already open;
 // this is how another one is found and opened. It used to be the whole manager
@@ -130,6 +131,8 @@ export function ConnectionSearch(props: {
                                 {hit.target ? ` · ${hit.target}` : ""}
                               </span>
                             </span>
+                            <EnvChip env={hit.conn.env} />
+                            <SafeChip mode={hit.conn.safeMode} />
                             <Show when={hit.isOpen}>
                               <span class="connsearch-open">{t("connsearch.alreadyOpen")}</span>
                             </Show>

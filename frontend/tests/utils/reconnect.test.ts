@@ -9,6 +9,8 @@ import {
   normalizeKeepAlive,
   notRetried,
   NOT_RETRIED_KEY,
+  retryDelaySec,
+  secondsLeft,
 } from "../../src/utils/reconnect";
 import { en } from "../../src/utils/messages/en";
 import { es } from "../../src/utils/messages/es";
@@ -159,5 +161,20 @@ describe("normalizeKeepAlive", () => {
     expect(normalizeKeepAlive(Infinity)).toBeUndefined();
     expect(normalizeKeepAlive(null)).toBeUndefined();
     expect(normalizeKeepAlive(undefined)).toBeUndefined();
+  });
+});
+
+describe("retryDelaySec", () => {
+  it("doubles from 5 s and settles at a minute", () => {
+    expect([0, 1, 2, 3, 4, 5, 50].map(retryDelaySec)).toEqual([5, 10, 20, 40, 60, 60, 60]);
+    expect(retryDelaySec(-3)).toBe(5);
+  });
+});
+
+describe("secondsLeft", () => {
+  it("rounds up and never goes below zero", () => {
+    expect(secondsLeft(10_000, 4_500)).toBe(6);
+    expect(secondsLeft(10_000, 10_000)).toBe(0);
+    expect(secondsLeft(10_000, 12_000)).toBe(0);
   });
 });

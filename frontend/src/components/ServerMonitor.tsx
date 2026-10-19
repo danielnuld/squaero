@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal, onMount } from "solid-js";
+import { EmptyNote } from "./EmptyNote";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import { monitorFor, buildKillSql, sessionFacts, unsupportedReason } from "../utils/serverMonitor";
@@ -156,7 +157,7 @@ export function ServerMonitor(props: {
 
       <Show
         when={support.supported}
-        fallback={<p class="grid-empty">{unsupportedReason(props.engine)}</p>}
+        fallback={<EmptyNote title={t("tool.unsupportedTitle")} text={unsupportedReason(props.engine)} />}
       >
         <ResultGrid
           result={result()}

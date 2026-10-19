@@ -26,6 +26,8 @@ export interface MenuItem {
   disabled?: boolean;
   /** Renders a divider instead of a clickable row. */
   separator?: boolean;
+  /** A section title (the label), not an item: never focused or activated. */
+  heading?: boolean;
   /** Styles the item as a destructive action. */
   danger?: boolean;
   /** Dim text after the label, e.g. "3 hours ago" (issue #642). */

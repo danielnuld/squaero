@@ -93,8 +93,51 @@ describe("Welcome", () => {
   });
 });
 
+describe("Welcome — protection", () => {
+  it("marks a protected recent connection «Solo lectura» (R-06)", () => {
+    mountWelcome([
+      { conn: { ...prod, safeMode: "readOnly" }, at: null },
+      { conn: ventas, at: null },
+    ]);
+    const rows = [...host!.querySelectorAll(".welcome-conn")];
+    expect(rows[0].querySelector(".safe-chip")!.textContent).toBe("Solo lectura");
+    expect(rows[1].querySelector(".safe-chip")).toBeNull();
+  });
+});
+
 describe("ConnectedHome", () => {
   const table = { key: "t:clientes", label: "clientes", kind: "table" } as TreeNode;
+
+  it("links the connection's places and counts the rows of its tables", () => {
+    const h = {
+      onNewQuery: vi.fn(),
+      onFindObject: vi.fn(),
+      onOpenTable: vi.fn(),
+      onObjectList: vi.fn(),
+      onEr: vi.fn(),
+      onDataSearch: vi.fn(),
+      onNewTable: vi.fn(),
+      onTools: vi.fn(),
+    };
+    mountWith(() => (
+      <ConnectedHome
+        name="Ventas"
+        engine="SQLite"
+        recentTables={[table]}
+        rowCounts={{ clientes: 12 }}
+        isMac={false}
+        {...h}
+      />
+    ));
+    expect(byText("clientes").textContent).toContain("12 filas");
+    byText("Lista de objetos").click();
+    byText("Diagrama ER").click();
+    byText("Buscar en los datos").click();
+    byText("Nueva tabla").click();
+    byText("Herramientas").click();
+    for (const fn of [h.onObjectList, h.onEr, h.onDataSearch, h.onNewTable, h.onTools])
+      expect(fn).toHaveBeenCalledOnce();
+  });
 
   it("names the connection and offers a new query, an object and recent tables", () => {
     const h = { onNewQuery: vi.fn(), onFindObject: vi.fn(), onOpenTable: vi.fn() };

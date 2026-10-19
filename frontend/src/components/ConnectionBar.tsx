@@ -3,6 +3,7 @@ import { engineMonogram, connectionTarget, driverSchema, type Connection } from 
 import { ConnectionSearch } from "./ConnectionSearch";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
+import { openContextMenu } from "../utils/contextMenu";
 import type { SafeMode } from "../utils/safeMode";
 
 /** How many saved connections the empty explorer offers directly. */
@@ -67,6 +68,22 @@ export function ConnectionBar(props: {
           onClick={() => (searching() ? setSearching(false) : openSearch())}
         >
           <Icon name="plus" size={14} />
+        </button>
+        {/* The explorer's own menu (Explorer.body ⋯): the saved connections. */}
+        <button
+          class="connbar-add connbar-more"
+          title={t("explorer.more")}
+          aria-label={t("explorer.more")}
+          aria-haspopup="menu"
+          onClick={(e) =>
+            openContextMenu(e, [
+              { label: t("conn.new"), action: () => props.onNew() },
+              { label: t("conn.import"), action: () => props.onImport() },
+              { label: t("explorer.manage"), action: () => props.onManage() },
+            ])
+          }
+        >
+          <Icon name="more" size={14} />
         </button>
       </div>
 

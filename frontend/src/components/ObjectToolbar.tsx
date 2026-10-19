@@ -77,6 +77,8 @@ export interface ObjectToolbarProps {
   changeCount: number;
   /** True when there is at least one pending change (enables Guardar). */
   hasChanges: boolean;
+  /** Why Guardar cannot run now (the connection is lost, R-05); absent = it can. */
+  saveBlocked?: string;
   /** Export formats to offer. */
   exportFormats: ExportFormatItem[];
   /** Re-run what the tab is showing (issue #448). */
@@ -237,7 +239,8 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
       <Show when={props.editing}>
         <button
           class="edit-btn edit-btn-primary"
-          disabled={props.busy || !props.hasChanges}
+          disabled={props.busy || !props.hasChanges || !!props.saveBlocked}
+          title={props.saveBlocked}
           onClick={() => props.onConfirm()}
         >
           <Icon name="save" size={14} class="eb-ic" /> {t("objbar.save", { n: props.changeCount })}

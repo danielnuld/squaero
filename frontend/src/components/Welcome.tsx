@@ -1,5 +1,7 @@
 import { For, Show } from "solid-js";
 import { BrandMark } from "./Brand";
+import { SafeChip } from "./ConnChips";
+import { countText } from "../utils/confirmText";
 import { Icon, type IconName } from "./icons";
 import { t, locale } from "../utils/i18n";
 import { timeAgo } from "../utils/history";
@@ -133,6 +135,7 @@ export function Welcome(props: {
                             {target() ? `${engine()} · ${target()}` : engine()}
                           </span>
                         </span>
+                        <SafeChip mode={r.conn.safeMode} />
                         <span class="welcome-conn-when">
                           {r.at === null ? t("welcome.neverUsed") : timeAgo(r.at, now(), locale())}
                         </span>
@@ -181,7 +184,22 @@ export function ConnectedHome(props: {
   onNewQuery: () => void;
   onFindObject: () => void;
   onOpenTable: (node: TreeNode) => void;
+  /** Rows per table, from the catalog (an estimate on most engines). */
+  rowCounts?: Record<string, number>;
+  /** The connection's places (ConnectedNoTab): absent ones are not drawn. */
+  onObjectList?: () => void;
+  onEr?: () => void;
+  onDataSearch?: () => void;
+  onNewTable?: () => void;
+  onTools?: (e: MouseEvent) => void;
 }) {
+  const links = () =>
+    [
+      { label: "home.objectList", run: props.onObjectList },
+      { label: "home.er", run: props.onEr },
+      { label: "home.dataSearch", run: props.onDataSearch },
+      { label: "home.newTable", run: props.onNewTable },
+    ].filter((l): l is { label: string; run: () => void } => !!l.run);
   return (
     <div class="welcome welcome-home">
       <div class="welcome-main">
@@ -223,11 +241,37 @@ export function ConnectedHome(props: {
                     >
                       <Icon name={node.kind === "view" ? "view" : "table"} size={14} />
                       {node.label}
+                      <Show when={props.rowCounts?.[node.label] !== undefined}>
+                        <span class="welcome-table-rows">
+                          {countText("tree.rows", props.rowCounts![node.label])}
+                        </span>
+                      </Show>
                     </button>
                   </li>
                 )}
               </For>
             </ul>
+          </section>
+        </Show>
+        <Show when={links().length > 0 || props.onTools}>
+          <section class="welcome-section" aria-labelledby="home-places">
+            <h2 id="home-places" class="welcome-label">
+              {t("home.places")}
+            </h2>
+            <div class="welcome-home-links">
+              <For each={links()}>
+                {(l) => (
+                  <button class="welcome-link" onClick={() => l.run()}>
+                    {t(l.label)}
+                  </button>
+                )}
+              </For>
+              <Show when={props.onTools}>
+                <button class="welcome-link" aria-haspopup="menu" onClick={(e) => props.onTools!(e)}>
+                  {t("home.tools")}
+                </button>
+              </Show>
+            </div>
           </section>
         </Show>
       </div>
