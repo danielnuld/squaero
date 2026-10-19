@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Squaero">
+  <title>Squaero</title>
+  <!-- Small sizes (32px and below: favicon, window and taskbar icon). The
+       B · Nativo tile keeps the mark legible on any background; strokes are
+       optically thickened (ring + tail 18, prompt 14). -->
+  <rect width="128" height="128" rx="28.8" fill="#0f7b72"/>
+  <g transform="translate(64 64) scale(0.8) translate(-64 -64)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="58" cy="58" r="36" stroke="#ffffff" stroke-width="18"/>
+    <path d="M84 84 L106 106" stroke="#a6ebe0" stroke-width="18"/>
+    <path d="M50 44 L64 58 L50 72" stroke="#a6ebe0" stroke-width="14"/>
+  </g>
+</svg>
