@@ -1650,3 +1650,16 @@ describe("ResultGrid staged changes (#690)", () => {
     ).toEqual(["~", "−", "+"]);
   });
 });
+
+// Issue #694: a result with columns and no rows says so.
+describe("ResultGrid — no rows", () => {
+  it("says the query returned no rows", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ResultGrid result={{ ...result, rows: [] }} loading={false} error={null} />, host!);
+    });
+    expect(host!.textContent).toContain("La consulta no devolvió filas.");
+  });
+});

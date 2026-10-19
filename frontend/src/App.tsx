@@ -9,6 +9,7 @@ import {
   onMount,
   onCleanup,
   untrack,
+  on,
 } from "solid-js";
 import { createStore, unwrap } from "solid-js/store";
 import {
@@ -314,9 +315,13 @@ import { EditorToolbar } from "./components/EditorToolbar";
 import { RunStatus } from "./components/RunStatus";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
+import { Welcome, ConnectedHome } from "./components/Welcome";
+import { loadUsage, recentConnections, saveUsage, touchConnection } from "./utils/recentConnections";
+import { Notifications } from "./components/Notifications";
+import { loadNotes, pushNote, saveNotes, unreadCount, type NoteLevel, type NoteLog } from "./utils/notifications";
+import type { StatusTabKind } from "./utils/statusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
-import { BrandWordmark } from "./components/Brand";
 import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
@@ -694,6 +699,8 @@ export function App() {
   // connection, persisted, shown marked "from cache" while re-read. What could
   // not be cached is said once per kind of problem, not swallowed.
   const [cacheNotice, setCacheNotice] = createSignal<string | null>(null);
+  // A plain informational toast (issue #694: an import's outcome).
+  const [notice, setNotice] = createSignal<string | null>(null);
   const cacheProblems = new Set<CacheProblem>();
   const metaCache = createMetaCacheStore(resolveStore(), (p) => {
     if (cacheProblems.has(p)) return;
@@ -1910,6 +1917,28 @@ export function App() {
   // Opening a connection ADDS it to the open set (others stay up) and focuses it;
   // if it is already open, this just focuses it. `force` (Reconectar) drops the
   // existing session and opens a fresh one to recover a dropped/killed server.
+  // When each saved connection was last opened, for the welcome (issue #694).
+  const [connUsage, setConnUsage] = createSignal(loadUsage(resolveStore()));
+  createEffect(
+    on(
+      [connUsage, connections],
+      ([u, list]) => saveUsage(resolveStore(), u, list.map((c) => c.id)),
+      { defer: true },
+    ),
+  );
+  // «Importar conexiones…» from the welcome: the same import as the
+  // connections tab, its outcome said in a toast (and kept in the history).
+  const pickConnectionsFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = ".json,.ncx,.xml,application/json,text/xml";
+    input.onchange = async () => {
+      const files = [...(input.files ?? [])];
+      if (files.length > 0) setNotice(await importConns(files));
+    };
+    input.click();
+  };
   const onConnect = async (c: Connection, force = false) => {
     if (connectingId() !== null) return;
     const existing = openConns().find((o) => o.defId === c.id);
@@ -1939,6 +1968,7 @@ export function App() {
         { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color, features },
       ]);
       setFocusedDefId(c.id);
+      setConnUsage((u) => touchConnection(u, c.id, Date.now()));
       // Closing the dead session above fails with the very error that raises the
       // "connection lost" banner, so a successful reconnect must take it down
       // again or it outlives the problem it reported (issue #407).
@@ -2148,16 +2178,21 @@ export function App() {
   // the status bar keeps the same two facts for after the toast has left.
   const [runToast, setRunToast] = createSignal<{ text: string; error: boolean } | null>(null);
   let runToastTimer: ReturnType<typeof setTimeout> | undefined;
-  const showRunToast = (ranAt: number, elapsedMs: number, failed: boolean) => {
+  //
+  // Issue #693 (audit R-30, A-33): no toast for a run whose result is on
+  // screen — the run status band and the status bar already say it. Only a run
+  // that finished in a tab the user has left is announced, and an error stays
+  // until it is closed.
+  const showRunToast = (tabId: number, ranAt: number, elapsedMs: number, failed: boolean) => {
+    if (current()?.id === tabId) return;
     clearTimeout(runToastTimer);
     const args = { time: formatClock(ranAt), duration: formatDuration(elapsedMs) };
     setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
-    runToastTimer = setTimeout(() => setRunToast(null), 4000);
+    if (!failed) runToastTimer = setTimeout(() => setRunToast(null), 6000);
   };
   const showErrorToast = (text: string) => {
     clearTimeout(runToastTimer);
     setRunToast({ text, error: true });
-    runToastTimer = setTimeout(() => setRunToast(null), 6000);
   };
 
   // --- Manual transactions (issue #667) -----------------------------------
@@ -2408,7 +2443,7 @@ export function App() {
       // page turns (offset > 0) are not logged.
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
-        showRunToast(ranAt, elapsedMs, !!shown?.error);
+        showRunToast(id, ranAt, elapsedMs, !!shown?.error);
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
       // A page turn keeps the source it already had; a fresh query derives it.
@@ -2438,7 +2473,7 @@ export function App() {
       });
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
-        showRunToast(ranAt, elapsedMs, true);
+        showRunToast(id, ranAt, elapsedMs, true);
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
     }
@@ -3037,6 +3072,14 @@ export function App() {
   /** A tab that shows a table's rows rather than a query the user wrote. Mongo
       is excluded: its preview is find({}), not a SELECT, so the panel would be
       offering something it cannot build. */
+  // What the status bar's facts belong to (issue #693).
+  const [editorCursor, setEditorCursor] = createSignal<{ line: number; col: number } | null>(null);
+  const statusKind = (): StatusTabKind => {
+    const tab = current();
+    if (!tab) return "none";
+    if (tab.kind === "tool") return "tool";
+    return isDataTab(tab.id) ? "data" : "query";
+  };
   const isDataTab = (id: number): boolean => {
     const preview = results[id]?.preview;
     return !!preview && engineFamily(preview.engine) !== "mongodb";
@@ -3054,6 +3097,35 @@ export function App() {
   // Said once, not on every snapshot: a tab too big to keep is warned about
   // until it records again, a failing store until a write succeeds.
   const [localWarn, setLocalWarn] = createSignal<string | null>(null);
+
+  // --- Notification history (issue #693) ---------------------------------
+  // Every toast that matters is also written to the history behind the bell,
+  // so a message that left before it was read is still there. Logged from the
+  // toast signals themselves: one place, whoever raised the toast.
+  const [noteLog, setNoteLog] = createSignal<NoteLog>(loadNotes(resolveStore(), Date.now()));
+  const [notesOpen, setNotesOpen] = createSignal(false);
+  createEffect(on(noteLog, (l) => saveNotes(resolveStore(), l), { defer: true }));
+  const notify = (level: NoteLevel, text: string) =>
+    setNoteLog((l) => ({ ...l, notes: pushNote(l.notes, { at: Date.now(), level, text }) }));
+  const toggleNotes = () => {
+    if (!notesOpen()) setNoteLog((l) => ({ ...l, seenAt: Date.now() }));
+    setNotesOpen((o) => !o);
+  };
+  const logToast = <T,>(sig: () => T | null, note: (v: T) => [NoteLevel, string] | null) =>
+    createEffect(
+      on(sig, (v) => {
+        const n = v === null ? null : note(v);
+        if (n) notify(n[0], n[1]);
+      }),
+    );
+  logToast(snipToast, (v) => ["info", v.text]);
+  // Progress updates are not news; the outcome is.
+  logToast(exportStatus, (v) => (v.rows === undefined ? [v.error ? "error" : "ok", v.text] : null));
+  logToast(localWarn, (v) => ["warn", v]);
+  logToast(runToast, (v) => [v.error ? "error" : "ok", v.text]);
+  logToast(cacheNotice, (v) => ["warn", v]);
+  logToast(notice, (v) => ["info", v]);
+  logToast(connError, (v) => ["error", v]);
   const tooBigWarned = new Set<number>();
   let saveFailWarned = false;
   const commitLocal = (list: TabHistory[]) => {
@@ -4707,7 +4779,17 @@ export function App() {
           connected={!!active()}
           onConnections={openConnectionsTab}
           onSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
+          unread={unreadCount(noteLog())}
+          notesOpen={notesOpen()}
+          onNotifications={toggleNotes}
         />
+        <Show when={notesOpen()}>
+          <Notifications
+            notes={noteLog().notes}
+            onClear={() => setNoteLog((l) => ({ ...l, notes: [] }))}
+            onClose={() => setNotesOpen(false)}
+          />
+        </Show>
         {/* The side column stays mounted when folded or switched: the trees
             keep their expansion, filter and loaded objects (#444, #689). */}
         <aside
@@ -4720,6 +4802,7 @@ export function App() {
           <Show when={side().panel === "history"}>
             <HistoryPanel
               docked
+              onNewQuery={() => runShortcut("new-tab")}
               entries={history()}
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}
@@ -5062,6 +5145,7 @@ export function App() {
                   </EditorToolbar>
                   <SqlEditor
                     activeId={tab().id}
+                    onCursor={setEditorCursor}
                     sqlFor={sqlOfTab}
                     onChange={onEditorChange}
                     onRun={runEditor}
@@ -5444,11 +5528,12 @@ export function App() {
                       )}
                     </Show>
                   </div>
-                  {/* A table's pager lives under its rows (#688); a query's
-                      stays in the status bar until #693 moves it. */}
+                  {/* The pager lives under the rows (#688); a paged query's
+                      moved here from the status bar (#693), without the
+                      first/last jumps a table's offset query gives. */}
                   <Show
                     when={
-                      isDataTab(tab().id) &&
+                      (isDataTab(tab().id) || !!currentResult().pageSql) &&
                       !comparison() &&
                       !shownPin() &&
                       (currentResult().result?.columns.length ?? 0) > 0
@@ -5460,13 +5545,17 @@ export function App() {
                       counting={counting() === tab().id}
                       onCount={dataCountSql(tab().id) ? () => void countDataTotal(tab().id) : undefined}
                       paused={currentEdit().editing}
-                      onFirst={() => goToDataOffset(tab().id, 0)}
+                      onFirst={isDataTab(tab().id) ? () => goToDataOffset(tab().id, 0) : undefined}
                       onPrev={() => pageBy(-1)}
                       onNext={() => pageBy(1)}
-                      onLast={() => {
-                        const last = dataPager(tab().id).lastOffset;
-                        if (last !== null) goToDataOffset(tab().id, last);
-                      }}
+                      onLast={
+                        isDataTab(tab().id)
+                          ? () => {
+                              const last = dataPager(tab().id).lastOffset;
+                              if (last !== null) goToDataOffset(tab().id, last);
+                            }
+                          : undefined
+                      }
                     />
                   </Show>
                 </div>
@@ -5823,14 +5912,42 @@ export function App() {
             )}
           </Show>
 
-          {/* Nothing open: the wordmark and nothing else. The tagline was the
-              landing page's slogan and the hint explained the sidebar to someone
-              already using it — copy nobody reads twice, in a place reached by
-              closing every tab. */}
+          {/* Nothing open (issue #694): with no connection, the welcome — how
+              to start, the recent connections, a few shortcuts; with one, a
+              home for it — a new query, an object, a recent table. */}
           <Show when={!current()}>
-            <div class="workspace-welcome">
-              <BrandWordmark height={56} />
-            </div>
+            <Show
+              when={active()}
+              fallback={
+                <Welcome
+                  recent={recentConnections(connections(), connUsage())}
+                  connectingId={connectingId()}
+                  isMac={isMac()}
+                  shortcuts={shortcuts()}
+                  onConnect={(c) => void onConnect(c)}
+                  onNew={onNewConnection}
+                  onOpenFile={openSqlFile}
+                  onImport={pickConnectionsFile}
+                  onShowAll={openConnectionsTab}
+                  onShortcuts={() => runShortcut("toggle-help")}
+                />
+              }
+            >
+              {(conn) => (
+                <ConnectedHome
+                  name={conn().name}
+                  engine={driverSchema(conn().driver)?.label ?? conn().driver}
+                  color={conn().color}
+                  db={activeDb()}
+                  recentTables={recentTables()}
+                  isMac={isMac()}
+                  shortcuts={shortcuts()}
+                  onNewQuery={() => runShortcut("new-tab")}
+                  onFindObject={() => runShortcut("object-palette")}
+                  onOpenTable={openData}
+                />
+              )}
+            </Show>
           </Show>
           </div>
         </section>
@@ -5961,6 +6078,22 @@ export function App() {
         )}
       </Show>
 
+      <Show when={notice()}>
+        {(text) => (
+          <div class="app-toast" role="status">
+            <span class="app-toast-text">{text()}</span>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setNotice(null)}
+            >
+              <Icon name="close" size={12} />
+            </button>
+          </div>
+        )}
+      </Show>
+
       <Show when={cacheNotice()}>
         {(text) => (
           <div class="app-toast" role="status">
@@ -6017,10 +6150,31 @@ export function App() {
       </Show>
 
       <StatusBar
-        connection={active()?.name ?? null}
+        connection={
+          tabConn(current())
+            ? {
+                name: tabConn(current())!.name,
+                engine: driverSchema(tabConn(current())!.driver)?.label ?? tabConn(current())!.driver,
+                color: tabConn(current())!.color,
+                db: tabConn(current())!.defId === focusedDefId() ? activeDb() : null,
+                lost: tabConn(current())!.lost,
+              }
+            : null
+        }
+        safeMode={tabSafeMode(current())}
+        txStatements={txOpenCount(tabConn(current()))}
+        onTxAction={
+          current()?.kind === "query"
+            ? (e) =>
+                openContextMenu(e, [
+                  { label: t("tx.commit"), action: () => void endTabTx("commit") },
+                  { label: t("tx.rollback"), danger: true, action: () => void endTabTx("rollback") },
+                ])
+            : undefined
+        }
+        kind={statusKind()}
         rowCount={currentResult().result?.rows.length ?? null}
         markedCount={markedRows().length}
-        txStatements={txOpenCount(tabConn(current()))}
         summary={cellSummary()}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
@@ -6028,30 +6182,9 @@ export function App() {
         ranScope={currentResult().ranScope ?? null}
         object={sourceLabel(currentResult().source)}
         columnCount={currentResult().result?.columns.length ?? null}
-        /* The pager only exists for a result that was fetched page by page, and
-           it holds still while there are unsaved cell edits: paging away would
-           drop them (issue #134). */
-        page={
-          currentResult().pageSql &&
-          !isDataTab(current()?.id ?? -1) &&
-          (currentResult().result?.columns.length ?? 0) > 0
-            ? {
-                from:
-                  (currentResult().offset ?? 0) +
-                  ((currentResult().result?.rows.length ?? 0) > 0 ? 1 : 0),
-                to: (currentResult().offset ?? 0) + (currentResult().result?.rows.length ?? 0),
-                canPrev: (currentResult().offset ?? 0) > 0 && !currentEdit().editing,
-                canNext: !!currentResult().result?.truncated && !currentEdit().editing,
-                paused: currentEdit().editing,
-              }
-            : null
-        }
-        onPage={pageBy}
+        cursor={editorCursor()}
         zoom={settings().zoom}
         onResetZoom={() => patchSettings({ zoom: 100 })}
-        theme={theme()}
-        onToggleTheme={toggleTheme}
-        onShowHelp={() => showTool("help", t("status.shortcuts"), { key: "help" })}
       />
 
       <CommandPalette

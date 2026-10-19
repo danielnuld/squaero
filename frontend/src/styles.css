@@ -2206,17 +2206,285 @@ body {
   cursor: not-allowed;
 }
 
-/* Branded welcome shown in the workspace when no tab is open (issue #191). */
-.workspace-welcome {
+/* What the workspace shows with no tab open (issue #694): the welcome, or a
+   connection's home. One column of actions and recents, the shortcuts beside. */
+.welcome {
   height: 100%;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-6);
+  padding: var(--sp-6);
+  box-sizing: border-box;
+  color: var(--text);
+}
+
+.welcome-main {
+  flex: 0 1 540px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.welcome-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.welcome-head h1,
+.welcome-home-title h1 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.welcome-head p,
+.welcome-home-sub {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.welcome-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.welcome-label {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.welcome-label-row {
+  display: flex;
+  align-items: baseline;
+}
+
+.welcome-label-row .welcome-label {
+  flex: 1;
+}
+
+.welcome-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.welcome-link:hover {
+  text-decoration: underline;
+}
+
+.welcome-action,
+.welcome-conn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding: var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.welcome-action:hover,
+.welcome-conn:hover:not(:disabled) {
+  background: var(--bg-elev);
+}
+
+.welcome-action-icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text-dim);
+}
+
+.welcome-action.primary .welcome-action-icon {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.welcome-action-text,
+.welcome-conn-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-action-title,
+.welcome-conn-name {
+  font-weight: 600;
+}
+
+.welcome-action-sub,
+.welcome-conn-sub {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome-recent,
+.welcome-tables,
+.welcome-tips ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-conn {
+  min-height: 48px;
+}
+
+.welcome-conn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.welcome-conn-bar {
+  position: absolute;
+  left: 0;
+  top: var(--sp-3);
+  bottom: var(--sp-3);
+  width: 3px;
+  border-radius: var(--r-sm);
+  background: var(--conn-accent, var(--border-strong));
+}
+
+.welcome-conn-mono {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--conn-accent, var(--text-dim)) 16%, transparent);
+  color: var(--conn-accent, var(--text-dim));
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+}
+
+.welcome-conn-when {
+  flex: none;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.welcome-tips {
+  flex: 0 0 240px;
+  padding-top: var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.welcome-tips li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .welcome-tips {
+    display: none;
+  }
+}
+
+.welcome-home {
+  align-items: center;
+  padding-bottom: var(--sp-6);
+}
+
+.welcome-home .welcome-main {
+  flex-basis: 460px;
+  gap: var(--sp-4);
+}
+
+.welcome-home-title {
+  display: flex;
+  align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-6);
-  text-align: center;
+}
+
+.welcome-home-title h1 {
+  font-size: var(--fs-lg);
+}
+
+.welcome-home-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--conn-accent, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--conn-accent, var(--accent)) 22%, transparent);
+}
+
+.welcome-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+
+.welcome-home-actions kbd {
+  margin-left: var(--sp-3);
+  opacity: 0.8;
+}
+
+.welcome-table {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: calc(100% + 16px);
+  height: 30px;
+  margin: 0 -8px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
   color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.welcome-table:hover {
+  background: var(--bg-elev);
+}
+
+.welcome-table svg {
+  color: var(--obj-table);
 }
 
 .grid-error {
@@ -2335,21 +2603,9 @@ body {
 
 /* The three groups the bar reads as: where you are, where in the rows you are,
    and what the run cost. The gap inside a group is tighter than between them. */
-.status-sep {
-  color: var(--text-dim);
-  opacity: 0.6;
-}
-
-.status-object,
-.status-range {
+.status-object {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-}
-
-.status-page {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
 }
 
 /* Compact controls at the right of the status bar (theme toggle, help). */
@@ -2460,6 +2716,44 @@ kbd {
 
 .status-spacer {
   flex: 1;
+}
+
+/* The bar's context (issue #693): the connection's own colour on the dot, its
+   engine dimmed after the name, and neutral chips for protection and an open
+   transaction — red is for errors, not for a connection that is merely careful. */
+.statusbar .conn-dot.on {
+  background: var(--conn-accent, var(--accent));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--conn-accent, var(--accent)) 25%, transparent);
+}
+
+.statusbar .conn-dot.lost {
+  background: var(--error);
+}
+
+.status-conn-name {
+  color: var(--text);
+}
+
+.status-dim {
+  color: var(--text-dim);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 18px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--bg-alt);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+button.status-chip:not(:disabled):hover {
+  color: var(--text);
 }
 
 /* The connection form as one page of sections (issue #531). The fields used to
@@ -3956,12 +4250,6 @@ button.btn-danger:disabled {
 .snippet-count {
   color: var(--text-dim);
   font-size: var(--fs-base);
-}
-
-.snippet-empty {
-  color: var(--text-dim);
-  padding: var(--sp-5) var(--sp-3);
-  text-align: center;
 }
 
 /* Object tree (sidebar) */
@@ -6636,9 +6924,14 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .settings-links {
   display: flex;
-  gap: var(--sp-5);
-  margin-top: var(--sp-3);
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  margin-top: var(--sp-4);
   font-size: var(--fs-md);
+}
+
+.settings-about + .btn {
+  margin-top: var(--sp-4);
 }
 
 /* Editor empty state with quick actions (issue #178) */
@@ -6674,11 +6967,11 @@ button.grid-action.danger:hover:not(:disabled) {
   padding: var(--sp-4) var(--sp-5);
 }
 
+/* Sentence case, like every label (issue #694): weight, not capitals. */
 .empty-card h4 {
   margin: 0 0 var(--sp-3);
   font-size: var(--fs-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 600;
   color: var(--text-dim);
 }
 
@@ -8394,4 +8687,143 @@ ul.sidebar-tree {
   align-items: center;
   height: calc(var(--h-md) - 4px);
   padding: 0 var(--sp-3);
+}
+
+/* The notification history (issue #693): a panel beside the rail's bell, above
+   the status bar, so it covers neither the tabs nor the rows' pager. */
+.rail-badge {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notes-panel {
+  position: fixed;
+  left: 72px;
+  bottom: calc(var(--band-sm) + var(--sp-3));
+  z-index: 40;
+  width: 400px;
+  max-width: calc(100vw - 88px);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.notes-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 44px;
+  flex: none;
+  padding: 0 var(--sp-3) 0 var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.notes-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.notes-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--sp-2) 0;
+  list-style: none;
+}
+
+.notes-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-5);
+}
+
+.notes-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: var(--sp-1);
+  color: var(--accent-text);
+}
+
+.notes-item.level-ok .notes-icon {
+  color: var(--ok);
+}
+
+.notes-item.level-warn .notes-icon {
+  color: var(--warn);
+}
+
+.notes-item.level-error .notes-icon {
+  color: var(--error);
+}
+
+.notes-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.notes-time {
+  flex: none;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  flex: none;
+  padding: 0 var(--sp-3) 0 var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
+.notes-help {
+  flex: 1;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+/* The one empty-state pattern (issues #693, #694): a short title, one
+   sentence, and at most one primary action. No illustrations. */
+.empty-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.empty-note-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.empty-note > button {
+  margin-top: var(--sp-2);
 }

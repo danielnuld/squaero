@@ -234,6 +234,8 @@ export function SqlEditor(props: {
       names it («Ejecutar sentencia» / «Ejecutar selección», the lines, the
       script's statement count). */
   onRunInfo?: (info: RunInfo) => void;
+  /** The caret moved, 1-based (issue #693: the status bar shows it). */
+  onCursor?: (pos: { line: number; col: number }) => void;
   /** Where the last run failed; its line is marked until the next edit. */
   errorMark?: ErrorMark | null;
   /** Bumping this number moves the cursor to the marked error line. */
@@ -439,6 +441,12 @@ export function SqlEditor(props: {
     props.onRun(target.text, target.scope);
   };
 
+  const emitCursor = (state: EditorState) => {
+    const head = state.selection.main.head;
+    const line = state.doc.lineAt(head);
+    props.onCursor?.({ line: line.number, col: head - line.from + 1 });
+  };
+
   onMount(() => {
     loaded = props.activeId;
     view = new EditorView({
@@ -537,11 +545,13 @@ export function SqlEditor(props: {
             // Keep the toolbar's Run button naming what it would run.
             const run = u.state.field(runField);
             if (run !== u.startState.field(runField)) props.onRunInfo?.(run.info);
+            if (u.selectionSet || u.docChanged) emitCursor(u.state);
           }),
         ],
       }),
     });
     props.onRunInfo?.(view.state.field(runField).info);
+    emitCursor(view.state);
   });
 
   // Swap the document when the active tab changes (tracks activeId only; the

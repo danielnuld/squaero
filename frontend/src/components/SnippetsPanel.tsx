@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
+import { EmptyNote } from "./EmptyNote";
 import { Panel } from "./Panel";
 import { searchSnippets, type Snippet } from "../utils/snippets";
 import { openContextMenu } from "../utils/contextMenu";
@@ -126,7 +127,7 @@ export function SnippetsPanel(props: {
     >
       <Show
         when={props.entries.length > 0}
-        fallback={<p class="snippet-empty">{t("snip.paletteEmptySet")}</p>}
+        fallback={<EmptyNote title={t("snip.emptyTitle")} text={t("snip.emptyText")} />}
       >
         <div class="snippet-library">
           <div class="snippet-list-pane">
@@ -141,7 +142,13 @@ export function SnippetsPanel(props: {
             />
             <Show
               when={results().length > 0}
-              fallback={<p class="snippet-empty">{t("snip.noMatches")}</p>}
+              fallback={
+                <EmptyNote
+                  title={t("empty.noResultsTitle")}
+                  text={t("snip.noMatches")}
+                  action={{ label: t("empty.clearSearch"), onClick: () => setQuery("") }}
+                />
+              }
             >
               <ul class="snippet-list" aria-label={t("snip.listLabel")} onKeyDown={onListKeyDown}>
                 <For each={results()}>

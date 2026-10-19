@@ -14,7 +14,7 @@ afterEach(() => {
   host = null;
 });
 
-function mount(total: number | null, offset = 0, withCount = true) {
+function mount(total: number | null, offset = 0, withCount = true, jumps = true) {
   const h = { onCount: vi.fn(), onFirst: vi.fn(), onPrev: vi.fn(), onNext: vi.fn(), onLast: vi.fn() };
   const view = pagerView({ offset, rows: 1000, size: 1000, total, more: true, paused: false });
   host = document.createElement("div");
@@ -28,10 +28,10 @@ function mount(total: number | null, offset = 0, withCount = true) {
           total={total}
           counting={false}
           paused={false}
-          onFirst={h.onFirst}
+          onFirst={jumps ? h.onFirst : undefined}
           onPrev={h.onPrev}
           onNext={h.onNext}
-          onLast={h.onLast}
+          onLast={jumps ? h.onLast : undefined}
           onCount={withCount ? h.onCount : undefined}
         />
       ),
@@ -71,5 +71,16 @@ describe("Pager", () => {
   it("offers no count where the engine has none", () => {
     mount(null, 0, false);
     expect(button("Contar total")).toBeUndefined();
+  });
+
+  // Issue #693: a paged query uses the same footer, without the jumps.
+  it("pages a query back and forth without first/last jumps", () => {
+    const h = mount(null, 1000, false, false);
+    expect(button("Primera página")).toBeUndefined();
+    expect(button("Última página")).toBeUndefined();
+    button("Página anterior")!.click();
+    button("Página siguiente")!.click();
+    expect(h.onPrev).toHaveBeenCalledOnce();
+    expect(h.onNext).toHaveBeenCalledOnce();
   });
 });

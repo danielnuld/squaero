@@ -3,8 +3,8 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { StatusBar } from "../../src/components/StatusBar";
 
-// Issue #386: the bar absorbed the pager band and the information pane, so the
-// facts they carried have to actually arrive here.
+// Issues #386, #693: context on the left (connection, protection, transaction),
+// the facts of the document on screen on the right, chosen by the tab's kind.
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -16,17 +16,15 @@ afterEach(() => {
   host = null;
 });
 
-const base = {
-  connection: "Ventas (demo)",
+type Props = Parameters<typeof StatusBar>[0];
+
+const base: Props = {
+  connection: { name: "Ventas (demo)", engine: "SQLite", color: "#2f7dd6", db: "main" },
+  kind: "query",
   rowCount: 26,
   truncated: false,
   elapsedMs: 11,
-  theme: "dark" as const,
-  onToggleTheme: () => {},
-  onShowHelp: () => {},
 };
-
-type Props = Parameters<typeof StatusBar>[0];
 
 function mount(over: Partial<Props> = {}) {
   host = document.createElement("div");
@@ -39,34 +37,67 @@ function mount(over: Partial<Props> = {}) {
 }
 
 describe("StatusBar", () => {
-  it("names the connection, the object and the shape of the result", () => {
-    mount({ object: "ventas.clientes", columnCount: 7 });
+  it("names the connection with its engine, database and colour", () => {
+    mount();
     const text = host!.textContent ?? "";
     expect(text).toContain("Ventas (demo)");
-    expect(text).toContain("ventas.clientes");
+    expect(text).toContain("SQLite · main");
+    const dot = host!.querySelector(".conn-dot") as HTMLElement;
+    expect(dot.classList.contains("on")).toBe(true);
+    expect(dot.style.getPropertyValue("--conn-accent")).toBe("#2f7dd6");
+  });
+
+  it("says when there is no connection, and when it was lost", () => {
+    mount({ connection: null });
+    expect(host!.textContent).toContain("Sin conexión");
+    dispose?.();
+    host?.remove();
+    mount({ connection: { name: "Ventas", engine: "SQLite", lost: true } });
+    expect(host!.textContent).toContain("Ventas (desconectada)");
+    expect(host!.querySelector(".conn-dot.lost")).not.toBeNull();
+  });
+
+  it("shows a neutral chip for a protected connection", () => {
+    mount({ safeMode: "readOnly" });
+    const chip = host!.querySelector(".status-chip") as HTMLElement;
+    expect(chip.textContent).toContain("Solo lectura");
+    expect(chip.classList.contains("status-tx")).toBe(false);
+  });
+
+  it("offers the open transaction's actions from its chip", () => {
+    let clicked = 0;
+    mount({ txStatements: 2, onTxAction: () => clicked++ });
+    const chip = host!.querySelector(".status-tx") as HTMLButtonElement;
+    expect(chip.textContent).toContain("En transacción · 2");
+    chip.click();
+    expect(clicked).toBe(1);
+  });
+
+  it("gives a query tab rows, columns, time and the cursor", () => {
+    mount({ columnCount: 7, cursor: { line: 3, col: 14 }, object: "ventas.clientes" });
+    const text = host!.textContent ?? "";
     expect(text).toContain("26 filas");
     expect(text).toContain("7 columnas");
+    expect(text).toContain("Lín 3, col 14");
+    // A free query does not name an object even if one was passed.
+    expect(text).not.toContain("ventas.clientes");
   });
 
-  it("shows no pager for a result that was not paged", () => {
-    mount({ object: null });
-    expect(host!.querySelector(".status-page")).toBeNull();
+  it("gives a table tab its object and no cursor", () => {
+    mount({ kind: "data", object: "ventas.clientes", cursor: { line: 1, col: 1 } });
+    const text = host!.textContent ?? "";
+    expect(text).toContain("ventas.clientes");
+    expect(text).not.toContain("Lín");
   });
 
-  it("pages back and forward, and holds still while editing", () => {
-    const steps: number[] = [];
-    mount({
-      page: { from: 51, to: 100, canPrev: true, canNext: false, paused: false },
-      onPage: (d: -1 | 1) => steps.push(d),
-    });
-    const [prev, next] = [
-      ...host!.querySelectorAll(".status-page button"),
-    ] as HTMLButtonElement[];
-    expect(host!.textContent).toContain("Filas 51–100");
-    expect(next.disabled).toBe(true);
-    prev.click();
-    next.click();
-    expect(steps).toEqual([-1]);
+  it("shows no facts for a tool tab", () => {
+    mount({ kind: "tool" });
+    expect(host!.textContent).not.toContain("26 filas");
+  });
+
+  it("has no pager, theme or help buttons any more", () => {
+    mount({ zoom: 100 });
+    expect(host!.querySelector("button")).toBeNull();
   });
 
   // Issue #670: the selected cells, summed up.

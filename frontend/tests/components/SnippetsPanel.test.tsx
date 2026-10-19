@@ -145,13 +145,15 @@ describe("SnippetsPanel", () => {
 
   it("tells nothing-saved apart from nothing-matching", () => {
     mount({ entries: [] });
-    expect(host!.querySelector(".snippet-empty")?.textContent).toContain("Aún no hay snippets guardados");
+    expect(host!.querySelector(".empty-note")?.textContent).toContain("Sin snippets");
 
     dispose?.();
     host?.remove();
     mount();
     typeInto(search(), "zzz");
-    expect(host!.querySelector(".snippet-empty")?.textContent).toContain("Ningún snippet");
+    expect(host!.querySelector(".empty-note")?.textContent).toContain("Ningún snippet");
+    (host!.querySelector(".empty-note button") as HTMLButtonElement).click();
+    expect(search().value).toBe("");
   });
 
   it("opens the selected snippet", () => {
