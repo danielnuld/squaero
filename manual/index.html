@@ -128,23 +128,36 @@
       <h3>La ventana, por partes</h3>
       <p>La primera vez la app abre maximizada y sin ninguna conexión:</p>
       <figure>
-        <img src="../img/screenshot-initial-dark.png" width="1280" height="800" alt="Pantalla inicial de Squaero, sin conexiones" loading="lazy">
-        <figcaption>La pantalla inicial. Todo empieza por crear una conexión.</figcaption>
+        <picture>
+          <source srcset="../img/screenshot-initial.avif" type="image/avif">
+          <source srcset="../img/screenshot-initial.webp" type="image/webp">
+          <img src="../img/screenshot-initial.png" width="1360" height="860" alt="Ventana de Squaero recién abierta: el explorador dice «Sin conexión» y lista la conexión guardada; a la derecha, una pestaña de consulta vacía" loading="lazy">
+        </picture>
+        <figcaption>La pantalla inicial. Todo empieza por abrir, o crear, una conexión.</figcaption>
       </figure>
       <ul>
-        <li><b>Barra superior</b> — <b>Buscar o ejecutar</b>
-          (<kbd>Ctrl</kbd>+<kbd>K</kbd>), que encuentra objetos, herramientas y
-          acciones sin quitar las manos del teclado; las pestañas abiertas; y
-          <b>⋯</b>, que despliega la tira de herramientas.</li>
-        <li><b>Barra lateral</b> — arriba, las <b>conexiones abiertas</b>: una fila
-          por cada una, con su motor y a qué servidor apunta. Debajo, el explorador,
-          con una sección plegable por conexión abierta.</li>
+        <li><b>Barra de la izquierda</b> — cambia lo que muestra la columna lateral:
+          <b>Objetos</b> (el explorador), <b>Historial</b>, <b>Snippets</b> y
+          <b>Datos</b> (buscar un texto en todas las tablas). Abajo, <b>Conexiones</b>
+          y <b>Ajustes</b>. Pulsar el panel que ya está a la vista pliega la columna.</li>
+        <li><b>Explorador</b> — cada conexión abierta encabeza su propio árbol: motor,
+          nombre, a qué servidor apunta y el menú <b>Herramientas</b>.</li>
         <li><b>Centro</b> — las pestañas. Cada una es una consulta, los datos de una
-          tabla o una herramienta, y queda atada a la conexión con la que se abrió.</li>
+          tabla o una herramienta, y queda atada a la conexión con la que se abrió.
+          Arriba a la derecha, <b>Buscar o ejecutar</b>
+          (<kbd>Ctrl</kbd>+<kbd>K</kbd>) encuentra objetos, herramientas y acciones.</li>
         <li><b>Barra de estado</b> — conexión activa, filas y columnas del último
-          resultado, cuánto tardó y con qué alcance se ejecutó, el paginador, el
-          cambio de tema y <kbd>F1</kbd> para los atajos.</li>
+          resultado, cuánto tardó y con qué alcance se ejecutó, el cambio de tema y
+          <kbd>F1</kbd> para los atajos.</li>
       </ul>
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-main-nativo.avif" type="image/avif">
+          <source srcset="../img/screenshot-main-nativo.webp" type="image/webp">
+          <img src="../img/screenshot-main-nativo.png" width="1360" height="860" alt="Squaero con la conexión «Ventas (demo)» abierta: el árbol de la base ventas a la izquierda, una consulta con JOIN entre clientes y pedidos en el editor y sus ocho filas en la rejilla" loading="lazy">
+        </picture>
+        <figcaption>La ventana de trabajo: el árbol de la conexión, el editor y el resultado.</figcaption>
+      </figure>
 
       <h3>Elegir el estilo</h3>
       <p>En <b>Ajustes › Apariencia › Estilo</b> hay cuatro: <b>B · Nativo</b> (el
@@ -153,6 +166,38 @@
         mismo diseño y las mismas pantallas; cambian los colores, la tipografía y los
         radios. <b>Modo</b> elige entre seguir al sistema, claro u oscuro, y
         <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd> alterna entre claro y oscuro.</p>
+
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-settings-styles.avif" type="image/avif">
+          <source srcset="../img/screenshot-settings-styles.webp" type="image/webp">
+          <img src="../img/screenshot-settings-styles.png" width="1360" height="860" alt="Ajustes, sección Apariencia: cuatro tarjetas de estilo (B · Nativo seleccionado, A · Quiet pro, C · Editorial y Rosa pastel), el modo Sistema, Claro u Oscuro y el zoom" loading="lazy">
+        </picture>
+        <figcaption>Ajustes › Apariencia: los cuatro estilos, el modo y el zoom.</figcaption>
+      </figure>
+      <figure class="shots">
+        <picture>
+          <source srcset="../img/screenshot-main-nativo.avif" type="image/avif">
+          <source srcset="../img/screenshot-main-nativo.webp" type="image/webp">
+          <img src="../img/screenshot-main-nativo.png" width="1360" height="860" alt="La ventana en el estilo B · Nativo, claro" loading="lazy">
+        </picture>
+        <picture>
+          <source srcset="../img/screenshot-main-quiet.avif" type="image/avif">
+          <source srcset="../img/screenshot-main-quiet.webp" type="image/webp">
+          <img src="../img/screenshot-main-quiet.png" width="1360" height="860" alt="La ventana en el estilo A · Quiet pro, oscuro y frío" loading="lazy">
+        </picture>
+        <picture>
+          <source srcset="../img/screenshot-main-editorial.avif" type="image/avif">
+          <source srcset="../img/screenshot-main-editorial.webp" type="image/webp">
+          <img src="../img/screenshot-main-editorial.png" width="1360" height="860" alt="La ventana en el estilo C · Editorial, oscuro y cálido con acento ámbar" loading="lazy">
+        </picture>
+        <picture>
+          <source srcset="../img/screenshot-main-rosa.avif" type="image/avif">
+          <source srcset="../img/screenshot-main-rosa.webp" type="image/webp">
+          <img src="../img/screenshot-main-rosa.png" width="1360" height="860" alt="La ventana en el estilo Rosa pastel, claro con tonos rosas" loading="lazy">
+        </picture>
+        <figcaption>La misma ventana en B · Nativo, A · Quiet pro, C · Editorial y Rosa pastel.</figcaption>
+      </figure>
 
       <h3>Dónde queda todo</h3>
       <p>Las conexiones, el historial, los snippets y las preferencias se guardan en
@@ -171,8 +216,8 @@
       <h2>2. Conectar a una base</h2>
 
       <h3>Crear una conexión</h3>
-      <p>Las conexiones guardadas viven en su propia pestaña: ábrela con <b>⋯</b> y
-        luego <b>Conexiones</b>. Es la única herramienta que funciona sin estar
+      <p>Las conexiones guardadas viven en su propia pestaña: ábrela con
+        <b>Conexiones</b>, abajo en la barra de la izquierda. Es la única herramienta que funciona sin estar
         conectado a nada, porque es por donde se crea la primera.</p>
       <ol class="steps">
         <li>Pulsa <b>+ Nueva conexión</b>.</li>
@@ -259,6 +304,26 @@
           cuenta y se informa. Nunca se adivina.</p>
       </div>
 
+      <h3>Editar, agrupar o eliminar</h3>
+      <p>En la pestaña <b>Conexiones</b>, cada fila tiene un lápiz para editarla y un
+        menú <b>⋯</b> con <b>Editar</b>, <b>Mover a</b> un grupo existente y
+        <b>Eliminar…</b>. Eliminar una conexión cerrada no pregunta: la quita y deja un
+        aviso con <b>Deshacer</b>. Si está abierta, pregunta antes, porque eliminarla
+        la desconecta y se pierde lo que no esté guardado en sus pestañas.</p>
+      <figure class="shots">
+        <picture>
+          <source srcset="../img/screenshot-connections-menu.avif" type="image/avif">
+          <source srcset="../img/screenshot-connections-menu.webp" type="image/webp">
+          <img src="../img/screenshot-connections-menu.png" width="1360" height="860" alt="Pestaña Conexiones con tres conexiones guardadas, una en el grupo Producción, y el menú de la primera abierto con Mover a «Producción», Editar y Eliminar…" loading="lazy">
+        </picture>
+        <picture>
+          <source srcset="../img/screenshot-connections-undo.avif" type="image/avif">
+          <source srcset="../img/screenshot-connections-undo.webp" type="image/webp">
+          <img src="../img/screenshot-connections-undo.png" width="1360" height="860" alt="La misma pestaña tras eliminar «Ventas (demo)»: quedan dos conexiones y abajo el aviso de que se eliminó, con el enlace Deshacer" loading="lazy">
+        </picture>
+        <figcaption>El menú de cada conexión y el aviso que deja eliminarla, con Deshacer.</figcaption>
+      </figure>
+
       <h3>Llevártelas a otro equipo</h3>
       <p><b>Exportar</b>, en la misma pestaña, guarda tus conexiones en un JSON. La
         casilla <b>Incluir contraseñas</b> hace justo eso, y te avisa de lo que
@@ -312,6 +377,15 @@
         la conexión está protegida. Usa el rojo para producción: no activa la protección por
         sí solo, pero se ve siempre en qué conexión estás.</p>
 
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-safe-mode.avif" type="image/avif">
+          <source srcset="../img/screenshot-safe-mode.webp" type="image/webp">
+          <img src="../img/screenshot-safe-mode.png" width="1360" height="860" alt="Conexión protegida, con la franja roja arriba: al ejecutar un UPDATE, el diálogo «Conexión protegida: Ventas (demo)» enseña la sentencia y ofrece Cancelar o Escribir" loading="lazy">
+        </picture>
+        <figcaption>Con <b>Confirmar escrituras</b>, la sentencia se enseña antes de enviarla.</figcaption>
+      </figure>
+
       <h3>Transacciones manuales</h3>
       <p>Por omisión cada sentencia se guarda al ejecutarse (<b>Auto-commit</b>). El
         interruptor de la barra del editor la pasa a <b>Transacción manual</b>, para
@@ -328,6 +402,15 @@
         <li>Funciona en los seis motores. En MongoDB necesita un replica set o un
           mongos; contra un servidor suelto se rechaza con su mensaje.</li>
       </ul>
+
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-manual-tx.avif" type="image/avif">
+          <source srcset="../img/screenshot-manual-tx.webp" type="image/webp">
+          <img src="../img/screenshot-manual-tx.png" width="1360" height="860" alt="Editor en Transacción manual tras un UPDATE: la barra dice «En transacción · 1» con los botones Confirmar y Revertir, y la barra de estado lo repite" loading="lazy">
+        </picture>
+        <figcaption>Una transacción manual abierta: nada se guarda hasta pulsar <b>Confirmar</b>.</figcaption>
+      </figure>
 
       <h3>Cancelar una consulta</h3>
       <p>Mientras una consulta se ejecuta, la rejilla dice <b>Ejecutando…</b> y ofrece
@@ -400,6 +483,15 @@
         encontradas. No está disponible en MongoDB, y se salta las columnas de
         arrays y los textos largos de Informix (TEXT/CLOB) y SQL Server (text/ntext).</p>
 
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-data-search.avif" type="image/avif">
+          <source srcset="../img/screenshot-data-search.webp" type="image/webp">
+          <img src="../img/screenshot-data-search.png" width="1360" height="860" alt="Pestaña Búsqueda de datos con el texto «pe» en la base ventas: coincidencias en clientes, pedidos y productos, cada una con Abrir coincidencias, y detalle_pedido omitida por no tener columnas de texto" loading="lazy">
+        </picture>
+        <figcaption>Buscar en los datos: una consulta limitada por tabla, y lo que se saltó con su motivo.</figcaption>
+      </figure>
+
       <h3>El árbol, al instante</h3>
       <p>Squaero recuerda en tu equipo los nombres de bases, tablas y columnas de cada
         conexión, así que al volver el árbol aparece enseguida, con la marca
@@ -452,7 +544,11 @@
         <b>Ordenar por</b> y un <b>Límite</b>. El <b>SQL generado</b> se ve todo el
         tiempo, así que también sirve para aprender la sintaxis del motor.</p>
       <figure>
-        <img src="../img/screenshot-builder.png" width="1360" height="860" alt="Constructor visual de consultas" loading="lazy">
+        <picture>
+          <source srcset="../img/screenshot-builder.avif" type="image/avif">
+          <source srcset="../img/screenshot-builder.webp" type="image/webp">
+          <img src="../img/screenshot-builder.png" width="1360" height="860" alt="Constructor de consultas sobre ventas.clientes con las columnas nombre, ciudad y saldo marcadas y el SQL generado debajo" loading="lazy">
+        </picture>
         <figcaption>El constructor: la consulta se arma con controles y el SQL resultante queda a la vista.</figcaption>
       </figure>
 
@@ -498,6 +594,15 @@
         foráneas reales, y los identificadores se citan como pide cada motor.
         <kbd>Ctrl</kbd>+<kbd>Espacio</kbd> abre las sugerencias a mano.</p>
 
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-editor-completion.avif" type="image/avif">
+          <source srcset="../img/screenshot-editor-completion.webp" type="image/webp">
+          <img src="../img/screenshot-editor-completion.png" width="1360" height="860" alt="Editor con una consulta que une clientes c y pedidos p; tras escribir «WHERE c.» se abre la lista de columnas de clientes: activo, alta, ciudad, email, id, nombre y saldo" loading="lazy">
+        </picture>
+        <figcaption>Después de <code>c.</code> el editor sugiere solo las columnas de <code>clientes</code>, la tabla con ese alias.</figcaption>
+      </figure>
+
       <h3>Problemas marcados mientras escribes</h3>
       <p>Al dejar de teclear, el editor subraya lo que va a fallar o lo que
         probablemente no quieres, y al pasar el ratón dice por qué:</p>
@@ -508,6 +613,15 @@
       </ul>
       <p>Nunca impide ejecutar, y calla mientras el esquema no está cargado. Se
         apaga en Ajustes con <b>Marcar problemas en el editor SQL</b>.</p>
+
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-editor-diagnostic.avif" type="image/avif">
+          <source srcset="../img/screenshot-editor-diagnostic.webp" type="image/webp">
+          <img src="../img/screenshot-editor-diagnostic.png" width="1360" height="860" alt="Editor con un UPDATE de productos sin WHERE: la palabra UPDATE aparece subrayada y el aviso dice «UPDATE sin WHERE modifica todas las filas»" loading="lazy">
+        </picture>
+        <figcaption>Un UPDATE sin WHERE, marcado al dejar de escribir.</figcaption>
+      </figure>
 
       <h3>Ir a la definición, buscar usos y renombrar</h3>
       <div class="ref-box glass"><table class="ref">
@@ -666,22 +780,53 @@
         solo las añadidas, las quitadas y las que cambiaron, con las iguales ocultas.
         Compara las filas que hay cargadas, y lo dice.</p>
 
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-compare-results.avif" type="image/avif">
+          <source srcset="../img/screenshot-compare-results.webp" type="image/webp">
+          <img src="../img/screenshot-compare-results.png" width="1360" height="860" alt="Resultado de productos comparado con uno fijado: la barra dice «Clave: id +1 −1 ~2 · 5 iguales (ocultas)»; dos precios cambiados con el valor anterior y el nuevo, una fila quitada tachada y una añadida" loading="lazy">
+        </picture>
+        <figcaption>Un resultado comparado con el fijado antes: solo lo que cambió.</figcaption>
+      </figure>
+
       <h3>Resumen de la selección</h3>
       <p>Al seleccionar un bloque de celdas (<kbd>Mayús</kbd>+flechas,
         <kbd>Mayús</kbd>+clic o arrastrando), o una columna en varias filas marcadas,
         la barra de estado cuenta las celdas y los NULL y, si la columna es numérica,
         da la suma, la media, el mínimo y el máximo, sin errores de redondeo.</p>
 
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-selection-summary.avif" type="image/avif">
+          <source srcset="../img/screenshot-selection-summary.webp" type="image/webp">
+          <img src="../img/screenshot-selection-summary.png" width="1360" height="860" alt="Tabla clientes con la columna saldo seleccionada de la fila 1 a la 11; la barra de estado da 11 celdas, 1 NULL, la suma, la media, el mínimo y el máximo" loading="lazy">
+        </picture>
+        <figcaption>Un bloque de celdas seleccionado y su resumen en la barra de estado.</figcaption>
+      </figure>
+
       <h3>Vista transpuesta</h3>
       <p><b>Transponer</b> pone las columnas en vertical: cada fila es una columna de
         la tabla. Usa las filas marcadas, o la seleccionada, o la página entera, con
         un máximo de 100 filas lado a lado.</p>
 
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-transpose.avif" type="image/avif">
+          <source srcset="../img/screenshot-transpose.webp" type="image/webp">
+          <img src="../img/screenshot-transpose.png" width="1360" height="860" alt="Tabla clientes en vista transpuesta: cada columna es una fila y las filas marcadas 1, 2, 4 y 8 quedan lado a lado" loading="lazy">
+        </picture>
+        <figcaption>Cuatro filas marcadas, en vertical para compararlas campo a campo.</figcaption>
+      </figure>
+
       <h3>Graficar el resultado</h3>
       <p><b>Graficar</b> convierte el resultado en barras, líneas o pastel: eliges la
         columna de etiquetas y una o varias columnas numéricas.</p>
       <figure>
-        <img src="../img/screenshot-charts.png" width="1360" height="860" alt="Gráfico generado a partir del resultado de una consulta" loading="lazy">
+        <picture>
+          <source srcset="../img/screenshot-charts.avif" type="image/avif">
+          <source srcset="../img/screenshot-charts.webp" type="image/webp">
+          <img src="../img/screenshot-charts.png" width="1360" height="860" alt="Gráfico de barras del número de clientes por ciudad, de Hermosillo con 3 a Puerto Peñasco con 1" loading="lazy">
+        </picture>
         <figcaption>Cualquier resultado con una columna numérica se puede graficar sin salir de la app.</figcaption>
       </figure>
     </section>
@@ -745,8 +890,12 @@
           resultante se muestra antes de ejecutarlo.</li>
       </ul>
       <figure>
-        <img src="../img/screenshot-users.png" width="1360" height="860" alt="Panel de usuarios y permisos" loading="lazy">
-        <figcaption>Usuarios y permisos: el GRANT se ve antes de ejecutarse.</figcaption>
+        <picture>
+          <source srcset="../img/screenshot-users.avif" type="image/avif">
+          <source srcset="../img/screenshot-users.webp" type="image/webp">
+          <img src="../img/screenshot-users.png" width="1360" height="860" alt="Usuarios y permisos con el usuario vendedor@% seleccionado: sus GRANT (SELECT, INSERT y UPDATE sobre ventas) y las casillas para otorgar o revocar" loading="lazy">
+        </picture>
+        <figcaption>Usuarios y permisos: los GRANT del usuario; el SQL se ve antes de ejecutarse.</figcaption>
       </figure>
 
       <h3>Diagrama ER</h3>
@@ -760,7 +909,11 @@
           avisa si la lista quedó incompleta por llegar al límite de filas.</p>
       </div>
       <figure>
-        <img src="../img/screenshot-er.png" width="1360" height="860" alt="Diagrama entidad-relación" loading="lazy">
+        <picture>
+          <source srcset="../img/screenshot-er.avif" type="image/avif">
+          <source srcset="../img/screenshot-er.webp" type="image/webp">
+          <img src="../img/screenshot-er.png" width="1360" height="860" alt="Diagrama entidad-relación de ventas: clientes, pedidos, detalle_pedido, productos y la vista ventas_por_ciudad, unidas por sus llaves foráneas" loading="lazy">
+        </picture>
         <figcaption>El diagrama ER a partir de las llaves foráneas del motor.</figcaption>
       </figure>
     </section>
@@ -773,8 +926,12 @@
         que se filtra, se ordena y se exporta igual. Selecciona una fila y
         <b>Matar sesión</b> la termina.</p>
       <figure>
-        <img src="../img/screenshot-monitor.png" width="1360" height="860" alt="Monitor de servidor con la lista de procesos" loading="lazy">
-        <figcaption>Monitor de servidor: procesos en curso, con la opción de matar la sesión seleccionada.</figcaption>
+        <picture>
+          <source srcset="../img/screenshot-monitor.avif" type="image/avif">
+          <source srcset="../img/screenshot-monitor.webp" type="image/webp">
+          <img src="../img/screenshot-monitor.png" width="1360" height="860" alt="Monitor de servidor de MySQL con la lista de sesiones: id, usuario, host, base, comando, tiempo, estado e info" loading="lazy">
+        </picture>
+        <figcaption>Monitor de servidor: sesiones en curso, con la opción de matar la seleccionada.</figcaption>
       </figure>
 
       <h3>Consultas lentas</h3>
@@ -809,6 +966,15 @@
         índices sobre expresiones o parciales. SQLite no puede cambiar una columna o
         una restricción en su sitio: la comparación lo señala.</p>
 
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-schema-compare.avif" type="image/avif">
+          <source srcset="../img/screenshot-schema-compare.webp" type="image/webp">
+          <img src="../img/screenshot-schema-compare.png" width="1360" height="860" alt="Sincronizar estructura de ventas contra ventas_v1: cinco diferencias (una tabla, dos columnas, una restricción única y una vista) y el SQL de migración, con las claves foráneas al final" loading="lazy">
+        </picture>
+        <figcaption>La comparación con una versión anterior del esquema y su script de migración.</figcaption>
+      </figure>
+
       <h3>Tu esquema en git: volcar el DDL a una carpeta</h3>
       <p>En <b>Respaldo y restauración</b>, <b>Volcar DDL a una carpeta…</b> escribe un
         archivo <code>.sql</code> por objeto, en carpetas <code>tables/</code>,
@@ -820,6 +986,15 @@
       <p>Los archivos de objetos que ya no existen no se borran: limpia la carpeta
         antes si quieres reflejar borrados. Las rutinas y los triggers se incluyen en
         MySQL/MariaDB, SQLite (triggers) e Informix; en el resto, tablas y vistas.</p>
+
+      <figure>
+        <picture>
+          <source srcset="../img/screenshot-ddl-dump.avif" type="image/avif">
+          <source srcset="../img/screenshot-ddl-dump.webp" type="image/webp">
+          <img src="../img/screenshot-ddl-dump.png" width="1360" height="860" alt="Pestaña Respaldo: arriba «9 archivo(s) escritos en ventas-ddl» y, en la sección DDL del esquema a una carpeta, el botón Volcar DDL a una carpeta…" loading="lazy">
+        </picture>
+        <figcaption>El volcado del DDL, un archivo por objeto.</figcaption>
+      </figure>
 
       <h3>Mover datos</h3>
       <ul>
