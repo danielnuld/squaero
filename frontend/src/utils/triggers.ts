@@ -28,7 +28,7 @@ export interface ObjectRef {
   id?: string;
 }
 
-/** A column surfaced in the object list, with its display label. */
+/** A column surfaced in the selected object's header; `label` is an i18n key. */
 export interface DetailCol {
   label: string;
   col: string;
@@ -82,7 +82,7 @@ function triggersFor(engine: string, db?: string): ObjectSupport {
       return {
         supported: true,
         listSql:
-          "SELECT TRIGGER_NAME, ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE " +
+          "SELECT TRIGGER_NAME, ACTION_TIMING, EVENT_MANIPULATION, EVENT_OBJECT_TABLE, ACTION_ORIENTATION " +
           `FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = ${scope} ` +
           "ORDER BY EVENT_OBJECT_TABLE, TRIGGER_NAME",
         nameCol: "TRIGGER_NAME",
@@ -90,9 +90,10 @@ function triggersFor(engine: string, db?: string): ObjectSupport {
         idCol: null,
         inlineDefCol: null,
         detailCols: [
-          { label: "Momento", col: "ACTION_TIMING" },
-          { label: "Evento", col: "EVENT_MANIPULATION" },
-          { label: "Tabla", col: "EVENT_OBJECT_TABLE" },
+          { label: "explorer.meta.table", col: "EVENT_OBJECT_TABLE" },
+          { label: "explorer.meta.timing", col: "ACTION_TIMING" },
+          { label: "explorer.meta.event", col: "EVENT_MANIPULATION" },
+          { label: "explorer.meta.level", col: "ACTION_ORIENTATION" },
         ],
       };
     }
@@ -103,7 +104,14 @@ function triggersFor(engine: string, db?: string): ObjectSupport {
       return {
         supported: true,
         listSql:
-          'SELECT t.tgname AS name, c.relname AS "table", n.nspname AS schema ' +
+          'SELECT t.tgname AS name, c.relname AS "table", n.nspname AS schema, ' +
+          // tgtype's bits: 1 row, 2 before, 4 insert, 8 delete, 16 update,
+          // 32 truncate, 64 instead of.
+          "CASE WHEN t.tgtype & 2 = 2 THEN 'BEFORE' WHEN t.tgtype & 64 = 64 THEN 'INSTEAD OF' ELSE 'AFTER' END AS timing, " +
+          "concat_ws(' OR ', CASE WHEN t.tgtype & 4 = 4 THEN 'INSERT' END, CASE WHEN t.tgtype & 8 = 8 THEN 'DELETE' END, " +
+          "CASE WHEN t.tgtype & 16 = 16 THEN 'UPDATE' END, CASE WHEN t.tgtype & 32 = 32 THEN 'TRUNCATE' END) AS event, " +
+          "CASE WHEN t.tgtype & 1 = 1 THEN 'ROW' ELSE 'STATEMENT' END AS level, " +
+          "CASE t.tgenabled WHEN 'D' THEN 'DISABLED' ELSE 'ENABLED' END AS status " +
           "FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid " +
           "JOIN pg_namespace n ON n.oid = c.relnamespace " +
           "WHERE NOT t.tgisinternal " +
@@ -113,7 +121,13 @@ function triggersFor(engine: string, db?: string): ObjectSupport {
         tableCol: "table",
         idCol: null,
         inlineDefCol: null,
-        detailCols: [{ label: "Tabla", col: "table" }],
+        detailCols: [
+          { label: "explorer.meta.table", col: "table" },
+          { label: "explorer.meta.timing", col: "timing" },
+          { label: "explorer.meta.event", col: "event" },
+          { label: "explorer.meta.level", col: "level" },
+          { label: "explorer.meta.status", col: "status" },
+        ],
       };
     case "sqlite":
       // The CREATE TRIGGER text is stored verbatim in sqlite_master.sql.
@@ -126,7 +140,7 @@ function triggersFor(engine: string, db?: string): ObjectSupport {
         tableCol: "table",
         idCol: null,
         inlineDefCol: "sql",
-        detailCols: [{ label: "Tabla", col: "table" }],
+        detailCols: [{ label: "explorer.meta.table", col: "table" }],
       };
     case "informix":
       // systrigbody carries the source text; trigid pins the exact trigger.
@@ -158,8 +172,10 @@ function eventsFor(engine: string, db?: string): ObjectSupport {
     idCol: null,
     inlineDefCol: null,
     detailCols: [
-      { label: "Tipo", col: "EVENT_TYPE" },
-      { label: "Estado", col: "STATUS" },
+      { label: "explorer.meta.eventType", col: "EVENT_TYPE" },
+      { label: "explorer.meta.status", col: "STATUS" },
+      { label: "explorer.meta.every", col: "INTERVAL_VALUE" },
+      { label: "explorer.meta.unit", col: "INTERVAL_FIELD" },
     ],
   };
 }

@@ -146,6 +146,36 @@ describe("App — result pane views (#691)", () => {
     expect(host!.textContent).not.toContain("Plan de ejecución");
   });
 
+  it("explains only the statement under the cursor, not the whole script (M14)", async () => {
+    await connect();
+    const view = EditorView.findFromDOM(host!)!;
+    const doc = "SELECT 1;\nSELECT * FROM t;\nDELETE FROM t";
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: doc }, selection: { anchor: 12 } });
+    click(host!.querySelector('[aria-label^="Más"]'));
+    click([...document.querySelectorAll(".context-menu-item")].find((b) => b.textContent?.startsWith("Plan")));
+    await settle();
+    const explains = calls.filter((c) => c.startsWith("query:EXPLAIN"));
+    expect(explains.length).toBeGreaterThan(0);
+    expect(explains.every((c) => c.includes("SELECT * FROM t") && !c.includes("DELETE"))).toBe(true);
+  });
+
+  it("shows each statement's tab as it finishes while the script runs (M14)", async () => {
+    await connect();
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "UPDATE t SET a = 1; SELECT slow" } });
+    click(host!.querySelector(".editor-run-scope"));
+    click([...document.querySelectorAll(".context-menu-item")].find((b) => b.textContent?.startsWith("Script completo")));
+    await settle();
+    const tabs = [...host!.querySelectorAll('.result-tabs [role="tab"]')];
+    expect(tabs[0].textContent).toContain("UPDATE");
+    expect(tabs[1].classList.contains("is-running")).toBe(true);
+    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
+    expect(host!.querySelector(".run-status-text")!.textContent).toMatch(/^Ejecutando script · .* · 2 de 2$/);
+    click(host!.querySelector(".editor-stop"));
+    await settle();
+    expect(host!.querySelector(".result-tabs .is-running")).toBeNull();
+  });
+
   it("stops the running query on Ctrl+Break (#691)", async () => {
     await connect();
     const ctrlBreak = () =>
@@ -160,7 +190,8 @@ describe("App — result pane views (#691)", () => {
     ctrlBreak();
     await settle();
     expect(calls).toContain("op.cancel");
-    expect(host!.querySelector(".editor-stop")!.classList.contains("is-running")).toBe(false);
+    expect(host!.querySelector(".editor-stop")).toBeNull();
+    expect(host!.querySelector(".editor-run-main")).not.toBeNull();
   });
 
   it("says where a write stands and links to its history entry (#691)", async () => {
@@ -171,5 +202,15 @@ describe("App — result pane views (#691)", () => {
     await settle();
     const search = host!.querySelector<HTMLInputElement>('.tool-pane input[type="search"]')!;
     expect(search.value).toBe("UPDATE t SET a = 1");
+  });
+
+  it("runs the whole script from the main button when Ctrl+Intro is set to it, and keeps Ejecutar without the document bar", async () => {
+    localStorage.setItem("quaero.settings", JSON.stringify({ runKeyScope: "script", docBar: false }));
+    await connect();
+    expect(host!.querySelector(".editor-run-main")!.textContent).toContain("Ejecutar script");
+    expect([...host!.querySelectorAll(".editor-toolbar button")].some((b) => b.textContent?.includes("Formatear"))).toBe(false);
+    expect(host!.querySelector(".editor-conn")).not.toBeNull();
+    await runSql("UPDATE t SET a = 1; DELETE FROM t");
+    expect(calls).toEqual(["query:UPDATE t SET a = 1", "query:DELETE FROM t"]);
   });
 });

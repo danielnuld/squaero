@@ -21,7 +21,7 @@ import {
   runStatements,
   type ResultSet,
 } from "./utils/query";
-import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
+import { scriptSets, pickActiveSet, statementLabel, type ScriptSet } from "./utils/scriptRuns";
 import {
   cancelQuery,
   connActivity,
@@ -78,6 +78,9 @@ import {
   closeTabsToRight,
   closeAllTabs,
   closedQueryTabs,
+  togglePin,
+  duplicateTab,
+  renameTab,
   closeTabsForConn,
   cycleTab,
   updateTabSql,
@@ -225,7 +228,9 @@ import {
 import { applyPlan } from "./utils/editApply";
 import { idleTx, readsOnly, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
 import { TxControls } from "./components/TxControls";
+import { TxBand } from "./components/TxBand";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { Dialog } from "./components/Dialog";
 import { countText, deleteRowsConfirm, needsTypedName } from "./utils/confirmText";
 
 /** Rows to read from a table's index catalog; one per index, so plenty. */
@@ -245,7 +250,7 @@ import { indexListFor, uniqueSetsFrom } from "./utils/indexes";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
-import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
+import { schemaDescribe, schemaTree, parseTreeRows, catalogTables } from "./utils/schema";
 import { objectPreviewQuery, objectCountQuery } from "./utils/pagination";
 import {
   pageStep,
@@ -343,7 +348,16 @@ import { StatusBar } from "./components/StatusBar";
 import { Welcome, ConnectedHome } from "./components/Welcome";
 import { loadUsage, recentConnections, saveUsage, touchConnection } from "./utils/recentConnections";
 import { Notifications } from "./components/Notifications";
-import { loadNotes, pushNote, saveNotes, unreadCount, type NoteLevel, type NoteLog } from "./utils/notifications";
+import {
+  loadNotes,
+  pushNote,
+  saveNotes,
+  unreadCount,
+  type Note,
+  type NoteAction,
+  type NoteLevel,
+  type NoteLog,
+} from "./utils/notifications";
 import type { StatusTabKind } from "./utils/statusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
@@ -359,10 +373,12 @@ import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
 import { Icon } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
+import type { DisplayOptions } from "./utils/gridDisplay";
 import { currentOs, orderActions } from "./utils/dialog";
 import { ABOUT_LINKS, APP_VERSION, DOCS_URL } from "./utils/version";
 import {
   checkForUpdate,
+  updateStatus,
   loadSkippedVersion,
   saveSkippedVersion,
   type UpdateInfo,
@@ -382,7 +398,7 @@ import { tabIcon } from "./utils/tabStrip";
 import { ResultTabs, type ResultView } from "./components/ResultTabs";
 import { ResultMessages } from "./components/ResultMessages";
 import { ErrorHints } from "./components/ErrorHints";
-import { engineErrorCode, didYouMean } from "./utils/errorHints";
+import { engineErrorCode, didYouMean, isLockError } from "./utils/errorHints";
 import { editorSchema } from "./utils/sqlEditor";
 import { runMessages, appendMessages, type RunMessage } from "./utils/runMessages";
 import {
@@ -426,7 +442,7 @@ import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
 import { BackupPanel } from "./components/BackupPanel";
-import { DataSearchPanel } from "./components/DataSearchPanel";
+import { DataSearchPanel, type SearchRequest } from "./components/DataSearchPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { LocalHistoryPanel } from "./components/LocalHistoryPanel";
 import {
@@ -460,7 +476,7 @@ interface TabResult {
   /** When the run in flight started, epoch ms: the result panel's clock (#691). */
   startedAt?: number;
   /** Which statement of a script is running (issue #691). */
-  progress?: { n: number; total: number } | null;
+  progress?: { n: number; total: number; label?: string } | null;
   /** The statement that failed, as sent: the editor marks its line (#691). */
   errorSql?: string;
   /** The table this result was read from + its PK, when opened from the tree.
@@ -802,6 +818,8 @@ export function App() {
   // the command palette; `focusedObjects` is what the rest of the app reads.
   const [loadedObjects, setLoadedObjects] = createSignal<Record<string, TreeNode[]>>({});
   const focusedObjects = () => connObjects(loadedObjects(), focusedDefId());
+  // The working database's tables, read on connect (audit A-06; see below).
+  const [catalog, setCatalog] = createSignal<{ connId: string; tables: string[] } | null>(null);
 
   // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
   const [findTick, setFindTick] = createSignal(0);
@@ -832,6 +850,16 @@ export function App() {
     loadShortcutOverrides(),
   );
   const shortcuts = createMemo(() => effectiveShortcuts(shortcutOverrides()));
+  /** How grid values read (Ajustes › Rejilla), for every grid and the row detail. */
+  const gridDisplay = (): DisplayOptions => ({
+    numbers: settings().numberFormat,
+    nullText: settings().nullText,
+    locale: locale(),
+  });
+  /** An action's binding as the user reads it, or undefined when it has none. */
+  const shortcutKeys = (id: ActionId): string | undefined => {
+    return keysOf(id, shortcuts(), currentOs()) || undefined;
+  };
   const setShortcutOverrides = (o: ShortcutOverrides) => {
     setShortcutOverridesSignal(o);
     saveShortcutOverrides(o);
@@ -990,6 +1018,10 @@ export function App() {
       closedStack.splice(0, Math.max(0, closedStack.length - CLOSED_KEPT));
     }),
   );
+  const reopenClosedTab = () => {
+    const last = closedStack.pop();
+    if (last) openSqlInNewTab(last.sql, last.title, undefined, last.connDefId);
+  };
   /** Save the active query tab's text as a .sql file; nothing elsewhere. */
   const saveCurrentSql = () => {
     const tab = currentQuery();
@@ -1101,11 +1133,9 @@ export function App() {
       case "close-all-tabs":
         setTabs(closeAllTabs);
         break;
-      case "reopen-tab": {
-        const last = closedStack.pop();
-        if (last) openSqlInNewTab(last.sql, last.title, undefined, last.connDefId);
+      case "reopen-tab":
+        reopenClosedTab();
         break;
-      }
       case "editor-find":
         setFindTick((t) => t + 1);
         break;
@@ -1436,6 +1466,10 @@ export function App() {
     const out: Record<string, string[]> = {};
     for (const n of focusedObjects()) {
       if (n.kind === "table" || n.kind === "view") out[n.label] = cache[n.label] ?? [];
+    }
+    const cat = catalog();
+    if (cat && cat.connId === active()?.connId) {
+      for (const name of cat.tables) out[name] ??= cache[name] ?? [];
     }
     // Tables the query mentioned and we described, even though the tree never
     // listed them: without this the columns were fetched and then thrown away.
@@ -2217,7 +2251,13 @@ export function App() {
     } catch (err) {
       const f = describeError(err);
       const detail = f.detail ?? f.title;
-      setConnError(t("conn.failed", { name: c.name, detail }));
+      const text = t("conn.failed", { name: c.name, detail });
+      notify("error", text, {
+        title: t("notes.connFailedTitle", { name: c.name }),
+        detail,
+        action: { kind: "retry", connDefId: c.id },
+      });
+      setConnError(text);
     } finally {
       setConnectingId(null);
     }
@@ -2231,6 +2271,19 @@ export function App() {
   // Sequentially, because onConnect refuses a second open while one is in
   // flight; the active tab's connection is opened last (restoreConnIds), so the
   // focus ends where the user left it.
+  // «Al abrir Squaero» (Ajustes › General): resume without asking, or start
+  // blank — the saved session then waits, as after «Ahora no», until new work
+  // takes its place. «Preguntar» keeps the offer.
+  onMount(() => {
+    if (!pendingRestore()) return;
+    const mode = settings().startup;
+    if (mode === "resume") void resumeSession();
+    else if (mode === "blank") {
+      setRestoreDeferred(true);
+      setPendingRestore(null);
+    }
+  });
+
   const resumeSession = async () => {
     const saved = pendingRestore();
     setPendingRestore(null);
@@ -2393,6 +2446,29 @@ export function App() {
     if (c) void onConnect(c, true);
   };
 
+  // The working database's tables for the editor's completion (audit A-06),
+  // read in the background on connect and on a database change — so FROM cli…
+  // offers clientes before anyone expands the tree. Failure leaves it empty:
+  // completion then knows what the tree has loaded, as before.
+  createEffect(() => {
+    const conn = active();
+    const db = activeDb();
+    if (!conn || conn.features?.introspection === false) {
+      setCatalog(null);
+      return;
+    }
+    const connId = conn.connId;
+    void catalogTables(
+      async (d, sc) => parseTreeRows(await schemaTree(connId, d, sc), "schema"),
+      db ?? undefined,
+    )
+      .then((tables) => {
+        // A newer read (another connection or database) owns the answer.
+        if (active()?.connId === connId && activeDb() === db) setCatalog({ connId, tables });
+      })
+      .catch(() => {});
+  });
+
   // Load the connection's databases and pick a default working one (the DSN's
   // database if set, else the first). Runs whenever the active connection
   // changes; failures leave the list empty (the selector just hides).
@@ -2451,8 +2527,26 @@ export function App() {
   const showRunToast = (tabId: number, ranAt: number, elapsedMs: number, failed: boolean) => {
     if (current()?.id === tabId) return;
     const args = { time: formatClock(ranAt), duration: formatDuration(elapsedMs) };
+    const text = t(failed ? "run.failed" : "run.done", args);
+    // The history keeps which tab it was, what it gave and the way back to it.
+    const tab = tabs().tabs.find((x) => x.id === tabId);
+    const r = results[tabId];
+    const n = r?.result ? (r.result.columns.length > 0 ? r.result.rows.length : r.result.rowsAffected) : 0;
+    const summary = failed
+      ? (r?.error ?? "").split("\n")[0]
+      : t(
+          r?.result?.columns.length
+            ? n === 1 ? "run.rowsOne" : "run.rows"
+            : n === 1 ? "run.affectedOne" : "run.affected",
+          { n },
+        );
+    notify(failed ? "error" : "ok", text, {
+      title: t(failed ? "notes.runFailedTitle" : "notes.runDoneTitle", { tab: tab?.title ?? "" }),
+      detail: t("notes.runDetail", { summary, duration: args.duration }),
+      action: { kind: "result", tabId },
+    });
     // The Toast clears a success itself; an error stays until it is closed.
-    setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
+    setRunToast({ text, error: failed });
   };
   // A tool's job that ends in a tab the user has left (M14 P6), said like a
   // run's. Under a second it was a refresh caught mid-flight, not news.
@@ -2507,6 +2601,8 @@ export function App() {
       get: () => txOf(conn),
       set: (s) => setTxs(conn.connId, s),
       query,
+      // A read changes no rows; a write says how many it did.
+      rows: (r) => (r.columns.length > 0 ? null : (r.rowsAffected ?? null)),
       tx: (verb) => txCall(conn.connId, verb),
       empty: () => ({ columns: [], rows: [], truncated: false, rowsAffected: 0 }),
       onImplicitCommit,
@@ -2538,6 +2634,15 @@ export function App() {
     if (!conn || txOf(conn).open) return;
     setTxs(conn.connId, idleTx(!txOf(conn).manual));
   };
+  /** Another tab whose connection — not this tab's — holds an open transaction:
+      the likely holder of the lock a statement just ran into (A-07). */
+  const lockHolderTab = (tab: Tab): Tab | undefined => {
+    const mine = tabConn(tab)?.connId;
+    return tabs().tabs.find((x) => {
+      const c = tabConn(x);
+      return x.id !== tab.id && !!c && c.connId !== mine && txOpenCount(c) !== null;
+    });
+  };
   /** Why the tab's connection cannot use manual mode, or null. */
   const txUnsupported = (conn: ActiveConnection | null): string | null =>
     conn?.features?.transactions === false ? t("tx.unsupported") : null;
@@ -2546,7 +2651,13 @@ export function App() {
       nested tx.begin as well; this says why in the user's words. */
   const txEditBlocked = (conn: ActiveConnection | null): string | null =>
     txOpenCount(conn) !== null ? t("tx.editBlocked") : null;
-  const recordHistory = (sql: string, conn: ActiveConnection, durationMs?: number) => {
+  const recordHistory = (
+    sql: string,
+    conn: ActiveConnection,
+    durationMs?: number,
+    outcome?: { result: ResultSet | null; failed: boolean },
+  ) => {
+    const r = outcome?.result;
     const entry: HistoryEntry = {
       sql,
       ts: Date.now(),
@@ -2554,6 +2665,10 @@ export function App() {
       connName: conn.name,
       engine: conn.driver,
       durationMs,
+      ...(r && r.columns.length > 0 ? { rows: r.rows.length } : {}),
+      ...(r && r.columns.length === 0 ? { affected: r.rowsAffected } : {}),
+      ...(outcome?.failed ? { failed: true } : {}),
+      ...(activeDb() ? { db: activeDb()! } : {}),
     };
     setHistory((list) => {
       const next = addHistory(list, entry, historyLimit());
@@ -2660,7 +2775,12 @@ export function App() {
     // sends them one at a time through here.
     let sent = 0;
     const exec = (stmt: string, query: () => Promise<ResultSet>) => {
-      if (script) setResults(id, { progress: { n: ++sent, total: stmts.length } });
+      if (script) {
+        sent++;
+        setResults(id, {
+          progress: { n: sent, total: stmts.length, label: statementLabel(stmt, conn.driver) },
+        });
+      }
       return offset === 0 ? runTx(conn, stmt, query, () => (implicitCommit = true)) : query();
     };
     try {
@@ -2670,7 +2790,14 @@ export function App() {
       const sets = script
         ? scriptSets(
             await withWriteConsent(conn.connId, stmts, () =>
-              runStatements(conn.connId, stmts, limit, exec),
+              // Each statement's tab appears as it finishes (M14 EditorRunning),
+              // the running one after them.
+              runStatements(conn.connId, stmts, limit, exec, (done) =>
+                setResults(id, {
+                  sets: scriptSets(done, activeDialect()),
+                  activeSet: done.length,
+                }),
+              ),
             ),
             activeDialect(),
           )
@@ -2719,7 +2846,7 @@ export function App() {
       // Record after the run so the entry carries its duration (issue #179);
       // page turns (offset > 0) are not logged.
       if (offset === 0) {
-        recordHistory(trimmed, conn, elapsedMs);
+        recordHistory(trimmed, conn, elapsedMs, { result, failed: !!shown?.error });
         showRunToast(id, ranAt, elapsedMs, !!shown?.error);
         logRun(
           id,
@@ -2761,7 +2888,7 @@ export function App() {
         activeSet: 0,
       });
       if (offset === 0) {
-        recordHistory(trimmed, conn, elapsedMs);
+        recordHistory(trimmed, conn, elapsedMs, { result: null, failed: true });
         showRunToast(id, ranAt, elapsedMs, true);
         logRun(
           id,
@@ -3083,31 +3210,60 @@ export function App() {
 
   // The connection selector: the tab's databases (on the focused connection,
   // which owns the working-database list), then the other open connections.
+  // The editor's connection selector (R-02, M14 EditorConnectionMenu): every
+  // open connection, the focused one with its databases as choices, then the
+  // saved ones not connected, and «Conectar a otra…».
   const editorConnItems = (tab: Tab): MenuItem[] => {
     const conn = tabConn(tab);
+    const use = (defId: string) => {
+      if (defId !== conn?.defId) setTabs((st) => bindTabConn(st, tab.id, defId));
+      setFocusedDefId(defId);
+    };
     const items: MenuItem[] = [];
-    if (conn && conn.defId === focusedDefId() && databases().length > 0) {
-      items.push({ label: t("editor.connMenuDbs"), heading: true });
-      for (const db of databases()) {
-        items.push({ label: db, checked: db === activeDb(), action: () => selectDb(db) });
+    if (openConns().length > 0) items.push({ heading: true, label: t("editor.connMenuOpen") });
+    for (const o of openConns()) {
+      const engine = driverSchema(o.driver)?.label ?? o.driver;
+      const mine = o.defId === conn?.defId;
+      // Databases are listed for the focused connection, the one they belong to.
+      if (o.defId === focusedDefId() && databases().length > 0) {
+        items.push({ heading: true, label: `${o.name} · ${engine}` });
+        for (const db of databases()) {
+          items.push({
+            label: db,
+            checked: mine && db === activeDb(),
+            action: () => {
+              use(o.defId);
+              selectDb(db);
+            },
+          });
+        }
+      } else {
+        items.push({ label: o.name, hint: engine, checked: mine, action: () => use(o.defId) });
       }
     }
-    const others = openConns().filter((o) => o.defId !== conn?.defId);
-    if (others.length > 0) {
-      if (items.length) items.push({ separator: true });
-      items.push({ label: t("editor.connMenuConns"), heading: true });
-      for (const o of others) {
+    const saved = connections().filter((c) => !openConns().some((o) => o.defId === c.id));
+    if (items.length) items.push({ separator: true });
+    if (saved.length > 0) {
+      items.push({ heading: true, label: t("editor.connMenuSaved") });
+      for (const c of saved) {
         items.push({
-          label: o.name,
-          hint: driverSchema(o.driver)?.label ?? o.driver,
-          action: () => {
-            setTabs((st) => bindTabConn(st, tab.id, o.defId));
-            setFocusedDefId(o.defId);
-          },
+          label: c.name,
+          hint: t("editor.connMenuConnect"),
+          action: () =>
+            void onConnect(c).then(() => {
+              if (openConns().some((o) => o.defId === c.id)) use(c.id);
+            }),
         });
       }
     }
-    if (items.length === 0) items.push({ label: conn ? conn.name : t("editor.noConn"), disabled: true });
+    items.push({
+      label: t("editor.connMenuOther"),
+      action: () => {
+        setSide((s) => ({ ...s, panel: "explorer" }));
+        setConnectTick((n) => n + 1);
+      },
+    });
+    items.push({ separator: true }, { note: t("editor.connMenuNote") });
     return items;
   };
 
@@ -3175,22 +3331,35 @@ export function App() {
 
   // The editor's "Plan" button: visual plan for the active tab's SQL, against
   // that tab's own connection.
+  // A query tab asks its editor, which answers through explainInPane with what a
+  // run would execute now — the statement under the cursor or the selection, not
+  // the whole script (M14). Anything else explains its whole SQL.
+  const [explainTick, setExplainTick] = createSignal(0);
   const explainActive = () => {
     const tab = current();
     if (!tab) return;
+    if (tab.kind === "query" && !isDataTab(tab.id)) {
+      setExplainTick((n) => n + 1);
+      return;
+    }
     const sql = sqlOfTab(tab.id).trim();
     if (!sql) {
       setResults(tab.id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
-    // A query tab shows the plan in its own result pane, under «Plan» (#691);
-    // anything else keeps the plan's tool tab.
-    if (tab.kind === "query" && !isDataTab(tab.id)) {
-      setPlanSqls(tab.id, sql);
-      setResultViews(tab.id, "plan");
+    showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
+  };
+  // A query tab shows the plan in its own result pane, under «Plan» (#691).
+  const explainInPane = (raw: string) => {
+    const tab = current();
+    if (!tab) return;
+    const sql = raw.trim();
+    if (!sql) {
+      setResults(tab.id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
-    showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
+    setPlanSqls(tab.id, sql);
+    setResultViews(tab.id, "plan");
   };
 
   // A data tab's extra entries in the result toolbar's Más menu: the editor
@@ -3425,12 +3594,33 @@ export function App() {
   const [noteLog, setNoteLog] = createSignal<NoteLog>(loadNotes(resolveStore(), Date.now()));
   const [notesOpen, setNotesOpen] = createSignal(false);
   createEffect(on(noteLog, (l) => saveNotes(resolveStore(), l), { defer: true }));
-  const notify = (level: NoteLevel, text: string) =>
-    setNoteLog((l) => ({ ...l, notes: pushNote(l.notes, { at: Date.now(), level, text }) }));
+  // A caller that knows more than the toast's line (a title, a detail, an
+  // action) notifies FIRST: the toast's own entry then folds into it.
+  const notify = (level: NoteLevel, text: string, extra?: Pick<Note, "title" | "detail" | "action">) =>
+    setNoteLog((l) => ({ ...l, notes: pushNote(l.notes, { at: Date.now(), level, text, ...extra }) }));
+  // What was unread when the panel opened stays marked in it until «Marcar
+  // como leídas» (M14); the bell's badge clears on opening, as before.
+  const [unreadSince, setUnreadSince] = createSignal(0);
   const toggleNotes = () => {
-    if (!notesOpen()) setNoteLog((l) => ({ ...l, seenAt: Date.now() }));
+    if (!notesOpen()) {
+      setUnreadSince(noteLog().seenAt);
+      setNoteLog((l) => ({ ...l, seenAt: Date.now() }));
+    }
     setNotesOpen((o) => !o);
   };
+  const noteAction = (a: NoteAction) => {
+    setNotesOpen(false);
+    if (a.kind === "result") {
+      selectTab(a.tabId);
+      return;
+    }
+    const c = connections().find((x) => x.id === a.connDefId);
+    if (c) void onConnect(c, true);
+  };
+  const canNoteAct = (a: NoteAction) =>
+    a.kind === "result"
+      ? tabs().tabs.some((x) => x.id === a.tabId)
+      : connections().some((x) => x.id === a.connDefId);
   const logToast = <T,>(sig: () => T | null, note: (v: T) => [NoteLevel, string] | null) =>
     createEffect(
       on(sig, (v) => {
@@ -4938,9 +5128,33 @@ export function App() {
   };
 
   // Right-click on a tab.
+  // The tab being renamed (M14 TabContextMenu), with the name being typed.
+  const [renaming, setRenaming] = createSignal<{ id: number; name: string } | null>(null);
+  // Bumped to show a table in its connection's tree («Mostrar en el explorador»).
+  const [revealReq, setRevealReq] = createSignal<{ defId: string; key: string; tick: number } | null>(null);
+  /** The tree node behind a table's tab, when that tree has it loaded. */
+  const tabTreeNode = (tab: Tab): { defId: string; node: TreeNode } | null => {
+    if (tab.kind !== "query" || !isDataTab(tab.id)) return null;
+    const defId = tab.connDefId ?? focusedDefId();
+    const p = results[tab.id]?.preview?.parts;
+    if (!defId || !p) return null;
+    const node = connObjects(loadedObjects(), defId).find(
+      (n) =>
+        n.label === p.name &&
+        (p.db === undefined || n.db === p.db) &&
+        (p.schema === undefined || n.schema === p.schema),
+    );
+    return node ? { defId, node } : null;
+  };
+
   const tabMenu = (e: MouseEvent, id: number) => {
+    const tab = tabs().tabs.find((x) => x.id === id);
+    if (!tab) return;
+    const keys = (k: ActionId) => shortcutKeys(k);
+    const isQuery = tab.kind === "query" && !isDataTab(id);
+    const inTree = tabTreeNode(tab);
     openContextMenu(e, [
-      { label: t("common.close"), action: () => setTabs((s) => closeTab(s, id)) },
+      { label: t("common.close"), hint: keys("close-tab"), action: () => setTabs((s) => closeTab(s, id)) },
       {
         label: t("tabmenu.closeOthers"),
         action: () => setTabs((s) => closeOtherTabs(s, id)),
@@ -4952,16 +5166,51 @@ export function App() {
         disabled: tabs().tabs.at(-1)?.id === id,
       },
       { label: t("tabmenu.closeAll"), hint: keysOf("close-all-tabs", shortcuts(), currentOs()), action: () => setTabs(closeAllTabs) },
+      {
+        label: t("tabmenu.reopen"),
+        hint: keysOf("reopen-tab", shortcuts(), currentOs()),
+        disabled: closedStack.length === 0,
+        title: closedStack.length === 0 ? t("tabmenu.reopenNone") : undefined,
+        action: reopenClosedTab,
+      },
+      { separator: true },
+      {
+        label: tab.pinned ? t("tabmenu.unpin") : t("tabmenu.pin"),
+        action: () => setTabs((s) => togglePin(s, id)),
+      },
+      {
+        label: t("tabmenu.duplicate"),
+        disabled: tab.kind !== "query",
+        title: tab.kind !== "query" ? t("tabmenu.duplicateTool") : undefined,
+        action: () =>
+          setTabs((s) => duplicateTab(s, id, (q) => t("tabmenu.copyTitle", { title: q.title })) ?? s),
+      },
+      {
+        label: t("tabmenu.rename"),
+        action: () => setRenaming({ id, name: tab.title }),
+      },
+      {
+        label: t("tabmenu.reveal"),
+        disabled: !inTree,
+        title: inTree
+          ? undefined
+          : isDataTab(id)
+            ? t("tabmenu.revealNotLoaded")
+            : t("tabmenu.revealNoObject"),
+        action: () => {
+          if (!inTree) return;
+          setSide((sd) => ({ ...sd, panel: "explorer" }));
+          setRevealReq((r) => ({ defId: inTree.defId, key: inTree.node.key, tick: (r?.tick ?? 0) + 1 }));
+        },
+      },
       { separator: true },
       {
         label: t("tabmenu.copyName"),
-        action: () => void copyText(tabs().tabs.find((x) => x.id === id)?.title ?? ""),
+        action: () => void copyText(tab.title),
       },
-      ...(tabs().tabs.some((x) => x.id === id && x.kind === "query" && !isDataTab(id))
-        ? [{ label: t("lhist.menu"), action: () => openLocalHistory(id) }]
-        : []),
+      ...(isQuery ? [{ label: t("lhist.menu"), action: () => openLocalHistory(id) }] : []),
       { separator: true },
-      { label: t("toolbar.newQuery.title"), action: newTab },
+      { label: t("toolbar.newQuery.title"), hint: keys("new-tab"), action: newTab },
     ]);
   };
 
@@ -5177,7 +5426,11 @@ export function App() {
         id: `obj:${node.key}`,
         category: "object",
         label: node.label,
-        hint: scope || (node.kind === "view" ? t("tab.viewHint") : t("tab.tableHint")),
+        // «tabla · main» (M14 ObjectPalette): what it is and where. No row
+        // count: the catalog does not give one without counting the table.
+        hint: [node.kind === "view" ? t("complete.kind.view") : t("complete.kind.table"), scope]
+          .filter(Boolean)
+          .join(" · "),
         run: () => openData(node),
       });
     }
@@ -5193,7 +5446,21 @@ export function App() {
         // Enter opens it in its own tab: the tab you were in keeps its text, and
         // reopening the same snippet returns to the tab it already has.
         run: () => openSnippet(s),
-        runAlt: (alt) => (alt === "shift" ? runFromHistory(s.body) : insertSnippet(s)),
+        // Ctrl+Intro runs it (Mayús+Intro too, as before); Alt+Intro inserts it.
+        runAlt: (alt) => (alt === "alt" ? insertSnippet(s) : runFromHistory(s.body)),
+        chips: s.abbr ? [t("snip.chipAbbr", { abbr: s.abbr })] : undefined,
+        detail: active()
+          ? t("snip.runsOn", { conn: active()!.name + (activeDb() ? ` · ${activeDb()}` : "") })
+          : t("snip.runsOnNone"),
+        actions: [
+          {
+            label: t("snip.edit"),
+            run: () => showTool("snippets", t("editor.snippets"), { key: "snippets", params: { id: s.id } }),
+          },
+          { label: t("snip.insertShort"), title: t("snip.insertTitle"), run: () => insertSnippet(s) },
+          { label: t("snip.run"), title: t("snip.runTitle"), run: () => runFromHistory(s.body) },
+          { label: t("snip.open"), primary: true, title: t("snip.openTitle"), run: () => openSnippet(s) },
+        ],
       });
 
     // Recent history (cap so the palette stays snappy; fuzzy filters the rest).
@@ -5302,6 +5569,10 @@ export function App() {
         <Show when={notesOpen()}>
           <Notifications
             notes={noteLog().notes}
+            unreadSince={unreadSince()}
+            onMarkRead={() => setUnreadSince(Date.now())}
+            onAction={noteAction}
+            canAct={canNoteAct}
             onClear={() => setNoteLog((l) => ({ ...l, notes: [] }))}
             onClose={() => setNotesOpen(false)}
           />
@@ -5322,6 +5593,8 @@ export function App() {
               entries={history()}
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}
+              connId={activeDefId() ?? undefined}
+              toggleKeys={keysOf("toggle-history", shortcuts(), currentOs())}
               onRun={runFromHistory}
               onInsert={insertFromHistory}
               onOpen={(sql) => openSqlInNewTab(sql)}
@@ -5335,6 +5608,7 @@ export function App() {
               entries={snippets()}
               onOpen={openSnippet}
               onInsert={insertSnippet}
+              onRun={(snip) => runFromHistory(snip.body)}
               onRename={renameSnip}
               onSetAbbr={setSnipAbbr}
               onDuplicate={duplicateSnip}
@@ -5351,6 +5625,13 @@ export function App() {
                 engine={activeDialect()}
                 db={activeDb()}
                 onOpen={(sql, table) => openSearchMatches(sql, table, conn().defId)}
+                onSearch={(request) =>
+                  showTool("dataSearch", t("tool.search.tab"), {
+                    key: "dataSearch",
+                    params: { request },
+                    connDefId: conn().defId,
+                  })
+                }
               />
             )}
           </Show>
@@ -5415,6 +5696,7 @@ export function App() {
                     >
                       <ObjectTree
                         connId={conn.connId}
+                        reveal={revealReq()?.defId === conn.defId ? revealReq()! : undefined}
                         rowHeight={treeRowHeight(settings().zoom, settings().density)}
                         engine={conn.driver}
                         title={conn.name}
@@ -5531,6 +5813,7 @@ export function App() {
               running: !!results[tab.id]?.loading || busyTools().has(tab.id),
               dirty: isUnsaved(tab),
               tool: tab.kind === "tool",
+              pinned: tab.pinned,
             }))}
             activeId={tabs().activeId}
             onSelect={selectTab}
@@ -5661,6 +5944,14 @@ export function App() {
                     onStop={cancelActive}
                     onFormat={() => setFormatTick((n) => n + 1)}
                     moreItems={(e) => editorMoreItems(e, tab())}
+                    manual={txOf(tabConn(tab())).manual}
+                    keyScope={settings().runKeyScope}
+                    minimal={!settings().docBar}
+                    onUseManual={
+                      tabConn(tab()) && !txUnsupported(tabConn(tab()))
+                        ? () => toggleTxMode(tabConn(tab()))
+                        : undefined
+                    }
                     tx={
                       tabConn(tab()) ? (
                         <TxControls
@@ -5668,51 +5959,71 @@ export function App() {
                           unsupportedReason={txUnsupported(tabConn(tab()))}
                           busy={txBusy()}
                           onToggle={() => toggleTxMode(tabConn(tab()))}
-                          onCommit={() => void endTabTx("commit")}
-                          onRollback={() => void endTabTx("rollback")}
                         />
                       ) : undefined
                     }
-                  >
-                    <Show when={naming()}>
-                      {(pending) => (
-                        <span class="snip-save">
-                          <span class="snip-save-label">{t("snip.nameLabel")}</span>
-                          <input
-                            class="snip-save-input"
-                            type="text"
-                            ref={autoFocus}
-                            aria-label={t("snip.nameAria")}
-                            placeholder={t("snip.namePlaceholder")}
-                            value={pending().name}
-                            onInput={(e) =>
-                              setNaming((n) => (n ? { ...n, name: e.currentTarget.value } : n))
+                  />
+                  {/* Naming a snippet happens in a band of its own under the bar,
+                      so the query stays on screen (issue #320, M14
+                      SnippetSaveInline): Guardar is its one primary. */}
+                  <Show when={naming()}>
+                    {(pending) => (
+                      <div class="snip-save" role="form" aria-label={t("snip.saveLabel")}>
+                        <Icon name="bookmark" size={14} class="snip-save-ic" />
+                        <label class="snip-save-label" for="snip-save-name">
+                          {t("snip.saveLabel")}
+                        </label>
+                        <input
+                          id="snip-save-name"
+                          class="snip-save-input"
+                          type="text"
+                          ref={autoFocus}
+                          placeholder={t("snip.namePlaceholder")}
+                          value={pending().name}
+                          onInput={(e) =>
+                            setNaming((n) => (n ? { ...n, name: e.currentTarget.value } : n))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              commitNaming();
                             }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitNaming();
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                setNaming(null);
-                              }
-                            }}
-                          />
-                          <span class="snip-save-scope">
-                            {t(`snip.scope.${pending().scope}`)} · {t("snip.nameHint", keyParams({ enter: "Enter", esc: "Esc" }))}
-                          </span>
-                        </span>
-                      )}
-                    </Show>
-                  </EditorToolbar>
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              setNaming(null);
+                            }
+                          }}
+                        />
+                        <span class="snip-save-scope">{t(`snip.scope.${pending().scope}`)}</span>
+                        <span class="help">{t("snip.keys", keyParams({ enter: "Enter", esc: "Esc" }))}</span>
+                        <span class="toolbar-spacer" />
+                        <button
+                          type="button"
+                          class="edit-btn edit-btn-primary"
+                          onClick={commitNaming}
+                        >
+                          {t("snip.save")}
+                        </button>
+                        <button
+                          type="button"
+                          class="edit-btn edit-btn-icon"
+                          aria-label={t("snip.cancel")}
+                          title={t("snip.cancel")}
+                          onClick={() => setNaming(null)}
+                        >
+                          <Icon name="close" size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </Show>
                   <SqlEditor
                     activeId={tab().id}
                     onCursor={setEditorCursor}
                     sqlFor={sqlOfTab}
                     onChange={onEditorChange}
                     onRun={runEditor}
-                    onExplain={explainActive}
+                    onExplain={explainInPane}
+                    explainTick={explainTick()}
                     dialect={activeDialect()}
                     formatTick={formatTick()}
                     searchTick={findTick()}
@@ -5731,6 +6042,8 @@ export function App() {
                     onGoToObject={(target) => void goToObject(target)}
                     templates={editorTemplates()}
                     onLocalHistory={() => openLocalHistory(tab().id)}
+                    keyScope={settings().runKeyScope}
+                    highlightRun={settings().highlightRun}
                   />
                   </Show>
                 </div>
@@ -5751,6 +6064,18 @@ export function App() {
                   class="result-pane"
                   classList={{ "is-alt-view": !isDataTab(tab().id) && resultView(tab().id) !== "result" }}
                 >
+                  {/* An open transaction stays in sight, over whatever the pane
+                      shows, until Commit or Revertir (M14 TxManualPending). */}
+                  <Show when={txOpenCount(tabConn(tab())) !== null}>
+                    <TxBand
+                      session={txOf(tabConn(tab()))}
+                      busy={txBusy()}
+                      commitKeys={shortcutKeys("tx-commit")}
+                      rollbackKeys={shortcutKeys("tx-rollback")}
+                      onCommit={() => void endTabTx("commit")}
+                      onRollback={() => void endTabTx("rollback")}
+                    />
+                  </Show>
                   {/* What the run did or is doing (issue #691, R-01): the clock
                       while it runs, the summary or the failed line after. */}
                   <Show when={!isDataTab(tab().id)}>
@@ -5786,6 +6111,11 @@ export function App() {
                   <Show when={!isDataTab(tab().id) || (currentResult().sets?.length ?? 0) > 1}>
                     <ResultTabs
                       sets={currentResult().sets ?? []}
+                      running={
+                        currentResult().loading && currentResult().progress?.label
+                          ? { label: currentResult().progress!.label! }
+                          : null
+                      }
                       active={currentResult().activeSet ?? 0}
                       onSelect={(i) => selectSet(tab().id, i)}
                       view={isDataTab(tab().id) ? undefined : resultView(tab().id)}
@@ -5982,6 +6312,8 @@ export function App() {
                                 error={null}
                                 rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                                 gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                                 keyColumns={c().key}
                                 cellType={(r, ci) =>
                                   !identical() && c().view.changed[r]?.has(ci) ? "text" : undefined
@@ -6000,6 +6332,8 @@ export function App() {
                             error={null}
                             rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                             keyColumns={p().pk}
                           />
                         )}
@@ -6021,10 +6355,26 @@ export function App() {
                                   editorSchema(sqlSchema()),
                                   activeDialect(),
                                 )}
+                                lock={isLockError(currentResult().error)}
+                                safeBlock={
+                                  tabConn(tab()) &&
+                                  currentResult().error === t("safe.blocked", { name: tabConn(tab())!.name })
+                                    ? {
+                                        onOtherConnection: (e) => openContextMenu(e, editorConnItems(tab())),
+                                        onChangeProtection: () => {
+                                          const c = connections().find((x) => x.id === tabConn(tab())?.defId);
+                                          if (c) onEditConnection(c);
+                                        },
+                                      }
+                                    : undefined
+                                }
+                                onLockTab={lockHolderTab(tab()) ? () => selectTab(lockHolderTab(tab())!.id) : undefined}
                               />
                             }
                             rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                             emptyState={
                               <EmptyState
                                 recentTables={recentTables()}
@@ -6115,6 +6465,8 @@ export function App() {
                               error={null}
                               rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                               gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                               cellType={(r, c) => (c >= 2 ? tv().types[r] : undefined)}
                             />
                             <Show when={tv().capped}>
@@ -6195,6 +6547,7 @@ export function App() {
                     <Show when={detailData()}>
                       {(d) => (
                         <RowDetail
+                          display={gridDisplay()}
                           columns={d().res.columns}
                           row={d().res.rows[d().idx]}
                           rowIndex={d().idx}
@@ -6311,6 +6664,10 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     connName={toolConn()?.name ?? ""}
                     engine={activeDialect()}
+                    onOpenSql={(sql) => openSqlInNewTab(sql, undefined, undefined, tt().connDefId)}
+                    onSlowQueries={() =>
+                      showTool("slowQueries", t("tool.slow.tab"), { key: "slow", connDefId: tt().connDefId })
+                    }
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -6452,6 +6809,7 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb()}
+                    request={(tt().params as { request?: SearchRequest } | undefined)?.request}
                     onOpen={(sql, table) => openSearchMatches(sql, table, tt().connDefId)}
                   />
                 </Match>
@@ -6486,6 +6844,8 @@ export function App() {
                     entries={history()}
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}
+                    connId={activeDefId() ?? undefined}
+                    toggleKeys={keysOf("toggle-history", shortcuts(), currentOs())}
                     onRun={runFromHistory}
                     onInsert={insertFromHistory}
                     onOpen={(sql) => openSqlInNewTab(sql)}
@@ -6506,8 +6866,10 @@ export function App() {
                 <Match when={tt().tool === "snippets"}>
                   <SnippetsPanel
                     entries={snippets()}
+                    selectId={(tt().params as { id?: string } | undefined)?.id}
                     onOpen={openSnippet}
                     onInsert={insertSnippet}
+                    onRun={(snip) => runFromHistory(snip.body)}
                     onRename={renameSnip}
                     onSetAbbr={setSnipAbbr}
                     onDuplicate={duplicateSnip}
@@ -6542,6 +6904,9 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     notebookId={(tt().params as { notebookId?: string } | undefined)?.notebookId}
                     engine={activeDialect()}
+                    connections={openConns()
+                      .filter((o) => !o.lost)
+                      .map((o) => ({ connId: o.connId, name: o.name, driver: o.driver }))}
                     onChart={(result) =>
                       showTool("chart", t("tab.chart"), { key: "chart", params: { result } })
                     }
@@ -6569,6 +6934,7 @@ export function App() {
                       closeTool(tt().id);
                       runFromHistory(sql);
                     }}
+                    onOpen={(sql) => openSqlInNewTab(sql, undefined, undefined, tt().connDefId)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -6623,6 +6989,8 @@ export function App() {
                 <Match when={tt().tool === "settings"}>
                   <SettingsPanel
                     goTo={settingsGoTo()}
+                    onCheckUpdate={() => updateStatus(APP_VERSION)}
+                    onShowUpdate={setUpdate}
                     theme={theme()}
                     onSetTheme={applyThemePref}
                     themeId={themeId()}
@@ -6647,7 +7015,18 @@ export function App() {
                   />
                 </Match>
                 <Match when={tt().tool === "help"}>
-                  <ShortcutsHelp isMac={isMac()} shortcuts={shortcuts()} onClose={() => closeTool(tt().id)} />
+                  <ShortcutsHelp
+                    isMac={isMac()}
+                    shortcuts={shortcuts()}
+                    customized={new Set(Object.keys(shortcutOverrides()) as ActionId[])}
+                    onCustomize={() =>
+                      {
+                        showTool("settings", t("common.settings"), { key: "settings" });
+                        setSettingsGoTo({ category: "shortcuts" });
+                      }
+                    }
+                    onClose={() => closeTool(tt().id)}
+                  />
                 </Match>
               </Switch>
               </ToolTabContext.Provider>
@@ -6856,13 +7235,43 @@ export function App() {
         </Toast>
       </Show>
 
+      <Show when={renaming()}>
+        {(r) => (
+          <Dialog
+            title={t("tabmenu.renameTitle")}
+            size="sm"
+            onCancel={() => setRenaming(null)}
+            primary={{
+              label: t("tabmenu.renameOk"),
+              onClick: () => {
+                setTabs((s) => renameTab(s, r().id, r().name));
+                setRenaming(null);
+              },
+            }}
+          >
+            <label class="dlg-field">
+              <span>{t("tabmenu.renameLabel")}</span>
+              <input
+                class="td-in"
+                type="text"
+                data-autofocus
+                autocomplete="off"
+                value={r().name}
+                onInput={(e) => setRenaming((x) => (x ? { ...x, name: e.currentTarget.value } : x))}
+              />
+            </label>
+          </Dialog>
+        )}
+      </Show>
+
       <Show when={txPrompt()}>
         {(conn) => (
           <ConfirmDialog
             title={t("tx.closeTitle")}
-            message={countText("tx.closeMessage", txOf(conn()).statements, { name: conn().name })}
-            confirmLabel={t("tx.rollback")}
-            altLabel={t("tx.commit")}
+            message={t("tx.closeMessage", { name: conn().name })}
+            sql={(txOf(conn()).log ?? []).map((e) => e.sql).join("\n") || undefined}
+            confirmLabel={t("tx.closeRollback")}
+            altLabel={t("tx.closeCommit")}
             busy={txBusy()}
             error={txPromptError()}
             onConfirm={() => void settleTxPrompt("rollback")}
@@ -6922,7 +7331,7 @@ export function App() {
               ? t("snip.palettePlaceholder")
               : undefined
         }
-        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", shiftEnter: "Shift+Enter", modEnter: "Mod+Enter" })) : undefined}
+        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", modEnter: "Mod+Enter", altEnter: "Alt+Enter", esc: "Escape" })) : undefined}
         emptySetLabel={
           paletteMode() === "snippets" ? t("snip.paletteEmptySet") : undefined
         }

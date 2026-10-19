@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
+import type { DisplayOptions } from "../../src/utils/gridDisplay";
 import { ResultGrid } from "../../src/components/ResultGrid";
 import type { ResultSet } from "../../src/utils/query";
 import type { GridStyle } from "../../src/utils/settings";
@@ -8,7 +9,7 @@ import type { GridStyle } from "../../src/utils/settings";
 // The three grid styles as the grid actually draws them (issue #540).
 //
 // The case that matters most here is the last one: the report style shows
-// "1,250.00" and the cell must still HOLD 1250.00, because every path that
+// "14 feb 2023" and the cell must still HOLD 2023-02-14, because every path that
 // copies, filters, exports or edits reads the raw rows. A formatted value
 // leaking out of the grid would be a data bug dressed as typography.
 
@@ -37,7 +38,7 @@ const result: ResultSet = {
   rowsAffected: 0,
 };
 
-function mount(style: GridStyle) {
+function mount(style: GridStyle, extra: { display?: DisplayOptions; headerTypes?: boolean } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
   const [gridStyle, setGridStyle] = createSignal<GridStyle>(style);
@@ -51,6 +52,8 @@ function mount(style: GridStyle) {
           error={null}
           gridStyle={gridStyle()}
           keyColumns={["id"]}
+          display={extra.display}
+          headerTypes={extra.headerTypes}
         />
       ),
       host!,
@@ -76,9 +79,9 @@ describe("grid styles", () => {
     expect(cell(0, 3).textContent).toBe("2023-02-14");
   });
 
-  it("formats numbers and dates in Informe", () => {
+  it("writes dates out in Informe, numbers stay raw (rule 6)", () => {
     mount("informe");
-    expect(cell(0, 2).textContent).toBe("1,250.00");
+    expect(cell(0, 2).textContent).toBe("1250.00");
     expect(cell(0, 3).textContent).toBe("14 feb 2023");
   });
 
@@ -96,9 +99,9 @@ describe("grid styles", () => {
 
   it("switches style without reloading the result", () => {
     const { setGridStyle } = mount("registro");
-    expect(cell(0, 2).textContent).toBe("1250.00");
+    expect(cell(0, 3).textContent).toBe("2023-02-14");
     setGridStyle("informe");
-    expect(cell(0, 2).textContent).toBe("1,250.00");
+    expect(cell(0, 3).textContent).toBe("14 feb 2023");
     // Same rows, still two of them: nothing was re-fetched or dropped.
     expect(host!.querySelectorAll(".grid-rows .grid-row").length).toBe(2);
   });
@@ -117,5 +120,28 @@ describe("grid styles", () => {
     expect(key.querySelector("svg")).not.toBeNull();
     expect(key.textContent).not.toContain("🔑");
     expect(key.querySelector(".visually-hidden")!.textContent).toBeTruthy();
+  });
+});
+
+describe("grid display settings (Ajustes › Rejilla)", () => {
+  it("shows numbers the regional way when chosen, keeping the raw value in the tooltip", () => {
+    mount("registro", { display: { numbers: "regional", locale: "es" } });
+    expect(cell(0, 2).textContent).toBe("1.250,00");
+    expect(cell(0, 2).title).toBe("1250.00");
+    expect(cell(0, 0).textContent).toBe("1");
+  });
+
+  it("writes NULL as the chosen text", () => {
+    mount("registro", { display: { nullText: "(nulo)" } });
+    expect(cell(1, 2).textContent).toBe("(nulo)");
+  });
+
+  it("drops the type line under the column names when asked", () => {
+    mount("registro");
+    expect(host!.querySelectorAll(".col-type").length).toBe(4);
+    dispose?.();
+    host?.remove();
+    mount("registro", { headerTypes: false });
+    expect(host!.querySelector(".col-type")).toBeNull();
   });
 });

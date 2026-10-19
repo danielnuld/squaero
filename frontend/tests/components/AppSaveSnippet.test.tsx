@@ -133,6 +133,25 @@ describe("Saving a query as a snippet from the editor", () => {
     expect(stored()).toEqual([]);
   });
 
+  it("saves and cancels with the band's own buttons too (M14 SnippetSaveInline)", () => {
+    const view = mount();
+    view.dispatch({ changes: { from: 0, insert: "SELECT * FROM cuadernos" } });
+    saveButton().click();
+    const band = host!.querySelector('[role="form"]')!;
+    expect(band.getAttribute("aria-label")).toBe("Guardar como snippet");
+    (band.querySelector('[aria-label="Cancelar (Esc)"]') as HTMLButtonElement).click();
+    expect(nameField()).toBeNull();
+    expect(stored()).toEqual([]);
+    saveButton().click();
+    const save = [...host!.querySelectorAll<HTMLButtonElement>('[role="form"] button')].find(
+      (b) => b.textContent === "Guardar",
+    )!;
+    expect(save.classList.contains("edit-btn-primary")).toBe(true);
+    save.click();
+    expect(stored()).toHaveLength(1);
+    expect(nameField()).toBeNull();
+  });
+
   it("never overwrites a snippet that already has the name", () => {
     const view = mount();
     view.dispatch({ changes: { from: 0, insert: "SELECT * FROM cuadernos" } });
@@ -182,7 +201,12 @@ describe("The snippet palette (Ctrl+J)", () => {
     const groups = [...host!.querySelectorAll(".cmdk-group-label")].map((g) => g.textContent);
     expect(groups).toEqual(["Snippets"]);
     expect(host!.querySelector(".cmdk-preview")?.textContent).toBe("SELECT * FROM cuadernos");
-    expect(host!.querySelector(".cmdk-footer")?.textContent).toContain("Mayús+Intro");
+    expect(host!.querySelector(".cmdk-footer")?.textContent).toContain("Ctrl+Intro ejecutar");
+    expect(host!.querySelector(".cmdk-footer")?.textContent).toContain("Alt+Intro insertar en el cursor");
+    // The preview pane carries the snippet's actions.
+    expect(
+      [...host!.querySelectorAll(".cmdk-preview-actions button")].map((b) => b.textContent),
+    ).toEqual(["Editar…", "Insertar", "Ejecutar", "Abrir"]);
   });
 
   it("says the set is empty instead of showing an empty list", () => {
@@ -219,7 +243,7 @@ describe("The snippet palette (Ctrl+J)", () => {
     expect(selectedTabName()).toBe("cuadernos");
   });
 
-  it("inserts at the cursor with Ctrl+Enter, the explicit ask", () => {
+  it("inserts at the cursor with Alt+Enter, the explicit ask", () => {
     seed();
     const view = mount();
     view.dispatch({ changes: { from: 0, insert: "SELECT 1; " } });
@@ -228,7 +252,7 @@ describe("The snippet palette (Ctrl+J)", () => {
     ctrlJ();
     host!
       .querySelector(".cmdk-input")!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }));
 
     expect(view.state.doc.toString()).toBe("SELECT 1; SELECT * FROM cuadernos");
     expect(tabNames()).toEqual(["Consulta 1"]); // no new tab for an insertion

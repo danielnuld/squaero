@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  notesByDay,
   pushNote,
   unreadCount,
   serializeNotes,
@@ -100,5 +101,59 @@ describe("persistence", () => {
     saveNotes(store, { notes: pushNote([], { at: 5, level: "warn", text: "w" }), seenAt: 1 });
     expect(map.has(NOTES_KEY)).toBe(true);
     expect(loadNotes(store, 5).notes[0].text).toBe("w");
+  });
+});
+
+describe("rich notes (M14 Notifications)", () => {
+  it("keeps the title, detail and action, and an echo of the same text keeps them", () => {
+    let notes = pushNote([], {
+      at: 1,
+      level: "error",
+      text: "No se pudo conectar",
+      title: "No se pudo conectar a «P»",
+      detail: "timeout",
+      action: { kind: "retry", connDefId: "k1" },
+    });
+    notes = pushNote(notes, { at: 2, level: "error", text: "No se pudo conectar" });
+    expect(notes).toEqual([
+      {
+        id: 1,
+        at: 2,
+        level: "error",
+        text: "No se pudo conectar",
+        title: "No se pudo conectar a «P»",
+        detail: "timeout",
+        action: { kind: "retry", connDefId: "k1" },
+      },
+    ]);
+  });
+
+  it("persists a retry but not a result, which points at a tab of that session", () => {
+    const now = Date.now();
+    let notes = pushNote([], { at: now, level: "error", text: "a", action: { kind: "retry", connDefId: "k1" } });
+    notes = pushNote(notes, { at: now, level: "ok", text: "b", title: "B", action: { kind: "result", tabId: 3 } });
+    const back = parseNotes(serializeNotes({ notes, seenAt: 0 }), now);
+    expect(back.notes.find((n) => n.text === "a")!.action).toEqual({ kind: "retry", connDefId: "k1" });
+    expect(back.notes.find((n) => n.text === "b")).toEqual({ id: 2, at: now, level: "ok", text: "b", title: "B" });
+  });
+
+  it("drops a malformed action on load", () => {
+    const raw = JSON.stringify({ seenAt: 0, notes: [{ id: 1, at: Date.now(), level: "ok", text: "x", action: { kind: "boom" } }] });
+    expect(parseNotes(raw, Date.now()).notes[0].action).toBeUndefined();
+  });
+});
+
+describe("notesByDay", () => {
+  const at = (d: number, h: number) => new Date(2026, 9, d, h, 0, 0).getTime();
+  it("groups by local day: today, yesterday, then each date, newest first", () => {
+    const now = at(19, 12);
+    const n = (id: number, ms: number) => ({ id, at: ms, level: "ok" as const, text: String(id) });
+    const groups = notesByDay([n(1, at(17, 9)), n(2, at(18, 23)), n(3, at(19, 0)), n(4, at(19, 11))], now);
+    expect(groups.map((g) => [g.day.kind, g.notes.map((x) => x.id)])).toEqual([
+      ["today", [4, 3]],
+      ["yesterday", [2]],
+      ["date", [1]],
+    ]);
+    expect(groups[2].day).toEqual({ kind: "date", at: new Date(2026, 9, 17).getTime() });
   });
 });

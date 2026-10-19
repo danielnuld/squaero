@@ -1,7 +1,13 @@
-import { countText } from "../utils/confirmText";
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { Panel } from "./Panel";
+import { ResultGrid } from "./ResultGrid";
+import { Segmented } from "./Segmented";
+import { SqlHighlight } from "./SqlHighlight";
+import { EmptyNote } from "./EmptyNote";
+import { runQuery, type ResultSet } from "../utils/query";
+import { cancelQuery } from "../utils/transport";
+import { countText } from "../utils/confirmText";
 import { schemaTree, schemaDescribe, parseTreeRows } from "../utils/schema";
 import { errorText } from "../utils/errors";
 import { copyText } from "../utils/rowCopy";
@@ -15,7 +21,6 @@ import {
   type QuerySpec,
 } from "../utils/queryBuilder";
 import { t } from "../utils/i18n";
-import { currentOs, orderActions } from "../utils/dialog";
 import { Icon } from "./icons";
 import { Dropdown } from "./Dropdown";
 
@@ -78,11 +83,20 @@ async function loadTableList(connId: string, db: string | undefined, max = MAX_T
 // ORDER BY and LIMIT from a form; a live SQL preview (buildSelect, per engine) is
 // runnable in a new query tab. The SQL generation is the pure helper in
 // utils/queryBuilder.ts; this component is the form that feeds it.
+//
+// P6 (prototype QueryBuilder): the bar runs it, stops the preview, opens the
+// SQL in the editor WITHOUT running it, copies it and clears the form; AND/OR
+// and Asc/Desc are segmented; the SQL is highlighted; and a preview grid
+// re-reads up to PREVIEW_ROWS rows a moment after the form stops changing.
+const PREVIEW_ROWS = 100;
+const PREVIEW_DELAY_MS = 400;
 export function QueryBuilder(props: {
   connId: string;
   engine: string;
   db?: string;
   onRun: (sql: string) => void;
+  /** Open the SQL in a new query tab without running it. */
+  onOpen?: (sql: string) => void;
   onClose: () => void;
 }) {
   const [tables, setTables] = createSignal<TableRef[]>([]);
@@ -109,6 +123,52 @@ export function QueryBuilder(props: {
     limit: limit(),
   }));
   const sql = createMemo(() => buildSelect(props.engine, spec()));
+
+  // The preview: read a moment after the form settles, capped by the core.
+  const [preview, setPreview] = createSignal<ResultSet | null>(null);
+  const [previewMs, setPreviewMs] = createSignal<number | null>(null);
+  const [previewError, setPreviewError] = createSignal<string | null>(null);
+  const [previewing, setPreviewing] = createSignal(false);
+  let previewToken = 0;
+  createEffect(() => {
+    const q = sql();
+    const connId = props.connId;
+    const my = ++previewToken;
+    setPreviewError(null);
+    if (!q) {
+      setPreview(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setPreviewing(true);
+      const started = performance.now();
+      try {
+        const res = await runQuery(connId, q, PREVIEW_ROWS);
+        if (my !== previewToken) return;
+        setPreview(res);
+        setPreviewMs(Math.round(performance.now() - started));
+      } catch (err) {
+        if (my === previewToken) setPreviewError(errorText(err));
+      } finally {
+        if (my === previewToken) setPreviewing(false);
+      }
+    }, PREVIEW_DELAY_MS);
+    onCleanup(() => clearTimeout(timer));
+  });
+  const stopPreview = () => {
+    previewToken++;
+    setPreviewing(false);
+    void cancelQuery(props.connId).catch(() => {});
+  };
+
+  const clearForm = () => {
+    setSelCols(produce((s) => Object.keys(s).forEach((k) => delete s[k])));
+    setConds([]);
+    setConjunction("AND");
+    setOrderCol("");
+    setOrderDir("ASC");
+    setLimit(null);
+  };
 
   const selectTable = async (key: string) => {
     setTableKey(key);
@@ -158,9 +218,48 @@ export function QueryBuilder(props: {
       title={t("tool.qb.label")}
       class="qb"
       onClose={props.onClose}
+      actions={
+        <Show when={!loading() && tables().length > 0}>
+          <button
+            type="button"
+            class="edit-btn edit-btn-primary"
+            disabled={!sql()}
+            title={t("qb.runTitle")}
+            onClick={() => props.onRun(sql())}
+          >
+            {t("editor.run")}
+          </button>
+          <button
+            type="button"
+            class="edit-btn"
+            disabled={!previewing()}
+            title={previewing() ? t("qb.stopTitle") : t("qb.stopIdle")}
+            onClick={stopPreview}
+          >
+            {t("qb.stop")}
+          </button>
+          <Show when={props.onOpen}>
+            <button
+              type="button"
+              class="edit-btn"
+              disabled={!sql()}
+              title={t("qb.openTitle")}
+              onClick={() => props.onOpen!(sql())}
+            >
+              {t("qb.open")}
+            </button>
+          </Show>
+          <button type="button" class="edit-btn" disabled={!sql()} onClick={() => copyText(sql())}>
+            {t("qb.copy")}
+          </button>
+          <button type="button" class="edit-btn" onClick={clearForm}>
+            {t("qb.clear")}
+          </button>
+        </Show>
+      }
       status={
         <Show when={!loading() && tables().length > 0}>
-          {countText("qb.tableCount", tables().length)}
+          {countText("qb.tables", tables().length)}
         </Show>
       }
     >
@@ -173,8 +272,10 @@ export function QueryBuilder(props: {
       <Show when={!loading()} fallback={<p class="grid-empty">{t("qb.loadingTables")}</p>}>
         <Show
           when={tables().length > 0}
-          fallback={<p class="grid-empty">{t("qb.noTables")}</p>}
+          fallback={<EmptyNote title={t("qb.noTables")} />}
         >
+          <div class="qb-layout">
+          <div class="qb-form">
           <label class="field">
             <span>{t("qb.table")}</span>
             <Dropdown
@@ -190,7 +291,9 @@ export function QueryBuilder(props: {
           </Show>
 
           <div class="qb-section">
-            <div class="import-subtitle">{t("qb.columns")}</div>
+            <div class="import-subtitle">
+              {t("qb.columnsOf", { n: columns().filter((c) => selCols[c]).length, m: columns().length })}
+            </div>
             <div class="qb-cols">
               <For each={columns()}>
                 {(c) => (
@@ -210,11 +313,14 @@ export function QueryBuilder(props: {
           <div class="qb-section">
             <div class="import-subtitle">
               {t("qb.conditions")}
-              <Dropdown
+              <Segmented
+                label={t("qb.combine")}
                 value={conjunction()}
-                options={[{ value: "AND", label: t("qb.and") }, { value: "OR", label: t("qb.or") }]}
-                onChange={(v) => setConjunction(v as "AND" | "OR")}
-                class="map-select qb-conj"
+                options={[
+                  { value: "AND" as const, label: t("qb.and") },
+                  { value: "OR" as const, label: t("qb.or") },
+                ]}
+                onChange={setConjunction}
               />
             </div>
             <For each={conds}>
@@ -266,11 +372,14 @@ export function QueryBuilder(props: {
               />
             </label>
             <Show when={orderCol()}>
-              <Dropdown
+              <Segmented
+                label={t("qb.direction")}
                 value={orderDir()}
-                options={[{ value: "ASC", label: t("qb.asc") }, { value: "DESC", label: t("qb.desc") }]}
-                onChange={(v) => setOrderDir(v as "ASC" | "DESC")}
-                class="map-select"
+                options={[
+                  { value: "ASC" as const, label: t("qb.asc") },
+                  { value: "DESC" as const, label: t("qb.desc") },
+                ]}
+                onChange={setOrderDir}
               />
             </Show>
             <label class="field">
@@ -285,22 +394,34 @@ export function QueryBuilder(props: {
             </label>
           </div>
 
-          <div class="ddl-header" style={{ "margin-top": "0.6rem" }}>
-            <span>{t("qb.generatedSql")}</span>
           </div>
-          <pre class="ddl-text qb-preview">{sql() || "—"}</pre>
-
-          <div class="panel-foot">
-            <span class="dlg-actions">
-              {orderActions(currentOs(), [
-                <button class="btn-primary" disabled={!sql()} onClick={() => props.onRun(sql())}>
-                  {t("editor.run")}
-                </button>,
-                <button class="btn" onClick={() => copyText(sql())} disabled={!sql()}>
-                  {t("editor.copy")}
-                </button>,
-              ])}
-            </span>
+          <section class="qb-output" aria-label={t("qb.outputAria")}>
+            <div class="ddl-header">
+              <span>{t("qb.generatedSql")}</span>
+              <span class="help">{t("qb.generatedHint")}</span>
+            </div>
+            <Show when={sql()} fallback={<pre class="ddl-text qb-preview">—</pre>}>
+              <SqlHighlight class="ddl-text qb-preview" sql={sql()} engine={props.engine} label={t("qb.generatedSql")} />
+            </Show>
+            <div class="ddl-header">
+              <span>{t("qb.preview")}</span>
+              <span class="help">
+                {previewing()
+                  ? t("qb.previewing")
+                  : preview()
+                    ? `${countText("qb.previewRows", preview()!.rows.length)}${previewMs() !== null ? ` · ${previewMs()} ms` : ""} · ${t("qb.previewNote", { n: PREVIEW_ROWS })}`
+                    : ""}
+              </span>
+            </div>
+            <Show when={previewError()}>
+              <div class="grid-error" role="alert">
+                {previewError()}
+              </div>
+            </Show>
+            <div class="qb-grid">
+              <ResultGrid result={preview()} loading={previewing() && !preview()} error={null} />
+            </div>
+          </section>
           </div>
         </Show>
       </Show>

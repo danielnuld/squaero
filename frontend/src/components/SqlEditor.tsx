@@ -1,5 +1,5 @@
-import { onCleanup, onMount, createEffect, createMemo } from "solid-js";
-import { keyLabel } from "../utils/shortcuts";
+import { onCleanup, onMount, createEffect, createMemo, on } from "solid-js";
+import { keyLabel, keyParams } from "../utils/shortcuts";
 import { EditorState, Compartment, RangeSet, StateEffect, StateField, type Text } from "@codemirror/state";
 import {
   ViewPlugin,
@@ -43,6 +43,7 @@ import {
   completionKeymap,
   completionStatus,
   startCompletion,
+  type Completion,
   type CompletionContext,
   type CompletionResult,
   type CompletionSource,
@@ -56,6 +57,9 @@ import { editorDialect } from "../utils/sqlDialect";
 import {
   errorOffset,
   pickRunTarget,
+  firstWrite,
+  keyRunScope,
+  runButtonLabel,
   runnableStatements,
   statementAt,
   type RunInfo,
@@ -65,7 +69,7 @@ import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { t } from "../utils/i18n";
 import { editorSchema } from "../utils/sqlEditor";
-import { sqlCompletions, type Completions } from "../utils/sqlComplete";
+import { completionKind, sqlCompletions, tableColumns, type Completions } from "../utils/sqlComplete";
 import { sqlDiagnostics, type SqlDiagnostic } from "../utils/sqlDiagnostics";
 import type { ForeignKeyRelation } from "../utils/foreignKeys";
 import { sqlNavigation, type ObjectTarget } from "./editorNavigation";
@@ -249,8 +253,12 @@ export function SqlEditor(props: {
       cursor; on Ctrl/Cmd+Shift+Enter: the whole script (issues #130, #691).
       `scope` says which. */
   onRun: (sql: string, scope?: RunScope) => void;
-  /** Fired on Ctrl/Cmd+Shift+E to show the query plan (EXPLAIN, issue #131). */
-  onExplain?: () => void;
+  /** Fired on Ctrl/Cmd+Shift+E, or an `explainTick`, to show the plan (EXPLAIN,
+      issue #131) of what a run would execute now: the selection, else the
+      statement under the cursor — not the whole script (M14). */
+  onExplain?: (sql: string) => void;
+  /** Bumping this number asks for the plan of the current statement. */
+  explainTick?: number;
   /** Active engine name, used to pick the SQL dialect when formatting. */
   dialect?: string;
   /** Bumping this number requests a format of the current document. */
@@ -303,6 +311,11 @@ export function SqlEditor(props: {
   /** Templates in force (issue #665): an abbreviation + Tab, or picking it from
       the completion list, expands it with Tab-navigable placeholders. */
   templates?: SqlTemplate[];
+  /** What Ctrl/Cmd+Enter runs with nothing selected (Ajustes › Editor):
+      the statement under the cursor (default) or the whole script. */
+  keyScope?: "statement" | "script";
+  /** Highlight the statement the next run will execute; on unless false. */
+  highlightRun?: boolean;
   /** Opens this tab's local history (issue #674); the menu offers it when given. */
   onLocalHistory?: () => void;
 }) {
@@ -336,9 +349,13 @@ export function SqlEditor(props: {
       },
       statements: runnableStatements(doc, props.dialect).length,
     };
+    const write = firstWrite(doc, props.dialect);
+    info.firstWrite = write && { verb: write.verb, line: state.doc.lineAt(write.from).number };
     // Highlighted only when it tells something: a selection is already shown,
     // and a lone statement is the whole editor.
     const marks =
+      props.highlightRun !== false &&
+      props.keyScope !== "script" &&
       info.statement && !info.hasSelection && info.statements > 1
         ? lineMarks(state.doc, info.statement.first, info.statement.last, runLine, runGutter)
         : noMarks;
@@ -388,14 +405,52 @@ export function SqlEditor(props: {
     }
     return lastAsk!.out;
   };
+  // A table's suggestion opens its columns beside the list (M14
+  // EditorAutocomplete), when the schema knows them — nothing is guessed.
+  const tableInfo = (c: Completion): Node | null => {
+    if (completionKind(c) !== "complete.kind.table") return null;
+    const cols = tableColumns(schemaNow(), c.label);
+    if (!cols) return null;
+    const box = document.createElement("div");
+    box.className = "cm-info-table";
+    const head = document.createElement("div");
+    head.className = "cm-info-head";
+    head.textContent = c.label;
+    const kind = document.createElement("span");
+    kind.className = "cm-info-kind";
+    kind.textContent = cols.length === 1 ? t("complete.tableInfoOne") : t("complete.tableInfo", { n: cols.length });
+    head.append(" ", kind);
+    const list = document.createElement("ul");
+    for (const col of cols) {
+      const li = document.createElement("li");
+      li.textContent = col;
+      list.append(li);
+    }
+    box.append(head, list);
+    return box;
+  };
+  const withInfo = <R extends CompletionResult | null>(r: R): R =>
+    r && ({ ...r, options: r.options.map((o) => (o.info ? o : { ...o, info: tableInfo })) } as R);
   const semanticSource: CompletionSource = (ctx) => {
     const r = semantic(ctx);
-    return r && ({ ...r, validFor: /^[\p{L}\p{N}_$]*$/u } as CompletionResult);
+    return withInfo(r && ({ ...r, validFor: /^[\p{L}\p{N}_$]*$/u } as CompletionResult));
   };
-  const fallbackSource = (i: number): CompletionSource => (ctx) => {
+  const fallbackSource = (i: number): CompletionSource => async (ctx) => {
     if (semantic(ctx)) return null;
     const src = ctx.state.languageDataAt<CompletionSource>("autocomplete", ctx.pos)[i];
-    return typeof src === "function" ? src(ctx) : null;
+    return typeof src === "function" ? withInfo(await src(ctx)) : null;
+  };
+  // What each suggestion is, in words, at the end of its row.
+  const kindColumn = {
+    render: (c: Completion) => {
+      const key = completionKind(c);
+      if (!key) return null;
+      const el = document.createElement("span");
+      el.className = "cm-completionKind";
+      el.textContent = t(key);
+      return el;
+    },
+    position: 90,
   };
 
   // Diagnostics run once typing settles, and again when the schema they read
@@ -476,8 +531,16 @@ export function SqlEditor(props: {
     if (!view) return;
     const { doc, selection } = view.state;
     const { from, to } = selection.main;
-    const target = pickRunTarget(doc.toString(), from, to, scope, props.dialect);
+    const want = scope ?? keyRunScope(from !== to, props.keyScope);
+    const target = pickRunTarget(doc.toString(), from, to, want, props.dialect);
     props.onRun(target.text, target.scope);
+  };
+
+  const explainFromView = () => {
+    if (!view) return;
+    const { doc, selection } = view.state;
+    const { from, to } = selection.main;
+    props.onExplain?.(pickRunTarget(doc.toString(), from, to, undefined, props.dialect).text);
   };
 
   const emitCursor = (state: EditorState) => {
@@ -514,7 +577,11 @@ export function SqlEditor(props: {
           closeBrackets(),
           indentOnInput(),
           // lang-sql registers two sources: schema names, then keywords.
-          autocompletion({ override: [semanticSource, fallbackSource(0), fallbackSource(1), templateSource] }),
+          autocompletion({
+            override: [semanticSource, fallbackSource(0), fallbackSource(1), templateSource],
+            icons: false,
+            addToOptions: [kindColumn],
+          }),
           diagnosticsField,
           diagnosticHover,
           runField,
@@ -557,7 +624,7 @@ export function SqlEditor(props: {
               key: "Mod-Shift-e",
               preventDefault: true,
               run: () => {
-                props.onExplain?.();
+                explainFromView();
                 return true;
               },
             },
@@ -657,6 +724,16 @@ export function SqlEditor(props: {
   // Toolbar Run requests arrive as a bumped counter and run what was asked —
   // without a scope, exactly what Ctrl/Cmd+Enter would. The editor keeps its
   // selection when focus moves to the button, so runFromView still sees it.
+  // A change of what is highlighted (Ajustes › Editor) redraws the marks now:
+  // the field only recomputes on an edit or a cursor move.
+  createEffect(
+    on(
+      () => [props.highlightRun, props.keyScope],
+      () => view?.dispatch({ selection: view.state.selection }),
+      { defer: true },
+    ),
+  );
+
   let lastRunTick = props.runRequest?.tick ?? 0;
   createEffect(() => {
     const req = props.runRequest;
@@ -703,6 +780,14 @@ export function SqlEditor(props: {
     const { from, to } = selection.main;
     const target = pickRunTarget(doc.toString(), from, to, undefined, props.dialect);
     props.onSaveRequest?.(target.text, target.scope);
+  });
+
+  let lastExplainTick = props.explainTick ?? 0;
+  createEffect(() => {
+    const tick = props.explainTick ?? 0;
+    if (tick === lastExplainTick) return;
+    lastExplainTick = tick;
+    explainFromView();
   });
 
   // Find requests (Ctrl/Cmd+F) arrive as a bumped counter: focus the editor and
@@ -769,7 +854,7 @@ export function SqlEditor(props: {
     return [
       { label: t("editor.format"), action: doFormat, disabled: !hasText },
       {
-        label: hasSelection ? t("editor.runSelection") : t("editor.runStatement"),
+        label: t(runButtonLabel({ hasSelection, statement: null, statements: 0 }, props.keyScope)),
         action: () => runFromView(),
         disabled: !hasText,
       },
@@ -799,6 +884,13 @@ export function SqlEditor(props: {
   };
 
   return (
-    <div class="editor" ref={host} onContextMenu={(e) => openContextMenu(e, editorMenu(e))} />
+    <div
+      class="editor"
+      ref={host}
+      // The completion list's key hints (M14 EditorAutocomplete): CodeMirror has
+      // no footer, so its stylesheet draws this string under the list.
+      style={{ "--complete-footer": JSON.stringify(t("complete.footer", keyParams({ enter: "Enter", tab: "Tab", esc: "Esc" }))) }}
+      onContextMenu={(e) => openContextMenu(e, editorMenu(e))}
+    />
   );
 }

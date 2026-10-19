@@ -1172,3 +1172,55 @@ describe("ObjectTree introspection cache (issue #675)", () => {
     expect(marker()).toBeFalsy();
   });
 });
+
+describe("ObjectTree reveal (M14 «Mostrar en el explorador»)", () => {
+  it("opens the levels above a loaded node and makes it the active row", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; params: any };
+      const leaf = !!req.params?.db;
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: {
+          columns: leaf
+            ? [{ name: "name", type: "text" }, { name: "type", type: "text" }]
+            : [{ name: "name", type: "text" }],
+          rows: leaf ? [["clientes", "table"], ["pedidos", "table"]] : [["main"]],
+          truncated: false,
+          rowsAffected: 0,
+        },
+      };
+    };
+    let loaded: { key: string; label: string }[] = [];
+    const [reveal, setReveal] = createSignal<{ key: string; tick: number } | undefined>(undefined);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ObjectTree
+            connId="c1"
+            onOpenData={() => {}}
+            onOpenStructure={() => {}}
+            onObjectsLoaded={(n) => (loaded = n)}
+            reveal={reveal()}
+          />
+        ),
+        host!,
+      );
+    });
+    await flush();
+    const row = (label: string) =>
+      [...host!.querySelectorAll<HTMLElement>('[role="treeitem"]')].find((r) => r.getAttribute("aria-label") === label);
+    row("main")!.click(); // expand: loads the tables
+    await flush();
+    row("main")!.click(); // and fold it again
+    await flush();
+    expect(row("clientes")).toBeUndefined();
+    const key = loaded.find((n) => n.label === "pedidos")!.key;
+    setReveal({ key, tick: 1 });
+    await flush();
+    expect(row("pedidos")!.getAttribute("aria-selected")).toBe("true");
+  });
+});

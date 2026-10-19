@@ -72,17 +72,35 @@ export async function checkForUpdate(
   current: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<UpdateInfo | null> {
-  if (!current || current === "dev") return null;
+  const r = await updateStatus(current, fetchImpl);
+  return r.kind === "newer" ? r.info : null;
+}
+
+/** What an explicit check found (Ajustes › Acerca de, M14 SettingsAbout). */
+export type UpdateStatus =
+  | { kind: "newer"; info: UpdateInfo }
+  | { kind: "current" }
+  /** A development build has no version to compare. */
+  | { kind: "dev" }
+  /** No answer worth trusting: offline, GitHub down, a malformed reply. */
+  | { kind: "failed" };
+
+/**
+ * The same check as checkForUpdate, telling «up to date» from «could not
+ * check» — the button the user pressed has to say which, not the same silence.
+ */
+export async function updateStatus(current: string, fetchImpl: typeof fetch = fetch): Promise<UpdateStatus> {
+  if (!current || current === "dev") return { kind: "dev" };
   try {
     const res = await fetchImpl(LATEST_URL, {
       headers: { Accept: "application/vnd.github+json" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { kind: "failed" };
     const info = parseLatestRelease(await res.json());
-    if (!info) return null;
-    return compareVersions(info.version, current) > 0 ? info : null;
+    if (!info) return { kind: "failed" };
+    return compareVersions(info.version, current) > 0 ? { kind: "newer", info } : { kind: "current" };
   } catch {
-    return null;
+    return { kind: "failed" };
   }
 }
 

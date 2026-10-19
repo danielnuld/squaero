@@ -18,6 +18,7 @@
 // step away: Ctrl/Cmd+Shift+Enter or the run button's menu.
 
 import { engineFamily } from "./engineFamily";
+import { classifySql } from "./safeMode";
 
 export type RunScope = "selection" | "statement" | "document";
 
@@ -296,6 +297,29 @@ export function errorOffset(doc: string, sql: string, line: number | null): numb
   return pos;
 }
 
+/**
+ * The first statement of a script that changes something (M14 EditorRunMenu):
+ * its leading verb, upper case, and where it starts. BEGIN/COMMIT/ROLLBACK end
+ * or open a transaction, they write nothing themselves. Null: the script only
+ * reads. Fail-closed like safe mode: what cannot be proven a read is a write.
+ */
+// Not txMode's classifier: it pulls in i18n, and runScope must stay DOM-free
+// (the iOS logic bundle). A transaction verb writes nothing itself.
+const TX_VERB = /^(?:begin|start\s+transaction|commit|end|rollback|abort)\b/i;
+
+export function firstWrite(doc: string, engine?: string): { verb: string; from: number } | null {
+  for (const s of splitStatements(doc, engine)) {
+    if (isCommentOnly(s.text, engine)) continue;
+    if (classifySql(s.text, engine) !== "write") continue;
+    // Past the comments and blank lines that lead the statement.
+    const body = s.text.replace(/^(?:\s|--[^\n]*|\/\*[\s\S]*?\*\/)+/, "");
+    if (TX_VERB.test(body)) continue;
+    const verb = /^[A-Za-z_]+/.exec(body)?.[0].toUpperCase() ?? body.slice(0, 12);
+    return { verb, from: s.from + s.text.length - body.length };
+  }
+  return null;
+}
+
 /** What a run would execute right now, as the editor reports it (issue #691). */
 export interface RunInfo {
   hasSelection: boolean;
@@ -303,6 +327,8 @@ export interface RunInfo {
   statement: { first: number; last: number } | null;
   /** Runnable statements in the whole document. */
   statements: number;
+  /** The script's first write: its verb and line (1-based); null/absent: none. */
+  firstWrite?: { verb: string; line: number } | null;
 }
 
 /** One entry of the run button's menu: a scope, and what it would run now. */
@@ -319,13 +345,29 @@ export interface RunChoice {
   current: boolean;
 }
 
+/**
+ * What Ctrl/Cmd+Enter (and the main button) runs: the selection when there is
+ * one, else the statement under the cursor — or the whole script, when the
+ * user chose that in Ajustes › Editor (`keyScope` "script").
+ */
+export function keyRunScope(hasSelection: boolean, keyScope: "statement" | "script" = "statement"): RunScope {
+  if (hasSelection) return "selection";
+  return keyScope === "script" ? "document" : "statement";
+}
+
 /** The label of the main run button: it always names what it will run. */
-export function runButtonLabel(info: RunInfo): string {
-  return info.hasSelection ? "editor.runSelection" : "editor.runStatement";
+export function runButtonLabel(info: RunInfo, keyScope: "statement" | "script" = "statement"): string {
+  const scope = keyRunScope(info.hasSelection, keyScope);
+  return scope === "selection"
+    ? "editor.runSelection"
+    : scope === "document"
+      ? "editor.runScript"
+      : "editor.runStatement";
 }
 
 /** The run button's menu (R-04): current statement · selection · whole script. */
-export function runChoices(info: RunInfo): RunChoice[] {
+export function runChoices(info: RunInfo, keyScope: "statement" | "script" = "statement"): RunChoice[] {
+  const current = keyRunScope(info.hasSelection, keyScope);
   const st = info.statement;
   return [
     {
@@ -336,9 +378,9 @@ export function runChoices(info: RunInfo): RunChoice[] {
         : st.first === st.last
           ? { key: "editor.scope.line", params: { n: st.first } }
           : { key: "editor.scope.lines", params: { from: st.first, to: st.last } },
-      keys: info.hasSelection ? "" : "Mod+Enter",
+      keys: current === "statement" ? "Mod+Enter" : "",
       disabled: !st,
-      current: !info.hasSelection,
+      current: current === "statement",
     },
     {
       scope: "selection",
@@ -355,9 +397,9 @@ export function runChoices(info: RunInfo): RunChoice[] {
         info.statements === 1
           ? { key: "editor.scope.statementsOne" }
           : { key: "editor.scope.statements", params: { n: info.statements } },
-      keys: "Mod+Shift+Enter",
+      keys: current === "document" ? "Mod+Enter" : "Mod+Shift+Enter",
       disabled: info.statements === 0,
-      current: false,
+      current: current === "document",
     },
   ];
 }

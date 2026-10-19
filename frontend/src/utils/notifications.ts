@@ -13,12 +13,27 @@ import type { KeyValueStore } from "./kvStore";
 
 export type NoteLevel = "info" | "ok" | "warn" | "error";
 
+/**
+ * What a note offers to do (M14 Notifications): try the connection again, or
+ * show the result of a tab that finished while another was in front. Only
+ * actions the app can honestly carry out — there is no «Mostrar en la carpeta»
+ * because the shell has no way to reveal a file.
+ */
+export type NoteAction =
+  | { kind: "retry"; connDefId: string }
+  | { kind: "result"; tabId: number };
+
 export interface Note {
   id: number;
   /** Epoch ms. */
   at: number;
   level: NoteLevel;
+  /** What the toast said; the line shown when there is no title. */
   text: string;
+  /** A short headline («No se pudo conectar a «Producción»»), with `detail` under it. */
+  title?: string;
+  detail?: string;
+  action?: NoteAction;
 }
 
 export interface NoteLog {
@@ -35,7 +50,11 @@ export const NOTES_KEY = "quaero.notifications";
 const LEVELS: readonly NoteLevel[] = ["info", "ok", "warn", "error"];
 const DAY_MS = 86_400_000;
 
-/** Adds a note at the top, folding an identical repeat of the newest one. */
+/**
+ * Adds a note at the top, folding an identical repeat of the newest one (same
+ * text and level). A repeat keeps the title, detail and action it already had
+ * unless it brings its own: the toast that echoes a richer note adds nothing.
+ */
 export function pushNote(
   notes: Note[],
   note: Omit<Note, "id">,
@@ -43,13 +62,57 @@ export function pushNote(
 ): Note[] {
   const text = note.text.trim();
   if (!text) return notes;
+  const extra: Partial<Note> = {};
+  if (note.title) extra.title = note.title;
+  if (note.detail) extra.detail = note.detail;
+  if (note.action) extra.action = note.action;
   const top = notes[0];
   if (top && top.text === text && top.level === note.level) {
-    return [{ ...top, at: note.at }, ...notes.slice(1)];
+    return [{ ...top, ...extra, at: note.at }, ...notes.slice(1)];
   }
   const id = notes.reduce((m, n) => Math.max(m, n.id), 0) + 1;
-  return [{ id, at: note.at, level: note.level, text }, ...notes].slice(0, Math.max(0, max));
+  return [{ id, at: note.at, level: note.level, text, ...extra }, ...notes].slice(0, Math.max(0, max));
 }
+
+/** The day a note belongs to, as the panel groups them: today, yesterday, or its date. */
+export type NoteDay = { kind: "today" } | { kind: "yesterday" } | { kind: "date"; at: number };
+
+/**
+ * The notes split by day (M14 Notifications: «Hoy», «Ayer», then each date),
+ * newest first, in the LOCAL calendar — a note from 00:30 is today's even when
+ * it is less than an hour after one from yesterday.
+ */
+export function notesByDay(notes: readonly Note[], now: number): { day: NoteDay; notes: Note[] }[] {
+  const startOf = (ms: number) => {
+    const d = new Date(ms);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  };
+  const today = startOf(now);
+  const yesterday = startOf(today - 1);
+  const out: { day: NoteDay; key: number; notes: Note[] }[] = [];
+  for (const n of [...notes].sort((a, b) => b.at - a.at)) {
+    const key = startOf(n.at);
+    const last = out[out.length - 1];
+    if (last && last.key === key) {
+      last.notes.push(n);
+      continue;
+    }
+    const day: NoteDay =
+      key >= today ? { kind: "today" } : key === yesterday ? { kind: "yesterday" } : { kind: "date", at: key };
+    out.push({ day, key, notes: [n] });
+  }
+  return out.map(({ day, notes: list }) => ({ day, notes: list }));
+}
+
+const isAction = (a: unknown): a is NoteAction => {
+  const x = a as NoteAction;
+  return (
+    !!x &&
+    typeof x === "object" &&
+    ((x.kind === "retry" && typeof x.connDefId === "string") ||
+      (x.kind === "result" && Number.isFinite(x.tabId)))
+  );
+};
 
 /** How many notes arrived after the history was last opened. */
 export function unreadCount(log: NoteLog): number {
@@ -85,7 +148,16 @@ export function parseNotes(raw: string | null, now: number): NoteLog {
         typeof (n as Note).text === "string",
     )
     .filter((n) => n.at >= oldest)
-    .slice(0, PERSIST_MAX);
+    .slice(0, PERSIST_MAX)
+    .map((n) => {
+      // Only the shape the panel reads; a «Ver resultado» points at a tab of
+      // the session that wrote it, which a restart does not bring back.
+      const out: Note = { id: n.id, at: n.at, level: n.level, text: n.text };
+      if (typeof n.title === "string") out.title = n.title;
+      if (typeof n.detail === "string") out.detail = n.detail;
+      if (isAction(n.action) && n.action.kind === "retry") out.action = n.action;
+      return out;
+    });
   return { notes, seenAt: Number.isFinite(d.seenAt) ? (d.seenAt as number) : 0 };
 }
 

@@ -1341,7 +1341,8 @@ body {
   color: var(--obj-table);
 }
 
-.tab-lock {
+.tab-lock,
+.tab-pin {
   display: flex;
   color: var(--text-dim);
 }
@@ -1737,11 +1738,57 @@ kbd {
   border-left-color: var(--null);
 }
 
+/* What a suggestion is, in words (M14 EditorAutocomplete), at the row's end. */
+.cm-completionKind {
+  margin-left: auto;
+  padding-left: var(--sp-4);
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+}
+.cm-tooltip-autocomplete > ul > li {
+  display: flex;
+  align-items: baseline;
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionKind,
+.cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionDetail {
+  color: inherit;
+}
+
+/* The keys that drive the list, under it. The text comes from the catalog,
+   set on the editor as --complete-footer. */
+.cm-tooltip.cm-tooltip-autocomplete::after {
+  content: var(--complete-footer);
+  display: block;
+  padding: var(--sp-1) var(--sp-2);
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
 /* The info panel shown beside a highlighted completion. */
 .cm-tooltip.cm-completionInfo {
   background: var(--bg-elev2) !important;
   border: 1px solid var(--border) !important;
   color: var(--text) !important;
+}
+.cm-info-head {
+  font-weight: 600;
+}
+.cm-info-kind {
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+.cm-info-table ul {
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
 }
 
 .editor-hint-spacer {
@@ -2674,6 +2721,13 @@ kbd {
   background: currentColor;
   border-color: currentColor;
 }
+.context-menu-note {
+  max-width: 320px;
+  padding: var(--sp-2) var(--sp-4);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  white-space: normal;
+}
 
 .context-menu-sep {
   height: 1px;
@@ -2795,6 +2849,35 @@ kbd {
 /* Keyboard-shortcuts help overlay */
 /* The pane is full width now; the table is not, or the keys column drifts an
    arm's length away from the action it belongs to. */
+/* The reference (M14 ShortcutsHelp): search and group filter, then a table
+   per group; a dot marks what the user changed. */
+.shortcuts-head,
+.shortcuts-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+.shortcuts-filters {
+  margin: var(--sp-3) 0;
+}
+.shortcuts-search {
+  min-width: 14rem;
+}
+.shortcuts-group h3 {
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+.shortcuts-custom {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  vertical-align: middle;
+}
+
 .shortcuts-list {
   width: 100%;
   max-width: 46rem;
@@ -7270,6 +7353,13 @@ button.grid-action.danger:hover:not(:disabled) {
 
 /* The line under a choice that says what the selected option actually does
    (issue #540): "Informe" does not announce that it will group thousands. */
+/* How NULL will read in the grid (R-25): dimmed and in italics. */
+.settings-null-sample {
+  color: var(--text-dim);
+  font-style: italic;
+  font-family: var(--font-grid);
+}
+
 .settings-hint {
   margin: 0;
   font-size: var(--fs-base);
@@ -7516,7 +7606,40 @@ button.grid-action.danger:hover:not(:disabled) {
   margin-bottom: var(--sp-3);
 }
 
+.settings-nav-ic {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.settings-nav-item[aria-current="true"] .settings-nav-ic {
+  color: var(--accent-text);
+}
+.settings-nav-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.settings-nav-hits-title {
+  padding: 0 var(--sp-3) var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.settings-nav-hit {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.settings-nav-hit-cat {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
 .settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
   text-align: left;
   border: 1px solid transparent;
   background: transparent;
@@ -8920,15 +9043,22 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 /* Inline "save as snippet" field, in the editor's own toolbar. */
+/* The band under the editor bar where a snippet gets its name (M14
+   SnippetSaveInline). It wraps rather than spill on a narrow window. */
 .snip-save {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3);
-  flex: 1;
-  /* No `min-width: 0` here on purpose. It let this box shrink below its own
-     content, so the bar never wrapped and the field spilled out of the window
-     instead: the automatic min-content minimum is what makes it move to a second
-     row when the buttons have taken the first. */
+  flex-shrink: 0;
+  min-height: var(--band-md);
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.snip-save-ic {
+  color: var(--text-dim);
 }
 
 .snip-save-label {
@@ -9166,7 +9296,6 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--accent);
 }
 
-.tx-open,
 .status-tx,
 .conn-tx {
   color: var(--accent);
@@ -9573,7 +9702,7 @@ ul.sidebar-tree {
   border-left: 1px solid color-mix(in srgb, var(--accent-fg) 40%, transparent);
 }
 
-/* Detener: always in its place, the danger colour only while it can act. */
+/* Detener: in the run button's place while a run goes on (M14 EditorRunning). */
 .edit-toolbar .editor-stop.is-running:not(:disabled) {
   background: var(--error);
   border-color: var(--error);
@@ -9582,6 +9711,60 @@ ul.sidebar-tree {
 
 .edit-toolbar .editor-stop.is-running:hover:not(:disabled) {
   background: color-mix(in srgb, var(--error) 85%, black);
+}
+
+/* The open-transaction band (M14 TxManualPending, A-07): amber, persistent,
+   over the results while the tab's connection holds a transaction. */
+.tx-band {
+  flex-shrink: 0;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--warn-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.tx-band-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--band-md);
+}
+.tx-band-ic {
+  color: var(--warn);
+}
+.tx-band-title {
+  font-weight: 600;
+}
+.tx-band .btn kbd {
+  margin-left: var(--sp-2);
+}
+.tx-band-list {
+  padding-bottom: var(--sp-2);
+}
+.tx-band-list summary {
+  color: var(--text-dim);
+  cursor: default;
+}
+.tx-band-list ol {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-6);
+  max-height: 160px;
+  overflow: auto;
+}
+.tx-band-list li {
+  display: flex;
+  gap: var(--sp-3);
+}
+.tx-band-list .mono {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tx-band-list .num {
+  margin-left: auto;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 /* The result panel's first line: what the run did or is doing. */
@@ -9698,6 +9881,39 @@ ul.sidebar-tree {
 
 .notes-item.level-error .notes-icon {
   color: var(--error);
+}
+
+/* M14 Notifications: day headings, title over detail, unread tinted. */
+.notes-day {
+  padding: var(--sp-3) var(--sp-5) var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.notes-item.is-unread {
+  background: var(--accent-soft);
+}
+.notes-item.is-unread .notes-text {
+  font-weight: 600;
+}
+.notes-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+}
+.notes-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  width: 100%;
+}
+.notes-detail {
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  overflow-wrap: anywhere;
 }
 
 .notes-text {
@@ -10100,4 +10316,591 @@ ul.sidebar-tree {
    own case under a style that cases labels (--label-case). The one escape. */
 [data-case="keep"] {
   text-transform: none !important;
+}
+
+.error-hints-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* Tool depth (P6). A toggle in a panel bar reads as pressed the way the
+   editor's toolbar toggles do. */
+.panel-bar .edit-btn[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* Server monitor: filter, KPI cards, grid, selected-session strip. */
+.monitor-filter {
+  width: 16rem;
+}
+
+.monitor-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-4);
+  flex: none;
+  margin-bottom: var(--sp-4);
+}
+
+.monitor-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+}
+
+.monitor-kpi-label {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.monitor-kpi-value {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.monitor-kpi.warn {
+  border-color: var(--warn);
+}
+
+.monitor-kpi.warn .monitor-kpi-label,
+.monitor-kpi.warn .monitor-kpi-value {
+  color: var(--warn);
+}
+
+.monitor-grid {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.monitor-detail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+}
+
+.monitor-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.monitor-detail-title {
+  font-weight: 600;
+}
+
+.monitor-detail-sql {
+  margin: 0;
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 6rem;
+  overflow: auto;
+}
+
+/* Slow queries: catalog note and the selected statement's detail pane. */
+.slow-source {
+  flex: none;
+  margin: 0 0 var(--sp-3);
+}
+
+.slow-detail {
+  flex: none;
+  display: flex;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-elev);
+}
+
+.slow-detail-sql {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.slow-facts {
+  flex: none;
+  width: 16rem;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-2) var(--sp-4);
+  align-content: start;
+  font-size: var(--fs-base);
+}
+
+.slow-facts dt {
+  color: var(--text-dim);
+}
+
+.slow-facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.slow-facts .slow-share-label {
+  grid-column: 1 / -1;
+  margin-top: var(--sp-2);
+}
+
+.slow-facts .slow-share {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.slow-share > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* Users: grants read as scope → privilege chips; column scope. */
+.um-raw-toggle {
+  align-self: flex-start;
+  margin-bottom: var(--sp-3);
+}
+
+.um-grants {
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.um-grant {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.um-grant + .um-grant {
+  border-top: 1px solid var(--border);
+}
+
+.um-grant-scope {
+  flex: none;
+  width: 14rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  overflow-wrap: anywhere;
+}
+
+.um-grant-privs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.um-priv-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.um-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+/* Routines and triggers: table group headings and the metadata header. */
+.routine-group {
+  padding: var(--sp-3) var(--sp-3) var(--sp-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.routine-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-6);
+  margin: 0 0 var(--sp-4);
+}
+
+.routine-meta dt {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.routine-meta dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+}
+
+/* Read-only definitions in the explorers, in the editor's colours. */
+.routine-ddl .tok-keyword {
+  color: var(--syntax-keyword);
+}
+
+.routine-ddl .tok-string,
+.routine-ddl .tok-string2 {
+  color: var(--syntax-string);
+}
+
+.routine-ddl .tok-number,
+.routine-ddl .tok-bool {
+  color: var(--syntax-number);
+}
+
+.routine-ddl .tok-comment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.routine-ddl .tok-typeName {
+  color: var(--syntax-type);
+}
+
+/* Data search: the form, and the results as a document. */
+.ds-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  gap: var(--sp-5);
+}
+
+.ds-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-height: 0;
+  overflow: auto;
+}
+
+.ds-row {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.ds-limit {
+  width: 6rem;
+}
+
+.ds-tables-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.ds-tables {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.ds-table {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.ds-table-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-results {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.ds-progress-line,
+.ds-matches-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.ds-bar {
+  height: 4px;
+  margin-top: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.ds-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.ds-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.ds-list {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+}
+
+.ds-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.ds-item .ds-table-name {
+  flex: 1;
+}
+
+.ds-item:hover:not(:disabled) {
+  background: var(--bg-elev2);
+}
+
+.ds-item[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.ds-item:disabled {
+  color: var(--text-dim);
+}
+
+.ds-matches {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+}
+
+.ds-grid {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Query builder: the form beside the SQL and its preview. */
+.qb-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(20rem, 2fr) minmax(0, 3fr);
+  gap: var(--sp-5);
+}
+
+.qb-form {
+  min-height: 0;
+  overflow: auto;
+}
+
+.qb-output {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.qb-output .ddl-header {
+  gap: var(--sp-3);
+}
+
+.qb-grid {
+  flex: 1;
+  min-height: 10rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Notebook: when it was last saved. */
+.nb-saved {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+/* History: day headings, the scope switch and the error chip. */
+.history-scope {
+  margin-bottom: var(--sp-3);
+}
+
+.history-day {
+  padding: var(--sp-3) var(--sp-2) var(--sp-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.history-error {
+  color: var(--error);
+}
+
+/* Local history: the summary and the side-by-side diff. */
+.lhist-summary {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-base);
+}
+
+.lhist-sides {
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+}
+
+.lhist-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.lhist-head {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elev);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.lhist-head > span {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.lhist-cell {
+  min-width: 0;
+  padding: 0 var(--sp-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.lhist-cell + .lhist-cell {
+  border-left: 1px solid var(--border);
+}
+
+.lhist-cell.lhist-add {
+  background: var(--ok-soft);
+}
+
+.lhist-cell.lhist-del {
+  background: var(--error-soft);
+}
+
+.lhist-no {
+  display: inline-block;
+  width: 3ch;
+  margin-right: var(--sp-3);
+  color: var(--text-faint);
+  text-align: right;
+  user-select: none;
+}
+
+/* Snippets: the keys the list answers to. */
+.snippet-keys {
+  margin: var(--sp-3) 0 0;
+}
+
+/* Users: the selected account's heading, with its delete action. */
+.um-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* Palette preview pane (P6): the snippet's name, where it runs, its body and
+   its actions. */
+.cmdk-preview-pane {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.cmdk-preview-pane .cmdk-preview {
+  flex: 1;
+  border-left: 0;
+}
+
+.cmdk-preview-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4) 0;
+}
+
+.cmdk-preview-name {
+  font-weight: 600;
+}
+
+.cmdk-preview-pane > .help {
+  padding: var(--sp-1) var(--sp-4) 0;
+}
+
+.cmdk-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.cmdk-preview-actions .btn:first-child {
+  margin-right: auto;
 }

@@ -93,3 +93,22 @@ describe("App — the previous session is offered", () => {
     expect(host!.querySelector(".restore-prompt")).toBeNull();
   });
 });
+
+describe("App — «Al abrir Squaero» (Ajustes › General)", () => {
+  it("resumes without asking when set to Retomar", () => {
+    localStorage.setItem("quaero.workspace", WORKSPACE);
+    localStorage.setItem("quaero.settings", JSON.stringify({ startup: "resume" }));
+    mount();
+    expect(host!.querySelector(".restore-prompt")).toBeNull();
+    expect(tabTitles()).toEqual(["Ventas", "Pedidos"]);
+  });
+
+  it("starts blank without asking, and keeps the saved session on disk", () => {
+    localStorage.setItem("quaero.workspace", WORKSPACE);
+    localStorage.setItem("quaero.settings", JSON.stringify({ startup: "blank" }));
+    mount();
+    expect(host!.querySelector(".restore-prompt")).toBeNull();
+    expect(tabTitles()).toEqual([]);
+    expect(localStorage.getItem("quaero.workspace")).toContain("Pedidos");
+  });
+});

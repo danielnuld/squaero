@@ -1,4 +1,3 @@
-import { countText } from "../utils/confirmText";
 import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
@@ -6,12 +5,18 @@ import {
   slowQuerySupport,
   buildSlowQuerySql,
   DEFAULT_SLOW_LIMIT,
+  slowFacts,
+  slowSourceKey,
   type SlowOrder,
 } from "../utils/slowQueries";
+import { copyText } from "../utils/rowCopy";
+import { openContextMenu } from "../utils/contextMenu";
+import { countText } from "../utils/confirmText";
+import { Segmented } from "./Segmented";
+import { EmptyNote } from "./EmptyNote";
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
-import { Dropdown } from "./Dropdown";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { resetStatsConfirm } from "../utils/confirmText";
 
@@ -23,7 +28,10 @@ import { resetStatsConfirm } from "../utils/confirmText";
 // faked result). Per row: open the statement in the editor or run EXPLAIN on it.
 // As a persistent tool tab it reloads via createEffect keyed on conn/engine/order
 // (not onMount), with a monotonic token guarding against out-of-order responses.
-// label holds an i18n key; the <option> renders it with t().
+// label holds an i18n key; the segmented control renders it with t().
+// P6: the order is a segmented choice, a note names the catalog the numbers
+// come from, and the selected statement gets a detail pane (its text with
+// Copiar, executions, latencies and its share of the listed total).
 const ORDER_OPTS: { value: SlowOrder; label: string }[] = [
   { value: "avg", label: "slow.orderAvg" },
   { value: "total", label: "slow.orderTotal" },
@@ -136,9 +144,9 @@ export function SlowQueries(props: {
           {/* Both act on the selected row (#372): the grid has no column for
               per-row buttons, and the bar is where every panel keeps actions. */}
           <button
-            class="edit-btn"
+            class="edit-btn edit-btn-primary"
             disabled={!selectedQuery()}
-            title={t("slow.openTitle")}
+            title={selectedQuery() ? t("slow.openTitle") : t("slow.pickFirst")}
             onClick={() => props.onOpenSql(selectedQuery()!)}
           >
             {t("slow.open")}
@@ -146,24 +154,37 @@ export function SlowQueries(props: {
           <button
             class="edit-btn"
             disabled={!selectedQuery()}
-            title={t("slow.explainTitle")}
+            title={selectedQuery() ? t("slow.explainTitle") : t("slow.pickFirst")}
             onClick={() => props.onExplain(selectedQuery()!)}
           >
-            EXPLAIN
+            {t("slow.explain")}
           </button>
-          <label class="sq-order">
-            {t("slow.orderBy")}
-            <Dropdown
-              value={order()}
-              options={ORDER_OPTS.map((o) => ({ value: o.value, label: t(o.label) }))}
-              onChange={(v) => setOrder(v as SlowOrder)}
-            />
-          </label>
-          <Show when={support().resetSql}>
-            <button class="edit-btn" disabled={resetting()} onClick={() => setConfirmReset(true)} title={t("slow.resetTitle")}>
-              {resetting() ? "…" : t("slow.resetStats")}
-            </button>
-          </Show>
+          <span class="sq-order">{t("slow.orderBy")}</span>
+          <Segmented
+            label={t("slow.orderBy")}
+            options={ORDER_OPTS.map((o) => ({ value: o.value, label: t(o.label) }))}
+            value={order()}
+            onChange={setOrder}
+          />
+          <button
+            class="edit-btn edit-btn-menu"
+            aria-haspopup="menu"
+            title={t("slow.moreTitle")}
+            onClick={(e) =>
+              openContextMenu(e, [
+                { label: t("slow.copyQuery"), disabled: !selectedQuery(), action: () => copyText(selectedQuery()!) },
+                { separator: true },
+                {
+                  label: support().resetSql ? t("slow.resetStatsMenu") : t("slow.resetUnsupported"),
+                  danger: true,
+                  disabled: !support().resetSql || resetting(),
+                  action: () => setConfirmReset(true),
+                },
+              ])
+            }
+          >
+            {resetting() ? "…" : t("slow.more")}
+          </button>
         </Show>
       }
       status={<Show when={support().supported}>{countText("slow.count", rows().length)}</Show>}
@@ -178,8 +199,11 @@ export function SlowQueries(props: {
 
       <Show
         when={support().supported}
-        fallback={<p class="grid-empty">{support().reason}</p>}
+        fallback={<EmptyNote title={t("slow.unsupportedTitle")} text={support().reason ?? undefined} />}
       >
+        <Show when={slowSourceKey(props.engine)}>
+          {(k) => <p class="help slow-source">{t(k())}</p>}
+        </Show>
         <ResultGrid
           result={result()}
           loading={loading()}
@@ -191,6 +215,47 @@ export function SlowQueries(props: {
             profiler), not that nothing was slow: say how to turn it on. */}
         <Show when={support().emptyHint && result() && rows().length === 0 && !loading() && !error()}>
           <p class="grid-empty">{t(support().emptyHint!)}</p>
+        </Show>
+        <Show when={selectedRow() !== null && result() && slowFacts(result()!, selectedRow()!)}>
+          {(f) => (
+            <section class="slow-detail" aria-label={t("slow.detailAria")}>
+              <div class="slow-detail-sql">
+                <div class="monitor-detail-head">
+                  <span class="monitor-detail-title">{t("slow.detailQuery")}</span>
+                  <span class="panel-bar-spacer" />
+                  <Show when={selectedQuery()}>
+                    <button type="button" class="btn" onClick={() => copyText(selectedQuery()!)}>
+                      {t("slow.copy")}
+                    </button>
+                  </Show>
+                </div>
+                <pre class="monitor-detail-sql">{selectedQuery() ?? queryText(result()!.rows[selectedRow()!]) ?? ""}</pre>
+              </div>
+              <dl class="slow-facts">
+                <dt>{t("slow.fact.calls")}</dt>
+                <dd>{f().calls ?? "—"}</dd>
+                <dt>{t("slow.fact.avg")}</dt>
+                <dd>{f().avgMs === null ? "—" : `${f().avgMs} ms`}</dd>
+                <dt>{t("slow.fact.max")}</dt>
+                <dd>{f().maxMs === null ? "—" : `${f().maxMs} ms`}</dd>
+                <dt>{t("slow.fact.total")}</dt>
+                <dd>{f().totalMs === null ? "—" : `${f().totalMs} ms`}</dd>
+                <Show when={f().share !== null}>
+                  <dt class="slow-share-label">{t("slow.fact.share", { n: f().share! })}</dt>
+                  <dd
+                    class="slow-share"
+                    role="meter"
+                    aria-label={t("slow.fact.shareAria")}
+                    aria-valuenow={f().share!}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <span style={{ width: `${f().share}%` }} />
+                  </dd>
+                </Show>
+              </dl>
+            </section>
+          )}
         </Show>
       </Show>
       <Show when={confirmReset()}>
