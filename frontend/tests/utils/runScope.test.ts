@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   splitStatements,
   pickRunTarget,
+  statementAt,
+  errorOffset,
+  runButtonLabel,
+  runChoices,
+  type RunInfo,
   isCommentOnly,
   runnableStatements,
 } from "../../src/utils/runScope";
@@ -78,36 +83,96 @@ describe("splitStatements", () => {
 describe("pickRunTarget", () => {
   it("runs the selection verbatim when one exists", () => {
     const doc = "SELECT 1; SELECT 2";
-    expect(pickRunTarget(doc, 0, 8)).toEqual({ text: "SELECT 1", scope: "selection" });
+    expect(pickRunTarget(doc, 0, 8)).toEqual({ text: "SELECT 1", scope: "selection", from: 0, to: 8 });
   });
 
   it("normalizes a reversed selection range", () => {
     const doc = "SELECT 1; SELECT 2";
-    expect(pickRunTarget(doc, 8, 0)).toEqual({ text: "SELECT 1", scope: "selection" });
+    expect(pickRunTarget(doc, 8, 0)).toEqual({ text: "SELECT 1", scope: "selection", from: 0, to: 8 });
   });
 
-  it("runs the whole document when nothing is selected", () => {
+  it("runs the only statement when nothing is selected", () => {
     const doc = "SELECT * FROM t";
-    expect(pickRunTarget(doc, 5, 5)).toEqual({ text: doc, scope: "document" });
+    expect(pickRunTarget(doc, 5, 5)).toEqual({ text: doc, scope: "statement", from: 0, to: doc.length });
   });
 
-  it("runs the WHOLE document with several statements, wherever the cursor is", () => {
-    // It used to run only the statement under the cursor, so writing three
-    // queries and pressing Ejecutar ran one of them in silence.
+  it("runs the statement under the cursor, never the others", () => {
     const doc = "SELECT 1;\nSELECT 2;\nUPDATE t SET a = 1;";
-    expect(pickRunTarget(doc, 2, 2)).toEqual({ text: doc, scope: "document" });
+    expect(pickRunTarget(doc, 2, 2).text).toBe("SELECT 1");
     const inSecond = doc.indexOf("SELECT 2") + 2;
-    expect(pickRunTarget(doc, inSecond, inSecond)).toEqual({ text: doc, scope: "document" });
-    expect(pickRunTarget(doc, doc.length, doc.length)).toEqual({ text: doc, scope: "document" });
+    expect(pickRunTarget(doc, inSecond, inSecond)).toMatchObject({ text: "SELECT 2", scope: "statement" });
+    expect(pickRunTarget(doc, doc.length, doc.length).text).toBe("UPDATE t SET a = 1");
+  });
+
+  it("the range it returns is the slice it runs", () => {
+    const doc = "  SELECT 1;\n\n  SELECT 2  ";
+    const target = pickRunTarget(doc, doc.length - 1, doc.length - 1);
+    expect(doc.slice(target.from, target.to)).toBe(target.text);
+    expect(target.text).toBe("SELECT 2");
+  });
+
+  it("runs the whole script when asked for it, selection or not", () => {
+    const doc = "SELECT 1;\nSELECT 2;";
+    expect(pickRunTarget(doc, 0, 0, "document")).toEqual({
+      text: doc,
+      scope: "document",
+      from: 0,
+      to: doc.length,
+    });
+    expect(pickRunTarget(doc, 0, 8, "document").scope).toBe("document");
+  });
+
+  it("asked for the statement, ignores a selection", () => {
+    const doc = "SELECT 1;\nSELECT 2;";
+    expect(pickRunTarget(doc, 0, 3, "statement")).toMatchObject({ text: "SELECT 1", scope: "statement" });
+  });
+
+  it("asked for a selection that is not there, runs the statement", () => {
+    expect(pickRunTarget("SELECT 1", 3, 3, "selection").scope).toBe("statement");
   });
 
   it("still runs one statement when it is the selected one", () => {
     const doc = "SELECT 1;\nSELECT 2;";
     const from = doc.indexOf("SELECT 2");
-    expect(pickRunTarget(doc, from, doc.length)).toEqual({
-      text: "SELECT 2;",
-      scope: "selection",
-    });
+    expect(pickRunTarget(doc, from, doc.length)).toMatchObject({ text: "SELECT 2;", scope: "selection" });
+  });
+
+  it("a blank document runs as a blank document (the caller rejects it)", () => {
+    expect(pickRunTarget("  \n", 1, 1)).toEqual({ text: "  \n", scope: "document", from: 0, to: 3 });
+  });
+
+  it("keeps a routine body whole as the statement under the cursor", () => {
+    const doc = "SELECT 1;\nCREATE PROCEDURE p() BEGIN SELECT 1; SELECT 2; END;";
+    const pos = doc.indexOf("SELECT 2");
+    expect(pickRunTarget(doc, pos, pos, undefined, "mysql").text).toBe(
+      "CREATE PROCEDURE p() BEGIN SELECT 1; SELECT 2; END",
+    );
+  });
+});
+
+describe("statementAt", () => {
+  const doc = "SELECT 1;\n\n-- note\nSELECT 2;";
+  const slice = (r: { from: number; to: number } | null) => (r ? doc.slice(r.from, r.to) : null);
+
+  it("finds the statement the cursor is in", () => {
+    expect(slice(statementAt(doc, doc.indexOf("SELECT 2") + 1))).toBe("-- note\nSELECT 2");
+  });
+
+  it("right after a semicolon, is the statement it closes", () => {
+    expect(statementAt(doc, doc.indexOf(";") + 1)).toEqual({ from: 0, to: 8 });
+  });
+
+  it("on a blank line between statements, is the one before", () => {
+    expect(statementAt(doc, doc.indexOf("\n\n") + 1)).toEqual({ from: 0, to: 8 });
+  });
+
+  it("before the first statement, is the first", () => {
+    expect(statementAt("\n\nSELECT 1", 0)).toEqual({ from: 2, to: 10 });
+  });
+
+  it("is null when nothing is runnable", () => {
+    expect(statementAt("", 0)).toBeNull();
+    expect(statementAt("-- only a comment", 3)).toBeNull();
   });
 });
 
@@ -255,5 +320,86 @@ describe("runnableStatements (issue #653)", () => {
   it("drops engine-specific trailing comments", () => {
     expect(runnableStatements("SELECT 1; # x", "mysql")).toEqual(["SELECT 1"]);
     expect(runnableStatements("SELECT 1; { x }", "informix")).toEqual(["SELECT 1"]);
+  });
+});
+
+describe("errorOffset", () => {
+  const doc = "SELECT 1;\nSELECT *\nFORM t\nWHERE a = 1;";
+  const stmt = "SELECT *\nFORM t\nWHERE a = 1";
+
+  it("is the start of the statement when no line is named", () => {
+    expect(errorOffset(doc, stmt, null)).toBe(doc.indexOf("SELECT *"));
+    expect(errorOffset(doc, stmt, 1)).toBe(doc.indexOf("SELECT *"));
+  });
+
+  it("is the start of the blamed line inside the statement", () => {
+    expect(errorOffset(doc, stmt, 2)).toBe(doc.indexOf("FORM"));
+    expect(errorOffset(doc, stmt, 3)).toBe(doc.indexOf("WHERE"));
+  });
+
+  it("falls back to the statement for a line past its end", () => {
+    expect(errorOffset(doc, stmt, 9)).toBe(doc.indexOf("SELECT *"));
+  });
+
+  it("finds the statement despite the whitespace trimmed off when it was sent", () => {
+    expect(errorOffset(doc, `  ${stmt}\n`, null)).toBe(doc.indexOf("SELECT *"));
+  });
+
+  it("is null when the document no longer holds it", () => {
+    expect(errorOffset(doc, "DELETE FROM t", null)).toBeNull();
+    expect(errorOffset(doc, "  ", null)).toBeNull();
+  });
+});
+
+describe("run button and its menu (R-04)", () => {
+  const info = (over: Partial<RunInfo> = {}): RunInfo => ({
+    hasSelection: false,
+    statement: { first: 2, last: 5 },
+    statements: 2,
+    ...over,
+  });
+
+  it("names the statement, or the selection when there is one", () => {
+    expect(runButtonLabel(info())).toBe("editor.runStatement");
+    expect(runButtonLabel(info({ hasSelection: true }))).toBe("editor.runSelection");
+  });
+
+  it("offers the statement under the cursor as what Ctrl+Enter runs", () => {
+    const [stmt, sel, script] = runChoices(info());
+    expect(stmt).toMatchObject({
+      scope: "statement",
+      hint: { key: "editor.scope.lines", params: { from: 2, to: 5 } },
+      keys: "Mod+Enter",
+      current: true,
+      disabled: false,
+    });
+    expect(sel).toMatchObject({ scope: "selection", disabled: true, current: false, keys: "" });
+    expect(sel.hint.key).toBe("editor.scope.noSelection");
+    expect(script).toMatchObject({
+      scope: "document",
+      hint: { key: "editor.scope.statements", params: { n: 2 } },
+      keys: "Mod+Shift+Enter",
+      current: false,
+    });
+  });
+
+  it("with a selection, Ctrl+Enter is the selection's", () => {
+    const [stmt, sel] = runChoices(info({ hasSelection: true }));
+    expect(stmt).toMatchObject({ current: false, keys: "", disabled: false });
+    expect(sel).toMatchObject({ current: true, keys: "Mod+Enter", disabled: false });
+    expect(sel.hint.key).toBe("editor.scope.selected");
+  });
+
+  it("says one line, one statement, in the singular", () => {
+    const [stmt, , script] = runChoices(info({ statement: { first: 3, last: 3 }, statements: 1 }));
+    expect(stmt.hint).toEqual({ key: "editor.scope.line", params: { n: 3 } });
+    expect(script.hint).toEqual({ key: "editor.scope.statementsOne" });
+  });
+
+  it("disables what an empty editor cannot run", () => {
+    const [stmt, sel, script] = runChoices(info({ statement: null, statements: 0 }));
+    expect(stmt).toMatchObject({ disabled: true, hint: { key: "editor.scope.nothing" } });
+    expect(sel.disabled).toBe(true);
+    expect(script.disabled).toBe(true);
   });
 });

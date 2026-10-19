@@ -154,7 +154,7 @@ test("capture the published screenshots", async ({ page }) => {
       "SELECT ciudad, COUNT(*) AS clientes FROM clientes GROUP BY ciudad ORDER BY clientes DESC",
     );
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Ejecutar", exact: true }).click();
+    await page.getByRole("button", { name: "Ejecutar sentencia", exact: true }).click();
     await expect(page.getByText("Hermosillo").first()).toBeVisible();
     await page.getByRole("button", { name: /Graficar/ }).click();
     // The chart draws into a canvas, so wait for one of its own labels. Not for the

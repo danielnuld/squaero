@@ -35,7 +35,16 @@ const mount = () => {
 const byText = (sel: string, text: string) =>
   [...host!.querySelectorAll(sel)].find((b) => b.textContent?.trim() === text) as HTMLElement;
 
-const saveButton = () => byText(".editor-hint .status-btn", "Guardar");
+/** An entry of the editor toolbar's «Más» menu (issue #691), by its label. */
+const moreItem = (label: string) => {
+  ([...host!.querySelectorAll(".editor-toolbar button")] as HTMLElement[])
+    .find((b) => b.getAttribute("aria-label")?.startsWith("Más:"))!
+    .click();
+  return ([...document.querySelectorAll(".context-menu-item")] as HTMLElement[]).find(
+    (b) => b.textContent!.replace(b.querySelector(".context-menu-hint")?.textContent ?? "", "").trim() === label,
+  ) as HTMLElement;
+};
+const saveButton = () => moreItem("Guardar como snippet");
 const nameField = () => host!.querySelector(".snip-save-input") as HTMLInputElement | null;
 const toast = () => host!.querySelector(".app-toast");
 const stored = () => parseSnippets(localStorage.getItem("quaero.snippets"));
@@ -79,7 +88,7 @@ describe("Saving a query as a snippet from the editor", () => {
     expect(stored()[0].body).toContain("FROM cuadernos");
     expect(nameField()).toBeNull();
     expect(toast()?.textContent).toContain("cuadernos");
-    expect(toast()?.textContent).toContain("documento");
+    expect(toast()?.textContent).toContain("sentencia");
   });
 
   it("puts the caret in the name field, so the hint it shows is true", () => {
@@ -229,7 +238,7 @@ describe("The snippet palette (Ctrl+J)", () => {
 // used to hit it — from the panel (which is itself a tab, so the editor is not
 // even mounted) and after closing the only query tab.
 describe("Reaching the editor from the snippets panel", () => {
-  const openPanel = () => byText(".editor-hint .status-btn", "Snippets").click();
+  const openPanel = () => moreItem("Snippets").click();
   /** "Abrir" is the detail pane's own button; the rest live in the row's menu. */
   const panelOpen = () => byText(".snippet-detail-head .primary", "Abrir").click();
   const panelInsert = () => {

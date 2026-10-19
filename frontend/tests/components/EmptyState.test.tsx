@@ -43,7 +43,8 @@ describe("EmptyState", () => {
   it("shows the shortcuts card always, and the hint when there is no data", () => {
     mount();
     expect(host!.querySelector(".empty-shortcuts")).not.toBeNull();
-    expect(host!.textContent).toContain("Ejecutar la consulta");
+    expect(host!.textContent).toContain("Ejecutar la sentencia actual, o la selección");
+    expect(host!.textContent).toContain("Ejecutar el script completo");
     expect(host!.querySelector(".empty-state-hint")).not.toBeNull();
     // No data cards.
     expect(host!.textContent).not.toContain("Tablas recientes");

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeError, errorText } from "../../src/utils/errors";
+import { describeError, errorLine, errorText } from "../../src/utils/errors";
 import { QueryError } from "../../src/utils/query";
 
 describe("describeError — domain codes", () => {
@@ -75,5 +75,26 @@ describe("describeError — lost connection, not retried", () => {
   });
   it("an unknown reason falls back to the generic connection title", () => {
     expect(describeError(lost("bogus"), "es").title).toMatch(/No se pudo conectar/);
+  });
+});
+
+describe("errorLine", () => {
+  it("reads the line each engine names", () => {
+    expect(errorLine("You have an error in your SQL syntax ... near 'FORM t' at line 3")).toBe(3);
+    expect(errorLine('syntax error at or near "FORM"\nLINE 2: SELECT * FORM t')).toBe(2);
+    expect(errorLine("Incorrect syntax near 'FORM'. Line 4")).toBe(4);
+    expect(errorLine("error de sintaxis en la línea 5")).toBe(5);
+  });
+
+  it("is null when the message names no line", () => {
+    expect(errorLine("near \"FORM\": syntax error")).toBeNull();
+    expect(errorLine("")).toBeNull();
+    expect(errorLine(null)).toBeNull();
+    expect(errorLine(undefined)).toBeNull();
+  });
+
+  it("ignores words that merely contain it and a line 0", () => {
+    expect(errorLine("pipeline 3 failed")).toBeNull();
+    expect(errorLine("at line 0")).toBeNull();
   });
 });

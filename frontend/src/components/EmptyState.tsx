@@ -16,7 +16,7 @@ import { t } from "../utils/i18n";
 const MAX_ITEMS = 5;
 
 // The shortcuts most relevant while composing a query, in a fixed useful order.
-const KEY_SHORTCUTS: Shortcut["id"][] = ["run-query", "format-sql", "new-tab", "toggle-help"];
+const KEY_SHORTCUTS: Shortcut["id"][] = ["run-query", "run-script", "format-sql", "new-tab", "toggle-help"];
 
 export function EmptyState(props: {
   recentTables: TreeNode[];

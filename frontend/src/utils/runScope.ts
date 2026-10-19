@@ -1,28 +1,33 @@
-// Decide what SQL to run when the user presses Ctrl/Cmd+Enter (issue #130).
-// Pure logic, no CodeMirror dependency: the editor passes in the document text
-// and the current selection range, and gets back the text to execute plus a
-// scope tag used to tell the user what actually ran.
+// Decide what SQL to run (issues #130, #691). Pure logic, no CodeMirror
+// dependency: the editor passes in the document text and the current selection
+// range, and gets back the text to execute, where it sits in the document (so
+// the editor can highlight what will run) and a scope tag that names it.
 //
-// Two rules, and only two:
-//   - A non-empty selection runs verbatim ("selección").
-//   - Otherwise the whole document runs ("documento"), however many statements
-//     it holds — they go to the engine one by one and each gets its own result
-//     tab (issue #450).
+// Three scopes, chosen explicitly (M14, R-04):
+//   - "selection": a non-empty selection runs verbatim.
+//   - "statement": the statement under the cursor.
+//   - "document": the whole script, however many statements it holds — they go
+//     to the engine one by one and each gets its own result tab (issue #450).
 //
-// It used to run the STATEMENT UNDER THE CURSOR whenever the document held more
-// than one, which is what a scratch buffer of queries wants but not what the
-// button says: writing three queries and pressing Ejecutar ran one of them,
-// with nothing to say the other two had been skipped. Running a single
-// statement on purpose is what selecting it is for.
+// Ctrl/Cmd+Enter asks for no scope in particular and gets the selection, else
+// the statement under the cursor. That rule was dropped once (writing three
+// queries and pressing «Ejecutar» ran one of them, with nothing to say the
+// other two had been skipped); it is back because the button now NAMES the
+// scope («Ejecutar sentencia») and the editor highlights the statement that
+// will run, so nothing is skipped in silence. The whole script is one explicit
+// step away: Ctrl/Cmd+Shift+Enter or the run button's menu.
 
 import { engineFamily } from "./engineFamily";
 
-export type RunScope = "selection" | "document";
+export type RunScope = "selection" | "statement" | "document";
 
 export interface RunTarget {
   /** The raw SQL slice to execute; the caller trims/validates it. */
   text: string;
   scope: RunScope;
+  /** Where `text` sits in the document: `doc.slice(from, to) === text`. */
+  from: number;
+  to: number;
 }
 
 /** A top-level statement segment, as a half-open range into the source. */
@@ -215,18 +220,144 @@ export function runnableStatements(sql: string, engine?: string): string[] {
 }
 
 /**
+ * The statement under the cursor at `pos`, as a range with the surrounding
+ * whitespace trimmed (the closing `;` excluded). A cursor right after a `;`, or
+ * on a blank line or comment between statements, belongs to the statement
+ * before it — the one just written — else to the next. Null when the document
+ * holds nothing runnable.
+ */
+export function statementAt(
+  doc: string,
+  pos: number,
+  engine?: string,
+): { from: number; to: number } | null {
+  const ranges = splitStatements(doc, engine)
+    .filter((s) => !isCommentOnly(s.text, engine))
+    .map((s) => {
+      const lead = s.text.length - s.text.trimStart().length;
+      return { from: s.from + lead, to: s.from + s.text.trimEnd().length };
+    });
+  if (ranges.length === 0) return null;
+  // `to + 1` takes in the `;` that closes it: the cursor right after it.
+  const inside = ranges.find((r) => pos >= r.from && pos <= r.to + 1);
+  if (inside) return inside;
+  const before = ranges.filter((r) => r.to < pos);
+  return before.length ? before[before.length - 1] : ranges[0];
+}
+
+/**
  * Choose the SQL to execute given the document and the selection range. Ranges
  * are character offsets; `selFrom === selTo` means no selection.
  *
- * `scopeLabel` used to live below this: a hardcoded Spanish label with no
- * caller, since the status bar and the snippet banner both translate the scope
- * through i18n. It went with the statement rule.
+ * `want` names the scope; omitted (Ctrl/Cmd+Enter) it is the selection when
+ * there is one, else the statement under the cursor. Asking for the selection
+ * with nothing selected gets the statement: the menu disables that entry, and
+ * running nothing is never what was meant. A document with nothing runnable
+ * yields the whole (blank) document, which the caller rejects as empty.
  */
-export function pickRunTarget(doc: string, selFrom: number, selTo: number): RunTarget {
-  if (selFrom !== selTo) {
-    const from = Math.min(selFrom, selTo);
-    const to = Math.max(selFrom, selTo);
-    return { text: doc.slice(from, to), scope: "selection" };
+export function pickRunTarget(
+  doc: string,
+  selFrom: number,
+  selTo: number,
+  want?: RunScope,
+  engine?: string,
+): RunTarget {
+  const from = Math.min(selFrom, selTo);
+  const to = Math.max(selFrom, selTo);
+  const whole: RunTarget = { text: doc, scope: "document", from: 0, to: doc.length };
+  if (want === "document") return whole;
+  if (from !== to && want !== "statement") {
+    return { text: doc.slice(from, to), scope: "selection", from, to };
   }
-  return { text: doc, scope: "document" };
+  const stmt = statementAt(doc, from, engine);
+  if (!stmt) return whole;
+  return { text: doc.slice(stmt.from, stmt.to), scope: "statement", ...stmt };
+}
+
+/**
+ * Where an error belongs in the document (issue #691): the start of the line
+ * the engine blamed (`line`, 1-based within `sql`, see errorLine), else the
+ * start of the failed statement. `sql` is the statement as it was sent, so it
+ * is found by its text — the first occurrence, which is the one that ran unless
+ * the script repeats itself. Null when the document no longer holds it.
+ */
+export function errorOffset(doc: string, sql: string, line: number | null): number | null {
+  const text = sql.trim();
+  const at = text ? doc.indexOf(text) : -1;
+  if (at < 0) return null;
+  if (line === null || line <= 1) return at;
+  let pos = at;
+  for (let n = 1; n < line; n++) {
+    const nl = doc.indexOf("\n", pos);
+    // A line past the statement's end: the statement is all there is to show.
+    if (nl < 0 || nl >= at + text.length) return at;
+    pos = nl + 1;
+  }
+  return pos;
+}
+
+/** What a run would execute right now, as the editor reports it (issue #691). */
+export interface RunInfo {
+  hasSelection: boolean;
+  /** Lines (1-based) of the statement under the cursor; null: nothing runnable. */
+  statement: { first: number; last: number } | null;
+  /** Runnable statements in the whole document. */
+  statements: number;
+}
+
+/** One entry of the run button's menu: a scope, and what it would run now. */
+export interface RunChoice {
+  scope: RunScope;
+  /** i18n key of the entry's name. */
+  label: string;
+  /** i18n key + params of what it covers now («líneas 2–5», «3 sentencias»). */
+  hint: { key: string; params?: Record<string, number> };
+  /** Shortcut label (shortcuts.ts notation) that runs it, or "" for none. */
+  keys: string;
+  disabled: boolean;
+  /** The one Ctrl/Cmd+Enter and the main button run. */
+  current: boolean;
+}
+
+/** The label of the main run button: it always names what it will run. */
+export function runButtonLabel(info: RunInfo): string {
+  return info.hasSelection ? "editor.runSelection" : "editor.runStatement";
+}
+
+/** The run button's menu (R-04): current statement · selection · whole script. */
+export function runChoices(info: RunInfo): RunChoice[] {
+  const st = info.statement;
+  return [
+    {
+      scope: "statement",
+      label: "editor.scope.statement",
+      hint: !st
+        ? { key: "editor.scope.nothing" }
+        : st.first === st.last
+          ? { key: "editor.scope.line", params: { n: st.first } }
+          : { key: "editor.scope.lines", params: { from: st.first, to: st.last } },
+      keys: info.hasSelection ? "" : "Mod+Enter",
+      disabled: !st,
+      current: !info.hasSelection,
+    },
+    {
+      scope: "selection",
+      label: "editor.scope.selection",
+      hint: { key: info.hasSelection ? "editor.scope.selected" : "editor.scope.noSelection" },
+      keys: info.hasSelection ? "Mod+Enter" : "",
+      disabled: !info.hasSelection,
+      current: info.hasSelection,
+    },
+    {
+      scope: "document",
+      label: "editor.scope.script",
+      hint:
+        info.statements === 1
+          ? { key: "editor.scope.statementsOne" }
+          : { key: "editor.scope.statements", params: { n: info.statements } },
+      keys: "Mod+Shift+Enter",
+      disabled: info.statements === 0,
+      current: false,
+    },
+  ];
 }
