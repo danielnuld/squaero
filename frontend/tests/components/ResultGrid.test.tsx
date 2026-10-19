@@ -89,7 +89,9 @@ function mountEditable(initial: PendingChanges = emptyPending(), startActive = t
 
 /** Choose row `i` in an open foreign-key browser. */
 function pickFkRow(dialog: Element, i: number) {
-  dialog.querySelectorAll<HTMLButtonElement>(".fk-pick")[i].click();
+  dialog
+    .querySelector(`.grid-rows [data-cell="${i}-0"]`)!
+    .dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
 }
 
 /** Set an input's value and fire the `input` event Solid listens for. */

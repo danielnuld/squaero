@@ -161,8 +161,8 @@ const openFkCell = () => {
 /** The `nombre` column of every row the open FK dialog is showing. The dialog is
     portalled to <body>, so it is read from the document, not from the grid. */
 const pickedLabels = () =>
-  [...document.querySelectorAll(".fk-browser tbody tr")].map(
-    (tr) => tr.querySelectorAll("td")[2]?.textContent,
+  [...document.querySelectorAll(".fk-browser .grid-rows .grid-row")].map(
+    (row) => row.querySelector('[data-cell$="-1"]')?.textContent,
   );
 
 describe("App — the foreign-key picker, end to end", () => {
@@ -201,7 +201,9 @@ describe("App — the foreign-key picker, end to end", () => {
     toggles[0].click();
     expect(pickedLabels()).toEqual(["Ferretería López", "Aceros del Norte"]);
     // Picking one writes its key into the cell.
-    document.querySelectorAll<HTMLButtonElement>(".fk-browser .fk-pick")[1].click();
+    document
+      .querySelector('.fk-browser .grid-rows [data-cell="1-0"]')!
+      .dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     await settle();
     const cell = host.querySelector<HTMLInputElement>(".grid-rows .fk-value")!;
     expect(cell.value).toBe("2");

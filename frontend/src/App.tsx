@@ -5977,6 +5977,17 @@ export function App() {
                             setDetailIndex((i) => stepRowIndex(i ?? 0, 1, d().res.rows.length))
                           }
                           onClose={() => setDetailIndex(null)}
+                          onCopy={() => copyRowsFromGrid([d().idx])}
+                          referencedBy={(inbound[tab().id]?.rels ?? []).map((r) => ({
+                            label: `${r.fromTable}.${r.columns.map((c) => c.from).join(", ")}`,
+                            column: r.columns[0]?.to ?? "",
+                          }))}
+                          onReferenced={(column) => {
+                            const ci = d().res.columns.findIndex(
+                              (c) => c.name.toLowerCase() === column.toLowerCase(),
+                            );
+                            if (ci >= 0) openRelated(d().idx, ci);
+                          }}
                         />
                       )}
                     </Show>
