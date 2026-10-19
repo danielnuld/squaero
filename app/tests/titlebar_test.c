@@ -28,6 +28,7 @@ static void test_commands(void)
     CHECK(quaero_window_command_parse("system-menu") == QUAERO_WINDOW_SYSTEM_MENU);
     CHECK(quaero_window_command_parse("snap") == QUAERO_WINDOW_SNAP);
     CHECK(quaero_window_command_parse("backdrop") == QUAERO_WINDOW_BACKDROP);
+    CHECK(quaero_window_command_parse("edit") == QUAERO_WINDOW_EDIT);
     /* Exact names only. */
     CHECK(quaero_window_command_parse(NULL) == QUAERO_WINDOW_UNKNOWN);
     CHECK(quaero_window_command_parse("") == QUAERO_WINDOW_UNKNOWN);

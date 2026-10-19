@@ -20,6 +20,7 @@ quaero_window_command quaero_window_command_parse(const char *name)
         {"system-menu", QUAERO_WINDOW_SYSTEM_MENU},
         {"snap", QUAERO_WINDOW_SNAP},
         {"backdrop", QUAERO_WINDOW_BACKDROP},
+        {"edit", QUAERO_WINDOW_EDIT},
     };
     size_t i;
     if (name == NULL) {

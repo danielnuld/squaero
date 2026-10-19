@@ -5,6 +5,8 @@
 #include <cstring>
 #include <string>
 
+#include "menu_model.h"
+
 // Write the UI to ~/Library/Application Support/Squaero/ui/index.html and
 // return its file:// URL, or empty on failure.
 std::string mac_write_ui(const char *html);
@@ -20,6 +22,14 @@ bool mac_pick_file(const char *title, std::string &path);
 // whole screen — and the app brought to the front (issues #40, #685).
 // `window` is the NSWindow* behind webview_get_window.
 void mac_setup_app(void *window);
+
+// The menu bar from the UI's model (A-11). The first menu is the app menu.
+// Ids AppKit answers itself become native items with their standard keys —
+// "edit:*" (menu_model.h) the Edit roles on the first responder, "mac:hide",
+// "mac:hide-others", "mac:show-all" and "quit" — and "act:settings" gets
+// Cmd+,. Every other item calls on_item with its index in the model and shows
+// no key: the UI handles its own keys. An empty model leaves the bar as is.
+void mac_set_menu(const quaero_menu &menu, void (*on_item)(size_t index));
 
 // Browser behaviours out of the WKWebView (issue #685): no pinch zoom, no swipe
 // back/forward, and a navigation delegate that lets through only what `allow`

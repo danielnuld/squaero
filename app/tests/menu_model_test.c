@@ -108,12 +108,40 @@ static void test_accel_gtk(void)
     CHECK(quaero_menu_accel_gtk("F5", buf, 0) == 0);
 }
 
+static void test_edit_commands(void)
+{
+    CHECK(str_eq(quaero_menu_edit_command("edit:undo"), "Undo"));
+    CHECK(str_eq(quaero_menu_edit_command("edit:redo"), "Redo"));
+    CHECK(str_eq(quaero_menu_edit_command("edit:cut"), "Cut"));
+    CHECK(str_eq(quaero_menu_edit_command("edit:copy"), "Copy"));
+    CHECK(str_eq(quaero_menu_edit_command("edit:paste"), "Paste"));
+    CHECK(str_eq(quaero_menu_edit_command("edit:select-all"), "SelectAll"));
+    /* Any other id is the UI's own: exact names only. */
+    CHECK(quaero_menu_edit_command(NULL) == NULL);
+    CHECK(quaero_menu_edit_command("") == NULL);
+    CHECK(quaero_menu_edit_command("edit:") == NULL);
+    CHECK(quaero_menu_edit_command("edit:Copy") == NULL);
+    CHECK(quaero_menu_edit_command("copy-rows") == NULL);
+    CHECK(quaero_menu_edit_command("quit") == NULL);
+
+    CHECK(quaero_menu_edit_key("Undo") == 'Z');
+    CHECK(quaero_menu_edit_key("Redo") == 'Y');
+    CHECK(quaero_menu_edit_key("Cut") == 'X');
+    CHECK(quaero_menu_edit_key("Copy") == 'C');
+    CHECK(quaero_menu_edit_key("Paste") == 'V');
+    CHECK(quaero_menu_edit_key("SelectAll") == 'A');
+    CHECK(quaero_menu_edit_key(NULL) == 0);
+    CHECK(quaero_menu_edit_key("edit:copy") == 0);
+    CHECK(quaero_menu_edit_key("copy") == 0);
+}
+
 int main(void)
 {
     test_parse_nominal();
     test_parse_hidden();
     test_parse_rejects();
     test_accel_gtk();
+    test_edit_commands();
     if (failures != 0) {
         return 1;
     }

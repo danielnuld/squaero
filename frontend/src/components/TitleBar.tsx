@@ -227,6 +227,13 @@ function MenuBar(props: { menus: Menu[]; onAction: (id: string) => void }) {
   const [active, setActive] = createSignal(-1);
   const tops: HTMLButtonElement[] = [];
   let bar: HTMLElement | undefined;
+  // Where the focus was before the bar took it: an item gets it back before it
+  // runs, so Copiar or Pegar act on the field the user was in (A-11).
+  let before: HTMLElement | null = null;
+  const remember = () => {
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && !bar?.contains(el)) before = el;
+  };
   const labels = () => props.menus.map((m) => m.label);
   const keys = () => accessKeys(labels());
 
@@ -238,6 +245,7 @@ function MenuBar(props: { menus: Menu[]; onAction: (id: string) => void }) {
   const first = (i: number) => stepIndex(items(i).length, -1, "ArrowDown", disabledAt(i));
 
   const show = (i: number, focusItem: boolean) => {
+    remember();
     setOpen(i);
     setActive(focusItem ? first(i) : -1);
     tops[i]?.focus();
@@ -251,6 +259,7 @@ function MenuBar(props: { menus: Menu[]; onAction: (id: string) => void }) {
   const run = (item: MenuItem) => {
     if (item.enabled === false) return;
     close(false);
+    before?.focus();
     props.onAction(item.id);
   };
   const neighbour = (i: number, dir: 1 | -1) => (i + dir + props.menus.length) % props.menus.length;
@@ -317,7 +326,10 @@ function MenuBar(props: { menus: Menu[]; onAction: (id: string) => void }) {
       e.preventDefault();
       if (open() >= 0) close(true);
       else if (bar?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
-      else tops[0]?.focus();
+      else {
+        remember();
+        tops[0]?.focus();
+      }
     };
     const onDown = (e: MouseEvent) => {
       if (open() >= 0 && !bar?.contains(e.target as Node)) close(false);
@@ -358,6 +370,7 @@ function MenuBar(props: { menus: Menu[]; onAction: (id: string) => void }) {
                   open() === i() && active() >= 0 ? itemId(i(), active()) : undefined
                 }
                 aria-keyshortcuts={k() >= 0 ? `Alt+${menu.label[k()].toUpperCase()}` : undefined}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => (open() === i() ? close(true) : show(i(), false))}
                 onMouseEnter={() => open() >= 0 && open() !== i() && show(i(), false)}
                 onKeyDown={(e) => onOpenKey(e, i())}

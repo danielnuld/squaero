@@ -207,6 +207,29 @@ describe("TitleBar", () => {
     expect(host!.querySelector('[role="menu"]')).toBeNull();
   });
 
+  it("gives the focus back to the field it came from before an item runs (A-11)", async () => {
+    fakeShell(WIN);
+    const field = document.createElement("textarea");
+    document.body.appendChild(field);
+    const seen: (Element | null)[] = [];
+    mount("windows", { onMenuAction: () => seen.push(document.activeElement) });
+    await flush();
+    // By keyboard: Alt+E, then Enter on the first item.
+    field.focus();
+    key(field, "e", { altKey: true });
+    expect(document.activeElement).toBe(tops()[1]);
+    key(tops()[1], "Enter");
+    // By mouse: the press on the title does not take the focus first.
+    field.focus();
+    const down = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    tops()[1].dispatchEvent(down);
+    expect(down.defaultPrevented).toBe(true);
+    tops()[1].click();
+    host!.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click();
+    expect(seen).toEqual([field, field]);
+    field.remove();
+  });
+
   it("moves through items with the arrows, skipping disabled ones, and across menus", async () => {
     fakeShell(WIN);
     const h = mount("windows");

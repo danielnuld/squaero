@@ -278,11 +278,18 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
       </Show>
       <For each={layout().main}>{(id) => MAIN[id]()}</For>
       <Show when={!props.editable && (props.isTable || props.readOnlyReason)}>
-        <span class="edit-hint-ro" role="note">
-          <Icon name="lock" size={12} />{" "}
-          {props.readOnlyReason ??
-            t(props.readOnly ? "safe.readOnlyHint" : "objbar.readOnly.noPk")}
-        </span>
+        {/* One line that ellipsizes in a narrow bar; the whole reason is its
+            tooltip, so a cut-off chip can still be read (A-03). */}
+        {(() => {
+          const reason = () =>
+            props.readOnlyReason ??
+            t(props.readOnly ? "safe.readOnlyHint" : "objbar.readOnly.noPk");
+          return (
+            <span class="edit-hint-ro" role="note" title={reason()}>
+              <Icon name="lock" size={12} /> <span class="edit-hint-ro-text">{reason()}</span>
+            </span>
+          );
+        })()}
       </Show>
       <Show when={props.editable && !props.editing && props.editHint}>
         <span class="edit-hint">{props.editHint}</span>
