@@ -2,13 +2,17 @@
 // they persist via settingsStore (kvStore). Theme lives in theme.ts (it needs
 // live system tracking) and the history limit in history.ts/historyStore — both
 // are reused by the panel rather than duplicated here, so this module owns only
-// the NEW preferences: grid density, the slow-query threshold, and the
+// the NEW preferences: interface density, the slow-query threshold, and the
 // check-for-updates-on-start toggle. Everything here is pure and tested.
 
 import { clampFontSize, clampLineHeight, clampZoom, sanitizeFontFamily } from "./typography";
 
-/** Row density of the result grid. */
-export type GridDensity = "normal" | "compact";
+/**
+ * Interface density (issue #682): how much fits. One setting for the whole app —
+ * it scales spacing, control and band heights (typography.ts) and the grid's
+ * row height (rowHeightFor below). Until #682 it was the grid's alone.
+ */
+export type Density = "comfortable" | "compact";
 
 /**
  * How the result grid is READ (issue #540). Density is how much fits; this is
@@ -23,8 +27,8 @@ export type GridDensity = "normal" | "compact";
 export type GridStyle = "registro" | "hoja" | "informe";
 
 export interface Settings {
-  /** Result-grid row density. */
-  gridDensity: GridDensity;
+  /** Interface density, the grid's rows included (#682). */
+  density: Density;
   /** How the result grid is drawn and read (issue #540). */
   gridStyle: GridStyle;
   /** A query slower than this (ms) is flagged as slow (consumed by #179/#180).
@@ -86,7 +90,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  gridDensity: "normal",
+  density: "comfortable",
   gridStyle: "registro",
   slowThresholdMs: 1000,
   checkUpdatesOnStart: true,
@@ -142,10 +146,10 @@ export function clampLocalDays(n: number): number {
  * what a virtualized list punishes: rows that measure one thing and paint
  * another leave gaps or overlap as you scroll.
  */
-const ROW_HEIGHT: Record<GridStyle, Record<GridDensity, number>> = {
-  registro: { normal: 28, compact: 24 },
-  hoja: { normal: 22, compact: 20 },
-  informe: { normal: 32, compact: 28 },
+const ROW_HEIGHT: Record<GridStyle, Record<Density, number>> = {
+  registro: { comfortable: 28, compact: 24 },
+  hoja: { comfortable: 22, compact: 20 },
+  informe: { comfortable: 32, compact: 28 },
 };
 
 /**
@@ -153,11 +157,20 @@ const ROW_HEIGHT: Record<GridStyle, Record<GridDensity, number>> = {
  * above were drawn for 12px text, and a bigger font or a zoomed interface needs
  * the row to grow with it — rounded, so a row never lands on a half pixel.
  */
-export function rowHeightFor(style: GridStyle, density: GridDensity, scale = 1): number {
+export function rowHeightFor(style: GridStyle, density: Density, scale = 1): number {
   return Math.max(1, Math.round(ROW_HEIGHT[style][density] * scale));
 }
 
-const isDensity = (v: unknown): v is GridDensity => v === "normal" || v === "compact";
+/**
+ * The density a stored blob asks for. `density` wins; a blob saved before #682
+ * only has the grid's `gridDensity` ("normal" | "compact"), and that choice
+ * becomes the app's, so nobody who had picked compact rows loses them.
+ */
+export function migrateDensity(obj: Record<string, unknown>): Density {
+  if (obj.density === "comfortable" || obj.density === "compact") return obj.density;
+  if (obj.gridDensity === "compact") return "compact";
+  return DEFAULT_SETTINGS.density;
+}
 
 const isGridStyle = (v: unknown): v is GridStyle =>
   v === "registro" || v === "hoja" || v === "informe";
@@ -180,7 +193,7 @@ export function parseSettings(raw: string | null | undefined): Settings {
     return { ...DEFAULT_SETTINGS };
   }
   return {
-    gridDensity: isDensity(obj.gridDensity) ? obj.gridDensity : DEFAULT_SETTINGS.gridDensity,
+    density: migrateDensity(obj),
     // Absent (settings saved before #540) or unknown → the default style.
     gridStyle: isGridStyle(obj.gridStyle) ? obj.gridStyle : DEFAULT_SETTINGS.gridStyle,
     slowThresholdMs:

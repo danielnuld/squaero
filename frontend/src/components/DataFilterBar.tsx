@@ -292,7 +292,7 @@ export function DataFilterBar(props: {
                       props.onSort(i(), { dir: o.dir === "ASC" ? "DESC" : "ASC" })
                     }
                   >
-                    {o.dir === "ASC" ? "↑" : "↓"}
+                    <Icon name={o.dir === "ASC" ? "arrow-up" : "arrow-down"} size={12} />
                   </button>
                   <button
                     class="status-btn danger"

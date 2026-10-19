@@ -24,7 +24,7 @@ describe("settingsStore", () => {
     const { loadSettings, saveSettings } = await freshModule();
     const s: Settings = {
       ...DEFAULT_SETTINGS,
-      gridDensity: "compact",
+      density: "compact",
       gridStyle: "hoja",
       slowThresholdMs: 900,
       checkUpdatesOnStart: false,

@@ -333,6 +333,7 @@ import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
 import { Icon } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
+import { currentOs, orderActions } from "./utils/dialog";
 import { APP_VERSION } from "./utils/version";
 import {
   checkForUpdate,
@@ -759,7 +760,7 @@ export function App() {
 
   // --- User preferences (issue #181) -------------------------------------
   // Theme (above) and the history limit (below) keep their own stores; this
-  // holds only the settings owned by settings.ts (grid density, slow threshold,
+  // holds only the settings owned by settings.ts (density, slow threshold,
   // check-updates-on-start). Patched immutably so the panel stays controlled.
   const [settings, setSettings] = createSignal<Settings>(loadSettings());
   // The user's rebound keys (issue #684): the matcher, the help overlay and the
@@ -4874,7 +4875,7 @@ export function App() {
                     >
                       <ObjectTree
                         connId={conn.connId}
-                        rowHeight={treeRowHeight(settings().zoom)}
+                        rowHeight={treeRowHeight(settings().zoom, settings().density)}
                         engine={conn.driver}
                         title={conn.name}
                         accent={conn.color}
@@ -5315,17 +5316,21 @@ export function App() {
                           </span>
                         </div>
                         <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
-                        <div class="modal-actions">
-                          <button disabled={currentEdit().busy} onClick={cancelPreview}>
-                            {t("common.cancel")}
-                          </button>
-                          <button
-                            class="primary"
-                            disabled={currentEdit().busy}
-                            onClick={applyEdit}
-                          >
-                            {t("result.applyConfirm")}
-                          </button>
+                        <div class="panel-foot">
+                          <span class="dlg-actions">
+                            {orderActions(currentOs(), [
+                              <button
+                                class="btn-primary"
+                                disabled={currentEdit().busy}
+                                onClick={applyEdit}
+                              >
+                                {t("result.applyConfirm")}
+                              </button>,
+                              <button class="btn" disabled={currentEdit().busy} onClick={cancelPreview}>
+                                {t("common.cancel")}
+                              </button>,
+                            ])}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -5340,7 +5345,7 @@ export function App() {
                             result={c().view.result}
                             loading={false}
                             error={null}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             keyColumns={c().key}
                             cellType={(r, ci) => (c().view.changed[r]?.has(ci) ? "text" : undefined)}
@@ -5354,7 +5359,7 @@ export function App() {
                             result={p().result}
                             loading={false}
                             error={null}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             keyColumns={p().pk}
                           />
@@ -5368,7 +5373,7 @@ export function App() {
                             result={currentResult().result}
                             loading={currentResult().loading}
                             error={currentResult().error}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
+                            rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
                             emptyState={
                               <EmptyState
@@ -5442,7 +5447,7 @@ export function App() {
                               result={tv().result}
                               loading={currentResult().loading}
                               error={null}
-                              rowHeight={rowHeightFor(settings().gridStyle, settings().gridDensity, gridScale(settings()))}
+                              rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                               gridStyle={settings().gridStyle}
                               cellType={(r, c) => (c >= 2 ? tv().types[r] : undefined)}
                             />
