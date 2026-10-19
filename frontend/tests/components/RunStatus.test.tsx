@@ -123,3 +123,28 @@ describe("RunStatus", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe("RunStatus — a write (EditorDmlResult, #691)", () => {
+  it("says it was committed in Auto mode", () => {
+    mount({ result: write(2), elapsedMs: 9, tx: "auto" });
+    expect(text()).toBe("2 filas afectadas · 9 ms · confirmado en modo Auto");
+  });
+
+  it("says it waits in the open transaction", () => {
+    mount({ result: write(1), elapsedMs: 9, tx: "pending" });
+    expect(text()).toBe("1 fila afectada · 9 ms · pendiente en la transacción");
+  });
+
+  it("links to the history", () => {
+    const onHistory = vi.fn();
+    mount({ result: write(1), elapsedMs: 9, tx: "auto", onHistory });
+    buttons().find((b) => b.textContent === "Ver en el historial")!.click();
+    expect(onHistory).toHaveBeenCalledOnce();
+  });
+
+  it("says nothing of commits, nor links, for a read", () => {
+    mount({ result: rows(3), elapsedMs: 9, tx: "auto", onHistory: () => {} });
+    expect(text()).not.toContain("confirmado");
+    expect(buttons().some((b) => b.textContent === "Ver en el historial")).toBe(false);
+  });
+});
