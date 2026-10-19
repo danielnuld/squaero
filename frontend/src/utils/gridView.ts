@@ -106,3 +106,19 @@ export function sortIcon(sort: SortState | null, col: number): "arrow-up" | "arr
   if (!sort || sort.col !== col) return null;
   return sort.dir === "asc" ? "arrow-up" : "arrow-down";
 }
+
+/**
+ * The page search's boxes as table conditions (A-05, R-21): each non-empty box
+ * as its column's name and the text typed, in column order — what «Filtrar en
+ * la tabla» turns into server-side CONTAINS conditions.
+ */
+export function searchTerms(
+  filters: ColumnFilters,
+  columns: ResultColumn[],
+): { column: string; value: string }[] {
+  return Object.entries(filters)
+    .map(([c, q]) => ({ ci: Number(c), value: q.trim() }))
+    .filter((f) => f.value !== "" && columns[f.ci] !== undefined)
+    .sort((a, b) => a.ci - b.ci)
+    .map((f) => ({ column: columns[f.ci].name, value: f.value }));
+}

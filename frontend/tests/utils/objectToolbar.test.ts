@@ -15,7 +15,7 @@ const base: ToolbarState = {
 describe("toolbarLayout", () => {
   it("lays out a browsed, editable table", () => {
     expect(toolbarLayout(base)).toEqual({
-      main: ["refresh", "filter", "search", "addRow"],
+      main: ["refresh", "filter", "sort", "search", "addRow"],
       side: ["transpose", "pin", "compare", "chart", "export"],
       more: ["import", "generate", "transfer", "syncSchema", "syncData"],
     });

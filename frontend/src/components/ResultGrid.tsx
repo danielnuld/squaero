@@ -10,6 +10,7 @@ import {
   sortIcon,
   type SortState,
   type ColumnFilters,
+  searchTerms,
 } from "../utils/gridView";
 import { computeColumnWidths, resizeColumn, MIN_COL_WIDTH } from "../utils/gridColumns";
 import {
@@ -161,6 +162,12 @@ export function ResultGrid(props: {
    */
   searchOpen?: boolean;
   onSearchOpenChange?: (open: boolean) => void;
+  /** How many loaded rows the page search leaves, or null while it hides
+      none — for the status bar (A-05). */
+  onSearchCountChange?: (shown: number | null) => void;
+  /** «Filtrar en la tabla» (R-21): the page search's boxes as server-side
+      conditions. Absent → no button (only a table tab has the filter panel). */
+  onFilterTable?: (terms: { column: string; value: string }[]) => void;
   /** Print a changed cell's original value struck through beside the new one,
       instead of only in its tooltip (issue #690). Off by default. */
   showOldValues?: boolean;
@@ -381,6 +388,7 @@ export function ResultGrid(props: {
   });
   const view = createMemo(() => buildViewIndices(rows(), cols(), sort(), filters()));
   const filtersActive = () => Object.values(filters()).some((q) => q.trim() !== "");
+  createEffect(() => props.onSearchCountChange?.(filtersActive() ? view().length : null));
 
   // The page search row (issue #690): closed by default, since it only ever
   // searches the loaded rows and an always-open row of boxes read as a filter
@@ -947,7 +955,21 @@ export function ResultGrid(props: {
             <Show when={searchOn()}>
               <div class="grid-search-note" role="note">
                 <IconSearch />
-                <span>{t("grid.searchNote", { n: rows().length })}</span>
+                <span>
+                  {filtersActive()
+                    ? t("grid.searchMatches", { m: view().length, n: rows().length })
+                    : t("grid.searchNote", { n: rows().length })}
+                </span>
+                <Show when={props.onFilterTable && filtersActive()}>
+                  <button
+                    class="btn grid-search-table"
+                    type="button"
+                    title={t("grid.filterTableTitle")}
+                    onClick={() => props.onFilterTable?.(searchTerms(filters(), cols()))}
+                  >
+                    {t("grid.filterTable")}
+                  </button>
+                </Show>
                 <button
                   class="grid-search-close"
                   type="button"

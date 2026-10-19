@@ -1839,3 +1839,36 @@ describe("ResultGrid — no rows", () => {
     expect(host!.textContent).toContain("La consulta no devolvió filas.");
   });
 });
+
+describe("ResultGrid page search count (A-05, R-21)", () => {
+  it("says how many loaded rows match, reports it, and hands the boxes to Filtrar en la tabla", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    let shown: number | null = -1;
+    let terms: { column: string; value: string }[] = [];
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={result}
+            loading={false}
+            error={null}
+            onSearchCountChange={(n) => (shown = n)}
+            onFilterTable={(t) => (terms = t)}
+          />
+        ),
+        host!,
+      );
+    });
+    expect(shown).toBeNull();
+    const box = searchBox(1);
+    expect(host!.querySelector(".grid-search-table")).toBeNull();
+    box.value = "ali";
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(host!.querySelector(".grid-search-note")!.textContent).toContain("1 de 2 filas cargadas coinciden");
+    expect(shown).toBe(1);
+    host!.querySelector<HTMLButtonElement>(".grid-search-table")!.click();
+    expect(terms).toEqual([{ column: "name", value: "ali" }]);
+  });
+});
