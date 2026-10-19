@@ -141,6 +141,13 @@ describe("ObjectToolbar", () => {
     expect(btn("Descartar")!.disabled).toBe(true);
   });
 
+  it("disables Guardar with the reason while the connection is lost (R-05)", () => {
+    mount({ editing: true, hasChanges: true, changeCount: 1, saveBlocked: "Guardar necesita la conexión" });
+    expect(btn("Guardar (1)")!.disabled).toBe(true);
+    expect(btn("Guardar (1)")!.title).toBe("Guardar necesita la conexión");
+    expect(btn("Descartar")!.disabled).toBe(false);
+  });
+
   it("toggles the page search and the filter panel, saying whether each is open", () => {
     const onSearch = vi.fn();
     const onFilter = vi.fn();

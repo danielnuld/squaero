@@ -3475,6 +3475,29 @@ button.status-chip:not(:disabled):hover {
   max-width: 320px;
 }
 
+/* The connection is gone (R-05): a band inside the document. */
+.conn-lost-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--error) 10%, var(--bg));
+  font-size: var(--fs-sm);
+}
+.conn-lost-band svg {
+  color: var(--error);
+}
+.conn-lost-title {
+  font-weight: 600;
+}
+.conn-lost-retry {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 /* «Tipo de entorno» and the protection, spelled out (R-06). Neutral: a safe
    state is not an error. */
 .conn-chips {

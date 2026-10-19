@@ -17,14 +17,16 @@ let calls: string[] = [];
 let dead = new Set<string>();
 let opened = 0;
 let inTx = false;
+let openFails = false;
 
 const LOST_SQL_READ = /^\s*select\b/i;
 
 const respond = (method: string, params: Record<string, unknown>) => {
   const connId = String(params.connId ?? "");
   if (method === "conn.open") {
-    opened += 1;
     calls.push("conn.open");
+    if (openFails) return { error: { code: -32000, message: "could not connect to server" } };
+    opened += 1;
     return { result: { connId: `c${opened}` } };
   }
   if (dead.has(connId) && (method === "query.run" || method.startsWith("tx."))) {
@@ -67,6 +69,7 @@ beforeEach(() => {
   dead = new Set();
   opened = 0;
   inTx = false;
+  openFails = false;
   localStorage.clear();
   localStorage.setItem(
     "quaero.connections",
@@ -201,5 +204,51 @@ describe("App — keep-alive (issue #676)", () => {
     calls = [];
     await advance(3_600_000);
     expect(calls).toEqual([]);
+  });
+});
+
+describe("App — the connection-lost band (R-05)", () => {
+  const band = () => host!.querySelector(".conn-lost-band");
+
+  it("says so inside the document, keeps the changes, and waits for the user after a transaction", async () => {
+    await connect();
+    await runSql("BEGIN");
+    dead.add("c1");
+    await runSql("SELECT 42 AS n");
+    expect(band()!.getAttribute("role")).toBe("alert");
+    expect(band()!.textContent).toContain("Sin conexión con local");
+    expect(band()!.textContent).toContain("Los cambios pendientes se conservan.");
+    // The rolled-back transaction is news the user must hear: no retry by itself.
+    expect(band()!.textContent).not.toContain("Reintento");
+    dead.clear();
+    click([...band()!.querySelectorAll("button")].find((b) => b.textContent === "Reconectar"));
+    await settle();
+    expect(band()).toBeNull();
+  });
+
+  it("counts down and retries by itself while the server is unreachable", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    await connect();
+    dead.add("c1");
+    openFails = true;
+    await runSql("SELECT 42 AS n");
+    expect(band()!.textContent).toContain("Reintento automático en 5 s");
+    vi.advanceTimersByTime(2_000);
+    await settle();
+    expect(band()!.textContent).toContain("Reintento automático en 3 s");
+
+    // Still down at the retry: the next wait doubles.
+    calls = [];
+    vi.advanceTimersByTime(3_000);
+    await settle();
+    expect(calls).toContain("conn.open");
+    expect(band()!.textContent).toContain("Reintento automático en 10 s");
+
+    // Back: the next attempt reopens it and the band goes.
+    openFails = false;
+    vi.advanceTimersByTime(10_000);
+    await settle();
+    expect(band()).toBeNull();
+    expect(host!.querySelector(".connbar-reconnecting")?.textContent).toBe("reconectada");
   });
 });

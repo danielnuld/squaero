@@ -29,7 +29,14 @@ import {
   setConnGuard,
   withWriteConsent,
 } from "./utils/transport";
-import { keepAliveDue, keepAliveProbe, lostInfo, mayReconnect } from "./utils/reconnect";
+import {
+  keepAliveDue,
+  keepAliveProbe,
+  lostInfo,
+  mayReconnect,
+  retryDelaySec,
+  secondsLeft,
+} from "./utils/reconnect";
 import { confirmListing, guardFor, type SafeModeGuard } from "./utils/safeMode";
 import { errorText, describeError } from "./utils/errors";
 import {
@@ -520,6 +527,10 @@ interface ActiveConnection {
   reconnecting?: boolean;
   /** It just was: said in the bar for a few seconds. */
   reconnected?: boolean;
+  /** When the next automatic attempt to reopen a lost session runs (ms), and
+      how many have failed so far (R-05). Absent: it waits for the user. */
+  retryAt?: number;
+  retries?: number;
 }
 
 
@@ -2098,11 +2109,18 @@ export function App() {
   // session, a fresh one replaces it by itself, and the transport re-sends the
   // failed call once if the core proved it a read. Otherwise it is marked lost as
   // before and the failed call says why it was not retried.
-  const markLost = (connId: string) => {
+  // `retry`: the session could be reopened without losing anything (no
+  // transaction died with it) and only the attempt failed — try again by itself,
+  // backing off, while the band counts down (R-05).
+  const markLost = (connId: string, retry = false) => {
     const conn = openConns().find((o) => o.connId === connId);
     if (!conn) return;
+    const retries = retry ? (conn.retries ?? 0) + 1 : 0;
+    const retryAt = retry ? Date.now() + retryDelaySec(retries - 1) * 1000 : undefined;
     setOpenConns((list) =>
-      list.map((o) => (o.connId === connId ? { ...o, lost: true, reconnecting: false } : o)),
+      list.map((o) =>
+        o.connId === connId ? { ...o, lost: true, reconnecting: false, retryAt, retries } : o,
+      ),
     );
     // Said once: a keep-alive probe on a session already marked lost is no news.
     if (!conn.lost) setConnError(t("conn.lost", { name: conn.name }));
@@ -2130,7 +2148,16 @@ export function App() {
       setOpenConns((list) =>
         list.map((o) =>
           o.connId === conn.connId
-            ? { ...o, connId, features, lost: false, reconnecting: false, reconnected: true }
+            ? {
+                ...o,
+                connId,
+                features,
+                lost: false,
+                reconnecting: false,
+                reconnected: true,
+                retryAt: undefined,
+                retries: 0,
+              }
             : o,
         ),
       );
@@ -2148,7 +2175,7 @@ export function App() {
       setConnError(null);
       return connId;
     } catch {
-      markLost(conn.connId);
+      markLost(conn.connId, true);
       return null;
     }
   };
@@ -2183,9 +2210,18 @@ export function App() {
   // that one SELECT). Failing probes back off. A probe that finds the session
   // dead takes the path above.
   const keepAliveFailures = new Map<string, number>();
+  // The lost band's clock: ticks only while a session is lost.
+  const [clock, setClock] = createSignal(Date.now());
   onMount(() => {
     const timer = setInterval(() => {
       const now = Date.now();
+      if (openConns().some((o) => o.lost)) setClock(now);
+      // A lost session whose retry is due is reopened by itself (R-05).
+      for (const o of openConns()) {
+        if (o.lost && !o.reconnecting && o.retryAt !== undefined && o.retryAt <= now) {
+          void replaceSession(o);
+        }
+      }
       for (const o of openConns()) {
         const probe = keepAliveProbe(o.driver);
         const sec = connections().find((c) => c.id === o.defId)?.keepAlive ?? 0;
@@ -3736,6 +3772,8 @@ export function App() {
     const conn = tabConn(tab);
     const res = currentResult();
     if (!tab || !conn || !res.result || !res.source) return;
+    // Saving needs the connection (R-05): the changes wait, kept, until it is back.
+    if (conn.lost) return;
     // A new row already known to collide would only fail inside the
     // transaction (#517); every road to saving — the bar, the toolbar, Ctrl+S —
     // passes through here, so this is the one place that blocks it.
@@ -5231,6 +5269,32 @@ export function App() {
             onNew={newTab}
           />
 
+          {/* The connection is gone (R-05): said inside the document, where
+              the work it blocks is, with the one action that fixes it. */}
+          <Show when={tabConn(current())?.lost ? tabConn(current()) : null}>
+            {(c) => (
+              <div class="conn-lost-band" role="alert">
+                <Icon name="disconnect" size={14} />
+                <span class="conn-lost-title">{t("conn.lostBand", { name: c().name })}</span>
+                <button
+                  class="btn"
+                  disabled={c().reconnecting || connectingId() !== null}
+                  onClick={() => inConn(c().defId, reconnect)()}
+                >
+                  {t("conn.reconnect")}
+                </button>
+                <span>{t("conn.lostKept")}</span>
+                <span class="conn-lost-retry" aria-live="off">
+                  {c().reconnecting
+                    ? t("conn.reconnecting")
+                    : c().retryAt !== undefined
+                      ? t("conn.retryIn", { n: secondsLeft(c().retryAt!, clock()) })
+                      : ""}
+                </span>
+              </div>
+            )}
+          </Show>
+
           <div class="workspace-main">
           <Show when={currentQuery()}>
             {(tab) => (
@@ -5532,6 +5596,7 @@ export function App() {
                       onDataSync={openDataSync}
                       onTransfer={openTransfer}
                       onConfirm={confirmEdit}
+                      saveBlocked={tabConn(current())?.lost ? t("conn.saveNeedsConn") : undefined}
                       onDiscard={discardEdit}
                       onChart={openChart}
                       transposed={!!transposedOn()}
