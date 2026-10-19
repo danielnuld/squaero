@@ -54,7 +54,7 @@ describe("App — one navigation band", () => {
     // Tools live in the Herramientas menu and the palette (#688).
     expect(host!.querySelector(".toolstrip")).toBeNull();
 
-    const launch = host!.querySelector(".tab-launch") as HTMLButtonElement;
+    const launch = host!.querySelector(".tb-search") as HTMLButtonElement; // the title bar's (#688)
     expect(launch).not.toBeNull();
     launch.click();
     expect(host!.querySelector(".cmdk")).not.toBeNull();

@@ -12,9 +12,9 @@ const PANELS: { id: SidePanel; icon: IconName; label: string; title: string }[] 
 
 // The labelled panel switcher on the window's left edge (issues #688, #689):
 // what the side column shows on top, the saved connections and the settings
-// at the bottom, with the notification history's bell above them (#693).
-// Tools are not here: they live in the Herramientas menu and
-// the Ctrl+K palette.
+// at the bottom. Tools are not here: they live in the Herramientas menu and
+// the Ctrl+K palette; the notification history's bell is in the title bar
+// (#693, #688).
 export function Rail(props: {
   side: SideState;
   onPick: (panel: SidePanel) => void;
@@ -22,10 +22,6 @@ export function Rail(props: {
   connected: boolean;
   onConnections: () => void;
   onSettings: () => void;
-  /** The notification history (issue #693): unread count, open state, toggle. */
-  unread?: number;
-  notesOpen?: boolean;
-  onNotifications?: () => void;
 }) {
   return (
     <nav class="rail" aria-label={t("rail.aria")}>
@@ -52,25 +48,6 @@ export function Rail(props: {
         </For>
       </div>
       <span class="rail-spacer" />
-      <button
-        class="rail-btn rail-bell"
-        classList={{ on: !!props.notesOpen }}
-        aria-expanded={!!props.notesOpen}
-        title={
-          props.unread
-            ? t("rail.notificationsUnread", { n: props.unread })
-            : t("rail.notificationsTitle")
-        }
-        onClick={() => props.onNotifications?.()}
-      >
-        <Icon name="bell" size={18} />
-        <span class="rail-lb">{t("rail.notifications")}</span>
-        {props.unread ? (
-          <span class="rail-badge" aria-hidden="true">
-            {props.unread > 9 ? "9+" : props.unread}
-          </span>
-        ) : null}
-      </button>
       <button class="rail-btn" title={t("rail.connectionsTitle")} onClick={() => props.onConnections()}>
         <Icon name="plug" size={18} />
         <span class="rail-lb">{t("rail.connections")}</span>

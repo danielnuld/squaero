@@ -36,9 +36,12 @@ export function DocTabs(props: {
   onKeyDown: (e: KeyboardEvent, id: number) => void;
   onContextMenu: (e: MouseEvent, id: number) => void;
   onNew: () => void;
-  /** The palette's keys, as text ("Ctrl+K"); the search button shows them. */
-  paletteKeys: string;
-  onPalette: () => void;
+  /**
+   * The palette's search button and its keys ("Ctrl+K"). Optional: with the
+   * app's title bar (issue #688) the search lives there, centred.
+   */
+  paletteKeys?: string;
+  onPalette?: () => void;
 }) {
   let strip: HTMLDivElement | undefined;
   const [hidden, setHidden] = createSignal<number[]>([]);
@@ -187,15 +190,17 @@ export function DocTabs(props: {
           <Icon name="chevron-down" size={12} />
         </button>
       </Show>
-      <button
-        class="tab-launch"
-        title={`${t("toolbar.launchTitle")} (${props.paletteKeys})`}
-        aria-label={t("toolbar.launchTitle")}
-        onClick={() => props.onPalette()}
-      >
-        <Icon name="search" size={14} />
-        <kbd class="tab-kbd">{props.paletteKeys}</kbd>
-      </button>
+      <Show when={props.onPalette}>
+        <button
+          class="tab-launch"
+          title={`${t("toolbar.launchTitle")} (${props.paletteKeys})`}
+          aria-label={t("toolbar.launchTitle")}
+          onClick={() => props.onPalette?.()}
+        >
+          <Icon name="search" size={14} />
+          <kbd class="tab-kbd">{props.paletteKeys}</kbd>
+        </button>
+      </Show>
     </div>
   );
 }
