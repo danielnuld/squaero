@@ -3144,34 +3144,13 @@ button.status-chip:not(:disabled):hover {
    than one welded strip: five security modes with names like "Verificar
    identidad" do not fit on a 480px line, and a welded strip that wraps shows
    its grey rail between the rows with an orphan button hanging off it. */
-.cf-seg {
+/* On top of .seg (Segmented): the strip wraps instead of overflowing. */
+.seg.cf-seg {
   display: flex;
   flex-wrap: wrap;
   align-self: flex-start;
   max-width: 100%;
   gap: var(--sp-2);
-}
-
-.cf-seg-btn {
-  padding: var(--sp-2) var(--sp-3);
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--fs-base);
-  white-space: nowrap;
-  cursor: default;
-}
-
-.cf-seg-btn:hover {
-  background: var(--bg-elev2);
-}
-
-.cf-seg-btn.is-on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
 }
 
 /* The sentence under a security control: what that mode actually protects. */

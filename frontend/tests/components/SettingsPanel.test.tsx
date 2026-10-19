@@ -101,10 +101,10 @@ const search = (q: string) => {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 };
 
-const chipTexts = () => [...host!.querySelectorAll(".chip")].map((c) => c.textContent);
-const activeChips = () => [...host!.querySelectorAll(".chip.active")].map((c) => c.textContent);
+const chipTexts = () => [...host!.querySelectorAll("[role=radio]")].map((c) => c.textContent);
+const activeChips = () => [...host!.querySelectorAll("[role=radio][aria-checked=true]")].map((c) => c.textContent);
 const clickChip = (label: string) =>
-  ([...host!.querySelectorAll(".chip")].find((c) => c.textContent === label) as HTMLButtonElement).click();
+  ([...host!.querySelectorAll("[role=radio]")].find((c) => c.textContent === label) as HTMLButtonElement).click();
 
 /** The number inputs of the "Consultas" section: slow threshold, history limit. */
 const queryNumbers = () => {
@@ -539,7 +539,7 @@ describe("SettingsPanel — themes", () => {
   it("offers every built-in theme by its translated name, then the imported ones", () => {
     mount({ themes: [...BUILTIN_THEMES, custom] });
     goto("Apariencia");
-    const chips = [...host!.querySelectorAll('[aria-label="Otros temas"] .chip')].map((c) => c.textContent);
+    const chips = [...host!.querySelectorAll('[aria-label="Otros temas"] [role=radio]')].map((c) => c.textContent);
     expect(chips).toEqual([
       "Squaero (índigo)",
       "Azul",
