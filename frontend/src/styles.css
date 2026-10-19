@@ -10854,3 +10854,10 @@ ul.sidebar-tree {
 .snippet-keys {
   margin: var(--sp-3) 0 0;
 }
+
+/* Users: the selected account's heading, with its delete action. */
+.um-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
