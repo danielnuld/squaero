@@ -32,7 +32,6 @@ function mount(over: Partial<Parameters<typeof ObjectToolbar>[0]> = {}) {
     ],
     onRefresh: vi.fn(),
     refreshBlocked: null as string | null,
-    onEdit: vi.fn(),
     onImport: vi.fn(),
     onGenerate: vi.fn(),
     onSchemaSync: vi.fn(),
@@ -52,103 +51,125 @@ function mount(over: Partial<Parameters<typeof ObjectToolbar>[0]> = {}) {
   return props;
 }
 
-// Buttons now carry a leading glyph, so match by label substring, not equality.
+// Buttons carry a leading glyph, so match by label substring; the icon-only
+// tools are matched by their accessible name.
 const btn = (label: string) =>
-  [...host!.querySelectorAll("button.edit-btn")].find((b) =>
-    b.textContent?.includes(label),
+  [...host!.querySelectorAll("button.edit-btn, button.seg-btn")].find(
+    (b) => b.textContent?.includes(label) || b.getAttribute("aria-label") === label,
   ) as HTMLButtonElement | undefined;
 
+/** Opens the More menu and returns its labels (a separator reads as a dash). */
+const moreLabels = () => {
+  btn("Más acciones")!.click();
+  return contextMenu()?.items.map((i) => i.label ?? "-");
+};
+
 describe("ObjectToolbar", () => {
-  it("shows the at-rest table actions with Editar as the primary action", () => {
+  it("has no Editar button: an editable table only hints at editing in place", () => {
+    mount({ editHint: "Doble clic para editar" });
+    expect(btn("Editar")).toBeUndefined();
+    expect(host!.querySelector(".edit-hint")?.textContent).toBe("Doble clic para editar");
+    expect(host!.querySelector(".edit-btn-primary")).toBeNull();
+  });
+
+  it("puts the rarely used table actions under Más", () => {
     const p = mount();
-    const edit = btn("Editar")!;
-    expect(edit).toBeTruthy();
-    expect(edit.classList.contains("edit-btn-primary")).toBe(true);
-    btn("Editar")!.click();
-    btn("Importar")!.click();
-    btn("Generar datos")!.click();
-    btn("Transferir")!.click();
-    expect(p.onEdit).toHaveBeenCalledTimes(1);
+    expect(btn("Importar")).toBeUndefined();
+    expect(moreLabels()).toEqual([
+      "Importar",
+      "Generar datos",
+      "Transferir",
+      "Sincronizar estructura…",
+      "Sincronizar datos…",
+    ]);
+    for (const item of contextMenu()!.items) item.action!();
     expect(p.onImport).toHaveBeenCalledTimes(1);
     expect(p.onGenerate).toHaveBeenCalledTimes(1);
     expect(p.onTransfer).toHaveBeenCalledTimes(1);
-  });
-
-  it("disables Editar and says why when the table lacks a primary key", () => {
-    const p = mount({ editable: false });
-    const edit = btn("Editar")!;
-    expect(edit.disabled).toBe(true);
-    edit.click();
-    expect(p.onEdit).not.toHaveBeenCalled();
-    const hint = document.getElementById(edit.getAttribute("aria-describedby")!);
-    expect(hint?.textContent).toMatch(/clave primaria/);
-  });
-
-  it("shows a query result's reason on a disabled Editar, without the table actions", () => {
-    mount({ isTable: false, editable: false, readOnlyReason: "Solo lectura: un join" });
-    const edit = btn("Editar")!;
-    expect(edit.disabled).toBe(true);
-    expect(document.getElementById(edit.getAttribute("aria-describedby")!)?.textContent).toBe(
-      "Solo lectura: un join",
-    );
-    expect(btn("Importar")).toBeUndefined();
-    expect(btn("Sincronizar")).toBeUndefined();
-  });
-
-  it("shows no edit section for a query result with nothing to say", () => {
-    mount({ isTable: false, editable: false, readOnlyReason: null });
-    expect(btn("Editar")).toBeUndefined();
-  });
-
-  it("opens the Sincronizar menu: schema always, data only when editable + columns", () => {
-    const p = mount(); // editable + hasColumns
-    btn("Sincronizar")!.click();
-    let menu = contextMenu();
-    expect(menu?.items.map((i) => i.label)).toEqual([
-      "Estructura…",
-      "Datos…",
-    ]);
-    // Invoking the items calls the right callbacks.
-    menu!.items[0].action!();
-    menu!.items[1].action!();
     expect(p.onSchemaSync).toHaveBeenCalledTimes(1);
     expect(p.onDataSync).toHaveBeenCalledTimes(1);
   });
 
-  it("omits the Datos entry from the Sincronizar menu for a non-editable table", () => {
-    mount({ editable: false });
-    btn("Sincronizar")!.click();
-    expect(contextMenu()?.items.map((i) => i.label)).toEqual([
-      "Estructura…",
-    ]);
+  it("appends the tab's own entries to Más after a separator", () => {
+    const plan = vi.fn();
+    mount({ moreItems: [{ label: "Plan", action: plan }] });
+    expect(moreLabels()?.slice(-2)).toEqual(["-", "Plan"]);
   });
 
-  it("renders the edit-flow buttons while editing", () => {
-    const p = mount({ editing: true, hasChanges: true, changeCount: 3 });
-    expect(btn("Editar")).toBeUndefined();
+  it("says why a table without a primary key cannot be edited, and offers no row", () => {
+    mount({ editable: false });
+    expect(host!.querySelector(".edit-hint-ro")?.textContent).toMatch(/clave primaria/);
+    expect(btn("Fila")).toBeUndefined();
+    expect(moreLabels()).not.toContain("Sincronizar datos…");
+  });
+
+  it("shows a query result's read-only reason, without the table actions", () => {
+    mount({ isTable: false, editable: false, readOnlyReason: "Solo lectura: un join" });
+    expect(host!.querySelector(".edit-hint-ro")?.textContent?.trim()).toBe("Solo lectura: un join");
+    expect(btn("Más acciones")).toBeUndefined();
+  });
+
+  it("says nothing for a query result with nothing to say", () => {
+    mount({ isTable: false, editable: false, readOnlyReason: null });
+    expect(host!.querySelector(".edit-hint-ro")).toBeNull();
+  });
+
+  it("adds a row, which the workspace turns into an edit session", () => {
+    const p = mount();
     btn("Fila")!.click();
-    const confirm = btn("Confirmar (3)")!;
-    expect(confirm).toBeTruthy();
-    expect(confirm.classList.contains("edit-btn-primary")).toBe(true);
-    confirm.click();
-    btn("Descartar")!.click();
     expect(p.onAddRow).toHaveBeenCalledTimes(1);
+  });
+
+  it("leads with Guardar (n) and Descartar while editing", () => {
+    const p = mount({ editing: true, hasChanges: true, changeCount: 3, editHint: "pista" });
+    const save = btn("Guardar (3)")!;
+    expect(save.classList.contains("edit-btn-primary")).toBe(true);
+    save.click();
+    btn("Descartar")!.click();
     expect(p.onConfirm).toHaveBeenCalledTimes(1);
     expect(p.onDiscard).toHaveBeenCalledTimes(1);
+    expect(host!.querySelector(".edit-hint")).toBeNull();
   });
 
-  it("disables Confirmar when there are no pending changes", () => {
+  it("disables Guardar without pending changes and both while busy", () => {
     mount({ editing: true, hasChanges: false, changeCount: 0 });
-    expect(btn("Confirmar (0)")!.disabled).toBe(true);
-  });
-
-  it("disables mutating buttons while an edit is in flight", () => {
+    expect(btn("Guardar (0)")!.disabled).toBe(true);
+    dispose?.();
+    host?.remove();
     mount({ editing: true, busy: true, hasChanges: true, changeCount: 1 });
-    expect(btn("Confirmar (1)")!.disabled).toBe(true);
+    expect(btn("Guardar (1)")!.disabled).toBe(true);
     expect(btn("Descartar")!.disabled).toBe(true);
   });
 
-  it("opens the Exportar menu with one entry per format and fires them", () => {
+  it("toggles the page search and the filter panel, saying whether each is open", () => {
+    const onSearch = vi.fn();
+    const onFilter = vi.fn();
+    mount({ onSearch, searchOpen: true, onFilter, filterOpen: false });
+    expect(btn("Buscar en la página")!.getAttribute("aria-pressed")).toBe("true");
+    expect(btn("Filtrar")!.getAttribute("aria-pressed")).toBe("false");
+    btn("Buscar en la página")!.click();
+    btn("Filtrar")!.click();
+    expect(onSearch).toHaveBeenCalledTimes(1);
+    expect(onFilter).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Filtrar outside a data tab", () => {
+    mount();
+    expect(btn("Filtrar")).toBeUndefined();
+  });
+
+  it("switches between Datos, Estructura, Índices and DDL", () => {
+    const onView = vi.fn();
+    mount({ onView });
+    expect(btn("Datos")!.getAttribute("aria-selected")).toBe("true");
+    btn("Datos")!.click();
+    expect(onView).not.toHaveBeenCalled();
+    btn("Índices")!.click();
+    btn("DDL")!.click();
+    expect(onView.mock.calls).toEqual([["indexes"], ["ddl"]]);
+  });
+
+  it("charts and opens the Exportar menu with one entry per format", () => {
     const p = mount();
     btn("Graficar")!.click();
     expect(p.onChart).toHaveBeenCalledTimes(1);
@@ -161,11 +182,11 @@ describe("ObjectToolbar", () => {
     expect(p.onExport).toHaveBeenNthCalledWith(2, "json");
   });
 
-  it("hides table + export actions for a non-table result without columns", () => {
+  it("hides the result tools for a result without columns", () => {
     mount({ isTable: false, hasColumns: false });
-    expect(btn("Editar")).toBeUndefined();
     expect(btn("Graficar")).toBeUndefined();
     expect(btn("Exportar")).toBeUndefined();
+    expect(btn("Buscar en la página")).toBeUndefined();
   });
 
   it("surfaces the edit-session error", () => {
@@ -175,26 +196,20 @@ describe("ObjectToolbar", () => {
 
   it("refreshes what the tab is showing (issue #448)", () => {
     const p = mount();
-    const refresh = btn("Refrescar")!;
-    expect(refresh).toBeTruthy();
-    expect(refresh.disabled).toBe(false);
-    refresh.click();
+    btn("Refrescar")!.click();
     expect(p.onRefresh).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the refresh visible but disabled, carrying its reason", () => {
-    // A button that disappears leaves "it stopped being there" as the only
-    // explanation; the reason rides in the tooltip instead (#344 / #448).
-    const p = mount({ refreshBlocked: "Hay cambios sin confirmar" });
+    const p = mount({ refreshBlocked: "Hay cambios sin guardar" });
     const refresh = btn("Refrescar")!;
     expect(refresh.disabled).toBe(true);
-    expect(refresh.title).toBe("Hay cambios sin confirmar");
+    expect(refresh.title).toBe("Hay cambios sin guardar");
     refresh.click();
     expect(p.onRefresh).not.toHaveBeenCalled();
   });
 
   it("offers the refresh even for a result that is not a table", () => {
-    // A query tab's page goes stale exactly like a table's.
     mount({ isTable: false, hasColumns: true });
     expect(btn("Refrescar")).toBeTruthy();
   });
@@ -246,14 +261,15 @@ describe("ObjectToolbar", () => {
 
 // Safe mode (issue #666): a read-only connection offers nothing that writes.
 describe("ObjectToolbar on a read-only connection", () => {
-  it("says why, with Edit disabled and no Import or Generate", () => {
+  it("says why, with no row, Import or Generate", () => {
     mount({ editable: false, readOnly: true });
-    expect(host!.querySelector(".edit-hint-ro")?.textContent).toBe(
+    expect(host!.querySelector(".edit-hint-ro")?.textContent?.trim()).toBe(
       "Solo lectura: la conexión está protegida.",
     );
-    expect(btn("Editar")?.disabled).toBe(true);
-    expect(btn("Importar")).toBeUndefined();
-    expect(btn("Generar")).toBeUndefined();
+    expect(btn("Fila")).toBeUndefined();
+    const more = moreLabels();
+    expect(more).not.toContain("Importar");
+    expect(more).not.toContain("Generar datos");
     expect(btn("Exportar")).toBeDefined(); // reading out is still fine
   });
 });

@@ -10,6 +10,7 @@ import {
   lazyObjectFolders,
   objectLeafNodes,
   type TreeNode,
+  filterMatchCount,
 } from "../../src/utils/tree";
 import { translate } from "../../src/utils/i18n";
 
@@ -260,5 +261,30 @@ describe("flattenFiltered", () => {
     ]);
     // A filter matching a not-yet-loaded routine finds nothing (no fetch).
     expect(flattenFiltered(roots, withLazy, "get_total")).toEqual([]);
+  });
+});
+
+describe("filterMatchCount", () => {
+  const nodes = [
+    { key: "g", label: "Tablas", kind: "group" as const },
+    { key: "a", label: "clientes", kind: "table" as const },
+    { key: "b", label: "CLIENTES_hist", kind: "table" as const },
+    { key: "c", label: "pedidos", kind: "view" as const },
+  ];
+
+  it("counts the objects that match, case-insensitively", () => {
+    expect(filterMatchCount(nodes, "client")).toBe(2);
+  });
+
+  it("does not count the folders shown only to reach a match", () => {
+    expect(filterMatchCount(nodes, "tabl")).toBe(0);
+  });
+
+  it("matches nothing for an empty filter", () => {
+    expect(filterMatchCount(nodes, "  ")).toBe(0);
+  });
+
+  it("counts by the label given, as the tree translates folder names", () => {
+    expect(filterMatchCount(nodes, "ped", (n) => n.label.toUpperCase())).toBe(1);
   });
 });

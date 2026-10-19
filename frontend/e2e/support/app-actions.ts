@@ -53,6 +53,16 @@ export async function startBlank(page: Page): Promise<void> {
   }
 }
 
+/**
+ * Opens a tool from the explorer's Herramientas menu, by the name a user hears.
+ * The strip of tool icons under the tabs is gone (#688): tools live in that
+ * menu, the native menu bar and the Ctrl+K palette.
+ */
+export async function openTool(page: Page, name: string): Promise<void> {
+  await page.getByRole("button", { name: "Herramientas", exact: true }).first().click();
+  await page.getByRole("menu").getByRole("menuitem", { name, exact: true }).click();
+}
+
 export async function disconnect(page: Page): Promise<void> {
   // Every disconnect is named after its connection now — the bar's row (#525)
   // and the explorer section (#444) — so there is no bare "Desconectar" left.
@@ -125,7 +135,8 @@ export function cell(page: Page, value: string) {
  * `nameFragment`, so that row's cells are the only ones on screen.
  */
 export async function editRow(page: Page, nameFragment: string): Promise<void> {
-  await page.getByRole("button", { name: "Editar", exact: true }).click();
+  // Edited in place (#688): a double click on a cell opens the edit session.
+  await page.getByRole("gridcell").filter({ hasText: nameFragment }).first().dblclick();
   // Filtering is by substring, so an id of "1" would also match 11, 12, 21… — narrow
   // on a name fragment instead, and one that survives the edit so the row does not
   // vanish from under the test halfway through.

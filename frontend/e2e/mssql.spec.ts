@@ -39,7 +39,7 @@ describeEngine("mssql", () => {
     await expect(app.page.getByText(/Filas 1–1000/)).toBeVisible();
     await expect(cell(app.page, "Nogales")).toBeVisible();
 
-    await app.page.getByRole("button", { name: /Siguiente/ }).click();
+    await app.page.getByRole("button", { name: /siguiente/i }).click();
 
     // The window moved: a preview that re-ran the first page would still show row 1.
     await expect(app.page.getByText(/Filas 1001–/)).toBeVisible();

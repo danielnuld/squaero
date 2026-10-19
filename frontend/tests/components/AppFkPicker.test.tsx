@@ -139,8 +139,12 @@ const settle = async () => {
 };
 
 const click = (el: Element | null | undefined) => (el as HTMLElement).click();
-const byText = (sel: string, text: string) =>
-  [...host!.querySelectorAll(sel)].find((b) => b.textContent?.trim() === text);
+/** Edit in place, as a user does: a double click on the first cell (#688). */
+const editInPlace = () => {
+  const cell = host!.querySelector(".grid-rows [data-cell]");
+  expect(cell, "the grid should show a cell to edit").toBeTruthy();
+  cell!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+};
 
 /** The `nombre` column of every row the open FK dialog is showing. The dialog is
     portalled to <body>, so it is read from the document, not from the grid. */
@@ -169,10 +173,8 @@ describe("App — the foreign-key picker, end to end", () => {
     expect(host.querySelectorAll(".grid-rows .grid-row").length).toBe(1);
 
     // The query is over one table with its PK projected, so it is editable
-    // (issue #299) — the toolbar offers Editar.
-    const edit = byText("button", "Editar");
-    expect(edit, "the grid should be editable after a single-table SELECT").toBeTruthy();
-    click(edit);
+    // (issue #299): a double click on a cell opens the edit session (#688).
+    editInPlace();
     await settle();
 
     // The FK column (cliente_id) now has a picker; the others are plain inputs.
@@ -222,9 +224,7 @@ describe("App — the foreign-key picker, end to end", () => {
     click(tableRow);
     await settle();
 
-    const edit = byText("button", "Editar");
-    expect(edit, "a table opened from the tree is editable").toBeTruthy();
-    click(edit);
+    editInPlace();
     await settle();
 
     const toggles = host.querySelectorAll<HTMLButtonElement>(".grid-rows .fk-toggle");

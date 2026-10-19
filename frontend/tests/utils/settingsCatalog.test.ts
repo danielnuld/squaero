@@ -70,7 +70,7 @@ describe("sectionDefaults", () => {
       localHistoryVersions: DEFAULT_SETTINGS.localHistoryVersions,
       localHistoryDays: DEFAULT_SETTINGS.localHistoryDays,
     });
-    expect(sectionDefaults("window")).toEqual({ toolStrip: true, nativeMenu: true });
+    expect(sectionDefaults("window")).toEqual({ nativeMenu: true });
   });
   it("is empty for a section that owns no Settings field", () => {
     expect(sectionDefaults("shortcuts")).toEqual({});

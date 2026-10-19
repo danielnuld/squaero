@@ -79,7 +79,7 @@ for (const theme of ["light", "dark"] as const) {
       test("welcome: nothing connected", async ({ app }) => {
         const { page } = app;
         await app.open();
-        await expect(page.getByText("Sin conexión")).toBeVisible();
+        await expect(page.getByText("Sin conexión").first()).toBeVisible();
         await expectTheme(page, theme);
         await shot(page, "welcome");
       });

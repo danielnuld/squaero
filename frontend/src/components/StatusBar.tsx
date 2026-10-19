@@ -47,7 +47,6 @@ export function StatusBar(props: {
   theme: ThemePref;
   onToggleTheme: () => void;
   onShowHelp: () => void;
-  onShowSettings: () => void;
   /** Interface zoom in percent (issue #681); shown only away from 100. */
   zoom?: number;
   onResetZoom?: () => void;
@@ -166,14 +165,6 @@ export function StatusBar(props: {
         onClick={props.onToggleTheme}
       >
         {themeIcon(props.theme)}
-      </button>
-      <button
-        class="status-btn"
-        title={t("common.settings")}
-        aria-label={t("common.settings")}
-        onClick={props.onShowSettings}
-      >
-        <Icon name="settings" size={14} />
       </button>
       <button
         class="status-btn"

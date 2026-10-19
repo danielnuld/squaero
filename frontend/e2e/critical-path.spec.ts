@@ -19,13 +19,11 @@ import { bulkFill } from "./support/seed";
 describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => {
   test("connects and shows the connection as open", async ({ app }) => {
     await app.open();
-    // Before connecting the interface says so, and the tools are dead. They live
-    // in the ⋯ strip now (#386), which is folded until asked.
-    await expect(app.page.getByText("Sin conexión")).toBeVisible();
-    const monitor = app.page
-      .getByRole("toolbar", { name: "Acciones" })
-      .getByRole("button", { name: "Monitor de servidor", exact: true });
-    await expect(monitor).toBeDisabled();
+    // Before connecting the interface says so, and there is no connection to
+    // offer tools for (#688: they live in each connection's Herramientas menu).
+    await expect(app.page.getByText("Sin conexión").first()).toBeVisible();
+    const tools = app.page.getByRole("button", { name: "Herramientas", exact: true });
+    await expect(tools).toHaveCount(0);
 
     await connect(app);
 
@@ -35,7 +33,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await expect(
       app.page.getByRole("button", { name: `Desconectar ${app.engine.label}` }).first(),
     ).toBeVisible();
-    await expect(monitor).toBeEnabled();
+    await expect(tools.first()).toBeVisible();
   });
 
   test("browses to the fixture table and reads its rows", async ({ app }) => {
@@ -75,8 +73,8 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await connect(app);
     await openFixtureTable(app);
 
-    const previous = app.page.getByRole("button", { name: /Anterior/ });
-    const next = app.page.getByRole("button", { name: /Siguiente/ });
+    const previous = app.page.getByRole("button", { name: /anterior/i });
+    const next = app.page.getByRole("button", { name: /siguiente/i });
 
     // First page: nothing before it, something after it, and the first row present.
     await expect(previous).toBeDisabled();
@@ -152,8 +150,8 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await editRow(app.page, "Nogal");
     await nombreCell(app.page).fill("Nogal editado");
     // The pending-change counter is the interface's own account of what it will do.
-    await expect(app.page.getByRole("button", { name: /Confirmar \(1\)/ })).toBeEnabled();
-    await app.page.getByRole("button", { name: /Confirmar \(1\)/ }).click();
+    await expect(app.page.getByRole("button", { name: /Guardar \(1\)/ })).toBeEnabled();
+    await app.page.getByRole("button", { name: /Guardar \(1\)/ }).click();
 
     // It shows the exact statement before running it, which is the whole point of
     // a confirmation step: the user gets to see the UPDATE, not just trust it.
@@ -174,7 +172,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
 
     await editRow(app.page, "Nogal");
     await nombreCell(app.page).fill("No debe guardarse");
-    await expect(app.page.getByRole("button", { name: /Confirmar \(1\)/ })).toBeEnabled();
+    await expect(app.page.getByRole("button", { name: /Guardar \(1\)/ })).toBeEnabled();
     await app.page.getByRole("button", { name: "Descartar" }).click();
 
     expect(await readNombre(app, 1)).toBe("Nogales");
@@ -220,12 +218,8 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await connect(app);
     await disconnect(app.page);
 
-    await expect(app.page.getByText("Sin conexión")).toBeVisible();
-    await expect(
-      app.page
-        .getByRole("toolbar", { name: "Acciones" })
-        .getByRole("button", { name: "Monitor de servidor", exact: true }),
-    ).toBeDisabled();
+    await expect(app.page.getByText("Sin conexión").first()).toBeVisible();
+    await expect(app.page.getByRole("button", { name: "Herramientas", exact: true })).toHaveCount(0);
     expect(engineName).toBe(app.engine.name); // the block really is this engine
   });
 });

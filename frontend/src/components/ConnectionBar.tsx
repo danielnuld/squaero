@@ -1,57 +1,26 @@
 import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
-import { engineMonogram, type Connection } from "../utils/connections";
+import { engineMonogram, connectionTarget, driverSchema, type Connection } from "../utils/connections";
 import { ConnectionSearch } from "./ConnectionSearch";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 import type { SafeMode } from "../utils/safeMode";
 
-/** One open connection, as the bar draws it. */
-export interface OpenConnRow {
-  defId: string;
-  name: string;
-  driver: string;
-  color?: string;
-  /** The core said the session is gone (issue #407). */
-  lost?: boolean;
-  /** A fresh session is being opened in its place by itself (issue #676). */
-  reconnecting?: boolean;
-  /** ...and just was (shown for a few seconds). */
-  reconnected?: boolean;
-  /** Statements in its open transaction (issue #667); absent = none open. */
-  txStatements?: number;
-  /** Engine label plus where it points — the second line of the row. */
-  sub: string;
-  /** The connection is protected (issue #666): said on its row, beside the name. */
-  safeMode?: SafeMode;
-}
+/** How many saved connections the empty explorer offers directly. */
+const SAVED_SHOWN = 6;
 
-// The sidebar's connection bar (issue #525). It used to be ONE row — the focused
-// connection — with the whole manager behind a popover: with three connections
-// open it showed one, switching meant open the popover, find it, click it, and
-// finding one among thirty meant folding groups by hand.
-//
-// Now every open connection has its own row, always visible, and a click focuses
-// it. The + opens a SEARCH over the saved ones (ConnectionSearch); creating,
-// editing, importing and exporting live in their own tab, which the search's
-// footer opens. What belongs to a single connection (its tools, refresh,
-// collapse, working database) stays in that connection's explorer section header
-// (issue #444); this bar answers "what is open, and which one am I in".
+// The explorer's head (issue #689): its title, the + that searches the saved
+// connections to open one, and — with nothing open — an empty state with the
+// saved connections a click away. Each OPEN connection is a row at the top of
+// its own tree (ObjectTree's header), so the explorer lists it once.
 export function ConnectionBar(props: {
   /** Every saved connection — what the search looks through. */
   connections: Connection[];
-  /** The open connections, in the order they were opened. */
-  open: OpenConnRow[];
-  /** Which one the workspace is on. */
-  focusedDefId: string | null;
+  /** The saved ids of the open connections. */
+  openIds: string[];
   /** Non-null while a connection is being opened. */
   connectingId: string | null;
-  /** Bring a connection into focus (never opens or closes anything). */
-  onFocus: (defId: string) => void;
   /** Open a saved connection, or focus it when it is already open. */
   onPick: (c: Connection) => void;
-  onDisconnect: (defId: string) => void;
-  /** Reconnect one connection — a lost session is recovered from its row. */
-  onReconnectConn: (defId: string) => void;
   /** Open the connection form for a new connection. */
   onNew: () => void;
   /** Open the manager tab on its import step. */
@@ -60,9 +29,6 @@ export function ConnectionBar(props: {
   onManage: () => void;
 }) {
   const [searching, setSearching] = createSignal(false);
-  // Where the balloon hangs. Measured rather than left to CSS: the popover is
-  // wider than the sidebar, which clips, so it is positioned against the
-  // viewport and has to be told where the bar actually is.
   const [popAt, setPopAt] = createSignal({ top: 0, left: 0 });
   let rootEl: HTMLDivElement | undefined;
 
@@ -72,12 +38,9 @@ export function ConnectionBar(props: {
     setSearching(true);
   };
 
-  // Dismiss on a click outside the bar + popover.
   onMount(() => {
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      // A context menu renders outside this popover (it lives in App); clicking
-      // one of its items must not collapse the search.
       if (target instanceof Element && target.closest(".context-menu")) return;
       if (searching() && rootEl && !rootEl.contains(target)) setSearching(false);
     };
@@ -85,19 +48,17 @@ export function ConnectionBar(props: {
     onCleanup(() => document.removeEventListener("mousedown", onDown));
   });
 
-  const count = () => props.open.length;
-  const openIds = () => props.open.map((r) => r.defId);
+  const saved = () => props.connections.slice(0, SAVED_SHOWN);
+  const subOf = (c: Connection) => {
+    const label = driverSchema(c.driver)?.label ?? c.driver;
+    const target = connectionTarget(c);
+    return target ? `${label} · ${target}` : label;
+  };
 
   return (
     <div class="connbar" ref={rootEl}>
       <div class="connbar-head">
-        <span class="connbar-count">
-          {count() === 0
-            ? t("connbar.noneOpen")
-            : count() === 1
-              ? t("connbar.openOne")
-              : t("connbar.openN", { n: count() })}
-        </span>
+        <span class="explorer-title">{t("explorer.title")}</span>
         <button
           class="connbar-add"
           aria-expanded={searching()}
@@ -109,104 +70,42 @@ export function ConnectionBar(props: {
         </button>
       </div>
 
-      {/* A list, not a listbox: every row carries its own buttons (disconnect,
-          reconnect), and buttons inside an `option` is worse than having no
-          listbox at all. The focused row says so with aria-current. */}
-      <Show
-        when={count() > 0}
-        fallback={
-          <p class="connbar-empty">
-            {t("connbar.emptyHint")}{" "}
-            {/* Its own wording, not the + button's: two buttons with the same
-                accessible name are ambiguous for a screen reader as much as for
-                a test. */}
-            <button class="connbar-empty-link" onClick={openSearch}>
-              {t("connbar.emptyAction")}
-            </button>
-          </p>
-        }
-      >
-        <ul class="connbar-list" aria-label={t("connbar.listLabel")}>
-          <For each={props.open}>
-            {(row) => {
-              const focused = () => row.defId === props.focusedDefId;
-              return (
-                <li class="connbar-item" classList={{ "is-focused": focused() }}>
-                  <span
-                    class="connbar-accent"
-                    style={row.color ? { background: row.color } : undefined}
-                    aria-hidden="true"
-                  />
+      <Show when={props.openIds.length === 0}>
+        <div class="explorer-empty">
+          <span class="explorer-empty-title">{t("explorer.noneTitle")}</span>
+          <span>{t("connbar.emptyHint")}</span>
+          {/* Its own wording, not the + button's: two buttons with the same
+              accessible name are ambiguous for a screen reader and for a test. */}
+          <button class="primary connbar-empty-link" onClick={openSearch}>
+            {t("connbar.emptyAction")}
+          </button>
+        </div>
+        <Show when={saved().length > 0}>
+          <div class="explorer-label">{t("explorer.saved")}</div>
+          <ul class="explorer-saved" aria-label={t("explorer.saved")}>
+            <For each={saved()}>
+              {(c) => (
+                <li>
                   <button
-                    class="connbar-pick"
-                    aria-current={focused() ? "true" : undefined}
-                    title={t("connbar.focusTitle", { name: row.name })}
-                    onClick={() => props.onFocus(row.defId)}
+                    class="explorer-saved-row"
+                    disabled={props.connectingId !== null}
+                    style={c.color ? { "--conn-accent": c.color } : undefined}
+                    onClick={() => props.onPick(c)}
                   >
+                    <span class="connbar-accent" aria-hidden="true" />
                     <span class="connbar-mono" aria-hidden="true">
-                      {engineMonogram(row.driver)}
+                      {engineMonogram(c.driver)}
                     </span>
                     <span class="connbar-text">
-                      <span class="connbar-name">
-                        {row.name}
-                        <SafeBadge mode={row.safeMode} />
-                      </span>
-                      <span class="connbar-sub">{row.sub}</span>
+                      <span class="connbar-name">{c.name}</span>
+                      <span class="connbar-sub">{subOf(c)}</span>
                     </span>
                   </button>
-                  <div class="connbar-actions">
-                    <Show when={row.txStatements !== undefined}>
-                      <span class="conn-tx" title={t("tx.openTitle", { n: row.txStatements! })}>
-                        {t("tx.connMark")}
-                      </span>
-                    </Show>
-                    <Show
-                      when={row.lost && !row.reconnecting}
-                      fallback={
-                        <Show
-                          when={row.reconnecting || row.reconnected}
-                          fallback={
-                            <span class="conn-live" title={t("conn.connectedDot")} aria-hidden="true">
-                              ●
-                            </span>
-                          }
-                        >
-                          <span
-                            class="connbar-reconnecting"
-                            role="status"
-                            title={row.reconnected ? t("conn.reconnected", { name: row.name }) : undefined}
-                          >
-                            {t(row.reconnecting ? "conn.reconnecting" : "conn.statusReconnected")}
-                          </span>
-                        </Show>
-                      }
-                    >
-                      <span class="connbar-lost">{t("conn.statusLost")}</span>
-                      <button
-                        class="connbar-act"
-                        title={t("conn.reconnect")}
-                        aria-label={t("conn.reconnect")}
-                        disabled={props.connectingId !== null}
-                        onClick={() => props.onReconnectConn(row.defId)}
-                      >
-                        <Icon name="refresh" size={14} />
-                      </button>
-                    </Show>
-                    <button
-                      class="connbar-act connbar-eject"
-                      title={t("conn.disconnectName", { name: row.name })}
-                      aria-label={t("conn.disconnectName", { name: row.name })}
-                      disabled={props.connectingId !== null}
-                      onClick={() => props.onDisconnect(row.defId)}
-                    >
-                      <Icon name="disconnect" size={14} />
-                    </button>
-                  </div>
                 </li>
-              );
-            }}
-          </For>
-        </ul>
+              )}
+            </For>
+          </ul>
+        </Show>
       </Show>
 
       <Show when={searching()}>
@@ -216,7 +115,7 @@ export function ConnectionBar(props: {
         >
           <ConnectionSearch
             connections={props.connections}
-            openIds={openIds()}
+            openIds={props.openIds}
             connectingId={props.connectingId}
             onPick={props.onPick}
             onNew={() => {
@@ -239,7 +138,7 @@ export function ConnectionBar(props: {
   );
 }
 
-/** The protected-connection marker (issue #666), shared by the bar and the tabs. */
+/** The protected-connection marker (issue #666), shared by the explorer and the tabs. */
 export function SafeBadge(props: { mode?: SafeMode }) {
   return (
     <Show when={props.mode}>

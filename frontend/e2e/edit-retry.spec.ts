@@ -23,7 +23,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
     await connect(app);
     await openFixtureTable(app);
 
-    await page.getByRole("button", { name: "Editar", exact: true }).click();
+    // Fila opens the edit session by itself: there is no Editar button (#688).
     const addRow = page.getByRole("button", { name: "Fila", exact: true });
     await addRow.click();
     await addRow.click();
@@ -44,7 +44,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], () => {
       await nombres.nth(i).fill(nombre);
     }
 
-    const confirm = page.getByRole("button", { name: /Confirmar \(3\)/ });
+    const confirm = page.getByRole("button", { name: /Guardar \(3\)/ });
     await confirm.click();
     await page.getByRole("button", { name: "Aplicar y confirmar" }).click();
     await expect(page.getByText(/Error al aplicar/)).toBeVisible({ timeout: 15_000 });

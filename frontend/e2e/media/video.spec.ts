@@ -160,7 +160,7 @@ test("record the demo video", async ({ page }) => {
     // --- 1. Connect ---------------------------------------------------------
     await page.goto("/");
     await startBlank(page);
-    await expect(page.getByText(T.notConnected)).toBeVisible();
+    await expect(page.getByText(T.notConnected).first()).toBeVisible();
     await caption(T.cConnect);
     await beat(1600);
 

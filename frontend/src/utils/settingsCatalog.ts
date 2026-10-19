@@ -75,6 +75,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     category: "editor",
     keys: ["lhist.settingVersions", "lhist.settingDays", "lhist.settingHint"],
   },
+  { id: "showOldValues", category: "grid", keys: ["settings.showOldValues"] },
   { id: "colorTypes", category: "grid", keys: ["settings.colorTypes", "settings.typeColors", "settings.resetColors"] },
   {
     id: "gridStyle",
@@ -87,7 +88,6 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   { id: "historyLimit", category: "queries", keys: ["settings.historyLimit"] },
   // One row: the whole editor, findable by any action's name.
   { id: "shortcuts", category: "shortcuts", keys: ["settings.cat.shortcuts", ...SHORTCUTS.map((sc) => sc.description)] },
-  { id: "toolStrip", category: "window", keys: ["settings.toolStrip"] },
   { id: "nativeMenu", category: "window", keys: ["settings.nativeMenu"] },
   {
     id: "about",
@@ -130,9 +130,9 @@ const SECTION_FIELDS: Partial<Record<SettingsCategory, readonly (keyof Settings)
     "localHistoryVersions",
     "localHistoryDays",
   ],
-  grid: ["colorTypes", "gridStyle", "gridDensity", "gridFont", "gridFontSize"],
+  grid: ["colorTypes", "showOldValues", "gridStyle", "gridDensity", "gridFont", "gridFontSize"],
   queries: ["slowThresholdMs"],
-  window: ["toolStrip", "nativeMenu"],
+  window: ["nativeMenu"],
 };
 
 /** The defaults of the Settings fields a section owns; empty for a section that owns none. */

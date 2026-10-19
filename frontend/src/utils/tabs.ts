@@ -329,6 +329,19 @@ export function closeOtherTabs(state: TabState, id: number): TabState {
   return { ...state, tabs: [keep], activeId: id };
 }
 
+/**
+ * Closes every tab to the right of `id` ("Cerrar las de la derecha", #688).
+ * The active tab survives when it is `id` or left of it; otherwise `id` takes
+ * over. A no-op when `id` is unknown or already the last tab.
+ */
+export function closeTabsToRight(state: TabState, id: number): TabState {
+  const index = state.tabs.findIndex((t) => t.id === id);
+  if (index === -1 || index === state.tabs.length - 1) return state;
+  const tabs = state.tabs.slice(0, index + 1);
+  const activeId = tabs.some((t) => t.id === state.activeId) ? state.activeId : id;
+  return { ...state, tabs, activeId };
+}
+
 /** Replaces the SQL-variable values of the query tab with `id` (issue #481). */
 export function updateTabVars(
   state: TabState,

@@ -69,15 +69,12 @@ describeEngine("sqlite", () => {
     await openOne("Ventas");
     await openOne("Nómina");
 
-    // Both are up: two rows, and the count agrees with them.
+    // Both are up: two rows, each heading its own tree (#444, #689), folded
+    // by a chevron named after the connection.
     await expect(bar.getByRole("listitem")).toHaveCount(2);
-    await expect(page.getByText("2 abiertas")).toBeVisible();
-
-    // Each one brought its own section to the explorer (issue #444), named after
-    // the connection — which is what makes two of them worth having.
     for (const name of ["Ventas", "Nómina"]) {
       await expect(
-        page.getByRole("button", { name, exact: true }),
+        page.getByRole("button", { name: `Contraer ${name}`, exact: true }),
         `${name} has its own explorer section`,
       ).toBeVisible();
     }

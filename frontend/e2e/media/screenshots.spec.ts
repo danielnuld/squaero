@@ -18,6 +18,7 @@ import { expect, test } from "@playwright/test";
 import { installBridge } from "../support/bridge";
 import { DEMO_CONNECTION, seedDemo } from "../support/demo";
 import { seedBrowserState } from "../support/state";
+import { openTool } from "../support/app-actions";
 import { startBlank } from "../support/app-actions";
 
 const OUT = join(import.meta.dirname, "..", "..", "..", "assets", "media");
@@ -97,7 +98,7 @@ test("capture the published screenshots", async ({ page }) => {
     await setTheme("dark");
     await page.goto("/");
     await startBlank(page);
-    await expect(page.getByText("Sin conexión")).toBeVisible();
+    await expect(page.getByText("Sin conexión").first()).toBeVisible();
     await expectTheme("dark");
     await page.setViewportSize({ width: 1280, height: 800 });
     await shot("screenshot-initial-dark.png");
@@ -136,10 +137,7 @@ test("capture the published screenshots", async ({ page }) => {
       ["Usuarios y permisos", "screenshot-users.png", /usuario\(s\)/i],
     ];
     for (const [button, file, ready] of tools) {
-      await page
-        .getByRole("toolbar", { name: "Acciones" })
-        .getByRole("button", { name: button, exact: true })
-        .click();
+      await openTool(page, button);
       await expect(page.getByText(ready).first()).toBeVisible({ timeout: 30_000 });
       await shot(file);
       // Escape, not a "Cerrar" button: the panels stopped printing one when the

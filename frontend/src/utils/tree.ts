@@ -225,3 +225,18 @@ export function flattenFiltered(
   };
   return walk(roots, 0);
 }
+
+/**
+ * How many objects a filtered view matched (issue #689): nodes whose own label
+ * contains the filter, not the folders and containers shown only to reach
+ * them. Case-insensitive, like flattenFiltered; an empty filter matches none.
+ */
+export function filterMatchCount(
+  flat: readonly TreeNode[],
+  filter: string,
+  labelOf: (node: TreeNode) => string = (node) => node.label,
+): number {
+  const needle = filter.trim().toLowerCase();
+  if (!needle) return 0;
+  return flat.filter((n) => n.kind !== "group" && labelOf(n).toLowerCase().includes(needle)).length;
+}

@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { ObjectViewSwitch, type ObjectView } from "./ObjectToolbar";
 import { runQuery, type ResultSet } from "../utils/query";
 import { txBegin, txCommit, txRollback } from "../utils/edit";
 import { errorText } from "../utils/errors";
@@ -34,6 +35,8 @@ export function IndexManager(props: {
   onClose: () => void;
   /** Reload the object tree after a change. */
   onChanged?: () => void;
+  /** Datos · Estructura · Índices · DDL (issue #688). Absent → no switch. */
+  onView?: (view: ObjectView) => void;
 }) {
   const container = () => props.schema ?? props.db;
 
@@ -249,6 +252,9 @@ export function IndexManager(props: {
       title={t("im.title", { name: props.table })}
       wide
       onClose={props.onClose}
+      actions={
+        props.onView ? <ObjectViewSwitch current="indexes" onPick={(v) => props.onView!(v)} /> : undefined
+      }
       onRefresh={() => void load()}
       refreshing={loading()}
     >
