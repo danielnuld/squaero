@@ -338,7 +338,12 @@ export const es: Record<string, string> = {
   // paleta de snippets (Ctrl/Cmd+J)
   "snip.palettePlaceholder": "Buscar snippets",
   "snip.paletteEmptySet": "Aún no hay snippets guardados.",
-  "snip.paletteFooter": "{enter} abrir · {shiftEnter} ejecutar · {modEnter} insertar en el cursor",
+  "snip.edit": "Editar…",
+  "snip.insertShort": "Insertar",
+  "snip.chipAbbr": "Plantilla: {abbr}",
+  "snip.runsOn": "Se ejecuta en {conn}",
+  "snip.runsOnNone": "Se ejecuta en la conexión de la pestaña activa",
+  "snip.paletteFooter": "{enter} abrir · {modEnter} ejecutar · {altEnter} insertar en el cursor · {esc} cerrar",
   "editor.selectAll": "Seleccionar todo",
   "editor.copy": "Copiar",
   // diagnósticos del editor (#662)
@@ -1947,6 +1952,7 @@ export const es: Record<string, string> = {
   "cmdk.scopes": "Ámbito de la búsqueda",
   "cmdk.scopeHint": "{keys} cambia de ámbito",
   "cmdk.results": "Resultados",
+  "cmdk.previewAria": "Vista previa de {name}",
   "cmdk.needsConn": "conecta primero a una base de datos",
   "cmdk.unavailable": "No disponible: {reason}",
   "cmdk.objectsPlaceholder": "Buscar tablas, vistas… ({keys} para abrir)",

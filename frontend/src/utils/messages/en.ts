@@ -335,7 +335,12 @@ export const en: Record<string, string> = {
   // snippet palette (Ctrl/Cmd+J)
   "snip.palettePlaceholder": "Search snippets",
   "snip.paletteEmptySet": "No saved snippets yet.",
-  "snip.paletteFooter": "{enter} open · {shiftEnter} run · {modEnter} insert at the cursor",
+  "snip.edit": "Edit…",
+  "snip.insertShort": "Insert",
+  "snip.chipAbbr": "Template: {abbr}",
+  "snip.runsOn": "Runs on {conn}",
+  "snip.runsOnNone": "Runs on the active tab's connection",
+  "snip.paletteFooter": "{enter} open · {modEnter} run · {altEnter} insert at the caret · {esc} close",
   "editor.selectAll": "Select all",
   "editor.copy": "Copy",
   // editor diagnostics (#662)
@@ -1932,6 +1937,7 @@ export const en: Record<string, string> = {
   "cmdk.scopes": "Search scope",
   "cmdk.scopeHint": "{keys} changes the scope",
   "cmdk.results": "Results",
+  "cmdk.previewAria": "Preview of {name}",
   "cmdk.needsConn": "connect to a database first",
   "cmdk.unavailable": "Unavailable: {reason}",
   "cmdk.objectsPlaceholder": "Search tables, views… ({keys} to open)",

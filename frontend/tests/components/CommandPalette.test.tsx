@@ -140,7 +140,7 @@ describe("CommandPalette", () => {
 });
 
 describe("CommandPalette — snippet mode (issue #320)", () => {
-  const snippets = (alt?: (a: "shift" | "mod") => void): Command[] => [
+  const snippets = (alt?: (a: "shift" | "mod" | "alt") => void): Command[] => [
     {
       id: "snip:1",
       category: "snippet",
@@ -188,9 +188,37 @@ describe("CommandPalette — snippet mode (issue #320)", () => {
     keyWith(input(), "Enter", { shiftKey: true });
     mount({ commands: cmds });
     keyWith(input(), "Enter", { ctrlKey: true });
-    expect(alts).toEqual(["shift", "mod"]);
+    mount({ commands: cmds });
+    keyWith(input(), "Enter", { altKey: true });
+    expect(alts).toEqual(["shift", "mod", "alt"]);
     // The alternates replace the primary action, they do not add to it.
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a snippet's chips, where it runs and its actions, closing before one runs", () => {
+    const insert = vi.fn();
+    const onClose = vi.fn();
+    const cmds = snippets();
+    cmds[0] = {
+      ...cmds[0],
+      chips: ["Plantilla: cpa"],
+      detail: "Se ejecuta en Ventas · main",
+      actions: [
+        { label: "Editar…", run: () => {} },
+        { label: "Insertar", run: insert },
+        { label: "Abrir", primary: true, run: () => {} },
+      ],
+    };
+    mount({ commands: cmds, onClose });
+    const pane = host!.querySelector(".cmdk-preview-pane")!;
+    expect(pane.querySelector(".chip")!.textContent).toBe("Plantilla: cpa");
+    expect(pane.textContent).toContain("Se ejecuta en Ventas · main");
+    const buttons = [...pane.querySelectorAll<HTMLButtonElement>(".cmdk-preview-actions button")];
+    expect(buttons.map((b) => b.textContent)).toEqual(["Editar…", "Insertar", "Abrir"]);
+    expect(buttons[2].classList.contains("btn-primary")).toBe(true);
+    buttons[1].click();
+    expect(onClose).toHaveBeenCalled();
+    expect(insert).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the primary action when a command offers no alternates", () => {

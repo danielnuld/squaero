@@ -5446,7 +5446,21 @@ export function App() {
         // Enter opens it in its own tab: the tab you were in keeps its text, and
         // reopening the same snippet returns to the tab it already has.
         run: () => openSnippet(s),
-        runAlt: (alt) => (alt === "shift" ? runFromHistory(s.body) : insertSnippet(s)),
+        // Ctrl+Intro runs it (Mayús+Intro too, as before); Alt+Intro inserts it.
+        runAlt: (alt) => (alt === "alt" ? insertSnippet(s) : runFromHistory(s.body)),
+        chips: s.abbr ? [t("snip.chipAbbr", { abbr: s.abbr })] : undefined,
+        detail: active()
+          ? t("snip.runsOn", { conn: active()!.name + (activeDb() ? ` · ${activeDb()}` : "") })
+          : t("snip.runsOnNone"),
+        actions: [
+          {
+            label: t("snip.edit"),
+            run: () => showTool("snippets", t("editor.snippets"), { key: "snippets", params: { id: s.id } }),
+          },
+          { label: t("snip.insertShort"), title: t("snip.insertTitle"), run: () => insertSnippet(s) },
+          { label: t("snip.run"), title: t("snip.runTitle"), run: () => runFromHistory(s.body) },
+          { label: t("snip.open"), primary: true, title: t("snip.openTitle"), run: () => openSnippet(s) },
+        ],
       });
 
     // Recent history (cap so the palette stays snappy; fuzzy filters the rest).
@@ -6852,6 +6866,7 @@ export function App() {
                 <Match when={tt().tool === "snippets"}>
                   <SnippetsPanel
                     entries={snippets()}
+                    selectId={(tt().params as { id?: string } | undefined)?.id}
                     onOpen={openSnippet}
                     onInsert={insertSnippet}
                     onRun={(snip) => runFromHistory(snip.body)}
@@ -7316,7 +7331,7 @@ export function App() {
               ? t("snip.palettePlaceholder")
               : undefined
         }
-        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", shiftEnter: "Shift+Enter", modEnter: "Mod+Enter" })) : undefined}
+        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", modEnter: "Mod+Enter", altEnter: "Alt+Enter", esc: "Escape" })) : undefined}
         emptySetLabel={
           paletteMode() === "snippets" ? t("snip.paletteEmptySet") : undefined
         }

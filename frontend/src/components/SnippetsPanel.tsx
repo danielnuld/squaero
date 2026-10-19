@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { EmptyNote } from "./EmptyNote";
 import { Panel } from "./Panel";
 import { searchSnippets, type Snippet } from "../utils/snippets";
@@ -23,6 +23,8 @@ export function SnippetsPanel(props: {
   entries: Snippet[];
   onOpen: (s: Snippet) => void;
   onInsert: (s: Snippet) => void;
+  /** The snippet to select first (the palette's «Editar…»). */
+  selectId?: string;
   /** Runs the snippet in a new query tab (Ctrl+Intro on the list). */
   onRun?: (s: Snippet) => void;
   onRename: (id: string, name: string) => void;
@@ -38,7 +40,8 @@ export function SnippetsPanel(props: {
   docked?: boolean;
 }) {
   const [query, setQuery] = createSignal("");
-  const [selectedId, setSelectedId] = createSignal<string | null>(null);
+  const [selectedId, setSelectedId] = createSignal<string | null>(props.selectId ?? null);
+  createEffect(() => props.selectId && setSelectedId(props.selectId));
   const [renamingId, setRenamingId] = createSignal<string | null>(null);
   const [draft, setDraft] = createSignal("");
   let fileInput!: HTMLInputElement;
