@@ -44,6 +44,8 @@ export type ActionId =
   | "related-row"
   | "edit-cell"
   | "set-null"
+  | "row-detail"
+  | "fk-picker"
   | "add-condition"
   | "filter-add-condition"
   | "select-next-occurrence"
@@ -110,6 +112,8 @@ export const SHORTCUTS: Shortcut[] = [
   // In-place editing (R-14): F2 opens the selected cell, Mod+Shift+N writes NULL.
   { id: "edit-cell", keys: "F2", description: "sc.edit-cell", global: false },
   { id: "set-null", keys: "Mod+Shift+N", description: "sc.set-null", global: false },
+  { id: "row-detail", keys: "Space", description: "sc.row-detail", global: false },
+  { id: "fk-picker", keys: "Alt+↓", description: "sc.fk-picker", global: false },
   // The filter panel owns it (issue #462): Enter there applies the draft, so
   // Shift+Enter is the "one more line" of the same reflex. Not matched globally.
   { id: "add-condition", keys: "Shift+Enter", description: "sc.add-condition", global: false },
