@@ -142,6 +142,8 @@ import { BUILTIN_THEMES, DEFAULT_THEME_ID } from "./utils/themes";
 import {
   formatKeys,
   keysOf,
+  keyLabel,
+  keyParams,
   effectiveShortcuts,
   matchShortcut,
   type ActionId,
@@ -5660,7 +5662,7 @@ export function App() {
                             }}
                           />
                           <span class="snip-save-scope">
-                            {t(`snip.scope.${pending().scope}`)} · {t("snip.nameHint")}
+                            {t(`snip.scope.${pending().scope}`)} · {t("snip.nameHint", keyParams({ enter: "Enter", esc: "Esc" }))}
                           </span>
                         </span>
                       )}
@@ -5758,7 +5760,7 @@ export function App() {
                   <Show when={!isDataTab(tab().id) && resultView(tab().id) === "plan"}>
                     <Show
                       when={planSqls[tab().id]}
-                      fallback={<p class="grid-empty result-alt">{t("plan.empty")}</p>}
+                      fallback={<p class="grid-empty result-alt">{t("plan.empty", { keys: keysOf("explain", shortcuts(), currentOs()) })}</p>}
                     >
                       {(sql) => (
                         <ExplainPlan
@@ -6905,12 +6907,12 @@ export function App() {
         commands={visiblePaletteCommands()}
         placeholder={
           paletteMode() === "objects"
-            ? t("cmdk.objectsPlaceholder")
+            ? t("cmdk.objectsPlaceholder", { keys: keyLabel("Enter") })
             : paletteMode() === "snippets"
               ? t("snip.palettePlaceholder")
               : undefined
         }
-        footer={paletteMode() === "snippets" ? t("snip.paletteFooter") : undefined}
+        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", shiftEnter: "Shift+Enter", modEnter: "Mod+Enter" })) : undefined}
         emptySetLabel={
           paletteMode() === "snippets" ? t("snip.paletteEmptySet") : undefined
         }

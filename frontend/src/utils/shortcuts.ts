@@ -13,7 +13,7 @@
 // can be rebound; the editor's and the grid's keys are owned by CodeMirror and
 // the grid component, which do not read this table.
 
-import type { Os } from "./dialog";
+import { currentOs, type Os } from "./dialog";
 import { t } from "./i18n";
 
 export type ActionId =
@@ -87,6 +87,8 @@ export interface Shortcut {
   global: boolean;
   /** Older key labels still matched (not shown); dropped once the action is rebound. */
   aliases?: string[];
+  /** Keys the description names ({mod}, {keys}…), formatted where it is shown. */
+  also?: Record<string, string>;
 }
 
 export const SHORTCUTS: Shortcut[] = [
@@ -126,9 +128,9 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "save-edits", keys: "Mod+S", description: "sc.save-edits", global: true },
   { id: "editor-find", keys: "Mod+F", description: "sc.editor-find", global: true },
   // The SQL editor owns these (issues #663, #664); documented, never matched globally.
-  { id: "editor-definition", keys: "F12", description: "sc.editor-definition", global: false },
-  { id: "editor-usages", keys: "Shift+F12", description: "sc.editor-usages", global: false },
-  { id: "editor-rename", keys: "F2", description: "sc.editor-rename", global: false },
+  { id: "editor-definition", keys: "F12", description: "sc.editor-definition", global: false, also: { mod: "Mod" } },
+  { id: "editor-usages", keys: "Shift+F12", description: "sc.editor-usages", global: false, also: { keys: "Alt+F7" } },
+  { id: "editor-rename", keys: "F2", description: "sc.editor-rename", global: false, also: { keys: "Shift+F6" } },
   // The grid owns these (they only make sense with the grid focused), so they
   // are documented here but never matched globally. Copy and duplicate act on
   // the marked rows, or the selected cell's row; paste comes in on the paste
@@ -167,7 +169,7 @@ export const SHORTCUTS: Shortcut[] = [
   // acts on a table tab — one with no editor.
   { id: "select-next-occurrence", keys: "Mod+D", description: "sc.select-next-occurrence", global: false },
   { id: "select-all-occurrences", keys: "Mod+Shift+L", description: "sc.select-all-occurrences", global: false },
-  { id: "add-cursor", keys: "Alt+Shift+↑/↓", description: "sc.add-cursor", global: false },
+  { id: "add-cursor", keys: "Alt+Shift+↑/↓", description: "sc.add-cursor", global: false, also: { mod: "Mod", alt: "Alt" } },
   { id: "expand-template", keys: "Tab", description: "sc.expand-template", global: false },
   // End the connection's open transaction (issue #667); no-ops when none is.
   // Alt+Shift, not Ctrl+Alt (R-17): Ctrl+Alt+C is AltGr+C, which types «ć».
@@ -559,4 +561,17 @@ export function formatKeys(keys: string, os: Os, tr: (key: string) => string = t
 /** The keys of action `id` in `table`, formatted for `os`; "" when it has none. */
 export function keysOf(id: ActionId, table: readonly Shortcut[], os: Os): string {
   return formatKeys(table.find((sc) => sc.id === id)?.keys ?? "", os);
+}
+
+/** A key label for the platform the app runs on. */
+export const keyLabel = (keys: string): string => formatKeys(keys, currentOs());
+
+/** Each value of `keys` formatted for `os`, for a message's placeholders. */
+export function keyParams(keys: Record<string, string>, os: Os = currentOs()): Record<string, string> {
+  return Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, formatKeys(v, os)]));
+}
+
+/** What a shortcut does, in the UI's words, the keys it names formatted for `os`. */
+export function shortcutText(sc: Shortcut, os: Os): string {
+  return t(sc.description, sc.also ? keyParams(sc.also, os) : undefined);
 }

@@ -1,4 +1,5 @@
 import { For, Show, createMemo } from "solid-js";
+import { keyParams } from "../utils/shortcuts";
 import { type RunScope } from "../utils/runScope";
 import { formatClock, formatDuration } from "../utils/duration";
 import { t } from "../utils/i18n";
@@ -158,13 +159,13 @@ export function StatusBar(props: {
               return <span class="status-item">{t("status.columns", { n: props.columnCount! })}</span>;
             case "marked":
               return (
-                <span class="status-item" title={t("status.markedTitle")}>
+                <span class="status-item" title={t("status.markedTitle", keyParams({ mod: "Mod", shift: "Shift", all: "Mod+A" }))}>
                   {t("status.marked", { n: props.markedCount! })}
                 </span>
               );
             case "summary":
               return (
-                <span class="status-item" title={t("status.summaryTitle")}>
+                <span class="status-item" title={t("status.summaryTitle", keyParams({ mod: "Mod", shift: "Shift" }))}>
                   {summaryText(props.summary!)}
                 </span>
               );

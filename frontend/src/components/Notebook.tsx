@@ -1,4 +1,5 @@
 import { For, Index, Show, createSignal, createMemo } from "solid-js";
+import { keyLabel } from "../utils/shortcuts";
 import { createStore } from "solid-js/store";
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
@@ -312,7 +313,7 @@ export function Notebook(props: {
                 <Show when={cell().kind === "sql"}>
                   <button
                     class="status-btn"
-                    title={t("editor.formatTitle")}
+                    title={t("editor.formatTitle", { keys: keyLabel("Mod+Shift+F") })}
                     disabled={cell().source.trim() === ""}
                     onClick={() => formatCell(cell().id, cell().source)}
                   >

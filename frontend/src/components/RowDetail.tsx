@@ -1,4 +1,5 @@
 import { For, Show, createMemo, onMount } from "solid-js";
+import { keyLabel } from "../utils/shortcuts";
 import { NULL_LABEL } from "../utils/format";
 import { buildRowFields, canStep } from "../utils/rowDetail";
 import type { ResultColumn } from "../utils/query";
@@ -94,7 +95,7 @@ export function RowDetail(props: {
           <button class="rd-nav-btn" disabled={!canNext()} title={t("rd.nextKeys")} aria-label={t("rd.next")} onClick={props.onNext}>
             <Icon name="chevron-right" size={14} />
           </button>
-          <button class="rd-nav-btn rd-close" title={t("rd.closeTitle")} aria-label={t("rd.closeTitle")} onClick={props.onClose}>
+          <button class="rd-nav-btn rd-close" title={t("rd.closeTitle", { keys: keyLabel("Esc") })} aria-label={t("rd.closeTitle", { keys: keyLabel("Esc") })} onClick={props.onClose}>
             <Icon name="close" size={14} />
           </button>
         </div>

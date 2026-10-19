@@ -1,4 +1,5 @@
 import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from "solid-js";
+import { keyLabel, keyParams } from "../utils/shortcuts";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
 import { cellAlign, boolTo01, classifyType, NULL_LABEL, withScale } from "../utils/format";
 import { displayText } from "../utils/gridDisplay";
@@ -27,8 +28,6 @@ import type { PkMode } from "../utils/rowPaste";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
 import { cellEditorKey, gridEditKey } from "../utils/cellEditKeys";
-import { formatKeys } from "../utils/shortcuts";
-import { currentOs } from "../utils/dialog";
 import { Icon, IconKey, IconRelated, IconSearch } from "./icons";
 import { t } from "../utils/i18n";
 
@@ -1063,7 +1062,7 @@ export function ResultGrid(props: {
                         aria-colindex={di() + 1 + colOffset()}
                         aria-sort={sortDirOf(ci())}
                         tabindex={0}
-                        title={t("grid.sortOrMove")}
+                        title={t("grid.sortOrMove", { keys: keyLabel("Alt+←/→") })}
                         draggable={true}
                         onDragStart={(e) => {
                           setDragFrom(di());
@@ -1516,9 +1515,7 @@ export function ResultGrid(props: {
                       {t("grid.editHint.before", { value: before() ?? NULL_LABEL, type: col()?.type ?? "" })}
                     </span>
                     <span class="grid-edit-hint-keys">
-                      {t("grid.editHint.keys", {
-                        keys: formatKeys("Mod+Shift+N", currentOs()),
-                      })}
+                      {t("grid.editHint.keys", keyParams({ enter: "Enter", esc: "Esc", keys: "Mod+Shift+N" }))}
                     </span>
                   </div>
                 );

@@ -1,3 +1,4 @@
+import type { Os } from "../utils/dialog";
 import { createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js";
 import { Panel } from "./Panel";
 import { BrandWordmark } from "./Brand";
@@ -31,6 +32,9 @@ import {
   clearOverride,
   comboFromEvent,
   formatKeys,
+  keyParams,
+  keysOf,
+  shortcutText,
   findConflicts,
   isRebindable,
   setOverride,
@@ -284,7 +288,8 @@ export function SettingsPanel(props: {
   // closes the tab.
   const [capturing, setCapturing] = createSignal<ActionId | null>(null);
   const [scMessage, setScMessage] = createSignal<string | null>(null);
-  const actionName = (sc: Shortcut) => t(sc.description);
+  const os = (): Os => (props.isMac ? "macos" : "windows");
+  const actionName = (sc: Shortcut) => shortcutText(sc, props.isMac ? "macos" : "windows");
   const onCapture = (sc: Shortcut, e: KeyboardEvent) => {
     if (capturing() !== sc.id) return;
     e.preventDefault();
@@ -298,7 +303,7 @@ export function SettingsPanel(props: {
     setCapturing(null);
     const err = validateCombo(keys);
     if (err) {
-      setScMessage(t(`settings.sc.err.${err}`));
+      setScMessage(t(`settings.sc.err.${err}`, keyParams({ mod: "Mod", alt: "Alt" }, os())));
       return;
     }
     const conflicts = findConflicts(keys, sc.id, props.shortcuts);
@@ -627,7 +632,13 @@ export function SettingsPanel(props: {
             {chips(t("settings.zoom"), ZOOM_STEPS, () => props.settings.zoom, (z) => `${z}%`, (z) =>
               props.onSetSettings({ zoom: z }),
             )}
-            <p class="settings-hint">{t("settings.zoomHint")}</p>
+            <p class="settings-hint">
+              {t("settings.zoomHint", {
+                zoomIn: keysOf("zoom-in", props.shortcuts, os()),
+                zoomOut: keysOf("zoom-out", props.shortcuts, os()),
+                zoomReset: keysOf("zoom-reset", props.shortcuts, os()),
+              })}
+            </p>
           </>
         ))}
         {row("uiFont", () => (
@@ -828,7 +839,7 @@ export function SettingsPanel(props: {
     shortcuts: () =>
       row("shortcuts", () => (
         <>
-          <p class="settings-hint">{t("settings.sc.hint")}</p>
+          <p class="settings-hint">{t("settings.sc.hint", keyParams({ esc: "Esc" }, os()))}</p>
           <table class="shortcuts-list settings-shortcuts">
             <tbody>
               <For each={props.shortcuts}>
@@ -836,7 +847,7 @@ export function SettingsPanel(props: {
                   const overridden = () => props.shortcutOverrides[sc.id] !== undefined;
                   return (
                     <tr>
-                      <td>{t(sc.description)}</td>
+                      <td>{actionName(sc)}</td>
                       <td class="keys">
                         <Show when={sc.keys} fallback={<span class="sc-none">{t("settings.sc.none")}</span>}>
                           <kbd>{formatKeys(sc.keys, props.isMac ? "macos" : "windows")}</kbd>
@@ -845,7 +856,7 @@ export function SettingsPanel(props: {
                           <span class="settings-badge">{t("settings.sc.custom")}</span>
                         </Show>
                         <Show when={!isRebindable(sc)}>
-                          <span class="settings-badge" title={t("settings.sc.hint")}>
+                          <span class="settings-badge" title={t("settings.sc.hint", keyParams({ esc: "Esc" }, os()))}>
                             {t("settings.sc.fixed")}
                           </span>
                         </Show>

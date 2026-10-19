@@ -1,4 +1,5 @@
 import { For, Show } from "solid-js";
+import { keyLabel } from "../utils/shortcuts";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 import {
@@ -328,7 +329,7 @@ export function DataFilterBar(props: {
               reach for folded, this one is where the eye already is once the
               list is long (issue #462). */}
           <div class="filter-actions">
-            <button class="status-btn tool" onClick={addCond} title={t("filter.addCondHint")}>
+            <button class="status-btn tool" onClick={addCond} title={t("filter.addCondHint", { keys: keyLabel("Shift+Enter") })}>
               {t("filter.addCond")}
             </button>
           </div>
@@ -376,7 +377,7 @@ export function DataFilterBar(props: {
           </Show>
 
           <div class="filter-apply">
-            <button class="primary" title={t("filter.applyKeys")} onClick={props.onApply}>
+            <button class="primary" title={t("filter.applyKeys", { keys: keyLabel("Mod+Enter") })} onClick={props.onApply}>
               {t("filter.apply")}
             </button>
             <button class="status-btn" onClick={props.onClear}>

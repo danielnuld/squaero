@@ -6,7 +6,7 @@ import { Icon, type IconName } from "./icons";
 import { t, locale } from "../utils/i18n";
 import { timeAgo } from "../utils/history";
 import { connectionTarget, driverSchema, engineMonogram, type Connection } from "../utils/connections";
-import { SHORTCUTS, formatKeys, type Shortcut } from "../utils/shortcuts";
+import { SHORTCUTS, formatKeys, shortcutText, type Shortcut } from "../utils/shortcuts";
 import type { TreeNode } from "../utils/tree";
 
 // What the workspace shows with no tab open (issue #694): with nothing
@@ -158,7 +158,7 @@ export function Welcome(props: {
             {(s) => (
               <li>
                 <kbd>{formatKeys(s.keys, props.isMac ? "macos" : "windows")}</kbd>
-                <span>{t(s.description)}</span>
+                <span>{shortcutText(s, props.isMac ? "macos" : "windows")}</span>
               </li>
             )}
           </For>

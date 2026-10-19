@@ -79,7 +79,7 @@ export function EditorToolbar(props: {
         <button
           class="edit-btn edit-btn-primary editor-run-main"
           disabled={props.running}
-          title={props.info.hasSelection ? t("editor.runSelectionTitle") : t("editor.runStatementTitle")}
+          title={t(props.info.hasSelection ? "editor.runSelectionTitle" : "editor.runStatementTitle", { keys: keys("Mod+Enter")! })}
           onClick={() => props.onRun()}
         >
           <Icon name="play" size={14} class="eb-ic" /> {t(runButtonLabel(props.info))}
@@ -106,7 +106,7 @@ export function EditorToolbar(props: {
         <Icon name="stop" size={14} />
       </button>
       <span class="toolbar-sep" aria-hidden="true" />
-      <button class="edit-btn" title={t("editor.formatTitle")} onClick={() => props.onFormat()}>
+      <button class="edit-btn" title={t("editor.formatTitle", { keys: keys("Mod+Shift+F")! })} onClick={() => props.onFormat()}>
         <Icon name="format" size={14} class="eb-ic" /> {t("editor.format")}
       </button>
       <Show when={props.tx}>

@@ -413,7 +413,7 @@ describe("SettingsPanel — shortcuts", () => {
     goto("Atajos de teclado");
     expect(host!.querySelectorAll(".settings-shortcuts tr").length).toBe(SHORTCUTS.length);
     const run = rowOf("Ejecutar la sentencia actual, o la selección");
-    expect(run.querySelector("kbd")!.textContent).toBe("Ctrl+Enter");
+    expect(run.querySelector("kbd")!.textContent).toBe("Ctrl+Intro");
     expect(run.textContent).toContain("Fijo");
     expect(run.querySelector("button")).toBeNull();
     const refresh = rowOf("Refrescar datos y árbol");
