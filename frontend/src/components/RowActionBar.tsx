@@ -1,4 +1,5 @@
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Floating bar over the grid while rows are marked (#517). Marking used to lead
 // only to the right-click menu, and only from two rows up; this puts the same
@@ -55,7 +56,7 @@ export function RowActionBar(props: {
         title={t("rowbar.clear")}
         onClick={() => props.onClear()}
       >
-        ✕
+        <Icon name="close" size={12} />
       </button>
     </div>
   );

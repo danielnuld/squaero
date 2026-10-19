@@ -167,7 +167,7 @@ describe("ConnectionSearch", () => {
 
   it("sends creating, importing and managing to the connections tab", () => {
     const { onNew, onImport, onManage } = mount();
-    textBtn("+ Nueva conexión").click();
+    textBtn("Nueva conexión").click();
     textBtn("Importar").click();
     textBtn("Gestionar").click();
     expect(onNew).toHaveBeenCalledOnce();

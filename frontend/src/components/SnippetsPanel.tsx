@@ -3,6 +3,7 @@ import { Panel } from "./Panel";
 import { searchSnippets, type Snippet } from "../utils/snippets";
 import { openContextMenu } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import { autoFocus } from "../utils/autoFocus";
 import { normalizeAbbr } from "../utils/sqlTemplates";
 
@@ -201,7 +202,7 @@ export function SnippetsPanel(props: {
                     title={t("snip.more")}
                     onClick={(e) => menu(e, s())}
                   >
-                    ⋯
+                    <Icon name="more" size={14} />
                   </button>
                 </div>
                 {/* A snippet with an abbreviation is also an editor template:

@@ -170,7 +170,7 @@ describe("App — the foreign-key picker, end to end", () => {
 
     // The query is over one table with its PK projected, so it is editable
     // (issue #299) — the toolbar offers Editar.
-    const edit = byText("button", "✎ Editar");
+    const edit = byText("button", "Editar");
     expect(edit, "the grid should be editable after a single-table SELECT").toBeTruthy();
     click(edit);
     await settle();
@@ -222,7 +222,7 @@ describe("App — the foreign-key picker, end to end", () => {
     click(tableRow);
     await settle();
 
-    const edit = byText("button", "✎ Editar");
+    const edit = byText("button", "Editar");
     expect(edit, "a table opened from the tree is editable").toBeTruthy();
     click(edit);
     await settle();

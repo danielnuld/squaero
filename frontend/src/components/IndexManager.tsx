@@ -16,6 +16,7 @@ import {
 } from "../utils/indexes";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dropdown } from "./Dropdown";
 
@@ -432,8 +433,13 @@ function CatalogTable(props: {
                   </For>
                   <td class="td-c">
                     <Show when={name}>
-                      <button class="grid-action danger" title={t("common.delete")} onClick={() => props.onDrop(name!, row)}>
-                        🗑
+                      <button
+                        class="grid-action danger"
+                        title={t("common.delete")}
+                        aria-label={t("common.delete")}
+                        onClick={() => props.onDrop(name!, row)}
+                      >
+                        <Icon name="trash" size={14} />
                       </button>
                     </Show>
                   </td>

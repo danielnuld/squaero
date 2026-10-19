@@ -109,7 +109,7 @@ describe("App — safe mode per connection (issue #666)", () => {
     await connectAndRunHistory();
     expect(ranSql()).toContain("SELECT * FROM pedidos");
     expect(host!.querySelectorAll(".grid-rows .grid-row").length).toBe(1);
-    expect((byText("button", "✎ Editar") as HTMLButtonElement | undefined)?.disabled).toBe(true);
+    expect((byText("button", "Editar") as HTMLButtonElement | undefined)?.disabled).toBe(true);
     expect(host!.querySelector(".edit-hint-ro")?.textContent).toContain("protegida");
   });
 

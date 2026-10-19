@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { objectBadge, routineKind, type ObjectKind } from "../../src/utils/objectIcons";
+import { ICONS } from "../../src/components/icons";
 
 describe("objectBadge", () => {
-  it("maps every canonical kind to a text code and a kind-* class", () => {
+  it("maps every canonical kind to an icon of the set and a kind-* class", () => {
     const kinds: ObjectKind[] = [
       "database",
       "schema",
@@ -16,20 +17,21 @@ describe("objectBadge", () => {
     ];
     for (const k of kinds) {
       const b = objectBadge(k);
-      expect(b.text).toMatch(/^[A-Z]+$/);
+      expect(ICONS).toHaveProperty(b.icon);
       expect(b.className).toMatch(/^kind-/);
     }
   });
 
-  it("uses distinct, stable text codes per type", () => {
-    expect(objectBadge("database").text).toBe("DB");
-    expect(objectBadge("schema").text).toBe("SCH");
-    expect(objectBadge("table").text).toBe("TBL");
-    expect(objectBadge("view").text).toBe("VW");
-    expect(objectBadge("procedure").text).toBe("PROC");
-    expect(objectBadge("function").text).toBe("FN");
-    expect(objectBadge("trigger").text).toBe("TRG");
-    expect(objectBadge("event").text).toBe("EVT");
+  it("draws each type with its own icon (#683)", () => {
+    expect(objectBadge("database").icon).toBe("database");
+    expect(objectBadge("schema").icon).toBe("schema");
+    expect(objectBadge("table").icon).toBe("table");
+    expect(objectBadge("view").icon).toBe("view");
+    expect(objectBadge("procedure").icon).toBe("procedure");
+    expect(objectBadge("routine").icon).toBe("procedure");
+    expect(objectBadge("function").icon).toBe("function");
+    expect(objectBadge("trigger").icon).toBe("trigger");
+    expect(objectBadge("event").icon).toBe("event");
   });
 
   it("gives functions their own colour class, procedures/routines share one", () => {
@@ -39,9 +41,9 @@ describe("objectBadge", () => {
     expect(objectBadge("function").className).toBe("kind-function");
   });
 
-  it("falls back to a neutral chip for an unknown kind", () => {
+  it("falls back to a neutral mark for an unknown kind", () => {
     const b = objectBadge("nonsense");
-    expect(b.text).toBe("?");
+    expect(b.icon).toBe("help");
     expect(b.className).toBe("kind-unknown");
   });
 });

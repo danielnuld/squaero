@@ -23,7 +23,7 @@ import type { PendingChanges } from "../utils/editSession";
 import type { PkMode } from "../utils/rowPaste";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
-import { IconKey, IconRelated } from "./icons";
+import { Icon, IconKey, IconRelated } from "./icons";
 import { t } from "../utils/i18n";
 
 const DEFAULT_ROW_HEIGHT = 28;
@@ -785,7 +785,7 @@ export function ResultGrid(props: {
                         </Show>
                         <Show when={isReferenced(col.name)}>
                           <span class="col-ref-mark" title={t("related.refColumn")} aria-hidden="true">
-                            ⇲
+                            <Icon name="fk" size={12} />
                           </span>
                         </Show>
                         <span class="col-type">{col.type}</span>
@@ -891,9 +891,10 @@ export function ResultGrid(props: {
                               <button
                                 class="grid-cell grid-action danger"
                                 title={isDeleted(rowIndex()) ? t("grid.undoDelete") : t("grid.deleteRow")}
+                                aria-label={isDeleted(rowIndex()) ? t("grid.undoDelete") : t("grid.deleteRow")}
                                 onClick={() => props.edit?.onToggleDelete(rowIndex())}
                               >
-                                {isDeleted(rowIndex()) ? "↩" : "🗑"}
+                                <Icon name={isDeleted(rowIndex()) ? "undo" : "trash"} size={14} />
                               </button>
                             </Show>
                             <For each={displayCols()}>
@@ -1074,9 +1075,10 @@ export function ResultGrid(props: {
                       <button
                         class="grid-cell grid-action danger"
                         title={t("grid.removeNewRow")}
+                        aria-label={t("grid.removeNewRow")}
                         onClick={() => props.edit?.onRemoveInsert(ii)}
                       >
-                        ✕
+                        <Icon name="close" size={12} />
                       </button>
                       <For each={displayCols()}>
                         {({ col }) => {

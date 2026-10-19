@@ -117,11 +117,10 @@ describe("ObjectTree refresh", () => {
     expect(rowByText("Vistas")).toBeTruthy();
     expect(rowByText("customers")).toBeFalsy();
 
-    // A type folder shows a colored glyph icon + right-aligned count (move 2),
-    // not a text badge; the count reflects its members (2 tables, 1 view).
+    // A type folder shows the icon of what it holds + a right-aligned count
+    // (move 2, #683); the count reflects its members (2 tables, 1 view).
     const tablasRow = rowByText("Tablas");
-    expect(tablasRow.querySelector(".objtree-folder-ic")).toBeTruthy();
-    expect(tablasRow.querySelector(".objtree-badge")).toBeFalsy();
+    expect(tablasRow.querySelector(".objtree-badge")?.getAttribute("data-icon")).toBe("table");
     expect(tablasRow.querySelector(".objtree-count")?.textContent).toBe("2");
     expect(rowByText("Vistas").querySelector(".objtree-count")?.textContent).toBe("1");
 
@@ -130,15 +129,16 @@ describe("ObjectTree refresh", () => {
     expect(rowByText("customers")).toBeTruthy();
     expect(rowByText("orders")).toBeTruthy();
 
-    // Unified iconography (#185): a table leaf carries the canonical TBL badge.
+    // Unified iconography (#185, #683): a table leaf carries the table icon.
     const tblBadge = rowByText("customers").querySelector(".objtree-badge")!;
-    expect(tblBadge.textContent).toBe("TBL");
+    expect(tblBadge.getAttribute("data-icon")).toBe("table");
+    expect(tblBadge.getAttribute("aria-hidden")).toBe("true"); // the row's label names it
     expect(tblBadge.classList.contains("kind-table")).toBe(true);
 
     (rowByText("Vistas")).click(); // expand the Vistas folder
     await flush();
     const vwBadge = rowByText("v1").querySelector(".objtree-badge")!;
-    expect(vwBadge.textContent).toBe("VW");
+    expect(vwBadge.getAttribute("data-icon")).toBe("view");
     expect(vwBadge.classList.contains("kind-view")).toBe(true);
   });
 
@@ -260,10 +260,10 @@ describe("ObjectTree refresh", () => {
     expect(rowByText("add_user")).toBeTruthy();
     expect(rowByText("tax_rate")).toBeFalsy(); // a FUNCTION, not in Procedimientos
 
-    // Unified iconography (#185): the routine leaf refines its badge to PROC.
+    // Unified iconography (#185): the routine leaf refines its icon to procedure.
     // Per-type colours (design proposal): a procedure carries the kind-procedure hue class.
     const procBadge = rowByText("add_user").querySelector(".objtree-badge")!;
-    expect(procBadge.textContent).toBe("PROC");
+    expect(procBadge.getAttribute("data-icon")).toBe("procedure");
     expect(procBadge.classList.contains("kind-procedure")).toBe(true);
 
     rowByText("add_user").click(); // open its DDL in a new query tab

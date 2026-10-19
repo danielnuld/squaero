@@ -62,10 +62,6 @@ function mount(
 
 const btn = (title: string) =>
   [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.title === title) ?? null;
-const textBtn = (label: string) =>
-  [...host!.querySelectorAll<HTMLButtonElement>("button")].find(
-    (b) => b.textContent?.trim() === label,
-  );
 
 describe("ConnectionManager", () => {
   it("offers no way to open or close a connection — that is the bar's job", () => {
@@ -117,13 +113,17 @@ describe("ConnectionManager", () => {
   it("exports without passwords by default and only warns on opt-in (#188)", () => {
     const onExport = vi.fn();
     mount(null, { onExport });
-    textBtn("⬆ Exportar")!.click(); // open the export options
+    host!.querySelector<HTMLButtonElement>(".conn-io-btn")!.click(); // open the export options
     expect(host!.querySelector(".conn-warn")).toBeNull(); // no warning until opt-in
     const check = host!.querySelector<HTMLInputElement>(".conn-export-opt input")!;
     check.checked = true;
     check.dispatchEvent(new Event("change", { bubbles: true }));
     expect(host!.querySelector(".conn-warn")).not.toBeNull(); // plaintext warning shown
-    textBtn("Exportar")!.click();
+    // The confirm button, not the toggle that also reads "Exportar" beside its icon.
+    [...host!.querySelectorAll<HTMLButtonElement>(".conn-io-btn")]
+      .filter((b) => b.textContent?.trim() === "Exportar")
+      .at(-1)!
+      .click();
     expect(onExport).toHaveBeenCalledWith(true);
   });
 
