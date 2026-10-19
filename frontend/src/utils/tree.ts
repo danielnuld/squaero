@@ -10,7 +10,16 @@ import { objectFolders, type ObjectGroupKind, type ObjectLeaf } from "./treeObje
 /** Tree node kinds. Besides the core kinds, the UI adds "group" (a Tablas/Vistas/
     Procedimientos/… folder) and the routine/trigger/event leaves listed on demand
     via query.run (issue #135 phase 2) — none of these come from the core. */
-export type TreeNodeKind = NodeKind | "group" | "routine" | "trigger" | "event";
+export type TreeNodeKind =
+  | NodeKind
+  | "group"
+  | "routine"
+  | "trigger"
+  | "event"
+  // A table's own levels (audit A-16): its columns, indexes and foreign keys.
+  | "column"
+  | "index"
+  | "fk";
 
 export interface TreeNode {
   /** Unique, stable path key (e.g. "db:main" or "db:main/tbl:users"). */
@@ -34,6 +43,12 @@ export interface TreeNode {
   /** DDL already returned by the folder listing (SQLite triggers) — click opens
       it directly, no definition query. */
   objDef?: string;
+  /** Dim text after the label: a column's type, an index's columns, where a
+      foreign key points, a table's row count. */
+  meta?: string;
+  /** A column of the primary key / of a foreign key. */
+  pk?: boolean;
+  fk?: boolean;
 }
 
 export interface FlatNode extends TreeNode {
@@ -45,7 +60,77 @@ export interface FlatNode extends TreeNode {
 /** Containers can be expanded; tables/views are leaves. Group folders (Tablas/
     Vistas) are expandable too — their children are pre-loaded, not fetched. */
 export function isExpandable(kind: TreeNodeKind): boolean {
-  return kind === "database" || kind === "schema" || kind === "group";
+  return (
+    kind === "database" ||
+    kind === "schema" ||
+    kind === "group" ||
+    kind === "table" ||
+    kind === "view"
+  );
+}
+
+/** What a table's expansion shows (audit A-16). */
+export interface TableDetail {
+  columns: { name: string; type: string; pk: boolean }[];
+  /** Index name and the columns it covers. */
+  indexes: { name: string; columns: string }[];
+  /** A foreign key: its name, its columns and the table it points to. */
+  fks: { name: string; columns: string[]; toTable: string; toColumns: string[] }[];
+}
+
+/**
+ * The children of an expanded table: its columns (type beside, PK and FK
+ * marked), then «Índices» and «Claves foráneas» folders when it has any. The
+ * folders' members go in `members`, pre-loaded like Tablas/Vistas. Pure.
+ */
+export function tableDetailNodes(
+  table: TreeNode,
+  detail: TableDetail,
+): { children: TreeNode[]; members: Record<string, TreeNode[]> } {
+  const { key, db, schema } = table;
+  const fkCols = new Set(detail.fks.flatMap((f) => f.columns));
+  const children: TreeNode[] = detail.columns.map((c) => ({
+    key: `${key}/col:${c.name}`,
+    label: c.name,
+    kind: "column",
+    db,
+    schema,
+    meta: c.type,
+    pk: c.pk,
+    fk: fkCols.has(c.name),
+  }));
+  const members: Record<string, TreeNode[]> = {};
+  const folder = (tag: string, label: string, nodes: TreeNode[]) => {
+    if (nodes.length === 0) return;
+    const fkey = `${key}/grp:${tag}`;
+    children.push({ key: fkey, label, kind: "group", db, schema, groupKind: tag as never, count: nodes.length });
+    members[fkey] = nodes;
+  };
+  folder(
+    "idx",
+    "tree.indexesFolder",
+    detail.indexes.map((i) => ({
+      key: `${key}/idx:${i.name}`,
+      label: i.name,
+      kind: "index" as const,
+      db,
+      schema,
+      meta: i.columns,
+    })),
+  );
+  folder(
+    "fk",
+    "tree.fksFolder",
+    detail.fks.map((f) => ({
+      key: `${key}/fk:${f.name}`,
+      label: f.name,
+      kind: "fk" as const,
+      db,
+      schema,
+      meta: `${f.columns.join(", ")} → ${f.toTable}(${f.toColumns.join(", ")})`,
+    })),
+  );
+  return { children, members };
 }
 
 /**

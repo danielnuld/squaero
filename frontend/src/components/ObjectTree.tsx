@@ -11,10 +11,27 @@ import {
   groupObjectsByType,
   lazyObjectFolders,
   objectLeafNodes,
+  tableDetailNodes,
+  type TableDetail,
   type TreeNode,
   type FlatNode,
 } from "../utils/tree";
-import { schemaTree, parseTreeRows, type NodeKind, type TreeRow } from "../utils/schema";
+import { schemaTree, schemaDescribe, schemaDdl, parseTreeRows, type NodeKind, type TreeRow } from "../utils/schema";
+import { indexListFor } from "../utils/indexes";
+import { foreignKeysFor, groupForeignKeys, parseForeignKeys } from "../utils/foreignKeys";
+import { rowCountSql, parseRowCounts } from "../utils/rowCounts";
+import {
+  deleteSql,
+  hasTableSql,
+  insertSql,
+  selectSql,
+  truncateSql,
+  updateSql,
+  type TableRef,
+} from "../utils/tableSql";
+import { countText } from "../utils/confirmText";
+import { displayKeys } from "../utils/shortcuts";
+import { currentOs } from "../utils/dialog";
 import { treeKey, type ConnMetaCache } from "../utils/metaCache";
 import { timeAgo } from "../utils/history";
 import { runQuery } from "../utils/query";
@@ -56,8 +73,6 @@ export interface ConnRowState {
 import { t, locale } from "../utils/i18n";
 import { dropConfirm, dropConsequences, type DropFacts } from "../utils/confirmText";
 import { objectCountQuery } from "../utils/pagination";
-import { indexListFor } from "../utils/indexes";
-import { foreignKeysFor, groupForeignKeys, parseForeignKeys } from "../utils/foreignKeys";
 import { withConfirmedWrites } from "../utils/transport";
 
 // A group folder's label is an i18n key ("tree.tables"); real object nodes carry
@@ -78,9 +93,19 @@ function isObjectLeaf(kind: TreeNode["kind"]): boolean {
 // (Tablas/Vistas/…) shows the icon of what it holds, plus a right-aligned count.
 function nodeKind(node: TreeNode): string {
   if (node.kind === "routine") return routineKind(node.objType);
-  if (node.kind === "group") return node.groupKind ?? "table";
+  if (node.kind === "group") {
+    const g = node.groupKind as string | undefined;
+    return g === "idx" ? "index" : (g ?? "table");
+  }
+  if (node.kind === "column") return node.pk ? "key" : node.fk ? "fk" : "column";
   return node.kind;
 }
+
+/** A table or a view: what opens data, and what expands into its columns. */
+const isRelation = (kind: TreeNode["kind"]) => kind === "table" || kind === "view";
+
+/** A key as this OS spells it, for a menu hint. */
+const keyHint = (keys: string) => displayKeys(keys, currentOs() === "macos");
 
 // Lazy, virtualized object tree. Children of a container are fetched from the
 // core only when it is expanded (schema.tree), and the visible (expanded) nodes
@@ -167,6 +192,17 @@ export function ObjectTree(props: {
   onFocusConn?: () => void;
   /** Reconnect a lost session from its row. */
   onReconnect?: () => void;
+  /** A table's column names, as its expansion read them — for the autocomplete. */
+  onColumns?: (table: string, names: string[]) => void;
+  /** Row counts of the tables of a level, by name (from the catalog). */
+  onRowCounts?: (counts: Record<string, number>) => void;
+  /** Table menu: «Exportar…» and «Generar datos de prueba…». */
+  onExport?: (node: TreeNode) => void;
+  onGenerate?: (node: TreeNode) => void;
+  /** The connection's own actions (Nueva consulta, Lista de objetos, ER, …,
+      Editar conexión, Desconectar), for its header and its database nodes. `db`
+      is the database right-clicked, when it was one. */
+  connMenu?: (db?: string) => MenuItem[];
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -175,6 +211,8 @@ export function ObjectTree(props: {
   const [rootLoading, setRootLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [filter, setFilter] = createSignal("");
+  // Catalog row counts of the tables on screen, by node key (R-35).
+  const [rowCounts, setRowCounts] = createSignal<Record<string, number>>({});
   // Levels on screen that came from the cache and have not been re-read yet,
   // by level key ("" = the root) -> when they were fetched (issue #675).
   const [cachedAt, setCachedAt] = createSignal<Record<string, number>>({});
@@ -288,6 +326,7 @@ export function ObjectTree(props: {
     setExpanded(new Set<string>());
     setError(null);
     setFilter(""); // a stale filter must not hide the freshly-loaded tree (#175)
+    setRowCounts({});
     setCachedAt({});
     if (!connId) {
       setRootLoading(false);
@@ -361,6 +400,10 @@ export function ObjectTree(props: {
       if (node.lazy) await loadLazyFolder(node);
       return;
     }
+    if (isRelation(node.kind)) {
+      await loadTableDetail(node);
+      return;
+    }
     const myGen = generation;
     // Not loaded yet this session: show the cached level now, marked, while the
     // server is asked (issue #675). A forced re-list skips the cache.
@@ -392,6 +435,89 @@ export function ObjectTree(props: {
     }
   };
 
+  // A table's columns, indexes and foreign keys (audit A-16). The columns come
+  // from schema.describe; indexes and keys from the catalog queries the index
+  // manager and the FK picker already use — each only where the engine has one,
+  // and a failing catalog read costs its folder, never the columns.
+  const loadTableDetail = async (node: TreeNode) => {
+    const connId = props.connId;
+    if (!connId) return;
+    const myGen = generation;
+    const engine = props.engine ?? "";
+    setBusy(node.key, true);
+    const rowsOf = async (sql: string | null) => {
+      if (!sql) return null;
+      try {
+        return await runQuery(connId, sql);
+      } catch {
+        return null;
+      }
+    };
+    try {
+      const desc = await schemaDescribe(connId, node.label, node.db, node.schema);
+      if (myGen !== generation) return;
+      const col = (name: string) => desc.columns.findIndex((c) => c.name.toLowerCase() === name);
+      const [ni, ti, pi] = [col("name"), col("type"), col("pk")];
+      const columns = desc.rows.map((r) => ({
+        name: r[ni] ?? "",
+        type: ti >= 0 ? (r[ti] ?? "") : "",
+        pk: pi >= 0 && !!r[pi] && r[pi] !== "0",
+      }));
+      props.onColumns?.(node.label, columns.map((c) => c.name));
+      const detail: TableDetail = { columns, indexes: [], fks: [] };
+      if (node.kind === "table") {
+        const idx = indexListFor(engine, node.label, node.db, node.schema);
+        const idxRes = idx.supported ? await rowsOf(idx.sql) : null;
+        if (idxRes && idx.nameCol) {
+          const n = idxRes.columns.findIndex((c) => c.name === idx.nameCol);
+          const first = idx.detailCols[0];
+          const d = first ? idxRes.columns.findIndex((c) => c.name === first.col) : -1;
+          if (n >= 0)
+            detail.indexes = idxRes.rows.map((r) => ({ name: r[n] ?? "", columns: d >= 0 ? (r[d] ?? "") : "" }));
+        }
+        const fkq = foreignKeysFor(engine, node.schema ?? node.db, { table: node.label, direction: "from" });
+        const fkRes = fkq.supported ? await rowsOf(fkq.bulkSql) : null;
+        if (fkRes) {
+          detail.fks = groupForeignKeys(parseForeignKeys(fkRes.columns, fkRes.rows))
+            .filter((f) => f.fromTable === node.label)
+            .map((f) => ({
+              name: f.constraint,
+              columns: f.columns.map((c) => c.from),
+              toTable: f.toTable,
+              toColumns: f.columns.map((c) => c.to),
+            }));
+        }
+      }
+      if (myGen !== generation) return;
+      const { children: kids, members } = tableDetailNodes(node, detail);
+      setChildren((c) => ({ ...c, [node.key]: kids, ...members }));
+    } catch (err) {
+      if (myGen === generation) setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (myGen === generation) setBusy(node.key, false);
+    }
+  };
+
+  // The catalog's row counts for the tables of one level (R-35): one statement,
+  // never a COUNT(*) per table; none where the engine keeps no numbers.
+  const loadRowCounts = async (node: TreeNode, tables: TreeNode[]) => {
+    const connId = props.connId;
+    const sql = rowCountSql(props.engine ?? "", node.db, node.schema);
+    if (!connId || !sql || tables.length === 0) return;
+    const myGen = generation;
+    try {
+      const res = await runQuery(connId, sql);
+      if (myGen !== generation) return;
+      const byName = parseRowCounts(res.columns, res.rows);
+      const byKey: Record<string, number> = {};
+      for (const tb of tables) if (byName[tb.label] !== undefined) byKey[tb.key] = byName[tb.label];
+      setRowCounts((m) => ({ ...m, ...byKey }));
+      props.onRowCounts?.(byName);
+    } catch {
+      // A count is decoration: without it the tree is still whole.
+    }
+  };
+
   // Puts one schema.tree level's rows under `node`.
   const applyRows = (node: TreeNode, rows: TreeRow[]) => {
     const built = buildChildren(node, rows);
@@ -408,6 +534,7 @@ export function ObjectTree(props: {
     if (isLeafLevel) {
       const { groups, members } = groupObjectsByType(node.key, node.db, node.schema, built);
       setChildren((c) => ({ ...c, [node.key]: [...groups, ...folders], ...members }));
+      void loadRowCounts(node, built.filter((n) => n.kind === "table"));
     } else {
       setChildren((c) => ({ ...c, [node.key]: [...built, ...folders] }));
     }
@@ -598,6 +725,7 @@ export function ObjectTree(props: {
       else await runQuery(connId, sql);
       setPendingDrop(null);
       setPendingColl(null);
+      setPendingTruncate(null);
       props.onRefresh?.();
     } catch (err) {
       setDropError(err instanceof Error ? err.message : String(err));
@@ -606,12 +734,152 @@ export function ObjectTree(props: {
     }
   };
 
+  // «Vaciar tabla…» (audit A-17): the exact TRUNCATE, confirmed — typed on a
+  // protected connection.
+  const [pendingTruncate, setPendingTruncate] = createSignal<{ name: string; sql: string; where: string } | null>(null);
+
+  const tableRef = (node: TreeNode): TableRef => ({ db: node.db, schema: node.schema, name: node.label });
+  const where = (node: TreeNode) => [props.title, node.db, node.schema].filter(Boolean).join(" › ");
+
+  // «Generar SQL ▸»: written into a new editor tab, never run. INSERT/UPDATE/
+  // DELETE need the columns, read when chosen.
+  const generate = async (node: TreeNode, kind: "select" | "insert" | "update" | "delete" | "ddl") => {
+    const connId = props.connId;
+    if (!connId || !props.onOpenSql) return;
+    const engine = props.engine ?? "";
+    try {
+      if (kind === "ddl") {
+        const ddl = await schemaDdl(connId, node.label, node.db, node.schema);
+        if (ddl) props.onOpenSql(ddl, node.label);
+        return;
+      }
+      if (kind === "select") {
+        props.onOpenSql(selectSql(tableRef(node), engine), node.label);
+        return;
+      }
+      const desc = await schemaDescribe(connId, node.label, node.db, node.schema);
+      const ni = desc.columns.findIndex((c) => c.name.toLowerCase() === "name");
+      const pi = desc.columns.findIndex((c) => c.name.toLowerCase() === "pk");
+      const cols = desc.rows.map((r) => r[ni] ?? "").filter(Boolean);
+      const pk = pi >= 0 ? desc.rows.filter((r) => r[pi] && r[pi] !== "0").map((r) => r[ni] ?? "") : [];
+      const sql =
+        kind === "insert"
+          ? insertSql(tableRef(node), engine, cols)
+          : kind === "update"
+            ? updateSql(tableRef(node), engine, cols, pk)
+            : deleteSql(tableRef(node), engine, cols, pk);
+      if (sql) props.onOpenSql(sql, node.label);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const copyDdl = async (node: TreeNode) => {
+    if (!props.connId) return;
+    try {
+      const ddl = await schemaDdl(props.connId, node.label, node.db, node.schema);
+      if (ddl) copyText(ddl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const askTruncate = (node: TreeNode) => {
+    const sql = truncateSql(tableRef(node), props.engine ?? "");
+    if (!sql) return;
+    setDropError(null);
+    setPendingTruncate({ name: node.label, sql, where: where(node) });
+  };
+
+  // The table menu (audit A-17, TreeContextMenu): a header naming it, the
+  // frequent actions first with their keys, «Generar SQL ▸», then the data
+  // actions, and the «Zona de peligro» last.
+  const tableMenu = (node: TreeNode): MenuItem[] => {
+    const isTable = node.kind === "table";
+    const engine = props.engine ?? "";
+    const items: MenuItem[] = [
+      {
+        heading: true,
+        label: t(isTable ? "tree.menuHeadTable" : "tree.menuHeadView", { name: node.label, conn: props.title ?? "" }),
+      },
+      { label: t("tree.openData"), hint: keyHint("Enter"), action: () => props.onOpenData(node) },
+    ];
+    if (props.onOpenSql)
+      items.push({
+        label: t("tree.newQueryOn", { name: node.label }),
+        action: () => props.onOpenSql!(selectSql(tableRef(node), engine), node.label),
+      });
+    items.push({ label: t("tree.viewStructure"), action: () => props.onOpenStructure(node) });
+    if (!isTable) items.push({ label: t("tree.editDef"), action: () => props.onOpenStructure(node) });
+    if (isTable && props.onAlterTable)
+      items.push({ label: t("tree.alterTable"), hint: "F4", action: () => props.onAlterTable!(node) });
+    if (isTable && props.onManageIndexes)
+      items.push({ label: t("tree.indexes"), action: () => props.onManageIndexes!(node) });
+    items.push({ separator: true });
+    if (props.onOpenSql && hasTableSql(engine)) {
+      items.push({
+        label: t("tree.generateSql"),
+        submenu: [
+          { label: t("tree.gen.select"), action: () => void generate(node, "select") },
+          ...(isTable
+            ? [
+                { label: "INSERT", action: () => void generate(node, "insert") },
+                { label: "UPDATE", action: () => void generate(node, "update") },
+                { label: "DELETE", action: () => void generate(node, "delete") },
+              ]
+            : []),
+          { separator: true },
+          { label: t(isTable ? "tree.gen.ddl" : "tree.gen.viewDdl"), action: () => void generate(node, "ddl") },
+        ],
+      });
+    }
+    items.push({ label: t("tree.copyName"), hint: keyHint("Mod+C"), action: () => copyText(node.label) });
+    items.push({ label: t("tree.copyDdl"), action: () => void copyDdl(node) });
+    items.push({ separator: true });
+    if (props.onImport && isTable) items.push({ label: t("tree.importData"), action: () => props.onImport!(node) });
+    if (props.onExport) items.push({ label: t("tree.export"), action: () => props.onExport!(node) });
+    if (props.onGenerate && isTable)
+      items.push({ label: t("tree.generateData"), action: () => props.onGenerate!(node) });
+    if (isTable && ownMongoCollection(node)) {
+      items.push({
+        label: t("tree.renameCollection"),
+        action: () => {
+          setDropError(null);
+          setRenameTo(node.label);
+          setPendingColl({ kind: "rename", name: node.label });
+        },
+      });
+    }
+    if (props.onRefresh) items.push({ label: t("tree.refresh"), action: () => props.onRefresh!() });
+    // The danger zone: emptying and deleting, apart and last.
+    const danger: MenuItem[] = [];
+    if (isTable && props.connId && truncateSql(tableRef(node), engine))
+      danger.push({ label: t("tree.truncate"), hint: "TRUNCATE", danger: true, action: () => askTruncate(node) });
+    if (isTable && ownMongoCollection(node))
+      danger.push({
+        label: t("tree.emptyCollection"),
+        danger: true,
+        action: () => {
+          setDropError(null);
+          setPendingColl({ kind: "empty", name: node.label });
+        },
+      });
+    const drop = dropItem(node);
+    if (drop) danger.push(drop);
+    if (danger.length > 0) items.push({ separator: true }, { heading: true, label: t("tree.dangerZone") }, ...danger);
+    return items;
+  };
+
   const nodeMenu = (node: TreeNode): MenuItem[] => {
     const items: MenuItem[] = [];
     // A group folder (Tablas/Vistas/Procedimientos/…) only offers refresh.
     if (node.kind === "group") {
       if (props.onRefresh) items.push({ label: t("tree.refresh"), action: () => props.onRefresh!() });
       return items;
+    }
+    // A column, an index, a foreign key: its name.
+    if (node.kind === "column" || node.kind === "index" || node.kind === "fk") {
+      return [{ label: t("tree.copyName"), hint: keyHint("Mod+C"), action: () => copyText(node.label) }];
     }
     // Routine/trigger/event leaves: view their definition + copy name.
     if (isObjectLeaf(node.kind)) {
@@ -623,39 +891,11 @@ export function ObjectTree(props: {
       pushDrop(items, node);
       return items;
     }
-    if (node.kind === "table" || node.kind === "view") {
-      items.push({ label: t("tree.openData"), action: () => props.onOpenData(node) });
-      items.push({ label: t("tree.viewStructure"), action: () => props.onOpenStructure(node) });
-      if (node.kind === "view") {
-        items.push({ label: t("tree.editDef"), action: () => props.onOpenStructure(node) });
-      }
-      if (node.kind === "table" && props.onAlterTable) {
-        items.push({ label: t("tree.alterTable"), action: () => props.onAlterTable!(node) });
-      }
-      if (node.kind === "table" && props.onManageIndexes) {
-        items.push({ label: t("tree.indexes"), action: () => props.onManageIndexes!(node) });
-      }
-      if (node.kind === "table" && ownMongoCollection(node)) {
-        items.push({
-          label: t("tree.emptyCollection"),
-          action: () => {
-            setDropError(null);
-            setPendingColl({ kind: "empty", name: node.label });
-          },
-        });
-        items.push({
-          label: t("tree.renameCollection"),
-          action: () => {
-            setDropError(null);
-            setRenameTo(node.label);
-            setPendingColl({ kind: "rename", name: node.label });
-          },
-        });
-      }
-      if (props.onImport) {
-        items.push({ label: t("tree.importData"), action: () => props.onImport!(node) });
-      }
-      items.push({ separator: true });
+    if (isRelation(node.kind)) return tableMenu(node);
+    // A database or schema: the connection's actions, scoped to it (TreeDbContextMenu).
+    if (node.kind === "database" && props.connMenu) {
+      const conn = props.connMenu(node.db ?? node.label);
+      if (conn.length > 0) return conn;
     }
     if ((node.kind === "database" || node.kind === "schema") && props.onCreateTable) {
       items.push({ label: t("tree.newTable"), action: () => props.onCreateTable!(node) });
@@ -687,8 +927,18 @@ export function ObjectTree(props: {
 
   /** "Eliminar…", last and apart — offered only where the engine can do it. */
   const pushDrop = (items: MenuItem[], node: TreeNode) => {
+    const item = dropItem(node);
+    if (!item) return;
+    items.push({ separator: true });
+    items.push(item);
+  };
+  const askDrop = (node: TreeNode) => {
+    const item = dropItem(node);
+    item?.action?.();
+  };
+  const dropItem = (node: TreeNode): MenuItem | null => {
     const kind = dropKind(node);
-    if (!kind || !props.connId) return;
+    if (!kind || !props.connId) return null;
     const sql = dropObjectSql(props.engine ?? "", {
       kind,
       name: node.label,
@@ -697,19 +947,18 @@ export function ObjectTree(props: {
       table: node.objTable,
       connDb: props.connDatabase,
     });
-    if (!sql) return;
-    items.push({ separator: true });
-    items.push({
+    if (!sql) return null;
+    return {
       label: t("tree.dropObject"),
+      hint: isRelation(node.kind) ? keyHint("Delete") : undefined,
       danger: true,
       action: () => {
         setDropError(null);
         // Where it goes from, as the tree shows it: «Ventas › main».
-        const where = [props.title, node.db, node.schema].filter(Boolean).join(" › ");
-        setPendingDrop({ key: node.key, name: node.label, sql, kind, where });
+        setPendingDrop({ key: node.key, name: node.label, sql, kind, where: where(node) });
         loadDropFacts(node);
       },
-    });
+    };
   };
 
   // Text filter (issue #175): when non-blank, show matches + their ancestors
@@ -751,11 +1000,12 @@ export function ObjectTree(props: {
     }
   };
 
-  /** Enter/Space do what a click does. */
+  /** Enter/Space do what a click does: a table or view opens its data (its
+      caret, or the right arrow, expands it); a container opens. */
   const activate = (node: FlatNode) => {
-    if (node.expandable) onToggle(node);
+    if (isRelation(node.kind)) props.onOpenData(node);
+    else if (node.expandable) onToggle(node);
     else if (isObjectLeaf(node.kind)) void openObjectDef(node);
-    else props.onOpenData(node);
   };
 
   const onTreeKeyDown = (e: KeyboardEvent) => {
@@ -811,6 +1061,26 @@ export function ObjectTree(props: {
         if (node !== undefined) {
           e.preventDefault();
           activate(node);
+        }
+        return;
+      // The keys the table menu shows (audit A-17).
+      case "F4":
+        if (node?.kind === "table" && props.onAlterTable) {
+          e.preventDefault();
+          props.onAlterTable(node);
+        }
+        return;
+      case "Delete":
+        if (node && isRelation(node.kind)) {
+          e.preventDefault();
+          askDrop(node);
+        }
+        return;
+      case "c":
+      case "C":
+        if (node && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          copyText(node.label);
         }
         return;
       default:
@@ -894,6 +1164,7 @@ export function ObjectTree(props: {
           <div
             class="objtree-header connbar-item"
             classList={{ "is-focused": c().focused, "is-lost": !!c().lost }}
+            onContextMenu={(e) => props.connMenu && openContextMenu(e, props.connMenu())}
             style={props.accent ? { "--conn-accent": props.accent } : undefined}
           >
             <span class="connbar-accent" aria-hidden="true" />
@@ -1049,8 +1320,15 @@ export function ObjectTree(props: {
           <Show
             when={!rootLoading() && props.connId && !error()}
             fallback={
-              <Show when={rootLoading() || !props.connId}>
-                <p class="sidebar-hint">{rootLoading() ? t("tree.loading") : t("tree.connectHint")}</p>
+              <Show
+                when={rootLoading()}
+                fallback={
+                  <Show when={!props.connId}>
+                    <p class="sidebar-hint">{t("tree.connectHint")}</p>
+                  </Show>
+                }
+              >
+                <TreeSkeleton label={t("tree.loading")} />
               </Show>
             }
           >
@@ -1103,14 +1381,21 @@ export function ObjectTree(props: {
                       setActiveIndex(index());
                       activate(node);
                     }}
-                    onDblClick={() =>
-                      (node.kind === "table" || node.kind === "view") &&
-                      props.onOpenStructure(node)
-                    }
+                    onDblClick={() => isRelation(node.kind) && props.onOpenStructure(node)}
                     onContextMenu={(e) => openContextMenu(e, nodeMenu(node))}
                     title={nodeLabel(node)}
                   >
-                    <span class="objtree-caret" aria-hidden="true">
+                    <span
+                      class="objtree-caret"
+                      aria-hidden="true"
+                      onClick={(e) => {
+                        // A table's caret expands it; the row itself opens its data.
+                        if (!node.expandable || !isRelation(node.kind)) return;
+                        e.stopPropagation();
+                        setActiveIndex(index());
+                        onToggle(node);
+                      }}
+                    >
                       <Show when={node.expandable}>
                         <Icon name={node.expanded ? "chevron-down" : "chevron-right"} size={12} />
                       </Show>
@@ -1124,6 +1409,13 @@ export function ObjectTree(props: {
                       <span class="objtree-count">
                         {node.count ?? children()[node.key]?.length ?? ""}
                       </span>
+                    </Show>
+                    <Show when={node.meta ?? (rowCounts()[node.key] !== undefined ? countText("tree.rows", rowCounts()[node.key]) : undefined)}>
+                      {(meta) => (
+                        <span class="objtree-meta" title={node.kind === "table" ? t("tree.rowsEstimate") : undefined}>
+                          {meta()}
+                        </span>
+                      )}
                     </Show>
                     <Show when={loading().has(node.key)}>
                       <span class="objtree-loading">…</span>
@@ -1156,6 +1448,22 @@ export function ObjectTree(props: {
           >
             <For each={dropConsequences(dropFacts())}>{(line) => <p class="confirm-message">{line}</p>}</For>
           </ConfirmDialog>
+        )}
+      </Show>
+
+      <Show when={pendingTruncate()}>
+        {(p) => (
+          <ConfirmDialog
+            title={t("tree.truncateTitle", { name: p().name })}
+            message={t("tree.truncateMessage", { where: p().where })}
+            sql={p().sql}
+            confirmLabel={t("tree.truncateConfirm")}
+            typeToConfirm={props.conn?.safeMode ? p().name : undefined}
+            busy={dropping()}
+            error={dropError()}
+            onConfirm={() => void runDrop(p().sql)}
+            onCancel={() => setPendingTruncate(null)}
+          />
         )}
       </Show>
 
@@ -1192,6 +1500,22 @@ export function ObjectTree(props: {
           </ConfirmDialog>
         )}
       </Show>
+    </div>
+  );
+}
+
+/** The tree while its first level loads (TreeLoading): rows to come, not a
+    spinner — the layout does not jump when they arrive. */
+export function TreeSkeleton(props: { label: string }) {
+  return (
+    <div class="objtree-skeleton" role="status" aria-busy="true" aria-label={props.label}>
+      <For each={[0, 1, 1, 2, 2, 2]}>
+        {(depth, i) => (
+          <span class="objtree-skeleton-row" style={{ "padding-left": `${depth * 14 + 8}px` }}>
+            <span class="objtree-skeleton-bar" style={{ width: `${[90, 70, 110, 80, 120, 95][i()]}px` }} />
+          </span>
+        )}
+      </For>
     </div>
   );
 }
