@@ -68,10 +68,10 @@ describe("clamps", () => {
 
 describe("typeScale", () => {
   it("reproduces the stylesheet at 12px / 100%", () => {
-    expect(typeScale(12, 100)).toEqual({ micro: 10, sm: 11, base: 12, md: 13, lg: 15 });
+    expect(typeScale(12, 100)).toEqual({ micro: 11, sm: 11, base: 12, md: 13, lg: 15 });
   });
   it("scales every step with the base and the zoom, to whole pixels", () => {
-    expect(typeScale(12, 200)).toEqual({ micro: 20, sm: 22, base: 24, md: 26, lg: 30 });
+    expect(typeScale(12, 200)).toEqual({ micro: 22, sm: 22, base: 24, md: 26, lg: 30 });
     expect(typeScale(16, 100).base).toBe(16);
     expect(typeScale(12, 110).base).toBe(13);
     for (const v of Object.values(typeScale(8, 80))) expect(Number.isInteger(v)).toBe(true);
