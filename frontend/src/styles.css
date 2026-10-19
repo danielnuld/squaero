@@ -4893,6 +4893,116 @@ button.btn-danger:disabled {
   font-weight: 600;
 }
 
+/* Structure sections (audit A-28): summary line, then folding sections. */
+.struct-summary {
+  margin: 0 0 var(--sp-3);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+}
+.struct-sec {
+  margin-bottom: var(--sp-4);
+}
+.struct-sec > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  list-style: none;
+  cursor: default;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.struct-sec > summary::-webkit-details-marker {
+  display: none;
+}
+.struct-sec > summary h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.struct-sec-caret {
+  color: var(--text-dim);
+  transition: transform var(--motion-fast);
+}
+.struct-sec[open] > summary .struct-sec-caret {
+  transform: rotate(90deg);
+}
+.struct-sec-ct {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.struct-sec-spacer {
+  flex: 1;
+}
+.struct-sec-body {
+  padding-top: var(--sp-2);
+}
+.struct-note {
+  margin: var(--sp-2) 0;
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+}
+.struct-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.struct-dim {
+  color: var(--text-dim);
+}
+.struct-pk {
+  font-weight: 600;
+}
+.struct-type {
+  color: var(--syntax-type);
+}
+.struct-keys {
+  font-family: var(--font-ui);
+  color: var(--text-dim);
+}
+/* A button that reads as a link: a referenced table, «Gestionar índices». */
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: default;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Read-only SQL with the editor's colours (SqlHighlight). */
+.sql-hl .tok-keyword {
+  color: var(--syntax-keyword);
+}
+.sql-hl .tok-string,
+.sql-hl .tok-string2 {
+  color: var(--syntax-string);
+}
+.sql-hl .tok-number,
+.sql-hl .tok-bool {
+  color: var(--syntax-number);
+}
+.sql-hl .tok-atom,
+.sql-hl .tok-null {
+  color: var(--syntax-null);
+}
+.sql-hl .tok-comment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+.sql-hl .tok-operator,
+.sql-hl .tok-punctuation {
+  color: var(--syntax-operator);
+}
+.sql-hl .tok-typeName {
+  color: var(--syntax-type);
+}
+.sql-hl .tok-invalid {
+  color: var(--syntax-invalid);
+}
+
 .ddl-header {
   display: flex;
   align-items: center;

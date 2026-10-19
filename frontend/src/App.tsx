@@ -5852,6 +5852,7 @@ export function App() {
                           ? () => withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
                           : undefined
                       }
+                      isView={dataTabNode(tab().id)?.kind === "view"}
                       onView={
                         isDataTab(tab().id)
                           ? (view) => {
@@ -6352,6 +6353,14 @@ export function App() {
                       const node = (tt().params as { node: TreeNode }).node;
                       if (tt().connDefId) inConn(tt().connDefId!, showObjectView)(node, view);
                       else showObjectView(node, view);
+                    }}
+                    onModify={() => openAlterTable((tt().params as { node: TreeNode }).node)}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
+                    onOpenObject={(name) => {
+                      const { db, schema } = (tt().params as { node: TreeNode }).node;
+                      const node: TreeNode = { key: `obj:${db ?? ""}.${schema ?? ""}.${name}`, label: name, kind: "table", db, schema };
+                      if (tt().connDefId) inConn(tt().connDefId!, openStructure)(node);
+                      else openStructure(node);
                     }}
                   />
                 </Match>

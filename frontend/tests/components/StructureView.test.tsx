@@ -290,3 +290,130 @@ describe("StructureView sections", () => {
     expect(labels.some((l) => l?.includes("Editar definición"))).toBe(false);
   });
 });
+
+// Audit A-28: a table's structure is its columns with readable headers and the
+// sections around them — indexes, keys both ways and triggers — each one loaded
+// on its own and honest about what the engine cannot say.
+describe("StructureView table sections", () => {
+  const mountTable = (props: Record<string, unknown> = {}) => {
+    const calls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (cols: string[], rows: (string | null)[][]) => ({
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: cols.map((name) => ({ name, type: "text" })), rows, truncated: false, rowsAffected: 0 },
+      });
+      if (req.method === "schema.describe")
+        return ok(["name", "type", "notnull", "dflt_value", "pk"], [
+          ["id", "INTEGER", "1", null, "1"],
+          ["cliente_id", "INTEGER", "0", null, "0"],
+        ]);
+      if (req.method === "schema.ddl") return ok(["sql"], [["CREATE TABLE pedidos (id INTEGER)"]]);
+      const sql: string = req.params.sql;
+      calls.push(sql);
+      if (sql.includes("pragma_index_list")) return ok(["name", "columnas", "unico"], [["ix_cli", "cliente_id", "No"]]);
+      if (sql.includes("pragma_foreign_key_list")) {
+        // Outbound for this table, nothing inbound.
+        return sql.includes("m.name = 'pedidos'")
+          ? ok(["from_table", "from_column", "to_table", "to_column", "constraint_name", "position"], [
+              ["pedidos", "cliente_id", "clientes", "id", "0", "1"],
+            ])
+          : ok(["from_table", "from_column", "to_table", "to_column"], []);
+      }
+      if (sql.includes("type = 'trigger'")) return ok(["name", "table", "sql"], [["trg", "pedidos", "CREATE TRIGGER trg"]]);
+      if (/COUNT\(\*\)/.test(sql)) return ok(["n"], [["12"]]);
+      return ok([], []);
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => <StructureView connId="c1" table="pedidos" kind="table" engine="sqlite" onClose={() => {}} {...props} />,
+        host!,
+      );
+    });
+    return calls;
+  };
+
+  it("shows the summary, readable headers and what each column takes part in", async () => {
+    mountTable();
+    await flush();
+    await flush();
+    const text = host!.textContent ?? "";
+    expect(text).toContain("Tabla · 2 columnas · 12 filas · 1 índice");
+    const headers = [...host!.querySelectorAll("table.struct-table th")].map((th) => th.textContent);
+    expect(headers.slice(0, 6)).toEqual(["#", "Nombre", "Tipo", "Admite NULL", "Por defecto", "Clave / índice"]);
+    expect(text).toContain("Clave primaria");
+    expect(text).toContain("Índice · ix_cli · Referencia a clientes.id");
+  });
+
+  it("lists indexes, foreign keys, referencing tables and triggers as sections", async () => {
+    mountTable();
+    await flush();
+    await flush();
+    const titles = [...host!.querySelectorAll(".struct-sec h2")].map((h) => h.textContent);
+    expect(titles).toEqual(["Columnas", "Índices", "Claves foráneas", "Referenciada por", "Triggers"]);
+    expect(host!.textContent).toContain("Ninguna tabla referencia pedidos.");
+    expect(host!.textContent).toContain("trg");
+  });
+
+  it("opens the referenced table and the index manager from their sections", async () => {
+    const onOpenObject = vi.fn();
+    const onView = vi.fn();
+    mountTable({ onOpenObject, onView });
+    await flush();
+    await flush();
+    clickText("clientes.id");
+    expect(onOpenObject).toHaveBeenCalledWith("clientes");
+    clickText("Gestionar índices");
+    expect(onView).toHaveBeenCalledWith("indexes");
+  });
+
+  it("says a section is unavailable rather than hiding it (Informix triggers have no table)", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string };
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: [{ name: "name", type: "text" }], rows: [["x"]], truncated: false, rowsAffected: 0 },
+      };
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <StructureView connId="c1" table="t" kind="table" engine="informix" onClose={() => {}} />, host!);
+    });
+    await flush();
+    await flush();
+    expect(host!.textContent).toContain("No disponible: este motor no lo expone.");
+  });
+
+  it("offers Modificar tabla and, on the DDL, opening it in the editor", async () => {
+    const onModify = vi.fn();
+    const onOpenSql = vi.fn();
+    mountTable({ onModify, onOpenSql, onView: () => {} });
+    await flush();
+    clickText("Modificar tabla");
+    expect(onModify).toHaveBeenCalled();
+    clickText("DDL");
+    expect(host!.querySelector("pre.ddl-text .tok-keyword")).not.toBeNull();
+    clickText("Abrir en el editor");
+    expect(onOpenSql).toHaveBeenCalledWith("CREATE TABLE pedidos (id INTEGER)");
+  });
+
+  it("does not offer Índices for a view", async () => {
+    installBridge();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <StructureView connId="c1" table="v" kind="view" engine="sqlite" onClose={() => {}} onView={() => {}} />, host!);
+    });
+    await flush();
+    const tabs = [...host!.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
+    expect(tabs).not.toContain("Índices");
+  });
+});
