@@ -17,8 +17,10 @@ describeAllEngines(["sqlite", "postgres", "mysql"], () => {
     await connect(app);
     await newQuery(app.page);
 
-    await page.getByRole("button", { name: "Auto-commit", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Transacción manual", exact: true })).toBeVisible();
+    // The Auto | Manual segmented switch (#691) is a radio group.
+    const manual = page.getByRole("radiogroup", { name: "Modo de transacción" }).getByRole("radio", { name: "Manual" });
+    await manual.click();
+    await expect(manual).toBeChecked();
 
     await runSql(page, "UPDATE e2e_items SET nombre = 'Pendiente' WHERE id = 1");
     const open = page.getByRole("status").filter({ hasText: "En transacción · 1" });

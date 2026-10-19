@@ -8191,7 +8191,8 @@ button.grid-action.danger:hover:not(:disabled) {
   gap: var(--sp-2);
 }
 
-.status-btn.tx-mode.is-manual {
+/* Manual is the mode with something at stake: its checked segment says so. */
+.tx-mode.is-manual .seg-btn.on {
   color: var(--accent);
 }
 

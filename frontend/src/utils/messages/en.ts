@@ -790,10 +790,11 @@ export const en: Record<string, string> = {
   "grid.cancelUnsupported": "This engine cannot cancel a running query; it will run until it finishes.",
 
   // manual transactions (issue #667)
-  "tx.auto": "Auto-commit",
-  "tx.manual": "Manual transaction",
-  "tx.modeTitleAuto": "Auto-commit: each statement is saved as it runs. Click to work in a manual transaction.",
-  "tx.modeTitleManual": "Manual: the first statement that changes data opens a transaction, and nothing is saved until you commit. Click to go back to auto-commit.",
+  "tx.auto": "Auto",
+  "tx.manual": "Manual",
+  "tx.modeAria": "Transaction mode",
+  "tx.modeTitleAuto": "Auto: each statement is committed as it runs.",
+  "tx.modeTitleManual": "Manual: groups the statements until commit or rollback; the first one that changes data opens the transaction.",
   "tx.unsupported": "This engine does not support transactions.",
   "tx.closeFirst": "Commit or roll back the open transaction first.",
   "tx.open": "In transaction · {n}",
