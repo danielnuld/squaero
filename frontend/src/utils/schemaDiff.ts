@@ -472,6 +472,20 @@ export function isExecutable(statement: string): boolean {
   return !statement.trimStart().startsWith("--");
 }
 
+/**
+ * Whether a generated statement throws data away (audit A-30): DROP TABLE, or
+ * an ALTER TABLE that drops a column. Dropping a view, an index, a key or a
+ * constraint keeps every row (and the script re-creates what it needs), so
+ * those stay with the rest of the script.
+ */
+export function losesData(statement: string): boolean {
+  const s = statement.trimStart();
+  return (
+    /^drop\s+table\b/i.test(s) ||
+    /^alter\s+table\b[^;']*?\bdrop\s+(?!(?:constraint|index|key|primary|foreign|check|default|not)\b)/i.test(s)
+  );
+}
+
 /** The script as one text, ready for the editor or a .sql file. */
 export function scriptText(script: MigrationScript): string {
   return script.statements.join("\n") + (script.statements.length ? "\n" : "");

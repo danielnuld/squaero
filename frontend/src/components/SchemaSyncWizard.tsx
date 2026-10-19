@@ -9,6 +9,7 @@ import {
   diffItems,
   generateMigration,
   isExecutable,
+  losesData,
   scriptText,
   type DiffItem,
   type DiffKind,
@@ -66,6 +67,9 @@ export function SchemaSyncWizard(props: {
   const [error, setError] = createSignal<string | null>(null);
   const [confirming, setConfirming] = createSignal(false);
   const [applied, setApplied] = createSignal<string | null>(null);
+  // Data-losing statements the user opted into (indexes into executable()):
+  // they start unchecked (audit A-30).
+  const [optIn, setOptIn] = createSignal<ReadonlySet<number>>(new Set());
 
   // The target connection is opened for the compare and closed on unmount.
   let targetConnId: string | null = null;
@@ -121,6 +125,7 @@ export function SchemaSyncWizard(props: {
         dropTables: dropTables(),
       });
       const where = [targetDb(), targetSchema()].filter(Boolean).join(".");
+      setOptIn(new Set<number>());
       setResult({
         items: diffItems(diff),
         empty: diffEmpty(diff),
@@ -136,6 +141,16 @@ export function SchemaSyncWizard(props: {
   };
 
   const executable = () => result()?.script.statements.filter(isExecutable) ?? [];
+  /** Data-losing statements, with their index in executable(). */
+  const losing = () => executable().flatMap((sql, i) => (losesData(sql) ? [{ sql, i }] : []));
+  /** What Apply runs: everything, except data-losing statements left unchecked. */
+  const chosen = () => executable().filter((sql, i) => !losesData(sql) || optIn().has(i));
+  const toggle = (i: number, on: boolean) => {
+    const next = new Set(optIn());
+    if (on) next.add(i);
+    else next.delete(i);
+    setOptIn(next);
+  };
   // The saved/opened script says where it is meant to run.
   const text = () => {
     const r = result();
@@ -144,7 +159,7 @@ ${scriptText(r.script)}` : "";
   };
 
   const apply = async () => {
-    const sql = executable();
+    const sql = chosen();
     if (!targetConnId || sql.length === 0) return;
     const connId = targetConnId;
     setBusy(true);
@@ -184,7 +199,7 @@ ${scriptText(r.script)}` : "";
   const step = () => (applied() ? 2 : result() ? 1 : 0);
   const targetName = () => props.connections.find((c) => c.id === result()?.defId)?.name ?? "";
   // A script that drops something is applied with the red button (R-15).
-  const destructive = () => executable().some(isDestructiveSql);
+  const destructive = () => chosen().some(isDestructiveSql);
 
   return (
     <Panel wide onClose={props.onClose}>
@@ -200,9 +215,9 @@ ${scriptText(r.script)}` : "";
         primary={
           step() === 0
             ? { label: t("ssync.compare"), onClick: () => void compare(), disabled: !targetDefId() }
-            : step() === 1 && executable().length > 0
+            : step() === 1 && chosen().length > 0
               ? {
-                  label: countText("ssync.applyN", executable().length, { target: targetName() }),
+                  label: countText("ssync.applyN", chosen().length, { target: targetName() }),
                   onClick: () => setConfirming(true),
                   danger: destructive(),
                 }
@@ -332,12 +347,28 @@ ${scriptText(r.script)}` : "";
 
                 <Show when={r().script.statements.length > 0}>
                   <h3>{t("ssync.migrationSql", { n: executable().length })}</h3>
-                  <Show when={destructive()}>
-                    <p class="field-error">{t("ssync.losesData")}</p>
-                  </Show>
                   <pre class="ddl-text preview-sql ssync-script" aria-label={t("ssync.script")}>
                     {text()}
                   </pre>
+                </Show>
+
+                <Show when={losing().length > 0}>
+                  <section class="ssync-losing" aria-labelledby="ssync-losing-h">
+                    <h3 id="ssync-losing-h">{t("ssync.losingHeading", { n: losing().length })}</h3>
+                    <p class="field-error">{t("ssync.losingHelp")}</p>
+                    <For each={losing()}>
+                      {(s) => (
+                        <label class="import-check">
+                          <input
+                            type="checkbox"
+                            checked={optIn().has(s.i)}
+                            onChange={(e) => toggle(s.i, e.currentTarget.checked)}
+                          />
+                          <code>{s.sql}</code>
+                        </label>
+                      )}
+                    </For>
+                  </section>
                 </Show>
               </>
             );
@@ -352,9 +383,9 @@ ${scriptText(r.script)}` : "";
       <Show when={confirming()}>
         <ConfirmDialog
           title={t("ssync.confirmTitle", { target: targetName() })}
-          message={t("ssync.confirmMessage", { n: executable().length })}
-          sql={executable().join("\n")}
-          confirmLabel={countText("ssync.applyN", executable().length, { target: targetName() })}
+          message={t("ssync.confirmMessage", { n: chosen().length })}
+          sql={chosen().join("\n")}
+          confirmLabel={countText("ssync.applyN", chosen().length, { target: targetName() })}
           busy={busy()}
           error={error()}
           onConfirm={() => void apply()}

@@ -8,6 +8,7 @@ import {
   orderByDependencies,
   viewBody,
   retargetViewDdl,
+  losesData,
   isExecutable,
   scriptText,
   type ColumnDef,
@@ -646,5 +647,31 @@ describe("retargetViewDdl", () => {
     expect(retargetViewDdl("CREATE VIEW v AS SELECT * FROM app.t", '"app"."v"', "app", "APP", "postgres")).toBe(
       'CREATE VIEW "app"."v" AS SELECT * FROM app.t',
     );
+  });
+});
+
+describe("losesData", () => {
+  it("flags DROP TABLE and dropping a column, in every dialect", () => {
+    expect(losesData('DROP TABLE "t";')).toBe(true);
+    expect(losesData('ALTER TABLE "t" DROP COLUMN "a";')).toBe(true);
+    expect(losesData("ALTER TABLE stores:t DROP legacy;")).toBe(true);
+  });
+
+  it("keeps drops that lose no rows", () => {
+    for (const s of [
+      'DROP VIEW "v";',
+      'DROP INDEX "ix";',
+      "ALTER TABLE `t` DROP INDEX `u`;",
+      "ALTER TABLE `t` DROP FOREIGN KEY `fk`;",
+      "ALTER TABLE `t` DROP PRIMARY KEY;",
+      "ALTER TABLE `t` DROP CHECK `c`;",
+      'ALTER TABLE "t" DROP CONSTRAINT "c";',
+      'ALTER TABLE "t" ALTER COLUMN "a" DROP NOT NULL;',
+      'ALTER TABLE "t" ALTER COLUMN "a" DROP DEFAULT;',
+      'ALTER TABLE "t" ADD COLUMN "drop_me" INT;',
+      "-- DROP TABLE t",
+    ]) {
+      expect(losesData(s), s).toBe(false);
+    }
   });
 });
