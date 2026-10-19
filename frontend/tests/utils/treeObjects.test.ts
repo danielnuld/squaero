@@ -158,3 +158,37 @@ describe("filterObjectRows", () => {
     expect(filterObjectRows(triggers, [0, -1], "facturas")).toEqual([]);
   });
 });
+
+import { rowMeta, groupRows } from "../../src/utils/treeObjects";
+
+describe("rowMeta", () => {
+  it("labels the listed columns of a row, case-insensitively, skipping empty ones", () => {
+    const cols = [{ name: "name" }, { name: "RETURNS" }, { name: "owner" }, { name: "lang" }];
+    expect(
+      rowMeta(cols, ["f", "numeric", "", null], [
+        { col: "returns", label: "r" },
+        { col: "owner", label: "o" },
+        { col: "lang", label: "l" },
+        { col: "missing", label: "m" },
+      ]),
+    ).toEqual([{ label: "r", value: "numeric" }]);
+  });
+});
+
+describe("groupRows", () => {
+  it("groups by a column in first-seen order", () => {
+    const rows = [
+      ["t1", "a"],
+      ["t2", "b"],
+      ["t3", "a"],
+    ];
+    expect(groupRows(rows, 1)).toEqual([
+      { key: "a", rows: [["t1", "a"], ["t3", "a"]] },
+      { key: "b", rows: [["t2", "b"]] },
+    ]);
+  });
+  it("is one keyless group without the column, none without rows", () => {
+    expect(groupRows([["x"]], -1)).toEqual([{ key: null, rows: [["x"]] }]);
+    expect(groupRows([], -1)).toEqual([]);
+  });
+});

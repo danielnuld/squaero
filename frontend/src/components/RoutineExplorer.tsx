@@ -7,14 +7,21 @@ import {
   routinesFor,
   definitionFor,
   unsupportedReason,
+  routineMatches,
+  routineTypeOf,
+  type RoutineFilter,
   type RoutineRef,
-  type RoutineType,
 } from "../utils/routines";
-import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
+import { readDefinitionText, filterObjectRows, rowMeta } from "../utils/treeObjects";
+import { copyText } from "../utils/rowCopy";
+import { countText } from "../utils/confirmText";
+import { Segmented } from "./Segmented";
+import { EmptyNote } from "./EmptyNote";
 import { runnableRoutineDdl } from "../utils/routineDdl";
 import { routineKind } from "../utils/objectIcons";
 import { ObjectIcon } from "./icons";
 import { Panel } from "./Panel";
+import { SqlHighlight } from "./SqlHighlight";
 import { locale, t } from "../utils/i18n";
 
 // Stored procedures / functions explorer (issue #137): lists the routines of the
@@ -22,6 +29,9 @@ import { locale, t } from "../utils/i18n";
 // the per-engine catalog SQL from utils/routines.ts, no core/driver change. The
 // definition can be opened in a new SQL editor tab. Refresh is manual so the panel
 // never polls the server on its own (same discipline as the server monitor).
+// P6: a Todas / Funciones / Procedimientos filter, counts per kind, a metadata
+// header for the selected routine (returns, arguments, language, owner… as
+// the engine's catalog has them) and «Copiar definición».
 export function RoutineExplorer(props: {
   connId: string;
   engine: string;
@@ -34,6 +44,8 @@ export function RoutineExplorer(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [selected, setSelected] = createSignal<RoutineRef | null>(null);
+  const [selectedRow, setSelectedRow] = createSignal<(string | null)[] | null>(null);
+  const [kindFilter, setKindFilter] = createSignal<RoutineFilter>("all");
   const [search, setSearch] = createSignal("");
   const [definition, setDefinition] = createSignal<string | null>(null);
   const [defLoading, setDefLoading] = createSignal(false);
@@ -88,14 +100,7 @@ export function RoutineExplorer(props: {
     const name = row[ni];
     if (!name) return null;
     const ti = colIndex(s.typeCol);
-    const upper = ((ti >= 0 ? row[ti] : "") ?? "").toUpperCase();
-    const type: RoutineType = upper.includes("PROCEDURE")
-      ? "PROCEDURE"
-      : upper.includes("AGGREGATE")
-        ? "AGGREGATE"
-        : upper.includes("WINDOW")
-          ? "WINDOW"
-          : "FUNCTION";
+    const type = routineTypeOf(ti >= 0 ? row[ti] : null);
     const si = colIndex(s.schemaCol);
     const schema = si >= 0 ? (row[si] ?? undefined) : undefined;
     const ii = colIndex(s.idCol);
@@ -110,8 +115,9 @@ export function RoutineExplorer(props: {
   // result of a later selection (select A, then B, before A resolves).
   let defToken = 0;
 
-  const select = async (ref: RoutineRef) => {
+  const select = async (ref: RoutineRef, row: (string | null)[]) => {
     setSelected(ref);
+    setSelectedRow(row);
     setDefinition(null);
     const q = definitionFor(props.engine, ref);
     if (!q) return;
@@ -139,8 +145,17 @@ export function RoutineExplorer(props: {
   const allRows = () => list()?.rows ?? [];
   const nameIdx = createMemo(() => colIndex(support().nameCol));
   /* Declared after nameIdx: an eagerly-run memo cannot read a const below it. */
-  const rows = createMemo(() => filterObjectRows(allRows(), [nameIdx()], search()));
+  const typeIdx = createMemo(() => colIndex(support().typeCol));
+  const typeOf = (row: (string | null)[]) => routineTypeOf(typeIdx() >= 0 ? row[typeIdx()] : null);
+  const rows = createMemo(() =>
+    filterObjectRows(allRows(), [nameIdx()], search()).filter((r) => routineMatches(typeOf(r), kindFilter())),
+  );
   const filtering = () => rows().length !== allRows().length;
+  const procedures = createMemo(() => allRows().filter((r) => typeOf(r) === "PROCEDURE").length);
+  const meta = createMemo(() => {
+    const row = selectedRow();
+    return row ? rowMeta(list()?.columns ?? [], row, support().metaCols) : [];
+  });
 
   const sameRef = (a: RoutineRef | null, b: RoutineRef) =>
     !!a &&
@@ -154,11 +169,25 @@ export function RoutineExplorer(props: {
       title={t("tool.routines.label")}
       class="routine-explorer"
       onClose={props.onClose}
+      actions={
+        <Show when={support().supported}>
+          <Segmented
+            label={t("explorer.routineKind")}
+            value={kindFilter()}
+            options={[
+              { value: "all" as RoutineFilter, label: t("explorer.kindAll") },
+              { value: "function" as RoutineFilter, label: t("explorer.kindFunctions") },
+              { value: "procedure" as RoutineFilter, label: t("explorer.kindProcedures") },
+            ]}
+            onChange={setKindFilter}
+          />
+        </Show>
+      }
       status={
         <Show when={support().supported}>
           {filtering()
             ? t("explorer.objectsFiltered", { n: rows().length, m: allRows().length })
-            : countText("explorer.objects", rows().length)}
+            : `${countText("explorer.routines", allRows().length)} · ${countText("explorer.functions", allRows().length - procedures())} · ${countText("explorer.procedures", procedures())}`}
         </Show>
       }
       onRefresh={support().supported ? load : undefined}
@@ -172,7 +201,7 @@ export function RoutineExplorer(props: {
 
       <Show
         when={support().supported}
-        fallback={<EmptyNote title={t("tool.unsupportedTitle")} text={unsupportedReason(props.engine, locale())} />}
+        fallback={<EmptyNote title={t("explorer.routinesUnsupported")} text={unsupportedReason(props.engine, locale())} />}
       >
         <div class="routine-body">
           <div class="routine-list">
@@ -209,7 +238,7 @@ export function RoutineExplorer(props: {
                           <li>
                             <button
                               class={`routine-item ${sameRef(selected(), r()) ? "active" : ""}`}
-                              onClick={() => select(r())}
+                              onClick={() => select(r(), row)}
                             >
                               <ObjectIcon kind={routineKind(r().type)} size={14} />
                               <span class="routine-name">
@@ -238,14 +267,29 @@ export function RoutineExplorer(props: {
                     <span class="routine-type">{ref().type}</span>
                     <Show when={definition()}>
                       <button
-                        class="edit-btn"
+                        class="edit-btn edit-btn-primary"
                         title={t("explorer.openInEditorTitle")}
                         onClick={() => props.onOpenSql(definition()!, ref().name)}
                       >
                         {t("explorer.openInEditor")}
                       </button>
+                      <button class="edit-btn" onClick={() => copyText(definition()!)}>
+                        {t("explorer.copyDef")}
+                      </button>
                     </Show>
                   </div>
+                  <Show when={meta().length > 0}>
+                    <dl class="routine-meta">
+                      <For each={meta()}>
+                        {(m) => (
+                          <div>
+                            <dt>{t(m.label)}</dt>
+                            <dd>{m.value}</dd>
+                          </div>
+                        )}
+                      </For>
+                    </dl>
+                  </Show>
                   <Show
                     when={!defLoading()}
                     fallback={<p class="grid-empty">{t("explorer.loadingDef")}</p>}
@@ -254,7 +298,7 @@ export function RoutineExplorer(props: {
                       when={definition()}
                       fallback={<p class="grid-empty">{t("explorer.noDef")}</p>}
                     >
-                      <pre class="routine-ddl">{definition()}</pre>
+                      <SqlHighlight class="routine-ddl" sql={definition()!} engine={props.engine} label={t("explorer.defAria", { name: ref().name })} />
                     </Show>
                   </Show>
                 </>

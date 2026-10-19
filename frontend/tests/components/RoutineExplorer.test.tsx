@@ -125,7 +125,7 @@ describe("RoutineExplorer", () => {
     await flush();
     expect(calls[0].sql).toContain("information_schema.ROUTINES");
     expect(host!.querySelectorAll(".routine-item").length).toBe(2);
-    expect(host!.textContent).toContain("2 objeto");
+    expect(host!.querySelector(".panel-status")!.textContent).toBe("2 rutinas · 1 función · 1 procedimiento");
   });
 
   it("filters the list by name as you type (#376)", async () => {
@@ -149,7 +149,18 @@ describe("RoutineExplorer", () => {
     search.value = "";
     search.dispatchEvent(new Event("input", { bubbles: true }));
     expect(names()).toEqual(["add_user", "tax_rate"]);
-    expect(host!.textContent).toContain("2 objeto");
+    expect(host!.querySelector(".panel-status")!.textContent).toBe("2 rutinas · 1 función · 1 procedimiento");
+  });
+
+  it("filters the list by kind", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const names = () => [...host!.querySelectorAll(".routine-name")].map((el) => el.textContent);
+    [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === "Procedimientos")!.click();
+    expect(names()).toEqual(["add_user"]);
+    [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === "Todas")!.click();
+    expect(names()).toEqual(["add_user", "tax_rate"]);
   });
 
   it("fetches and renders a routine's definition when selected", async () => {

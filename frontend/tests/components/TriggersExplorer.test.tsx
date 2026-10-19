@@ -101,7 +101,8 @@ describe("TriggersExplorer", () => {
     await flush();
     expect(calls[0].sql).toContain("information_schema.TRIGGERS");
     expect(host!.querySelectorAll(".routine-item").length).toBe(1);
-    expect(host!.textContent).toContain("orders"); // table sublabel
+    // Grouped under their table.
+    expect(host!.querySelector(".routine-group")!.textContent).toBe("orders");
 
     host!.querySelector<HTMLButtonElement>(".routine-item")!.click();
     await flush();
@@ -110,11 +111,22 @@ describe("TriggersExplorer", () => {
     expect(host!.querySelector(".routine-ddl")!.textContent).toContain("CREATE TRIGGER");
   });
 
+  it("shows the selected trigger's metadata from its catalog row", async () => {
+    installMysqlBridge();
+    mount("mysql");
+    await flush();
+    host!.querySelector<HTMLButtonElement>(".routine-item")!.click();
+    await flush();
+    const meta = host!.querySelector(".routine-meta")!.textContent!;
+    expect(meta).toContain("Tablaorders");
+    expect(meta).toContain("Momento");
+  });
+
   it("toggles to events and fetches an event's definition", async () => {
     const calls = installMysqlBridge();
     mount("mysql");
     await flush();
-    const toggle = [...host!.querySelectorAll<HTMLButtonElement>(".obj-kind-toggle .edit-btn")].find(
+    const toggle = [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find(
       (b) => b.textContent === "Eventos",
     )!;
     toggle.click();
@@ -159,7 +171,7 @@ describe("TriggersExplorer", () => {
     mount("mongodb");
     await flush();
     expect(host!.textContent).toContain("MongoDB");
-    expect(host!.querySelector(".obj-kind-toggle")).toBeNull();
+    expect(host!.querySelector("[role=radiogroup]")).toBeNull();
     expect(calls.length).toBe(0);
   });
 
@@ -177,17 +189,18 @@ describe("TriggersExplorer", () => {
     };
     const { setEngine } = mount("mysql");
     await flush();
-    [...host!.querySelectorAll<HTMLButtonElement>(".obj-kind-toggle .edit-btn")]
-      .find((b) => b.textContent === "Eventos")!
-      .click();
+    const events = () =>
+      [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === "Eventos")!;
+    events().click();
     await flush();
     expect(host!.textContent).toContain("ev"); // on the events view
 
     setEngine("sqlite"); // no events support
     await flush();
-    // Toggle is gone AND we're not stranded on the unsupported fallback.
-    expect(host!.querySelector(".obj-kind-toggle")).toBeNull();
-    expect(host!.textContent).not.toContain("no tiene eventos");
+    // «Eventos» is disabled with the reason, and we're not stranded on it.
+    expect(events().disabled).toBe(true);
+    expect(events().title).toContain("eventos");
+    expect(events().getAttribute("aria-checked")).toBe("false");
     expect(host!.querySelector(".routine-item")).not.toBeNull(); // triggers listed
   });
 
