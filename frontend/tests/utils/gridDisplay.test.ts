@@ -114,8 +114,16 @@ describe("displayText", () => {
     expect(displayText("1", "bool", "informe", es).kind).toBe("bool");
   });
 
-  it("still renders booleans as 0/1, which formatCell owns", () => {
-    expect(displayText("true", "bool", "informe", es).text).toBe("1");
-    expect(displayText("0", "bool", "informe", es).text).toBe("0");
+  // Issue #690: the literal, in every style; formatCell folds the spellings.
+  it("renders booleans as true/false in every style", () => {
+    expect(displayText("true", "bool", "informe", es).text).toBe("true");
+    expect(displayText("0", "bool", "informe", es).text).toBe("false");
+    expect(displayText("t", "bool", "registro", es).text).toBe("true");
+    expect(displayText("", "bool", "hoja", es).text).toBe("true");
+    expect(displayText(null, "bool", "registro", es).kind).toBe("null");
+  });
+
+  it("shows a boolean it cannot fold as it came", () => {
+    expect(displayText("maybe", "bool", "registro", es).text).toBe("maybe");
   });
 });

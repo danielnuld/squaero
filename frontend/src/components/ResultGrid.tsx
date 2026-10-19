@@ -19,11 +19,13 @@ import {
 } from "../utils/gridColumnOrder";
 import { toggleMark, markRange, orderedMarks, type RowMarks } from "../utils/rowSelection";
 import type { ResultSet } from "../utils/query";
-import type { PendingChanges } from "../utils/editSession";
+import { rowChange, type PendingChanges } from "../utils/editSession";
+import { inRange, rangeBetween, rangeCellCount, rangeToTsv } from "../utils/gridRange";
+import { copyText } from "../utils/rowCopy";
 import type { PkMode } from "../utils/rowPaste";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
-import { Icon, IconKey, IconRelated } from "./icons";
+import { Icon, IconKey, IconRelated, IconSearch } from "./icons";
 import { t } from "../utils/i18n";
 
 const DEFAULT_ROW_HEIGHT = 28;
@@ -121,11 +123,30 @@ export function ResultGrid(props: {
    */
   onSelectedRowChange?: (rowIndex: number | null) => void;
   /**
-   * The cells the selection covers (issue #670), for the status-bar summary:
-   * the selected cell's column (ORIGINAL index) over the marked rows, or over
-   * its own row when none are marked. Null when no cell is selected.
+   * The cells the selection covers (issues #670, #690), for the status-bar
+   * summary: the block of cells selected (columns as ORIGINAL indices in the
+   * order drawn, rows as indices into `result.rows`), or the focused cell's
+   * column over the marked rows when rows are marked and no block is. Null
+   * when no cell is selected.
    */
-  onSelectedCellsChange?: (cells: { column: number; rows: number[] } | null) => void;
+  onSelectedCellsChange?: (cells: { columns: number[]; rows: number[] } | null) => void;
+  /**
+   * Where each foreign-key column points, by column name ("clientes.id"). The
+   * header then says it: an arrow beside the name and "integer → clientes.id"
+   * on the type line (issue #690). Absent → no column is shown as a key.
+   */
+  foreignKeys?: Record<string, string>;
+  /**
+   * Whether the page search row ("Buscar en la página", per-column and LOCAL to
+   * the loaded rows) is open. Hidden by default (issue #690); Ctrl+F on the grid
+   * toggles it. Given, the workspace drives it — a toolbar toggle — and hears
+   * the grid's own toggles through `onSearchOpenChange`.
+   */
+  searchOpen?: boolean;
+  onSearchOpenChange?: (open: boolean) => void;
+  /** Print a changed cell's original value struck through beside the new one,
+      instead of only in its tooltip (issue #690). Off by default. */
+  showOldValues?: boolean;
   /**
    * Sort at the SERVER instead of in the browser (issue #347). Given, a header
    * click hands the column name up rather than reordering the rows already
@@ -195,10 +216,15 @@ export function ResultGrid(props: {
   // position, so it is dropped whenever the view is reordered.
   const [marks, setMarks] = createSignal<RowMarks>(new Set<number>());
   const [anchor, setAnchor] = createSignal<number | null>(null);
+  // The fixed corner of the selected block of cells (issue #690): Shift+arrows,
+  // Shift+click and dragging move `sel`, the other corner, and leave this one.
+  // Same keys as `sel`: a view position and an ORIGINAL column index.
+  const [cellAnchor, setCellAnchor] = createSignal<CellPos | null>(null);
   const isMarked = (rowIndex: number) => marks().has(rowIndex);
   const clearSel = () => {
     setSel(null);
     setAnchor(null);
+    setCellAnchor(null);
     setMarks(new Set<number>());
   };
   // The workspace clears the marks from outside (the row bar's ✕) by bumping a
@@ -328,6 +354,38 @@ export function ResultGrid(props: {
   });
   const view = createMemo(() => buildViewIndices(rows(), cols(), sort(), filters()));
   const filtersActive = () => Object.values(filters()).some((q) => q.trim() !== "");
+
+  // The page search row (issue #690): closed by default, since it only ever
+  // searches the loaded rows and an always-open row of boxes read as a filter
+  // of the whole table. Closing it drops what it was hiding.
+  const [searchOn, setSearchOn] = createSignal(false);
+  createEffect(() => {
+    if (props.searchOpen !== undefined) setSearchOn(props.searchOpen);
+  });
+  createEffect(
+    on(
+      searchOn,
+      (open) => {
+        if (!open && untrack(filtersActive)) {
+          setFilters({});
+          clearSel();
+        }
+      },
+      { defer: true },
+    ),
+  );
+  const toggleSearch = () => {
+    const open = !searchOn();
+    setSearchOn(open);
+    props.onSearchOpenChange?.(open);
+    if (open) {
+      queueMicrotask(() =>
+        scrollerEl?.querySelector<HTMLInputElement>(".grid-filter-input")?.focus(),
+      );
+    } else {
+      scrollerEl?.focus({ preventScroll: true });
+    }
+  };
   // Sort/filter reorder or shrink the view, so a view-position selection would
   // point at a different row — clear it (matches the reset on a new result).
   const toggleSort = (col: number) => {
@@ -437,6 +495,18 @@ export function ResultGrid(props: {
   const isDeleted = (rowIndex: number) =>
     props.edit?.pending.deletes.includes(rowIndex) ?? false;
 
+  /** A changed cell of an existing row (issue #690). */
+  const isDirty = (rowIndex: number, colName: string) => {
+    const pending = props.edit?.pending.edits[rowIndex];
+    return !!pending && colName in pending;
+  };
+  const fkTarget = (name: string): string | undefined => {
+    const fks = props.foreignKeys;
+    if (!fks) return undefined;
+    const key = Object.keys(fks).find((k) => k.toLowerCase() === name.toLowerCase());
+    return key === undefined ? undefined : fks[key];
+  };
+
   // The value to show in an existing-row cell: the pending edit if any, else the
   // original value.
   const cellValue = (rowIndex: number, colName: string, original: string | null) => {
@@ -511,20 +581,69 @@ export function ResultGrid(props: {
 
   // Click selects one cell; the modifiers mark rows instead of moving on their
   // own (ctrl toggles this row, shift takes everything back to the anchor).
+  // Shift extends the block of cells from its anchor (issue #690); Ctrl/Cmd
+  // toggles the row's mark, or on a cell with related data follows the link.
   const selectCell = (viewPos: number, c: number, e?: MouseEvent) => {
     const rowIndex = view()[viewPos];
     const additive = !!(e?.ctrlKey || e?.metaKey);
-    if (e?.shiftKey && anchor() !== null) {
-      setMarks((m) => markRange(m, view(), anchor()!, viewPos, additive));
+    if (additive && !e?.shiftKey && rowIndex !== undefined && hasRelated(c)) {
+      setSel({ r: viewPos, c });
+      props.onRelated?.(rowIndex, c);
+      return;
+    }
+    if (e?.shiftKey && (cellAnchor() ?? sel()) !== null) {
+      setCellAnchor((a) => a ?? sel());
     } else if (additive && rowIndex !== undefined) {
       setMarks((m) => toggleMark(m, rowIndex));
       setAnchor(viewPos);
+      setCellAnchor({ r: viewPos, c });
     } else {
       setMarks(new Set<number>());
       setAnchor(viewPos);
+      setCellAnchor({ r: viewPos, c });
     }
     setSel({ r: viewPos, c });
     scrollerEl?.focus({ preventScroll: true });
+  };
+
+  // Dragging over the cells selects the block under the pointer. The press
+  // only starts it: a click on the same cell still goes through selectCell.
+  let dragging = false;
+  const stopDrag = () => {
+    dragging = false;
+    document.removeEventListener("mouseup", stopDrag);
+  };
+  onCleanup(stopDrag);
+  const onCellMouseDown = (viewPos: number, c: number, e: MouseEvent) => {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
+    // No text selection across cells: the block IS the selection.
+    e.preventDefault();
+    if (e.shiftKey) setCellAnchor((a) => a ?? sel() ?? { r: viewPos, c });
+    else setCellAnchor({ r: viewPos, c });
+    setSel({ r: viewPos, c });
+    scrollerEl?.focus({ preventScroll: true });
+    dragging = true;
+    document.addEventListener("mouseup", stopDrag);
+  };
+  const onCellMouseEnter = (viewPos: number, c: number) => {
+    if (dragging) setSel({ r: viewPos, c });
+  };
+
+  /** The selected block in DISPLAY space (view position, drawn column), or
+      null with no selection. One cell when nothing was extended. */
+  const cellRange = createMemo(() => {
+    const s = sel();
+    if (!s) return null;
+    const a = cellAnchor() ?? s;
+    const o = order();
+    return rangeBetween({ r: a.r, c: displayIndex(o, a.c) }, { r: s.r, c: displayIndex(o, s.c) });
+  });
+  const rangeSize = () => rangeCellCount(cellRange());
+
+  /** Whether a column offers related data (and so the cell link). */
+  const hasRelated = (ci: number) => {
+    const name = cols()[ci]?.name;
+    return !!props.onRelated && !!name && (isReferenced(name) || !!fkTarget(name));
   };
 
   // Enter edit mode targeting a cell (double-click / Enter). No-op if already
@@ -554,6 +673,29 @@ export function ResultGrid(props: {
     }
     const mod = e.ctrlKey || e.metaKey;
     const letter = e.key.toLowerCase();
+    if (mod && letter === "f" && !e.shiftKey && !e.altKey) {
+      // The page search, not the app's find (issue #690).
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSearch();
+      return;
+    }
+    if (mod && letter === "b") {
+      // Follow the focused cell's foreign key (issue #690).
+      const s = sel();
+      const row = s === null ? undefined : view()[s.r];
+      if (s && row !== undefined && hasRelated(s.c)) {
+        e.preventDefault();
+        props.onRelated?.(row, s.c);
+      }
+      return;
+    }
+    if (mod && letter === "c" && marks().size === 0 && rangeSize() > 1) {
+      // A block of cells copies as TSV, the way a spreadsheet takes it (#690).
+      e.preventDefault();
+      copyText(rangeToTsv(rangeValues()));
+      return;
+    }
     if (mod && (letter === "c" || letter === "d")) {
       // Rows, not text (#517): the marked rows, or the selected cell's row.
       const handler = letter === "c" ? props.onCopyRows : props.onDuplicateRows;
@@ -579,6 +721,12 @@ export function ResultGrid(props: {
       setMarks(new Set<number>());
       return;
     }
+    if (e.key === "Escape" && rangeSize() > 1) {
+      // Back to the focused cell; nothing else is lost.
+      e.preventDefault();
+      setCellAnchor(sel());
+      return;
+    }
     if (mod && letter === "a") {
       // Everything the view is showing — a filtered grid selects what it shows,
       // not the rows hidden behind the filter.
@@ -595,16 +743,29 @@ export function ResultGrid(props: {
     const from = s === null ? null : { r: s.r, c: displayIndex(order(), s.c) };
     const moved = moveSelection(from, e.key, view().length, cols().length);
     const next = moved === null ? null : { r: moved.r, c: order()[moved.c] ?? moved.c };
+    // Shift keeps the block's anchor where it was (issue #690); a plain move
+    // starts over from the new cell, as a click does.
+    if (e.shiftKey) setCellAnchor((a) => a ?? s ?? next);
     setSel(next);
     if (!next) return;
-    if (e.shiftKey) {
-      const from = anchor() ?? next.r;
-      setAnchor(from);
-      setMarks((m) => markRange(m, view(), from, next.r));
-    } else {
+    if (!e.shiftKey) {
+      setCellAnchor(next);
       setAnchor(next.r);
       setMarks(new Set<number>());
     }
+  };
+
+  /** The selected block's values, as drawn: rows top to bottom, columns left
+      to right, a pending edit in place of what the core sent. */
+  const rangeValues = (): (string | null)[][] => {
+    const rg = cellRange();
+    if (!rg) return [];
+    const columns = order().slice(rg.c1, rg.c2 + 1);
+    return view()
+      .slice(rg.r1, rg.r2 + 1)
+      .map((ri) =>
+        columns.map((ci) => cellValue(ri, cols()[ci]?.name ?? "", rows()[ri]?.[ci] ?? null) ?? null),
+      );
   };
 
   /** The rows a row action takes: the marked ones in view order, or else the
@@ -612,15 +773,16 @@ export function ResultGrid(props: {
   const rowTargets = (): number[] => {
     const marked = orderedMarks(marks(), view());
     if (marked.length > 0) return marked;
-    const s = sel();
-    const row = s === null ? undefined : view()[s.r];
-    return row === undefined ? [] : [row];
+    const rg = cellRange();
+    return rg ? view().slice(rg.r1, rg.r2 + 1) : [];
   };
 
   const isSelected = (viewPos: number, c: number) => {
     const s = sel();
     return !!s && s.r === viewPos && s.c === c;
   };
+  /** The focused cell's row: its foreign-key cells show their link. */
+  const isFocusRow = (viewPos: number) => sel()?.r === viewPos;
 
   // Publish the marked rows (original indices, view order) for the workspace.
   createEffect(() => props.onMarkedRowsChange?.(orderedMarks(marks(), view())));
@@ -634,7 +796,15 @@ export function ResultGrid(props: {
 
   createEffect(() => {
     const s = sel();
-    props.onSelectedCellsChange?.(s === null ? null : { column: s.c, rows: rowTargets() });
+    const rg = cellRange();
+    if (s === null || rg === null) return props.onSelectedCellsChange?.(null);
+    if (marks().size > 0 && rangeCellCount(rg) === 1) {
+      return props.onSelectedCellsChange?.({ columns: [s.c], rows: rowTargets() });
+    }
+    props.onSelectedCellsChange?.({
+      columns: order().slice(rg.c1, rg.c2 + 1),
+      rows: view().slice(rg.r1, rg.r2 + 1),
+    });
   });
 
   return (
@@ -656,6 +826,21 @@ export function ResultGrid(props: {
               </div>
             }
           >
+            <Show when={searchOn()}>
+              <div class="grid-search-note" role="note">
+                <IconSearch />
+                <span>{t("grid.searchNote", { n: rows().length })}</span>
+                <button
+                  class="grid-search-close"
+                  type="button"
+                  aria-label={t("grid.searchClose")}
+                  title={t("grid.searchClose")}
+                  onClick={toggleSearch}
+                >
+                  ×
+                </button>
+              </div>
+            </Show>
             <div
               class="grid-scroll"
               ref={attachScroller}
@@ -711,7 +896,7 @@ export function ResultGrid(props: {
                       const ci = () => dc.ci;
                       return (
                       <div
-                        class={`grid-cell grid-head grid-head-sort ${dragFrom() === di() ? "is-dragging" : ""} ${dropAt() === di() && dragFrom() !== di() ? "is-drop-target" : ""}`}
+                        class={`grid-cell grid-head grid-head-sort ${classifyType(col.type) === "number" ? "head-number" : ""} ${dragFrom() === di() ? "is-dragging" : ""} ${dropAt() === di() && dragFrom() !== di() ? "is-drop-target" : ""}`}
                         role="columnheader"
                         aria-colindex={di() + 1 + colOffset()}
                         aria-sort={sortDirOf(ci())}
@@ -771,28 +956,49 @@ export function ResultGrid(props: {
                           }
                         }}
                       >
-                        <span class={`col-name ${isReferenced(col.name) ? "col-referenced" : ""}`}>
-                          {col.name}
+                        {/* Two lines (issue #690): the name with its marks —
+                            key, foreign key, sort, page search — and the type
+                            under it, with where a foreign key points. */}
+                        <span class="col-line">
+                          <Show when={isKey(col.name)}>
+                            {/* Said, not only drawn: "this is the key" is the
+                                sort of thing a header has to say out loud. */}
+                            <span class="col-key-mark" title={t("grid.pkColumn")}>
+                              <IconKey />
+                              <span class="visually-hidden">{t("grid.pkColumn")}</span>
+                            </span>
+                          </Show>
+                          <Show when={fkTarget(col.name) || isReferenced(col.name)}>
+                            {(() => {
+                              const label = () => {
+                                const target = fkTarget(col.name);
+                                return target ? t("grid.fkColumn", { target }) : t("related.refColumn");
+                              };
+                              return (
+                                <span class="col-ref-mark" title={label()}>
+                                  <IconRelated />
+                                  <span class="visually-hidden">{label()}</span>
+                                </span>
+                              );
+                            })()}
+                          </Show>
+                          <span class={`col-name ${isReferenced(col.name) ? "col-referenced" : ""}`}>
+                            {col.name}
+                          </span>
+                          <span class="col-sort" aria-hidden="true">
+                            {props.onSortColumn
+                              ? { ascending: "▲", descending: "▼", none: "" }[sortDirOf(ci())]
+                              : sortGlyph(sort(), ci())}
+                          </span>
+                          <Show when={(filters()[ci()] ?? "").trim() !== ""}>
+                            <span class="col-search-mark" title={t("grid.searchedColumn")}>
+                              <IconSearch />
+                              <span class="visually-hidden">{t("grid.searchedColumn")}</span>
+                            </span>
+                          </Show>
                         </span>
-                        <Show when={isKey(col.name)}>
-                          {/* Not aria-hidden like the reference mark beside it:
-                              "this is the key" is the sort of thing a header has
-                              to say out loud, not only draw. */}
-                          <span class="col-key-mark" title={t("grid.pkColumn")}>
-                            <IconKey />
-                            <span class="visually-hidden">{t("grid.pkColumn")}</span>
-                          </span>
-                        </Show>
-                        <Show when={isReferenced(col.name)}>
-                          <span class="col-ref-mark" title={t("related.refColumn")} aria-hidden="true">
-                            <Icon name="fk" size={12} />
-                          </span>
-                        </Show>
-                        <span class="col-type">{col.type}</span>
-                        <span class="col-sort">
-                          {props.onSortColumn
-                            ? { ascending: "▲", descending: "▼", none: "" }[sortDirOf(ci())]
-                            : sortGlyph(sort(), ci())}
+                        <span class="col-type">
+                          {fkTarget(col.name) ? `${col.type} → ${fkTarget(col.name)}` : col.type}
                         </span>
                         <span
                           class="col-resize"
@@ -819,6 +1025,7 @@ export function ResultGrid(props: {
                   </For>
                 </div>
 
+                <Show when={searchOn()}>
                 <div
                   class="grid-filter"
                   role="row"
@@ -836,15 +1043,25 @@ export function ResultGrid(props: {
                         <input
                           class="grid-filter-input"
                           type="search"
-                          placeholder={t("grid.filterPlaceholder")}
-                          aria-label={t("grid.filterBy", { name: dc.col.name })}
+                          placeholder={t("grid.searchPlaceholder")}
+                          aria-label={t("grid.searchIn", { name: dc.col.name })}
                           value={filters()[dc.ci] ?? ""}
                           onInput={(e) => setFilter(dc.ci, e.currentTarget.value)}
+                          onKeyDown={(e) => {
+                            // Esc closes the search from inside it; Ctrl+F too.
+                            const mod = e.ctrlKey || e.metaKey;
+                            if (e.key === "Escape" || (mod && e.key.toLowerCase() === "f")) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              toggleSearch();
+                            }
+                          }}
                         />
                       </div>
                     )}
                   </For>
                 </div>
+                </Show>
 
                 <div class="grid-spacer" style={{ height: `${range().totalHeight}px` }}>
                   <div
@@ -867,7 +1084,7 @@ export function ResultGrid(props: {
                         const zebra = () => ((range().start + i()) % 2 === 1 ? "row-odd" : "");
                         return (
                           <div
-                            class={`grid-row ${zebra()} ${isMarked(rowIndex()) ? "row-marked" : ""} ${isDeleted(rowIndex()) ? "row-deleted" : ""}`}
+                            class={`grid-row ${zebra()} ${isMarked(rowIndex()) ? "row-marked" : ""} ${isDeleted(rowIndex()) ? "row-deleted" : ""} ${isFocusRow(viewPos()) ? "row-focus" : ""}`}
                             role="row"
                             aria-rowindex={viewPos() + 2}
                             aria-selected={isMarked(rowIndex())}
@@ -875,9 +1092,19 @@ export function ResultGrid(props: {
                           >
                             <Show when={markable()}>
                               <div class="grid-cell grid-mark" role="gridcell" aria-colindex={1}>
-                                <span class="grid-mark-num" aria-hidden="true">
-                                  {viewPos() + 1}
-                                </span>
+                                {/* The row's number, or what is staged for it
+                                    (issue #690): + new, ~ changed, − deleted —
+                                    a glyph, so it does not rest on colour. */}
+                                <Show
+                                  when={props.edit ? rowChange(props.edit.pending, rowIndex()) : null}
+                                  fallback={
+                                    <span class="grid-mark-num" aria-hidden="true">
+                                      {viewPos() + 1}
+                                    </span>
+                                  }
+                                >
+                                  {(state) => <RowGlyph state={state()} />}
+                                </Show>
                                 <input
                                   type="checkbox"
                                   tabindex="-1"
@@ -917,20 +1144,21 @@ export function ResultGrid(props: {
                                         props.gridStyle ?? "registro",
                                         t,
                                       );
-                                      const related = () =>
-                                        !!props.onRelated && isReferenced(col.name);
+                                      const related = () => hasRelated(ci());
                                       return (
                                         <div
-                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${related() ? "cell-related" : ""} ${props.cellClass?.(rowIndex(), ci()) ?? ""}`}
+                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${inRange(cellRange(), viewPos(), di()) ? "cell-in-range" : ""} ${related() ? "cell-related" : ""} ${props.cellClass?.(rowIndex(), ci()) ?? ""}`}
                                           role="gridcell"
                                           aria-colindex={di() + 1 + colOffset()}
-                                          aria-selected={isSelected(viewPos(), ci())}
+                                          aria-selected={inRange(cellRange(), viewPos(), di())}
                                           style={{ "text-align": cellAlign(cell.kind) }}
                                           /* The RAW value: in the report style
                                              the cell shows "1,250.00" and this
                                              is where the real 1250.00 is. */
-                                          title={original() ?? NULL_LABEL}
+                                          title={original() === "" ? t("grid.emptyString") : (original() ?? NULL_LABEL)}
                                           data-cell={`${viewPos()}-${ci()}`}
+                                          onMouseDown={(e) => onCellMouseDown(viewPos(), ci(), e)}
+                                          onMouseEnter={() => onCellMouseEnter(viewPos(), ci())}
                                           onClick={(e) => selectCell(viewPos(), ci(), e)}
                                           onDblClick={() => {
                                             selectCell(viewPos(), ci());
@@ -944,7 +1172,19 @@ export function ResultGrid(props: {
                                               absence of a value, not a value,
                                               and the styles draw it as a tag
                                               rather than as italic text. */}
-                                          <Show when={cell.kind === "null"} fallback={cell.text}>
+                                          {/* NULL and '' are both "nothing" and must
+                                              never look alike, nor like data
+                                              (issue #690). */}
+                                          <Show
+                                            when={cell.kind === "null"}
+                                            fallback={
+                                              <Show when={original() === ""} fallback={cell.text}>
+                                                <span class="cell-empty-tag" aria-label={t("grid.emptyString")}>
+                                                  ''
+                                                </span>
+                                              </Show>
+                                            }
+                                          >
                                             <span class="cell-null-tag">{cell.text}</span>
                                           </Show>
                                           <Show when={related()}>
@@ -973,10 +1213,17 @@ export function ResultGrid(props: {
                                       when={fkFor(col.name)}
                                       fallback={
                                         <div
-                                          class="grid-cell cell-edit"
+                                          class={`grid-cell cell-edit ${isDirty(rowIndex(), col.name) ? "cell-dirty" : ""}`}
                                           role="gridcell"
                                           aria-colindex={di() + 1 + colOffset()}
                                           data-cell={`${viewPos()}-${ci()}`}
+                                          // The value before the edit, said and
+                                          // not only coloured (issue #690).
+                                          title={
+                                            isDirty(rowIndex(), col.name)
+                                              ? t("grid.originalValue", { value: original() ?? NULL_LABEL })
+                                              : undefined
+                                          }
                                         >
                                         <input
                                           class="cell-input"
@@ -1019,13 +1266,16 @@ export function ResultGrid(props: {
                                             props.onCellContext?.(e, rowIndex(), ci())
                                           }
                                         />
+                                        <Show when={props.showOldValues && isDirty(rowIndex(), col.name)}>
+                                          <s class="cell-old">{original() ?? NULL_LABEL}</s>
+                                        </Show>
                                         </div>
                                       }
                                     >
                                       {(lookup) => (
                                         <FkPicker
                                           lookup={lookup()}
-                                          rootClass="grid-cell cell-fk"
+                                          rootClass={`grid-cell cell-fk ${isDirty(rowIndex(), col.name) ? "cell-dirty" : ""}`}
                                           class="cell-input"
                                           dataCell={`${viewPos()}-${ci()}`}
                                           disabled={isDeleted(rowIndex())}
@@ -1070,7 +1320,9 @@ export function ResultGrid(props: {
                       style={{ "grid-template-columns": gridCols() }}
                     >
                       <Show when={markable()}>
-                        <div class="grid-cell grid-mark" />
+                        <div class="grid-cell grid-mark">
+                          <RowGlyph state="added" />
+                        </div>
                       </Show>
                       <button
                         class="grid-cell grid-action danger"
@@ -1192,5 +1444,21 @@ export function ResultGrid(props: {
         </div>
       </Show>
     </div>
+  );
+}
+
+const ROW_GLYPHS = {
+  added: ["+", "grid.rowAdded"],
+  changed: ["~", "grid.rowChanged"],
+  removed: ["−", "grid.rowRemoved"],
+} as const;
+
+/** The gutter's mark for a staged row (issue #690), named for assistive tech. */
+function RowGlyph(props: { state: keyof typeof ROW_GLYPHS }) {
+  return (
+    <span class={`row-glyph glyph-${props.state}`} title={t(ROW_GLYPHS[props.state][1])}>
+      <span aria-hidden="true">{ROW_GLYPHS[props.state][0]}</span>
+      <span class="visually-hidden">{t(ROW_GLYPHS[props.state][1])}</span>
+    </span>
   );
 }
