@@ -65,6 +65,7 @@ import {
 } from "./utils/cellColors";
 import { loadCellColors, saveCellColors } from "./utils/cellColorStore";
 import type { CellKind } from "./utils/format";
+import { decimalScale } from "./utils/format";
 import {
   addTab,
   emptySession,
@@ -3480,6 +3481,16 @@ export function App() {
     void runPreviewPage(id, preview, 0);
   };
 
+  /** Decimal places per column of a table tab, from its declared types (A-39). */
+  const scalesOf = (id: number): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const [name, type] of Object.entries(colsOf(id).types)) {
+      const scale = decimalScale(type);
+      if (scale !== null) out[name] = scale;
+    }
+    return out;
+  };
+
   /** «Filtrar en la tabla» (R-21): the page search's boxes become CONTAINS
       conditions at the server, and the page search closes. */
   const filterTableBy = (id: number, terms: { column: string; value: string }[]) => {
@@ -4435,7 +4446,10 @@ export function App() {
   const openChart = () => {
     const res = currentResult().result;
     if (!res || res.columns.length === 0) return;
-    showTool("chart", t("tab.chart"), { key: "chart", params: { result: res } });
+    showTool("chart", t("tab.chart"), {
+      key: "chart",
+      params: { result: res, keyColumns: currentResult().source?.pk ?? [] },
+    });
   };
 
   // --- Export (issue #30) ------------------------------------------------
@@ -5951,6 +5965,7 @@ export function App() {
                             searchOpen={gridSearch()}
                             onSearchOpenChange={setGridSearch}
                             onSearchCountChange={setSearchMatches}
+                            scales={isDataTab(tab().id) ? scalesOf(tab().id) : undefined}
                             onFilterTable={
                               isDataTab(tab().id) ? (terms) => filterTableBy(tab().id, terms) : undefined
                             }
@@ -6374,6 +6389,7 @@ export function App() {
                 <Match when={tt().tool === "chart"}>
                   <ChartView
                     result={(tt().params as { result: ResultSet }).result}
+                    keyColumns={(tt().params as { keyColumns?: string[] }).keyColumns}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>

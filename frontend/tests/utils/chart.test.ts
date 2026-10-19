@@ -42,6 +42,18 @@ describe("defaultColumns", () => {
   it("picks the first text column as label and first numeric as value", () => {
     expect(defaultColumns(result)).toEqual({ labelCol: 0, valueCols: [1] });
   });
+  it("never takes a key column as the value", () => {
+    const keyed: ResultSet = {
+      columns: [{ name: "id", type: "int" }, { name: "nombre", type: "text" }, { name: "saldo", type: "float" }],
+      rows: [], truncated: false, rowsAffected: 0,
+    };
+    expect(defaultColumns(keyed, ["ID"])).toEqual({ labelCol: 0, valueCols: [2] });
+    const onlyKey: ResultSet = {
+      columns: [{ name: "id", type: "int" }, { name: "nombre", type: "text" }],
+      rows: [], truncated: false, rowsAffected: 0,
+    };
+    expect(defaultColumns(onlyKey, ["id"]).valueCols).toEqual([]);
+  });
   it("falls back to column 0 and no series when all numeric / none numeric", () => {
     const allNum: ResultSet = {
       columns: [{ name: "a", type: "int" }, { name: "b", type: "int" }],

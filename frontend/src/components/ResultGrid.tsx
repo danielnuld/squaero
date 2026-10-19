@@ -1,6 +1,6 @@
 import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
-import { cellAlign, boolTo01, classifyType, NULL_LABEL } from "../utils/format";
+import { cellAlign, boolTo01, classifyType, NULL_LABEL, withScale } from "../utils/format";
 import { displayText } from "../utils/gridDisplay";
 import type { GridStyle } from "../utils/settings";
 import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../utils/gridNav";
@@ -214,6 +214,9 @@ export function ResultGrid(props: {
   /** Extra classes for one read-only cell (issue #669: a comparison's added,
       removed and changed cells). Undefined → none. */
   cellClass?: (rowIndex: number, colIndex: number) => string | undefined;
+  /** Decimal places per column name, from the table's declared types
+      (numeric(10,2) → 2): numbers are drawn padded to them (A-39). */
+  scales?: Record<string, number>;
   /** Bumped by the workspace to clear the marks (the row bar's ✕). */
   clearMarksTick?: number;
 }) {
@@ -1312,9 +1315,12 @@ export function ResultGrid(props: {
                                       // colour and NULL tag (A-12).
                                       const value = () => cellValue(rowIndex(), col.name, original());
                                       const dirty = () => isDirty(rowIndex(), col.name);
+                                      const scale = () => props.scales?.[col.name];
                                       const cell = createMemo(() =>
                                         displayText(
-                                          value(),
+                                          scale() !== undefined && value() !== null
+                                            ? withScale(value()!, scale()!)
+                                            : value(),
                                           typeOf(rowIndex(), ci(), col.type),
                                           props.gridStyle ?? "registro",
                                           t,
