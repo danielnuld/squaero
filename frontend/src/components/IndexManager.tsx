@@ -17,6 +17,7 @@ import {
 } from "../utils/indexes";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { dropConfirm, type ConfirmText } from "../utils/confirmText";
 import { Icon } from "./icons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dropdown } from "./Dropdown";
@@ -53,7 +54,7 @@ export function IndexManager(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
-  const [pending, setPending] = createSignal<{ sql: string; label: string } | null>(null);
+  const [pending, setPending] = createSignal<{ sql: string; text: ConfirmText } | null>(null);
 
   // Create-index form.
   const [idxName, setIdxName] = createSignal("");
@@ -222,7 +223,7 @@ export function IndexManager(props: {
       return;
     }
     setError(null); // clear any prior error so it doesn't show stale in the dialog
-    setPending({ sql: b.sql, label: t("im.dropIndex", { name }) });
+    setPending({ sql: b.sql, text: dropConfirm("index", name, props.table) });
   };
 
   const dropConstraintRow = (name: string, type: string | null) => {
@@ -237,7 +238,7 @@ export function IndexManager(props: {
       return;
     }
     setError(null);
-    setPending({ sql: b.sql, label: t("im.dropConstraint", { name }) });
+    setPending({ sql: b.sql, text: dropConfirm("constraint", name, props.table) });
   };
 
   const idxNameIdx = createMemo(() => colIdx(indexRows(), idxSupport().nameCol));
@@ -268,10 +269,10 @@ export function IndexManager(props: {
       <Show when={pending()}>
         {(p) => (
           <ConfirmDialog
-            title={p().label}
-            message={t("im.undoWarning")}
+            title={p().text.title}
+            message={p().text.message}
             sql={p().sql}
-            confirmLabel={t("common.delete")}
+            confirmLabel={p().text.confirm}
             busy={busy()}
             error={error()}
             onConfirm={() => void applySql(p().sql)}

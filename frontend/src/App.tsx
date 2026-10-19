@@ -206,6 +206,7 @@ import { applyPlan } from "./utils/editApply";
 import { idleTx, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
 import { TxControls } from "./components/TxControls";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { needsTypedName } from "./utils/confirmText";
 
 /** Rows to read from a table's index catalog; one per index, so plenty. */
 const UNIQUE_CATALOG_LIMIT = 500;
@@ -648,6 +649,11 @@ export function App() {
   // The confirmation a protected connection asks before writing. One at a
   // time: a second request while one is open is declined rather than queued —
   // two write actions racing on protected connections is not a flow to support.
+  // The name a protected connection asks to have typed before a write that
+  // loses data (audit A-25, R-15); read from the signal, not from the <Show>
+  // accessor, which is stale for an instant while the dialog closes.
+  const typedNameFor = (w: { guard: SafeModeGuard; writes: string[] } | null) =>
+    w && needsTypedName(w.guard.mode, w.writes) ? w.guard.name : undefined;
   const [writeConfirm, setWriteConfirm] = createSignal<{
     guard: SafeModeGuard;
     writes: string[];
@@ -5496,6 +5502,7 @@ export function App() {
                 <Match when={tt().tool === "monitor"}>
                   <ServerMonitor
                     connId={toolConn()?.connId ?? ""}
+                    connName={toolConn()?.name ?? ""}
                     engine={activeDialect()}
                     onClose={() => closeTool(tt().id)}
                   />
@@ -5615,6 +5622,7 @@ export function App() {
                 <Match when={tt().tool === "backup"}>
                   <BackupPanel
                     connId={toolConn()?.connId ?? ""}
+                    connName={toolConn()?.name ?? ""}
                     engine={activeDialect()}
                     db={activeDb()}
                     onCatalogChanged={refreshTreeInPlace}
@@ -5843,7 +5851,7 @@ export function App() {
       <Show when={deletingConn()}>
         {(c) => (
           <ConfirmDialog
-            title={t("conn.deleteOpenTitle")}
+            title={t("conn.deleteOpenTitle", { name: c().name })}
             message={t("conn.deleteOpenMessage", { name: c().name })}
             confirmLabel={t("conn.deleteOpenConfirm")}
             onConfirm={() => {
@@ -6112,6 +6120,9 @@ export function App() {
             message={t("safe.confirmMessage", { name: w().guard.name, n: w().writes.length })}
             sql={confirmListing(w().writes)}
             confirmLabel={t("safe.confirmRun")}
+            /* What loses data on a protected connection asks for its name typed
+               (audit A-25, R-15): a second click is too easy a yes. */
+            typeToConfirm={typedNameFor(writeConfirm())}
             onConfirm={() => answerWriteConfirm(true)}
             onCancel={() => answerWriteConfirm(false)}
           />

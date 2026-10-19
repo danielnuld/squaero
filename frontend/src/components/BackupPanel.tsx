@@ -25,6 +25,8 @@ const PAGE = 5000;
  */
 export function BackupPanel(props: {
   connId: string;
+  /** The connection's name: the restore confirmation names its target. */
+  connName?: string;
   engine: string;
   db: string | null;
   onCatalogChanged: () => void;

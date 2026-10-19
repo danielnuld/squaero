@@ -31,7 +31,7 @@ describe("ConfirmDialog", () => {
       <ConfirmDialog message="Se eliminará x." sql="DROP TABLE `t`" onConfirm={() => {}} onCancel={() => {}} />
     ));
     const dialog = host!.querySelector(".confirm-dialog")!;
-    expect(dialog.getAttribute("role")).toBe("dialog");
+    expect(dialog.getAttribute("role")).toBe("alertdialog");
     expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(dialog.textContent).toContain("Se eliminará x.");
     expect(host!.querySelector("pre.ddl-text")!.textContent).toBe("DROP TABLE `t`");
@@ -56,7 +56,9 @@ describe("ConfirmDialog", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(onCancel).toHaveBeenCalledTimes(1);
 
-    (host!.querySelector(".modal-backdrop") as HTMLElement).click(); // click the backdrop itself
+    const scrim = host!.querySelector(".dlg-scrim") as HTMLElement;
+    scrim.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    scrim.click(); // click the backdrop itself
     expect(onCancel).toHaveBeenCalledTimes(2);
   });
 
@@ -119,7 +121,7 @@ describe("ConfirmDialog", () => {
         onCancel={() => {}}
       />
     ));
-    expect(host!.querySelectorAll(".modal-actions button").length).toBe(3);
+    expect(host!.querySelectorAll(".dlg-f button").length).toBe(3);
     clickText("Confirmar");
     expect(onAlt).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
@@ -127,7 +129,7 @@ describe("ConfirmDialog", () => {
 
   it("has two buttons without an alternative", () => {
     mount(() => <ConfirmDialog message="m" onConfirm={() => {}} onCancel={() => {}} />);
-    expect(host!.querySelectorAll(".modal-actions button").length).toBe(2);
+    expect(host!.querySelectorAll(".dlg-f button").length).toBe(2);
   });
 
   it("omits the SQL block when no sql is given", () => {
@@ -143,9 +145,34 @@ describe("ConfirmDialog extra content", () => {
         <input id="extra-field" />
       </ConfirmDialog>
     ));
-    const dialog = host!.querySelector(".confirm-dialog")!;
-    const kids = [...dialog.children].map((c) => c.tagName + (c.id ? "#" + c.id : ""));
+    const body = host!.querySelector(".confirm-dialog .dlg-b")!;
+    const kids = [...body.children].map((c) => c.tagName + (c.id ? "#" + c.id : ""));
     expect(kids.indexOf("INPUT#extra-field")).toBeGreaterThan(kids.indexOf("P"));
     expect(kids.indexOf("INPUT#extra-field")).toBeLessThan(kids.indexOf("PRE"));
+  });
+});
+
+describe("ConfirmDialog typed name (audit A-25)", () => {
+  it("keeps the danger button disabled until the exact name is typed", () => {
+    const onConfirm = vi.fn();
+    mount(() => (
+      <ConfirmDialog message="m" confirmLabel="Eliminar tabla" typeToConfirm="clientes" onConfirm={onConfirm} onCancel={() => {}} />
+    ));
+    const danger = host!.querySelector(".btn-danger") as HTMLButtonElement;
+    const input = host!.querySelector(".dlg-field input") as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    expect(host!.textContent).toContain("Escribe «clientes» para confirmar");
+    expect(danger.disabled).toBe(true);
+    input.value = "Clientes";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    expect(danger.disabled).toBe(true);
+    input.value = " clientes ";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    expect(danger.disabled).toBe(false);
+    // Enter in the box still does not delete: only the button does.
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(onConfirm).not.toHaveBeenCalled();
+    danger.click();
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });
