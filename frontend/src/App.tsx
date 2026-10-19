@@ -181,7 +181,7 @@ import {
   timeAgo,
   type HistoryEntry,
 } from "./utils/history";
-import { formatClock, formatDuration } from "./utils/duration";
+import { formatClock, formatDuration, formatElapsed } from "./utils/duration";
 import {
   loadHistory,
   saveHistory,
@@ -394,7 +394,7 @@ import {
   type RelatedQuery,
 } from "./utils/relatedData";
 import { Notebook } from "./components/Notebook";
-import { ObjectTree } from "./components/ObjectTree";
+import { TreeSkeleton, ObjectTree } from "./components/ObjectTree";
 import { StructureView } from "./components/StructureView";
 import { ImportWizard } from "./components/ImportWizard";
 import { DataGenerator } from "./components/DataGenerator";
@@ -428,7 +428,6 @@ import { loadLocalHistory, saveLocalHistory } from "./utils/localHistoryStore";
 import { SnippetsPanel } from "./components/SnippetsPanel";
 import { RowDetail } from "./components/RowDetail";
 import { stepRowIndex } from "./utils/rowDetail";
-import { Dropdown } from "./components/Dropdown";
 
 // Per-tab execution state, keyed by tab id.
 interface TabResult {
@@ -1413,6 +1412,62 @@ export function App() {
         };
       }),
     ]);
+  // Row counts the trees read from the catalog, per connection (R-35): the
+  // connected home shows them beside its tables.
+  const [rowCountsByConn, setRowCountsByConn] = createSignal<Record<string, Record<string, number>>>({});
+  const rowCountsOf = (defId: string) => rowCountsByConn()[defId];
+
+  // «Exportar…» on a tree table: its data opens (or is focused) and the export
+  // dialog follows once the first page is in.
+  const [exportWhenLoaded, setExportWhenLoaded] = createSignal<number | null>(null);
+  const exportTable = (node: TreeNode) => {
+    openData(node);
+    setExportWhenLoaded(current()?.id ?? null);
+  };
+  createEffect(() => {
+    const id = exportWhenLoaded();
+    if (id === null) return;
+    const tab = current();
+    if (!tab || tab.id !== id) return setExportWhenLoaded(null);
+    const r = results[id];
+    if (!r || r.loading || !r.result) return;
+    setExportWhenLoaded(null);
+    doExport(EXPORT_FORMATS[0].fmt as AnyExportFormat);
+  });
+
+  // The connection's own menu (TreeDbContextMenu, R-05): on its header and on
+  // its database nodes. A database right-clicked becomes the working one first,
+  // so what opens is scoped to it.
+  const connMenuItems = (conn: ActiveConnection, db?: string): MenuItem[] => {
+    const run = (fn: () => void) => () => {
+      setFocusedDefId(conn.defId);
+      if (db) syncWorkingDb(db);
+      fn();
+    };
+    const saved = connections().find((c) => c.id === conn.defId);
+    const engine = driverSchema(conn.driver)?.label ?? conn.driver;
+    return [
+      {
+        heading: true,
+        label: [conn.name, engine, db].filter(Boolean).join(" · "),
+      },
+      { label: t("connmenu.newQuery"), action: run(() => runShortcut("new-tab")) },
+      { label: t("connmenu.newTable"), action: run(() => openTableDesigner(db)) },
+      { label: t("connmenu.objectList"), action: run(openObjectList) },
+      { separator: true },
+      { label: t("connmenu.er"), action: run(() => openCatalogTool("erDiagram")) },
+      { label: t("connmenu.dataSearch"), action: run(() => openCatalogTool("dataSearch")) },
+      { label: t("connmenu.backup"), action: run(() => openCatalogTool("backup")) },
+      { label: t("connmenu.moreTools"), submenu: toolsMenuItems(conn.driver) },
+      { separator: true },
+      { label: t("tree.copyName"), action: () => copyText(db ?? conn.name) },
+      { label: t("tree.refresh"), action: run(refreshAll) },
+      { separator: true },
+      ...(saved ? [{ label: t("connmenu.edit"), action: () => onEditConnection(saved) }] : []),
+      { label: t("conn.disconnect"), action: () => void disconnect(conn.defId) },
+    ];
+  };
+
   /** A catalog tool, by kind, as the tools menu opens it. */
   const openCatalogTool = (tool: ToolKind) => {
     const item = TOOL_CATALOG.find((x) => x.tool === tool);
@@ -2033,6 +2088,8 @@ export function App() {
     };
     input.click();
   };
+  // When the open in flight started: the explorer counts it (TreeLoading).
+  const [connectingSince, setConnectingSince] = createSignal(0);
   const onConnect = async (c: Connection, force = false) => {
     if (connectingId() !== null) return;
     const existing = openConns().find((o) => o.defId === c.id);
@@ -2041,6 +2098,7 @@ export function App() {
       return;
     }
     setConnectingId(c.id);
+    setConnectingSince(Date.now());
     setConnError(null);
     try {
       if (existing) {
@@ -2215,7 +2273,7 @@ export function App() {
   onMount(() => {
     const timer = setInterval(() => {
       const now = Date.now();
-      if (openConns().some((o) => o.lost)) setClock(now);
+      if (openConns().some((o) => o.lost) || connectingId() !== null) setClock(now);
       // A lost session whose retry is due is reopened by itself (R-05).
       for (const o of openConns()) {
         if (o.lost && !o.reconnecting && o.retryAt !== undefined && o.retryAt <= now) {
@@ -5113,6 +5171,28 @@ export function App() {
             onImport={openConnectionsTab}
             onManage={openConnectionsTab}
           />
+          {/* A connection being opened (TreeLoading): its name, the time it
+              is taking and the rows to come. No Cancelar: the core cannot
+              abandon a conn.open in flight (honest capabilities). */}
+          <Show
+            when={
+              connectingId() !== null && !openConns().some((o) => o.defId === connectingId())
+                ? connections().find((c) => c.id === connectingId())
+                : undefined
+            }
+          >
+            {(c) => (
+              <div class="conn-section" style={{ "--conn-accent": c().color ?? "var(--accent)" }}>
+                <div class="objtree-connecting" role="status">
+                  <span>{t("tree.connecting", { name: c().name })}</span>
+                  <span class="objtree-connecting-time">
+                    {formatElapsed(clock() - connectingSince())}
+                  </span>
+                </div>
+                <TreeSkeleton label={t("tree.connecting", { name: c().name })} />
+              </div>
+            )}
+          </Show>
           {/* One collapsible section per open connection (issue #444): the
               same table can be looked up in prod and dev without swapping the
               explorer. The sections split the height with flex; each tree keeps
@@ -5188,24 +5268,19 @@ export function App() {
                         )}
                         onAlterTable={inConn(conn.defId, openAlterTable)}
                         onManageIndexes={inConn(conn.defId, openIndexes)}
-                      >
-                        {/* The working database belongs to the focused
-                            connection, so its selector lives in that section
-                            instead of floating above the whole sidebar. */}
-                        <Show when={focused() && databases().length > 0}>
-                          <div class="sidebar-db">
-                            <label>
-                              <span>{t("tree.activeDb")}</span>
-                              <Dropdown
-                                value={activeDb() ?? ""}
-                                options={databases().map((d) => ({ value: d, label: d }))}
-                                onChange={(v) => selectDb(v)}
-                                class="map-select"
-                              />
-                            </label>
-                          </div>
-                        </Show>
-                      </ObjectTree>
+                        onColumns={(table, names) => rememberColumns(conn, table, names)}
+                        onRowCounts={(counts) =>
+                          setRowCountsByConn((m) => ({ ...m, [conn.defId]: { ...m[conn.defId], ...counts } }))
+                        }
+                        onExport={inConn(conn.defId, exportTable)}
+                        onGenerate={inConn(conn.defId, (node: TreeNode) =>
+                          showTool("generator", t("tab.generate", { name: node.label }), {
+                            key: `gen:${node.label}`,
+                            params: { target: { table: node.label, db: node.db, schema: node.schema } },
+                          }),
+                        )}
+                        connMenu={(db) => connMenuItems(conn, db)}
+                      />
                     </li>
                   );
                 }}
@@ -6323,6 +6398,7 @@ export function App() {
                   onNewQuery={() => runShortcut("new-tab")}
                   onFindObject={() => runShortcut("object-palette")}
                   onOpenTable={openData}
+                  rowCounts={rowCountsOf(conn().defId)}
                   onObjectList={activeDb() ? openObjectList : undefined}
                   onEr={() => openCatalogTool("erDiagram")}
                   onDataSearch={() => openCatalogTool("dataSearch")}
