@@ -141,7 +141,7 @@ describeEngine("sqlite", () => {
     // the field sat outside the window, unreadable and unclickable.
     expect(
       await page.evaluate(() => {
-        const bar = document.querySelector(".editor-hint")!;
+        const bar = document.querySelector(".editor-toolbar")!;
         return bar.scrollWidth - bar.clientWidth;
       }),
       "the editor bar does not overflow while naming",

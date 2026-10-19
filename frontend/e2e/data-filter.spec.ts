@@ -24,7 +24,7 @@ describeEngine("sqlite", () => {
     // The editor is gone, and with it the buttons that acted on it.
     await expect(page.getByRole("textbox", { name: "Editor SQL", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Formatear" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Ejecutar", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Ejecutar sentencia", exact: true })).toHaveCount(0);
     // What still has an object stays.
     await expect(page.getByRole("button", { name: "Plan" })).toBeVisible();
   });

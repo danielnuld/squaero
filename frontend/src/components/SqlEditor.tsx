@@ -1,9 +1,11 @@
 import { onCleanup, onMount, createEffect, createMemo } from "solid-js";
-import { EditorState, Compartment, StateEffect, StateField, type Text } from "@codemirror/state";
+import { EditorState, Compartment, RangeSet, StateEffect, StateField, type Text } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
   EditorView,
+  GutterMarker,
+  gutterLineClass,
   hoverTooltip,
   keymap,
   lineNumbers,
@@ -24,6 +26,9 @@ import {
   HighlightStyle,
   bracketMatching,
   indentOnInput,
+  codeFolding,
+  foldGutter,
+  foldKeymap,
 } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { sql } from "@codemirror/lang-sql";
@@ -43,7 +48,14 @@ import {
 import { search, searchKeymap, openSearchPanel, highlightSelectionMatches } from "@codemirror/search";
 import { formatSql } from "../utils/sqlFormat";
 import { editorDialect } from "../utils/sqlDialect";
-import { pickRunTarget, type RunScope } from "../utils/runScope";
+import {
+  errorOffset,
+  pickRunTarget,
+  runnableStatements,
+  statementAt,
+  type RunInfo,
+  type RunScope,
+} from "../utils/runScope";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { t } from "../utils/i18n";
@@ -129,6 +141,61 @@ const diagnosticHover = hoverTooltip((view, pos) => {
   };
 });
 
+/** Where the last run failed: the statement as sent, and the line its engine
+    blamed within it (null when the message named none). */
+export interface ErrorMark {
+  sql: string;
+  line: number | null;
+}
+
+// Gutter marks (issue #691): a bar beside the statement Ctrl/Cmd+Enter would
+// run, and the error colour on the line the last run failed at. Classes only:
+// the line numbers stay, the gutter element is what gets painted.
+class LineClass extends GutterMarker {
+  constructor(readonly elementClass: string) {
+    super();
+  }
+}
+const runGutter = new LineClass("cm-gutter-run");
+const errorGutter = new LineClass("cm-gutter-error");
+const runLine = Decoration.line({ class: "cm-runRange" });
+const errorLine = Decoration.line({ class: "cm-errorLine" });
+
+interface LineMarks {
+  deco: DecorationSet;
+  gutter: RangeSet<GutterMarker>;
+}
+const noMarks: LineMarks = { deco: Decoration.none, gutter: RangeSet.empty };
+
+/** Line decorations and gutter marks for lines first..last of `doc`. */
+const lineMarks = (doc: Text, first: number, last: number, line: Decoration, gutter: GutterMarker): LineMarks => {
+  const starts = Array.from({ length: last - first + 1 }, (_, i) => doc.line(first + i).from);
+  return {
+    deco: Decoration.set(starts.map((from) => line.range(from))),
+    gutter: RangeSet.of(starts.map((from) => gutter.range(from))),
+  };
+};
+
+// Where the last run failed, cleared by the first edit: from then on the line
+// number may no longer point at what the engine read.
+const setErrorAt = StateEffect.define<number | null>();
+const errorField = StateField.define<LineMarks>({
+  create: () => noMarks,
+  update(marks, tr) {
+    for (const e of tr.effects) {
+      if (!e.is(setErrorAt)) continue;
+      if (e.value === null || e.value > tr.state.doc.length) return noMarks;
+      const n = tr.state.doc.lineAt(e.value).number;
+      return lineMarks(tr.state.doc, n, n, errorLine, errorGutter);
+    }
+    return tr.docChanged ? noMarks : marks;
+  },
+  provide: (f) => [
+    EditorView.decorations.from(f, (m) => m.deco),
+    gutterLineClass.from(f, (m) => m.gutter),
+  ],
+});
+
 // CodeMirror 6 SQL editor. A single EditorView is reused across query tabs; the
 // active tab's text is swapped in on tab change. Ctrl/Cmd+Enter runs the query
 // and Ctrl/Cmd+Shift+F formats it (Mod = Cmd on macOS, Ctrl elsewhere). Pure
@@ -141,8 +208,9 @@ export function SqlEditor(props: {
   sqlFor: (id: number) => string;
   /** Fired on every edit so the workspace can persist the tab's text. */
   onChange: (id: number, sql: string) => void;
-  /** Fired on Ctrl/Cmd+Enter. Runs the selection, else the statement under the
-      cursor, else the whole document (issue #130); `scope` says which. */
+  /** Fired on Ctrl/Cmd+Enter: the selection, else the statement under the
+      cursor; on Ctrl/Cmd+Shift+Enter: the whole script (issues #130, #691).
+      `scope` says which. */
   onRun: (sql: string, scope?: RunScope) => void;
   /** Fired on Ctrl/Cmd+Shift+E to show the query plan (EXPLAIN, issue #131). */
   onExplain?: () => void;
@@ -152,19 +220,24 @@ export function SqlEditor(props: {
   formatTick?: number;
   /** Bumping this number opens the find panel (Ctrl/Cmd+F, issue: editor find). */
   searchTick?: number;
-  /** Bumping this number runs the query from the toolbar, exactly as
-      Ctrl/Cmd+Enter does: the selection, else the statement under the cursor,
-      else the whole document. */
-  runTick?: number;
+  /** A run from the toolbar arrives as a bumped `tick`. Without a `scope` it
+      runs exactly what Ctrl/Cmd+Enter would: the selection, else the statement
+      under the cursor; with one, that scope (the run button's menu). */
+  runRequest?: { tick: number; scope?: RunScope };
   /** Bumping this number asks for the text to save as a snippet (issue #320).
       Resolved exactly like a run — selection, else the statement under the
       cursor, else the whole document — so "you save what you would run". */
   saveTick?: number;
   /** Answers a saveTick with the resolved text and the scope it came from. */
   onSaveRequest?: (sql: string, scope: RunScope) => void;
-  /** Reports whether the editor currently holds a non-empty selection, so the
-      toolbar can offer "Ejecutar selección". */
-  onSelectionChange?: (hasSelection: boolean) => void;
+  /** Reports what a run would execute, whenever that changes, so the toolbar
+      names it («Ejecutar sentencia» / «Ejecutar selección», the lines, the
+      script's statement count). */
+  onRunInfo?: (info: RunInfo) => void;
+  /** Where the last run failed; its line is marked until the next edit. */
+  errorMark?: ErrorMark | null;
+  /** Bumping this number moves the cursor to the marked error line. */
+  revealErrorTick?: number;
   /** Insert this text at the cursor when `tick` changes (snippets, issue #129). */
   insertRequest?: { text: string; tick: number };
   /** Table -> columns map that drives table/column autocomplete (issue #110). */
@@ -207,6 +280,38 @@ export function SqlEditor(props: {
       schema: props.schema ?? {},
       defaultTable: props.defaultTable,
     });
+  // What Ctrl/Cmd+Enter would run, recomputed when the text or the cursor
+  // moves. ponytail: splits the whole document on every cursor move; cache the
+  // split per doc if very long scripts ever make the cursor lag.
+  const runInfoOf = (state: EditorState): { info: RunInfo; marks: LineMarks } => {
+    const doc = state.doc.toString();
+    const { from, to } = state.selection.main;
+    const stmt = statementAt(doc, from, props.dialect);
+    const info: RunInfo = {
+      hasSelection: from !== to,
+      statement: stmt && {
+        first: state.doc.lineAt(stmt.from).number,
+        last: state.doc.lineAt(stmt.to).number,
+      },
+      statements: runnableStatements(doc, props.dialect).length,
+    };
+    // Highlighted only when it tells something: a selection is already shown,
+    // and a lone statement is the whole editor.
+    const marks =
+      info.statement && !info.hasSelection && info.statements > 1
+        ? lineMarks(state.doc, info.statement.first, info.statement.last, runLine, runGutter)
+        : noMarks;
+    return { info, marks };
+  };
+  const runField = StateField.define<{ info: RunInfo; marks: LineMarks }>({
+    create: runInfoOf,
+    update: (v, tr) => (tr.docChanged || tr.selection ? runInfoOf(tr.state) : v),
+    provide: (f) => [
+      EditorView.decorations.from(f, (v) => v.marks.deco),
+      gutterLineClass.from(f, (v) => v.marks.gutter),
+    ],
+  });
+
   // Which tab's text is loaded in the view; guards the change listener while we
   // programmatically swap documents on tab switch. Set on mount to match the
   // doc actually loaded into the view.
@@ -326,11 +431,11 @@ export function SqlEditor(props: {
   // (issue #130). Pure choice lives in runScope.ts. With several selections
   // (multicursor, issue #665) it is the MAIN one that runs, saves or is copied
   // — the last added — never a concatenation of them.
-  const runFromView = () => {
+  const runFromView = (scope?: RunScope) => {
     if (!view) return;
     const { doc, selection } = view.state;
     const { from, to } = selection.main;
-    const target = pickRunTarget(doc.toString(), from, to);
+    const target = pickRunTarget(doc.toString(), from, to, scope, props.dialect);
     props.onRun(target.text, target.scope);
   };
 
@@ -342,6 +447,9 @@ export function SqlEditor(props: {
         doc: props.sqlFor(props.activeId),
         extensions: [
           lineNumbers(),
+          // Folding (issue #691): lang-sql folds a statement and a block comment.
+          codeFolding(),
+          foldGutter(),
           highlightActiveLineGutter(),
           highlightActiveLine(),
           drawSelection(),
@@ -360,6 +468,8 @@ export function SqlEditor(props: {
           autocompletion({ override: [semanticSource, fallbackSource(0), fallbackSource(1), templateSource] }),
           diagnosticsField,
           diagnosticHover,
+          runField,
+          errorField,
           // In-editor find/replace (Ctrl/Cmd+F). The panel sits at the top and
           // matches are highlighted; searchKeymap adds find-next/prev + replace.
           search({ top: true }),
@@ -373,6 +483,14 @@ export function SqlEditor(props: {
               preventDefault: true,
               run: () => {
                 runFromView();
+                return true;
+              },
+            },
+            {
+              key: "Mod-Shift-Enter",
+              preventDefault: true,
+              run: () => {
+                runFromView("document");
                 return true;
               },
             },
@@ -404,6 +522,7 @@ export function SqlEditor(props: {
             ...completionKeymap,
             ...defaultKeymap,
             ...historyKeymap,
+            ...foldKeymap,
           ]),
           EditorView.lineWrapping,
           // Name the editable surface. CodeMirror's content is a contenteditable
@@ -415,15 +534,14 @@ export function SqlEditor(props: {
               props.onChange(loaded, view!.state.doc.toString());
             }
             if (u.docChanged) scheduleDiagnostics();
-            // Keep the toolbar's Run button in sync with the selection so it can
-            // read "Ejecutar selección" when text is highlighted.
-            if ((u.selectionSet || u.docChanged) && props.onSelectionChange) {
-              props.onSelectionChange(!u.state.selection.main.empty);
-            }
+            // Keep the toolbar's Run button naming what it would run.
+            const run = u.state.field(runField);
+            if (run !== u.startState.field(runField)) props.onRunInfo?.(run.info);
           }),
         ],
       }),
     });
+    props.onRunInfo?.(view.state.field(runField).info);
   });
 
   // Swap the document when the active tab changes (tracks activeId only; the
@@ -476,15 +594,41 @@ export function SqlEditor(props: {
     }
   });
 
-  // Toolbar Run requests arrive as a bumped counter and run exactly what
-  // Ctrl/Cmd+Enter would (selection / statement / document). The editor keeps its
+  // Toolbar Run requests arrive as a bumped counter and run what was asked —
+  // without a scope, exactly what Ctrl/Cmd+Enter would. The editor keeps its
   // selection when focus moves to the button, so runFromView still sees it.
-  let lastRunTick = props.runTick ?? 0;
+  let lastRunTick = props.runRequest?.tick ?? 0;
   createEffect(() => {
-    const tick = props.runTick ?? 0;
-    if (tick === lastRunTick) return;
-    lastRunTick = tick;
-    runFromView();
+    const req = props.runRequest;
+    if (!req || req.tick === lastRunTick) return;
+    lastRunTick = req.tick;
+    runFromView(req.scope);
+  });
+
+  // The failed line of the last run (issue #691), found by the statement's text.
+  // Runs after the tab-swap effect above, so it marks the document now loaded.
+  createEffect(() => {
+    const mark = props.errorMark;
+    if (!view) return;
+    const at = mark ? errorOffset(view.state.doc.toString(), mark.sql, mark.line) : null;
+    view.dispatch({ effects: setErrorAt.of(at) });
+  });
+
+  // «Ir a la línea» from the error panel: cursor to the marked line, in view.
+  let lastReveal = props.revealErrorTick ?? 0;
+  createEffect(() => {
+    const tick = props.revealErrorTick ?? 0;
+    if (!view || tick === lastReveal) return;
+    lastReveal = tick;
+    // Located again, not read off the mark: an edit since the run cleared it.
+    const mark = props.errorMark;
+    const at = mark ? errorOffset(view.state.doc.toString(), mark.sql, mark.line) : null;
+    if (at === null) return;
+    view.dispatch({
+      selection: { anchor: at },
+      effects: [setErrorAt.of(at), EditorView.scrollIntoView(at, { y: "center" })],
+    });
+    view.focus();
   });
 
   // Save-as-snippet requests arrive the same way, and resolve the same target as
@@ -497,7 +641,7 @@ export function SqlEditor(props: {
     if (!view) return;
     const { doc, selection } = view.state;
     const { from, to } = selection.main;
-    const target = pickRunTarget(doc.toString(), from, to);
+    const target = pickRunTarget(doc.toString(), from, to, undefined, props.dialect);
     props.onSaveRequest?.(target.text, target.scope);
   });
 
@@ -565,10 +709,11 @@ export function SqlEditor(props: {
     return [
       { label: t("editor.format"), action: doFormat, disabled: !hasText },
       {
-        label: hasSelection ? t("editor.runSelection") : t("editor.run"),
-        action: runFromView,
+        label: hasSelection ? t("editor.runSelection") : t("editor.runStatement"),
+        action: () => runFromView(),
         disabled: !hasText,
       },
+      { label: t("editor.runScript"), action: () => runFromView("document"), disabled: !hasText },
       { separator: true },
       { label: t("editor.selectAll"), action: selectAll, disabled: !hasText },
       { label: t("editor.copy"), action: copy, disabled: !hasText },

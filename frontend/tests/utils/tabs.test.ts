@@ -12,6 +12,7 @@ import {
   closeTabsToRight,
   closeTabsForConn,
   updateTabSql,
+  bindTabConn,
   updateTabVars,
   activeTab,
   serializeWorkspace,
@@ -291,6 +292,32 @@ describe("updateTabSql", () => {
     const s = openTool(empty, "monitor", "Monitor", { key: "m" });
     const updated = updateTabSql(s, s.tabs[0].id, "SELECT 1");
     expect(updated.tabs[0]).not.toHaveProperty("sql");
+  });
+});
+
+describe("bindTabConn", () => {
+  it("binds only the targeted query tab to the connection", () => {
+    let s = addTab(empty, "Q", "a"); // 1
+    s = addTab(s, "Q", "a"); // 2
+    const out = bindTabConn(s, 2, "b");
+    expect(out.tabs.map((t) => t.connDefId)).toEqual(["a", "b"]);
+  });
+
+  it("binds a tab that had no connection", () => {
+    const out = bindTabConn(addTab(empty), 1, "b");
+    expect(out.tabs[0].connDefId).toBe("b");
+  });
+
+  it("leaves a tool tab and an object's tab where they are", () => {
+    const tool = openTool(empty, "monitor", "Monitor", { key: "m", connDefId: "a" });
+    expect(bindTabConn(tool, tool.tabs[0].id, "b").tabs[0].connDefId).toBe("a");
+    const obj = setObjectKey(addTab(empty, "Q", "a"), 1, "a|db.t");
+    expect(bindTabConn(obj, 1, "b").tabs[0].connDefId).toBe("a");
+  });
+
+  it("is a no-op for an unknown id", () => {
+    const s = addTab(empty, "Q", "a");
+    expect(bindTabConn(s, 99, "b")).toEqual(s);
   });
 });
 

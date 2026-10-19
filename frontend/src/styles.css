@@ -1546,20 +1546,105 @@ body {
   color: var(--text);
 }
 
+/* The gutter (issue #691): on the editor's own surface rather than a slab of
+   its own, numbers in the faint text level with tabular figures, the current
+   line's number in full text. */
 .editor .cm-editor .cm-gutters {
-  background: var(--bg-elev) !important;
-  color: var(--text-dim) !important;
+  background: var(--bg) !important;
+  color: var(--text-faint) !important;
   border: none !important;
-  border-right: 1px solid var(--border) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor .cm-editor .cm-lineNumbers .cm-gutterElement {
+  min-width: 3ch;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
 }
 
 .editor .cm-editor .cm-activeLine {
-  background: color-mix(in srgb, var(--accent) 8%, transparent) !important;
+  background: color-mix(in srgb, var(--accent) 5%, transparent) !important;
 }
 
 .editor .cm-editor .cm-activeLineGutter {
-  background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
+  background: transparent !important;
   color: var(--text) !important;
+}
+
+/* The statement Ctrl/Cmd+Enter will run (R-04): a soft accent band and a bar in
+   the gutter, so the button's «sentencia» points at something visible. */
+.editor .cm-editor .cm-runRange {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.editor .cm-editor .cm-gutterElement.cm-gutter-run {
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--text) !important;
+}
+
+/* Where the last run failed: the error colour on the number and a bar beside it,
+   a tint on the line. Cleared by the first edit. */
+.editor .cm-editor .cm-errorLine {
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
+
+.editor .cm-editor .cm-gutterElement.cm-gutter-error {
+  box-shadow: inset 3px 0 0 var(--error);
+  color: var(--error) !important;
+  font-weight: 600;
+}
+
+/* Folding: the markers stay quiet until the gutter is pointed at. */
+.editor .cm-editor .cm-foldGutter .cm-gutterElement {
+  padding: 0 var(--sp-1);
+  color: var(--text-faint);
+  cursor: default;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.editor .cm-editor .cm-gutters:hover .cm-foldGutter .cm-gutterElement,
+.editor .cm-editor .cm-foldGutter .cm-gutterElement:focus-visible {
+  opacity: 1;
+}
+
+.editor .cm-editor .cm-foldPlaceholder {
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2);
+}
+
+/* Matches: find results, the other occurrences of the selection and the
+   bracket that pairs with the cursor's, all from the accent and the warning
+   colour, never CodeMirror's fixed yellow. */
+.editor .cm-editor .cm-searchMatch {
+  background: color-mix(in srgb, var(--warn) 22%, transparent) !important;
+  outline: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  border-radius: var(--r-sm);
+}
+
+.editor .cm-editor .cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--warn) 45%, transparent) !important;
+}
+
+.editor .cm-editor .cm-selectionMatch {
+  background: color-mix(in srgb, var(--accent) 16%, transparent) !important;
+}
+
+.editor .cm-editor.cm-focused .cm-matchingBracket {
+  background: color-mix(in srgb, var(--accent) 22%, transparent) !important;
+  outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.editor .cm-editor.cm-focused .cm-nonmatchingBracket {
+  background: color-mix(in srgb, var(--error) 22%, transparent) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor .cm-editor .cm-foldGutter .cm-gutterElement {
+    transition: none;
+  }
 }
 
 .editor .cm-editor .cm-cursor,
@@ -1658,21 +1743,6 @@ body {
   background: var(--bg-elev2) !important;
   border: 1px solid var(--border) !important;
   color: var(--text) !important;
-}
-
-.editor-hint {
-  display: flex;
-  align-items: center;
-  /* Wraps rather than spilling: on a narrow window the buttons alone can outrun
-     the bar, and a row that overflows puts its tail outside the window where it
-     cannot be read or clicked at all. */
-  flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-3);
-  padding: var(--sp-2) var(--sp-3);
-  font-size: var(--fs-sm);
-  color: var(--text-dim);
-  background: var(--bg-elev);
-  border-top: 1px solid var(--border);
 }
 
 .editor-hint-spacer {
@@ -7985,4 +8055,129 @@ ul.sidebar-tree {
 
 .pager .seg-btn:disabled {
   opacity: 0.4;
+}
+
+/* --- The SQL editor's run toolbar and status band (issue #691) ----------- */
+.editor-toolbar {
+  gap: var(--sp-2);
+  /* One band, but it wraps rather than spill: on a narrow window, or while a
+     snippet is being named in it, a tail outside the window cannot be reached. */
+  flex-wrap: wrap;
+}
+
+/* The connection selector: shaped like a field, the connection's colour as a
+   dot, so what the query runs against is never out of sight (R-02). */
+.editor-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--h-md);
+  max-width: 260px;
+  padding: 0 var(--sp-3);
+  flex-shrink: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+}
+
+.editor-conn:hover {
+  background: var(--bg-elev2);
+}
+
+.editor-conn-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+}
+
+.editor-conn-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-conn-db {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* «Ejecutar sentencia» and its scope menu: one split button. */
+.editor-run {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.edit-toolbar .editor-run-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.edit-toolbar .editor-run-scope {
+  padding: 0 var(--sp-2);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid color-mix(in srgb, var(--accent-fg) 40%, transparent);
+}
+
+/* Detener: always in its place, the danger colour only while it can act. */
+.edit-toolbar .editor-stop.is-running:not(:disabled) {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--error-fg);
+}
+
+.edit-toolbar .editor-stop.is-running:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 85%, black);
+}
+
+/* The result panel's first line: what the run did or is doing. */
+.run-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--band-md);
+  padding: 0 var(--sp-3);
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.run-status .icon {
+  color: var(--ok);
+}
+
+.run-status.is-error {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 7%, var(--bg));
+}
+
+.run-status.is-error .icon {
+  color: var(--error);
+}
+
+.run-status.is-running {
+  color: var(--text);
+}
+
+.run-status-text {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.run-status .edit-btn {
+  display: inline-flex;
+  align-items: center;
+  height: calc(var(--h-md) - 4px);
+  padding: 0 var(--sp-3);
 }
