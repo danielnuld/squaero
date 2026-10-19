@@ -10771,3 +10771,19 @@ ul.sidebar-tree {
   font-size: var(--fs-sm);
   color: var(--text-dim);
 }
+
+/* History: day headings, the scope switch and the error chip. */
+.history-scope {
+  margin-bottom: var(--sp-3);
+}
+
+.history-day {
+  padding: var(--sp-3) var(--sp-2) var(--sp-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.history-error {
+  color: var(--error);
+}

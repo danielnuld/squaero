@@ -2651,7 +2651,13 @@ export function App() {
       nested tx.begin as well; this says why in the user's words. */
   const txEditBlocked = (conn: ActiveConnection | null): string | null =>
     txOpenCount(conn) !== null ? t("tx.editBlocked") : null;
-  const recordHistory = (sql: string, conn: ActiveConnection, durationMs?: number) => {
+  const recordHistory = (
+    sql: string,
+    conn: ActiveConnection,
+    durationMs?: number,
+    outcome?: { result: ResultSet | null; failed: boolean },
+  ) => {
+    const r = outcome?.result;
     const entry: HistoryEntry = {
       sql,
       ts: Date.now(),
@@ -2659,6 +2665,10 @@ export function App() {
       connName: conn.name,
       engine: conn.driver,
       durationMs,
+      ...(r && r.columns.length > 0 ? { rows: r.rows.length } : {}),
+      ...(r && r.columns.length === 0 ? { affected: r.rowsAffected } : {}),
+      ...(outcome?.failed ? { failed: true } : {}),
+      ...(activeDb() ? { db: activeDb()! } : {}),
     };
     setHistory((list) => {
       const next = addHistory(list, entry, historyLimit());
@@ -2836,7 +2846,7 @@ export function App() {
       // Record after the run so the entry carries its duration (issue #179);
       // page turns (offset > 0) are not logged.
       if (offset === 0) {
-        recordHistory(trimmed, conn, elapsedMs);
+        recordHistory(trimmed, conn, elapsedMs, { result, failed: !!shown?.error });
         showRunToast(id, ranAt, elapsedMs, !!shown?.error);
         logRun(
           id,
@@ -2878,7 +2888,7 @@ export function App() {
         activeSet: 0,
       });
       if (offset === 0) {
-        recordHistory(trimmed, conn, elapsedMs);
+        recordHistory(trimmed, conn, elapsedMs, { result: null, failed: true });
         showRunToast(id, ranAt, elapsedMs, true);
         logRun(
           id,
@@ -5569,6 +5579,7 @@ export function App() {
               entries={history()}
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}
+              connId={activeDefId() ?? undefined}
               onRun={runFromHistory}
               onInsert={insertFromHistory}
               onOpen={(sql) => openSqlInNewTab(sql)}
@@ -6817,6 +6828,7 @@ export function App() {
                     entries={history()}
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}
+                    connId={activeDefId() ?? undefined}
                     onRun={runFromHistory}
                     onInsert={insertFromHistory}
                     onOpen={(sql) => openSqlInNewTab(sql)}
