@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { EmptyNote } from "./EmptyNote";
 import { Panel } from "./Panel";
 import { searchSnippets, type Snippet } from "../utils/snippets";
@@ -7,6 +7,7 @@ import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 import { autoFocus } from "../utils/autoFocus";
 import { normalizeAbbr } from "../utils/sqlTemplates";
+import { keyLabel } from "../utils/shortcuts";
 
 // The snippet library (issues #129, #338): find a saved query among many, look at
 // it, and act on it. Master-detail — a filterable list beside the full body — in
@@ -22,6 +23,10 @@ export function SnippetsPanel(props: {
   entries: Snippet[];
   onOpen: (s: Snippet) => void;
   onInsert: (s: Snippet) => void;
+  /** The snippet to select first (the palette's «Editar…»). */
+  selectId?: string;
+  /** Runs the snippet in a new query tab (Ctrl+Intro on the list). */
+  onRun?: (s: Snippet) => void;
   onRename: (id: string, name: string) => void;
   /** Set (or, blank, clear) the abbreviation that expands it as a template in
       the editor (issue #665). */
@@ -35,7 +40,8 @@ export function SnippetsPanel(props: {
   docked?: boolean;
 }) {
   const [query, setQuery] = createSignal("");
-  const [selectedId, setSelectedId] = createSignal<string | null>(null);
+  const [selectedId, setSelectedId] = createSignal<string | null>(props.selectId ?? null);
+  createEffect(() => props.selectId && setSelectedId(props.selectId));
   const [renamingId, setRenamingId] = createSignal<string | null>(null);
   const [draft, setDraft] = createSignal("");
   let fileInput!: HTMLInputElement;
@@ -67,11 +73,18 @@ export function SnippetsPanel(props: {
       { label: t("snip.remove"), danger: true, action: () => props.onRemove(s.id) },
     ]);
 
-  /** Up/down move through the filtered list, Enter opens the highlighted one. */
+  /** Up/down move through the filtered list, Enter opens the highlighted one,
+      Ctrl+Intro runs it and Alt+Intro inserts it at the editor's caret (P6). */
   const onListKeyDown = (e: KeyboardEvent) => {
     const list = results();
     const at = list.findIndex((s) => s.id === selected()?.id);
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (e.key === "Enter" && selected() && (e.ctrlKey || e.metaKey) && props.onRun) {
+      e.preventDefault();
+      props.onRun(selected()!);
+    } else if (e.key === "Enter" && selected() && e.altKey) {
+      e.preventDefault();
+      props.onInsert(selected()!);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       const next = list[at + (e.key === "ArrowDown" ? 1 : -1)];
       if (next) setSelectedId(next.id);
@@ -155,6 +168,12 @@ export function SnippetsPanel(props: {
                   {(s) => (
                     <li>
                       <button
+                        draggable="true"
+                        onDragStart={(e) => {
+                          // Dropped on the editor, the body lands where it falls.
+                          e.dataTransfer?.setData("text/plain", s.body);
+                          if (e.dataTransfer) e.dataTransfer.effectAllowed = "copy";
+                        }}
                         class={`snippet-row ${s.id === selected()?.id ? "selected" : ""}`}
                         aria-current={s.id === selected()?.id}
                         onClick={() => setSelectedId(s.id)}
@@ -175,6 +194,13 @@ export function SnippetsPanel(props: {
                   )}
                 </For>
               </ul>
+              <p class="help snippet-keys">
+                {t("snip.keysHint", {
+                  open: keyLabel("Enter"),
+                  run: keyLabel("Mod+Enter"),
+                  insert: keyLabel("Alt+Enter"),
+                })}
+              </p>
             </Show>
           </div>
 
@@ -206,6 +232,14 @@ export function SnippetsPanel(props: {
                   >
                     {t("snip.open")}
                   </button>
+                  <button class="btn" title={t("snip.insertTitle")} onClick={() => props.onInsert(s())}>
+                    {t("snip.insert")}
+                  </button>
+                  <Show when={props.onRun}>
+                    <button class="btn" title={t("snip.runTitle")} onClick={() => props.onRun!(s())}>
+                      {t("snip.run")}
+                    </button>
+                  </Show>
                   <button
                     class="btn snippet-more"
                     aria-label={t("snip.more")}

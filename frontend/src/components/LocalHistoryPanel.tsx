@@ -3,7 +3,9 @@ import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { currentOs, orderActions } from "../utils/dialog";
-import { diffLines } from "../utils/lineDiff";
+import { diffLines, diffSummary, sideBySide } from "../utils/lineDiff";
+import { groupByDay } from "../utils/history";
+import { countText } from "../utils/confirmText";
 import type { TabHistory } from "../utils/localHistory";
 
 // Local history of the editor tabs (issue #674), opened as a tool tab from the
@@ -12,6 +14,8 @@ import type { TabHistory } from "../utils/localHistory";
 // reason and size, the diff between the picked version and the tab's current
 // text, and Restore. Recording and retention are pure (utils/localHistory); the
 // workspace owns the store and does the restoring.
+// P6 (prototype LocalHistory): versions grouped by day, a summary of what the
+// picked version changes, and the diff side by side (version | now).
 export function LocalHistoryPanel(props: {
   docs: TabHistory[];
   /** The tab the panel was opened for; selected first. */
@@ -37,6 +41,20 @@ export function LocalHistoryPanel(props: {
     return v ? diffLines(v.sql, compareTo()) : [];
   });
   const identical = () => version()?.sql === compareTo();
+  const rows = createMemo(() => {
+    const d = diff();
+    return d ? sideBySide(d) : null;
+  });
+  const summary = createMemo(() => {
+    const d = diff();
+    return d ? diffSummary(d) : null;
+  });
+  const days = createMemo(() =>
+    groupByDay(
+      (doc()?.versions ?? []).map((v, i) => ({ ...v, i })),
+      Date.now(),
+    ),
+  );
 
   const pickDoc = (id: number) => {
     setDocId(id);
@@ -72,24 +90,37 @@ export function LocalHistoryPanel(props: {
           when={doc()}
           fallback={<p class="history-empty">{t("lhist.noVersions")}</p>}
         >
-          {(d) => (
+          {(_doc) => (
             <div class="lhist-body">
               <ul class="history-list lhist-versions" aria-label={t("lhist.versions")}>
-                <For each={d().versions}>
-                  {(v, i) => (
+                <For each={days()}>
+                  {(g) => (
+                    <>
+                      <li class="history-day" role="presentation">
+                        {g.day === "today"
+                          ? t("hist.today")
+                          : g.day === "yesterday"
+                            ? t("hist.yesterday")
+                            : new Date(g.entries[0].ts).toLocaleDateString()}
+                      </li>
+                <For each={g.entries}>
+                  {(v) => (
                     <li class="history-item">
                       <button
-                        class={`history-run ${i() === index() ? "active" : ""}`}
-                        aria-pressed={i() === index()}
-                        onClick={() => setIndex(i())}
+                        class={`history-run ${v.i === index() ? "active" : ""}`}
+                        aria-pressed={v.i === index()}
+                        onClick={() => setIndex(v.i)}
                       >
-                        <span>{new Date(v.ts).toLocaleString()}</span>
+                        <span>{new Date(v.ts).toLocaleTimeString()}</span>
                         <span class="history-meta">
                           {t(`lhist.reason.${v.reason}`)} ·{" "}
                           {t("lhist.size", { n: v.sql.length.toLocaleString() })}
                         </span>
                       </button>
                     </li>
+                  )}
+                </For>
+                    </>
                   )}
                 </For>
               </ul>
@@ -110,17 +141,36 @@ export function LocalHistoryPanel(props: {
                       </>
                     }
                   >
-                    {(lines) => (
-                      <pre class="lhist-lines">
-                        <For each={lines()}>
-                          {(l) => (
-                            <div class={`lhist-line lhist-${l.kind}`}>
-                              {l.kind === "add" ? "+ " : l.kind === "del" ? "− " : "  "}
-                              {l.text}
-                            </div>
+                    {(_lines) => (
+                      <>
+                        <Show when={summary()}>
+                          {(sm) => (
+                            <p class="lhist-summary">
+                              {countText("lhist.added", sm().added)} · {countText("lhist.removed", sm().removed)}
+                            </p>
                           )}
-                        </For>
-                      </pre>
+                        </Show>
+                        <div class="lhist-sides" role="table" aria-label={t("lhist.diffAria")}>
+                          <div class="lhist-row lhist-head" role="row">
+                            <span role="columnheader">{t("lhist.colVersion")}</span>
+                            <span role="columnheader">{isOpen() ? t("lhist.colNow") : t("lhist.colLast")}</span>
+                          </div>
+                          <For each={rows()!}>
+                            {(r) => (
+                              <div class="lhist-row" role="row">
+                                <span role="cell" class={`lhist-cell lhist-${r.left?.kind ?? "blank"}`}>
+                                  <span class="lhist-no">{r.left?.no ?? ""}</span>
+                                  {r.left?.text ?? ""}
+                                </span>
+                                <span role="cell" class={`lhist-cell lhist-${r.right?.kind ?? "blank"}`}>
+                                  <span class="lhist-no">{r.right?.no ?? ""}</span>
+                                  {r.right?.text ?? ""}
+                                </span>
+                              </div>
+                            )}
+                          </For>
+                        </div>
+                      </>
                     )}
                   </Show>
                 </Show>

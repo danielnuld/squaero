@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { SlowQueries } from "../../src/components/SlowQueries";
-import { pickOption } from "./dropdownHarness";
+import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 
 interface BridgeHost {
   quaeroRpc?: (requestJson: string) => Promise<unknown>;
@@ -82,11 +82,25 @@ describe("SlowQueries", () => {
     expect(host!.textContent).toContain("SELECT * FROM orders");
   });
 
+  it("says where the numbers come from and details the selected statement", async () => {
+    installBridge();
+    mount();
+    await flush();
+    expect(host!.querySelector(".slow-source")!.textContent).toContain("performance_schema");
+    expect(host!.querySelector(".slow-detail")).toBeNull();
+    host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
+    await flush();
+    const detail = host!.querySelector(".slow-detail")!;
+    expect(detail.querySelector(".monitor-detail-sql")!.textContent).toBe("SELECT * FROM orders");
+    expect(detail.querySelector(".slow-facts")!.textContent).toContain("Ejecuciones12");
+    expect(detail.querySelector(".slow-facts")!.textContent).toContain("820.5 ms");
+  });
+
   it("re-runs with a different ORDER BY when the order changes", async () => {
     const calls = installBridge();
     mount();
     await flush();
-    pickOption(host!.querySelector(".dropdown")!, "total");
+    [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === "Tiempo total")!.click();
     await flush();
     expect(calls.some((s) => s.includes("ORDER BY SUM_TIMER_WAIT DESC"))).toBe(true);
   });
@@ -104,10 +118,10 @@ describe("SlowQueries", () => {
     const onOpenSql = vi.fn();
     mount({ onOpenSql });
     await flush();
-    expect(barButton("Abrir").disabled).toBe(true); // nothing selected yet
+    expect(barButton("Abrir en el editor").disabled).toBe(true); // nothing selected yet
     selectFirstRow();
     await flush();
-    barButton("Abrir").click();
+    barButton("Abrir en el editor").click();
     expect(onOpenSql).toHaveBeenCalledWith("SELECT * FROM orders");
   });
 
@@ -118,7 +132,7 @@ describe("SlowQueries", () => {
     await flush();
     selectFirstRow();
     await flush();
-    barButton("EXPLAIN").click();
+    barButton("Plan de ejecución").click();
     expect(onExplain).toHaveBeenCalledWith("SELECT * FROM orders");
   });
 
@@ -126,10 +140,11 @@ describe("SlowQueries", () => {
     const calls = installBridge();
     mount();
     await flush();
-    const reset = [...host!.querySelectorAll<HTMLButtonElement>(".edit-btn")].find(
-      (b) => b.textContent?.includes("Reiniciar"),
-    )!;
-    reset.click();
+    // «Reiniciar estadísticas…» lives in «Más».
+    [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === "Más")!.click();
+    const item = contextMenu()!.items.find((i) => i.label === "Reiniciar estadísticas…")!;
+    expect(item.danger).toBe(true);
+    item.action!();
     await flush();
     // Nothing runs before the confirmation, which says it is server-wide.
     expect(calls.some((s) => s.startsWith("TRUNCATE"))).toBe(false);
@@ -145,7 +160,7 @@ describe("SlowQueries", () => {
     const calls = installBridge();
     mount({ engine: "sqlite" });
     await flush();
-    expect(host!.querySelector(".grid-empty")!.textContent).toContain("SQLite");
+    expect(host!.querySelector(".empty-note")!.textContent).toContain("SQLite");
     expect(calls).toHaveLength(0);
   });
 
@@ -248,9 +263,9 @@ describe("SlowQueries on MongoDB", () => {
     expect(calls[0].startsWith("db.system.profile.aggregate(")).toBe(true);
     host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
     await flush();
-    barButton("Abrir").click();
+    barButton("Abrir en el editor").click();
     expect(onOpenSql).toHaveBeenCalledWith('db.orders.find({"total":{"$gt":5}})');
-    barButton("EXPLAIN").click();
+    barButton("Plan de ejecución").click();
     expect(onExplain).toHaveBeenCalledWith('db.orders.find({"total":{"$gt":5}})');
   });
 
@@ -260,8 +275,8 @@ describe("SlowQueries on MongoDB", () => {
     await flush();
     host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
     await flush();
-    expect(barButton("Abrir").disabled).toBe(true);
-    expect(barButton("EXPLAIN").disabled).toBe(true);
+    expect(barButton("Abrir en el editor").disabled).toBe(true);
+    expect(barButton("Plan de ejecución").disabled).toBe(true);
   });
 
   it("tells how to switch the profiler on when nothing was recorded, and has no reset button", async () => {
@@ -269,6 +284,8 @@ describe("SlowQueries on MongoDB", () => {
     mount({ engine: "mongodb" });
     await flush();
     expect(host!.textContent).toContain("db.setProfilingLevel");
-    expect([...host!.querySelectorAll("button")].some((b) => b.textContent?.includes("Reiniciar"))).toBe(false);
+    [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === "Más")!.click();
+    expect(contextMenu()!.items.find((i) => i.label?.startsWith("Reiniciar"))!.disabled).toBe(true);
+    closeContextMenu();
   });
 });

@@ -23,9 +23,16 @@ export interface Command {
   /** Text shown beside the list while this command is highlighted — the body of
       a snippet, so it is not chosen by name alone (issue #320). */
   preview?: string;
-  /** Alternate activations: Shift+Enter and Mod+Enter. A command that offers
-      none is activated by `run` whatever the modifier. */
-  runAlt?: (alt: "shift" | "mod") => void;
+  /** Alternate activations: Shift+Enter, Mod+Enter and Alt+Enter. A command
+      that offers none is activated by `run` whatever the modifier. */
+  runAlt?: (alt: "shift" | "mod" | "alt") => void;
+  /** A line under the name in the preview pane (where a snippet runs). */
+  detail?: string;
+  /** Short tags beside the name in the preview pane (a template's abbreviation). */
+  chips?: string[];
+  /** Buttons in the preview pane (P6: Editar… / Insertar / Ejecutar / Abrir);
+      the palette closes before one runs. The last `primary` one is the main. */
+  actions?: { label: string; run: () => void; primary?: boolean; title?: string }[];
   /** Why it cannot run now. Listed anyway, marked unavailable, with the reason
       in place of the hint: a command that just vanishes cannot be learned. */
   disabled?: string;

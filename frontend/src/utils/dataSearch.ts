@@ -26,6 +26,8 @@ export interface SearchOptions {
   ignoreCase: boolean;
   /** Also compare numeric columns, by exact value, when the text is a number. */
   numeric: boolean;
+  /** Fold the common accented vowels on both sides (á = a, ü = u). */
+  ignoreAccents?: boolean;
   /** Rows read per table at most. */
   limit: number;
 }
@@ -89,6 +91,36 @@ export function likePattern(text: string, mode: "contains" | "startsWith", engin
 
 const NUMBER = /^-?\d+(\.\d+)?$/;
 
+// ponytail: the vowels Spanish, Catalan, Portuguese and French write most,
+// folded with nested REPLACE because every engine has it (unaccent and _ai
+// collations are per engine and may be missing). â, ã, ç… are not folded; a
+// per-engine native fold is the upgrade if that matters.
+const ACCENTS: [string, string][] = [
+  ["á", "a"], ["à", "a"], ["é", "e"], ["è", "e"], ["í", "i"], ["ì", "i"],
+  ["ó", "o"], ["ò", "o"], ["ú", "u"], ["ù", "u"], ["ü", "u"],
+];
+const ACCENTS_BOTH: [string, string][] = [
+  ...ACCENTS,
+  ...ACCENTS.map(([a, b]) => [a.toUpperCase(), b.toUpperCase()] as [string, string]),
+];
+
+/** The text with the folded accents replaced, as the SQL side folds them. */
+export function foldAccents(text: string): string {
+  let out = text;
+  for (const [a, b] of ACCENTS_BOTH) out = out.split(a).join(b);
+  return out;
+}
+
+/**
+ * `expr` wrapped in the REPLACE chain that folds the accents. Lower-case only
+ * when the expression is already lower-cased by the server (`lowered`), except
+ * on SQLite, whose LOWER() leaves non-ASCII letters alone.
+ */
+export function foldAccentsSql(expr: string, lowered: boolean, engine: string): string {
+  const pairs = lowered && engineFamily(engine) !== "sqlite" ? ACCENTS : ACCENTS_BOTH;
+  return pairs.reduce((e, [a, b]) => `REPLACE(${e}, '${a}', '${b}')`, expr);
+}
+
 /** One column's predicate, or null when the column takes no part. */
 function predicate(
   column: string,
@@ -104,11 +136,19 @@ function predicate(
   const family = engineFamily(engine);
   // N'…' on SQL Server, or text outside the server's code page is lost.
   const lit = (s: string) => (family === "mssql" ? "N" : "") + sqlLiteral(s, engine);
+  const esc = ` ESCAPE '${ESC}'`;
+  if (opts.ignoreAccents) {
+    // Both sides folded here: the column by the REPLACE chain, the text in JS;
+    // case folded the same way (LOWER on the server, toLowerCase here).
+    const expr = foldAccentsSql(opts.ignoreCase ? `LOWER(${col})` : col, opts.ignoreCase, engine);
+    const raw = opts.mode === "exact" ? opts.text : likePattern(opts.text, opts.mode, engine);
+    const folded = foldAccents(opts.ignoreCase ? raw.toLowerCase() : raw);
+    return opts.mode === "exact" ? `${expr} = ${lit(folded)}` : `${expr} LIKE ${lit(folded)}${esc}`;
+  }
   if (opts.mode === "exact") {
     return opts.ignoreCase ? `LOWER(${col}) = LOWER(${lit(opts.text)})` : `${col} = ${lit(opts.text)}`;
   }
   const pattern = likePattern(opts.text, opts.mode, engine);
-  const esc = ` ESCAPE '${ESC}'`;
   if (!opts.ignoreCase) return `${col} LIKE ${lit(pattern)}${esc}`;
   if (family === "postgres") return `${col} ILIKE ${lit(pattern)}${esc}`;
   // Informix only takes a quoted string after LIKE, not an expression, so its
@@ -161,9 +201,29 @@ export function planTable(
   };
 }
 
+/** How many columns of a table the search can look at, per kind. */
+export function searchableCounts(columns: Record<string, string>, engine: string): { text: number; number: number } {
+  const out = { text: 0, number: 0 };
+  for (const type of Object.values(columns)) {
+    const k = columnKind(type, engine);
+    if (k) out[k]++;
+  }
+  return out;
+}
+
+/** The rows a table's search query returned. */
+export interface MatchRows {
+  columns: { name: string; type: string }[];
+  rows: (string | null)[][];
+}
+
 /** What one table came back with. */
 export interface TableResult {
   table: string;
+  /** The matching rows read (at most the limit), to show without re-running. */
+  matches?: MatchRows;
+  /** The columns the search compared. */
+  columns?: string[];
   /** Rows matched (at most the limit). */
   count: number;
   /** The cap was reached: there may be more, shown as "≥ count". */
@@ -185,8 +245,8 @@ export function matchLabel(r: Pick<TableResult, "count" | "capped">): string {
 export interface SearchIo {
   /** Declared type per column of a table. */
   describe: (table: TableRef) => Promise<Record<string, string>>;
-  /** Run one SELECT and resolve with how many rows came back. */
-  count: (sql: string) => Promise<number>;
+  /** Run one SELECT and resolve with the rows that came back. */
+  run: (sql: string) => Promise<MatchRows>;
 }
 
 /**
@@ -202,6 +262,8 @@ export async function runSearch(
   io: SearchIo,
   stopped: () => boolean,
   onProgress?: (i: number, total: number, table: string) => void,
+  /** Each table's result as soon as it is known (live results while it runs). */
+  onResult?: (r: TableResult) => void,
 ): Promise<{ results: TableResult[]; stopped: boolean }> {
   const limit = clampLimit(opts.limit);
   const results: TableResult[] = [];
@@ -213,15 +275,18 @@ export async function runSearch(
       const plan = planTable(tables[i], await io.describe(tables[i]), engine, opts);
       if ("skipped" in plan) {
         results.push({ table, count: 0, capped: false, skipped: plan.skipped });
+        onResult?.(results[results.length - 1]);
         continue;
       }
-      const count = await io.count(plan.sql);
-      results.push({ table, count, capped: count >= limit, openSql: plan.openSql });
+      const matches = await io.run(plan.sql);
+      const count = matches.rows.length;
+      results.push({ table, count, capped: count >= limit, openSql: plan.openSql, matches, columns: plan.columns });
     } catch (err) {
       // A cancel surfaces as the running query's error: that is a stop, not a failure.
       if (stopped()) return { results, stopped: true };
       results.push({ table, count: 0, capped: false, error: errorText(err) });
     }
+    onResult?.(results[results.length - 1]);
   }
   return { results, stopped: false };
 }

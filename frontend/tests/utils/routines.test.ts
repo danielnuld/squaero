@@ -110,3 +110,32 @@ describe("unsupportedReason", () => {
     expect(unsupportedReason("")).toContain("desconocido");
   });
 });
+
+import { routineMatches, routineTypeOf } from "../../src/utils/routines";
+
+describe("routineMatches / routineTypeOf", () => {
+  it("filters procedures apart from every kind of function", () => {
+    expect(routineMatches("PROCEDURE", "procedure")).toBe(true);
+    expect(routineMatches("PROCEDURE", "function")).toBe(false);
+    expect(routineMatches("AGGREGATE", "function")).toBe(true);
+    expect(routineMatches("WINDOW", "all")).toBe(true);
+  });
+  it("reads the catalog's type cell", () => {
+    expect(routineTypeOf("procedure")).toBe("PROCEDURE");
+    expect(routineTypeOf("AGGREGATE")).toBe("AGGREGATE");
+    expect(routineTypeOf("window")).toBe("WINDOW");
+    expect(routineTypeOf(null)).toBe("FUNCTION");
+  });
+  it("lists the header metadata per engine", () => {
+    expect(routinesFor("postgres").metaCols.map((m) => m.col)).toEqual([
+      "returns",
+      "arguments",
+      "language",
+      "volatility",
+      "owner",
+    ]);
+    expect(routinesFor("postgres").listSql).toContain("pg_get_function_arguments");
+    expect(routinesFor("mysql").metaCols.map((m) => m.col)).toContain("DEFINER");
+    expect(routinesFor("sqlite").metaCols).toEqual([]);
+  });
+});

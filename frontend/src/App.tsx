@@ -442,7 +442,7 @@ import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
 import { BackupPanel } from "./components/BackupPanel";
-import { DataSearchPanel } from "./components/DataSearchPanel";
+import { DataSearchPanel, type SearchRequest } from "./components/DataSearchPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { LocalHistoryPanel } from "./components/LocalHistoryPanel";
 import {
@@ -2651,7 +2651,13 @@ export function App() {
       nested tx.begin as well; this says why in the user's words. */
   const txEditBlocked = (conn: ActiveConnection | null): string | null =>
     txOpenCount(conn) !== null ? t("tx.editBlocked") : null;
-  const recordHistory = (sql: string, conn: ActiveConnection, durationMs?: number) => {
+  const recordHistory = (
+    sql: string,
+    conn: ActiveConnection,
+    durationMs?: number,
+    outcome?: { result: ResultSet | null; failed: boolean },
+  ) => {
+    const r = outcome?.result;
     const entry: HistoryEntry = {
       sql,
       ts: Date.now(),
@@ -2659,6 +2665,10 @@ export function App() {
       connName: conn.name,
       engine: conn.driver,
       durationMs,
+      ...(r && r.columns.length > 0 ? { rows: r.rows.length } : {}),
+      ...(r && r.columns.length === 0 ? { affected: r.rowsAffected } : {}),
+      ...(outcome?.failed ? { failed: true } : {}),
+      ...(activeDb() ? { db: activeDb()! } : {}),
     };
     setHistory((list) => {
       const next = addHistory(list, entry, historyLimit());
@@ -2836,7 +2846,7 @@ export function App() {
       // Record after the run so the entry carries its duration (issue #179);
       // page turns (offset > 0) are not logged.
       if (offset === 0) {
-        recordHistory(trimmed, conn, elapsedMs);
+        recordHistory(trimmed, conn, elapsedMs, { result, failed: !!shown?.error });
         showRunToast(id, ranAt, elapsedMs, !!shown?.error);
         logRun(
           id,
@@ -2878,7 +2888,7 @@ export function App() {
         activeSet: 0,
       });
       if (offset === 0) {
-        recordHistory(trimmed, conn, elapsedMs);
+        recordHistory(trimmed, conn, elapsedMs, { result: null, failed: true });
         showRunToast(id, ranAt, elapsedMs, true);
         logRun(
           id,
@@ -5436,7 +5446,21 @@ export function App() {
         // Enter opens it in its own tab: the tab you were in keeps its text, and
         // reopening the same snippet returns to the tab it already has.
         run: () => openSnippet(s),
-        runAlt: (alt) => (alt === "shift" ? runFromHistory(s.body) : insertSnippet(s)),
+        // Ctrl+Intro runs it (Mayús+Intro too, as before); Alt+Intro inserts it.
+        runAlt: (alt) => (alt === "alt" ? insertSnippet(s) : runFromHistory(s.body)),
+        chips: s.abbr ? [t("snip.chipAbbr", { abbr: s.abbr })] : undefined,
+        detail: active()
+          ? t("snip.runsOn", { conn: active()!.name + (activeDb() ? ` · ${activeDb()}` : "") })
+          : t("snip.runsOnNone"),
+        actions: [
+          {
+            label: t("snip.edit"),
+            run: () => showTool("snippets", t("editor.snippets"), { key: "snippets", params: { id: s.id } }),
+          },
+          { label: t("snip.insertShort"), title: t("snip.insertTitle"), run: () => insertSnippet(s) },
+          { label: t("snip.run"), title: t("snip.runTitle"), run: () => runFromHistory(s.body) },
+          { label: t("snip.open"), primary: true, title: t("snip.openTitle"), run: () => openSnippet(s) },
+        ],
       });
 
     // Recent history (cap so the palette stays snappy; fuzzy filters the rest).
@@ -5569,6 +5593,8 @@ export function App() {
               entries={history()}
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}
+              connId={activeDefId() ?? undefined}
+              toggleKeys={keysOf("toggle-history", shortcuts(), currentOs())}
               onRun={runFromHistory}
               onInsert={insertFromHistory}
               onOpen={(sql) => openSqlInNewTab(sql)}
@@ -5582,6 +5608,7 @@ export function App() {
               entries={snippets()}
               onOpen={openSnippet}
               onInsert={insertSnippet}
+              onRun={(snip) => runFromHistory(snip.body)}
               onRename={renameSnip}
               onSetAbbr={setSnipAbbr}
               onDuplicate={duplicateSnip}
@@ -5598,6 +5625,13 @@ export function App() {
                 engine={activeDialect()}
                 db={activeDb()}
                 onOpen={(sql, table) => openSearchMatches(sql, table, conn().defId)}
+                onSearch={(request) =>
+                  showTool("dataSearch", t("tool.search.tab"), {
+                    key: "dataSearch",
+                    params: { request },
+                    connDefId: conn().defId,
+                  })
+                }
               />
             )}
           </Show>
@@ -6630,6 +6664,10 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     connName={toolConn()?.name ?? ""}
                     engine={activeDialect()}
+                    onOpenSql={(sql) => openSqlInNewTab(sql, undefined, undefined, tt().connDefId)}
+                    onSlowQueries={() =>
+                      showTool("slowQueries", t("tool.slow.tab"), { key: "slow", connDefId: tt().connDefId })
+                    }
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -6771,6 +6809,7 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb()}
+                    request={(tt().params as { request?: SearchRequest } | undefined)?.request}
                     onOpen={(sql, table) => openSearchMatches(sql, table, tt().connDefId)}
                   />
                 </Match>
@@ -6805,6 +6844,8 @@ export function App() {
                     entries={history()}
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}
+                    connId={activeDefId() ?? undefined}
+                    toggleKeys={keysOf("toggle-history", shortcuts(), currentOs())}
                     onRun={runFromHistory}
                     onInsert={insertFromHistory}
                     onOpen={(sql) => openSqlInNewTab(sql)}
@@ -6825,8 +6866,10 @@ export function App() {
                 <Match when={tt().tool === "snippets"}>
                   <SnippetsPanel
                     entries={snippets()}
+                    selectId={(tt().params as { id?: string } | undefined)?.id}
                     onOpen={openSnippet}
                     onInsert={insertSnippet}
+                    onRun={(snip) => runFromHistory(snip.body)}
                     onRename={renameSnip}
                     onSetAbbr={setSnipAbbr}
                     onDuplicate={duplicateSnip}
@@ -6861,6 +6904,9 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     notebookId={(tt().params as { notebookId?: string } | undefined)?.notebookId}
                     engine={activeDialect()}
+                    connections={openConns()
+                      .filter((o) => !o.lost)
+                      .map((o) => ({ connId: o.connId, name: o.name, driver: o.driver }))}
                     onChart={(result) =>
                       showTool("chart", t("tab.chart"), { key: "chart", params: { result } })
                     }
@@ -6888,6 +6934,7 @@ export function App() {
                       closeTool(tt().id);
                       runFromHistory(sql);
                     }}
+                    onOpen={(sql) => openSqlInNewTab(sql, undefined, undefined, tt().connDefId)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -7284,7 +7331,7 @@ export function App() {
               ? t("snip.palettePlaceholder")
               : undefined
         }
-        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", shiftEnter: "Shift+Enter", modEnter: "Mod+Enter" })) : undefined}
+        footer={paletteMode() === "snippets" ? t("snip.paletteFooter", keyParams({ enter: "Enter", modEnter: "Mod+Enter", altEnter: "Alt+Enter", esc: "Escape" })) : undefined}
         emptySetLabel={
           paletteMode() === "snippets" ? t("snip.paletteEmptySet") : undefined
         }

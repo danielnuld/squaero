@@ -1,6 +1,4 @@
-import { countText } from "../utils/confirmText";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
-import { EmptyNote } from "./EmptyNote";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
@@ -10,11 +8,16 @@ import {
   type ObjectKind,
   type ObjectRef,
 } from "../utils/triggers";
-import { readDefinitionText, filterObjectRows } from "../utils/treeObjects";
+import { readDefinitionText, filterObjectRows, groupRows, rowMeta } from "../utils/treeObjects";
+import { copyText } from "../utils/rowCopy";
+import { Segmented } from "./Segmented";
+import { EmptyNote } from "./EmptyNote";
 import { runnableRoutineDdl } from "../utils/routineDdl";
 import { ObjectIcon } from "./icons";
 import { Panel } from "./Panel";
+import { SqlHighlight } from "./SqlHighlight";
 import { t } from "../utils/i18n";
+import { countText } from "../utils/confirmText";
 
 // Triggers / events explorer (issue #138): lists a database's triggers (and, on
 // engines that have them, scheduled events) and shows each one's definition (DDL)
@@ -22,6 +25,10 @@ import { t } from "../utils/i18n";
 // "Abrir en editor" opens the DDL in a new query tab so the user can edit/recreate
 // it in the transactional session (honest to what each engine allows). Reloads on
 // connection/engine/db/kind change; refresh is manual.
+// P6: triggers are grouped by their table; the selected one gets a metadata
+// header (table, timing, event, level, status as the catalog has them) and
+// «Copiar definición»; «Eventos» stays visible but disabled, with the reason,
+// on engines without scheduled events.
 export function TriggersExplorer(props: {
   connId: string;
   engine: string;
@@ -44,6 +51,7 @@ export function TriggersExplorer(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [selected, setSelected] = createSignal<ObjectRef | null>(null);
+  const [selectedRow, setSelectedRow] = createSignal<(string | null)[] | null>(null);
   const [search, setSearch] = createSignal("");
   const [definition, setDefinition] = createSignal<string | null>(null);
   const [defLoading, setDefLoading] = createSignal(false);
@@ -113,6 +121,7 @@ export function TriggersExplorer(props: {
 
   const select = async (row: (string | null)[], ref: ObjectRef) => {
     setSelected(ref);
+    setSelectedRow(row);
     setDefinition(null);
     // SQLite carries the DDL inline in the list row — no second query.
     const inlineCol = support().inlineDefCol;
@@ -150,6 +159,11 @@ export function TriggersExplorer(props: {
      does facturas have?" is what this explorer is for. */
   const rows = createMemo(() => filterObjectRows(allRows(), [nameIdx(), tableIdx()], search()));
   const filtering = () => rows().length !== allRows().length;
+  const groups = createMemo(() => groupRows(rows(), kind() === "trigger" ? tableIdx() : -1));
+  const meta = createMemo(() => {
+    const row = selectedRow();
+    return row ? rowMeta(list()?.columns ?? [], row, support().detailCols) : [];
+  });
 
   const sameRef = (a: ObjectRef | null, b: ObjectRef) =>
     !!a && a.name === b.name && a.table === b.table && a.id === b.id;
@@ -167,32 +181,28 @@ export function TriggersExplorer(props: {
       class="routine-explorer"
       onClose={props.onClose}
       actions={
-        <Show when={eventsSupported()}>
-          <div class="obj-kind-toggle" role="tablist">
-            <button
-              class={`edit-btn ${kind() === "trigger" ? "active" : ""}`}
-              role="tab"
-              aria-selected={kind() === "trigger"}
-              onClick={() => setKind("trigger")}
-            >
-              {t("explorer.triggersTab")}
-            </button>
-            <button
-              class={`edit-btn ${kind() === "event" ? "active" : ""}`}
-              role="tab"
-              aria-selected={kind() === "event"}
-              onClick={() => setKind("event")}
-            >
-              {t("explorer.eventsTab")}
-            </button>
-          </div>
+        <Show when={objectsFor(props.engine, "trigger", props.db).supported}>
+          <Segmented
+            label={t("explorer.objectKind")}
+            value={kind()}
+            options={[
+              { value: "trigger" as ObjectKind, label: t("explorer.triggersTab") },
+              {
+                value: "event" as ObjectKind,
+                label: t("explorer.eventsTab"),
+                disabled: !eventsSupported(),
+                title: eventsSupported() ? undefined : unsupportedReason(props.engine, "event"),
+              },
+            ]}
+            onChange={setKind}
+          />
         </Show>
       }
       status={
         <Show when={support().supported}>
           {filtering()
             ? t("explorer.objectsFiltered", { n: rows().length, m: allRows().length })
-            : countText("explorer.objects", rows().length)}
+            : countText(kind() === "event" ? "explorer.events" : "explorer.triggers", rows().length)}
         </Show>
       }
       onRefresh={support().supported ? load : undefined}
@@ -206,7 +216,7 @@ export function TriggersExplorer(props: {
 
       <Show
         when={support().supported}
-        fallback={<EmptyNote title={t("tool.unsupportedTitle")} text={unsupportedReason(props.engine, kind())} />}
+        fallback={<EmptyNote title={t("explorer.triggersUnsupported")} text={unsupportedReason(props.engine, kind())} />}
       >
         <div class="routine-body">
           <div class="routine-list">
@@ -226,7 +236,15 @@ export function TriggersExplorer(props: {
               fallback={<p class="grid-empty">{loading() ? t("panel.loading") : emptyLabel()}</p>}
             >
               <ul>
-                <For each={rows()}>
+                <For each={groups()}>
+                  {(group) => (
+                    <>
+                      <Show when={group.key !== null}>
+                        <li class="routine-group" role="presentation">
+                          {group.key || t("explorer.noTable")}
+                        </li>
+                      </Show>
+                <For each={group.rows}>
                   {(row) => {
                     const ref = refFromRow(row);
                     return (
@@ -240,7 +258,7 @@ export function TriggersExplorer(props: {
                               <ObjectIcon kind={kind()} size={14} />
                               <span class="routine-name">
                                 {nameIdx() >= 0 ? row[nameIdx()] : r().name}
-                                <Show when={r().table}>
+                                <Show when={r().table && group.key === null}>
                                   <span class="routine-sub"> · {r().table}</span>
                                 </Show>
                               </span>
@@ -250,6 +268,9 @@ export function TriggersExplorer(props: {
                       </Show>
                     );
                   }}
+                </For>
+                    </>
+                  )}
                 </For>
               </ul>
             </Show>
@@ -269,14 +290,29 @@ export function TriggersExplorer(props: {
                     </span>
                     <Show when={definition()}>
                       <button
-                        class="edit-btn"
+                        class="edit-btn edit-btn-primary"
                         title={t("explorer.openInEditorTitle")}
                         onClick={() => props.onOpenSql(definition()!, ref().name)}
                       >
                         {t("explorer.openInEditor")}
                       </button>
+                      <button class="edit-btn" onClick={() => copyText(definition()!)}>
+                        {t("explorer.copyDef")}
+                      </button>
                     </Show>
                   </div>
+                  <Show when={meta().length > 0}>
+                    <dl class="routine-meta">
+                      <For each={meta()}>
+                        {(m) => (
+                          <div>
+                            <dt>{t(m.label)}</dt>
+                            <dd>{m.value}</dd>
+                          </div>
+                        )}
+                      </For>
+                    </dl>
+                  </Show>
                   <Show
                     when={!defLoading()}
                     fallback={<p class="grid-empty">{t("explorer.loadingDef")}</p>}
@@ -285,7 +321,7 @@ export function TriggersExplorer(props: {
                       when={definition()}
                       fallback={<p class="grid-empty">{t("explorer.noDef")}</p>}
                     >
-                      <pre class="routine-ddl">{definition()}</pre>
+                      <SqlHighlight class="routine-ddl" sql={definition()!} engine={props.engine} label={t("explorer.defAria", { name: ref().name })} />
                     </Show>
                   </Show>
                 </>

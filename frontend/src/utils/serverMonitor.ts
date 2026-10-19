@@ -11,6 +11,8 @@
 import { engineFamily as family } from "./engineFamily";
 import { mongoKillSql } from "./mongoStatements";
 import { t } from "./i18n";
+import type { ResultSet } from "./query";
+import { buildViewIndices } from "./gridView";
 
 /** What the monitor can do for a given engine. */
 export interface MonitorSupport {
@@ -91,4 +93,153 @@ export function sessionFacts(
     const one = v.replace(/\s+/g, " ").trim();
     return [{ name: c.name, value: one.length > FACT_MAX ? `${one.slice(0, FACT_MAX)}…` : one }];
   });
+}
+
+/* ---------- The monitor's view of the session list (P6): what each row is,
+   which ones the toolbar hides, the KPI cards and the auto refresh. ---------- */
+
+
+/** What a session is doing, as far as the engine's own list says. */
+export type SessionState = "active" | "idle" | "idleInTx" | "waiting";
+
+const col = (columns: readonly { name: string }[], ...names: string[]) =>
+  columns.findIndex((c) => names.some((n) => c.name.toLowerCase() === n.toLowerCase()));
+
+/**
+ * Classify one row of the session list. PostgreSQL says it in `state` and
+ * `wait_event_type`; MySQL in `Command` (Sleep) and `State` (… lock …); MongoDB's
+ * currentOp in `active` and `waitingForLock`. Null when the row does not say.
+ */
+export function sessionState(
+  engine: string,
+  columns: readonly { name: string }[],
+  row: readonly (string | null)[],
+): SessionState | null {
+  const at = (...names: string[]) => {
+    const i = col(columns, ...names);
+    return i < 0 ? null : (row[i] ?? null);
+  };
+  switch (family(engine)) {
+    case "postgres": {
+      const state = at("state");
+      if (state === null) return null;
+      if (at("wait_event_type") === "Lock") return "waiting";
+      if (state === "idle") return "idle";
+      if (state.startsWith("idle in transaction")) return "idleInTx";
+      return "active";
+    }
+    case "mysql": {
+      const command = at("Command");
+      if (command === null) return null;
+      if (/lock/i.test(at("State") ?? "")) return "waiting";
+      return command === "Sleep" ? "idle" : "active";
+    }
+    case "mongodb": {
+      if (at("waitingForLock") === "true") return "waiting";
+      const active = at("active");
+      if (active === null) return null;
+      return active === "false" ? "idle" : "active";
+    }
+    default:
+      return null;
+  }
+}
+
+/** The text of the statement a session runs (or last ran), when the list has it. */
+export function sessionQuery(
+  columns: readonly { name: string }[],
+  row: readonly (string | null)[],
+): string | null {
+  // Exact names: MySQL's `Command` is the kind of statement, not its text.
+  const name = ["query", "Info", "command"].find((n) => columns.some((c) => c.name === n));
+  const v = name === undefined ? null : row[columns.findIndex((c) => c.name === name)];
+  return v && v.trim() !== "" ? v : null;
+}
+
+/** The numbers on the monitor's cards, counted from the list itself. */
+export interface MonitorKpis {
+  total: number;
+  active: number;
+  idle: number;
+  waiting: number;
+}
+
+/** Count the sessions per state. Rows whose state is unknown count as total only. */
+export function monitorKpis(engine: string, result: ResultSet | null): MonitorKpis {
+  const k: MonitorKpis = { total: 0, active: 0, idle: 0, waiting: 0 };
+  for (const row of result?.rows ?? []) {
+    k.total++;
+    const s = sessionState(engine, result!.columns, row);
+    if (s === "active") k.active++;
+    else if (s === "idle" || s === "idleInTx") k.idle++;
+    else if (s === "waiting") k.waiting++;
+  }
+  return k;
+}
+
+/** The toolbar's view options. */
+export interface SessionView {
+  /** Case-insensitive text matched against every cell (user, base, query…). */
+  text: string;
+  /** Hide sessions that sit idle. An idle session INSIDE a transaction stays:
+      it holds locks, which is exactly what the monitor is for. */
+  hideIdle: boolean;
+  /** The column the list is sorted by, owned here so a refresh keeps it. */
+  sort: { column: string; dir: "ASC" | "DESC" } | null;
+}
+
+/** The rows the grid shows: filtered, then sorted. Pure. */
+export function viewSessions(engine: string, result: ResultSet | null, view: SessionView): ResultSet | null {
+  if (!result) return null;
+  const q = view.text.trim().toLowerCase();
+  let rows = result.rows.filter((row) => {
+    if (view.hideIdle && sessionState(engine, result.columns, row) === "idle") return false;
+    return q === "" || row.some((v) => v !== null && v.toLowerCase().includes(q));
+  });
+  const ci = view.sort ? col(result.columns, view.sort.column) : -1;
+  if (ci >= 0) {
+    const order = buildViewIndices(rows, result.columns, { col: ci, dir: view.sort!.dir === "ASC" ? "asc" : "desc" }, {});
+    rows = order.map((i) => rows[i]);
+  }
+  return { ...result, rows };
+}
+
+/** Next sort when a header is clicked: ascending, descending, then none. */
+export function nextSessionSort(
+  current: SessionView["sort"],
+  column: string,
+): SessionView["sort"] {
+  if (!current || current.column !== column) return { column, dir: "ASC" };
+  return current.dir === "ASC" ? { column, dir: "DESC" } : null;
+}
+
+/** How often the monitor re-reads the list while «Cada 5 s» is on. */
+export const AUTO_REFRESH_MS = 5000;
+
+/**
+ * Whether an auto-refresh tick should read the list now: only when it is on,
+ * nothing is loading, no dialog is asking about a session (its facts would
+ * shift behind it) and the window is visible (a hidden window does not need
+ * the server's attention).
+ */
+export function shouldAutoRefresh(s: { auto: boolean; loading: boolean; asking: boolean; hidden: boolean }): boolean {
+  return s.auto && !s.loading && !s.asking && !s.hidden;
+}
+
+/**
+ * The statement that cancels the query a session runs, keeping the session:
+ * pg_cancel_backend / KILL QUERY. Null when the engine has no such thing (on
+ * MongoDB killOp already is the operation) or the id is not numeric.
+ */
+export function buildCancelSql(engine: string, id: string): string | null {
+  const n = id.trim();
+  if (!/^\d+$/.test(n)) return null;
+  switch (family(engine)) {
+    case "mysql":
+      return `KILL QUERY ${n}`;
+    case "postgres":
+      return `SELECT pg_cancel_backend(${n})`;
+    default:
+      return null;
+  }
 }

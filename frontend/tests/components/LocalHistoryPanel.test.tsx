@@ -66,10 +66,12 @@ describe("LocalHistoryPanel", () => {
     expect(buttonByText("Restaurar").disabled).toBe(true);
 
     host!.querySelectorAll<HTMLButtonElement>(".lhist-versions .history-run")[1].click();
-    const lines = [...host!.querySelectorAll(".lhist-line")].map((l) => l.className);
+    const lines = [...host!.querySelectorAll(".lhist-cell")].map((l) => l.className);
     expect(lines.some((c) => c.includes("lhist-del"))).toBe(true);
     expect(lines.some((c) => c.includes("lhist-add"))).toBe(true);
     expect(host!.querySelector(".lhist-del")!.textContent).toContain("SELECT b");
+    expect(host!.querySelector(".lhist-summary")!.textContent).toMatch(/añadidas? · .*quitadas?/);
+    expect(host!.querySelectorAll(".lhist-head [role=columnheader]").length).toBe(2);
 
     buttonByText("Restaurar").click();
     expect(onRestore).toHaveBeenCalledWith(1, "SELECT b\nFROM t");
