@@ -4355,28 +4355,101 @@ export function App() {
     setTimeout(() => setExportStatus((cur) => (cur === done ? null : cur)), 8000);
   };
 
-  // Right-click on a result cell: copy the cell / row / row-as-JSON, and export
-  // the loaded result. Built here because the workspace owns the result + the
-  // exporters; the grid just forwards the click position and indices.
+  // Right-click on a result cell. Built here because the workspace owns the
+  // result + the exporters; the grid just forwards the click position and
+  // indices. Grouped as the M14 prototype draws it (audit A-14): the cell first
+  // (copy, copy as ▸, NULL, detail), then where the value leads (related data,
+  // filter by it ▸), then the row actions, then the export ▸ — four groups
+  // instead of one flat list of twenty rows.
   const onCellContext = (e: MouseEvent, rowIndex: number, colIndex: number) => {
     const res = currentResult().result;
     if (!res) return;
     const row = res.rows[rowIndex];
     const items: MenuItem[] = [];
     if (row) {
+      const column = res.columns[colIndex]?.name ?? "";
+      const cell = row[colIndex];
+      // Row actions take the marked rows, or the row under the pointer when none
+      // is marked. One marked row counts too (#517); these used to need two.
+      // Copying follows the grid's column order (#446); the INSERT and transfer
+      // keep the table's own order, which is part of the statement.
+      const marked = markedRows();
+      const targets = marked.length > 0 ? marked : [rowIndex];
+      const n = targets.length;
+
+      // ── The cell ──
+      items.push({
+        label: t("result.copyCell"),
+        hint: displayKeys("Mod+C", isMac()),
+        action: () => copyText(cell ?? ""),
+      });
+      const copyAs: MenuItem[] = [
+        {
+          label: n === 1 ? t("result.copyRow") : t("result.copyRowsN", { n }),
+          action: () => copyRowsFromGrid(targets),
+        },
+        // With the column names as the first line, for a spreadsheet: the marked
+        // rows (or the one under the pointer), or every row the grid has loaded.
+        {
+          label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
+          action: () => copyRowsFromGrid(targets, true),
+        },
+      ];
+      if (res.rows.length > n) {
+        copyAs.push({
+          label: t("result.copyAllHeader", { n: res.rows.length }),
+          action: () => copyRowsFromGrid(res.rows.map((_, i) => i), true),
+        });
+      }
+      copyAs.push(
+        { separator: true },
+        {
+          label: n === 1 ? t("result.copyRowInsert") : t("result.copyRowsInserts", { n }),
+          action: () => copyRowsAsInserts(targets),
+        },
+        {
+          label: t("result.copyRowJson"),
+          action: () =>
+            copyText(
+              rowToJson(applyOrder(columnOrder(), res.columns), applyOrder(columnOrder(), row)),
+            ),
+        },
+      );
+      items.push({ label: t("result.copyAs"), submenu: copyAs });
+      // Writing a NULL (issue #398). Clearing the box gives "", which is a
+      // different value, so this is the only way to say NULL from the grid. The
+      // entry is always here and carries its own reason when it cannot run —
+      // the same rule as the related-data entry below (#344). Whether the
+      // COLUMN accepts a NULL is not knowable from a ResultColumn (name + type,
+      // nothing else), so a NOT NULL is rejected by the engine, with its error.
+      const nullBlocked = () =>
+        !currentEditable()
+          ? readOnlyReason("result.setNullReadOnly")
+          : !currentEdit().editing
+            ? t("result.setNullNeedsEdit")
+            : null;
+      items.push({
+        get label() {
+          return nullBlocked() ?? t("result.setNull");
+        },
+        get disabled() {
+          return nullBlocked() !== null;
+        },
+        action: () => onEditCell(rowIndex, column, null),
+      });
       items.push({ label: t("result.rowDetail"), action: () => setDetailIndex(rowIndex) });
+      items.push({ separator: true });
+
+      // ── Where the value leads ──
       // The entry is ALWAYS here, disabled with the reason when it cannot run.
       // It used to be added only over a referenced column and simply vanish
       // otherwise, which left "I don't know when this appears — it stopped
       // showing up" as the honest description of the feature (issue #344): four
       // separate conditions gate it and silence gave no way to tell them apart.
-      const column = res.columns[colIndex]?.name ?? "";
       // Getters, not values computed here: the catalog answer can land while the
       // menu is already open, and a string captured at open time left the entry
-      // stuck on "buscando relaciones…" until the menu was closed and reopened —
-      // which on a large schema, where the lookup takes a moment, is what every
-      // right-click looked like. ContextMenu reads both inside JSX, so a getter
-      // re-renders the entry when the state changes.
+      // stuck on "buscando relaciones…" until the menu was closed and reopened.
+      // ContextMenu reads both inside JSX, so a getter re-renders the entry.
       items.push({
         get label() {
           return (
@@ -4387,9 +4460,9 @@ export function App() {
         get disabled() {
           return relatedBlockedReason(column) !== null;
         },
+        hint: displayKeys("Mod+B", isMac()),
         action: () => openRelated(rowIndex, colIndex),
       });
-      items.push({ separator: true });
       // Filter the table by this cell's value (issue #593): each entry adds one
       // condition to the tab's filter panel and applies it at the server. Only
       // a table/view tab has that panel; anywhere else the one entry says so.
@@ -4397,51 +4470,28 @@ export function App() {
       if (tabId !== undefined && isDataTab(tabId)) {
         const value = row[colIndex];
         const shown = value !== null && value.length > 30 ? `${value.slice(0, 30)}…` : value ?? "";
-        for (const op of cellFilterOps(value)) {
-          items.push({
-            label: t("filter.byCell", {
-              cond: `${column} ${t(`filter.op.${op}`)} ${shown}`.trim(),
-            }),
-            action: () => {
-              withFilter(tabId, (f) => addCellCondition(f, column, op, value));
-              applyDataFilter(tabId);
-            },
-          });
-        }
+        const filterBy: MenuItem[] = cellFilterOps(value).map((op) => ({
+          label: t("filter.byCell", {
+            cond: `${column} ${t(`filter.op.${op}`)} ${shown}`.trim(),
+          }),
+          action: () => {
+            withFilter(tabId, (f) => addCellCondition(f, column, op, value));
+            applyDataFilter(tabId);
+          },
+        }));
         if (!filterIsEmpty(filterOf(tabId).applied)) {
-          items.push({ label: t("filter.byCellClear"), action: () => clearDataFilter(tabId) });
+          filterBy.push(
+            { separator: true },
+            { label: t("filter.byCellClear"), action: () => clearDataFilter(tabId) },
+          );
         }
+        items.push({ label: t("filter.byCellMenu"), submenu: filterBy });
       } else {
         items.push({ label: t("filter.byCellNeedsTable"), disabled: true });
       }
       items.push({ separator: true });
-      // Row actions take the marked rows, or the row under the pointer when none
-      // is marked. One marked row counts too (#517); these used to need two.
-      // Copying follows the grid's column order (#446); the INSERT and transfer
-      // keep the table's own order, which is part of the statement.
-      const marked = markedRows();
-      const targets = marked.length > 0 ? marked : [rowIndex];
-      const n = targets.length;
-      items.push({
-        label: n === 1 ? t("result.copyRow") : t("result.copyRowsN", { n }),
-        action: () => copyRowsFromGrid(targets),
-      });
-      // With the column names as the first line, for a spreadsheet: the marked
-      // rows (or the one under the pointer), or every row the grid has loaded.
-      items.push({
-        label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
-        action: () => copyRowsFromGrid(targets, true),
-      });
-      if (res.rows.length > n) {
-        items.push({
-          label: t("result.copyAllHeader", { n: res.rows.length }),
-          action: () => copyRowsFromGrid(res.rows.map((_, i) => i), true),
-        });
-      }
-      items.push({
-        label: n === 1 ? t("result.copyRowInsert") : t("result.copyRowsInserts", { n }),
-        action: () => copyRowsAsInserts(targets),
-      });
+
+      // ── The row ──
       items.push({
         get label() {
           return (
@@ -4452,6 +4502,7 @@ export function App() {
         get disabled() {
           return addRowsBlocked() !== null;
         },
+        hint: displayKeys("Mod+D", isMac()),
         action: () => duplicateRows(targets),
       });
       items.push({
@@ -4461,7 +4512,7 @@ export function App() {
       });
       // Deleting the rows (#644): staged into the pending changes, so nothing
       // runs before the SQL preview. Always listed, with its reason when it
-      // cannot run — the same rule as "Set NULL" below.
+      // cannot run — the same rule as "Set NULL" above.
       const deleteBlocked = () =>
         !currentEditable()
           ? readOnlyReason("result.deleteRowsReadOnly")
@@ -4483,48 +4534,22 @@ export function App() {
         get disabled() {
           return deleteBlocked() !== null;
         },
+        get danger() {
+          return !allDeleted();
+        },
+        hint: displayKeys("Delete", isMac()),
         action: () => onToggleDeleteRows(targets),
       });
       items.push({ separator: true });
-      const cell = row[colIndex];
-      items.push({ label: t("result.copyCell"), action: () => copyText(cell ?? "") });
-      items.push({
-        label: t("result.copyRowJson"),
-        action: () =>
-          copyText(
-            rowToJson(applyOrder(columnOrder(), res.columns), applyOrder(columnOrder(), row)),
-          ),
-      });
-      items.push({ separator: true });
-      // Writing a NULL (issue #398). Clearing the box gives "", which is a
-      // different value, so this is the only way to say NULL from the grid. The
-      // entry is always here and carries its own reason when it cannot run —
-      // the same rule as the related-data entry above (#344). Whether the
-      // COLUMN accepts a NULL is not knowable from a ResultColumn (name + type,
-      // nothing else), so a NOT NULL is rejected by the engine, with its error.
-      const nullBlocked = () =>
-        !currentEditable()
-          ? readOnlyReason("result.setNullReadOnly")
-          : !currentEdit().editing
-            ? t("result.setNullNeedsEdit")
-            : null;
-      items.push({
-        get label() {
-          return nullBlocked() ?? t("result.setNull");
-        },
-        get disabled() {
-          return nullBlocked() !== null;
-        },
-        action: () => onEditCell(rowIndex, column, null),
-      });
-      items.push({ separator: true });
     }
-    for (const f of EXPORT_FORMATS) {
-      items.push({
+    // ── The whole result ──
+    items.push({
+      label: t("result.exportMenu"),
+      submenu: EXPORT_FORMATS.map((f) => ({
         label: t("result.exportFmt", { fmt: f.label }),
         action: () => void doExport(f.fmt),
-      });
-    }
+      })),
+    });
     openContextMenu(e, items);
   };
 

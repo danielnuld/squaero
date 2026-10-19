@@ -2594,6 +2594,33 @@ body {
   background: var(--border);
 }
 
+/* Submenus (audit A-14): beside their parent row, flipped to the left when the
+   window ends first. */
+.context-menu-branch {
+  position: relative;
+}
+.context-submenu {
+  position: absolute;
+  top: calc(-1 * var(--sp-2) - 1px);
+  left: 100%;
+}
+.context-submenu.flip {
+  left: auto;
+  right: 100%;
+}
+.context-menu-arrow {
+  display: inline-flex;
+  margin-left: auto;
+  padding-left: var(--sp-4);
+  color: var(--text-dim);
+}
+.context-menu-hint + .context-menu-arrow {
+  padding-left: var(--sp-2);
+}
+.context-menu-item.open:not(:disabled) {
+  background: var(--bg-elev);
+}
+
 /* Status bar */
 /* The bar that swallowed the pager and the information pane (issue #386): one
    28 px band at the bottom instead of three totalling 98 px. */

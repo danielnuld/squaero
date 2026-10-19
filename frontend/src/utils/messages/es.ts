@@ -450,6 +450,7 @@ export const es: Record<string, string> = {
   "filter.byCell": "Filtrar: {cond}",
   "filter.byCellClear": "Quitar filtros y orden",
   "filter.byCellNeedsTable": "Filtrar: solo en la pestaña de una tabla o vista",
+  "filter.byCellMenu": "Filtrar por este valor",
   "filter.unapplied": "Criterios sin aplicar",
   "filter.loaded": "{n} fila(s) cargada(s)",
   "filter.sql": "SQL",
@@ -665,6 +666,7 @@ export const es: Record<string, string> = {
   "result.setAffected": "{n} afectadas",
   "result.setFailed": "error",
   "result.copyRowJson": "Copiar fila como JSON",
+  "result.copyAs": "Copiar como",
   // poner NULL desde la rejilla (#398): vaciar la celda deja "", que es otro valor
   "result.setNull": "Poner NULL",
   "result.deleteRowsN": "Eliminar {n} filas",
@@ -715,6 +717,7 @@ export const es: Record<string, string> = {
   "pending.auto": "auto",
   "pending.autoTitle": "La base de datos asigna este valor al guardar",
   "result.exportFmt": "Exportar {fmt}",
+  "result.exportMenu": "Exportar",
   "export.writing": "Escribiendo {n} filas en {file}…",
   "export.done": "Exportadas {n} filas a {file}",
   "export.hint": "El archivo queda vacío hasta que termina.",

@@ -447,6 +447,7 @@ export const en: Record<string, string> = {
   "filter.byCell": "Filter: {cond}",
   "filter.byCellClear": "Remove filters and sort",
   "filter.byCellNeedsTable": "Filter: only in a table or view tab",
+  "filter.byCellMenu": "Filter by this value",
   "filter.unapplied": "Criteria not applied",
   "filter.loaded": "{n} row(s) loaded",
   "filter.sql": "SQL",
@@ -662,6 +663,7 @@ export const en: Record<string, string> = {
   "result.setAffected": "{n} affected",
   "result.setFailed": "error",
   "result.copyRowJson": "Copy row as JSON",
+  "result.copyAs": "Copy as",
   // set NULL from the grid (#398): clearing the box leaves "", a different value
   "result.setNull": "Set NULL",
   "result.deleteRowsN": "Delete {n} rows",
@@ -712,6 +714,7 @@ export const en: Record<string, string> = {
   "pending.auto": "auto",
   "pending.autoTitle": "The database assigns this value on save",
   "result.exportFmt": "Export {fmt}",
+  "result.exportMenu": "Export",
   "export.writing": "Writing {n} rows to {file}…",
   "export.done": "Exported {n} rows to {file}",
   "export.hint": "The file stays empty until this finishes.",
