@@ -1236,9 +1236,13 @@ export function App() {
   });
 
   // Window title (issues #192, #685): "<tab> — <connection> — Squaero" for what
-  // is on screen, pushed to the native title bar through the shell.
+  // is on screen, pushed to the native title bar through the shell; "• " first
+  // while the tab holds unsaved work — the tab's own dot, or grid edits not yet
+  // confirmed (A-11).
   createEffect(() => {
-    setShellTitle(windowTitle(current()?.title, active()?.name));
+    const tab = current();
+    const dirty = !!tab && (isUnsaved(tab) || changeCount(currentEdit().pending) > 0);
+    setShellTitle(windowTitle(tab?.title, active()?.name, dirty));
   });
 
   // Keep the workspace on disk (issue #401). Debounced because the editor emits

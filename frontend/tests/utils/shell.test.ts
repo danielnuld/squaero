@@ -23,6 +23,15 @@ describe("windowTitle", () => {
     expect(windowTitle("  ", "")).toBe("Squaero");
     expect(windowTitle(" orders ", "  ")).toBe("orders — Squaero");
   });
+
+  it("puts a bullet first while the tab holds unsaved work", () => {
+    expect(windowTitle("orders", "prod-db", true)).toBe("• orders — prod-db — Squaero");
+    expect(windowTitle("orders", null, true)).toBe("• orders — Squaero");
+    expect(windowTitle("orders", "prod-db", false)).toBe("orders — prod-db — Squaero");
+    // No tab, nothing for the bullet to be about.
+    expect(windowTitle(null, "prod-db", true)).toBe("prod-db — Squaero");
+    expect(windowTitle("  ", null, true)).toBe("Squaero");
+  });
 });
 
 describe("setShellTitle", () => {
