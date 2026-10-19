@@ -16,7 +16,9 @@ import {
 import { Panel } from "./Panel";
 import { SqlHighlight } from "./SqlHighlight";
 import { Icon } from "./icons";
-import { t, tn } from "../utils/i18n";
+import { Segmented } from "./Segmented";
+import { t } from "../utils/i18n";
+import { countText } from "../utils/confirmText";
 
 // Execution plan (issue #187, audit A-09). The structured EXPLAIN is read into a
 // node tree (utils/explainPlan.ts) and shown three ways: Árbol, an accessible
@@ -154,7 +156,7 @@ export function ExplainPlan(props: {
     return [
       tt.cost !== undefined ? t("plan.totalCost", { n: fmt(tt.cost) }) : null,
       tt.time !== undefined ? ms(tt.time) : null,
-      tn("plan.nNodes", tt.nodes),
+      countText("plan.nNodes", tt.nodes),
     ]
       .filter(Boolean)
       .join(" · ");
@@ -165,15 +167,6 @@ export function ExplainPlan(props: {
     { id: "table", label: "plan.table" },
     { id: "text", label: "plan.text" },
   ] as const;
-  const viewKey = (e: KeyboardEvent) => {
-    const i = VIEWS.findIndex((v) => v.id === view());
-    const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-    if (!d) return;
-    e.preventDefault();
-    setView(VIEWS[(i + d + VIEWS.length) % VIEWS.length].id);
-    (e.currentTarget as HTMLElement).querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
-  };
-
   return (
     <Panel
       title={t("tab.explainPlan")}
@@ -208,23 +201,12 @@ export function ExplainPlan(props: {
         fallback={<p class="grid-empty">{t("plan.unsupported", { engine: props.engine || t("plan.unknownEngine") })}</p>}
       >
         <div class="ep-opts" role="toolbar" aria-label={t("plan.optionsAria")}>
-          <span class="seg" role="radiogroup" aria-label={t("plan.viewAria")} onKeyDown={viewKey}>
-            <For each={VIEWS}>
-              {(v) => (
-                <button
-                  type="button"
-                  role="radio"
-                  class="seg-btn"
-                  classList={{ on: view() === v.id }}
-                  aria-checked={view() === v.id}
-                  tabindex={view() === v.id ? 0 : -1}
-                  onClick={() => setView(v.id)}
-                >
-                  {t(v.label)}
-                </button>
-              )}
-            </For>
-          </span>
+          <Segmented
+            label={t("plan.viewAria")}
+            value={view()}
+            onChange={setView}
+            options={VIEWS.map((v) => ({ value: v.id, label: t(v.label) }))}
+          />
           <label class="ep-analyze" title={blocked() ? t(blocked()!) : t("plan.analyzeTitle")}>
             <input
               type="checkbox"

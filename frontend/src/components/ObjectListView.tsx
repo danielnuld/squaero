@@ -14,10 +14,12 @@ import {
 import { objectsFor, definitionFor } from "../utils/triggers";
 import { readDefinitionText } from "../utils/treeObjects";
 import { stepIndex } from "../utils/listNav";
+import { keyParams } from "../utils/shortcuts";
 import { openContextMenu } from "../utils/contextMenu";
 import { Icon, ObjectIcon } from "./icons";
 import { Panel } from "./Panel";
-import { t, tn } from "../utils/i18n";
+import { t } from "../utils/i18n";
+import { countText } from "../utils/confirmText";
 
 // Object-list view (UI design proposal, phase 3): opening a database shows its
 // objects as a metadata grid (name, type, and per-engine row/column/index count,
@@ -165,8 +167,8 @@ export function ObjectListView(props: {
 
   const footer = () => {
     const c = shownCounts();
-    const parts = [tn("objlist.nObjects", c.all), tn("objlist.nTables", c.table), tn("objlist.nViews", c.view)];
-    if (trgSupport().supported) parts.push(tn("objlist.nTriggers", c.trigger));
+    const parts = [countText("objlist.nObjects", c.all), countText("objlist.nTables", c.table), countText("objlist.nViews", c.view)];
+    if (trgSupport().supported) parts.push(countText("objlist.nTriggers", c.trigger));
     return parts.join(" · ");
   };
 
@@ -276,7 +278,7 @@ export function ObjectListView(props: {
                       aria-selected={i() === sel()}
                       onClick={() => setSel(i())}
                       onDblClick={() => open(o)}
-                      title={o.kind === "trigger" ? t("objlist.openTriggerTitle") : t("objlist.dblClickOpen")}
+                      title={o.kind === "trigger" ? t("objlist.openTriggerTitle", keyParams({ enter: "Enter" })) : t("objlist.dblClickOpen")}
                     >
                       <For each={support().columns}>
                         {(c, ci) => (
@@ -314,7 +316,7 @@ export function ObjectListView(props: {
           <div class="objlist-foot">
             <span>{footer()}</span>
             <span class="panel-bar-spacer" />
-            <span class="objlist-hint">{t("objlist.keysHint")}</span>
+            <span class="objlist-hint">{t("objlist.keysHint", keyParams({ enter: "Enter", f12: "F12" }))}</span>
           </div>
         </Show>
       </Show>

@@ -25,8 +25,11 @@ import {
 import { foreignKeysFor, parseForeignKeys, type ForeignKey, type ForeignKeyQuery } from "../utils/foreignKeys";
 import { openContextMenu } from "../utils/contextMenu";
 import { saveBytes, saveText } from "../utils/download";
-import { t, tn } from "../utils/i18n";
+import { t } from "../utils/i18n";
+import { countText } from "../utils/confirmText";
 import { Icon, ObjectIcon } from "./icons";
+import { Segmented } from "./Segmented";
+import { keyParams } from "../utils/shortcuts";
 
 // Entity-relationship diagram (issue #145, audit A-31): every table a box with
 // its columns, every relation an orthogonal edge from the foreign-key column's
@@ -280,8 +283,8 @@ export function ErDiagram(props: {
     const n = edges().filter((e) => e.fromTable === tb.name || e.toTable === tb.name).length;
     return [
       t(tb.view ? "er.box.view" : "er.box.table", { name: tb.name }),
-      tn("er.nColumns", tb.columns.length),
-      tn("er.nRelations", n),
+      countText("er.nColumns", tb.columns.length),
+      countText("er.nRelations", n),
       selected() === tb.name ? t("er.box.selected") : "",
     ]
       .filter(Boolean)
@@ -362,12 +365,26 @@ export function ErDiagram(props: {
     scroller?.scrollTo?.(Math.max(0, x), Math.max(0, y));
   };
 
+  // The diagram's own keys. Ctrl+0 and Ctrl+± stay the interface's zoom
+  // (shortcuts.ts); inside the diagram 0 fits it and +/- zoom it, and
+  // Ctrl+Mayús+R, which nothing else takes, rearranges.
   const onKey = (e: KeyboardEvent) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
+    if ((e.target as HTMLElement).closest?.("input, textarea, select")) return;
     const k = e.key.toLowerCase();
-    const act = k === "0" ? fit : k === "+" || k === "=" ? () => zoomBy(1.2) : k === "-" ? () => zoomBy(1 / 1.2) : e.shiftKey && k === "r" ? relayout : null;
+    const mod = e.ctrlKey || e.metaKey;
+    const act =
+      mod && e.shiftKey && k === "r"
+        ? relayout
+        : mod || e.altKey
+          ? null
+          : k === "0"
+            ? fit
+            : k === "+" || k === "="
+              ? () => zoomBy(1.2)
+              : k === "-"
+                ? () => zoomBy(1 / 1.2)
+                : null;
     if (!act) return;
-    // The diagram's own zoom, not the interface's (Mod+0/±, issue #681).
     e.preventDefault();
     e.stopPropagation();
     act();
@@ -436,17 +453,10 @@ export function ErDiagram(props: {
     if (m === "fk" && realList() === null) return;
     setMode(m);
   };
-  const modeKey = (e: KeyboardEvent) => {
-    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
-    e.preventDefault();
-    pickMode(mode() === "fk" ? "inferred" : "fk");
-    (e.currentTarget as HTMLElement).querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
-  };
-
   const counts = () => {
     const ts = shown();
     const views = ts.filter((tb) => tb.view).length;
-    return [tn("er.nTables", ts.length - views), tn("er.nViews", views), tn("er.nRelations", drawn().length)].join(" · ");
+    return [countText("er.nTables", ts.length - views), countText("er.nViews", views), countText("er.nRelations", drawn().length)].join(" · ");
   };
 
   return (
@@ -457,41 +467,23 @@ export function ErDiagram(props: {
       busy={loading()}
       actions={
         <Show when={!loading() && tables().length > 0}>
-          <button class="edit-btn" title={t("er.relayoutTitle")} onClick={relayout}>
+          <button class="edit-btn" title={t("er.relayoutTitle", keyParams({ keys: "Mod+Shift+R" }))} onClick={relayout}>
             {t("er.relayout")}
           </button>
-          <button class="edit-btn" title={t("er.fitTitle")} onClick={fit}>
+          <button class="edit-btn" title={t("er.fitTitle", { keys: "0" })} onClick={fit}>
             {t("er.fit")}
           </button>
           <span class="toolbar-sep" aria-hidden="true" />
-          <span id="er-rel" class="er-rel-label">{t("er.relations")}</span>
-          <span class="seg" role="radiogroup" aria-labelledby="er-rel" onKeyDown={modeKey}>
-            <button
-              type="button"
-              role="radio"
-              class="seg-btn"
-              classList={{ on: realFks() }}
-              aria-checked={realFks()}
-              tabindex={realFks() ? 0 : -1}
-              aria-disabled={realList() === null}
-              title={fkUnavailable() ?? undefined}
-              onClick={() => pickMode("fk")}
-            >
-              {t("er.modeFk")}
-            </button>
-            <button
-              type="button"
-              role="radio"
-              class="seg-btn"
-              classList={{ on: !realFks() }}
-              aria-checked={!realFks()}
-              tabindex={realFks() ? -1 : 0}
-              title={t("er.modeInferredTitle")}
-              onClick={() => pickMode("inferred")}
-            >
-              {t("er.modeInferred")}
-            </button>
-          </span>
+          <span class="er-rel-label" aria-hidden="true">{t("er.relations")}</span>
+          <Segmented
+            label={t("er.relations")}
+            value={realFks() ? "fk" : "inferred"}
+            onChange={(m: "fk" | "inferred") => pickMode(m)}
+            options={[
+              { value: "fk", label: t("er.modeFk"), disabled: realList() === null, title: fkUnavailable() ?? undefined },
+              { value: "inferred", label: t("er.modeInferred"), title: t("er.modeInferredTitle") },
+            ]}
+          />
         </Show>
       }
       status={
@@ -543,7 +535,7 @@ export function ErDiagram(props: {
                 <strong>{t("er.incompleteWord")}</strong>{t("er.incompleteRest")}{" "}
               </Show>
             </Show>
-            {t("er.dragHint")}
+            {t("er.dragHint", { keys: "0" })}
           </p>
           <div class="er-stage" onKeyDown={onKey}>
             <div class="er-canvas" ref={scroller} onScroll={measure}>
@@ -599,7 +591,7 @@ export function ErDiagram(props: {
                           {tb.name}
                         </text>
                         <text class="er-box-count" x={ER_BOX.w - 10} y={ER_BOX.header / 2 + 4} text-anchor="end">
-                          {tb.view ? t("er.box.viewTag") : tn("er.nColumns", tb.columns.length)}
+                          {tb.view ? t("er.box.viewTag") : countText("er.nColumns", tb.columns.length)}
                         </text>
                         <For each={tb.columns}>
                           {(col, i) => {

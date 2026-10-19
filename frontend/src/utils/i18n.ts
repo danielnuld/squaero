@@ -63,8 +63,3 @@ export function setLocale(l: Locale): void {
 export function t(key: string, params?: Record<string, string | number>): string {
   return translate(locale(), key, params);
 }
-
-/** `t()` for a count: the `.one` variant of `key` when `n` is 1, with `n` in the params. */
-export function tn(key: string, n: number, params?: Record<string, string | number>): string {
-  return t(n === 1 ? `${key}.one` : key, { ...params, n });
-}
