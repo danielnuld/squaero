@@ -10765,3 +10765,9 @@ ul.sidebar-tree {
   display: flex;
   flex-direction: column;
 }
+
+/* Notebook: when it was last saved. */
+.nb-saved {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
