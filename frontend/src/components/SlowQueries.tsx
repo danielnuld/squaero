@@ -10,6 +10,7 @@ import {
   type SlowOrder,
 } from "../utils/slowQueries";
 import { copyText } from "../utils/rowCopy";
+import { openContextMenu } from "../utils/contextMenu";
 import { countText } from "../utils/confirmText";
 import { Segmented } from "./Segmented";
 import { EmptyNote } from "./EmptyNote";
@@ -165,11 +166,25 @@ export function SlowQueries(props: {
             value={order()}
             onChange={setOrder}
           />
-          <Show when={support().resetSql}>
-            <button class="edit-btn" disabled={resetting()} onClick={() => setConfirmReset(true)} title={t("slow.resetTitle")}>
-              {resetting() ? "…" : t("slow.resetStats")}
-            </button>
-          </Show>
+          <button
+            class="edit-btn edit-btn-menu"
+            aria-haspopup="menu"
+            title={t("slow.moreTitle")}
+            onClick={(e) =>
+              openContextMenu(e, [
+                { label: t("slow.copyQuery"), disabled: !selectedQuery(), action: () => copyText(selectedQuery()!) },
+                { separator: true },
+                {
+                  label: support().resetSql ? t("slow.resetStatsMenu") : t("slow.resetUnsupported"),
+                  danger: true,
+                  disabled: !support().resetSql || resetting(),
+                  action: () => setConfirmReset(true),
+                },
+              ])
+            }
+          >
+            {resetting() ? "…" : t("slow.more")}
+          </button>
         </Show>
       }
       status={<Show when={support().supported}>{countText("slow.count", rows().length)}</Show>}

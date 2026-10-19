@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { SlowQueries } from "../../src/components/SlowQueries";
+import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 
 interface BridgeHost {
   quaeroRpc?: (requestJson: string) => Promise<unknown>;
@@ -139,10 +140,11 @@ describe("SlowQueries", () => {
     const calls = installBridge();
     mount();
     await flush();
-    const reset = [...host!.querySelectorAll<HTMLButtonElement>(".edit-btn")].find(
-      (b) => b.textContent?.includes("Reiniciar"),
-    )!;
-    reset.click();
+    // «Reiniciar estadísticas…» lives in «Más».
+    [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === "Más")!.click();
+    const item = contextMenu()!.items.find((i) => i.label === "Reiniciar estadísticas…")!;
+    expect(item.danger).toBe(true);
+    item.action!();
     await flush();
     // Nothing runs before the confirmation, which says it is server-wide.
     expect(calls.some((s) => s.startsWith("TRUNCATE"))).toBe(false);
@@ -282,6 +284,8 @@ describe("SlowQueries on MongoDB", () => {
     mount({ engine: "mongodb" });
     await flush();
     expect(host!.textContent).toContain("db.setProfilingLevel");
-    expect([...host!.querySelectorAll("button")].some((b) => b.textContent?.includes("Reiniciar"))).toBe(false);
+    [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === "Más")!.click();
+    expect(contextMenu()!.items.find((i) => i.label?.startsWith("Reiniciar"))!.disabled).toBe(true);
+    closeContextMenu();
   });
 });
