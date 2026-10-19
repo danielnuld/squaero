@@ -452,6 +452,9 @@ export interface MigrationOptions {
   /** Where the target objects live: `db` qualifies on MySQL/Informix, `schema`
       on PostgreSQL/SQL Server. */
   container?: { db?: string; schema?: string };
+  /** Where the SOURCE objects live: a view body that names them qualified
+      (`shop`.`clientes`, "app".clientes) is rewritten to the target's container. */
+  sourceContainer?: { db?: string; schema?: string };
   /** Generate DROP TABLE for tables only in the target (off by default: a
       dropped table takes its data with it). */
   dropTables?: boolean;
@@ -717,15 +720,56 @@ export function generateMigration(diff: SchemaDiff, opts: MigrationOptions = {})
   }
   for (const ch of changed) for (const fk of ch.foreignKeys.added) addOrFlag(ch.name, fkBody(fk), fk.name);
 
-  // 9. Views, the ones they read first.
+  // 9. Views, the ones they read first. A view body names its tables bare, so
+  //    the target container is made the session's default first (#770) where
+  //    the engine has a statement for it; the view's own name is qualified, and
+  //    source-qualified references are pointed at the target.
   const newViews = [...diff.addedViews, ...diff.changedViews.map((v) => v.source)];
   const deps = viewDeps(newViews);
+  if (newViews.length > 0) {
+    if (f === "mysql" && c.db) out.push(`USE ${q(c.db)};`);
+    if (f === "postgres" && c.schema) out.push(`SET search_path TO ${q(c.schema)};`);
+  }
+  const srcC = opts.sourceContainer ?? {};
+  const from = f === "mysql" || f === "informix" ? srcC.db : srcC.schema;
+  const to = f === "mysql" || f === "informix" ? c.db : c.schema;
   for (const n of orderByDependencies(newViews.map((v) => v.name), deps).order) {
     const v = newViews.find((x) => x.name === n)!;
-    out.push(`${v.ddl.trim().replace(/;\s*$/, "")};`);
+    out.push(`${retargetViewDdl(v.ddl.trim().replace(/;\s*$/, ""), qt(v.name), from, to, e)};`);
   }
 
   return { statements: out, issues };
+}
+
+const IDENT = String.raw`(?:\`[^\`]*\`|"[^"]*"|\[[^\]]*\]|[\w$]+)`;
+
+/**
+ * A view's CREATE statement made to land in the target (#770): the name after
+ * VIEW becomes `qualified`, and references qualified with the source container
+ * (`from`, quoted or bare, followed by `.` or Informix's `:`) are rewritten to
+ * `to` — or left bare when there is no target container. ponytail: textual, so
+ * a string literal spelling `from.` is rewritten too; parse the query if that
+ * ever bites.
+ */
+export function retargetViewDdl(
+  ddl: string,
+  qualified: string,
+  from: string | undefined,
+  to: string | undefined,
+  engine: string,
+): string {
+  const head = new RegExp(
+    String.raw`^(\s*create\b[\s\S]*?\bview\s+(?:if\s+not\s+exists\s+)?)(?:${IDENT}\s*[.:]\s*)*${IDENT}`,
+    "i",
+  );
+  let out = ddl.replace(head, (_, pre: string) => pre + qualified);
+  if (from && k(from) !== k(to ?? "")) {
+    const esc = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const ref = new RegExp(String.raw`(^|[^\w$.])(?:\`${esc}\`|"${esc}"|\[${esc}\]|${esc})\s*([.:])`, "gi");
+    const repl = to ? quoteIdentifier(to, engine) : "";
+    out = out.replace(ref, (_, pre: string, sep: string) => (repl ? `${pre}${repl}${sep}` : pre));
+  }
+  return out;
 }
 
 // ─── Summary for the UI ──────────────────────────────────────────────────────
