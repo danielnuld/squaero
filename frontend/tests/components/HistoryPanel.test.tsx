@@ -225,3 +225,10 @@ describe("HistoryPanel scopes and days (P6)", () => {
     expect(conn.disabled).toBe(true);
   });
 });
+
+describe("HistoryPanel footer keys (P6)", () => {
+  it("names the keys that toggle the panel when given", () => {
+    mount({ entries: [{ sql: "SELECT 1", ts: Date.now(), connId: "", connName: "" }], toggleKeys: "Ctrl+Mayús+H" });
+    expect(host!.textContent).toContain("Ctrl+Mayús+H abre y cierra el panel.");
+  });
+});

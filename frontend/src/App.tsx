@@ -5580,6 +5580,7 @@ export function App() {
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}
               connId={activeDefId() ?? undefined}
+              toggleKeys={keysOf("toggle-history", shortcuts(), currentOs())}
               onRun={runFromHistory}
               onInsert={insertFromHistory}
               onOpen={(sql) => openSqlInNewTab(sql)}
@@ -6830,6 +6831,7 @@ export function App() {
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}
                     connId={activeDefId() ?? undefined}
+                    toggleKeys={keysOf("toggle-history", shortcuts(), currentOs())}
                     onRun={runFromHistory}
                     onInsert={insertFromHistory}
                     onOpen={(sql) => openSqlInNewTab(sql)}

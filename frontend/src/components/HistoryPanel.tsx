@@ -37,6 +37,8 @@ export function HistoryPanel(props: {
   engine?: string;
   /** The focused saved connection: «Esta conexión». */
   connId?: string;
+  /** The keys that open and close the panel, as the user bound them. */
+  toggleKeys?: string;
   /** «Ejecutar»: runs in a new tab, through the normal run path. */
   onRun: (sql: string) => void;
   /** «Insertar»: at the caret of the active query tab. */
@@ -233,7 +235,9 @@ export function HistoryPanel(props: {
             )}
           </For>
         </ul>
-        <p class="help">{t("hist.footHint")}</p>
+        <p class="help">
+          {props.toggleKeys ? t("hist.footHintKeys", { keys: props.toggleKeys }) : t("hist.footHint")}
+        </p>
       </Show>
 
       {/* No «Cerrar» here (audit A-21): the panel lives in a tab or the side
