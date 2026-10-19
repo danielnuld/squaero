@@ -31,7 +31,6 @@ export const en: Record<string, string> = {
   "related.otherColumn": "Related data: only from {columns}",
 
   // connection bar / manager
-  "conn.title": "Connections",
   // connection lost (#407): the core said the session is gone
   "conn.lost": "Lost the connection to “{name}”. Reconnect to continue.",
   // auto-reconnect (#676): why a call that met a dead session was not retried
@@ -63,10 +62,16 @@ export const en: Record<string, string> = {
   "conn.deleteOpenMessage": "“{name}” is open: deleting it disconnects it, and whatever its tabs have not saved is lost, including an uncommitted transaction.",
   "conn.deleteOpenConfirm": "Disconnect and delete",
   "conn.editName": "Edit {name}",
+  "explorer.title": "Explorer",
+  "explorer.noneTitle": "Not connected",
+  "explorer.saved": "Saved connections",
+  "tree.expandConn": "Expand {name}",
+  "tree.collapseConn": "Collapse {name}",
+  "tree.matchNone": "No matches",
+  "tree.matchOne": "1 match",
+  "tree.matchN": "{n} matches",
+  "tree.activeMark": "active",
   "connbar.listLabel": "Open connections",
-  "connbar.noneOpen": "None open",
-  "connbar.openOne": "1 open",
-  "connbar.openN": "{n} open",
   "connbar.add": "Connect to a database…",
   "connbar.focusTitle": "Focus {name}",
   "connbar.emptyHint": "No connection is open.",

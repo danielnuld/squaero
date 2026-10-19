@@ -3,6 +3,7 @@ import { visibleRange } from "../utils/virtualize";
 import {
   flattenTree,
   flattenFiltered,
+  filterMatchCount,
   toggleExpanded,
   childKey,
   databaseKey,
@@ -28,6 +29,29 @@ import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { routineKind } from "../utils/objectIcons";
 import { Icon, IconTools, ObjectIcon } from "./icons";
+import { SafeBadge } from "./ConnectionBar";
+import { engineMonogram } from "../utils/connections";
+import type { SafeMode } from "../utils/safeMode";
+
+/** One open connection, as its row at the top of its tree draws it (#689). */
+export interface ConnRowState {
+  driver: string;
+  /** Engine label plus where it points. */
+  sub: string;
+  focused: boolean;
+  /** The core said the session is gone (issue #407). */
+  lost?: boolean;
+  /** A fresh session is being opened in its place by itself (issue #676)… */
+  reconnecting?: boolean;
+  /** …and just was (shown for a few seconds). */
+  reconnected?: boolean;
+  /** Statements in its open transaction (issue #667); absent = none open. */
+  txStatements?: number;
+  /** The connection is protected (issue #666). */
+  safeMode?: SafeMode;
+  /** A connection is being opened: reconnect and disconnect wait. */
+  busy?: boolean;
+}
 import { t, locale } from "../utils/i18n";
 
 // A group folder's label is an i18n key ("tree.tables"); real object nodes carry
@@ -127,6 +151,16 @@ export function ObjectTree(props: {
   /** Rendered right under the header — the working-database selector of the
       focused connection. */
   children?: JSX.Element;
+  /**
+   * The connection this tree belongs to (issue #689). Given, the header is the
+   * connection's own row: colour bar, engine, name, protection, state, its
+   * open transaction and Reconectar when the session is gone.
+   */
+  conn?: ConnRowState;
+  /** Bring this connection into focus (never opens or closes anything). */
+  onFocusConn?: () => void;
+  /** Reconnect a lost session from its row. */
+  onReconnect?: () => void;
 }) {
   const [roots, setRoots] = createSignal<TreeNode[]>([]);
   const [children, setChildren] = createSignal<Record<string, TreeNode[]>>({});
@@ -737,8 +771,8 @@ export function ObjectTree(props: {
       rowCount: flat().length,
     });
 
-  return (
-    <div class="objtree">
+  // The header without a connection row: the generic title and its actions.
+  const plainHeader = () => (
       <div class="objtree-header">
         <Show
           when={props.onToggleCollapse}
@@ -796,6 +830,118 @@ export function ObjectTree(props: {
           </Show>
         </div>
       </div>
+  );
+
+  return (
+    <div class="objtree">
+      <Show when={props.conn} fallback={plainHeader()}>
+        {(c) => (
+          <div
+            class="objtree-header connbar-item"
+            classList={{ "is-focused": c().focused, "is-lost": !!c().lost }}
+            style={props.accent ? { "--conn-accent": props.accent } : undefined}
+          >
+            <span class="connbar-accent" aria-hidden="true" />
+            <button
+              class="objtree-caret-btn"
+              aria-expanded={!props.collapsed}
+              aria-label={t(props.collapsed ? "tree.expandConn" : "tree.collapseConn", {
+                name: props.title ?? "",
+              })}
+              onClick={() => props.onToggleCollapse?.()}
+            >
+              <Icon name={props.collapsed ? "chevron-right" : "chevron-down"} size={12} />
+            </button>
+            <button
+              class="connbar-pick"
+              aria-current={c().focused ? "true" : undefined}
+              title={t("connbar.focusTitle", { name: props.title ?? "" })}
+              onClick={() => props.onFocusConn?.()}
+            >
+              <span class="connbar-mono" aria-hidden="true">
+                {engineMonogram(c().driver)}
+              </span>
+              <span class="connbar-text">
+                <span class="connbar-name">
+                  {props.title}
+                  <SafeBadge mode={c().safeMode} />
+                </span>
+                <span class="connbar-sub">
+                  <span class="conn-dot" aria-hidden="true" />
+                  <Show
+                    when={c().lost || c().reconnecting || c().reconnected}
+                    fallback={c().sub}
+                  >
+                    <Show
+                      when={c().reconnecting || c().reconnected}
+                      fallback={<span class="connbar-lost">{t("conn.statusLost")}</span>}
+                    >
+                      <span
+                        class="connbar-reconnecting"
+                        role="status"
+                        title={c().reconnected ? t("conn.reconnected", { name: props.title ?? "" }) : undefined}
+                      >
+                        {t(c().reconnecting ? "conn.reconnecting" : "conn.statusReconnected")}
+                      </span>
+                    </Show>
+                  </Show>
+                </span>
+              </span>
+            </button>
+            <div class="objtree-actions">
+              <Show when={c().txStatements !== undefined}>
+                <span class="conn-tx" title={t("tx.openTitle", { n: c().txStatements! })}>
+                  {t("tx.connMark")}
+                </span>
+              </Show>
+              <Show
+                when={!(c().lost && !c().reconnecting)}
+                fallback={
+                  <button
+                    class="objtree-reconnect"
+                    disabled={c().busy}
+                    onClick={() => props.onReconnect?.()}
+                  >
+                    {t("conn.reconnect")}
+                  </button>
+                }
+              >
+                <Show when={props.connId && props.onOpenTools}>
+                  <button
+                    class="objtree-refresh"
+                    title={t("tree.tools")}
+                    aria-label={t("tree.tools")}
+                    onClick={(e) => props.onOpenTools!(e)}
+                  >
+                    <IconTools />
+                  </button>
+                </Show>
+                <Show when={props.connId && props.onRefresh}>
+                  <button
+                    class="objtree-refresh"
+                    title={t("tree.refreshTitle")}
+                    aria-label={t("tree.refresh")}
+                    onClick={() => props.onRefresh!()}
+                  >
+                    <Icon name="refresh" />
+                  </button>
+                </Show>
+              </Show>
+              <Show when={props.onDisconnect}>
+                <button
+                  class="objtree-refresh objtree-disconnect connbar-eject"
+                  title={t("conn.disconnectOf", { name: props.title ?? "" })}
+                  aria-label={t("conn.disconnectOf", { name: props.title ?? "" })}
+                  disabled={c().busy}
+                  onClick={() => props.onDisconnect!()}
+                >
+                  <Icon name="disconnect" />
+                </button>
+              </Show>
+            </div>
+          </div>
+        )}
+      </Show>
       {/* Outside the collapsible body on purpose: this is the working-database
           selector of the focused connection, and folding its section away used
           to take the control off the screen while it still governed the ER
@@ -829,6 +975,14 @@ export function ObjectTree(props: {
               <Icon name="close" size={12} />
             </button>
           </Show>
+        </div>
+      </Show>
+      <Show when={filter().trim()}>
+        <div class="objtree-matches" role="status">
+          {(() => {
+            const n = filterMatchCount(flat(), filter(), nodeLabel);
+            return t(n === 0 ? "tree.matchNone" : n === 1 ? "tree.matchOne" : "tree.matchN", { n });
+          })()}
         </div>
       </Show>
       <Show when={error()}>
@@ -901,6 +1055,9 @@ export function ObjectTree(props: {
                     </span>
                     <ObjectIcon kind={nodeKind(node)} size={15} />
                     <span class="objtree-label">{nodeLabel(node)}</span>
+                    <Show when={node.kind === "database" && node.db === props.activeDb}>
+                      <span class="objtree-active">{t("tree.activeMark")}</span>
+                    </Show>
                     <Show when={node.kind === "group"}>
                       <span class="objtree-count">
                         {node.count ?? children()[node.key]?.length ?? ""}

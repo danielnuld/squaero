@@ -34,7 +34,6 @@ export const es: Record<string, string> = {
   "related.otherColumn": "Datos relacionados: solo desde {columns}",
 
   // connection bar / manager
-  "conn.title": "Conexiones",
   // conexión caída (#407): el núcleo dijo que la sesión ya no existe
   "conn.lost": "Se perdió la conexión con «{name}». Reconecta para continuar.",
   // reconexión automática (#676): por qué no se reintentó una llamada a una sesión caída
@@ -67,10 +66,16 @@ export const es: Record<string, string> = {
   "conn.deleteOpenMessage": "«{name}» está abierta: eliminarla la desconecta y se pierde lo que no esté guardado en sus pestañas, incluida una transacción sin confirmar.",
   "conn.deleteOpenConfirm": "Desconectar y eliminar",
   "conn.editName": "Editar {name}",
+  "explorer.title": "Explorador",
+  "explorer.noneTitle": "Sin conexión",
+  "explorer.saved": "Conexiones guardadas",
+  "tree.expandConn": "Expandir {name}",
+  "tree.collapseConn": "Contraer {name}",
+  "tree.matchNone": "Ninguna coincidencia",
+  "tree.matchOne": "1 coincidencia",
+  "tree.matchN": "{n} coincidencias",
+  "tree.activeMark": "activa",
   "connbar.listLabel": "Conexiones abiertas",
-  "connbar.noneOpen": "Ninguna abierta",
-  "connbar.openOne": "1 abierta",
-  "connbar.openN": "{n} abiertas",
   "connbar.add": "Conectar a una base de datos…",
   "connbar.focusTitle": "Enfocar {name}",
   "connbar.emptyHint": "No hay ninguna conexión abierta.",

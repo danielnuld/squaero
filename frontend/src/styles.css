@@ -885,16 +885,10 @@ body {
 }
 
 .connbar-reconnecting {
-  font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--text-dim);
 }
 
 .connbar-lost {
-  font-size: var(--fs-micro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--error);
 }
 
@@ -3686,7 +3680,6 @@ button.primary:hover:not(:disabled) {
    tab strip: the focused section's header carries that connection's colour. */
 .conn-section.is-focused .objtree-header {
   background: var(--bg-elev2);
-  box-shadow: inset 3px 0 0 var(--conn-accent);
 }
 
 /* Everything below a section header. Hidden (not unmounted) when the section is
@@ -3841,9 +3834,7 @@ button.primary:hover:not(:disabled) {
   justify-content: space-between;
   padding: var(--sp-3) var(--sp-4);
   font-weight: 600;
-  text-transform: uppercase;
-  font-size: var(--fs-sm);
-  letter-spacing: 0.04em;
+  font-size: var(--fs-base);
   color: var(--text-dim);
 }
 
@@ -5888,10 +5879,8 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .sidebar-db label > span {
   font-size: var(--fs-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 /* Themed working-database selector (issue: sidebar visual pass). The native
@@ -7767,4 +7756,194 @@ button.grid-action.danger:hover:not(:disabled) {
 .sidebar .tool-pane {
   padding: var(--sp-3);
   background: var(--bg-elev);
+}
+
+/* The explorer (issue #689): a sentence-case head, the empty state with the
+   saved connections, and each open connection as the row at the top of its
+   tree — colour bar, chevron, engine, name, state and its actions. */
+.explorer-title {
+  flex: 1;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.connbar-head {
+  height: var(--band-md);
+}
+
+.explorer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin: var(--sp-2) var(--sp-3) var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  font-size: var(--fs-base);
+  color: var(--text-dim);
+}
+
+.explorer-empty-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.explorer-label {
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.explorer-saved {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--sp-2) var(--sp-3);
+}
+
+.explorer-saved-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.explorer-saved-row:hover:not(:disabled) {
+  background: var(--bg-elev2);
+}
+
+.connbar-accent {
+  background: var(--conn-accent);
+}
+
+.explorer-saved-row:not([style]) .connbar-accent,
+.objtree-header:not([style]) .connbar-accent {
+  background: transparent;
+}
+
+ul.sidebar-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.objtree-header.connbar-item {
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2) 0 var(--sp-2);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.objtree-header .connbar-pick {
+  height: 40px;
+  padding: 0 var(--sp-2);
+}
+
+.objtree-header .connbar-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 600;
+}
+
+.objtree-caret-btn {
+  display: grid;
+  place-items: center;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.objtree-caret-btn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.connbar-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.conn-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  background: var(--ok);
+}
+
+.connbar-item.is-lost .conn-dot {
+  background: var(--error);
+}
+
+.objtree-reconnect {
+  height: var(--h-sm);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: default;
+}
+
+/* The row's actions stay quiet until the row is hovered or focused. */
+.connbar-item .objtree-refresh {
+  opacity: 0.6;
+}
+
+.connbar-item:hover .objtree-refresh,
+.connbar-item.is-focused .objtree-refresh,
+.connbar-item .objtree-refresh:focus-visible {
+  opacity: 1;
+}
+
+.objtree-matches {
+  padding: 0 var(--sp-4) var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.objtree-active {
+  margin-left: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--accent-text);
+}
+
+/* The working database, as one compact line under its connection's row. */
+.sidebar-db {
+  padding: 0 var(--sp-3) var(--sp-2) var(--sp-6);
+  border-bottom: 0;
+}
+
+.sidebar-db label {
+  flex-direction: row;
+  align-items: center;
+}
+
+.sidebar-db .map-select {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--sp-1);
+  padding-bottom: var(--sp-1);
 }

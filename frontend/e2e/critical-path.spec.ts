@@ -21,7 +21,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await app.open();
     // Before connecting the interface says so, and there is no connection to
     // offer tools for (#688: they live in each connection's Herramientas menu).
-    await expect(app.page.getByText("Sin conexión")).toBeVisible();
+    await expect(app.page.getByText("Sin conexión").first()).toBeVisible();
     const tools = app.page.getByRole("button", { name: "Herramientas", exact: true });
     await expect(tools).toHaveCount(0);
 
@@ -218,7 +218,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await connect(app);
     await disconnect(app.page);
 
-    await expect(app.page.getByText("Sin conexión")).toBeVisible();
+    await expect(app.page.getByText("Sin conexión").first()).toBeVisible();
     await expect(app.page.getByRole("button", { name: "Herramientas", exact: true })).toHaveCount(0);
     expect(engineName).toBe(app.engine.name); // the block really is this engine
   });

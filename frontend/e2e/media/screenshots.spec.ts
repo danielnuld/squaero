@@ -98,7 +98,7 @@ test("capture the published screenshots", async ({ page }) => {
     await setTheme("dark");
     await page.goto("/");
     await startBlank(page);
-    await expect(page.getByText("Sin conexión")).toBeVisible();
+    await expect(page.getByText("Sin conexión").first()).toBeVisible();
     await expectTheme("dark");
     await page.setViewportSize({ width: 1280, height: 800 });
     await shot("screenshot-initial-dark.png");
