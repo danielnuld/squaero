@@ -5866,6 +5866,11 @@ button.grid-action.danger:hover:not(:disabled) {
   margin-top: var(--sp-4);
 }
 
+/* Index manager: the row the toolbar's Eliminar acts on. */
+.struct-table tr.is-selected td {
+  background: var(--accent-soft);
+}
+
 /* The apply step of structure sync: each statement with its status. */
 .stmt-list {
   margin: 0;

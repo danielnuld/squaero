@@ -116,7 +116,7 @@ describe("IndexManager", () => {
     expect(dialog).not.toBeNull();
     expect(dialog!.textContent).toContain("DROP INDEX `PRIMARY` ON `shop`.`users`");
 
-    clickText("Eliminar"); // confirm in the dialog
+    host!.querySelector<HTMLButtonElement>(".confirm-dialog .btn-danger")!.click(); // confirm in the dialog
     await flush();
 
     const runs = calls.filter((c) => c.method === "query.run").map((c) => c.params.sql);
@@ -165,7 +165,7 @@ describe("IndexManager", () => {
 
     (host!.querySelector("button.grid-action.danger") as HTMLButtonElement).click();
     await flush();
-    clickText("Eliminar"); // confirm -> drop fails
+    host!.querySelector<HTMLButtonElement>(".confirm-dialog .btn-danger")!.click(); // confirm -> drop fails
     await flush();
 
     // Dialog stays open and surfaces the error for a retry.
@@ -233,5 +233,31 @@ describe("IndexManager on MongoDB", () => {
     expect(calls.some((c) => c.sql === 'db.orders.createIndex({"sku": 1}, {"name": "by_sku"})')).toBe(true);
     expect(calls.some((c) => c.method.startsWith("tx."))).toBe(false);
     expect(onChanged).toHaveBeenCalled();
+  });
+});
+
+// #692 (P5): the toolbar — Nuevo índice takes the cursor to the form, Eliminar
+// acts on the selected row.
+describe("IndexManager — toolbar", () => {
+  it("deletes the selected index from the toolbar, behind the confirmation", async () => {
+    installBridge();
+    mount(() => <IndexManager connId="c1" engine="mysql" table="users" db="shop" onClose={() => {}} />);
+    await flush();
+    const tb = host!.querySelector('[role="toolbar"]')!;
+    const drop = [...tb.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.startsWith("Eliminar"))!;
+    expect(drop.disabled).toBe(true);
+    host!.querySelector<HTMLTableRowElement>(".struct-table tbody tr")!.click();
+    expect(drop.textContent).toBe("Eliminar PRIMARY…");
+    drop.click();
+    await flush();
+    expect(host!.querySelector(".confirm-dialog")!.textContent).toContain("DROP INDEX `PRIMARY` ON `shop`.`users`");
+  });
+
+  it("Nuevo índice puts the cursor in the new index's name", async () => {
+    installBridge();
+    mount(() => <IndexManager connId="c1" engine="mysql" table="users" db="shop" onClose={() => {}} />);
+    await flush();
+    [...host!.querySelectorAll<HTMLButtonElement>('[role="toolbar"] button')].find((b) => b.textContent === "Nuevo índice")!.click();
+    expect(document.activeElement).toBe(host!.querySelector('input[aria-label="nombre_del_indice"]'));
   });
 });
