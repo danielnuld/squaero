@@ -7,6 +7,7 @@
 export type ToolbarAction =
   | "refresh"
   | "filter"
+  | "sort"
   | "search"
   | "addRow"
   | "transpose"
@@ -53,7 +54,8 @@ export function toolbarLayout(s: ToolbarState): ToolbarLayout {
   const more: ToolbarAction[] = [];
   const writable = s.isTable && s.editable && !s.readOnly;
 
-  if (s.canFilter) main.push("filter");
+  // «Ordenar» opens the same panel on its sort line (R-22).
+  if (s.canFilter) main.push("filter", "sort");
   if (s.hasColumns) main.push("search");
   if (writable) main.push("addRow");
 

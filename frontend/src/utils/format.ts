@@ -78,3 +78,27 @@ export function formatCell(value: string | null, type: string): FormattedCell {
 export function cellAlign(kind: CellKind): "left" | "right" {
   return kind === "number" ? "right" : "left";
 }
+
+/**
+ * The scale a declared decimal type fixes — `numeric(10,2)` → 2 — or null
+ * when the type declares none (A-39). Read from the table's own description,
+ * since a result column only carries its neutral type.
+ */
+export function decimalScale(declared: string): number | null {
+  const m = /^\s*(?:numeric|decimal|dec|number)\s*\(\s*\d+\s*,\s*(\d+)\s*\)/i.exec(declared);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * A decimal written with its column's scale, so the points line up: "980.5"
+ * at scale 2 shows as "980.50". Only pads — a value with more digits than the
+ * scale, or anything that is not a plain decimal, is returned as it came. For
+ * display only: what is copied, filtered and saved stays the raw value.
+ */
+export function withScale(value: string, scale: number): string {
+  const m = /^([+-]?\d+)(?:\.(\d*))?$/.exec(value);
+  if (!m || scale <= 0) return value;
+  const frac = m[2] ?? "";
+  if (frac.length >= scale) return value;
+  return `${m[1]}.${frac.padEnd(scale, "0")}`;
+}

@@ -32,11 +32,15 @@ export function StatusBar(props: {
   /** Statements in the connection's open transaction (issue #667); null/absent
       = no transaction open. */
   txStatements?: number | null;
+  /** Unsaved changes of the tab's edit session (R-26); 0/absent hides it. */
+  pendingChanges?: number;
   /** Commit or roll back the open transaction (the chip is a button then). */
   onTxAction?: (e: MouseEvent) => void;
   /** What the active tab is, which decides the facts on the right. */
   kind: StatusTabKind;
   rowCount: number | null;
+  /** Rows the grid's page search leaves on screen (A-05); null/absent = all. */
+  matchCount?: number | null;
   truncated: boolean;
   /** Rows marked in the grid (issue #382); 0 hides the indicator. */
   markedCount?: number;
@@ -122,6 +126,11 @@ export function StatusBar(props: {
           {t("tx.open", { n: props.txStatements! })}
         </button>
       </Show>
+      <Show when={(props.pendingChanges ?? 0) > 0}>
+        <span class="status-chip status-pending" role="status">
+          {t(props.pendingChanges === 1 ? "pending.unsavedOne" : "pending.unsavedN", { n: props.pendingChanges! })}
+        </span>
+      </Show>
       <span class="status-spacer" />
       <For each={items()}>
         {(item) => {
@@ -136,10 +145,12 @@ export function StatusBar(props: {
               );
             case "rows":
               return (
-                <span class="status-item">
-                  {t(props.rowCount === 1 ? "status.rowsOne" : "status.rowsOther", {
-                    n: props.rowCount!,
-                  })}
+                <span class="status-item" title={props.matchCount != null ? t("grid.searchMatches", { m: props.matchCount, n: props.rowCount! }) : undefined}>
+                  {props.matchCount != null
+                    ? t("status.rowsMatching", { m: props.matchCount, n: props.rowCount! })
+                    : t(props.rowCount === 1 ? "status.rowsOne" : "status.rowsOther", {
+                        n: props.rowCount!,
+                      })}
                   {props.truncated ? "+" : ""}
                 </span>
               );

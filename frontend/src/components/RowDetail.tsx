@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from "solid-js";
+import { For, Show, createMemo, onMount } from "solid-js";
 import { NULL_LABEL } from "../utils/format";
 import { buildRowFields, canStep } from "../utils/rowDetail";
 import type { ResultColumn } from "../utils/query";
@@ -40,6 +40,13 @@ export function RowDetail(props: {
   /** Foreign-key pickers by column name (see utils/fkLookup): a FK field then
       edits as a single-line input suggesting the referenced table's rows. */
   fk?: Record<string, FkLookup>;
+  /** Copy the row (Copiar fila). Absent → no button. */
+  onCopy?: () => void;
+  /** The tables whose foreign keys point at this table, each with the column
+      of this row they reference: «Referenciada por pedidos.cliente_id». */
+  referencedBy?: { label: string; column: string }[];
+  /** Open the rows that reference this one through `column`. */
+  onReferenced?: (column: string) => void;
 }) {
   const fields = createMemo(() =>
     buildRowFields(props.columns, props.row, props.editing ? props.edits : undefined),
@@ -48,18 +55,43 @@ export function RowDetail(props: {
   const canNext = () => canStep(props.rowIndex, 1, props.total);
   const fkFor = (col: string): FkLookup | undefined => props.fk?.[col];
 
+  // Opened from the grid (Space, the menu), the panel takes the focus so its
+  // keys work at once: Esc closes, Alt+↑/↓ walk the rows.
+  let dock: HTMLDivElement | undefined;
+  onMount(() => dock?.focus({ preventScroll: true }));
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      props.onClose();
+      return;
+    }
+    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      if (e.key === "ArrowUp" && canPrev()) props.onPrev();
+      if (e.key === "ArrowDown" && canNext()) props.onNext();
+    }
+  };
+
   return (
-    <div class="row-detail-dock" role="region" aria-label={t("rd.title")}>
+    <div
+      class="row-detail-dock"
+      role="region"
+      aria-label={t("rd.title")}
+      tabindex={-1}
+      ref={dock}
+      onKeyDown={onKeyDown}
+    >
       <div class="rd-head">
         <h2>{t("rd.title")}</h2>
         <div class="rd-nav">
-          <button class="rd-nav-btn" disabled={!canPrev()} title={t("rd.prev")} aria-label={t("rd.prev")} onClick={props.onPrev}>
+          <button class="rd-nav-btn" disabled={!canPrev()} title={t("rd.prevKeys")} aria-label={t("rd.prev")} onClick={props.onPrev}>
             <Icon name="chevron-left" size={14} />
           </button>
           <span class="rd-pos">
             {t("rd.position", { i: props.rowIndex + 1, total: props.total })}
           </span>
-          <button class="rd-nav-btn" disabled={!canNext()} title={t("rd.next")} aria-label={t("rd.next")} onClick={props.onNext}>
+          <button class="rd-nav-btn" disabled={!canNext()} title={t("rd.nextKeys")} aria-label={t("rd.next")} onClick={props.onNext}>
             <Icon name="chevron-right" size={14} />
           </button>
           <button class="rd-nav-btn rd-close" title={t("rd.closeTitle")} aria-label={t("rd.closeTitle")} onClick={props.onClose}>
@@ -124,17 +156,39 @@ export function RowDetail(props: {
         </For>
       </div>
 
+      <Show when={(props.referencedBy?.length ?? 0) > 0 && props.onReferenced}>
+        <div class="rd-refs">
+          <span>{t("rd.referencedBy")}</span>
+          <For each={props.referencedBy}>
+            {(ref) => (
+              <button
+                type="button"
+                class="rd-ref-link"
+                title={t("rd.referencedByTitle", { ref: ref.label })}
+                onClick={() => props.onReferenced?.(ref.column)}
+              >
+                {ref.label}
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      {/* Editar is the primary action, Cerrar the secondary one (A-41). */}
       <div class="panel-foot rd-actions">
         <Show when={props.editable && !props.editing}>
-          <button class="btn" onClick={props.onBeginEdit}>{t("common.edit")}</button>
+          <button class="btn-primary" onClick={props.onBeginEdit}>{t("common.edit")}</button>
         </Show>
         <Show when={props.editing}>
           <button class={props.deleted ? "btn" : "btn danger-text"} onClick={props.onToggleDelete}>
             {props.deleted ? t("grid.undoDelete") : t("grid.deleteRow")}
           </button>
         </Show>
+        <Show when={props.onCopy}>
+          <button class="btn" onClick={() => props.onCopy?.()}>{t("result.copyRow")}</button>
+        </Show>
         <span class="toolbar-spacer" />
-        <button class="btn-primary" onClick={props.onClose}>
+        <button class="btn" title={t("rd.closeTitle")} onClick={props.onClose}>
           {t("panel.close")}
         </button>
       </div>

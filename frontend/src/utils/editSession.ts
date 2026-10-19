@@ -81,6 +81,27 @@ export function setCell(
   return { ...state, edits: { ...state.edits, [rowIndex]: rowEdits } };
 }
 
+/** Drop the pending edit of one cell, so it shows (and saves) its original
+    value again. A row left with no edits leaves the set. Immutable. */
+export function revertCell(state: PendingChanges, rowIndex: number, column: string): PendingChanges {
+  const rowEdits = state.edits[rowIndex];
+  if (!rowEdits || !(column in rowEdits)) return state;
+  const rest = { ...rowEdits };
+  delete rest[column];
+  const edits = { ...state.edits };
+  if (Object.keys(rest).length > 0) edits[rowIndex] = rest;
+  else delete edits[rowIndex];
+  return { ...state, edits };
+}
+
+/** Drop every pending edit of one row, and its staged deletion. Immutable. */
+export function revertRow(state: PendingChanges, rowIndex: number): PendingChanges {
+  if (!(rowIndex in state.edits) && !state.deletes.includes(rowIndex)) return state;
+  const edits = { ...state.edits };
+  delete edits[rowIndex];
+  return { ...state, edits, deletes: state.deletes.filter((r) => r !== rowIndex) };
+}
+
 /** Toggle whether an existing row is marked for deletion. Immutable. */
 export function toggleDelete(state: PendingChanges, rowIndex: number): PendingChanges {
   const has = state.deletes.includes(rowIndex);
@@ -238,6 +259,15 @@ export function hasChanges(state: PendingChanges): boolean {
 }
 
 /** Number of rows affected by the pending changes (edited + deleted + inserted). */
+/** The pending changes by kind, for the band that lists them (R-26): rows
+    changed, added and removed. Sums to changeCount. */
+export function changeKinds(state: PendingChanges): { changed: number; added: number; removed: number } {
+  const changed = Object.entries(state.edits).filter(
+    ([idx, e]) => Object.keys(e).length > 0 && !state.deletes.includes(Number(idx)),
+  ).length;
+  return { changed, added: state.inserts.length, removed: state.deletes.length };
+}
+
 export function changeCount(state: PendingChanges): number {
   const edited = Object.entries(state.edits).filter(
     ([idx, e]) =>

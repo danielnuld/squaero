@@ -114,3 +114,26 @@ describe("StatusBar", () => {
     expect(text).not.toContain("Suma");
   });
 });
+
+describe("StatusBar with the page search on (A-05)", () => {
+  it("says how many of the loaded rows the search leaves", () => {
+    mount({ matchCount: 3, rowCount: 12 });
+    expect(host!.textContent).toContain("3 de 12 filas");
+  });
+  it("says the plain count when the search hides nothing", () => {
+    mount({ matchCount: null, rowCount: 12 });
+    expect(host!.textContent).toContain("12 filas");
+    expect(host!.textContent).not.toContain("de 12");
+  });
+});
+
+describe("StatusBar unsaved changes chip (R-26)", () => {
+  it("says how many changes are not saved, and nothing when there are none", () => {
+    mount({ pendingChanges: 3 });
+    expect(host!.querySelector(".status-pending")!.textContent).toBe("3 cambios sin guardar");
+    dispose?.();
+    host?.remove();
+    mount({ pendingChanges: 0 });
+    expect(host!.querySelector(".status-pending")).toBeNull();
+  });
+});

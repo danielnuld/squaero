@@ -1,4 +1,4 @@
-import { Show, createSignal } from "solid-js";
+import { Show, createSignal, untrack } from "solid-js";
 import { FkBrowser } from "./FkBrowser";
 import { fkHint, type FkLookup } from "../utils/fkLookup";
 import { t } from "../utils/i18n";
@@ -19,8 +19,12 @@ export function FkPicker(props: {
   /** The grid's cell address, so keyboard focus still finds this input. */
   dataCell?: string;
   onChange: (value: string) => void;
+  /** Keys typed in the input (the grid's Enter / Tab / Esc). */
+  onKeyDown?: (e: KeyboardEvent) => void;
+  /** Open the browser straight away (Alt+↓ on the grid's cell). */
+  browseOnMount?: boolean;
 }) {
-  const [browsing, setBrowsing] = createSignal(false);
+  const [browsing, setBrowsing] = createSignal(untrack(() => !!props.browseOnMount));
 
   return (
     <div class={`fk-picker ${props.rootClass ?? ""}`}>
@@ -31,6 +35,7 @@ export function FkPicker(props: {
         value={props.value}
         title={fkHint(props.lookup)}
         onInput={(e) => props.onChange(e.currentTarget.value)}
+        onKeyDown={(e) => props.onKeyDown?.(e)}
       />
       <button
         type="button"

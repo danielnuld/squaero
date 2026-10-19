@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { PAGE_SIZES, type PagerView } from "../utils/pager";
+import { PAGE_SIZES, offsetForPage, type PagerView } from "../utils/pager";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 import { Dropdown } from "./Dropdown";
@@ -25,7 +25,18 @@ export function Pager(props: {
   /** Rows per page; with `onPageSize`, a selector of PAGE_SIZES (A-20, R-38). */
   pageSize?: number;
   onPageSize?: (size: number) => void;
+  /** Jump to an offset: with it the page number is a field (R-38). */
+  onGoTo?: (offset: number) => void;
 }) {
+  /** Enter or leaving the field goes to the typed page; a bad one snaps back. */
+  const goTo = (input: HTMLInputElement) => {
+    const offset = offsetForPage(input.value, props.pageSize ?? 1, props.view.pages);
+    if (offset === null || Math.floor(offset / Math.max(1, props.pageSize ?? 1)) + 1 === props.view.page) {
+      input.value = String(props.view.page);
+      return;
+    }
+    props.onGoTo!(offset);
+  };
   const range = () =>
     props.total === null
       ? t("result.rowsRange", { from: props.view.from, to: props.view.to })
@@ -68,11 +79,39 @@ export function Pager(props: {
         <button class="seg-btn" aria-label={t("pager.prev")} title={t("pager.prev")} disabled={!props.view.canPrev} onClick={() => props.onPrev()}>
           <Icon name="chevron-left" size={12} />
         </button>
-        <span class="seg-btn on" aria-current="page">
-          {props.view.pages === null
-            ? props.view.page
-            : t("pager.pageOf", { page: props.view.page, pages: props.view.pages })}
-        </span>
+        <Show
+          when={props.onGoTo && props.pageSize}
+          fallback={
+            <span class="seg-btn on" aria-current="page">
+              {props.view.pages === null
+                ? props.view.page
+                : t("pager.pageOf", { page: props.view.page, pages: props.view.pages })}
+            </span>
+          }
+        >
+          <span class="seg-btn on pager-page" aria-current="page">
+            <input
+              class="pager-page-input"
+              type="text"
+              inputmode="numeric"
+              aria-label={t("pager.pageField")}
+              disabled={props.paused}
+              value={props.view.page}
+              size={Math.max(2, String(props.view.pages ?? props.view.page).length)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  goTo(e.currentTarget);
+                }
+                if (e.key === "Escape") e.currentTarget.value = String(props.view.page);
+              }}
+              onBlur={(e) => goTo(e.currentTarget)}
+            />
+            <Show when={props.view.pages !== null}>
+              <span>{t("pager.ofPages", { pages: props.view.pages! })}</span>
+            </Show>
+          </span>
+        </Show>
         <button class="seg-btn" aria-label={t("pager.next")} title={t("pager.next")} disabled={!props.view.canNext} onClick={() => props.onNext()}>
           <Icon name="chevron-right" size={12} />
         </button>

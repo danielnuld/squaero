@@ -15,6 +15,7 @@ import {
 } from "../utils/chart";
 import type { ResultSet } from "../utils/query";
 import { Dropdown } from "./Dropdown";
+import { saveText } from "../utils/download";
 
 // Result visualization (issue #149): render a loaded result as a bar / line / pie
 // chart with inline SVG (no chart library). The user picks the label (x) column
@@ -34,7 +35,12 @@ const seriesColor = (i: number) => `var(--chart-${(i % PALETTE_N) + 1})`;
 /** Last resort for a label no rotation can fit; the full text is in the tooltip. */
 const clip = (s: string) => (s.length > LABEL_MAX ? `${s.slice(0, LABEL_MAX - 1)}…` : s);
 
-export function ChartView(props: { result: ResultSet; onClose: () => void }) {
+export function ChartView(props: {
+  result: ResultSet;
+  /** The primary key: never offered as the value by default. */
+  keyColumns?: string[];
+  onClose: () => void;
+}) {
   const cols = () => props.result.columns;
   const numericCols = createMemo(() =>
     cols()
@@ -43,7 +49,25 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
       .map(({ i }) => i),
   );
 
-  const initial = defaultColumns(props.result);
+  const initial = defaultColumns(props.result, props.keyColumns);
+  let svgEl: SVGSVGElement | undefined;
+  /** «Guardar imagen»: the chart as an SVG file, its theme colours written in
+      (the file has no stylesheet to resolve var(--chart-n) against). */
+  const saveImage = () => {
+    if (!svgEl) return;
+    const copy = svgEl.cloneNode(true) as SVGSVGElement;
+    const live = svgEl.querySelectorAll<SVGElement>("*");
+    copy.querySelectorAll<SVGElement>("*").forEach((el, i) => {
+      const cs = getComputedStyle(live[i]);
+      for (const prop of ["fill", "stroke", "color", "font-family", "font-size"] as const) {
+        const v = cs.getPropertyValue(prop);
+        if (v) el.style.setProperty(prop, v);
+      }
+    });
+    copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    void saveText(chartFileName(), copy.outerHTML, "image/svg+xml");
+  };
+  const chartFileName = () => `${t("tab.chart").toLowerCase()}-${t(`chart.${type()}`).toLowerCase()}.svg`;
   const [type, setType] = createSignal<ChartType>("bar");
   const [labelCol, setLabelCol] = createSignal(initial.labelCol);
   const [valueCols, setValueCols] = createSignal<number[]>(initial.valueCols);
@@ -97,6 +121,9 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
             class="map-select"
           />
         </label>
+        <button class="btn chart-save" disabled={!hasData()} onClick={saveImage}>
+          {t("chart.saveImage")}
+        </button>
         <div class="chart-values">
           <span class="chart-values-label">
             {type() === "pie" ? t("chart.valueSingle") : t("chart.values")}
@@ -130,7 +157,7 @@ export function ChartView(props: { result: ResultSet; onClose: () => void }) {
         fallback={<p class="grid-empty pane-empty">{t("chart.pickHint")}</p>}
       >
         <div class="chart-canvas">
-          <svg viewBox={`0 0 ${W} ${H}`} class="chart-svg" role="img" aria-label={t("chart.aria", { type: t(`chart.${type()}`) })}>
+          <svg ref={svgEl} viewBox={`0 0 ${W} ${H}`} class="chart-svg" role="img" aria-label={t("chart.aria", { type: t(`chart.${type()}`) })}>
             <Show when={type() !== "pie"}>
               {/* Y grid + ticks */}
               <For each={scale().ticks}>

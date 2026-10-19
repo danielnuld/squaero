@@ -165,3 +165,24 @@ describe("App — pinning and comparing results (issue #669)", () => {
     expect(host!.querySelector('[data-cell="1-1"]')!.textContent).toBe("BETO");
   });
 });
+
+describe("App — pin shortcut and identical results (A-34)", () => {
+  it("pins with Ctrl+Shift+P, and says when the comparison finds nothing different", async () => {
+    await openWithRows();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "P", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }),
+    );
+    await settle();
+    expect(host!.querySelectorAll(".pin-tab").length).toBe(1);
+
+    // Compared with itself before running again: nothing differs.
+    click(button("Comparar con…"));
+    click(menuItem("Fijado"));
+    await settle();
+    const note = host!.querySelector(".compare-identical")!;
+    expect(note.textContent).toContain("Los dos resultados son idénticos (3 filas)");
+    click(button("Mostrar filas iguales"));
+    await settle();
+    expect(host!.querySelectorAll(".grid-rows .grid-row").length).toBe(3);
+  });
+});

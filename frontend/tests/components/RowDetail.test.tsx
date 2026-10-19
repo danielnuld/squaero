@@ -40,6 +40,10 @@ interface Opts {
   onBeginEdit?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  onClose?: () => void;
+  onCopy?: () => void;
+  referencedBy?: { label: string; column: string }[];
+  onReferenced?: (column: string) => void;
 }
 
 function mount(opts: Opts = {}) {
@@ -65,7 +69,10 @@ function mount(opts: Opts = {}) {
           onBeginEdit={opts.onBeginEdit ?? (() => {})}
           onPrev={opts.onPrev ?? (() => {})}
           onNext={opts.onNext ?? (() => {})}
-          onClose={() => {}}
+          onClose={opts.onClose ?? (() => {})}
+          onCopy={opts.onCopy}
+          referencedBy={opts.referencedBy}
+          onReferenced={opts.onReferenced}
         />
       ),
       host!,
@@ -125,9 +132,11 @@ describe("RowDetail", () => {
     expect(el.querySelectorAll("textarea.rd-input").length).toBe(2);
     // Opening it lists the referenced rows even though the field already holds "1".
     el.querySelector<HTMLButtonElement>(".fk-toggle")!.click();
-    const picks = document.querySelectorAll<HTMLButtonElement>(".fk-browser .fk-pick");
+    const picks = document.querySelectorAll(".fk-browser .grid-rows .grid-row");
     expect(picks.length).toBe(2);
-    picks[1].click();
+    document
+      .querySelector('.fk-browser .grid-rows [data-cell="1-0"]')!
+      .dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(captured).toEqual(["id", "7"]);
   });
 
@@ -210,5 +219,65 @@ describe("RowDetail", () => {
     // Enter edit mode: fields become textareas, no remount.
     setEditing(true);
     expect(host!.querySelectorAll(".rd-input").length).toBe(columns.length);
+  });
+});
+
+describe("RowDetail keys and actions (A-41)", () => {
+  const press = (el: Element, init: KeyboardEventInit) =>
+    el.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+
+  it("takes the focus when it opens, and Esc closes it", () => {
+    let closed = 0;
+    const el = mount({ onClose: () => closed++ });
+    const dock = el.querySelector(".row-detail-dock")!;
+    expect(document.activeElement).toBe(dock);
+    press(dock, { key: "Escape" });
+    expect(closed).toBe(1);
+  });
+
+  it("walks the rows with Alt+Up / Alt+Down, within bounds", () => {
+    let prev = 0;
+    let next = 0;
+    const el = mount({ rowIndex: 0, onPrev: () => prev++, onNext: () => next++ });
+    const dock = el.querySelector(".row-detail-dock")!;
+    press(dock, { key: "ArrowDown", altKey: true });
+    press(dock, { key: "ArrowUp", altKey: true }); // already the first row
+    press(dock, { key: "ArrowDown" }); // without Alt it is the field's own key
+    expect([prev, next]).toEqual([0, 1]);
+  });
+
+  it("shows read-only values as text, Editar as the primary action and Cerrar as a secondary one", () => {
+    const el = mount({ editable: true, editing: false });
+    expect(el.querySelectorAll("textarea, input").length).toBe(0);
+    const buttons = [...el.querySelectorAll<HTMLButtonElement>(".rd-actions button")];
+    const edit = buttons.find((b) => b.textContent === "Editar")!;
+    const close = buttons.find((b) => b.textContent === "Cerrar")!;
+    expect(edit.classList.contains("btn-primary")).toBe(true);
+    expect(close.classList.contains("btn-primary")).toBe(false);
+  });
+
+  it("copies the row", () => {
+    let copied = 0;
+    const el = mount({ onCopy: () => copied++ });
+    [...el.querySelectorAll<HTMLButtonElement>(".rd-actions button")]
+      .find((b) => b.textContent === "Copiar fila")!
+      .click();
+    expect(copied).toBe(1);
+  });
+
+  it("links to the tables that reference the row", () => {
+    const opened: string[] = [];
+    const el = mount({
+      referencedBy: [{ label: "pedidos.cliente_id", column: "id" }],
+      onReferenced: (c) => opened.push(c),
+    });
+    expect(el.querySelector(".rd-refs")!.textContent).toContain("Referenciada por");
+    el.querySelector<HTMLButtonElement>(".rd-ref-link")!.click();
+    expect(opened).toEqual(["id"]);
+  });
+
+  it("shows no references line when nothing points at the table", () => {
+    const el = mount({ referencedBy: [], onReferenced: () => {} });
+    expect(el.querySelector(".rd-refs")).toBeNull();
   });
 });

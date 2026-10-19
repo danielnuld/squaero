@@ -75,3 +75,15 @@ export function offsetForPageSize(offset: number, size: number): number {
   const s = Math.max(1, Math.floor(size));
   return Math.floor(Math.max(0, offset) / s) * s;
 }
+
+/**
+ * The offset of a page typed into the pager's field (R-38), or null when the
+ * text is not a page: not a whole number, below 1, or past the last page when
+ * the total is known. 1-based, as the field shows it.
+ */
+export function offsetForPage(text: string, size: number, pages: number | null): number | null {
+  const page = Number(text.trim());
+  if (!Number.isInteger(page) || page < 1) return null;
+  if (pages !== null && page > pages) return null;
+  return (page - 1) * Math.max(1, Math.floor(size));
+}
