@@ -97,6 +97,7 @@ import {
   MYSQL_SSL_FIELDS,
   SSL_GROUP,
   DRIVER_SCHEMAS,
+  withFieldDefaults,
   AVAILABLE_DRIVERS,
   dsnForDatabaseList,
   connIcon,
@@ -617,7 +618,7 @@ describe("Informix schema", () => {
   it("models the port as a number, 9089 by default (DRDA takes no service name)", () => {
     const port = DRIVER_SCHEMAS.informix.fields.find((f) => f.key === "port");
     expect(port?.type).toBe("number");
-    expect(port?.placeholder).toBe("9089");
+    expect(port?.defaultValue).toBe("9089");
   });
 
   it("offers the TLS modes the driver takes, with a CA file", () => {
@@ -830,5 +831,20 @@ describe("markProduction", () => {
   it("is separate from a production group, which still counts", () => {
     expect(hasProductionColor({ group: "Producción" } as { group: string; color?: string })).toBe(false);
     expect(isProductionConnection({ group: "Producción" })).toBe(true);
+  });
+});
+
+describe("withFieldDefaults", () => {
+  it("fills each field's real default where the params leave it empty", () => {
+    expect(withFieldDefaults(DRIVER_SCHEMAS.postgres, { port: "" })).toMatchObject({ host: "localhost", port: "5432", ssh_port: "22" });
+  });
+
+  it("never overwrites what was typed or saved", () => {
+    expect(withFieldDefaults(DRIVER_SCHEMAS.mysql, { host: "db", port: "3307" })).toMatchObject({ host: "db", port: "3307" });
+  });
+
+  it("adds nothing for an engine without defaults or an unknown one", () => {
+    expect(withFieldDefaults(DRIVER_SCHEMAS.sqlite, { path: "a.db" })).toEqual({ path: "a.db" });
+    expect(withFieldDefaults(undefined, { x: "1" })).toEqual({ x: "1" });
   });
 });

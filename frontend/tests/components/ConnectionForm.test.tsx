@@ -141,7 +141,10 @@ describe("ConnectionForm engine cards", () => {
 describe("ConnectionForm side index", () => {
   it("names each section and its state, in words", () => {
     mount({ initial: mysql() });
-    expect(indexNames()).toContain("Servidor: incompleta");
+    // Host and port start with their real defaults (audit A-22): only the
+    // user is missing.
+    expect(indexNames()).toContain("Servidor: completa");
+    expect(indexNames()).toContain("Acceso: incompleta");
     // The tunnel is off until there is a host to tunnel to — which is exactly
     // what the model means.
     expect(indexNames()).toContain("Túnel SSH: apagado");
@@ -181,7 +184,22 @@ describe("ConnectionForm side index", () => {
     mount({ initial: mysql() });
     expect(indexNames().some((n) => n.includes("con errores"))).toBe(false);
     clickText("Guardar");
-    expect(indexNames()).toContain("Servidor: con errores");
+    expect(indexNames()).toContain("Acceso: con errores");
+  });
+
+  it("fills the engine's real defaults as values, not placeholders (audit A-22)", () => {
+    mount({ initial: mysql() });
+    const host_ = [...host!.querySelectorAll<HTMLInputElement>(".cf-field input")];
+    expect(host_.map((i) => i.value)).toEqual(expect.arrayContaining(["127.0.0.1", "3306"]));
+    expect(host_.some((i) => i.placeholder === "3306")).toBe(false);
+  });
+
+  it("keeps what was saved over the defaults", () => {
+    mount({ initial: mysql({ host: "db.local", port: "3307" }) });
+    const values = [...host!.querySelectorAll<HTMLInputElement>(".cf-field input")].map((i) => i.value);
+    expect(values).toContain("db.local");
+    expect(values).toContain("3307");
+    expect(values).not.toContain("3306");
   });
 
   it("marks the tunnel as on once it has a host", () => {

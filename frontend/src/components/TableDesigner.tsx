@@ -284,7 +284,7 @@ export function TableDesigner(props: {
                     class="td-in"
                     value={c.defaultValue}
                     onInput={(e) => patch(i(), "defaultValue", e.currentTarget.value)}
-                    placeholder="—"
+                    placeholder={t("td.noDefault")}
                   />
                 </td>
                 <td class="td-c">

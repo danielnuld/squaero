@@ -2,6 +2,7 @@ import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-j
 import { createStore } from "solid-js/store";
 import {
   driverSchema,
+  withFieldDefaults,
   connectionTarget,
   defaultConnectionName,
   fieldErrors,
@@ -112,7 +113,7 @@ export function ConnectionForm(props: {
 }) {
   const [draft, setDraft] = createStore<Connection>({
     ...props.initial,
-    params: { ...props.initial.params },
+    params: withFieldDefaults(driverSchema(props.initial.driver), props.initial.params),
   });
   // Errors are computed live but only shown once the user attempts to save/test,
   // so a fresh form is not pre-decorated with "required" messages.
@@ -191,7 +192,7 @@ export function ConnectionForm(props: {
   });
 
   const selectDriver = (driver: string) => {
-    setDraft({ driver, params: {} });
+    setDraft({ driver, params: withFieldDefaults(driverSchema(driver)) });
     setTest({ kind: "idle" });
     setSshOn(false);
     setDbList(null);
@@ -521,7 +522,7 @@ export function ConnectionForm(props: {
               <For each={AVAILABLE_DRIVERS}>
                 {(d) => {
                   const port = () =>
-                    DRIVER_SCHEMAS[d]?.fields.find((f) => f.key === "port")?.placeholder ?? "";
+                    DRIVER_SCHEMAS[d]?.fields.find((f) => f.key === "port")?.defaultValue ?? "";
                   return (
                     <button
                       type="button"
@@ -687,7 +688,6 @@ export function ConnectionForm(props: {
                   min="0"
                   step="1"
                   value={draft.keepAlive ?? ""}
-                  placeholder="0"
                   onInput={(e) => setDraft("keepAlive", normalizeKeepAlive(e.currentTarget.value))}
                 />
                 <p class="cf-hint">{t("cform.keepAliveHint")}</p>
