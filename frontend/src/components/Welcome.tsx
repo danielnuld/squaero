@@ -34,7 +34,11 @@ function StartAction(props: {
   onClick: () => void;
 }) {
   return (
-    <button class="welcome-action" classList={{ primary: !!props.primary }} onClick={() => props.onClick()}>
+    <button
+      class="welcome-action"
+      classList={{ "welcome-action-primary": !!props.primary }}
+      onClick={() => props.onClick()}
+    >
       <span class="welcome-action-icon" aria-hidden="true">
         <Icon name={props.icon} size={16} />
       </span>
