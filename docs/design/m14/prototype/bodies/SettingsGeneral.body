@@ -1,0 +1,80 @@
+Ajustes · General
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Ajustes — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="settings" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="SettingsNav" theme="{{theme}}" active="general" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <div role="toolbar" aria-label="General" style="height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 32px; border-bottom: 1px solid var(--border)">
+        <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">General</h1>
+        <span class="help">Idioma, actualizaciones y copia de la configuración</span>
+        <span style="flex: 1"></span>
+        <button class="btn btn-ghost">Restablecer esta sección</button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow: hidden; padding: 8px 32px 24px">
+        <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 16px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border); max-width: 560px">Idioma e inicio</div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 360px); column-gap: 24px; padding: 10px 0">
+          <span style="padding-top: 5px; font-weight: 500">Idioma</span>
+          <div>
+            <span class="seg" role="radiogroup" aria-label="Idioma">
+              <sc-for list="{{langs}}" as="l" hint-placeholder-count="2"><button role="radio" aria-checked="{{l.checked}}" tabindex="{{l.tab}}" onClick="{{l.go}}" class="{{l.cls}}" style="{{l.style}}">{{l.label}}</button></sc-for>
+            </span>
+            <div class="help" style="margin-top: 6px">{{langHelp}}</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 360px); column-gap: 24px; padding: 10px 0">
+          <span style="padding-top: 5px; font-weight: 500">Al abrir Squaero</span>
+          <div>
+            <span class="seg" role="radiogroup" aria-label="Al abrir Squaero">
+              <sc-for list="{{starts}}" as="l" hint-placeholder-count="3"><button role="radio" aria-checked="{{l.checked}}" tabindex="{{l.tab}}" onClick="{{l.go}}" class="{{l.cls}}" style="{{l.style}}">{{l.label}}</button></sc-for>
+            </span>
+            <div class="help" style="margin-top: 6px">Las pestañas con cambios sin guardar se recuperan siempre, elijas lo que elijas.</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 360px); column-gap: 24px; padding: 10px 0">
+          <span style="padding-top: 1px; font-weight: 500">Actualizaciones</span>
+          <div>
+            <label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{yes}}" style="accent-color: var(--accent); margin: 0; width: 16px; height: 16px">Buscar actualizaciones al iniciar</label>
+            <div class="help" style="margin-top: 6px">Si hay una versión nueva, Squaero te lo dirá al abrirse. Nunca instala nada sin preguntar.</div>
+          </div>
+        </div>
+
+        <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 24px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border); max-width: 560px">Configuración</div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 360px); column-gap: 24px; padding: 10px 0">
+          <span style="padding-top: 5px; font-weight: 500">Copia de seguridad</span>
+          <div>
+            <div style="display: flex; gap: 8px">
+              <button class="btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="m7 8 5-5 5 5"></path><path d="M5 21h14"></path></svg>Exportar configuración…</button>
+              <button class="btn" onClick="{{importIt}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>Importar configuración…</button>
+            </div>
+            <div class="help" style="margin-top: 6px">Un archivo .json con tus ajustes, temas y atajos. Importar reemplaza los actuales; antes se guarda una copia.</div>
+            <sc-if value="{{imported}}" hint-placeholder-val="{{ false }}">
+              <div role="status" style="margin-top: 10px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--ok-soft); color: var(--ok); font-size: var(--fs-sm)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Configuración importada.</div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const lang = this.state.lang ?? 'Español';
+    const langs = ['Español', 'English'].map((label) => ({ label, checked: label === lang ? 'true' : 'false', tab: label === lang ? '0' : '-1', cls: label === lang ? 'on' : '',
+      style: `border-top: 0; border-bottom: 0; border-left: 0; ${label === lang ? '' : 'background: transparent;'}`, go: () => this.setState({ lang: label }) }));
+    const st = this.state.start ?? 'Retomar la sesión';
+    const starts = ['Retomar la sesión', 'Empezar en blanco', 'Preguntar'].map((label) => ({ label, checked: label === st ? 'true' : 'false', tab: label === st ? '0' : '-1', cls: label === st ? 'on' : '',
+      style: `border-top: 0; border-bottom: 0; border-left: 0; ${label === st ? '' : 'background: transparent;'}`, go: () => this.setState({ start: label }) }));
+    return {
+      os: this.props.os ?? 'windows', theme: this.props.theme ?? 'b', langs, starts, yes: true, imported: !!this.state.imported, importIt: () => this.setState({ imported: true }),
+      langHelp: lang === 'Español' ? 'El cambio se aplica al momento, sin reiniciar.' : 'Changes apply right away, no restart needed.',
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', dirty: true, color: '#2f7dd6' }, { label: 'Ajustes', kind: 'settings', active: true, href: 'SettingsGeneral.dc.html' }]
+    };
+  }
+}

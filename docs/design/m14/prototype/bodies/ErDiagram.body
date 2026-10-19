@@ -1,0 +1,119 @@
+Diagrama ER
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Diagrama ER — Ventas — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="pedidos" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+
+      <div role="toolbar" aria-label="Acciones del diagrama" style="height: 44px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid var(--border)">
+        <button type="button" class="btn" title="Reordenar sin cruces (Ctrl+Mayús+R)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>Reordenar</button>
+        <button type="button" class="btn btn-ghost" title="Ajustar a la ventana (Ctrl+0)">Ajustar a la ventana</button>
+        <span style="width: 1px; height: 20px; background: var(--border); margin: 0 4px"></span>
+        <span id="er-rel" style="font-size: var(--fs-sm); color: var(--text-dim)">Relaciones</span>
+        <span class="seg" role="radiogroup" aria-labelledby="er-rel"><span role="radio" aria-checked="true" tabindex="0" class="on">Claves foráneas</span><span role="radio" aria-checked="false" tabindex="-1" title="Deduce relaciones por nombre (cliente_id → clientes.id) cuando no hay FK declarada">Inferidas</span></span>
+        <span style="flex: 1"></span>
+        <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim)">4 tablas · 1 vista · 3 relaciones</span>
+        <button type="button" class="btn btn-ghost" aria-haspopup="menu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="m7 8 5-5 5 5"></path><path d="M5 21h14"></path></svg>Exportar<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+        <button type="button" class="btn btn-icon" aria-label="Más acciones: mostrar tipos, ocultar vistas, copiar como imagen" aria-haspopup="menu" title="Más acciones"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="19" cy="12" r="1.2"></circle></svg></button>
+      </div>
+
+      <div role="img" aria-label="Diagrama entidad-relación de main. pedidos.cliente_id referencia a clientes.id (cada pedido tiene un cliente; un cliente tiene cero o muchos pedidos). detalle_pedido.pedido_id referencia a pedidos.id. detalle_pedido.producto_id referencia a productos.id. La vista ventas_por_ciudad no tiene relaciones." style="flex: 1; min-height: 0; position: relative; overflow: hidden; background-color: var(--surface); background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 20px 20px">
+        <svg width="976" height="658" viewBox="0 0 976 658" aria-hidden="true" style="position: absolute; left: 0; top: 0; fill: none; stroke-linecap: round; stroke-linejoin: round">
+          <path d="M330 110 H295 V88 H260" style="stroke: var(--accent); stroke-width: 2"></path>
+          <path d="M318 110 L330 104 M318 110 H330 M318 110 L330 116" style="stroke: var(--accent); stroke-width: 2"></path>
+          <circle cx="311" cy="110" r="4" style="fill: var(--surface); stroke: var(--accent); stroke-width: 2"></circle>
+          <path d="M266 82 V94 M271 82 V94" style="stroke: var(--accent); stroke-width: 2"></path>
+
+          <path d="M620 110 H585 V88 H550" style="stroke: var(--accent); stroke-width: 2"></path>
+          <path d="M608 110 L620 104 M608 110 H620 M608 110 L620 116" style="stroke: var(--accent); stroke-width: 2"></path>
+          <circle cx="601" cy="110" r="4" style="fill: var(--surface); stroke: var(--accent); stroke-width: 2"></circle>
+          <path d="M556 82 V94 M561 82 V94" style="stroke: var(--accent); stroke-width: 2"></path>
+
+          <path d="M620 132 H592 V348 H550" style="stroke: var(--border-strong); stroke-width: 1.5"></path>
+          <path d="M608 132 L620 126 M608 132 H620 M608 132 L620 138" style="stroke: var(--border-strong); stroke-width: 1.5"></path>
+          <circle cx="602" cy="132" r="4" style="fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5"></circle>
+          <path d="M556 342 V354 M561 342 V354" style="stroke: var(--border-strong); stroke-width: 1.5"></path>
+        </svg>
+
+        <sc-for list="{{cards}}" as="t" hint-placeholder-count="5">
+          <a href="{{t.href}}" aria-label="{{t.aria}}" style="{{t.style}}">
+            <span style="{{t.head}}">
+              <sc-if value="{{t.isView}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--obj-view)"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></sc-if>
+              <sc-if value="{{t.isTable}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--obj-table)"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M9 10v10"></path></svg></sc-if>
+              <span style="flex: 1; overflow: hidden; text-overflow: ellipsis">{{t.name}}</span>
+              <span class="num" style="font-weight: 400; font-size: var(--fs-xs); color: var(--text-dim)">{{t.count}}</span>
+            </span>
+            <span style="display: block; padding: 4px 0">
+              <sc-for list="{{t.cols}}" as="c" hint-placeholder-count="5">
+                <span style="{{c.style}}">
+                  <span style="width: 14px; flex: none; display: flex; justify-content: center">
+                    <sc-if value="{{c.pk}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Clave primaria" style="color: var(--warn)"><circle cx="7.5" cy="15.5" r="4.5"></circle><path d="m10.7 12.3 9.3-9.3"></path><path d="m16 7 3 3"></path></svg></sc-if>
+                    <sc-if value="{{c.fk}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Clave foránea" style="color: var(--obj-table)"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg></sc-if>
+                  </span>
+                  <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{c.name}}</span>
+                  <span class="mono" style="font-size: var(--fs-xs); color: var(--text-dim); white-space: nowrap">{{c.type}}</span>
+                </span>
+              </sc-for>
+            </span>
+          </a>
+        </sc-for>
+
+        <div role="group" aria-label="Zoom" style="position: absolute; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--overlay); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm)">
+          <button type="button" class="btn btn-icon" aria-label="Alejar (Ctrl+-)" title="Alejar (Ctrl+-)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+          <span class="num" style="width: 44px; text-align: center; font-size: var(--fs-sm)">100%</span>
+          <button type="button" class="btn btn-icon" aria-label="Acercar (Ctrl++)" title="Acercar (Ctrl++)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        </div>
+
+        <div aria-label="Notación de las relaciones" style="position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; padding: 6px 12px; background: var(--overlay); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm); font-size: var(--fs-sm); color: var(--text-dim); white-space: nowrap">
+          <span style="display: flex; align-items: center; gap: 6px"><svg width="28" height="14" viewBox="0 0 28 14" aria-hidden="true" style="fill: none; stroke: var(--text); stroke-width: 1.5"><path d="M0 7 H28 M20 1 V13 M25 1 V13"></path></svg>Exactamente uno (clave primaria)</span>
+          <span style="display: flex; align-items: center; gap: 6px"><svg width="28" height="14" viewBox="0 0 28 14" aria-hidden="true" style="fill: none; stroke: var(--text); stroke-width: 1.5"><path d="M0 7 H8 M14 7 H28 M16 7 L28 1 M16 7 L28 13"></path><circle cx="11" cy="7" r="3" style="fill: var(--overlay)"></circle></svg>Cero o muchos (clave foránea)</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 20px; height: 12px; box-sizing: border-box; border: 1.5px dashed var(--border-strong); border-radius: 3px"></span>Vista</span>
+        </div>
+
+        <div aria-label="Minimapa" style="position: absolute; right: 16px; bottom: 16px; width: 176px; padding: 6px; box-sizing: border-box; background: var(--overlay); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm)">
+          <svg width="164" height="104" viewBox="0 0 164 104" aria-hidden="true" style="display: block">
+            <rect x="7" y="7" width="35" height="31" rx="2" style="fill: var(--border-strong)"></rect>
+            <rect x="53" y="7" width="35" height="24" rx="2" style="fill: var(--accent)"></rect>
+            <rect x="99" y="7" width="35" height="24" rx="2" style="fill: var(--border-strong)"></rect>
+            <rect x="53" y="48" width="35" height="27" rx="2" style="fill: var(--border-strong)"></rect>
+            <rect x="7" y="48" width="35" height="17" rx="2" style="fill: none; stroke: var(--border-strong); stroke-dasharray: 2 2"></rect>
+            <rect x="1" y="1" width="162" height="102" rx="3" style="fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5"></rect>
+          </svg>
+        </div>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" color="#2f7dd6" info="Diagrama ER · pedidos seleccionada · 2 relaciones · 100%" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    // Card geometry: border 1 + header 32 + padding 4 + rows of 22 px, so row i is centred at top + 48 + 22 * i.
+    // The SVG relations above are anchored to those centres (FK row on the left edge, PK row on the right edge).
+    const T = [
+      ['clientes', 40, 40, false, [['id', 'integer', 'pk'], ['nombre', 'text'], ['email', 'text'], ['ciudad', 'text'], ['saldo', 'numeric(10,2)'], ['activo', 'boolean'], ['alta', 'date']]],
+      ['pedidos', 330, 40, false, [['id', 'integer', 'pk'], ['cliente_id', 'integer', 'fk'], ['fecha', 'date'], ['estado', 'text'], ['total', 'numeric(10,2)']], true],
+      ['detalle_pedido', 620, 40, false, [['id', 'integer', 'pk'], ['pedido_id', 'integer', 'fk'], ['producto_id', 'integer', 'fk'], ['cantidad', 'integer'], ['precio_unitario', 'numeric(10,2)']]],
+      ['productos', 330, 300, false, [['id', 'integer', 'pk'], ['sku', 'text'], ['nombre', 'text'], ['categoria', 'text'], ['precio', 'numeric(10,2)'], ['existencias', 'integer']]],
+      ['ventas_por_ciudad', 40, 300, true, [['ciudad', 'text'], ['pedidos', 'bigint'], ['importe', 'numeric']]]
+    ];
+    const cards = T.map(([name, x, y, isView, cols, sel]) => ({
+      name, isView, isTable: !isView, count: isView ? 'vista' : `${cols.length} columnas`,
+      href: isView ? 'ViewData.dc.html' : 'DataGrid.dc.html',
+      aria: `${isView ? 'Vista' : 'Tabla'} ${name}${sel ? ', seleccionada' : ''}`,
+      style: `position: absolute; left: ${x}px; top: ${y}px; width: 220px; box-sizing: border-box; display: block; text-decoration: none; color: var(--text); background: var(--content); border: 1px ${isView ? 'dashed' : 'solid'} var(--border-strong); border-radius: var(--r-md); box-shadow: ${sel ? '0 0 0 2px var(--accent), 0 0 0 6px var(--accent-soft)' : 'var(--shadow-sm)'}; overflow: hidden`,
+      head: `height: 32px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-weight: 600; border-bottom: 1px solid var(--border); background: ${sel ? 'var(--accent-soft)' : 'var(--surface)'}`,
+      cols: cols.map(([n, ty, k]) => ({ name: n, type: ty, pk: k === 'pk', fk: k === 'fk',
+        style: `height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 6px; font-size: var(--fs-sm); ${k === 'pk' ? 'font-weight: 600;' : ''}` }))
+    }));
+    return {
+      theme: this.props.theme ?? 'b', os: this.props.os ?? 'windows',
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', color: '#2f7dd6' }, { label: 'Diagrama ER · main', kind: 'tool', active: true, href: 'ErDiagram.dc.html', color: '#2f7dd6' }],
+      cards
+    };
+  }
+}

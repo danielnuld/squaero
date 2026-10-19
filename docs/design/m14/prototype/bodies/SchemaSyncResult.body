@@ -1,0 +1,86 @@
+Sincronizar estructura · revisar
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Sincronizar estructura — Ventas — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="clientes" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 24px; border-bottom: 1px solid var(--border)">
+        <div style="min-width: 0">
+          <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">Sincronizar estructura</h1>
+          <div style="font-size: var(--fs-sm); color: var(--text-dim)">Ventas → Ventas copia · main</div>
+        </div>
+        <span style="flex: 1"></span>
+        <ol aria-label="Pasos del asistente" style="list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-md)"><li style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; background: var(--accent-soft); color: var(--accent-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span style="position: absolute; left: -9999px">Hecho:</span></span><span style="color: var(--text-dim)">Comparar</span></li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><li aria-current="step" style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; background: var(--accent); color: var(--accent-fg)">2</span><span style="color: var(--text); font-weight: 600">Revisar</span></li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><li style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; border: 1px solid var(--border-strong); color: var(--text-dim)">3</span><span style="color: var(--text-dim)">Aplicar</span></li></ol>
+      </header>
+      <div style="flex: 1; min-height: 0; overflow: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 24px">
+        <div style="display: flex; gap: 24px; min-height: 0">
+          <div style="width: 330px; flex: none; display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm)"><span aria-hidden="true" style="width: 8px; height: 8px; flex: none; border-radius: 50%; background: #2f7dd6"></span><b style="font-weight: 600">Ventas</b><span style="display: flex; color: var(--text-dim)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></span><span aria-hidden="true" style="width: 8px; height: 8px; flex: none; border-radius: 50%; background: #2e9e52"></span><b style="font-weight: 600">Ventas copia</b><span style="color: var(--text-dim)">· main</span></div>
+            <section style="display: flex; flex-direction: column; gap: 8px">
+              <h2 class="lbl" style="margin: 0; font-size: var(--fs-sm)">Diferencias (3)</h2>
+              <ul style="list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden"><li style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 12px; ">
+              <span aria-hidden="true" class="mono" style="width: 22px; height: 22px; flex: none; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-weight: 600; background: var(--ok-soft); color: var(--ok)">+</span>
+              <span style="display: flex; flex-direction: column; min-width: 0"><span><span style="color: var(--text-dim)">Índice</span> <span class="mono" style="font-size: var(--fs-sm); font-weight: 500">ix_clientes_ciudad</span></span><span style="font-size: var(--fs-sm); color: var(--text-dim)">Solo en el origen — se creará</span></span></li><li style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 12px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent)">
+              <span aria-hidden="true" class="mono" style="width: 22px; height: 22px; flex: none; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-weight: 600; background: var(--warn-soft); color: var(--warn)">~</span>
+              <span style="display: flex; flex-direction: column; min-width: 0"><span><span style="color: var(--text-dim)">Vista</span> <span class="mono" style="font-size: var(--fs-sm); font-weight: 500">ventas_por_ciudad</span></span><span style="font-size: var(--fs-sm); color: var(--text-dim)">Distinta — se recreará</span></span></li><li style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 12px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent)">
+              <span aria-hidden="true" class="mono" style="width: 22px; height: 22px; flex: none; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-weight: 600; background: var(--danger-soft); color: var(--danger)">−</span>
+              <span style="display: flex; flex-direction: column; min-width: 0"><span><span style="color: var(--text-dim)">Columna</span> <span class="mono" style="font-size: var(--fs-sm); font-weight: 500">clientes.telefono</span></span><span style="font-size: var(--fs-sm); color: var(--danger)">Solo en el destino — se eliminará</span></span></li></ul>
+              <div class="help" style="display: flex; gap: 12px; flex-wrap: wrap"><span><b class="mono" style="color: var(--ok)">+</b> se crea</span><span><b class="mono" style="color: var(--warn)">~</b> se cambia</span><span><b class="mono" style="color: var(--danger)">−</b> se elimina</span><span>· en el destino</span></div>
+            </section>
+            <div style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.45"><span style="display: flex; flex: none; margin-top: 1px; color: var(--text-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg></span><span>Restricciones CHECK sin comparar: SQLite no las expone en su catálogo.</span></div>
+          </div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; align-items: center; gap: 8px"><h2 class="lbl" style="margin: 0; font-size: var(--fs-sm)">Script para Ventas copia</h2><span class="help">3 de 4 sentencias marcadas · en una transacción</span><span style="flex: 1"></span><a href="#" class="btn btn-ghost" style="height: 26px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>Copiar</a></div>
+            <section aria-label="Sin pérdida de datos" style="border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden">
+              <div style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: var(--fs-sm); font-weight: 600"><span style="display: flex; color: var(--ok)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>Sin pérdida de datos (3)</div>
+              <label style="display: grid; grid-template-columns: 20px 22px 1fr; gap: 0 8px; align-items: start; padding: 8px 12px; ">
+                <input type="checkbox" checked="checked" aria-label="Incluir la sentencia 1" style="accent-color: var(--accent); width: 16px; height: 16px; margin: 2px 0 0">
+                <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim); padding-top: 1px">1</span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span class="mono" style="font-size: var(--fs-sm); line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="color: var(--syntax-keyword)">DROP VIEW</span> "ventas_por_ciudad";</span><span style="font-size: var(--fs-sm); color: var(--text-dim)">Vista distinta: se quita para recrearla (no guarda datos)</span></span>
+              </label><label style="display: grid; grid-template-columns: 20px 22px 1fr; gap: 0 8px; align-items: start; padding: 8px 12px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent)">
+                <input type="checkbox" checked="checked" aria-label="Incluir la sentencia 2" style="accent-color: var(--accent); width: 16px; height: 16px; margin: 2px 0 0">
+                <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim); padding-top: 1px">2</span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span class="mono" style="font-size: var(--fs-sm); line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="color: var(--syntax-keyword)">CREATE VIEW</span> "ventas_por_ciudad" <span style="color: var(--syntax-keyword)">AS</span><br>&nbsp;&nbsp;<span style="color: var(--syntax-keyword)">SELECT</span> c.ciudad, COUNT(p.id) <span style="color: var(--syntax-keyword)">AS</span> pedidos, SUM(p.total) …</span><span style="font-size: var(--fs-sm); color: var(--text-dim)">Definición del origen</span></span>
+              </label><label style="display: grid; grid-template-columns: 20px 22px 1fr; gap: 0 8px; align-items: start; padding: 8px 12px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent)">
+                <input type="checkbox" checked="checked" aria-label="Incluir la sentencia 3" style="accent-color: var(--accent); width: 16px; height: 16px; margin: 2px 0 0">
+                <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim); padding-top: 1px">3</span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span class="mono" style="font-size: var(--fs-sm); line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="color: var(--syntax-keyword)">CREATE INDEX</span> "ix_clientes_ciudad" <span style="color: var(--syntax-keyword)">ON</span> "clientes" ("ciudad");</span><span style="font-size: var(--fs-sm); color: var(--text-dim)">Índice que solo está en el origen</span></span>
+              </label>
+            </section>
+            <section aria-label="Elimina datos" style="border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border)); border-radius: var(--r-md); overflow: hidden">
+              <div style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--danger-soft); border-bottom: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); font-size: var(--fs-sm); font-weight: 600; color: var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>Elimina datos (1)<span style="font-weight: 400; color: var(--text-dim)">· desmarcada por defecto</span></div>
+              <label style="display: grid; grid-template-columns: 20px 22px 1fr; gap: 0 8px; align-items: start; padding: 8px 12px; ">
+                <input type="checkbox" aria-label="Incluir la sentencia 4" style="accent-color: var(--danger); width: 16px; height: 16px; margin: 2px 0 0">
+                <span class="num" style="font-size: var(--fs-sm); color: var(--text-dim); padding-top: 1px">4</span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span class="mono" style="font-size: var(--fs-sm); line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="color: var(--syntax-keyword)">ALTER TABLE</span> "clientes" <span style="color: var(--syntax-keyword)">DROP COLUMN</span> "telefono";</span><span style="font-size: var(--fs-sm); color: var(--danger)">Borra la columna y sus 9 valores en Ventas copia. No se puede deshacer.</span></span>
+              </label>
+            </section>
+            <div class="help">La sentencia 4 no se aplicará mientras esté desmarcada. Ventas copia no está protegida; en una conexión protegida se pide escribir su nombre.</div>
+          </div>
+        </div>
+      </div>
+      <footer style="height: 52px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 24px; border-top: 1px solid var(--border); background: var(--surface)">
+        <a href="SchemaSync.dc.html" class="btn">Atrás</a>
+        <a href="EditorResult.dc.html" class="btn btn-ghost"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="m9 13-2 2 2 2"></path><path d="m13 13 2 2-2 2"></path></svg>Abrir en el editor</a><a href="#" class="btn btn-ghost"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>Guardar .sql</a>
+        <span style="flex: 1"></span>
+        <span class="dlg-actions"><a href="SchemaSyncApply.dc.html" class="btn btn-danger">Aplicar 3 sentencias en Ventas copia</a><a href="DataGrid.dc.html" class="btn">Cancelar</a></span>
+      </footer>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="3 diferencias · 3 de 4 sentencias marcadas" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      theme: this.props.theme ?? 'b',
+      os: this.props.os ?? 'windows',
+      noLine: 0,
+      tabs: [{"label": "Consulta 1", "kind": "query", "href": "EditorResult.dc.html", "dirty": true}, {"label": "clientes", "kind": "table", "href": "DataGrid.dc.html"}, {"label": "Sincronizar estructura", "kind": "tool", "active": true, "href": "#", "color": "#2f7dd6"}],
+    };
+  }
+}

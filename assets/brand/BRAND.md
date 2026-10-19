@@ -63,6 +63,24 @@ WCAG AA para su uso previsto.
 > `frontend/src/styles.css`). Los dos valores (`#5b5bd6` claro / `#7c7cf0`
 > oscuro) son los oficiales de marca.
 
+## Estilos de la interfaz (M14)
+
+Decidido en #678. La interfaz usa un solo layout (el rediseño M14) con **cuatro
+estilos** que el usuario elige en Ajustes › Apariencia:
+
+| Estilo | Carácter | Acento | Tipografía |
+|---|---|---|---|
+| **B · Nativo** (predeterminado) | Claro, integrado con el sistema | `#0f7b72` | Fuente del sistema + JetBrains Mono |
+| **A · Quiet pro** | Oscuro frío | `#3fb8a9` | Geist + Geist Mono |
+| **C · Editorial** | Oscuro cálido, etiquetas en minúscula | `#e0a43c` | IBM Plex Sans + IBM Plex Mono |
+| **Rosa pastel** | Claro y suave | `#c2477a` | Figtree + JetBrains Mono |
+
+El índigo sigue siendo el color del **logo** y de los temas integrados
+heredados («Squaero (índigo)», Azul, Ciruela, Pizarra, Terminal, Alto
+contraste), que se conservan como temas de color. Los tokens completos, los
+principios del layout y por qué se eligió esta dirección están en
+[`docs/design/m14/`](../../docs/design/m14/README.md).
+
 ## Tipografía
 
 - **Titulares / wordmark:** *Space Grotesk* (geométrica, técnica), peso 600, con

@@ -1,0 +1,70 @@
+Ajustes · Consultas
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Ajustes — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="settings" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="SettingsNav" theme="{{theme}}" active="queries" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <div role="toolbar" aria-label="Consultas" style="height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 32px; border-bottom: 1px solid var(--border)">
+        <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">Consultas</h1>
+        <span class="help">Consultas lentas e historial de ejecución</span>
+        <span style="flex: 1"></span>
+        <button class="btn btn-ghost">Restablecer esta sección</button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow: hidden; padding: 4px 32px 24px">
+        <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 14px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border); max-width: 640px">Consultas lentas</div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 360px); column-gap: 24px; padding: 10px 0">
+          <span style="padding-top: 5px; font-weight: 500">Umbral</span>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <input class="field" value="{{threshold}}" aria-label="Umbral de consulta lenta (ms)" style="width: 80px; text-align: right">
+              <span class="help">ms</span>
+              <span class="seg" role="radiogroup" aria-label="Valores habituales" style="margin-left: 8px"><sc-for list="{{presets}}" as="m" hint-placeholder-count="3"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+            </div>
+            <div class="help" style="margin-top: 6px">Las consultas que tardan más se marcan en el historial y aparecen en <a href="SlowQueries.dc.html">Consultas lentas</a>.</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 480px); column-gap: 24px; padding: 4px 0 10px">
+          <span></span>
+          <div aria-label="Ejemplo con el umbral actual" style="border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden">
+            <sc-for list="{{samples}}" as="q" hint-placeholder-count="4">
+              <div style="height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent)">
+                <span class="mono" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm)">{{q.sql}}</span>
+                <sc-if value="{{q.slow}}"><span class="chip" style="height: 20px; background: var(--warn-soft); color: var(--warn)">Lenta</span></sc-if>
+                <span class="num mono" style="width: 64px; text-align: right; font-size: var(--fs-sm); color: var(--text-dim)">{{q.time}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 20px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border); max-width: 640px">Historial</div>
+        <div style="display: grid; grid-template-columns: 160px minmax(0, 360px); column-gap: 24px; padding: 10px 0">
+          <span style="padding-top: 5px; font-weight: 500">Límite de historial</span>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px"><input class="field" value="1000" aria-label="Límite de historial" style="width: 80px; text-align: right"><span class="help">consultas</span></div>
+            <div class="help" style="margin-top: 6px">Al pasar el límite se borran las más antiguas. Puedes revisarlas en <a href="HistoryPanel.dc.html">Historial</a>.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const t = this.state.t ?? '500';
+    const presets = ['200', '500', '1000'].map((label) => ({ label: `${label} ms`, checked: label === t ? 'true' : 'false', tab: label === t ? '0' : '-1', cls: label === t ? 'on' : '',
+      style: `border-top: 0; border-bottom: 0; border-left: 0; ${label === t ? '' : 'background: transparent;'}`, go: () => this.setState({ t: label }) }));
+    const Q = [['SELECT * FROM clientes', 20], ['SELECT c.nombre, SUM(p.total) FROM clientes c JOIN pedidos p …', 340], ['UPDATE pedidos SET estado = \'enviado\' WHERE …', 640], ['SELECT * FROM detalle_pedido d JOIN productos …', 1840]];
+    const samples = Q.map(([sql, ms]) => ({ sql, slow: ms > Number(t), time: ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms` }));
+    return {
+      os: this.props.os ?? 'windows', theme: this.props.theme ?? 'b', threshold: t, presets, samples,
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', dirty: true, color: '#2f7dd6' }, { label: 'Ajustes', kind: 'settings', active: true, href: 'SettingsQueries.dc.html' }]
+    };
+  }
+}

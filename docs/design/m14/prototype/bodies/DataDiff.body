@@ -1,0 +1,72 @@
+Sincronizar datos
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Sincronizar datos · clientes — Ventas — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="explorer" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="Explorer" theme="{{theme}}" state="connected" tree="tables" selected="clientes" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 24px; border-bottom: 1px solid var(--border)">
+        <div style="min-width: 0">
+          <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">Sincronizar datos · clientes</h1>
+          <div style="font-size: var(--fs-sm); color: var(--text-dim)">Iguala las filas del destino a las del origen</div>
+        </div>
+        <span style="flex: 1"></span>
+        <ol aria-label="Pasos del asistente" style="list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 10px; font-size: var(--fs-md)"><li aria-current="step" style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; background: var(--accent); color: var(--accent-fg)">1</span><span style="color: var(--text); font-weight: 600">Comparar</span></li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><li style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; border: 1px solid var(--border-strong); color: var(--text-dim)">2</span><span style="color: var(--text-dim)">Revisar</span></li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-dim)"><path d="m9 6 6 6-6 6"></path></svg><li style="display: flex; align-items: center; gap: 8px"><span style="position: relative; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--fs-sm); font-weight: 600; border: 1px solid var(--border-strong); color: var(--text-dim)">3</span><span style="color: var(--text-dim)">Aplicar</span></li></ol>
+      </header>
+      <div style="flex: 1; min-height: 0; overflow: auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.45"><span style="display: flex; flex: none; margin-top: 1px; color: var(--text-dim)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg></span><span>Se compara la <b>tabla completa</b> por clave primaria, en bloques de 1000 filas, no solo la página cargada. Los valores se comparan por tipo (980.50 y 980.5 son iguales).</span></div>
+        <section style="display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: baseline; gap: 8px"><h2 class="lbl" style="margin: 0; font-size: var(--fs-sm)">Qué comparar</h2></div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0 16px; align-items: start">
+            <span style="padding-top: 5px; color: var(--text-dim)">Origen</span>
+            <div style="max-width: 360px"><div style="min-height: 28px; display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 8px; height: 8px; flex: none; border-radius: 50%; background: #2f7dd6"></span><span style="display: flex; color: var(--obj-table)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M9 10v10"></path></svg></span><span style="font-weight: 600">clientes</span><span style="color: var(--text-dim)">· Ventas · main · 12 filas</span></div></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0 16px; align-items: start">
+            <label for="ddst" style="padding-top: 5px; color: var(--text-dim)">Conexión destino</label>
+            <div style="max-width: 360px"><select id="ddst" class="field is-focus" style="width: 100%"><option selected="selected">Ventas copia</option><option>Producción (PostgreSQL) · solo lectura</option></select></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0 16px; align-items: start">
+            <label for="dddb" style="padding-top: 5px; color: var(--text-dim)">Base de datos</label>
+            <div style="max-width: 360px"><select id="dddb" class="field" style="width: 100%"><option selected="selected">main</option></select></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0 16px; align-items: start">
+            <label for="ddtbl" style="padding-top: 5px; color: var(--text-dim)">Tabla destino</label>
+            <div style="max-width: 360px"><select id="ddtbl" class="field" style="width: 100%"><option selected="selected">clientes</option></select><div class="help" style="margin-top: 4px">Mismo nombre que el origen.</div></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0 16px; align-items: start">
+            <span style="padding-top: 5px; color: var(--text-dim)">Clave de comparación</span>
+            <div style="max-width: 360px"><div style="min-height: 28px; display: flex; align-items: center; gap: 8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--warn)"><circle cx="7.5" cy="15.5" r="4.5"></circle><path d="m10.7 12.3 9.3-9.3"></path><path d="m16 7 3 3"></path></svg><span class="mono" style="font-size: var(--fs-sm)">id</span><span style="color: var(--text-dim); font-size: var(--fs-sm)">· clave primaria</span></div></div>
+          </div>
+        </section>
+        <section style="display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: baseline; gap: 8px"><h2 class="lbl" style="margin: 0; font-size: var(--fs-sm)">Operaciones</h2></div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0 16px; align-items: start">
+            <span style="padding-top: 5px; color: var(--text-dim)">Generar</span>
+            <div style="max-width: 360px"><div><label style="display: flex; align-items: center; gap: 8px; min-height: 28px"><input type="checkbox" checked="checked" style="accent-color: var(--accent); width: 16px; height: 16px; margin: 0">INSERT · filas que faltan en el destino</label><label style="display: flex; align-items: center; gap: 8px; min-height: 28px"><input type="checkbox" checked="checked" style="accent-color: var(--accent); width: 16px; height: 16px; margin: 0">UPDATE · filas distintas</label><label style="display: flex; align-items: center; gap: 8px; min-height: 28px"><input type="checkbox" style="accent-color: var(--accent); width: 16px; height: 16px; margin: 0">DELETE · filas que sobran en el destino</label></div><div class="help" style="margin-top: 4px">DELETE está desmarcado por defecto: borraría filas del destino.</div></div>
+          </div>
+        </section>
+      </div>
+      <footer style="height: 52px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 24px; border-top: 1px solid var(--border); background: var(--surface)">
+        <button type="button" class="btn" disabled="disabled" style="opacity: .45">Atrás</button>
+        
+        <span style="flex: 1"></span>
+        <span class="dlg-actions"><a href="DataDiffResult.dc.html" class="btn btn-primary">Comparar</a><a href="DataGrid.dc.html" class="btn">Cancelar</a></span>
+      </footer>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="Sincronizar datos · clientes" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      theme: this.props.theme ?? 'b',
+      os: this.props.os ?? 'windows',
+      noLine: 0,
+      tabs: [{"label": "Consulta 1", "kind": "query", "href": "EditorResult.dc.html", "dirty": true}, {"label": "clientes", "kind": "table", "href": "DataGrid.dc.html"}, {"label": "Sincronizar datos", "kind": "tool", "active": true, "href": "#", "color": "#2f7dd6"}],
+    };
+  }
+}

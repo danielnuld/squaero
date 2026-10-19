@@ -1,0 +1,105 @@
+Ajustes · Editor
+<div class="th th-{{theme}}" data-os="{{os}}" style="width: 1280px; height: 800px; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--chrome)">
+  <dc-import name="TitleBar" theme="{{theme}}" os="{{os}}" window-title="Ajustes — Squaero" hint-size="1280px,38px"></dc-import>
+  <div style="flex: 1; min-height: 0; display: flex">
+    <dc-import name="Rail" theme="{{theme}}" active="settings" height="738px" hint-size="56px,738px"></dc-import>
+    <dc-import name="SettingsNav" theme="{{theme}}" active="editor" height="738px" hint-size="248px,738px"></dc-import>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); border-radius: var(--content-radius); border-top: var(--content-edge); border-left: var(--content-edge); overflow: hidden">
+      <dc-import name="DocTabs" theme="{{theme}}" tabs="{{tabs}}" hint-size="100%,36px"></dc-import>
+      <div role="toolbar" aria-label="Editor" style="height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 32px; border-bottom: 1px solid var(--border)">
+        <h1 style="margin: 0; font-size: var(--fs-lg); font-weight: 600">Editor</h1>
+        <span class="help">Fuente, ayudas de escritura e historial local del editor SQL</span>
+        <span style="flex: 1"></span>
+        <button class="btn btn-ghost">Restablecer esta sección</button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; gap: 32px; overflow: hidden; padding: 4px 32px 24px">
+        <div style="flex: 1; min-width: 0">
+          <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Ejecución</div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <span style="padding-top: 5px; font-weight: 500"><span class="kbd">{{kRun}}</span> ejecuta</span>
+            <div>
+              <span class="seg" role="radiogroup" aria-label="Qué ejecuta {{kRun}}"><sc-for list="{{scopes}}" as="m" hint-placeholder-count="2"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+              <div class="help" style="margin-top: 6px">Con texto seleccionado se ejecuta la selección. <span class="kbd">{{kAll}}</span> ejecuta siempre el script completo.</div>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px"><input type="checkbox" checked="{{band}}" onClick="{{toggleBand}}" style="accent-color: var(--accent); margin: 0; width: 16px; height: 16px">Resaltar lo que se va a ejecutar</label>
+            </div>
+          </div>
+
+          <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Tipografía</div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0; align-items: center">
+            <span style="font-weight: 500">Fuente del editor</span>
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span class="field" role="combobox" aria-label="Fuente del editor" aria-expanded="false" style="width: 220px; display: inline-flex; align-items: center; justify-content: space-between; font-family: var(--font-mono)">{{monoName}}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+              <input class="field" value="13" aria-label="Tamaño del editor (px)" style="width: 60px; text-align: right"><span class="help">px</span>
+            </span>
+          </div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0; align-items: center">
+            <span style="font-weight: 500">Interlineado</span>
+            <span class="seg" role="radiogroup" aria-label="Interlineado del editor" style="justify-self: start"><sc-for list="{{lines}}" as="m" hint-placeholder-count="3"><button role="radio" aria-checked="{{m.checked}}" tabindex="{{m.tab}}" onClick="{{m.go}}" class="{{m.cls}}" style="{{m.style}}">{{m.label}}</button></sc-for></span>
+          </div>
+
+          <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Ayudas</div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <span style="font-weight: 500">Al escribir</span>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{ligatures}}" onClick="{{toggleLig}}" style="accent-color: var(--accent); margin: 0; width: 16px; height: 16px">Ligaduras (<span class="mono">&gt;=</span> se dibuja como un solo signo)</label>
+              <label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{problems}}" onClick="{{toggleProb}}" style="accent-color: var(--accent); margin: 0; width: 16px; height: 16px">Marcar problemas en el SQL</label>
+              <label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{yes}}" style="accent-color: var(--accent); margin: 0; width: 16px; height: 16px">Plantillas integradas</label>
+              <div class="help" style="margin-top: -2px; padding-left: 24px">Escribe <span class="mono">sel</span>, <span class="mono">ins</span>, <span class="mono">upd</span> o <span class="mono">cte</span> y pulsa <span class="kbd">{{kTab}}</span>. Varios cursores: <span class="kbd">{{kCur}}</span>.</div>
+            </div>
+          </div>
+
+          <div class="lbl" style="font-size: var(--fs-sm); color: var(--text); margin: 12px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border)">Historial local</div>
+          <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: 24px; padding: 8px 0">
+            <span style="padding-top: 5px; font-weight: 500">Se conservan</span>
+            <div>
+              <span style="display: flex; align-items: center; gap: 8px"><input class="field" value="50" aria-label="Versiones por pestaña" style="width: 64px; text-align: right"><span class="help">versiones por pestaña durante</span><input class="field" value="30" aria-label="Días que se conservan" style="width: 56px; text-align: right"><span class="help">días</span></span>
+              <div class="help" style="margin-top: 6px">0 días = sin límite. Vuelve a una versión anterior desde <a href="LocalHistory.dc.html">Historial local</a>.</div>
+            </div>
+          </div>
+        </div>
+
+        <aside aria-label="Vista previa" style="width: 330px; flex: none; margin-top: 14px; align-self: flex-start; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--content)">
+          <div style="height: 34px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--surface)"><span class="lbl" style="flex: 1">Vista previa</span><span style="font-size: var(--fs-xs); color: var(--text-dim)">{{previewNote}}</span></div>
+          <dc-import name="SqlEditor" theme="{{theme}}" sql="{{sql}}" current="4" caret-line="4" run-range="{{runRange}}" error-word="{{errorWord}}" height="170px" hint-size="100%,170px"></dc-import>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <dc-import name="StatusBar" theme="{{theme}}" conn="Ventas" db="main" info="" hint-size="1280px,24px"></dc-import>
+</div>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"$preview":{"width":1280,"height":800}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state;
+    const os = this.props.os ?? 'windows';
+    const mac = os === 'macos';
+    const theme = this.props.theme ?? 'b';
+    const MOD = { Alt: ['⌥', 1], 'Mayús': ['⇧', 2], Ctrl: ['⌘', 3] };
+    const KEY = { Intro: '↩', Tab: '⇥' };
+    const fmt = (k) => { const ks = k.split('+'); return mac ? ks.filter((x) => MOD[x]).sort((a, b) => MOD[a][1] - MOD[b][1]).map((x) => MOD[x][0]).join('') + ks.filter((x) => !MOD[x]).map((x) => KEY[x] ?? x).join('') : ks.join('+'); };
+    const segs = (list, cur, key) => list.map((label) => ({ label, checked: label === cur ? 'true' : 'false', tab: label === cur ? '0' : '-1', cls: label === cur ? 'on' : '',
+      style: `border-top: 0; border-bottom: 0; border-left: 0; ${label === cur ? '' : 'background: transparent;'}`, go: () => this.setState({ [key]: label }) }));
+    const lh = s.lh ?? '1,6';
+    const scope = s.scope ?? 'Sentencia del cursor';
+    const band = s.band ?? true;
+    const ligatures = s.lig ?? true;
+    const problems = s.prob ?? true;
+    const mono = { b: 'JetBrains Mono', a: 'Geist Mono', c: 'IBM Plex Mono', rosa: 'JetBrains Mono' }[theme];
+    return {
+      os, theme, lines: segs(['1,4', '1,6', '1,8'], lh, 'lh'), scopes: segs(['Sentencia del cursor', 'Script completo'], scope, 'scope'),
+      band, toggleBand: () => this.setState({ band: !band }),
+      kRun: fmt('Ctrl+Intro'), kAll: fmt('Ctrl+Mayús+Intro'), kTab: fmt('Tab'), kCur: fmt('Alt+Mayús+↑') + ' / ↓',
+      ligatures, problems, yes: true,
+      toggleLig: () => this.setState({ lig: !ligatures }), toggleProb: () => this.setState({ prob: !problems }),
+      monoName: mono === 'Geist Mono' || mono === 'IBM Plex Mono' ? mono : 'JetBrains Mono',
+      errorWord: problems ? 'clientez' : '',
+      runRange: band ? (scope === 'Script completo' ? '1-6' : '4-6') : '',
+      sql: (ligatures ? 'SELECT COUNT(*)\nFROM pedidos;\n\nSELECT nombre, ciudad\nFROM clientez\nWHERE saldo ≥ 1000;' : 'SELECT COUNT(*)\nFROM pedidos;\n\nSELECT nombre, ciudad\nFROM clientez\nWHERE saldo >= 1000;'),
+      previewNote: problems ? '1 problema' : '',
+      tabs: [{ label: 'Consulta 1', kind: 'query', href: 'EditorResult.dc.html', dirty: true, color: '#2f7dd6' }, { label: 'Ajustes', kind: 'settings', active: true, href: 'SettingsEditor.dc.html' }]
+    };
+  }
+}

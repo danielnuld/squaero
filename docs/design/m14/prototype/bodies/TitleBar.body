@@ -1,0 +1,69 @@
+Barra de título
+<header class="th th-{{theme}}" data-os="{{os}}" style="width: 100%; min-width: 900px; height: var(--h-title); box-sizing: border-box; display: flex; align-items: center; background: var(--chrome); color: var(--text); font-size: var(--fs-sm)">
+  <sc-if value="{{isMac}}">
+    <span aria-hidden="true" style="display: flex; gap: 8px; padding: 0 12px 0 14px; width: 78px; box-sizing: border-box">
+      <span style="width: 12px; height: 12px; border-radius: 50%; background: #ff5f57"></span>
+      <span style="width: 12px; height: 12px; border-radius: 50%; background: #febc2e"></span>
+      <span style="width: 12px; height: 12px; border-radius: 50%; background: #28c840"></span>
+    </span>
+    <span style="color: var(--text-dim); white-space: nowrap">{{windowTitle}}</span>
+  </sc-if>
+  <sc-if value="{{isWin}}">
+    <span style="width: 56px; flex: none; display: flex; justify-content: center">
+      <span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 5px; background: var(--accent); color: var(--accent-fg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px">S</span>
+    </span>
+    <nav aria-label="Menú de la aplicación" style="display: flex; gap: 2px">
+      <sc-for list="{{menus}}" as="m" hint-placeholder-count="7">
+        <a href="{{m.href}}" accesskey="{{m.key}}" aria-haspopup="menu" style="{{m.style}}">{{m.pre}}<span style="text-decoration: underline; text-underline-offset: 2px">{{m.ch}}</span>{{m.rest}}</a>
+      </sc-for>
+    </nav>
+  </sc-if>
+  <sc-if value="{{isLinux}}">
+    <span style="padding: 0 12px; font-weight: 600">Squaero</span>
+  </sc-if>
+  <span style="flex: 1; min-width: 120px"></span>
+  <a href="CommandPalette.dc.html" title="Buscar tablas, acciones y snippets ({{paletteKey}})" style="width: 320px; height: 26px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--content); color: var(--text-dim); text-decoration: none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+    <span style="flex: 1">{{placeholder}}</span>
+    <span class="kbd">{{paletteKey}}</span>
+  </a>
+  <span style="flex: 1; min-width: 120px"></span>
+  <a href="Notifications.dc.html" aria-label="Notificaciones" style="position: relative; width: 32px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); border-radius: var(--r-sm)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+    <sc-if value="{{hasNotif}}"><span style="position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--accent); color: var(--accent-fg); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{notif}}</span></sc-if>
+  </a>
+  <sc-if value="{{isLinux}}">
+    <a href="#" aria-label="Menú principal" style="width: 32px; height: 28px; margin-left: 4px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); border-radius: var(--r-sm)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg></a>
+    <span aria-hidden="true" style="width: 24px; height: 24px; margin: 0 8px; border-radius: 50%; background: var(--hover); display: flex; align-items: center; justify-content: center; color: var(--text-dim)"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1 1 9" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+  </sc-if>
+  <sc-if value="{{isWin}}">
+    <span aria-hidden="true" style="display: flex; margin-left: 8px; color: var(--text-dim)">
+      <span style="width: 46px; height: var(--h-title); display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor"></path></svg></span>
+      <span title="Maximizar (mantén el puntero para Snap Layouts)" style="width: 46px; height: var(--h-title); display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"></rect></svg></span>
+      <span style="width: 46px; height: var(--h-title); display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10" stroke="currentColor"></path></svg></span>
+    </span>
+  </sc-if>
+  <sc-if value="{{isMac}}"><span style="width: 12px"></span></sc-if>
+</header>
+---PROPS---
+{"theme":{"editor":"enum","options":["b","a","c","rosa"],"default":"b"},"os":{"editor":"enum","options":["windows","macos","linux"],"default":"windows"},"notif":{"editor":"int","default":0},"placeholder":{"editor":"text","default":"Buscar tablas, acciones, snippets…"},"menuOpen":{"editor":"text","default":""},"windowTitle":{"editor":"text","default":"Consulta 1 — Ventas — Squaero"},"$preview":{"width":1280,"height":38}}
+---JS---
+class Component extends DCLogic {
+  renderVals() {
+    const os = this.props.os ?? 'windows';
+    const open = this.props.menuOpen ?? '';
+    const M = [['Archivo', 'A', '#'], ['Editar', 'E', '#'], ['Ver', 'V', '#'], ['Consulta', 'C', '#'], ['Herramientas', 'H', 'ToolsMenu.dc.html'], ['Ventana', 'n', '#'], ['Ayuda', 'y', '#']];
+    const menus = M.map(([label, key, href]) => {
+      const i = label.indexOf(key);
+      return { label, key: key.toLowerCase(), href, pre: label.slice(0, i), ch: label.charAt(i), rest: label.slice(i + 1),
+        style: `height: 26px; display: flex; align-items: center; padding: 0 8px; border-radius: var(--r-sm); color: var(--text); text-decoration: none; ${open === label ? 'background: var(--hover);' : ''}` };
+    });
+    const n = this.props.notif ?? 0;
+    return {
+      theme: this.props.theme ?? 'b', os, isMac: os === 'macos', isWin: os === 'windows', isLinux: os === 'linux',
+      menus, notif: String(n), hasNotif: n > 0, paletteKey: os === 'macos' ? '⌘K' : 'Ctrl+K',
+      placeholder: this.props.placeholder ?? 'Buscar tablas, acciones, snippets…',
+      windowTitle: this.props.windowTitle ?? 'Consulta 1 — Ventas — Squaero'
+    };
+  }
+}
