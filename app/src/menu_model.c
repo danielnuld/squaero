@@ -250,3 +250,38 @@ size_t quaero_menu_accel_gtk(const char *accel, char *buf, size_t cap)
     }
     return len;
 }
+
+static const struct {
+    const char *id;
+    const char *command;
+    char key;
+} k_edit_commands[] = {
+    {"edit:undo", "Undo", 'Z'},
+    {"edit:redo", "Redo", 'Y'},
+    {"edit:cut", "Cut", 'X'},
+    {"edit:copy", "Copy", 'C'},
+    {"edit:paste", "Paste", 'V'},
+    {"edit:select-all", "SelectAll", 'A'},
+};
+
+const char *quaero_menu_edit_command(const char *id)
+{
+    size_t i;
+    for (i = 0; id != NULL && i < sizeof k_edit_commands / sizeof k_edit_commands[0]; i++) {
+        if (strcmp(id, k_edit_commands[i].id) == 0) {
+            return k_edit_commands[i].command;
+        }
+    }
+    return NULL;
+}
+
+char quaero_menu_edit_key(const char *command)
+{
+    size_t i;
+    for (i = 0; command != NULL && i < sizeof k_edit_commands / sizeof k_edit_commands[0]; i++) {
+        if (strcmp(command, k_edit_commands[i].command) == 0) {
+            return k_edit_commands[i].key;
+        }
+    }
+    return 0;
+}
