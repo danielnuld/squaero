@@ -6,7 +6,7 @@
 import { fold } from "./connectionSearch";
 import { DEFAULT_HISTORY_LIMIT, clampLimit } from "./history";
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from "./settings";
-import { SHORTCUTS, parseOverrides, type ShortcutOverrides } from "./shortcuts";
+import { SHORTCUTS, SHORTCUTS_VERSION, migrateOverrides, parseOverrides, type ShortcutOverrides } from "./shortcuts";
 import { DEFAULT_THEME_ID, STYLE_THEME_IDS } from "./themes";
 import type { ThemePref } from "./theme";
 import { isLocale, type Locale } from "./translate";
@@ -162,7 +162,8 @@ export interface ConfigBundle {
 const isThemePref = (v: unknown): v is ThemePref => v === "system" || v === "light" || v === "dark";
 
 export function serializeConfigBundle(b: ConfigBundle): string {
-  return JSON.stringify({ version: 1, ...b }, null, 2);
+  // Version 2: the shortcuts are against the R-17 defaults (see migrateOverrides).
+  return JSON.stringify({ version: SHORTCUTS_VERSION, ...b }, null, 2);
 }
 
 /**
@@ -181,7 +182,10 @@ export function parseConfigBundle(raw: string): ConfigBundle | null {
   const o = obj as Record<string, unknown>;
   return {
     settings: parseSettings(o.settings === undefined ? null : JSON.stringify(o.settings)),
-    shortcuts: parseOverrides(o.shortcuts === undefined ? null : JSON.stringify(o.shortcuts)),
+    shortcuts: migrateOverrides(
+      parseOverrides(o.shortcuts === undefined ? null : JSON.stringify(o.shortcuts)),
+      typeof o.version === "number" ? o.version : 1,
+    ),
     theme: isThemePref(o.theme) ? o.theme : "system",
     themeId: typeof o.themeId === "string" && o.themeId !== "" ? o.themeId : DEFAULT_THEME_ID,
     historyLimit: typeof o.historyLimit === "number" ? clampLimit(o.historyLimit) : DEFAULT_HISTORY_LIMIT,

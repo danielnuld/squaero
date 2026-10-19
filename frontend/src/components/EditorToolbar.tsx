@@ -1,7 +1,7 @@
 import { Show, type JSX } from "solid-js";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { runButtonLabel, runChoices, type RunInfo, type RunScope } from "../utils/runScope";
-import { displayKeys } from "../utils/shortcuts";
+import { formatKeys } from "../utils/shortcuts";
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 
@@ -35,7 +35,7 @@ export function EditorToolbar(props: {
   /** Shown at the end of the bar instead of nothing (the snippet name field). */
   children?: JSX.Element;
 }) {
-  const keys = (k: string) => (k ? displayKeys(k, props.isMac) : undefined);
+  const keys = (k: string) => (k ? formatKeys(k, props.isMac ? "macos" : "windows") : undefined);
 
   const scopeMenu = (e: MouseEvent) =>
     openContextMenu(

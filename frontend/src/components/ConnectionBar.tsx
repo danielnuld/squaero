@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { engineMonogram, connectionTarget, driverSchema, type Connection } from "../utils/connections";
 import { ConnectionSearch } from "./ConnectionSearch";
 import { t } from "../utils/i18n";
@@ -28,6 +28,8 @@ export function ConnectionBar(props: {
   onImport: () => void;
   /** Open the manager tab. */
   onManage: () => void;
+  /** Each change opens the search (Ctrl+Mayús+K, «Conectar»). */
+  searchTick?: number;
 }) {
   const [searching, setSearching] = createSignal(false);
   const [popAt, setPopAt] = createSignal({ top: 0, left: 0 });
@@ -38,6 +40,8 @@ export function ConnectionBar(props: {
     if (box) setPopAt({ top: box.bottom + 4, left: box.left + 8 });
     setSearching(true);
   };
+
+  createEffect(on(() => props.searchTick, (n) => n && openSearch(), { defer: true }));
 
   onMount(() => {
     const onDown = (e: MouseEvent) => {

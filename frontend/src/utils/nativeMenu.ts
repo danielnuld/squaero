@@ -9,7 +9,7 @@
 // "quit", which the shell handles itself. macOS keeps its AppKit menu (no
 // binding there), and a plain browser has none either.
 
-import { SHORTCUTS, displayKeys, type ActionId } from "./shortcuts";
+import { SHORTCUTS, formatKeys, type ActionId, type Shortcut } from "./shortcuts";
 import { TOOL_CATALOG, toolUnsupported } from "./toolCatalog";
 
 export interface MenuItem {
@@ -37,6 +37,8 @@ export interface MenuState {
   isMac: boolean;
   /** The focused connection's driver: a tool it cannot run is disabled (A-18). */
   engine?: string;
+  /** The shortcuts in force (the user's rebound keys); the defaults when absent. */
+  shortcuts?: readonly Shortcut[];
 }
 
 /** The shell's own item: it closes the window, nothing reaches the page. */
@@ -56,29 +58,37 @@ const SEP: MenuEntry = { separator: true };
  * use the palette's label key.
  */
 export function buildMenuModel(t: Translate, s: MenuState): Menu[] {
-  const keysOf = new Map(SHORTCUTS.map((sc) => [sc.id, sc.keys]));
+  const keysOf = new Map((s.shortcuts ?? SHORTCUTS).map((sc) => [sc.id, sc.keys]));
+  const accel = (id: ActionId) => formatKeys(keysOf.get(id) ?? "", s.isMac ? "macos" : "windows", t);
   const sc = (id: ActionId, labelKey = `sc.${id}`, enabled = true): MenuItem => {
-    const keys = keysOf.get(id);
     const item: MenuItem = { id, label: t(labelKey) };
-    if (keys) item.accel = displayKeys(keys, s.isMac);
+    if (accel(id)) item.accel = accel(id);
     if (!enabled) item.enabled = false;
     return item;
   };
-  const act = (id: string, labelKey: string, enabled = true): MenuItem =>
-    enabled ? { id, label: t(labelKey) } : { id, label: t(labelKey), enabled: false };
+  /** A palette action; `keyed` lends it the keys of the shortcut that does the same. */
+  const act = (id: string, labelKey: string, enabled = true, keyed?: ActionId): MenuItem => {
+    const item: MenuItem = { id, label: t(labelKey) };
+    if (keyed && accel(keyed)) item.accel = accel(keyed);
+    if (!enabled) item.enabled = false;
+    return item;
+  };
 
   return [
     {
       label: t("menu.file"),
       items: [
         sc("new-tab", "toolbar.newQuery.title"),
+        sc("open-file"),
         act("tool:connections", "tool.connections.label"),
         act("act:reconnect", "conn.reconnect", s.connected),
         act("act:disconnect", "conn.disconnect", s.connected),
         SEP,
         sc("close-tab", "sc.close-tab", s.hasTab),
+        sc("close-all-tabs", "sc.close-all-tabs", s.hasTab),
+        sc("reopen-tab"),
         SEP,
-        act("act:settings", "common.settings"),
+        act("act:settings", "common.settings", true, "open-settings"),
         SEP,
         { id: QUIT_ACTION, label: t("menu.quit") },
       ],
@@ -100,6 +110,9 @@ export function buildMenuModel(t: Translate, s: MenuState): Menu[] {
       items: [
         sc("refresh", "sc.refresh", s.connected),
         sc("toggle-theme"),
+        sc("toggle-sidebar"),
+        sc("focus-explorer"),
+        sc("toggle-history"),
         SEP,
         act("act:objects", "toolbar.objects.title", s.connected && s.hasDb),
       ],

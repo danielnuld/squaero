@@ -4,7 +4,14 @@ Pulsa **F1** dentro de la app para ver esta misma lista (la ayuda en pantalla se
 genera desde la fuente única `frontend/src/utils/shortcuts.ts`, así que no se
 desincroniza del comportamiento).
 
-`Mod` es **Ctrl** en Windows/Linux y **⌘ (Cmd)** en macOS.
+`Mod` es **Ctrl** en Windows/Linux y **⌘ (Cmd)** en macOS. La app escribe las
+teclas como en un teclado español en Windows y Linux (`Ctrl+Mayús+F`, Intro,
+Supr, Av Pág) y con símbolos en macOS (`⇧⌘F`, en el orden ⌃⌥⇧⌘).
+
+Ningún atajo usa **Ctrl+Alt** (R-17): en Windows equivale a AltGr y escribe
+caracteres en muchas distribuciones de teclado, y en Linux Ctrl+Alt+L bloquea la
+pantalla. Si cambiaste un atajo y la versión nueva estrena esa misma tecla para
+otra acción, se respeta el tuyo y la acción nueva queda **sin atajo**.
 
 ## Generales
 
@@ -14,8 +21,16 @@ la tecla vigente.
 
 | Acción | Atajo |
 |---|---|
-| Nueva pestaña | `Mod`+T (o `Mod`+Alt+T) |
-| Cerrar la pestaña activa | `Mod`+W (o `Mod`+Alt+W) |
+| Nueva pestaña | `Mod`+T |
+| Cerrar la pestaña activa | `Mod`+W |
+| Cerrar todas las pestañas | `Mod`+Mayús+W |
+| Reabrir la última pestaña de consulta cerrada | `Mod`+Mayús+T |
+| Abrir un archivo .sql | `Mod`+O |
+| Ajustes | `Mod`+, |
+| Mostrar u ocultar el panel lateral | `Mod`+B |
+| Ir al explorador de objetos | `Mod`+Mayús+E |
+| Abrir el historial | `Mod`+Mayús+H |
+| Conectar (buscar una conexión guardada) | `Mod`+Mayús+K |
 | Siguiente pestaña | Ctrl+AvPág (PageDown) |
 | Pestaña anterior | Ctrl+RePág (PageUp) |
 | Refrescar datos y árbol | F5 |
@@ -23,15 +38,15 @@ la tecla vigente.
 | Paleta de comandos | `Mod`+K |
 | Buscar objetos (tablas, vistas…) | `Mod`+P |
 | Buscar snippets guardados | `Mod`+J |
-| Guardar la consulta como snippet | `Mod`+Shift+S |
-| Confirmar los cambios de la rejilla | `Mod`+S |
+| Guardar la consulta como snippet | `Mod`+Mayús+S |
+| Guardar: los cambios de la rejilla o, en una consulta, su archivo .sql | `Mod`+S |
 | Buscar en el editor | `Mod`+F |
-| Abrir el filtro de una tabla con una condición nueva | `Mod`+Shift+L |
-| Abrir el filtro de una tabla con un orden nuevo | `Mod`+Shift+O |
-| Confirmar la transacción abierta | `Mod`+Alt+C |
-| Revertir la transacción abierta | `Mod`+Alt+R |
+| Abrir el filtro de una tabla con una condición nueva | `Mod`+Mayús+L |
+| Abrir el filtro de una tabla con un orden nuevo | `Mod`+Mayús+O |
+| Confirmar la transacción abierta | Alt+Mayús+C |
+| Revertir la transacción abierta | Alt+Mayús+R |
 | Acercar / alejar / restablecer el zoom de la interfaz | `Mod`++ / `Mod`+- / `Mod`+0 |
-| Cambiar tema claro/oscuro | `Mod`+Alt+L |
+| Cambiar tema claro/oscuro | sin atajo (desde la paleta, `Mod`+K; se le puede dar uno) |
 | Mostrar/ocultar esta ayuda | F1 |
 
 ## Editor SQL
@@ -55,13 +70,14 @@ Con el foco en el editor (CodeMirror). Estas teclas no se pueden reasignar.
 | Renombrar el identificador en el script | F2 o Mayús+F6 |
 | Añadir la siguiente coincidencia de la selección (multicursor) | `Mod`+D |
 | Seleccionar todas las coincidencias de la selección | `Mod`+Shift+L |
-| Añadir un cursor arriba / abajo | `Mod`+Alt+↑ / ↓ |
+| Añadir un cursor arriba / abajo | Alt+Mayús+↑ / ↓ |
 | Añadir un cursor donde se hace clic (fuera de un identificador con definición) | `Mod`+clic |
 | Selección rectangular | Alt+arrastrar |
 
 `Mod`+D y `Mod`+Shift+L son también atajos de la rejilla y del filtro: cada uno
 actúa donde está el foco (el filtro solo existe en una pestaña de tabla, que no
-tiene editor).
+tiene editor). Igual `Mod`+Mayús+E: en el editor es el plan; fuera, el
+explorador. Y `Mod`+Mayús+K borra la línea en el editor y fuera de él conecta.
 
 ## Rejilla de resultados
 
@@ -77,7 +93,7 @@ Cuando el foco está en ella:
 | Duplicar las filas marcadas como filas nuevas | `Mod`+D |
 | Pegar filas como filas nuevas | `Mod`+V |
 | Desmarcar, o reducir el bloque a la celda con el foco | Esc |
-| Ver la fila relacionada (clave foránea) | `Mod`+B o `Mod`+clic |
+| Ver la fila relacionada (clave foránea) | `Mod`+B o `Mod`+clic (en una celda sin clave foránea, `Mod`+B oculta el panel lateral) |
 | Abrir/cerrar «Buscar en la página» (solo las filas cargadas) | `Mod`+F |
 | Marcar para borrar las filas seleccionadas (en modo edición) | Supr (Delete) |
 | Revisar y guardar los cambios | `Mod`+S |
@@ -96,8 +112,8 @@ aplica el filtro).
 - **Autocompletar** sugiere según el contexto: tablas y columnas de la conexión
   activa, alias, CTEs, joins por clave foránea y palabras clave de la cláusula.
 - `Mod`+T y `Mod`+W abren y cierran pestañas como en un navegador; la app los
-  intercepta antes que el webview. Las formas con `Alt` siguen funcionando para
-  quien las aprendió.
+  intercepta antes que el webview. Las antiguas formas con `Ctrl+Alt` ya no
+  funcionan (R-17).
 - El **zoom** escala el texto, el espacio y los controles de la app, no la
   página; también se ajusta en Ajustes → Apariencia y con un clic en la barra de
   estado se restablece.
@@ -105,5 +121,5 @@ aplica el filtro).
   Consulta, Herramientas, Ventana, Ayuda) muestra estos mismos atajos junto a
   cada orden; las teclas las sigue atendiendo la interfaz, así que nunca se
   disparan dos veces.
-- El **tema** también se cambia con el botón de la barra de estado; la preferencia
-  (sistema / claro / oscuro) se recuerda entre sesiones.
+- El **tema** se cambia desde la paleta (`Mod`+K) o en Ajustes → Apariencia; la
+  preferencia (sistema / claro / oscuro) se recuerda entre sesiones.

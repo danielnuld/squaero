@@ -1422,7 +1422,13 @@ body {
   color: var(--text);
 }
 
-.tab-kbd {
+.tab-/* «Sin atajo»: an action with no key (R-17), in the reading font, not a kbd. */
+.sc-none {
+  font-family: var(--font-ui);
+  font-style: italic;
+}
+
+kbd {
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   padding: 0 var(--sp-2);

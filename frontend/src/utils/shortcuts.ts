@@ -13,6 +13,9 @@
 // can be rebound; the editor's and the grid's keys are owned by CodeMirror and
 // the grid component, which do not read this table.
 
+import type { Os } from "./dialog";
+import { t } from "./i18n";
+
 export type ActionId =
   | "run-query"
   | "run-script"
@@ -63,11 +66,20 @@ export type ActionId =
   | "cancel-query"
   | "zoom-in"
   | "zoom-out"
-  | "zoom-reset";
+  | "zoom-reset"
+  // M14 (R-17, audit P4): additive ids — the menus and the palette may name them.
+  | "open-file"
+  | "open-settings"
+  | "toggle-sidebar"
+  | "focus-explorer"
+  | "toggle-history"
+  | "connect"
+  | "reopen-tab"
+  | "close-all-tabs";
 
 export interface Shortcut {
   id: ActionId;
-  /** Human key label (Mod is rendered as Ctrl/⌘ by the help overlay). */
+  /** Key label (Mod is Ctrl or ⌘; `formatKeys` renders it). "" = no key. */
   keys: string;
   /** i18n KEY for the description ("sc.<id>"), resolved where it is shown. */
   description: string;
@@ -86,13 +98,26 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "format-sql", keys: "Mod+Shift+F", description: "sc.format-sql", global: false },
   // Ctrl/Cmd+T and +W open and close a tab, as in a browser (issue #591); the
   // listener's preventDefault keeps them from the host. The older Mod+Alt forms
-  // stay as aliases for those who learned them.
-  { id: "new-tab", keys: "Mod+T", description: "sc.new-tab", global: true, aliases: ["Mod+Alt+T"] },
-  { id: "close-tab", keys: "Mod+W", description: "sc.close-tab", global: true, aliases: ["Mod+Alt+W"] },
+  // are gone (R-17): Ctrl+Alt is AltGr on many keyboards, which types letters.
+  { id: "new-tab", keys: "Mod+T", description: "sc.new-tab", global: true },
+  { id: "close-tab", keys: "Mod+W", description: "sc.close-tab", global: true },
+  { id: "close-all-tabs", keys: "Mod+Shift+W", description: "sc.close-all-tabs", global: true },
+  { id: "reopen-tab", keys: "Mod+Shift+T", description: "sc.reopen-tab", global: true },
   { id: "next-tab", keys: "Ctrl+PageDown", description: "sc.next-tab", global: true },
   { id: "prev-tab", keys: "Ctrl+PageUp", description: "sc.prev-tab", global: true },
   { id: "refresh", keys: "F5", description: "sc.refresh", global: true },
-  { id: "toggle-theme", keys: "Mod+Alt+L", description: "sc.toggle-theme", global: true },
+  // No default key (R-17): Ctrl+Alt+L locks the screen on many Linux desktops.
+  // It stays rebindable and in the palette.
+  { id: "toggle-theme", keys: "", description: "sc.toggle-theme", global: true },
+  { id: "open-settings", keys: "Mod+,", description: "sc.open-settings", global: true },
+  // Mod+B is also the grid's «related row»; with a foreign-key cell focused the
+  // grid takes it (it calls preventDefault) and the panel stays put.
+  { id: "toggle-sidebar", keys: "Mod+B", description: "sc.toggle-sidebar", global: true },
+  // Mod+Shift+E is also the editor's Explain; inside the editor that one wins.
+  { id: "focus-explorer", keys: "Mod+Shift+E", description: "sc.focus-explorer", global: true },
+  { id: "toggle-history", keys: "Mod+Shift+H", description: "sc.toggle-history", global: true },
+  { id: "connect", keys: "Mod+Shift+K", description: "sc.connect", global: true },
+  { id: "open-file", keys: "Mod+O", description: "sc.open-file", global: true },
   { id: "toggle-help", keys: "F1", description: "sc.toggle-help", global: true },
   { id: "command-palette", keys: "Mod+K", description: "sc.command-palette", global: true },
   { id: "object-palette", keys: "Mod+P", description: "sc.object-palette", global: true },
@@ -142,11 +167,12 @@ export const SHORTCUTS: Shortcut[] = [
   // acts on a table tab — one with no editor.
   { id: "select-next-occurrence", keys: "Mod+D", description: "sc.select-next-occurrence", global: false },
   { id: "select-all-occurrences", keys: "Mod+Shift+L", description: "sc.select-all-occurrences", global: false },
-  { id: "add-cursor", keys: "Mod+Alt+↑/↓", description: "sc.add-cursor", global: false },
+  { id: "add-cursor", keys: "Alt+Shift+↑/↓", description: "sc.add-cursor", global: false },
   { id: "expand-template", keys: "Tab", description: "sc.expand-template", global: false },
   // End the connection's open transaction (issue #667); no-ops when none is.
-  { id: "tx-commit", keys: "Mod+Alt+C", description: "sc.tx-commit", global: true },
-  { id: "tx-rollback", keys: "Mod+Alt+R", description: "sc.tx-rollback", global: true },
+  // Alt+Shift, not Ctrl+Alt (R-17): Ctrl+Alt+C is AltGr+C, which types «ć».
+  { id: "tx-commit", keys: "Alt+Shift+C", description: "sc.tx-commit", global: true },
+  { id: "tx-rollback", keys: "Alt+Shift+R", description: "sc.tx-rollback", global: true },
   // Stop the running query (issue #691), as in SSMS and most SQL clients. With
   // Ctrl held, Pause/Break reaches the page as "Cancel" (see KEY_NAMES).
   { id: "cancel-query", keys: "Mod+Pause", description: "sc.cancel-query", global: true },
@@ -164,6 +190,9 @@ export interface KeyEventLike {
   metaKey: boolean;
   shiftKey: boolean;
   altKey: boolean;
+  /** Physical key ("KeyC"): read only when Alt turned the letter into another
+      character, as Option does on a Mac (⌥⇧C reports «Ç»). */
+  code?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,9 +293,19 @@ export function normalizeKeys(keys: string): string | null {
   return c ? formatCombo(c) : null;
 }
 
+/** The letter or digit of a physical key code ("KeyC" → "C"), or null. */
+const codeChar = (code: string | undefined): string | null => /^(?:Key|Digit)([A-Z0-9])$/.exec(code ?? "")?.[1] ?? null;
+
+/** The event's key, or with Alt its physical letter when Alt made it a symbol. */
+function eventKey(e: KeyEventLike): string {
+  const key = normalizeKey(e.key);
+  if (!e.altKey || isAlphanumeric(key)) return key;
+  return codeChar(e.code) ?? key;
+}
+
 /** Whether a key event is this combo. */
 export function matchesCombo(c: Combo, e: KeyEventLike): boolean {
-  const key = normalizeKey(e.key);
+  const key = eventKey(e);
   const mod = e.ctrlKey || e.metaKey;
   if (c.mod !== mod || c.alt !== e.altKey) return false;
   if (isCharacter(c.key) && !isAlphanumeric(c.key)) {
@@ -288,7 +327,7 @@ export function comboFromEvent(e: KeyEventLike): string | null {
   if (!e.key || MODIFIER_KEYS.has(e.key.toLowerCase())) return null;
   // Round-tripped through the parser so the Shift-on-symbols rule applies.
   return normalizeKeys(
-    formatCombo({ mod: e.ctrlKey || e.metaKey, alt: e.altKey, shift: e.shiftKey, key: normalizeKey(e.key) }),
+    formatCombo({ mod: e.ctrlKey || e.metaKey, alt: e.altKey, shift: e.shiftKey, key: eventKey(e) }),
   );
 }
 
@@ -361,16 +400,58 @@ export function serializeOverrides(o: ShortcutOverrides): string {
 
 /**
  * Overrides with `id` bound to `keys` — or unbound again when `keys` is the
- * default or invalid, so the stored map only ever holds real changes.
+ * default or invalid, so the stored map only ever holds real changes. `""`
+ * means «no key» and is stored only for an action that has one by default.
  */
 export function setOverride(o: ShortcutOverrides, id: ActionId, keys: string): ShortcutOverrides {
   const base = byId.get(id);
   const next = { ...o };
+  if (base && isRebindable(base) && keys === "" && base.keys !== "") {
+    next[id] = "";
+    return next;
+  }
   const canon = normalizeKeys(keys);
   if (!base || !isRebindable(base) || canon === null || validateCombo(keys) !== null || canon === normalizeKeys(base.keys)) {
     delete next[id];
   } else {
     next[id] = canon;
+  }
+  return next;
+}
+
+// ---------------------------------------------------------------------------
+// Migration of stored overrides. A version-1 map was written against older
+// defaults; version 2 (R-17) moved the Ctrl+Alt keys and added new actions. A
+// user's own binding must keep working, so where a NEW default takes a key the
+// user had already given to another action, the new default is unbound
+// instead — the user's choice wins and nothing they set is lost.
+
+export const SHORTCUTS_VERSION = 2;
+
+/** The version-1 defaults of every action whose default changed in version 2
+    ("" = the action did not exist). */
+const V1_CHANGED: Partial<Record<ActionId, string>> = {
+  "tx-commit": "Mod+Alt+C",
+  "tx-rollback": "Mod+Alt+R",
+  "toggle-theme": "Mod+Alt+L",
+  "open-file": "",
+  "open-settings": "",
+  "toggle-sidebar": "",
+  "focus-explorer": "",
+  "toggle-history": "",
+  connect: "",
+  "reopen-tab": "",
+  "close-all-tabs": "",
+};
+
+/** Bring overrides stored at `from` up to the current version. */
+export function migrateOverrides(o: ShortcutOverrides, from: number): ShortcutOverrides {
+  if (from >= SHORTCUTS_VERSION) return o;
+  let next = { ...o };
+  const taken = new Set(Object.values(o).map((k) => normalizeKeys(k ?? "")).filter((k) => k !== null));
+  for (const id of Object.keys(V1_CHANGED) as ActionId[]) {
+    const keys = normalizeKeys(byId.get(id)?.keys ?? "");
+    if (keys !== null && next[id] === undefined && taken.has(keys)) next = setOverride(next, id, "");
   }
   return next;
 }
@@ -414,7 +495,68 @@ export function matchShortcut(e: KeyEventLike, table: readonly Shortcut[] = SHOR
   return null;
 }
 
-/** Render a `keys` label for display, resolving Mod to the platform key. */
-export function displayKeys(keys: string, isMac: boolean): string {
-  return keys.replace(/\bMod\b/g, isMac ? "⌘" : "Ctrl");
+// ---------------------------------------------------------------------------
+// Key notation (R-33, rule 9): one formatter for every place keys are shown.
+// Windows and Linux: «Ctrl+Mayús+F», the key names in the UI's language.
+// macOS: «⇧⌘F», the modifier symbols in the HIG order ⌃⌥⇧⌘, then the key.
+
+/** Modifier tokens: the macOS symbol and its place in the order. */
+const MAC_MODS: Record<string, [symbol: string, order: number]> = {
+  control: ["⌃", 0],
+  alt: ["⌥", 1],
+  option: ["⌥", 1],
+  shift: ["⇧", 2],
+  mod: ["⌘", 3],
+  ctrl: ["⌘", 3],
+  cmd: ["⌘", 3],
+  meta: ["⌘", 3],
+};
+
+/** Named keys whose label is translated (catalog `key.<name>`). */
+const NAMED = new Set(["shift", "enter", "delete", "backspace", "space", "pagedown", "pageup", "esc", "pause"]);
+
+const MAC_KEYS: Record<string, string> = {
+  enter: "↩",
+  delete: "⌦",
+  backspace: "⌫",
+  tab: "⇥",
+  esc: "⎋",
+  escape: "⎋",
+  pagedown: "⇟",
+  pageup: "⇞",
+};
+
+/** Split a label into tokens; a trailing "++" is the plus key. */
+const tokensOf = (keys: string): string[] =>
+  (keys.endsWith("++") ? [...keys.slice(0, -2).split("+"), "+"] : keys.split("+")).map((k) => k.trim());
+
+/**
+ * A key label as the user reads it on `os`. `tr` names the translated keys
+ * (Mayús, Intro, Supr…) and defaults to the catalog. "" (no key) stays "".
+ */
+export function formatKeys(keys: string, os: Os, tr: (key: string) => string = t): string {
+  if (!keys) return "";
+  const parts = tokensOf(keys);
+  const name = (k: string) => {
+    const low = k.toLowerCase() === "escape" ? "esc" : k.toLowerCase();
+    const mod = MAC_MODS[low];
+    if (low === "control" || mod?.[1] === 3) return "Ctrl";
+    if (mod?.[1] === 1) return "Alt";
+    if (NAMED.has(low)) return tr(`key.${low}`);
+    return k.length === 1 ? k.toUpperCase() : k;
+  };
+  if (os !== "macos") return parts.map(name).join("+");
+  const isMod = (k: string) => MAC_MODS[k.toLowerCase()] !== undefined;
+  const symbols = parts
+    .filter(isMod)
+    .map((k) => MAC_MODS[k.toLowerCase()])
+    .sort((a, b) => a[1] - b[1])
+    .map(([sym]) => sym);
+  const rest = parts.filter((k) => !isMod(k)).map((k) => MAC_KEYS[k.toLowerCase()] ?? name(k));
+  return [...new Set(symbols)].join("") + rest.join("+");
+}
+
+/** The keys of action `id` in `table`, formatted for `os`; "" when it has none. */
+export function keysOf(id: ActionId, table: readonly Shortcut[], os: Os): string {
+  return formatKeys(table.find((sc) => sc.id === id)?.keys ?? "", os);
 }

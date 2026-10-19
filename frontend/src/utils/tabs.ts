@@ -342,6 +342,23 @@ export function closeTabsToRight(state: TabState, id: number): TabState {
   return { ...state, tabs, activeId };
 }
 
+/** Closes every tab (Ctrl+Mayús+W and the tab menu's «Cerrar todas»). */
+export function closeAllTabs(state: TabState): TabState {
+  return { ...state, tabs: [], activeId: 0 };
+}
+
+/**
+ * The query tabs the user wrote that are in `prev` but gone from `next` — what
+ * «Reabrir la pestaña cerrada» (Ctrl+Mayús+T) can bring back. Tabs opened for
+ * a database object (their SQL is generated) and empty ones are left out.
+ */
+export function closedQueryTabs(prev: TabState, next: TabState): QueryTab[] {
+  const still = new Set(next.tabs.map((t) => t.id));
+  return prev.tabs.filter(
+    (t): t is QueryTab => t.kind === "query" && !still.has(t.id) && !t.objectKey && t.sql.trim() !== "",
+  );
+}
+
 /** Replaces the SQL-variable values of the query tab with `id` (issue #481). */
 export function updateTabVars(
   state: TabState,

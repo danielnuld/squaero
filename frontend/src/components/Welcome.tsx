@@ -6,7 +6,7 @@ import { Icon, type IconName } from "./icons";
 import { t, locale } from "../utils/i18n";
 import { timeAgo } from "../utils/history";
 import { connectionTarget, driverSchema, engineMonogram, type Connection } from "../utils/connections";
-import { SHORTCUTS, displayKeys, type Shortcut } from "../utils/shortcuts";
+import { SHORTCUTS, formatKeys, type Shortcut } from "../utils/shortcuts";
 import type { TreeNode } from "../utils/tree";
 
 // What the workspace shows with no tab open (issue #694): with nothing
@@ -22,7 +22,7 @@ const tipsOf = (shortcuts?: readonly Shortcut[]) =>
   );
 const keyOf = (id: Shortcut["id"], isMac: boolean, shortcuts?: readonly Shortcut[]) => {
   const s = (shortcuts ?? SHORTCUTS).find((x) => x.id === id);
-  return s ? displayKeys(s.keys, isMac) : "";
+  return s ? formatKeys(s.keys, isMac ? "macos" : "windows") : "";
 };
 
 function StartAction(props: {
@@ -157,7 +157,7 @@ export function Welcome(props: {
           <For each={tipsOf(props.shortcuts)}>
             {(s) => (
               <li>
-                <kbd>{displayKeys(s.keys, props.isMac)}</kbd>
+                <kbd>{formatKeys(s.keys, props.isMac ? "macos" : "windows")}</kbd>
                 <span>{t(s.description)}</span>
               </li>
             )}

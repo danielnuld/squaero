@@ -32,3 +32,21 @@ describe("shortcutStore", () => {
     expect(loadShortcutOverrides()).toEqual({});
   });
 });
+
+describe("shortcutStore — migration (R-17)", () => {
+  it("migrates a version-1 map once and records the version", async () => {
+    // Version 1: no version key. The user had put the help on Ctrl+Shift+H.
+    localStorage.setItem(KEY, '{"toggle-help":"Mod+Shift+H"}');
+    const { loadShortcutOverrides } = await freshModule();
+    expect(loadShortcutOverrides()).toEqual({ "toggle-help": "Mod+Shift+H", "toggle-history": "" });
+    expect(localStorage.getItem("quaero.shortcuts.version")).toBe("2");
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual({ "toggle-help": "Mod+Shift+H", "toggle-history": "" });
+  });
+
+  it("leaves a current map as it is", async () => {
+    localStorage.setItem(KEY, '{"toggle-help":"Mod+Shift+H"}');
+    localStorage.setItem("quaero.shortcuts.version", "2");
+    const { loadShortcutOverrides } = await freshModule();
+    expect(loadShortcutOverrides()).toEqual({ "toggle-help": "Mod+Shift+H" });
+  });
+});

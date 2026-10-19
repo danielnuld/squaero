@@ -79,7 +79,7 @@ describe("blocksBrowserDefault", () => {
       key("S", { ctrlKey: true, shiftKey: true }),
       key("t", { ctrlKey: true }),
       key("w", { ctrlKey: true }),
-      key("l", { ctrlKey: true, altKey: true }),
+      key("C", { altKey: true, shiftKey: true }),
       key("L", { ctrlKey: true, shiftKey: true }),
       key("O", { ctrlKey: true, shiftKey: true }),
       key("PageDown", { ctrlKey: true }),

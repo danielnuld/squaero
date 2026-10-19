@@ -30,7 +30,7 @@ import {
 import {
   clearOverride,
   comboFromEvent,
-  displayKeys,
+  formatKeys,
   findConflicts,
   isRebindable,
   setOverride,
@@ -305,7 +305,7 @@ export function SettingsPanel(props: {
     if (conflicts.length > 0) {
       setScMessage(
         t("settings.sc.conflict", {
-          keys: displayKeys(keys, props.isMac),
+          keys: formatKeys(keys, props.isMac ? "macos" : "windows"),
           actions: conflicts.map(actionName).join(", "),
         }),
       );
@@ -838,7 +838,9 @@ export function SettingsPanel(props: {
                     <tr>
                       <td>{t(sc.description)}</td>
                       <td class="keys">
-                        <kbd>{displayKeys(sc.keys, props.isMac)}</kbd>
+                        <Show when={sc.keys} fallback={<span class="sc-none">{t("settings.sc.none")}</span>}>
+                          <kbd>{formatKeys(sc.keys, props.isMac ? "macos" : "windows")}</kbd>
+                        </Show>
                         <Show when={overridden()}>
                           <span class="settings-badge">{t("settings.sc.custom")}</span>
                         </Show>
@@ -862,6 +864,15 @@ export function SettingsPanel(props: {
                           >
                             {capturing() === sc.id ? t("settings.sc.pressKeys") : t("settings.sc.change")}
                           </button>
+                          <Show when={sc.keys}>
+                            <button
+                              class="edit-btn"
+                              aria-label={t("settings.sc.unbindOne", { action: actionName(sc) })}
+                              onClick={() => props.onSetShortcutOverrides(setOverride(props.shortcutOverrides, sc.id, ""))}
+                            >
+                              {t("settings.sc.unbind")}
+                            </button>
+                          </Show>
                           <Show when={overridden()}>
                             <button
                               class="edit-btn"

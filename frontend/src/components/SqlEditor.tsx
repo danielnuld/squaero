@@ -16,6 +16,8 @@ import {
   crosshairCursor,
 } from "@codemirror/view";
 import {
+  addCursorAbove,
+  addCursorBelow,
   defaultKeymap,
   history,
   historyKeymap,
@@ -201,6 +203,9 @@ const errorField = StateField.define<LineMarks>({
 // and Ctrl/Cmd+Shift+F formats it (Mod = Cmd on macOS, Ctrl elsewhere). Pure
 // tab/state logic lives in src/utils/tabs.ts and the formatter in
 // src/utils/sqlFormat.ts — this component is the thin CodeMirror binding.
+/** defaultKeymap's add-cursor keys, replaced by Alt-Shift-ArrowUp/Down (R-17). */
+const CTRL_ALT_CURSOR = new Set(["Mod-Alt-ArrowUp", "Mod-Alt-ArrowDown"]);
+
 export function SqlEditor(props: {
   /** Id of the tab currently shown. */
   activeId: number;
@@ -464,7 +469,9 @@ export function SqlEditor(props: {
           // Multicursor (issue #665): Ctrl/Cmd+click adds a cursor, Alt+drag
           // selects a rectangle (the crosshair shows while Alt is held). The
           // keys come with the keymaps below: Mod-d / Mod-Shift-l (searchKeymap)
-          // and Mod-Alt-ArrowUp/Down (defaultKeymap). Escape collapses to one.
+          // and Alt-Shift-ArrowUp/Down (R-17: Ctrl+Alt+arrows rotate the screen
+          // on Intel drivers, so defaultKeymap's binding is dropped). Escape
+          // collapses to one.
           EditorState.allowMultipleSelections.of(true),
           rectangularSelection(),
           crosshairCursor(),
@@ -526,9 +533,11 @@ export function SqlEditor(props: {
             { key: "Tab", run: acceptCompletion },
             { key: "Tab", run: expandTemplate },
             indentWithTab,
+            { key: "Alt-Shift-ArrowUp", run: addCursorAbove, preventDefault: true },
+            { key: "Alt-Shift-ArrowDown", run: addCursorBelow, preventDefault: true },
             ...searchKeymap,
             ...completionKeymap,
-            ...defaultKeymap,
+            ...defaultKeymap.filter((b) => !CTRL_ALT_CURSOR.has(b.key ?? "")),
             ...historyKeymap,
             ...foldKeymap,
           ]),
