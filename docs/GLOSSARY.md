@@ -86,6 +86,19 @@ rejected variants and the tone rules that can be checked mechanically.
 | Modify a table's definition | modificar | alter | alterar, editar |
 | Change text/definition/connection | editar | edit | modificar |
 | Table/view data opened in a tab | abrir datos | open data | ver datos |
+| A saved connection's guard against writes (setting) | protección | protection | — («modo seguro» / safe mode only in code and docs) |
+| Its two levels | solo lectura / confirmar escrituras | read-only / confirm writes | — |
+| A connection with either level on | conexión protegida | protected connection | — |
+| Editor mode where writes wait for Commit/Rollback | transacción manual | manual transaction | — |
+| Its opposite, each statement commits on its own | auto-commit | auto-commit | — |
+| Periodic probe of an idle connection | keep-alive | keep-alive | — |
+| Result kept aside so the next run does not replace it | resultado fijado / fijar / quitar | pinned result / pin / unpin | — |
+| Rows shown with the columns as rows | transponer / vista transpuesta | transpose / transposed view | — |
+| Saved versions of what a tab's editor held | historial local | local history | — |
+| Metadata shown before the server answers | desde caché | from cache | — |
+| SQL that makes one schema match another | script de migración | migration script | — |
+| A built-in look of the whole app (B · Nativo, A · Quiet pro, C · Editorial, Rosa pastel) | estilo | style | tema (reserved for the color sets under «Otros temas») |
+| A set of colors, built in or imported | tema | theme | estilo |
 | Not supported by this engine | no disponible para este motor | not available for this engine | no soportado (only for the core's own error) |
 
 ## Reserved words that stay as-is
