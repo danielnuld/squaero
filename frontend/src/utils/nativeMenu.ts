@@ -10,7 +10,7 @@
 // binding there), and a plain browser has none either.
 
 import { SHORTCUTS, displayKeys, type ActionId } from "./shortcuts";
-import { TOOL_CATALOG } from "./toolCatalog";
+import { TOOL_CATALOG, toolUnsupported } from "./toolCatalog";
 
 export interface MenuItem {
   id: string;
@@ -35,6 +35,8 @@ export interface MenuState {
   hasDb: boolean;
   hasTab: boolean;
   isMac: boolean;
+  /** The focused connection's driver: a tool it cannot run is disabled (A-18). */
+  engine?: string;
 }
 
 /** The shell's own item: it closes the window, nothing reaches the page. */
@@ -72,6 +74,7 @@ export function buildMenuModel(t: Translate, s: MenuState): Menu[] {
         sc("new-tab", "toolbar.newQuery.title"),
         act("tool:connections", "tool.connections.label"),
         act("act:reconnect", "conn.reconnect", s.connected),
+        act("act:disconnect", "conn.disconnect", s.connected),
         SEP,
         sc("close-tab", "sc.close-tab", s.hasTab),
         SEP,
@@ -115,7 +118,7 @@ export function buildMenuModel(t: Translate, s: MenuState): Menu[] {
     {
       label: t("menu.tools"),
       items: TOOL_CATALOG.filter((tool) => tool.tool !== "connections").map((tool) =>
-        act(`tool:${tool.tool}`, tool.label, s.connected),
+        act(`tool:${tool.tool}`, tool.label, s.connected && !toolUnsupported(tool, s.engine)),
       ),
     },
     {

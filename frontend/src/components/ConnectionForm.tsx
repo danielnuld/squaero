@@ -1,5 +1,7 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
+import { CONN_ENVS, withEnv } from "../utils/connectionEnv";
+import { EnvChip, SafeChip } from "./ConnChips";
 import {
   driverSchema,
   withFieldDefaults,
@@ -596,6 +598,31 @@ export function ConnectionForm(props: {
               />
             </label>
 
+            {/* «Tipo de entorno» (R-06): sets the colour and the protection
+                such a connection usually wants; both stay editable below. */}
+            <div class="cf-field">
+              <span class="cf-label">{t("cform.env")}</span>
+              <div class="cf-seg" role="radiogroup" aria-label={t("cform.env")}>
+                <For each={[undefined, ...CONN_ENVS]}>
+                  {(env) => (
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={draft.env === env}
+                      class="cf-seg-btn"
+                      classList={{ "is-on": draft.env === env }}
+                      onClick={() =>
+                        setDraft((d) => withEnv({ env: d.env, color: d.color, safeMode: d.safeMode }, env))
+                      }
+                    >
+                      {t(env ? `env.${env}` : "env.none")}
+                    </button>
+                  )}
+                </For>
+              </div>
+              <p class="cf-hint">{t("cform.envHelp")}</p>
+            </div>
+
             <div class="cf-field">
               <span class="cf-label">{t("cform.color")}</span>
               <div class="color-swatches" role="radiogroup" aria-label={t("cform.color")}>
@@ -755,6 +782,12 @@ export function ConnectionForm(props: {
                   {DRIVER_SCHEMAS[draft.driver]?.label ?? draft.driver}
                   {connectionTarget(draft) ? ` · ${connectionTarget(draft)}` : ""}
                 </span>
+                <Show when={draft.env || draft.safeMode}>
+                  <span class="conn-chips">
+                    <EnvChip env={draft.env} />
+                    <SafeChip mode={draft.safeMode} />
+                  </span>
+                </Show>
               </span>
             </div>
           </div>

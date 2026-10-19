@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isExpandable,
+  tableDetailNodes,
   childKey,
   databaseKey,
   toggleExpanded,
@@ -105,11 +106,12 @@ describe("objectLeafNodes", () => {
 });
 
 describe("isExpandable", () => {
-  it("containers expand, leaves do not", () => {
+  it("containers and tables expand, their leaves do not (audit A-16)", () => {
     expect(isExpandable("database")).toBe(true);
     expect(isExpandable("schema")).toBe(true);
-    expect(isExpandable("table")).toBe(false);
-    expect(isExpandable("view")).toBe(false);
+    expect(isExpandable("table")).toBe(true);
+    expect(isExpandable("view")).toBe(true);
+    for (const k of ["column", "index", "fk", "routine", "trigger"] as const) expect(isExpandable(k)).toBe(false);
   });
 });
 
@@ -160,7 +162,7 @@ describe("flattenTree", () => {
       "db:main/tbl:orders",
     ]);
     expect(flat[0].expanded).toBe(true);
-    expect(flat[1]).toMatchObject({ depth: 1, expandable: false });
+    expect(flat[1]).toMatchObject({ depth: 1, expandable: true, expanded: false });
   });
 
   it("expanded container with no loaded children contributes only itself", () => {
@@ -286,5 +288,45 @@ describe("filterMatchCount", () => {
 
   it("counts by the label given, as the tree translates folder names", () => {
     expect(filterMatchCount(nodes, "ped", (n) => n.label.toUpperCase())).toBe(1);
+  });
+});
+
+describe("tableDetailNodes (audit A-16)", () => {
+  const table = { key: "db:main/tbl:pedidos", label: "pedidos", kind: "table" as const, db: "main" };
+
+  it("lists the columns with their type, PK and FK marked, then the folders", () => {
+    const { children, members } = tableDetailNodes(table, {
+      columns: [
+        { name: "id", type: "integer", pk: true },
+        { name: "cliente_id", type: "integer", pk: false },
+        { name: "total", type: "numeric(10,2)", pk: false },
+      ],
+      indexes: [{ name: "ix_cliente", columns: "cliente_id" }],
+      fks: [{ name: "fk_cliente", columns: ["cliente_id"], toTable: "clientes", toColumns: ["id"] }],
+    });
+    expect(children.map((c) => [c.label, c.kind, c.meta, !!c.pk, !!c.fk])).toEqual([
+      ["id", "column", "integer", true, false],
+      ["cliente_id", "column", "integer", false, true],
+      ["total", "column", "numeric(10,2)", false, false],
+      ["tree.indexesFolder", "group", undefined, false, false],
+      ["tree.fksFolder", "group", undefined, false, false],
+    ]);
+    expect(children[0].key).toBe("db:main/tbl:pedidos/col:id");
+    expect(members["db:main/tbl:pedidos/grp:fk"][0]).toMatchObject({
+      label: "fk_cliente",
+      kind: "fk",
+      meta: "cliente_id → clientes(id)",
+    });
+    expect(members["db:main/tbl:pedidos/grp:idx"][0]).toMatchObject({ label: "ix_cliente", meta: "cliente_id" });
+  });
+
+  it("leaves out empty folders", () => {
+    const { children, members } = tableDetailNodes(table, {
+      columns: [{ name: "id", type: "int", pk: true }],
+      indexes: [],
+      fks: [],
+    });
+    expect(children.map((c) => c.kind)).toEqual(["column"]);
+    expect(members).toEqual({});
   });
 });

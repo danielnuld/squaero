@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import {
   connIcon,
   connectionGroups,
@@ -9,8 +9,12 @@ import {
 } from "../utils/connections";
 import { loadCollapsedGroups, saveCollapsedGroups } from "../utils/connectionStore";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
-import { t } from "../utils/i18n";
+import { t, locale } from "../utils/i18n";
 import { Icon } from "./icons";
+import { EnvChip, SafeChip } from "./ConnChips";
+import { matchesConnection } from "../utils/connectionSearch";
+import { timeAgo } from "../utils/history";
+import type { UsageMap } from "../utils/recentConnections";
 
 // Props for the connection list + CRUD. Opening, closing and reconnecting are
 // NOT here: they belong to the sidebar's bar and its search (issue #525).
@@ -23,8 +27,17 @@ export interface ConnectionManagerProps {
   onEdit: (c: Connection) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
-  /** Export saved connections to a JSON file (issue #188). */
-  onExport: (includePasswords: boolean) => void;
+  /** Export saved connections to a JSON file (issue #188); `ids` narrows it to
+      those (a row's own «Exportar…»), always without passwords. */
+  onExport: (includePasswords: boolean, ids?: string[]) => void;
+  /** Open it, or focus it when it is open already (R-06). Absent: no button. */
+  onConnect?: (c: Connection) => void;
+  /** A copy in the connection form, saved only from there. */
+  onDuplicate?: (c: Connection) => void;
+  /** When each was last opened, for the «Último uso» column. */
+  usage?: UsageMap;
+  /** Injected in tests; Date.now otherwise. */
+  now?: () => number;
   /** Import connections from a file; resolves with a message to show the user. */
   onImport: (files: File[]) => Promise<string>;
   /** Move a connection to a group ("" = ungrouped). New groups are named in the
@@ -57,6 +70,14 @@ export function ConnectionManager(props: ConnectionManagerProps) {
     setImportMsg(await props.onImport(files));
   };
 
+  // The search narrows the list as the bar's search does (name, engine, target, group).
+  const [query, setQuery] = createSignal("");
+  const shown = createMemo(() =>
+    props.connections.filter((c) =>
+      matchesConnection(c, query(), driverSchema(c.driver)?.label ?? c.driver),
+    ),
+  );
+
   // Collapsed groups persist across restarts (UI state, its own storage key).
   const [collapsed, setCollapsed] = createSignal<string[]>(loadCollapsedGroups());
   const toggleGroup = (name: string, open: boolean) => {
@@ -79,6 +100,8 @@ export function ConnectionManager(props: ConnectionManagerProps) {
     }
     if (items.length > 0) items.push({ separator: true });
     items.push({ label: t("common.edit"), action: () => props.onEdit(c) });
+    if (props.onDuplicate) items.push({ label: t("conn.duplicate"), action: () => props.onDuplicate!(c) });
+    items.push({ label: t("conn.exportOne"), action: () => props.onExport(false, [c.id]) });
     items.push({ separator: true });
     items.push({ label: t("conn.deleteItem"), danger: true, action: () => props.onDelete(c.id) });
     openContextMenu(e, items);
@@ -113,12 +136,32 @@ export function ConnectionManager(props: ConnectionManagerProps) {
             <span class="conn-live" role="img" aria-label={t("conn.connectedDot")} title={t("conn.connectedDot")} />
           </Show>
         </span>
-        <span class="conn-driver">
-          {driverSchema(c.driver)?.label ?? c.driver}
-          {connectionTarget(c) ? ` · ${connectionTarget(c)}` : ""}
-        </span>
+        <span class="conn-driver">{driverSchema(c.driver)?.label ?? c.driver}</span>
       </button>
+      <span class="conn-cell conn-target" title={connectionTarget(c)}>
+        {connectionTarget(c)}
+      </span>
+      <span class="conn-cell">
+        <Show when={c.env} fallback={<span class="conn-none">—</span>}>
+          <EnvChip env={c.env} />
+        </Show>
+      </span>
+      <span class="conn-cell">
+        <Show when={c.safeMode} fallback={<span class="conn-none">{t("conn.protectNone")}</span>}>
+          <SafeChip mode={c.safeMode} />
+        </Show>
+      </span>
+      <span class="conn-cell conn-when">
+        {props.usage?.[c.id] !== undefined
+          ? timeAgo(props.usage[c.id], (props.now ?? Date.now)(), locale())
+          : t("welcome.neverUsed")}
+      </span>
       <div class="conn-actions">
+        <Show when={props.onConnect}>
+          <button class="btn conn-connect" onClick={() => props.onConnect!(c)}>
+            {t(props.openIds?.includes(c.id) ? "conn.openIt" : "conn.connect")}
+          </button>
+        </Show>
         <button
           title={t("common.edit")}
           aria-label={t("common.edit")}
@@ -192,6 +235,28 @@ export function ConnectionManager(props: ConnectionManagerProps) {
         <p class="conn-import-msg">{importMsg()}</p>
       </Show>
 
+      <Show when={props.connections.length > 0}>
+        <input
+          class="conn-search"
+          type="search"
+          placeholder={t("conn.searchPlaceholder")}
+          aria-label={t("conn.searchPlaceholder")}
+          value={query()}
+          onInput={(e) => setQuery(e.currentTarget.value)}
+        />
+        <div class="conn-head" aria-hidden="true">
+          <span>{t("conn.col.name")}</span>
+          <span>{t("conn.col.target")}</span>
+          <span>{t("conn.col.env")}</span>
+          <span>{t("conn.col.protection")}</span>
+          <span>{t("conn.col.lastUsed")}</span>
+          <span>{t("conn.col.actions")}</span>
+        </div>
+        <Show when={shown().length === 0}>
+          <p class="sidebar-hint">{t("connsearch.noMatch")}</p>
+        </Show>
+      </Show>
+
       <Show
         when={props.connections.length > 0}
         fallback={
@@ -205,7 +270,7 @@ export function ConnectionManager(props: ConnectionManagerProps) {
           </>
         }
       >
-        <For each={groupConnections(props.connections)}>
+        <For each={groupConnections(shown())}>
           {(g) => (
             <Show
               when={g.name}

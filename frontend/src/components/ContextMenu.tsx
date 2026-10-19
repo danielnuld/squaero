@@ -177,7 +177,7 @@ export function ContextMenu() {
   });
 
   const activate = (item: MenuItem) => {
-    if (item.disabled || item.separator) return;
+    if (item.disabled || item.separator || item.heading) return;
     closeContextMenu();
     item.action?.();
   };
@@ -201,7 +201,18 @@ export function ContextMenu() {
   // open a submenu (and what keeps a submenu's own `submenu` inert).
   function Row(p: { item: MenuItem; index?: number }) {
     return (
-      <Show when={!p.item.separator} fallback={<div class="context-menu-sep" role="separator" />}>
+      <Show
+        when={!p.item.separator && !p.item.heading}
+        fallback={
+          p.item.heading ? (
+            <div class="context-menu-heading" role="presentation">
+              {p.item.label}
+            </div>
+          ) : (
+            <div class="context-menu-sep" role="separator" />
+          )
+        }
+      >
         <Show
           when={p.item.submenu && p.index !== undefined}
           fallback={

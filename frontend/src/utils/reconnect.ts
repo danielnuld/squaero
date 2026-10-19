@@ -116,3 +116,16 @@ export function normalizeKeepAlive(v: unknown): number | undefined {
   const n = typeof v === "string" ? Number(v) : v;
   return typeof n === "number" && Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
 }
+
+/** Seconds before the next automatic attempt to reopen a session that could not
+    be reopened (server down, network gone): 5, 10, 20, 40, then every 60. Only
+    for a session lost with no transaction — one that died with a transaction
+    waits for the user, who has to know it was rolled back. */
+export function retryDelaySec(attempt: number): number {
+  return Math.min(60, 5 * 2 ** Math.max(0, Math.min(attempt, 4)));
+}
+
+/** Whole seconds left until `at` (ms), never below 0: the band's countdown. */
+export function secondsLeft(at: number, now: number): number {
+  return Math.max(0, Math.ceil((at - now) / 1000));
+}

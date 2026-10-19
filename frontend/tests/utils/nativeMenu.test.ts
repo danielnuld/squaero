@@ -47,6 +47,7 @@ describe("buildMenuModel", () => {
       ...SHORTCUTS.map((sc) => sc.id),
       ...TOOL_CATALOG.map((tool) => `tool:${tool.tool}`),
       "act:reconnect",
+      "act:disconnect",
       "act:settings",
       "act:objects",
       "act:newTable",
@@ -75,6 +76,7 @@ describe("buildMenuModel", () => {
     const off = items(NONE);
     const enabled = (id: string) => off.find((i) => i.id === id)!.enabled !== false;
     expect(enabled("act:reconnect")).toBe(false);
+    expect(enabled("act:disconnect")).toBe(false);
     expect(enabled("run-query")).toBe(false);
     expect(enabled("run-script")).toBe(false);
     expect(enabled("tool:monitor")).toBe(false);
@@ -92,6 +94,18 @@ describe("buildMenuModel", () => {
 
     // Everything on: the `enabled` key is simply absent.
     for (const i of items(ALL)) expect(i.enabled, i.id).toBeUndefined();
+  });
+
+  it("disables the tools the connected engine cannot run (audit A-18)", () => {
+    const sqlite = items({ ...ALL, engine: "sqlite" });
+    const on = (id: string) => sqlite.find((i) => i.id === id)!.enabled !== false;
+    expect(on("tool:monitor")).toBe(false);
+    expect(on("tool:users")).toBe(false);
+    expect(on("tool:routines")).toBe(false);
+    expect(on("tool:erDiagram")).toBe(true);
+    expect(on("tool:triggers")).toBe(true);
+    // MySQL runs them all.
+    for (const i of items({ ...ALL, engine: "mysql" })) expect(i.enabled, i.id).toBeUndefined();
   });
 
   it("puts the tools under Tools, except the connections which open from File", () => {
