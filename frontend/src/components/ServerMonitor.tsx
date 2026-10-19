@@ -1,7 +1,7 @@
-import { Show, createMemo, createSignal, onMount } from "solid-js";
+import { For, Show, createMemo, createSignal, onMount } from "solid-js";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
-import { monitorFor, buildKillSql, unsupportedReason } from "../utils/serverMonitor";
+import { monitorFor, buildKillSql, sessionFacts, unsupportedReason } from "../utils/serverMonitor";
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
@@ -28,7 +28,10 @@ export function ServerMonitor(props: {
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
   // Killing cuts off someone else's work: it asks first, naming the session and
   // the server (audit A-10, R-31). Errors stay in the dialog to retry.
+  // The PID is typed to confirm, and the row's facts are shown, captured when
+  // asked: a refresh behind the dialog cannot change which session it names.
   const [confirmKill, setConfirmKill] = createSignal<string | null>(null);
+  const [killFacts, setKillFacts] = createSignal<{ name: string; value: string }[]>([]);
 
   const idIndex = createMemo(() => {
     const cols = result()?.columns ?? [];
@@ -98,6 +101,9 @@ export function ServerMonitor(props: {
             }
             onClick={() => {
               setError(null);
+              const r = selectedRow();
+              const res = result();
+              setKillFacts(r !== null && res?.rows[r] ? sessionFacts(res.columns, res.rows[r]) : []);
               setConfirmKill(selectedId());
             }}
           >
@@ -120,11 +126,25 @@ export function ServerMonitor(props: {
             message={killSessionConfirm(id(), props.connName ?? "").message}
             sql={buildKillSql(props.engine, id()) ?? undefined}
             confirmLabel={killSessionConfirm(id(), props.connName ?? "").confirm}
+            typeToConfirm={id()}
             busy={killing() !== null}
             error={error()}
             onConfirm={() => void kill(id())}
             onCancel={() => setConfirmKill(null)}
-          />
+          >
+            <Show when={killFacts().length > 0}>
+              <dl class="kill-facts">
+                <For each={killFacts()}>
+                  {(f) => (
+                    <>
+                      <dt>{f.name}</dt>
+                      <dd>{f.value}</dd>
+                    </>
+                  )}
+                </For>
+              </dl>
+            </Show>
+          </ConfirmDialog>
         )}
       </Show>
 

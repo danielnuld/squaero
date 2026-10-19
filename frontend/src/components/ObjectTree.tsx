@@ -54,7 +54,11 @@ export interface ConnRowState {
   busy?: boolean;
 }
 import { t, locale } from "../utils/i18n";
-import { dropConfirm } from "../utils/confirmText";
+import { dropConfirm, dropConsequences, type DropFacts } from "../utils/confirmText";
+import { objectCountQuery } from "../utils/pagination";
+import { indexListFor } from "../utils/indexes";
+import { foreignKeysFor, groupForeignKeys, parseForeignKeys } from "../utils/foreignKeys";
+import { withConfirmedWrites } from "../utils/transport";
 
 // A group folder's label is an i18n key ("tree.tables"); real object nodes carry
 // their true name. Translate only the former so object names pass through as-is.
@@ -524,8 +528,50 @@ export function ObjectTree(props: {
   // whether it is in flight. The dialog stays open on failure so the engine's
   // own complaint — a foreign key still pointing at the table, most often — is
   // read where the action was taken.
-  const [pendingDrop, setPendingDrop] = createSignal<{ name: string; sql: string; kind: DropKind; where: string } | null>(null);
+  const [pendingDrop, setPendingDrop] = createSignal<{
+    key: string;
+    name: string;
+    sql: string;
+    kind: DropKind;
+    where: string;
+  } | null>(null);
   const [dropping, setDropping] = createSignal(false);
+  // What a dropped table takes with it (audit P1): rows, indexes and who
+  // references it, read when the dialog opens. A catalog that cannot answer
+  // leaves its fact out — never a guess.
+  const [dropFacts, setDropFacts] = createSignal<DropFacts>({});
+  const loadDropFacts = (node: TreeNode) => {
+    setDropFacts({});
+    const connId = props.connId;
+    const engine = props.engine ?? "";
+    if (!connId || node.kind !== "table") return;
+    const db = node.db ?? props.connDatabase;
+    const asked = node.key;
+    const still = () => pendingDrop()?.key === asked;
+    const merge = (f: DropFacts) => still() && setDropFacts((prev) => ({ ...prev, ...f }));
+    const count = objectCountQuery({ db: node.db, schema: node.schema, name: node.label }, engine);
+    if (count) {
+      void runQuery(connId, count)
+        .then((r) => merge({ rows: Number(r.rows[0]?.[0] ?? NaN) }))
+        .catch(() => {});
+    }
+    const idx = indexListFor(engine, node.label, db, node.schema);
+    if (idx.supported && idx.sql) {
+      void runQuery(connId, idx.sql)
+        .then((r) => merge({ indexes: r.rows.length }))
+        .catch(() => {});
+    }
+    const fk = foreignKeysFor(engine, db, { table: node.label, direction: "to" });
+    if (fk.supported && fk.bulkSql) {
+      void runQuery(connId, fk.bulkSql)
+        .then((r) =>
+          merge({
+            dependants: groupForeignKeys(parseForeignKeys(r.columns, r.rows)).map((rel) => `${rel.fromTable}.${rel.columns.map((c) => c.from).join(", ")}`),
+          }),
+        )
+        .catch(() => {});
+    }
+  };
   const [dropError, setDropError] = createSignal<string | null>(null);
   // MongoDB collection management besides the drop: emptying (deleteMany({})) and
   // renaming, each confirmed with the exact statement shown. A rename also asks
@@ -539,13 +585,17 @@ export function ObjectTree(props: {
   };
   const closeColl = () => setPendingColl(null);
 
-  const runDrop = async (sql: string) => {
+  /** On a protected connection the DROP dialog asks for the typed name itself
+      (audit A-25), so the guard is not asked a second time. */
+  const typedDrop = () => props.conn?.safeMode === "confirm";
+  const runDrop = async (sql: string, confirmed = false) => {
     const connId = props.connId;
     if (!connId) return;
     setDropping(true);
     setDropError(null);
     try {
-      await runQuery(connId, sql);
+      if (confirmed) await withConfirmedWrites(connId, () => runQuery(connId, sql));
+      else await runQuery(connId, sql);
       setPendingDrop(null);
       setPendingColl(null);
       props.onRefresh?.();
@@ -656,7 +706,8 @@ export function ObjectTree(props: {
         setDropError(null);
         // Where it goes from, as the tree shows it: «Ventas › main».
         const where = [props.title, node.db, node.schema].filter(Boolean).join(" › ");
-        setPendingDrop({ name: node.label, sql, kind, where });
+        setPendingDrop({ key: node.key, name: node.label, sql, kind, where });
+        loadDropFacts(node);
       },
     });
   };
@@ -1095,12 +1146,16 @@ export function ObjectTree(props: {
             title={dropConfirm(p().kind, p().name).title}
             message={dropConfirm(p().kind, p().name, p().where).message}
             sql={p().sql}
+            copySql
+            typeToConfirm={typedDrop() ? p().name : undefined}
             confirmLabel={dropConfirm(p().kind, p().name).confirm}
             busy={dropping()}
             error={dropError()}
-            onConfirm={() => void runDrop(p().sql)}
+            onConfirm={() => void runDrop(p().sql, typedDrop())}
             onCancel={() => setPendingDrop(null)}
-          />
+          >
+            <For each={dropConsequences(dropFacts())}>{(line) => <p class="confirm-message">{line}</p>}</For>
+          </ConfirmDialog>
         )}
       </Show>
 
