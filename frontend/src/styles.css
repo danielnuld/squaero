@@ -8425,3 +8425,142 @@ ul.sidebar-tree {
   height: calc(var(--h-md) - 4px);
   padding: 0 var(--sp-3);
 }
+
+/* The notification history (issue #693): a panel beside the rail's bell, above
+   the status bar, so it covers neither the tabs nor the rows' pager. */
+.rail-badge {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notes-panel {
+  position: fixed;
+  left: 72px;
+  bottom: calc(var(--band-sm) + var(--sp-3));
+  z-index: 40;
+  width: 400px;
+  max-width: calc(100vw - 88px);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.notes-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 44px;
+  flex: none;
+  padding: 0 var(--sp-3) 0 var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.notes-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.notes-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--sp-2) 0;
+  list-style: none;
+}
+
+.notes-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-5);
+}
+
+.notes-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent-text);
+}
+
+.notes-item.level-ok .notes-icon {
+  color: var(--ok);
+}
+
+.notes-item.level-warn .notes-icon {
+  color: var(--warn);
+}
+
+.notes-item.level-error .notes-icon {
+  color: var(--error);
+}
+
+.notes-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.notes-time {
+  flex: none;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  flex: none;
+  padding: 0 var(--sp-3) 0 var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
+.notes-help {
+  flex: 1;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+/* The one empty-state pattern (issues #693, #694): a short title, one
+   sentence, and at most one primary action. No illustrations. */
+.empty-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.empty-note-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.empty-note > button {
+  margin-top: var(--sp-2);
+}

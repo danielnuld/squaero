@@ -59,4 +59,33 @@ describe("Rail", () => {
     expect(button("Datos").disabled).toBe(true);
     expect(button("Datos").title).toMatch(/Conéctate/);
   });
+
+  // Issue #693: the bell for the notification history, with an unread badge.
+  it("opens the notifications and shows how many are unread", () => {
+    const onNotifications = vi.fn();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <Rail
+            side={{ panel: "explorer", collapsed: false }}
+            connected
+            onPick={() => {}}
+            onConnections={() => {}}
+            onSettings={() => {}}
+            unread={12}
+            onNotifications={onNotifications}
+          />
+        ),
+        host!,
+      );
+    });
+    const bell = host!.querySelector(".rail-bell") as HTMLButtonElement;
+    expect(bell.title).toBe("Notificaciones: 12 sin leer");
+    expect(bell.querySelector(".rail-badge")?.textContent).toBe("9+");
+    bell.click();
+    expect(onNotifications).toHaveBeenCalledOnce();
+  });
 });

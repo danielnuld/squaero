@@ -9,6 +9,7 @@ import {
   onMount,
   onCleanup,
   untrack,
+  on,
 } from "solid-js";
 import { createStore, unwrap } from "solid-js/store";
 import {
@@ -314,6 +315,8 @@ import { EditorToolbar } from "./components/EditorToolbar";
 import { RunStatus } from "./components/RunStatus";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
+import { Notifications } from "./components/Notifications";
+import { loadNotes, pushNote, saveNotes, unreadCount, type NoteLevel, type NoteLog } from "./utils/notifications";
 import type { StatusTabKind } from "./utils/statusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
@@ -2149,16 +2152,21 @@ export function App() {
   // the status bar keeps the same two facts for after the toast has left.
   const [runToast, setRunToast] = createSignal<{ text: string; error: boolean } | null>(null);
   let runToastTimer: ReturnType<typeof setTimeout> | undefined;
-  const showRunToast = (ranAt: number, elapsedMs: number, failed: boolean) => {
+  //
+  // Issue #693 (audit R-30, A-33): no toast for a run whose result is on
+  // screen — the run status band and the status bar already say it. Only a run
+  // that finished in a tab the user has left is announced, and an error stays
+  // until it is closed.
+  const showRunToast = (tabId: number, ranAt: number, elapsedMs: number, failed: boolean) => {
+    if (current()?.id === tabId) return;
     clearTimeout(runToastTimer);
     const args = { time: formatClock(ranAt), duration: formatDuration(elapsedMs) };
     setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
-    runToastTimer = setTimeout(() => setRunToast(null), 4000);
+    if (!failed) runToastTimer = setTimeout(() => setRunToast(null), 6000);
   };
   const showErrorToast = (text: string) => {
     clearTimeout(runToastTimer);
     setRunToast({ text, error: true });
-    runToastTimer = setTimeout(() => setRunToast(null), 6000);
   };
 
   // --- Manual transactions (issue #667) -----------------------------------
@@ -2409,7 +2417,7 @@ export function App() {
       // page turns (offset > 0) are not logged.
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
-        showRunToast(ranAt, elapsedMs, !!shown?.error);
+        showRunToast(id, ranAt, elapsedMs, !!shown?.error);
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
       // A page turn keeps the source it already had; a fresh query derives it.
@@ -2439,7 +2447,7 @@ export function App() {
       });
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
-        showRunToast(ranAt, elapsedMs, true);
+        showRunToast(id, ranAt, elapsedMs, true);
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
     }
@@ -3063,6 +3071,34 @@ export function App() {
   // Said once, not on every snapshot: a tab too big to keep is warned about
   // until it records again, a failing store until a write succeeds.
   const [localWarn, setLocalWarn] = createSignal<string | null>(null);
+
+  // --- Notification history (issue #693) ---------------------------------
+  // Every toast that matters is also written to the history behind the bell,
+  // so a message that left before it was read is still there. Logged from the
+  // toast signals themselves: one place, whoever raised the toast.
+  const [noteLog, setNoteLog] = createSignal<NoteLog>(loadNotes(resolveStore(), Date.now()));
+  const [notesOpen, setNotesOpen] = createSignal(false);
+  createEffect(on(noteLog, (l) => saveNotes(resolveStore(), l), { defer: true }));
+  const notify = (level: NoteLevel, text: string) =>
+    setNoteLog((l) => ({ ...l, notes: pushNote(l.notes, { at: Date.now(), level, text }) }));
+  const toggleNotes = () => {
+    if (!notesOpen()) setNoteLog((l) => ({ ...l, seenAt: Date.now() }));
+    setNotesOpen((o) => !o);
+  };
+  const logToast = <T,>(sig: () => T | null, note: (v: T) => [NoteLevel, string] | null) =>
+    createEffect(
+      on(sig, (v) => {
+        const n = v === null ? null : note(v);
+        if (n) notify(n[0], n[1]);
+      }),
+    );
+  logToast(snipToast, (v) => ["info", v.text]);
+  // Progress updates are not news; the outcome is.
+  logToast(exportStatus, (v) => (v.rows === undefined ? [v.error ? "error" : "ok", v.text] : null));
+  logToast(localWarn, (v) => ["warn", v]);
+  logToast(runToast, (v) => [v.error ? "error" : "ok", v.text]);
+  logToast(cacheNotice, (v) => ["warn", v]);
+  logToast(connError, (v) => ["error", v]);
   const tooBigWarned = new Set<number>();
   let saveFailWarned = false;
   const commitLocal = (list: TabHistory[]) => {
@@ -4716,7 +4752,17 @@ export function App() {
           connected={!!active()}
           onConnections={openConnectionsTab}
           onSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
+          unread={unreadCount(noteLog())}
+          notesOpen={notesOpen()}
+          onNotifications={toggleNotes}
         />
+        <Show when={notesOpen()}>
+          <Notifications
+            notes={noteLog().notes}
+            onClear={() => setNoteLog((l) => ({ ...l, notes: [] }))}
+            onClose={() => setNotesOpen(false)}
+          />
+        </Show>
         {/* The side column stays mounted when folded or switched: the trees
             keep their expansion, filter and loaded objects (#444, #689). */}
         <aside
