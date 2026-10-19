@@ -105,12 +105,20 @@ describe("App — theme & shortcuts", () => {
     expect(t === "light" || t === "dark").toBe(true);
   });
 
-  // The status bar has no theme toggle any more (issue #693): Ctrl+Alt+L.
-  it("cycles the theme with its shortcut, and the status bar has no toggle", () => {
+  // The status bar has no theme toggle any more (issue #693), and the theme has
+  // no default key (R-17: Ctrl+Alt+L locks Linux screens). A key the user gives
+  // it works.
+  it("cycles the theme with a key the user gave it, and the status bar has no toggle", () => {
+    localStorage.clear();
+    localStorage.setItem("quaero.shortcuts", '{"toggle-theme":"Alt+Shift+T"}');
+    localStorage.setItem("quaero.shortcuts.version", "2");
     mount();
     expect(host!.querySelector(".statusbar .status-btn")).toBeNull();
+    const before = document.documentElement.getAttribute("data-theme");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", ctrlKey: true, altKey: true }));
+    expect(document.documentElement.getAttribute("data-theme")).toBe(before);
     const press = () =>
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", ctrlKey: true, altKey: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "T", altKey: true, shiftKey: true }));
     // Fresh preference is "system" (→ light under jsdom's no-matchMedia).
     press(); // system → light
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
@@ -151,13 +159,50 @@ describe("App — theme & shortcuts", () => {
     expect(host!.querySelectorAll(".tab").length).toBe(1);
   });
 
-  it("opens a new tab with Ctrl+Alt+T", () => {
+  // R-17: Ctrl+Alt+T is AltGr+T on many layouts, which types a character.
+  it("leaves Ctrl+Alt+T alone", () => {
     mount();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", ctrlKey: true, altKey: true }));
     expect(host!.querySelectorAll(".tab").length).toBe(0);
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "t", ctrlKey: true, altKey: true }),
-    );
-    expect(host!.querySelectorAll(".tab").length).toBe(1);
+  });
+
+  it("closes every tab with Ctrl+Mayús+W", () => {
+    mount();
+    openQueryTab(host!);
+    openQueryTab(host!);
+    expect(host!.querySelectorAll(".tab").length).toBe(2);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "W", ctrlKey: true, shiftKey: true }));
+    expect(host!.querySelectorAll(".tab").length).toBe(0);
+  });
+
+  it("hides and shows the side panel with Ctrl+B", () => {
+    localStorage.clear();
+    mount();
+    const aside = host!.querySelector<HTMLElement>("aside.sidebar")!;
+    expect(aside.hidden).toBe(false);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", ctrlKey: true }));
+    expect(aside.hidden).toBe(true);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "b", ctrlKey: true }));
+    expect(aside.hidden).toBe(false);
+  });
+
+  it("leaves Ctrl+B to whoever already handled it (the grid's related row)", () => {
+    localStorage.clear();
+    mount();
+    const aside = host!.querySelector<HTMLElement>("aside.sidebar")!;
+    const e = new KeyboardEvent("keydown", { key: "b", ctrlKey: true, cancelable: true });
+    e.preventDefault();
+    document.dispatchEvent(e);
+    expect(aside.hidden).toBe(false);
+  });
+
+  it("opens the history in the side column with Ctrl+Mayús+H, and the settings with Ctrl+,", () => {
+    localStorage.clear();
+    mount();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "H", ctrlKey: true, shiftKey: true }));
+    expect(host!.querySelector("aside.sidebar .history")).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: ",", ctrlKey: true }));
+    expect(host!.querySelector(".tab.active")?.textContent).toContain("Ajustes");
   });
 
   it("opens a tab with Ctrl+T and closes it with Ctrl+W, as in a browser (#591)", () => {

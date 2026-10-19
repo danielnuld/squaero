@@ -27,7 +27,7 @@ import type { PkMode } from "../utils/rowPaste";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
 import { cellEditorKey, gridEditKey } from "../utils/cellEditKeys";
-import { displayKeys } from "../utils/shortcuts";
+import { formatKeys } from "../utils/shortcuts";
 import { currentOs } from "../utils/dialog";
 import { Icon, IconKey, IconRelated, IconSearch } from "./icons";
 import { t } from "../utils/i18n";
@@ -1517,7 +1517,7 @@ export function ResultGrid(props: {
                     </span>
                     <span class="grid-edit-hint-keys">
                       {t("grid.editHint.keys", {
-                        keys: displayKeys("Mod+Shift+N", currentOs() === "macos"),
+                        keys: formatKeys("Mod+Shift+N", currentOs()),
                       })}
                     </span>
                   </div>

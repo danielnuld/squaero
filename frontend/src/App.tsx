@@ -75,6 +75,8 @@ import {
   closeTab,
   closeOtherTabs,
   closeTabsToRight,
+  closeAllTabs,
+  closedQueryTabs,
   closeTabsForConn,
   cycleTab,
   updateTabSql,
@@ -138,7 +140,8 @@ import {
 import { themeCss, type Theme } from "./utils/themeSchema";
 import { BUILTIN_THEMES, DEFAULT_THEME_ID } from "./utils/themes";
 import {
-  displayKeys,
+  formatKeys,
+  keysOf,
   effectiveShortcuts,
   matchShortcut,
   type ActionId,
@@ -580,6 +583,11 @@ const EXPORT_FORMATS: { fmt: AnyExportFormat; label: string }[] = [
   { fmt: "sql", label: "SQL" },
 ];
 
+/** Actions that yield to a focused component that already handled their keys. */
+const YIELDING: ReadonlySet<string> = new Set(["toggle-sidebar", "focus-explorer", "connect"]);
+/** How many closed query tabs Ctrl+Mayús+T can bring back. */
+const CLOSED_KEPT = 20;
+
 // Root layout: resizable sidebar (connection manager) | tabbed workspace
 // (editor over result grid), with a status bar across the bottom. Connecting
 // opens a real connection in the core; running SQL goes through query.run and
@@ -823,7 +831,7 @@ export function App() {
     saveShortcutOverrides(o);
   };
   const paletteKeys = () =>
-    displayKeys(shortcuts().find((sc) => sc.id === "command-palette")?.keys ?? "Mod+K", isMac());
+    keysOf("command-palette", shortcuts(), currentOs());
   const patchSettings = (patch: Partial<Settings>) => {
     const next = { ...settings(), ...patch };
     setSettings(next);
@@ -965,6 +973,23 @@ export function App() {
     saveCellColors(store);
   };
 
+  /** Asks the explorer's head to open its connection search (Ctrl+Mayús+K). */
+  const [connectTick, setConnectTick] = createSignal(0);
+  /** Closed query tabs, newest last, for Ctrl+Mayús+T (capped). */
+  const closedStack: QueryTab[] = [];
+  createEffect(
+    on(tabs, (next, prev) => {
+      if (!prev) return;
+      closedStack.push(...closedQueryTabs(prev, next));
+      closedStack.splice(0, Math.max(0, closedStack.length - CLOSED_KEPT));
+    }),
+  );
+  /** Save the active query tab's text as a .sql file; nothing elsewhere. */
+  const saveCurrentSql = () => {
+    const tab = currentQuery();
+    if (tab && !isDataTab(tab.id)) void saveText(sqlFileName(tab.title), sqlOfTab(tab.id), "application/sql");
+  };
+
   /** The mounted filter panel's "add a condition" (#592); one panel at a time. */
   let addFilterCondition: (() => void) | undefined;
   let addFilterSort: (() => void) | undefined;
@@ -1040,9 +1065,39 @@ export function App() {
         break;
       case "save-edits": {
         // Same gate as the toolbar's "Confirmar" button: only while editing,
-        // idle, and with something to write. Otherwise the key is swallowed.
+        // idle, and with something to write. On a query tab the key saves its
+        // .sql file instead (R-17), as every editor does.
         const ed = currentEdit();
         if (ed.editing && !ed.busy && hasChanges(ed.pending)) void confirmEdit();
+        else saveCurrentSql();
+        break;
+      }
+      case "open-file":
+        openSqlFile();
+        break;
+      case "open-settings":
+        showTool("settings", t("common.settings"), { key: "settings" });
+        break;
+      case "toggle-sidebar":
+        setSide((s) => ({ ...s, collapsed: !s.collapsed }));
+        break;
+      case "focus-explorer":
+        setSide({ panel: "explorer", collapsed: false });
+        queueMicrotask(() => sidebarEl?.querySelector<HTMLElement>(".side-explorer [tabindex='0'], .side-explorer button")?.focus());
+        break;
+      case "toggle-history":
+        setSide((s) => railClick(s, "history"));
+        break;
+      case "connect":
+        setSide({ panel: "explorer", collapsed: false });
+        setConnectTick((n) => n + 1);
+        break;
+      case "close-all-tabs":
+        setTabs(closeAllTabs);
+        break;
+      case "reopen-tab": {
+        const last = closedStack.pop();
+        if (last) openSqlInNewTab(last.sql, last.title, undefined, last.connDefId);
         break;
       }
       case "editor-find":
@@ -1100,6 +1155,9 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       const action = matchShortcut(e, shortcuts());
       if (!action) return;
+      // These share their keys with a focused component (the grid's Ctrl+B, the
+      // editor's Explain and delete-line); the one that handled it wins.
+      if (e.defaultPrevented && YIELDING.has(action)) return;
       // While the command palette owns the screen, only the palette toggles act;
       // other shortcuts are swallowed (preventDefault, no-op) so the webview host
       // never runs its own find/print behind the overlay.
@@ -3044,7 +3102,7 @@ export function App() {
 
   // «Más»: everything the run toolbar does not show (R-20).
   const editorMoreItems = (e: MouseEvent, tab: Tab): MenuItem[] => [
-    { label: t("editor.plan"), hint: displayKeys("Mod+Shift+E", isMac()), action: explainActive },
+    { label: t("editor.plan"), hint: keysOf("explain", shortcuts(), currentOs()), action: explainActive },
     ...(hasVariables() ? [{ label: t("vars.button"), action: editVariables }] : []),
     { separator: true },
     {
@@ -3062,7 +3120,7 @@ export function App() {
     { separator: true },
     {
       label: t("editor.saveSnippetMenu"),
-      hint: displayKeys("Mod+Shift+S", isMac()),
+      hint: keysOf("save-snippet", shortcuts(), currentOs()),
       action: requestSaveSnippet,
     },
     {
@@ -4692,7 +4750,7 @@ export function App() {
       // ── The cell ──
       items.push({
         label: t("result.copyCell"),
-        hint: displayKeys("Mod+C", isMac()),
+        hint: formatKeys("Mod+C", currentOs()),
         action: () => copyText(cell ?? ""),
       });
       const copyAs: MenuItem[] = [
@@ -4705,7 +4763,7 @@ export function App() {
         {
           label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
           action: () => copyRowsFromGrid(targets, true),
-          hint: displayKeys("Mod+Shift+C", isMac()),
+          hint: formatKeys("Mod+Shift+C", currentOs()),
         },
       ];
       if (res.rows.length > n) {
@@ -4745,7 +4803,7 @@ export function App() {
         get disabled() {
           return nullBlocked() !== null;
         },
-        hint: displayKeys("Mod+Shift+N", isMac()),
+        hint: formatKeys("Mod+Shift+N", currentOs()),
         action: () => void inEdit(() => onEditCell(rowIndex, column, null)),
       });
       // Taking a change back without discarding the others (A-04).
@@ -4779,7 +4837,7 @@ export function App() {
         get disabled() {
           return relatedBlockedReason(column) !== null;
         },
-        hint: displayKeys("Mod+B", isMac()),
+        hint: formatKeys("Mod+B", currentOs()),
         action: () => openRelated(rowIndex, colIndex),
       });
       // Filter the table by this cell's value (issue #593): each entry adds one
@@ -4821,7 +4879,7 @@ export function App() {
         get disabled() {
           return addRowsBlocked() !== null;
         },
-        hint: displayKeys("Mod+D", isMac()),
+        hint: formatKeys("Mod+D", currentOs()),
         action: () => duplicateRows(targets),
       });
       items.push({
@@ -4852,7 +4910,7 @@ export function App() {
         get danger() {
           return !allDeleted();
         },
-        hint: displayKeys("Delete", isMac()),
+        hint: formatKeys("Delete", currentOs()),
         action: () => void inEdit(() => onToggleDeleteRows(targets)),
       });
       items.push({ separator: true });
@@ -4882,7 +4940,7 @@ export function App() {
         action: () => setTabs((s) => closeTabsToRight(s, id)),
         disabled: tabs().tabs.at(-1)?.id === id,
       },
-      { label: t("tabmenu.closeAll"), action: () => setTabs((s) => ({ ...s, tabs: [], activeId: 0 })) },
+      { label: t("tabmenu.closeAll"), hint: keysOf("close-all-tabs", shortcuts(), currentOs()), action: () => setTabs(closeAllTabs) },
       { separator: true },
       {
         label: t("tabmenu.copyName"),
@@ -5083,6 +5141,9 @@ export function App() {
       out.push({ id: "act:objects", category: "action", label: t("toolbar.objects.title"), run: openObjectList });
     out.push({ id: "act:settings", category: "action", label: t("common.settings"), run: () => showTool("settings", t("common.settings"), { key: "settings" }) });
     out.push({ id: "act:help", category: "action", label: t("status.shortcuts"), run: () => showTool("help", t("status.shortcuts"), { key: "help" }) });
+    // The theme has no default key (R-17); the palette is where it lives.
+    out.push({ id: "act:theme", category: "action", label: t("sc.toggle-theme"), hint: keysOf("toggle-theme", shortcuts(), currentOs()) || undefined, run: toggleTheme });
+    out.push({ id: "act:openFile", category: "action", label: t("sc.open-file"), hint: keysOf("open-file", shortcuts(), currentOs()), run: openSqlFile });
 
     // Tools (need a connection to be useful — except the saved connections,
     // which belong to no connection at all and are how you open the first one).
@@ -5160,6 +5221,7 @@ export function App() {
       hasTab: !!current(),
       isMac: isMac(),
       engine: active()?.driver,
+      shortcuts: shortcuts(),
     }),
   );
   createEffect(() => {
@@ -5263,6 +5325,7 @@ export function App() {
                (#525); the search only links to it. */
             onImport={openConnectionsTab}
             onManage={openConnectionsTab}
+            searchTick={connectTick()}
           />
           {/* A connection being opened (TreeLoading): its name, the time it
               is taking and the rows to come. No Cancelar: the core cannot

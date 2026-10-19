@@ -42,8 +42,9 @@ describe("searchSettings", () => {
     expect(hits).not.toContain("historyLimit");
   });
   it("searches the translated text, so the same row is found in either language", () => {
-    expect(searchSettings("historial", es)).toEqual(["localHistory", "historyLimit"]);
-    expect(searchSettings("history", en)).toEqual(["localHistory", "historyLimit"]);
+    // The shortcut editor too: «Abrir el historial» is one of its actions.
+    expect(searchSettings("historial", es)).toEqual(["localHistory", "historyLimit", "shortcuts"]);
+    expect(searchSettings("history", en)).toEqual(["localHistory", "historyLimit", "shortcuts"]);
     expect(searchSettings("history", es)).toEqual([]);
   });
   it("needs every word, and matches the options of a row", () => {
