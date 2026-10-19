@@ -6962,6 +6962,16 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 /* Entity-relationship diagram (issue #145) */
+/* ER diagram (audit A-31): boxes with rows, orthogonal edges with the
+   crow's-foot notation, dashed views, and the zoom, legend and minimap laid
+   over the canvas. */
+.er-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .er-canvas {
   flex: 1;
   min-height: 0;
@@ -6977,8 +6987,13 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .er-box-bg {
   fill: var(--bg);
-  stroke: var(--border);
+  stroke: var(--border-strong);
   stroke-width: 1;
+}
+
+.er-box-bg.er-view,
+.er-mini-box.er-view {
+  stroke-dasharray: 5 3;
 }
 
 .er-box {
@@ -6989,16 +7004,28 @@ button.grid-action.danger:hover:not(:disabled) {
   cursor: grabbing;
 }
 
-.er-box-header {
-  fill: var(--accent);
+.er-box.er-sel .er-box-bg,
+.er-box:focus-visible .er-box-bg {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.er-box-rule {
+  stroke: var(--border);
 }
 
 .er-box-title {
-  fill: var(--accent-fg);
+  fill: var(--text);
   font-size: var(--fs-base);
   font-weight: 600;
   font-family: var(--font-ui);
   pointer-events: none;
+}
+
+.er-box-count {
+  fill: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-family: var(--font-ui);
 }
 
 .er-col {
@@ -7011,19 +7038,105 @@ button.grid-action.danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
-.er-col-type {
-  fill: var(--text-dim);
+.er-col-key {
+  color: var(--syntax-number);
 }
 
-.er-edge {
+.er-col-fk {
+  color: var(--accent-text);
+}
+
+.er-col-type {
+  fill: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+}
+
+.er-edge,
+.er-legend-line,
+.er-mark {
   stroke: var(--text-dim);
   stroke-width: 1.5;
-  stroke-dasharray: 4 3;
   fill: none;
 }
 
-.er-arrow-head {
-  fill: var(--text-dim);
+.er-mark-circle {
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+  fill: var(--bg-elev);
+}
+
+.er-rel-active .er-edge,
+.er-rel-active .er-mark,
+.er-rel-active .er-mark-circle {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.er-rel-label {
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+}
+
+.er-zoom,
+.er-legend,
+.er-minimap {
+  position: absolute;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.er-zoom {
+  left: var(--sp-4);
+  bottom: var(--sp-4);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+}
+
+.er-legend {
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.er-legend > span {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.er-legend-view {
+  display: inline-block;
+  width: 28px;
+  height: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-sm);
+}
+
+.er-minimap {
+  right: var(--sp-4);
+  top: var(--sp-4);
+}
+
+.er-mini-box {
+  fill: var(--bg-elev2);
+  stroke: var(--border-strong);
+  stroke-width: 0.5;
+}
+
+.er-mini-view {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1;
 }
 
 /* Visual query builder (issue #146) */

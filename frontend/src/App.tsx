@@ -6526,6 +6526,9 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb() ?? undefined}
+                    onOpenTable={(name, view) =>
+                      openData({ key: `db:${activeDb() ?? ""}/obj:${name}`, label: name, kind: view ? "view" : "table", db: activeDb() ?? undefined })
+                    }
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
