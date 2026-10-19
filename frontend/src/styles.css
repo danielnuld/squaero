@@ -5151,12 +5151,36 @@ svg.icon {
    colour, and the original value in the tooltip — or beside it, struck. */
 .cell-dirty {
   position: relative;
+}
+
+.cell-edit.cell-dirty {
   display: flex;
   align-items: center;
 }
 
-.cell-dirty .cell-input {
+.cell-dirty .cell-input,
+.grid-cell.cell-dirty:not(.cell-edit) {
   background: color-mix(in srgb, var(--null) 18%, var(--bg));
+}
+
+/* The open cell editor's line (R-14): the value before, the type, the keys. */
+.grid-edit-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  background: var(--bg-elev2);
+  border-top: 1px solid var(--border);
+}
+
+.grid-edit-hint-cell {
+  color: var(--text);
+}
+
+.grid-edit-hint-keys {
+  margin-left: auto;
 }
 
 .cell-dirty::after {

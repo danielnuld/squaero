@@ -262,6 +262,9 @@ import {
 import {
   emptyPending,
   setCell,
+  revertCell,
+  revertRow,
+  rowChange,
   toggleDelete,
   toggleDeleteRows,
   addInsert,
@@ -3219,6 +3222,14 @@ export function App() {
     const t = current();
     if (t) mutatePending(t.id, (p) => setCell(p, rowIndex, column, value));
   };
+  const onRevertCell = (rowIndex: number, column: string) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => revertCell(p, rowIndex, column));
+  };
+  const onRevertRow = (rowIndex: number) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => revertRow(p, rowIndex));
+  };
   const onToggleDelete = (rowIndex: number) => {
     const t = current();
     if (t) mutatePending(t.id, (p) => toggleDelete(p, rowIndex));
@@ -4661,12 +4672,9 @@ export function App() {
       // the same rule as the related-data entry below (#344). Whether the
       // COLUMN accepts a NULL is not knowable from a ResultColumn (name + type,
       // nothing else), so a NOT NULL is rejected by the engine, with its error.
+      // Out of an edit session it opens one first (R-14), as the grid's keys do.
       const nullBlocked = () =>
-        !currentEditable()
-          ? readOnlyReason("result.setNullReadOnly")
-          : !currentEdit().editing
-            ? t("result.setNullNeedsEdit")
-            : null;
+        !currentEditable() ? readOnlyReason("result.setNullReadOnly") : null;
       items.push({
         get label() {
           return nullBlocked() ?? t("result.setNull");
@@ -4674,8 +4682,17 @@ export function App() {
         get disabled() {
           return nullBlocked() !== null;
         },
-        action: () => onEditCell(rowIndex, column, null),
+        hint: displayKeys("Mod+Shift+N", isMac()),
+        action: () => void inEdit(() => onEditCell(rowIndex, column, null)),
       });
+      // Taking a change back without discarding the others (A-04).
+      const rowEdits = () => currentEdit().pending.edits[rowIndex];
+      if (currentEdit().editing && rowEdits() && column in rowEdits()!) {
+        items.push({ label: t("result.revertCell"), action: () => onRevertCell(rowIndex, column) });
+      }
+      if (currentEdit().editing && rowChange(currentEdit().pending, rowIndex) !== null) {
+        items.push({ label: t("result.revertRow"), action: () => onRevertRow(rowIndex) });
+      }
       items.push({ label: t("result.rowDetail"), action: () => setDetailIndex(rowIndex) });
       items.push({ separator: true });
 
@@ -4753,11 +4770,7 @@ export function App() {
       // runs before the SQL preview. Always listed, with its reason when it
       // cannot run — the same rule as "Set NULL" above.
       const deleteBlocked = () =>
-        !currentEditable()
-          ? readOnlyReason("result.deleteRowsReadOnly")
-          : !currentEdit().editing
-            ? t("result.deleteRowsNeedsEdit")
-            : null;
+        !currentEditable() ? readOnlyReason("result.deleteRowsReadOnly") : null;
       const allDeleted = () => targets.every((r) => currentEdit().pending.deletes.includes(r));
       items.push({
         get label() {
@@ -4777,7 +4790,7 @@ export function App() {
           return !allDeleted();
         },
         hint: displayKeys("Delete", isMac()),
-        action: () => onToggleDeleteRows(targets),
+        action: () => void inEdit(() => onToggleDeleteRows(targets)),
       });
       items.push({ separator: true });
     }
@@ -4854,13 +4867,15 @@ export function App() {
       }
     );
   };
-  // A new row opens the edit session first: there is no Editar button (#688).
-  const addRowInPlace = async () => {
+  /** Runs `fn` inside the tab's edit session, opening it first: there is no
+      Editar button (#688), so a new row, a NULL or a deletion starts one (R-14). */
+  const inEdit = async (fn: () => void) => {
     const tab = current();
     if (!tab) return;
     if (!currentEdit().editing) await beginEdit();
-    if (edits[tab.id]?.editing) onAddInsert();
+    if (edits[tab.id]?.editing) fn();
   };
+  const addRowInPlace = () => inEdit(onAddInsert);
 
   // Go to definition from the editor (issue #663): a table or view opens its
   // structure (columns + DDL) when the tree has loaded it; a routine opens its
@@ -5823,6 +5838,7 @@ export function App() {
                             onSelectedCellsChange={setSelectedCells}
                             onColumnOrderChange={setColumnOrder}
                             onCopyRows={copyRowsFromGrid}
+                            onRowDetail={setDetailIndex}
                             onDuplicateRows={currentEditable() ? duplicateRows : undefined}
                             clearMarksTick={clearMarksTick()}
                             referencedColumns={referencedColumns()}
@@ -5855,6 +5871,7 @@ export function App() {
                                     active: currentEdit().editing,
                                     pending: currentEdit().pending,
                                     onEditCell,
+                                    onRevertCell,
                                     onToggleDelete,
                                     onToggleDeleteRows,
                                     onInsertCell,
