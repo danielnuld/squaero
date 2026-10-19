@@ -3,6 +3,7 @@ import {
   compareVersions,
   parseLatestRelease,
   checkForUpdate,
+  updateStatus,
 } from "../../src/utils/update";
 
 describe("compareVersions", () => {
@@ -78,5 +79,26 @@ describe("checkForUpdate", () => {
       throw new Error("network");
     }) as unknown as typeof fetch;
     expect(await checkForUpdate("0.1.0", boom)).toBeNull();
+  });
+});
+
+describe("updateStatus (Ajustes › Acerca de)", () => {
+  const okFetch = (body: unknown): typeof fetch =>
+    (async () => ({ ok: true, json: async () => body }) as Response) as unknown as typeof fetch;
+
+  it("tells a newer release, being up to date, a dev build and a failed check apart", async () => {
+    expect(await updateStatus("0.1.0", okFetch({ tag_name: "v0.2.0", assets: [] }))).toMatchObject({
+      kind: "newer",
+      info: { version: "0.2.0" },
+    });
+    expect(await updateStatus("0.2.0", okFetch({ tag_name: "v0.2.0" }))).toEqual({ kind: "current" });
+    expect(await updateStatus("dev", okFetch({}))).toEqual({ kind: "dev" });
+    const notOk = (async () => ({ ok: false }) as Response) as unknown as typeof fetch;
+    expect(await updateStatus("0.2.0", notOk)).toEqual({ kind: "failed" });
+    const offline = (async () => {
+      throw new Error("offline");
+    }) as unknown as typeof fetch;
+    expect(await updateStatus("0.2.0", offline)).toEqual({ kind: "failed" });
+    expect(await updateStatus("0.2.0", okFetch({ nonsense: true }))).toEqual({ kind: "failed" });
   });
 });

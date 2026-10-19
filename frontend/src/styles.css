@@ -2849,6 +2849,35 @@ kbd {
 /* Keyboard-shortcuts help overlay */
 /* The pane is full width now; the table is not, or the keys column drifts an
    arm's length away from the action it belongs to. */
+/* The reference (M14 ShortcutsHelp): search and group filter, then a table
+   per group; a dot marks what the user changed. */
+.shortcuts-head,
+.shortcuts-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+.shortcuts-filters {
+  margin: var(--sp-3) 0;
+}
+.shortcuts-search {
+  min-width: 14rem;
+}
+.shortcuts-group h3 {
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+.shortcuts-custom {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  vertical-align: middle;
+}
+
 .shortcuts-list {
   width: 100%;
   max-width: 46rem;
@@ -7577,7 +7606,40 @@ button.grid-action.danger:hover:not(:disabled) {
   margin-bottom: var(--sp-3);
 }
 
+.settings-nav-ic {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.settings-nav-item[aria-current="true"] .settings-nav-ic {
+  color: var(--accent-text);
+}
+.settings-nav-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.settings-nav-hits-title {
+  padding: 0 var(--sp-3) var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.settings-nav-hit {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.settings-nav-hit-cat {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
 .settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
   text-align: left;
   border: 1px solid transparent;
   background: transparent;

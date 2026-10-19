@@ -4,7 +4,8 @@ import { createEffect, createMemo, createSignal, onMount, Show, For, type JSX } 
 import { Panel } from "./Panel";
 import { BrandWordmark } from "./Brand";
 import { call } from "../utils/transport";
-import { APP_VERSION, ABOUT_LINKS, aboutReport } from "../utils/version";
+import { APP_VERSION, ABOUT_LINKS, aboutReport, systemLine } from "../utils/version";
+import type { UpdateInfo, UpdateStatus } from "../utils/update";
 import { openExternal } from "../utils/openExternal";
 import { copyText } from "../utils/rowCopy";
 import {
@@ -49,6 +50,7 @@ import {
   type Shortcut,
   type ShortcutOverrides,
 } from "../utils/shortcuts";
+import { groupShortcuts } from "../utils/shortcutGroups";
 import { clampLimit, DEFAULT_HISTORY_LIMIT, MIN_HISTORY_LIMIT, MAX_HISTORY_LIMIT } from "../utils/history";
 import {
   clampFontSize,
@@ -81,7 +83,7 @@ import {
 } from "../utils/cellColors";
 import type { CellKind } from "../utils/format";
 import { locale, setLocale, LOCALES, t } from "../utils/i18n";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 import { hasShellMenu } from "../utils/nativeMenu";
 import { hasWindowBinding } from "../utils/titleBar";
 
@@ -107,6 +109,17 @@ const ABOUT_LINK_KEYS: [string, string][] = [
 ];
 
 const THEME_OPTS: ThemePref[] = ["system", "light", "dark"];
+/** Each category's icon in the navigation (M14 SettingsNav). */
+const CATEGORY_ICON: Record<SettingsCategory, IconName> = {
+  general: "tools",
+  appearance: "view",
+  editor: "query",
+  grid: "table",
+  queries: "clock",
+  shortcuts: "key",
+  window: "builder",
+  about: "info",
+};
 const DENSITY_OPTS: Density[] = ["comfortable", "compact"];
 /** How the grid reads (#540): density is how much fits; this is what it looks like. */
 const GRID_STYLE_OPTS: GridStyle[] = ["registro", "hoja", "informe"];
@@ -163,6 +176,10 @@ export function SettingsPanel(props: {
   isMac: boolean;
   /** A whole configuration file, already parsed; App applies it to every store. */
   onImportConfig: (bundle: ConfigBundle) => void;
+  /** «Buscar actualizaciones» (About): the explicit check, and how to show a
+      newer version found (the update dialog). Absent: no button. */
+  onCheckUpdate?: () => Promise<UpdateStatus>;
+  onShowUpdate?: (info: UpdateInfo) => void;
   onClose?: () => void;
 }) {
   /** What a colour is doing, shown beside its swatch. */
@@ -192,6 +209,15 @@ export function SettingsPanel(props: {
   };
 
   const [core, setCore] = createSignal<CoreInfo | null>(null);
+  // The About check: null before it, "checking" while it runs.
+  const [updateCheck, setUpdateCheck] = createSignal<UpdateStatus | "checking" | null>(null);
+  const checkUpdate = async () => {
+    if (!props.onCheckUpdate || updateCheck() === "checking") return;
+    setUpdateCheck("checking");
+    setUpdateCheck(await props.onCheckUpdate());
+  };
+  const system = () =>
+    typeof navigator === "undefined" ? "?" : systemLine(navigator.platform ?? "", navigator.userAgent ?? "");
   const [coreErr, setCoreErr] = createSignal(false);
 
   const activeTheme = () => props.themes.find((th) => th.id === props.themeId) ?? props.themes[0];
@@ -305,6 +331,7 @@ export function SettingsPanel(props: {
   // document-level matcher runs the old action — and before the Panel's Escape
   // closes the tab.
   const [capturing, setCapturing] = createSignal<ActionId | null>(null);
+  const [scQuery, setScQuery] = createSignal("");
   const [scMessage, setScMessage] = createSignal<string | null>(null);
   const os = (): Os => (props.isMac ? "macos" : "windows");
   const actionName = (sc: Shortcut) => shortcutText(sc, props.isMac ? "macos" : "windows");
@@ -899,9 +926,30 @@ export function SettingsPanel(props: {
       row("shortcuts", () => (
         <>
           <p class="settings-hint">{t("settings.sc.hint", keyParams({ esc: "Esc" }, os()))}</p>
+          {/* By area, with a search of its own (M14 SettingsShortcuts): by an
+              action's name or its keys. */}
+          <input
+            type="search"
+            class="shortcuts-search"
+            placeholder={t("shortcuts.search")}
+            aria-label={t("shortcuts.search")}
+            value={scQuery()}
+            onInput={(e) => setScQuery(e.currentTarget.value)}
+          />
+          <For
+            each={groupShortcuts(props.shortcuts, {
+              query: scQuery(),
+              text: actionName,
+              os: os(),
+            })}
+            fallback={<p class="settings-hint">{t("shortcuts.none", { query: scQuery().trim() })}</p>}
+          >
+            {(g) => (
+              <section class="shortcuts-group" aria-label={t(`shortcuts.group.${g.group}`)}>
+                <h4>{t(`shortcuts.group.${g.group}`)}</h4>
           <table class="shortcuts-list settings-shortcuts">
             <tbody>
-              <For each={props.shortcuts}>
+              <For each={g.items}>
                 {(sc) => {
                   const overridden = () => props.shortcutOverrides[sc.id] !== undefined;
                   return (
@@ -962,6 +1010,9 @@ export function SettingsPanel(props: {
               </For>
             </tbody>
           </table>
+              </section>
+            )}
+          </For>
           <Show when={scMessage()}>
             <p class="settings-hint" role="alert">
               {scMessage()}
@@ -1020,9 +1071,35 @@ export function SettingsPanel(props: {
                 {(c) => `v${c().protocolVersion}`}
               </Show>
             </dd>
+            <dt>{t("settings.about.system")}</dt>
+            <dd>{system()}</dd>
             <dt>{t("settings.about.license")}</dt>
             <dd>{t("settings.about.licenseValue")}</dd>
           </dl>
+          <Show when={props.onCheckUpdate}>
+            <div class="settings-row settings-update">
+              <button class="btn" disabled={updateCheck() === "checking"} onClick={() => void checkUpdate()}>
+                {t("settings.about.checkUpdates")}
+              </button>
+              <span class="settings-hint" role="status">
+                <Show when={updateCheck()} keyed>
+                  {(v) => {
+                    if (v === "checking") return t("settings.about.checking");
+                    if (v.kind === "newer")
+                      return (
+                        <>
+                          {t("settings.about.newer", { version: v.info.version })}{" "}
+                          <button class="edit-btn" onClick={() => props.onShowUpdate?.(v.info)}>
+                            {t("settings.about.seeUpdate")}
+                          </button>
+                        </>
+                      );
+                    return t(`settings.about.update.${v.kind}`);
+                  }}
+                </Show>
+              </span>
+            </div>
+          </Show>
           <button
             class="btn"
             onClick={() =>
@@ -1031,7 +1108,7 @@ export function SettingsPanel(props: {
                   app: APP_VERSION,
                   core: core()?.coreVersion ?? null,
                   protocol: core()?.protocolVersion ?? null,
-                  system: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                  system: typeof navigator !== "undefined" ? `${system()} · ${navigator.userAgent}` : "",
                 }),
               )
             }
@@ -1081,10 +1158,34 @@ export function SettingsPanel(props: {
                   setCategory(cat);
                 }}
               >
+                <Icon name={CATEGORY_ICON[cat]} size={15} class="settings-nav-ic" />
                 {t(`settings.cat.${cat}`)}
               </button>
             )}
           </For>
+          {/* While searching, the hits themselves, each with its category
+              (M14 SettingsNav). */}
+          <Show when={searching() && visible().size > 0}>
+            <div class="settings-nav-hits" role="group" aria-label={t("settings.searchHits")}>
+              <span class="settings-nav-hits-title">{t("settings.searchHits")}</span>
+              <For each={SETTINGS_INDEX.filter((e) => visible().has(e.id))}>
+                {(e) => (
+                  <button
+                    class="settings-nav-item settings-nav-hit"
+                    onClick={() => {
+                      setQuery("");
+                      setCategory(e.category);
+                    }}
+                  >
+                    <span class="settings-nav-hit-label">
+                      {t(e.keys[0], { keys: displayKeys("Mod+Enter", props.isMac) })}
+                    </span>
+                    <span class="settings-nav-hit-cat">{t(`settings.cat.${e.category}`)}</span>
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
         </nav>
         <div class="settings-body">
           <For each={SETTINGS_CATEGORIES}>

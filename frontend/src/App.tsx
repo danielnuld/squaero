@@ -368,6 +368,7 @@ import { currentOs, orderActions } from "./utils/dialog";
 import { ABOUT_LINKS, APP_VERSION, DOCS_URL } from "./utils/version";
 import {
   checkForUpdate,
+  updateStatus,
   loadSkippedVersion,
   saveSkippedVersion,
   type UpdateInfo,
@@ -6852,6 +6853,8 @@ export function App() {
                 <Match when={tt().tool === "settings"}>
                   <SettingsPanel
                     goTo={settingsGoTo()}
+                    onCheckUpdate={() => updateStatus(APP_VERSION)}
+                    onShowUpdate={setUpdate}
                     theme={theme()}
                     onSetTheme={applyThemePref}
                     themeId={themeId()}
@@ -6876,7 +6879,18 @@ export function App() {
                   />
                 </Match>
                 <Match when={tt().tool === "help"}>
-                  <ShortcutsHelp isMac={isMac()} shortcuts={shortcuts()} onClose={() => closeTool(tt().id)} />
+                  <ShortcutsHelp
+                    isMac={isMac()}
+                    shortcuts={shortcuts()}
+                    customized={new Set(Object.keys(shortcutOverrides()) as ActionId[])}
+                    onCustomize={() =>
+                      {
+                        showTool("settings", t("common.settings"), { key: "settings" });
+                        setSettingsGoTo({ category: "shortcuts" });
+                      }
+                    }
+                    onClose={() => closeTool(tt().id)}
+                  />
                 </Match>
               </Switch>
               </ToolTabContext.Provider>

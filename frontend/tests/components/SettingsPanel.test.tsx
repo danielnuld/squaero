@@ -1,3 +1,4 @@
+import type { UpdateInfo, UpdateStatus } from "../../src/utils/update";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
@@ -50,6 +51,8 @@ function mount(over: {
   isMac?: boolean;
   onImportConfig?: (b: ConfigBundle) => void;
   goTo?: { category: SettingsCategory };
+  onCheckUpdate?: () => Promise<UpdateStatus>;
+  onShowUpdate?: (info: UpdateInfo) => void;
 } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -79,6 +82,8 @@ function mount(over: {
           onSetShortcutOverrides={over.onSetShortcutOverrides ?? (() => {})}
           isMac={over.isMac ?? false}
           onImportConfig={over.onImportConfig ?? (() => {})}
+          onCheckUpdate={over.onCheckUpdate}
+          onShowUpdate={over.onShowUpdate}
           onClose={() => {}}
         />
       ),
@@ -664,5 +669,58 @@ describe("SettingsPanel — M14 rows", () => {
     mount();
     search("barra del documento");
     expect(headings()).toEqual(["Ventana"]);
+  });
+});
+
+describe("SettingsPanel — navigation, shortcuts list and About (M14)", () => {
+  it("lists each search hit with its category, and a hit opens that category", () => {
+    mount();
+    search("NULL");
+    const hits = [...host!.querySelectorAll(".settings-nav-hit")];
+    expect(hits.map((h) => h.textContent)).toContain("Texto de NULLRejilla");
+    (hits.find((h) => h.textContent?.startsWith("Texto de NULL")) as HTMLButtonElement).click();
+    expect(host!.querySelector<HTMLInputElement>(".settings-search")!.value).toBe("");
+    expect(headings()).toEqual(["Rejilla"]);
+  });
+
+  it("draws an icon beside each category", () => {
+    mount();
+    expect([...host!.querySelectorAll(".settings-nav-item")].every((b) => b.querySelector("svg"))).toBe(true);
+  });
+
+  it("groups and searches the shortcuts, and can leave one with no shortcut", () => {
+    const onSetShortcutOverrides = vi.fn();
+    mount({ onSetShortcutOverrides });
+    goto("Atajos de teclado");
+    expect([...host!.querySelectorAll(".shortcuts-group h4")].map((h) => h.textContent)).toContain("Pestañas");
+    const input = host!.querySelector<HTMLInputElement>(".settings-section .shortcuts-search")!;
+    input.value = "cerrar la pestaña";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const rows = [...host!.querySelectorAll(".settings-shortcuts tr")];
+    expect(rows).toHaveLength(1);
+    (rows[0].querySelector('[aria-label^="Dejar sin atajo"]') as HTMLButtonElement).click();
+    expect(onSetShortcutOverrides).toHaveBeenCalledWith({ "close-tab": "" });
+  });
+
+  it("checks for updates on request and says honestly what it found", async () => {
+    let answer: unknown = { kind: "current" };
+    const onShowUpdate = vi.fn();
+    mount({ onCheckUpdate: async () => answer as never, onShowUpdate });
+    goto("Acerca de");
+    expect(host!.textContent).toContain("Sistema");
+    const btn = () => [...host!.querySelectorAll("button")].find((b) => b.textContent === "Buscar actualizaciones")!;
+    btn().click();
+    await flush();
+    expect(host!.querySelector(".settings-update")!.textContent).toContain("Tienes la versión más reciente.");
+    answer = { kind: "failed" };
+    btn().click();
+    await flush();
+    expect(host!.querySelector(".settings-update")!.textContent).toContain("No se pudo comprobar");
+    answer = { kind: "newer", info: { version: "9.9.9", notes: "", releaseUrl: "", downloadUrl: null } };
+    btn().click();
+    await flush();
+    expect(host!.querySelector(".settings-update")!.textContent).toContain("9.9.9");
+    [...host!.querySelectorAll(".settings-update button")].find((b) => b.textContent === "Ver")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onShowUpdate).toHaveBeenCalled();
   });
 });

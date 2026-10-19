@@ -116,7 +116,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   {
     id: "about",
     category: "about",
-    keys: ["settings.cat.about", "settings.about.appVersion", "settings.about.coreVersion", "settings.about.protocol"],
+    keys: ["settings.cat.about", "settings.about.appVersion", "settings.about.coreVersion", "settings.about.protocol", "settings.about.system", "settings.about.checkUpdates"],
   },
 ];
 
