@@ -88,10 +88,7 @@ export const en: Record<string, string> = {
   "conn.failed": "Could not connect to “{name}”: {detail}",
 
   // top action ribbon
-  "toolbar.actions": "Actions",
-  "toolbar.launch": "Search or run",
   "toolbar.launchTitle": "Search objects, tools and actions",
-  "toolbar.tools": "Tool bar",
   "toolbar.newQuery.label": "Query",
   "toolbar.newQuery.title": "New query",
   "toolbar.newTable.label": "Table",
