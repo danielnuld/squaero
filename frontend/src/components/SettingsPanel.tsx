@@ -332,7 +332,7 @@ export function SettingsPanel(props: {
   const check = (
     key:
       | "colorTypes"
-      | "toolStrip"
+      | "showOldValues"
       | "editorLigatures"
       | "checkUpdatesOnStart"
       | "editorDiagnostics"
@@ -681,6 +681,7 @@ export function SettingsPanel(props: {
     ),
     grid: () => (
       <>
+        {row("showOldValues", () => check("showOldValues", t("settings.showOldValues")))}
         {/* Colours per data type (issue #483). The swatch shows what is in
             force — the theme's own colour until this look is overridden —
             which is why the value is read back off the document rather than
@@ -882,7 +883,6 @@ export function SettingsPanel(props: {
     // The window's own furniture.
     window: () => (
       <>
-        {row("toolStrip", () => check("toolStrip", t("settings.toolStrip")))}
         {/* Only where the shell draws one (Windows, Linux — issue #686). */}
         <Show when={hasShellMenu()}>
           {row("nativeMenu", () => check("nativeMenu", t("settings.nativeMenu")))}

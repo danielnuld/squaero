@@ -28,7 +28,7 @@ describe("settingsStore", () => {
       gridStyle: "hoja",
       slowThresholdMs: 900,
       checkUpdatesOnStart: false,
-      toolStrip: false,
+      showOldValues: true,
       colorTypes: false,
       editorDiagnostics: false,
       builtinTemplates: false,

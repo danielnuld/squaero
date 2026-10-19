@@ -65,6 +65,7 @@ import {
   openSnippetTab,
   closeTab,
   closeOtherTabs,
+  closeTabsToRight,
   closeTabsForConn,
   cycleTab,
   updateTabSql,
@@ -320,7 +321,7 @@ import { sourceLabel } from "./utils/resultFacts";
 import { summarizeRange } from "./utils/cellSummary";
 import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
-import { Icon, IconSearch } from "./components/icons";
+import { Icon } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
 import {
@@ -331,9 +332,11 @@ import {
 } from "./utils/update";
 import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
-import { ConnectionBar, SafeBadge } from "./components/ConnectionBar";
+import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar } from "./components/ObjectToolbar";
+import { DocTabs } from "./components/DocTabs";
+import { tabIcon } from "./utils/tabStrip";
 import { ResultTabs } from "./components/ResultTabs";
 import {
   PinStrip,
@@ -4225,6 +4228,17 @@ export function App() {
         action: () => setTabs((s) => closeOtherTabs(s, id)),
         disabled: tabs().tabs.length < 2,
       },
+      {
+        label: t("tabmenu.closeRight"),
+        action: () => setTabs((s) => closeTabsToRight(s, id)),
+        disabled: tabs().tabs.at(-1)?.id === id,
+      },
+      { label: t("tabmenu.closeAll"), action: () => setTabs((s) => ({ ...s, tabs: [], activeId: 0 })) },
+      { separator: true },
+      {
+        label: t("tabmenu.copyName"),
+        action: () => void copyText(tabs().tabs.find((x) => x.id === id)?.title ?? ""),
+      },
       ...(tabs().tabs.some((x) => x.id === id && x.kind === "query" && !isDataTab(id))
         ? [{ label: t("lhist.menu"), action: () => openLocalHistory(id) }]
         : []),
@@ -4586,134 +4600,33 @@ export function App() {
               }
             />
           </Show>
-          {/* One navigation band instead of two (issue #386). The ribbon of 12
-              destinations above these tabs opened exactly what the tabs then
-              showed, and gave a tool the same weight as a table. What replaced
-              it is the launcher on the left — the Ctrl+K palette, which already
-              indexes every tool, object, snippet and action — plus an icon-only
-              strip that ⋯ unfolds for the times you would rather point at a
-              tool than name it. 68 px of chrome become 32.
-
-              A real tablist (issue #338): these were bare divs, so nothing but
-              sight could tell which tab was selected — and "one tab per snippet"
-              is a promise about exactly that. aria-label pins the accessible name
-              to the title, which the close button's × and the connection name
-              would otherwise pad. */}
-          <div class="tabbar">
-            <button
-              class="tab-launch"
-              title={`${t("toolbar.launchTitle")} (${paletteKeys()})`}
-              onClick={() => {
-                setPaletteMode("all");
-                setPaletteOpen(true);
-              }}
-            >
-              <span class="tab-launch-ic" aria-hidden="true">
-                <IconSearch />
-              </span>
-              <span class="tab-launch-lb">{t("toolbar.launch")}</span>
-              <kbd class="tab-kbd">{paletteKeys()}</kbd>
-            </button>
-            <span class="tab-sep" aria-hidden="true" />
-            <div class="tablist" role="tablist" aria-label={t("tab.listLabel")}>
-              <For each={tabs().tabs}>
-                {(tab) => (
-                  <div
-                    class={`tab ${tab.id === tabs().activeId ? "active" : ""} ${
-                      tab.kind === "tool" ? "tab-tool" : ""
-                    }`}
-                    role="tab"
-                    aria-selected={tab.id === tabs().activeId}
-                    aria-label={
-                      isUnsaved(tab) ? t("tab.unsaved", { title: tab.title }) : tab.title
-                    }
-                    /* The connection used to be spelled out on every tab —
-                       "clientes 🐬 (Ventas (demo))", nested parentheses and all,
-                       repeated even when only one connection was open. The colour
-                       on the edge and the dot say it without spending the width;
-                       the name stays a hover away, and in the status bar. */
-                    title={
-                      tabConn(tab) ? `${tab.title} — ${tabConn(tab)!.name}` : tab.title
-                    }
-                    tabindex={tab.id === tabs().activeId ? 0 : -1}
-                    style={
-                      tabColor(tab) ? { "border-left-color": tabColor(tab)! } : undefined
-                    }
-                    onClick={() => selectTab(tab.id)}
-                    /* Middle click closes it, the way a browser tab does
-                       (issue #459). The mousedown is cancelled as well, or
-                       Chromium answers the middle button with its autoscroll
-                       cursor before the click ever arrives. */
-                    onMouseDown={(e) => e.button === 1 && e.preventDefault()}
-                    onAuxClick={(e) => e.button === 1 && removeTab(tab.id, e)}
-                    onKeyDown={(e) => onTabKeyDown(e, tab.id)}
-                    onContextMenu={(e) => tabMenu(e, tab.id)}
-                  >
-                    <Show when={tabColor(tab)}>
-                      <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
-                    </Show>
-                    <SafeBadge mode={safeModeOf(tab.connDefId)} />
-                    <span class="tab-title">{tab.title}</span>
-                    <Show when={isUnsaved(tab)}>
-                      <span class="tab-unsaved" aria-hidden="true">
-                        •
-                      </span>
-                    </Show>
-                    <button
-                      class="tab-close"
-                      title={t("tab.closeTitle")}
-                      aria-label={t("tab.closeTitle")}
-                      onClick={(e) => removeTab(tab.id, e)}
-                    >
-                      <Icon name="close" size={12} />
-                    </button>
-                  </div>
-                )}
-              </For>
-              <button
-                class="tab-new"
-                title={t("toolbar.newQuery.title")}
-                aria-label={t("toolbar.newQuery.title")}
-                onClick={newTab}
-              >
-                <Icon name="plus" size={14} />
-              </button>
-            </div>
-            <span class="tabbar-spacer" />
-            <button
-              class="tab-tools"
-              aria-expanded={settings().toolStrip}
-              title={t("toolbar.tools")}
-              aria-label={t("toolbar.tools")}
-              onClick={() => patchSettings({ toolStrip: !settings().toolStrip })}
-            >
-              <Icon name="more" />
-            </button>
-          </div>
-
-          <Show when={settings().toolStrip}>
-            <div class="toolstrip" role="toolbar" aria-label={t("toolbar.actions")}>
-              <For each={TOOL_CATALOG}>
-                {(item) => (
-                  <button
-                    class="toolstrip-btn"
-                    title={t(item.title)}
-                    aria-label={t(item.label)}
-                    /* The saved connections are the one tool that asks no server
-                       anything, so it stays usable with nothing connected —
-                       which is the whole point of it (issue #525). NOT every
-                       GLOBAL_TOOLS entry: that set means "one tab whichever
-                       connection is focused", and the notebook is in it while
-                       still needing a connection to run anything. */
-                    disabled={!active() && item.tool !== "connections"}
-                    onClick={() => showTool(item.tool, t(item.tabTitle), { key: item.key })}
-                  >
-                    <item.Icon />
-                  </button>
-                )}
-              </For>
-            </div>
-          </Show>
+          {/* Desktop document tabs (issue #688). The Ctrl+K palette keeps a door
+              at the strip's end; tools live in the Herramientas menu and the
+              palette, so the ⋯ tool strip is gone. */}
+          <DocTabs
+            tabs={tabs().tabs.map((tab) => ({
+              id: tab.id,
+              title: tab.title,
+              icon: tabIcon(tab, isDataTab(tab.id)),
+              color: tabColor(tab),
+              conn: openConns().length > 1 ? tabConn(tab)?.name : undefined,
+              safe: safeModeOf(tabConn(tab)?.defId),
+              running: !!results[tab.id]?.loading,
+              dirty: isUnsaved(tab),
+              tool: tab.kind === "tool",
+            }))}
+            activeId={tabs().activeId}
+            onSelect={selectTab}
+            onClose={removeTab}
+            onKeyDown={onTabKeyDown}
+            onContextMenu={tabMenu}
+            onNew={newTab}
+            paletteKeys={paletteKeys()}
+            onPalette={() => {
+              setPaletteMode("all");
+              setPaletteOpen(true);
+            }}
+          />
 
           <div class="workspace-main">
           <Show when={currentQuery()}>
@@ -5173,6 +5086,7 @@ export function App() {
                               currentEditable() && !currentEdit().editing ? beginEdit : undefined
                             }
                             fk={currentFk()}
+                            showOldValues={settings().showOldValues}
                             edit={
                               currentEditable()
                                 ? {

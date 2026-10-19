@@ -1260,6 +1260,12 @@ export const es: Record<string, string> = {
   "valid.fieldRequired": "El campo «{field}» es obligatorio.",
 
   // the last of the sweep: tab menu, tab chrome, cell-type names
+  "tabmenu.closeRight": "Cerrar las de la derecha",
+  "tabmenu.closeAll": "Cerrar todas",
+  "tabmenu.copyName": "Copiar el nombre",
+  "tab.running": "Ejecutando",
+  "tab.overflow": "Más pestañas",
+  "tab.overflowN": "{n} pestañas más",
   "tabmenu.closeOthers": "Cerrar las demás",
   "lhist.title": "Historial local",
   "lhist.menu": "Historial local…",
@@ -1584,7 +1590,7 @@ export const es: Record<string, string> = {
   "settings.typeColors": "Colores por tipo",
   "settings.sampleText": "texto",
   "settings.resetColors": "Restablecer los colores de este tema",
-  "settings.toolStrip": "Barra de herramientas bajo las pestañas",
+  "settings.showOldValues": "Mostrar el valor anterior de las celdas cambiadas",
   "settings.slowThreshold": "Umbral de consulta lenta (ms)",
   "settings.historyLimit": "Límite de historial",
   "settings.checkUpdates": "Buscar actualizaciones al iniciar",

@@ -53,6 +53,16 @@ export async function startBlank(page: Page): Promise<void> {
   }
 }
 
+/**
+ * Opens a tool from the explorer's Herramientas menu, by the name a user hears.
+ * The strip of tool icons under the tabs is gone (#688): tools live in that
+ * menu, the native menu bar and the Ctrl+K palette.
+ */
+export async function openTool(page: Page, name: string): Promise<void> {
+  await page.getByRole("button", { name: "Herramientas", exact: true }).first().click();
+  await page.getByRole("menu").getByRole("menuitem", { name, exact: true }).click();
+}
+
 export async function disconnect(page: Page): Promise<void> {
   // Every disconnect is named after its connection now — the bar's row (#525)
   // and the explorer section (#444) — so there is no bare "Desconectar" left.
