@@ -1,5 +1,6 @@
-import { Show, onCleanup, onMount, type JSX } from "solid-js";
+import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { IconRefresh } from "./icons";
+import { Dialog } from "./Dialog";
 import { t } from "../utils/i18n";
 
 // Inline workspace panel (UX refactor: tools open as tabs in the same window
@@ -32,10 +33,16 @@ export function Panel(props: {
   onRefresh?: () => void;
   /** Disables refresh and labels it as running. */
   refreshing?: boolean;
+  /** There is work in progress (a wizard with input or results): Escape asks
+      before closing instead of throwing it away (audit rule 11). */
+  dirty?: boolean;
   children: JSX.Element;
 }) {
+  const [asking, setAsking] = createSignal(false);
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape" && !props.docked) props.onClose?.();
+    if (e.key !== "Escape" || props.docked || !props.onClose || asking()) return;
+    if (props.dirty) setAsking(true);
+    else props.onClose();
   };
   onMount(() => document.addEventListener("keydown", onKey));
   onCleanup(() => document.removeEventListener("keydown", onKey));
@@ -68,6 +75,17 @@ export function Panel(props: {
         </div>
       </Show>
       {props.children}
+      <Show when={asking()}>
+        <Dialog
+          title={t("panel.leaveTitle")}
+          size="sm"
+          onCancel={() => setAsking(false)}
+          cancelLabel={t("panel.leaveStay")}
+          primary={{ label: t("panel.leaveDiscard"), danger: true, onClick: () => props.onClose?.() }}
+        >
+          <p>{t("panel.leaveMessage")}</p>
+        </Dialog>
+      </Show>
     </div>
   );
 }

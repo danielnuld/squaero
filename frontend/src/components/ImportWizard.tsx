@@ -200,7 +200,7 @@ export function ImportWizard(props: {
   const rowCount = () => effective()?.rows.length ?? 0;
 
   return (
-    <Panel wide onClose={props.onClose}>
+    <Panel wide onClose={props.onClose} dirty={!summary() && (!!parsed() || pasted().trim() !== "")}>
       <Wizard
         title={t("imp.title", { name: props.target.table })}
         subtitle={t("imp.subtitle", { n: targetCols().length })}

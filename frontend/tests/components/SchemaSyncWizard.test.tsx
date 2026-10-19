@@ -175,22 +175,27 @@ describe("SchemaSyncWizard", () => {
     expect(opened[0][0]).toContain('CREATE TABLE "orders"');
   });
 
-  it("applies only after confirming, in a transaction on the target", async () => {
+  it("applies only after confirming, in a transaction on the target, without the data-losing statements", async () => {
     const calls = installBridge();
     mount();
     await compare();
     const before = calls.length;
 
-    // The script drops a column, so the wizard's verb is the red one, with
-    // the count and the target (audit R-15).
-    const primary = host!.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!;
-    expect(primary.textContent).toMatch(/^Aplicar 3 sentencias en /);
+    // DROP COLUMN loses data: grouped apart and unchecked (audit A-30).
+    const losing = host!.querySelector(".ssync-losing")!;
+    expect(losing.textContent).toContain("Elimina datos (1)");
+    const box = losing.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    expect(box.checked).toBe(false);
+    expect(losing.textContent).toContain('ALTER TABLE "users" DROP COLUMN "legacy";');
+
+    const primary = host!.querySelector<HTMLButtonElement>(".wiz-foot .btn-primary")!;
+    expect(primary.textContent).toMatch(/^Aplicar 2 sentencias en /);
     primary.click();
     await flush();
     expect(calls.length).toBe(before); // nothing runs until confirmed
     expect(host!.querySelector(".confirm-dialog")).not.toBeNull();
 
-    host!.querySelector<HTMLButtonElement>(".confirm-dialog .btn-danger")!.click();
+    host!.querySelector<HTMLButtonElement>(".confirm-dialog .btn-primary, .confirm-dialog .btn-danger")!.click();
     for (let i = 0; i < 5; i++) await flush();
 
     const after = calls.slice(before);
@@ -200,11 +205,28 @@ describe("SchemaSyncWizard", () => {
     expect(runs).toEqual([
       'CREATE TABLE "orders" (\n  "id" INTEGER NOT NULL\n)',
       'ALTER TABLE "users" ADD COLUMN "email" TEXT',
-      'ALTER TABLE "users" DROP COLUMN "legacy"',
     ]);
     expect(methods).toContain("tx.commit");
     expect(host!.textContent).toContain("aplicada");
     expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Aplicar");
+  });
+
+  it("a ticked data-losing statement is applied, behind the red button", async () => {
+    const calls = installBridge();
+    mount();
+    await compare();
+    const box = host!.querySelector<HTMLInputElement>(".ssync-losing input[type=checkbox]")!;
+    box.checked = true;
+    box.dispatchEvent(new Event("change"));
+    const primary = host!.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!;
+    expect(primary.textContent).toMatch(/^Aplicar 3 sentencias en /);
+    primary.click();
+    await flush();
+    const before = calls.length;
+    host!.querySelector<HTMLButtonElement>(".confirm-dialog .btn-danger")!.click();
+    for (let i = 0; i < 5; i++) await flush();
+    const runs = calls.slice(before).filter((c) => c.method === "query.run").map((c) => c.params.sql);
+    expect(runs).toContain('ALTER TABLE "users" DROP COLUMN "legacy"');
   });
 
   it("asks for a schema when the container lists schemas instead of tables", async () => {

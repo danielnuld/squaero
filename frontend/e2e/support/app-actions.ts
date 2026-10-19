@@ -58,7 +58,7 @@ export async function newQuery(page: Page): Promise<void> {
  * backdrop swallows every click. No-op when it is not showing.
  */
 export async function startBlank(page: Page): Promise<void> {
-  const blank = page.getByRole("button", { name: "Empezar en blanco" });
+  const blank = page.getByRole("button", { name: "Descartar pestañas" });
   await blank.waitFor({ state: "visible", timeout: 1500 }).catch(() => {});
   if (await blank.isVisible().catch(() => false)) {
     await blank.click();

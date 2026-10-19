@@ -7,6 +7,8 @@ import {
   generateMigration,
   orderByDependencies,
   viewBody,
+  retargetViewDdl,
+  losesData,
   isExecutable,
   scriptText,
   type ColumnDef,
@@ -329,7 +331,7 @@ describe("generateMigration — ordering", () => {
     expect(exec(generateMigration(d))).toEqual([
       'DROP VIEW "v";',
       'ALTER TABLE "t" DROP COLUMN "b";',
-      "CREATE VIEW v AS SELECT a FROM t;",
+      'CREATE VIEW "v" AS SELECT a FROM t;',
     ]);
   });
 
@@ -353,8 +355,8 @@ describe("generateMigration — ordering", () => {
       'DROP VIEW "v_top";',
       'DROP VIEW "v_base";',
       'ALTER TABLE "t" ADD COLUMN "b" INTEGER;',
-      "CREATE VIEW v_base AS SELECT a, b FROM t;",
-      "CREATE VIEW v_top AS SELECT * FROM v_base;",
+      'CREATE VIEW "v_base" AS SELECT a, b FROM t;',
+      'CREATE VIEW "v_top" AS SELECT * FROM v_base;',
     ]);
   });
 });
@@ -581,5 +583,95 @@ describe("script helpers", () => {
     expect(isExecutable("  -- note")).toBe(false);
     expect(scriptText({ statements: ["-- a", "B;"], issues: [] })).toBe("-- a\nB;\n");
     expect(scriptText({ statements: [], issues: [] })).toBe("");
+  });
+});
+
+describe("views land in the target container (#770)", () => {
+  const t = [table("clientes", [col("id")])];
+  const mysqlView = {
+    name: "ventas_por_ciudad",
+    ddl:
+      "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `ventas_por_ciudad` AS " +
+      "select `c`.`ciudad` AS `ciudad` from `clientes` `c`",
+  };
+
+  it("mysql: USE the target database, then the view qualified with it", () => {
+    const s = script("mysql", t, t, { container: { db: "demo_dst" } }, { views: [mysqlView] });
+    expect(exec(s)).toEqual([
+      "USE `demo_dst`;",
+      "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `demo_dst`.`ventas_por_ciudad` AS " +
+        "select `c`.`ciudad` AS `ciudad` from `clientes` `c`;",
+    ]);
+  });
+
+  it("mysql: a body qualified with the source database reads the target's tables", () => {
+    const view = { name: "v", ddl: "CREATE VIEW `demo_src`.`v` AS select * from `demo_src`.`clientes` join demo_src.pedidos" };
+    const s = script("mysql", t, t, { container: { db: "demo_dst" }, sourceContainer: { db: "demo_src" } }, { views: [view] });
+    expect(exec(s)).toEqual([
+      "USE `demo_dst`;",
+      "CREATE VIEW `demo_dst`.`v` AS select * from `demo_dst`.`clientes` join `demo_dst`.pedidos;",
+    ]);
+  });
+
+  it("postgres: SET search_path to the target schema, view schema-qualified", () => {
+    const view = { name: "v", ddl: 'CREATE VIEW "app_src"."v" AS SELECT id FROM app_src.clientes' };
+    const s = script("postgres", t, t, { container: { schema: "app" }, sourceContainer: { schema: "app_src" } }, { views: [view] });
+    expect(exec(s)).toEqual(['SET search_path TO "app";', 'CREATE VIEW "app"."v" AS SELECT id FROM "app".clientes;']);
+  });
+
+  it("no context statement without a target container or without views", () => {
+    expect(exec(script("postgres", t, t, {}, { views: [{ name: "v", ddl: "CREATE VIEW v AS SELECT 1" }] }))).toEqual([
+      'CREATE VIEW "v" AS SELECT 1;',
+    ]);
+    expect(exec(script("mysql", t, [], { container: { db: "d" } }))[0]).not.toMatch(/^USE/);
+  });
+});
+
+describe("retargetViewDdl", () => {
+  it("replaces a quoted, qualified or IF NOT EXISTS name", () => {
+    expect(retargetViewDdl('CREATE VIEW IF NOT EXISTS "s"."v" AS SELECT 1', '"t"."v"', undefined, undefined, "sqlite")).toBe(
+      'CREATE VIEW IF NOT EXISTS "t"."v" AS SELECT 1',
+    );
+    expect(retargetViewDdl("create or replace view [dbo].[v] as select 1", "[x].[v]", undefined, undefined, "mssql")).toBe(
+      "create or replace view [x].[v] as select 1",
+    );
+  });
+
+  it("drops the source qualifier when the target has none, and leaves lookalikes alone", () => {
+    expect(retargetViewDdl("CREATE VIEW v AS SELECT src.a, mysrc.b FROM src.t", "v", "src", undefined, "postgres")).toBe(
+      "CREATE VIEW v AS SELECT a, mysrc.b FROM t",
+    );
+  });
+
+  it("is a no-op for the body when source and target are the same container", () => {
+    expect(retargetViewDdl("CREATE VIEW v AS SELECT * FROM app.t", '"app"."v"', "app", "APP", "postgres")).toBe(
+      'CREATE VIEW "app"."v" AS SELECT * FROM app.t',
+    );
+  });
+});
+
+describe("losesData", () => {
+  it("flags DROP TABLE and dropping a column, in every dialect", () => {
+    expect(losesData('DROP TABLE "t";')).toBe(true);
+    expect(losesData('ALTER TABLE "t" DROP COLUMN "a";')).toBe(true);
+    expect(losesData("ALTER TABLE stores:t DROP legacy;")).toBe(true);
+  });
+
+  it("keeps drops that lose no rows", () => {
+    for (const s of [
+      'DROP VIEW "v";',
+      'DROP INDEX "ix";',
+      "ALTER TABLE `t` DROP INDEX `u`;",
+      "ALTER TABLE `t` DROP FOREIGN KEY `fk`;",
+      "ALTER TABLE `t` DROP PRIMARY KEY;",
+      "ALTER TABLE `t` DROP CHECK `c`;",
+      'ALTER TABLE "t" DROP CONSTRAINT "c";',
+      'ALTER TABLE "t" ALTER COLUMN "a" DROP NOT NULL;',
+      'ALTER TABLE "t" ALTER COLUMN "a" DROP DEFAULT;',
+      'ALTER TABLE "t" ADD COLUMN "drop_me" INT;',
+      "-- DROP TABLE t",
+    ]) {
+      expect(losesData(s), s).toBe(false);
+    }
   });
 });

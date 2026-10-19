@@ -198,6 +198,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
     await app.page.getByRole("button", { name: "Exportar" }).click();
     const download = app.page.waitForEvent("download");
     await app.page.getByRole("menuitem", { name: "CSV" }).click();
+    await app.page.getByRole("button", { name: "Exportar…" }).click();
 
     const file = await download;
     const stream = await file.createReadStream();
