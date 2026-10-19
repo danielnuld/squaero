@@ -206,7 +206,7 @@ import {
   typographyVars,
 } from "./utils/typography";
 import { applyPlan } from "./utils/editApply";
-import { idleTx, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
+import { idleTx, readsOnly, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
 import { TxControls } from "./components/TxControls";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { needsTypedName } from "./utils/confirmText";
@@ -1526,6 +1526,9 @@ export function App() {
     });
     void run(sql);
   };
+  // The history panel's «Insertar» (#689 / audit P1): at the caret, like a snippet.
+  const insertFromHistory = (sql: string) =>
+    insertSnippet({ id: "", name: oneLine(sql, 30), body: sql });
 
   // The editor's quick recall (issue #642): the latest distinct queries run on
   // this tab's ENGINE, from any connection of it, as a menu under the button.
@@ -4951,6 +4954,8 @@ export function App() {
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}
               onRun={runFromHistory}
+              onInsert={insertFromHistory}
+              onOpen={(sql) => openSqlInNewTab(sql)}
               onClear={clearHistory}
               onClose={() => setSide((s) => ({ ...s, panel: "explorer" }))}
             />
@@ -5566,7 +5571,7 @@ export function App() {
                                 isMac={isMac()}
                                 shortcuts={shortcuts()}
                                 onOpenTable={openData}
-                                onRunHistory={runFromHistory}
+                                onRunHistory={(sql) => (readsOnly(sql) ? runFromHistory(sql) : openSqlInNewTab(sql))}
                                 onInsertSnippet={insertSnippet}
                                 onPickSnippet={() => runShortcut("snippet-palette")}
                                 onHistory={() => showTool("history", t("editor.history"), { key: "history" })}
@@ -5949,6 +5954,8 @@ export function App() {
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}
                     onRun={runFromHistory}
+                    onInsert={insertFromHistory}
+                    onOpen={(sql) => openSqlInNewTab(sql)}
                     onClear={clearHistory}
                     onClose={() => closeTool(tt().id)}
                   />

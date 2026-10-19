@@ -27,6 +27,8 @@ function mount(props: Partial<Parameters<typeof HistoryPanel>[0]> = {}) {
     entries,
     slowThresholdMs: 1000,
     onRun: () => {},
+    onInsert: () => {},
+    onOpen: () => {},
     onClear: () => {},
     onClose: () => {},
     ...props,
@@ -55,13 +57,48 @@ describe("HistoryPanel", () => {
     expect(items[0].textContent).toContain("UPDATE customers");
   });
 
-  it("runs the picked query and closes", () => {
+  it("a click only selects: nothing runs, the actions appear", () => {
     const onRun = vi.fn();
+    const onInsert = vi.fn();
+    const onOpen = vi.fn();
+    mount({ onRun, onInsert, onOpen });
+    const rows = host!.querySelectorAll<HTMLButtonElement>(".history-run");
+    rows[1].click(); // the UPDATE
+    expect(onRun).not.toHaveBeenCalled();
+    expect(onInsert).not.toHaveBeenCalled();
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(rows[1].getAttribute("aria-expanded")).toBe("true");
+    const labels = [...host!.querySelectorAll(".history-actions button")].map((b) => b.textContent);
+    expect(labels).toEqual(["Insertar", "Abrir en pestaña nueva", "Ejecutar"]);
+  });
+
+  it("each action is explicit and closes the floating panel", () => {
+    const onRun = vi.fn();
+    const onInsert = vi.fn();
+    const onOpen = vi.fn();
     const onClose = vi.fn();
-    mount({ onRun, onClose });
-    (host!.querySelector(".history-run") as HTMLButtonElement).click();
+    mount({ onRun, onInsert, onOpen, onClose });
+    const row = host!.querySelector<HTMLButtonElement>(".history-run")!;
+    row.click();
+    const [insert, open, run] = host!.querySelectorAll<HTMLButtonElement>(".history-actions button");
+    insert.click();
+    expect(onInsert).toHaveBeenCalledWith("SELECT * FROM orders");
+    row.click();
+    open.click();
+    expect(onOpen).toHaveBeenCalledWith("SELECT * FROM orders");
+    row.click();
+    run.click();
     expect(onRun).toHaveBeenCalledWith("SELECT * FROM orders");
-    expect(onClose).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
+  it("double click inserts in the active tab, never runs", () => {
+    const onRun = vi.fn();
+    const onInsert = vi.fn();
+    mount({ onRun, onInsert });
+    host!.querySelectorAll(".history-run")[1].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(onInsert).toHaveBeenCalledWith("UPDATE customers SET x=1");
+    expect(onRun).not.toHaveBeenCalled();
   });
 
   it("clears the history only after confirming, naming how many queries go", () => {

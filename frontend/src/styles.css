@@ -4001,6 +4001,22 @@ button.btn-danger:disabled {
   background: var(--bg-elev2);
 }
 
+/* The selected entry shows the whole statement and its actions. */
+.history-run.active {
+  background: var(--bg-elev2);
+}
+
+.history-run.active .history-sql {
+  max-height: none;
+}
+
+.history-actions {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-3);
+  background: var(--bg-elev2);
+}
+
 .history-sql {
   font-family: var(--font-mono);
   font-size: var(--fs-base);
