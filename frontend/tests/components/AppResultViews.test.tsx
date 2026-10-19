@@ -162,4 +162,14 @@ describe("App — result pane views (#691)", () => {
     expect(calls).toContain("op.cancel");
     expect(host!.querySelector(".editor-stop")!.classList.contains("is-running")).toBe(false);
   });
+
+  it("says where a write stands and links to its history entry (#691)", async () => {
+    await connect();
+    await runSql("UPDATE t SET a = 1");
+    expect(host!.querySelector(".run-status-text")!.textContent).toContain("confirmado en modo Auto");
+    click([...host!.querySelectorAll(".run-status button")].find((b) => b.textContent === "Ver en el historial"));
+    await settle();
+    const search = host!.querySelector<HTMLInputElement>('.tool-pane input[type="search"]')!;
+    expect(search.value).toBe("UPDATE t SET a = 1");
+  });
 });

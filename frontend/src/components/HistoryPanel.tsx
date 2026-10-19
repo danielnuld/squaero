@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { clearHistoryConfirm } from "../utils/confirmText";
@@ -28,8 +28,12 @@ export function HistoryPanel(props: {
   docked?: boolean;
   /** The empty history's one action (#694); absent → none offered. */
   onNewQuery?: () => void;
+  /** Search the history starts on (a run's «Ver en el historial», #691). */
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = createSignal("");
+  const [query, setQuery] = createSignal(props.initialQuery ?? "");
+  // Opened again on another run (the result's «Ver en el historial», #691).
+  createEffect(on(() => props.initialQuery, (q) => q !== undefined && setQuery(q), { defer: true }));
   const [onlySlow, setOnlySlow] = createSignal(false);
   const [confirmClear, setConfirmClear] = createSignal(false);
   const engines = createMemo(() => historyEngines(props.entries));

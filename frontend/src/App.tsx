@@ -428,6 +428,10 @@ interface TabResult {
   elapsedMs: number | null;
   /** When the last editor run started, epoch ms (issue #643). */
   ranAt?: number;
+  /** The SQL of the last fresh run, for «Ver en el historial» (#691). */
+  ranSql?: string;
+  /** Where that run's writes stand: committed (auto) or in the open transaction. */
+  ranTx?: "auto" | "pending";
   /** What the last run executed — selection / statement / document (issue #130). */
   ranScope?: RunScope | null;
   /** When the run in flight started, epoch ms: the result panel's clock (#691). */
@@ -2458,6 +2462,7 @@ export function App() {
         elapsedMs,
         ranAt,
         ranScope: scope,
+        ...(offset === 0 ? { ranSql: trimmed, ranTx: txOf(conn).open ? "pending" : "auto" } : {}),
         pageSql: script ? undefined : trimmed,
         offset,
         pageSize: limit,
@@ -5335,6 +5340,16 @@ export function App() {
                         tabConn(tab())?.features?.cancel === false ? t("grid.cancelUnsupported") : undefined
                       }
                       onReveal={errorPlace() ? () => setRevealErrorTick((n) => n + 1) : undefined}
+                      tx={currentResult().ranTx}
+                      onHistory={
+                        currentResult().ranSql
+                          ? () =>
+                              showTool("history", t("editor.history"), {
+                                key: "history",
+                                params: { query: currentResult().ranSql },
+                              })
+                          : undefined
+                      }
                     />
                   </Show>
                   {/* One tab per statement when a script ran (issue #450).
@@ -5923,6 +5938,7 @@ export function App() {
                 </Match>
                 <Match when={tt().tool === "history"}>
                   <HistoryPanel
+                    initialQuery={(tt().params as { query?: string } | undefined)?.query}
                     entries={history()}
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}
