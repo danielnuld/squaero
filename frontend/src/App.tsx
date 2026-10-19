@@ -5410,7 +5410,11 @@ export function App() {
         id: `obj:${node.key}`,
         category: "object",
         label: node.label,
-        hint: scope || (node.kind === "view" ? t("tab.viewHint") : t("tab.tableHint")),
+        // «tabla · main» (M14 ObjectPalette): what it is and where. No row
+        // count: the catalog does not give one without counting the table.
+        hint: [node.kind === "view" ? t("complete.kind.view") : t("complete.kind.table"), scope]
+          .filter(Boolean)
+          .join(" · "),
         run: () => openData(node),
       });
     }
@@ -6308,6 +6312,18 @@ export function App() {
                                   activeDialect(),
                                 )}
                                 lock={isLockError(currentResult().error)}
+                                safeBlock={
+                                  tabConn(tab()) &&
+                                  currentResult().error === t("safe.blocked", { name: tabConn(tab())!.name })
+                                    ? {
+                                        onOtherConnection: (e) => openContextMenu(e, editorConnItems(tab())),
+                                        onChangeProtection: () => {
+                                          const c = connections().find((x) => x.id === tabConn(tab())?.defId);
+                                          if (c) onEditConnection(c);
+                                        },
+                                      }
+                                    : undefined
+                                }
                                 onLockTab={lockHolderTab(tab()) ? () => selectTab(lockHolderTab(tab())!.id) : undefined}
                               />
                             }
