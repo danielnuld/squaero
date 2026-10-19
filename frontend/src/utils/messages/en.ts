@@ -2003,4 +2003,10 @@ export const en: Record<string, string> = {
   "home.tools": "Tools…",
   "tree.rows.one": "1 row",
   "tree.rows.other": "{n} rows",
+
+  // connection-lost band (R-05)
+  "conn.lostBand": "No connection to {name}",
+  "conn.lostKept": "Pending changes are kept.",
+  "conn.retryIn": "Retrying automatically in {n} s",
+  "conn.saveNeedsConn": "Saving needs the connection",
 };

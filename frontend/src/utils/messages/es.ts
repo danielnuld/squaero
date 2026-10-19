@@ -2021,4 +2021,10 @@ export const es: Record<string, string> = {
   "home.tools": "Herramientas…",
   "tree.rows.one": "1 fila",
   "tree.rows.other": "{n} filas",
+
+  // connection-lost band (R-05)
+  "conn.lostBand": "Sin conexión con {name}",
+  "conn.lostKept": "Los cambios pendientes se conservan.",
+  "conn.retryIn": "Reintento automático en {n} s",
+  "conn.saveNeedsConn": "Guardar necesita la conexión",
 };
