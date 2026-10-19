@@ -1,3 +1,4 @@
+import { connGuard, withConfirmedWrites } from "../utils/transport";
 import { For, Show, createEffect, createMemo, createSignal, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 import { runQuery } from "../utils/query";
@@ -247,13 +248,17 @@ export function UserManager(props: {
     setPendingDrop({ user: u, sql });
   };
 
+  const typedDrop = () => connGuard(props.connId)?.mode === "confirm";
   const confirmDropUser = async () => {
     const p = pendingDrop();
     if (!p) return;
     setBusy(true);
     setError(null);
     try {
-      await runQuery(props.connId, p.sql);
+      // On a protected connection the dialog itself took the typed name: the
+      // guard is not asked a second time.
+      if (typedDrop()) await withConfirmedWrites(props.connId, () => runQuery(props.connId, p.sql));
+      else await runQuery(props.connId, p.sql);
       if (selected()?.name === p.user.name && selected()?.host === p.user.host) setSelected(null);
       setPendingDrop(null); // close only on success; on error keep the dialog open
       await loadUsers();
@@ -557,6 +562,7 @@ export function UserManager(props: {
             title={dropConfirm("user", `${p().user.name}@${p().user.host}`).title}
             message={dropConfirm("user", "").message}
             sql={p().sql}
+            typeToConfirm={typedDrop() ? p().user.name : undefined}
             confirmLabel={dropConfirm("user", "").confirm}
             busy={busy()}
             error={error()}

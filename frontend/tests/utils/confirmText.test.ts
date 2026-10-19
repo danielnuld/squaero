@@ -7,6 +7,7 @@ import {
   deleteRowsConfirm,
   dropColumnsConfirm,
   dropConfirm,
+  dropConsequences,
   isDestructiveSql,
   killSessionConfirm,
   needsTypedName,
@@ -159,5 +160,22 @@ describe("the tool confirmations of audit P1", () => {
     expect(c.title).toBe("¿Eliminar la celda [2]?");
     expect(c.message).toBe("Se pierde su contenido: DELETE FROM pedidos");
     expect(deleteCellConfirm(1, "x".repeat(80)).message).toContain(`${"x".repeat(60)}…`);
+  });
+});
+
+describe("dropConsequences", () => {
+  it("says what goes with the table and who references it", () => {
+    expect(dropConsequences({ rows: 12, indexes: 2, dependants: ["pedidos.cliente_id"] })).toEqual([
+      "Con ella se eliminan 12 filas y 2 índices.",
+      "pedidos.cliente_id referencia esta tabla: quedará apuntando a filas que ya no existen, o el motor rechazará la eliminación.",
+    ]);
+  });
+
+  it("uses the singular and leaves out what is unknown", () => {
+    expect(dropConsequences({ rows: 1 })).toEqual(["Con ella se eliminan 1 fila."]);
+    expect(dropConsequences({ indexes: 3 })).toEqual(["Con ella se eliminan 3 índices."]);
+    expect(dropConsequences({ rows: null, indexes: 0 })).toEqual([]);
+    expect(dropConsequences({})).toEqual([]);
+    expect(dropConsequences({ dependants: ["a.x", "b.y"] })[0]).toMatch(/^a\.x, b\.y referencian esta tabla/);
   });
 });

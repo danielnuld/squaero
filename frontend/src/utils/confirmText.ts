@@ -35,6 +35,31 @@ export function dropConfirm(kind: DropWhat, name: string, where?: string): Confi
   };
 }
 
+/** What else a dropped table takes with it (audit P1), known or not. */
+export interface DropFacts {
+  rows?: number | null;
+  indexes?: number | null;
+  /** The foreign keys pointing at it, as «pedidos.cliente_id». */
+  dependants?: readonly string[];
+}
+
+/**
+ * The consequences of dropping a table, one sentence each: «Con ella se
+ * eliminan 12 filas y 2 índices.» and who references it. Unknown facts (null,
+ * undefined: the catalog could not say) are left out rather than guessed. Pure.
+ */
+export function dropConsequences(f: DropFacts): string[] {
+  const rows = typeof f.rows === "number" ? countText("confirm.drop.rows", f.rows) : null;
+  const indexes =
+    typeof f.indexes === "number" && f.indexes > 0 ? countText("confirm.drop.indexes", f.indexes) : null;
+  const what = rows && indexes ? t("confirm.drop.both", { rows, indexes }) : (rows ?? indexes);
+  const out: string[] = [];
+  if (what) out.push(t("confirm.drop.goesWith", { what }));
+  const deps = f.dependants ?? [];
+  if (deps.length > 0) out.push(countText("confirm.drop.dependants", deps.length, { refs: deps.join(", ") }));
+  return out;
+}
+
 /** Killing another session on the server (audit A-10): never without asking. */
 export function killSessionConfirm(id: string, connection: string): ConfirmText {
   return {

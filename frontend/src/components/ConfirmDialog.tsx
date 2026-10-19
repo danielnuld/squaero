@@ -2,6 +2,7 @@ import { Show, createSignal, type JSX } from "solid-js";
 import { t } from "../utils/i18n";
 import { typedNameMatches } from "../utils/dialog";
 import { Dialog } from "./Dialog";
+import { copyText } from "../utils/rowCopy";
 
 // The destructive confirmation (issues #177, #692): the shared Dialog with a red
 // button that says what it does («Eliminar tabla», «Eliminar 3 filas»), the
@@ -27,6 +28,8 @@ export function ConfirmDialog(props: {
   onAlt?: () => void;
   /** Given, the confirm button stays disabled until this exact text is typed. */
   typeToConfirm?: string;
+  /** Offer «Copiar SQL» beside the buttons (audit A-25). */
+  copySql?: boolean;
   /** Extra content between the message and the SQL (e.g. a field to fill in). */
   children?: JSX.Element;
 }) {
@@ -51,11 +54,18 @@ export function ConfirmDialog(props: {
         danger: true,
       }}
       helpers={
-        <Show when={props.onAlt}>
-          <button type="button" class="btn" disabled={props.busy} onClick={() => props.onAlt?.()}>
-            {props.altLabel}
-          </button>
-        </Show>
+        <>
+          <Show when={props.copySql && props.sql}>
+            <button type="button" class="btn" onClick={() => copyText(props.sql ?? "")}>
+              {t("confirm.copySql")}
+            </button>
+          </Show>
+          <Show when={props.onAlt}>
+            <button type="button" class="btn" disabled={props.busy} onClick={() => props.onAlt?.()}>
+              {props.altLabel}
+            </button>
+          </Show>
+        </>
       }
     >
       <p class="confirm-message">{props.message}</p>

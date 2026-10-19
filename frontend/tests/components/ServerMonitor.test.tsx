@@ -103,6 +103,11 @@ describe("ServerMonitor", () => {
     // It asks first, naming the session (audit A-10); nothing ran yet.
     expect(calls.some((c) => (c.params as { sql?: string })?.sql?.startsWith("KILL"))).toBe(false);
     expect(document.querySelector("[role='alertdialog'] h2")!.textContent).toContain("sesión 7");
+    // The session's facts, and the PID to type before the button wakes up.
+    const dlg = document.querySelector("[role='alertdialog']")!;
+    expect(dlg.querySelector(".kill-facts")!.textContent).toContain("Userroot");
+    expect(dlg.querySelector(".kill-facts")!.textContent).toContain("SELECT * FROM big");
+    expect(dlg.querySelector<HTMLButtonElement>(".dlg-actions .btn-danger")!.disabled).toBe(true);
     confirmKill();
     await flush();
     const killCall = calls.find(
@@ -134,7 +139,13 @@ function killButton(): HTMLButtonElement {
 }
 
 /** The red button of the kill confirmation. */
+/** The PID has to be typed (audit P1): read it from the field's own label. */
 function confirmKill(): void {
+  const field = document.querySelector<HTMLLabelElement>("[role='alertdialog'] .dlg-field")!;
+  const pid = /«(.+)»/.exec(field.textContent ?? "")![1];
+  const input = field.querySelector("input")!;
+  input.value = pid;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
   document.querySelector<HTMLButtonElement>(".dlg-actions .btn-danger")!.click();
 }
 
