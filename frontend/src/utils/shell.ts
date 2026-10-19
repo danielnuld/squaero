@@ -17,17 +17,21 @@ export const APP_NAME = "Squaero";
  * The window title for what is on screen: "orders — prod-db — Squaero" with a
  * tab and a connection, "prod-db — Squaero" with a connection alone, "orders —
  * Squaero" with a tab alone, and just "Squaero" with neither. Blank parts count
- * as absent, so a connection named "  " never leaves an orphan dash.
+ * as absent, so a connection named "  " never leaves an orphan dash. `dirty`
+ * (the tab holds unsaved work) puts "• " first, as editors mark a modified
+ * document — only when there is a tab for it to be about.
  */
 export function windowTitle(
   tabTitle: string | null | undefined,
   connectionName: string | null | undefined,
+  dirty = false,
 ): string {
   const parts = [tabTitle, connectionName]
     .map((p) => (p ?? "").trim())
     .filter((p) => p !== "");
+  const tab = (tabTitle ?? "").trim() !== "";
   parts.push(APP_NAME);
-  return parts.join(" — ");
+  return (dirty && tab ? "• " : "") + parts.join(" — ");
 }
 
 /** Set the document title and, inside the shell, the native window's. */

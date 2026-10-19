@@ -10,6 +10,8 @@
      quaeroWindow("double-click")           what a title bar double click does
      quaeroWindow("system-menu")            the window menu at the cursor (Windows)
      quaeroWindow("snap", x, y, w, h)       where the maximize button is, CSS px (Windows)
+     quaeroWindow("edit", "edit:copy")      a standard Edit command on the page's focus
+                                            (Windows; menu_model.h names them)
 
    Pure pieces only — parsing, geometry, the state line — so they are tested
    without a window; the shell (main.cc, macos.mm) applies them. */
@@ -33,7 +35,8 @@ typedef enum quaero_window_command {
     QUAERO_WINDOW_DOUBLE_CLICK,
     QUAERO_WINDOW_SYSTEM_MENU,
     QUAERO_WINDOW_SNAP,
-    QUAERO_WINDOW_BACKDROP
+    QUAERO_WINDOW_BACKDROP,
+    QUAERO_WINDOW_EDIT
 } quaero_window_command;
 
 /* The command named by `name`; QUAERO_WINDOW_UNKNOWN for NULL or anything else. */
