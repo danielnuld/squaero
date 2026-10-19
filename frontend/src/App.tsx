@@ -336,6 +336,8 @@ import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar, type ObjectView } from "./components/ObjectToolbar";
 import { DocTabs } from "./components/DocTabs";
+import { Pager } from "./components/Pager";
+import { pagerView } from "./utils/pager";
 import { paneSize, savePaneSize } from "./utils/paneSizes";
 import { Rail } from "./components/Rail";
 import { loadSideState, railClick, saveSideState } from "./utils/sidePanel";
@@ -2569,6 +2571,54 @@ export function App() {
     } else if (step.kind === "query" && r.pageSql) {
       void run(r.pageSql, r.ranScope ?? "document", step.offset);
     }
+  };
+
+  // --- The table pager (issue #688) ----------------------------------------
+  // The total is counted on demand («Contar total») with the same filter the
+  // page uses, and kept against that exact count query: a new filter makes it
+  // stale, and a stale total would offer a last page that is not there.
+  const [totals, setTotals] = createStore<Record<number, { sql: string; n: number }>>({});
+  const [counting, setCounting] = createSignal<number | null>(null);
+  const dataCountSql = (tabId: number): string | null => {
+    const r = results[tabId];
+    if (!r?.preview) return null;
+    return objectCountQuery(r.preview.parts, r.preview.engine, filters[tabId]?.applied ?? undefined);
+  };
+  const dataTotal = (tabId: number): number | null => {
+    const sql = dataCountSql(tabId);
+    const got = totals[tabId];
+    return sql && got?.sql === sql ? got.n : null;
+  };
+  const dataPager = (tabId: number) => {
+    const r = results[tabId];
+    return pagerView({
+      offset: r?.offset ?? 0,
+      rows: r?.result?.rows.length ?? 0,
+      size: r?.pageSize ?? PAGE_LIMIT,
+      total: dataTotal(tabId),
+      more: !!r?.result?.truncated,
+      paused: !!edits[tabId]?.editing || !!r?.loading,
+    });
+  };
+  const countDataTotal = async (tabId: number) => {
+    const sql = dataCountSql(tabId);
+    const conn = tabConn(tabs().tabs.find((x) => x.id === tabId));
+    if (!sql || !conn) return;
+    setCounting(tabId);
+    try {
+      const res = await runQuery(conn.connId, sql, 1);
+      const n = Number(res.rows[0]?.[0]);
+      if (Number.isFinite(n) && n >= 0) setTotals(tabId, { sql, n });
+    } catch (err) {
+      setRunToast({ text: errMsg(err), error: true });
+    } finally {
+      setCounting(null);
+    }
+  };
+  const goToDataOffset = (tabId: number, offset: number) => {
+    const r = results[tabId];
+    if (!r?.preview || r.loading || edits[tabId]?.editing) return;
+    void runPreviewPage(tabId, r.preview, offset);
   };
 
   /** The variable values this tab last ran with. */
@@ -5326,6 +5376,31 @@ export function App() {
                       )}
                     </Show>
                   </div>
+                  {/* A table's pager lives under its rows (#688); a query's
+                      stays in the status bar until #693 moves it. */}
+                  <Show
+                    when={
+                      isDataTab(tab().id) &&
+                      !comparison() &&
+                      !shownPin() &&
+                      (currentResult().result?.columns.length ?? 0) > 0
+                    }
+                  >
+                    <Pager
+                      view={dataPager(tab().id)}
+                      total={dataTotal(tab().id)}
+                      counting={counting() === tab().id}
+                      onCount={dataCountSql(tab().id) ? () => void countDataTotal(tab().id) : undefined}
+                      paused={currentEdit().editing}
+                      onFirst={() => goToDataOffset(tab().id, 0)}
+                      onPrev={() => pageBy(-1)}
+                      onNext={() => pageBy(1)}
+                      onLast={() => {
+                        const last = dataPager(tab().id).lastOffset;
+                        if (last !== null) goToDataOffset(tab().id, last);
+                      }}
+                    />
+                  </Show>
                 </div>
               </div>
             )}
@@ -5887,7 +5962,9 @@ export function App() {
            it holds still while there are unsaved cell edits: paging away would
            drop them (issue #134). */
         page={
-          currentResult().pageSql && (currentResult().result?.columns.length ?? 0) > 0
+          currentResult().pageSql &&
+          !isDataTab(current()?.id ?? -1) &&
+          (currentResult().result?.columns.length ?? 0) > 0
             ? {
                 from:
                   (currentResult().offset ?? 0) +

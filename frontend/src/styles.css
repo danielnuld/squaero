@@ -7947,3 +7947,42 @@ ul.sidebar-tree {
   padding-top: var(--sp-1);
   padding-bottom: var(--sp-1);
 }
+
+/* The pager under a table's rows (issue #688). */
+.pager {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-height: var(--band-md);
+  padding: 0 var(--sp-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.pager-range {
+  font-variant-numeric: tabular-nums;
+}
+
+.pager-count {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: default;
+}
+
+.pager .seg-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager .seg-btn:disabled {
+  opacity: 0.4;
+}
