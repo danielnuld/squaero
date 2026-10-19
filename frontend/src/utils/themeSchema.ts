@@ -100,12 +100,15 @@ export interface Theme {
   fontMono?: string;
   /** Corner radii (#747); DEFAULT_RADIUS when absent. */
   radius?: ThemeRadius;
+  /** How section and group labels are cased (#696): C · Editorial writes them
+   *  in lowercase; absent = as written, in sentence case. Never uppercase. */
+  labelCase?: "lowercase";
   light: ThemeTokens;
   dark: ThemeTokens;
 }
 
 /** Top-level keys a theme file may carry. */
-const THEME_KEYS = ["id", "name", "monoUi", "fontUi", "fontMono", "radius", "light", "dark"];
+const THEME_KEYS = ["id", "name", "monoUi", "fontUi", "fontMono", "radius", "labelCase", "light", "dark"];
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const HEX_RE = /^#[0-9a-f]{6}$/;
@@ -199,6 +202,9 @@ export function validateTheme(data: unknown): ThemeError[] {
     }
   }
   if (data.radius !== undefined) validateRadius(data.radius, errors);
+  if (data.labelCase !== undefined && data.labelCase !== "lowercase") {
+    errors.push({ code: "type", path: "labelCase", value: String(data.labelCase) });
+  }
   validateTokens(data.light, "light", errors);
   validateTokens(data.dark, "dark", errors);
   return errors;
@@ -233,6 +239,7 @@ export function parseThemeJson(text: string): { theme: Theme | null; errors: The
     const r = d.radius as ThemeRadius;
     theme.radius = { sm: r.sm, md: r.md, lg: r.lg };
   }
+  if (d.labelCase === "lowercase") theme.labelCase = "lowercase";
   return { theme, errors: [] };
 }
 
@@ -248,6 +255,7 @@ export function serializeTheme(theme: Theme): string {
       ...(theme.fontUi ? { fontUi: theme.fontUi } : {}),
       ...(theme.fontMono ? { fontMono: theme.fontMono } : {}),
       ...(theme.radius ? { radius: theme.radius } : {}),
+      ...(theme.labelCase ? { labelCase: theme.labelCase } : {}),
       light: ordered(theme.light),
       dark: ordered(theme.dark),
     },
@@ -333,6 +341,8 @@ function withAlpha(hex: string, alpha: number): string {
  *  - `--font-theme-ui` / `--font-mono`: the theme's stacks (#747). The user's
  *    own font, when set, goes in front of them (typography.ts).
  *  - `--r-sm` / `--r-md` / `--r-lg`: the theme's radii.
+ *  - `--label-case`: `text-transform` for the label classes (#696), `none`
+ *    unless the theme asks for lowercase.
  *  - `--accent-soft`, `--error-soft`, `--warn-soft`, `--ok-soft`: the colour at
  *    a low alpha, for a tinted background under text of that colour.
  */
@@ -355,6 +365,7 @@ export function themeVariables(theme: Theme, mode: ThemeMode): Record<string, st
   vars["--r-sm"] = `${r.sm}px`;
   vars["--r-md"] = `${r.md}px`;
   vars["--r-lg"] = `${r.lg}px`;
+  vars["--label-case"] = theme.labelCase ?? "none";
   const soft = mode === "dark" ? 0.14 : 0.1;
   for (const key of ["accent", "error", "warn", "ok"] as const) {
     vars[`--${key}-soft`] = withAlpha(t[key], soft);

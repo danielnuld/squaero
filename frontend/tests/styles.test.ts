@@ -241,6 +241,43 @@ describe("empty states and the welcome", () => {
   });
 });
 
+// Issue #696 (REDESIGN: sentence case everywhere). No label shouts in capitals
+// or letter-spaced caps; the label classes take their case from the theme's
+// --label-case, which only C · Editorial sets (to lowercase).
+describe("label case", () => {
+  it("never sets text in capitals", () => {
+    expect(stripComments(RULES)).not.toMatch(/text-transform:\s*uppercase/);
+  });
+
+  it("drops the letter-spacing that went with the capitals", () => {
+    // A tight display title (negative) is not a caps label.
+    const spaced = declarations(RULES, "letter-spacing").filter(
+      (v) => v !== "inherit" && !v.startsWith("-"),
+    );
+    // The SUPER privilege chip and the notebook cell kind are literal
+    // short codes, not labels.
+    expect(spaced).toEqual(["0.04em", "0.04em"]);
+  });
+
+  it("cases the section and group labels from the theme", () => {
+    for (const sel of [
+      ".sidebar-header",
+      ".sidebar-section-title",
+      ".settings-section h3",
+      ".field-group",
+      ".cmdk-group-label",
+      ".welcome-label",
+      ".empty-card h4",
+    ]) {
+      const at = RULES.indexOf(`
+${sel} {`);
+      expect(at, sel).toBeGreaterThan(-1);
+      const body = RULES.slice(at, RULES.indexOf("}", at));
+      expect(body, sel).toContain("text-transform: var(--label-case);");
+    }
+  });
+});
+
 describe("styles.css desktop behaviour", () => {
   it("shows the arrow over controls and the hand only over real hyperlinks", () => {
     const pointers = Array.from(
