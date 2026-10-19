@@ -677,6 +677,32 @@ body {
   align-items: center;
   gap: var(--sp-3);
 }
+.objlist-filter {
+  height: var(--h-sm);
+  min-width: 160px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+.objlist-row.sel td {
+  background: var(--accent-soft);
+}
+.objlist-on {
+  color: var(--text-dim);
+  margin-left: var(--sp-2);
+}
+.objlist-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
 .objlist-empty {
   padding: var(--sp-5);
   color: var(--text-dim);
