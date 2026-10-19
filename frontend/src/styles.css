@@ -8927,15 +8927,22 @@ button.grid-action.danger:hover:not(:disabled) {
 }
 
 /* Inline "save as snippet" field, in the editor's own toolbar. */
+/* The band under the editor bar where a snippet gets its name (M14
+   SnippetSaveInline). It wraps rather than spill on a narrow window. */
 .snip-save {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3);
-  flex: 1;
-  /* No `min-width: 0` here on purpose. It let this box shrink below its own
-     content, so the bar never wrapped and the field spilled out of the window
-     instead: the automatic min-content minimum is what makes it move to a second
-     row when the buttons have taken the first. */
+  flex-shrink: 0;
+  min-height: var(--band-md);
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.snip-save-ic {
+  color: var(--text-dim);
 }
 
 .snip-save-label {

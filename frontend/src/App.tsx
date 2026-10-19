@@ -383,7 +383,7 @@ import { tabIcon } from "./utils/tabStrip";
 import { ResultTabs, type ResultView } from "./components/ResultTabs";
 import { ResultMessages } from "./components/ResultMessages";
 import { ErrorHints } from "./components/ErrorHints";
-import { engineErrorCode, didYouMean } from "./utils/errorHints";
+import { engineErrorCode, didYouMean, isLockError } from "./utils/errorHints";
 import { editorSchema } from "./utils/sqlEditor";
 import { runMessages, appendMessages, type RunMessage } from "./utils/runMessages";
 import {
@@ -2545,6 +2545,15 @@ export function App() {
   const toggleTxMode = (conn: ActiveConnection | null) => {
     if (!conn || txOf(conn).open) return;
     setTxs(conn.connId, idleTx(!txOf(conn).manual));
+  };
+  /** Another tab whose connection — not this tab's — holds an open transaction:
+      the likely holder of the lock a statement just ran into (A-07). */
+  const lockHolderTab = (tab: Tab): Tab | undefined => {
+    const mine = tabConn(tab)?.connId;
+    return tabs().tabs.find((x) => {
+      const c = tabConn(x);
+      return x.id !== tab.id && !!c && c.connId !== mine && txOpenCount(c) !== null;
+    });
   };
   /** Why the tab's connection cannot use manual mode, or null. */
   const txUnsupported = (conn: ActiveConnection | null): string | null =>
@@ -5698,39 +5707,60 @@ export function App() {
                         />
                       ) : undefined
                     }
-                  >
-                    <Show when={naming()}>
-                      {(pending) => (
-                        <span class="snip-save">
-                          <span class="snip-save-label">{t("snip.nameLabel")}</span>
-                          <input
-                            class="snip-save-input"
-                            type="text"
-                            ref={autoFocus}
-                            aria-label={t("snip.nameAria")}
-                            placeholder={t("snip.namePlaceholder")}
-                            value={pending().name}
-                            onInput={(e) =>
-                              setNaming((n) => (n ? { ...n, name: e.currentTarget.value } : n))
+                  />
+                  {/* Naming a snippet happens in a band of its own under the bar,
+                      so the query stays on screen (issue #320, M14
+                      SnippetSaveInline): Guardar is its one primary. */}
+                  <Show when={naming()}>
+                    {(pending) => (
+                      <div class="snip-save" role="form" aria-label={t("snip.saveLabel")}>
+                        <Icon name="bookmark" size={14} class="snip-save-ic" />
+                        <label class="snip-save-label" for="snip-save-name">
+                          {t("snip.saveLabel")}
+                        </label>
+                        <input
+                          id="snip-save-name"
+                          class="snip-save-input"
+                          type="text"
+                          ref={autoFocus}
+                          placeholder={t("snip.namePlaceholder")}
+                          value={pending().name}
+                          onInput={(e) =>
+                            setNaming((n) => (n ? { ...n, name: e.currentTarget.value } : n))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              commitNaming();
                             }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitNaming();
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                setNaming(null);
-                              }
-                            }}
-                          />
-                          <span class="snip-save-scope">
-                            {t(`snip.scope.${pending().scope}`)} · {t("snip.nameHint", keyParams({ enter: "Enter", esc: "Esc" }))}
-                          </span>
-                        </span>
-                      )}
-                    </Show>
-                  </EditorToolbar>
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              setNaming(null);
+                            }
+                          }}
+                        />
+                        <span class="snip-save-scope">{t(`snip.scope.${pending().scope}`)}</span>
+                        <span class="help">{t("snip.keys", keyParams({ enter: "Enter", esc: "Esc" }))}</span>
+                        <span class="toolbar-spacer" />
+                        <button
+                          type="button"
+                          class="edit-btn edit-btn-primary"
+                          onClick={commitNaming}
+                        >
+                          {t("snip.save")}
+                        </button>
+                        <button
+                          type="button"
+                          class="edit-btn edit-btn-icon"
+                          aria-label={t("snip.cancel")}
+                          title={t("snip.cancel")}
+                          onClick={() => setNaming(null)}
+                        >
+                          <Icon name="close" size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </Show>
                   <SqlEditor
                     activeId={tab().id}
                     onCursor={setEditorCursor}
@@ -6059,6 +6089,8 @@ export function App() {
                                   editorSchema(sqlSchema()),
                                   activeDialect(),
                                 )}
+                                lock={isLockError(currentResult().error)}
+                                onLockTab={lockHolderTab(tab()) ? () => selectTab(lockHolderTab(tab())!.id) : undefined}
                               />
                             }
                             rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}

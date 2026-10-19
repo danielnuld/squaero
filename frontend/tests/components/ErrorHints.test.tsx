@@ -19,6 +19,20 @@ const mount = (ui: () => any) => {
 };
 
 describe("ErrorHints (#691)", () => {
+  it("asks about an open transaction on a lock error, and goes to its tab (A-07)", () => {
+    let went = 0;
+    mount(() => <ErrorHints code={null} hint={null} lock onLockTab={() => went++} />);
+    expect(host!.querySelector("dt")!.textContent).toBe("Bloqueo");
+    expect(host!.querySelector("dd")!.textContent).toContain("¿Hay una transacción abierta en otra pestaña?");
+    host!.querySelector<HTMLButtonElement>("dd button")!.click();
+    expect(went).toBe(1);
+  });
+
+  it("asks without a button when no tab holds a transaction", () => {
+    mount(() => <ErrorHints code={null} hint={null} lock />);
+    expect(host!.querySelector("dd button")).toBeNull();
+  });
+
   it("renders nothing with nothing to add", () => {
     mount(() => <ErrorHints code={null} hint={null} />);
     expect(host!.querySelector(".error-hints")).toBeNull();
