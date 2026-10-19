@@ -351,7 +351,7 @@ import { ConnectionManager } from "./components/ConnectionManager";
 import { ObjectToolbar, type ObjectView } from "./components/ObjectToolbar";
 import { DocTabs } from "./components/DocTabs";
 import { Pager } from "./components/Pager";
-import { pagerView } from "./utils/pager";
+import { pagerView, parsePageSize, offsetForPageSize, PAGE_SIZE_KEY } from "./utils/pager";
 import { paneSize, savePaneSize } from "./utils/paneSizes";
 import { Rail } from "./components/Rail";
 import { loadSideState, railClick, saveSideState } from "./utils/sidePanel";
@@ -510,11 +510,6 @@ interface ActiveConnection {
   reconnected?: boolean;
 }
 
-// Page size, owned by the UI (sent explicitly, not the core default). Table
-// previews fetch page-by-page with a server-side LIMIT/OFFSET (runPreviewPage);
-// a plain query pages via the core's row-skip offset. `truncated` marks a
-// further page; the grid virtualizes the returned page.
-const PAGE_LIMIT = 1000;
 
 // Rows per round trip when EXPORTING (issue #479). Bigger than a screen's page
 // on purpose: the grid pages for the eye, an export pages only to keep any one
@@ -583,6 +578,12 @@ export function App() {
   // the welcome screen (issue #694); a saved session comes back only when resumed.
   const [tabs, setTabs] = createSignal<TabState>(emptySession(stored));
   const [results, setResults] = createStore<Record<number, TabResult>>({});
+  // Rows per page, owned by the UI (sent explicitly, not the core default) and
+  // remembered (A-20, R-38). Table previews fetch page-by-page with a server-side
+  // LIMIT/OFFSET (runPreviewPage); a plain query pages via the core's row-skip
+  // offset. Each result keeps the size it was read with (`pageSize`), so a
+  // change applies to the next read and never mis-counts an open result's pages.
+  const [pageSize, setPageSize] = createSignal(parsePageSize(resolveStore().getItem(PAGE_SIZE_KEY)));
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
   // Foreign-key pickers per tab, column -> referenced table + its candidate rows.
   // Filled when an edit session starts (loadFkLookups) and cleared with the result.
@@ -2346,6 +2347,9 @@ export function App() {
     const tab = tabId !== undefined ? tabs().tabs.find((x) => x.id === tabId) : current();
     if (!tab) return;
     const id = tab.id;
+    // A page turn keeps the size its result was read with: its offset counts
+    // pages of THAT size. A fresh run takes the remembered one.
+    const limit = offset > 0 ? (results[id]?.pageSize ?? pageSize()) : pageSize();
     const trimmed = sql.trim();
     if (!trimmed) {
       setResults(id, { ...emptyResult(), error: t("error.emptyQuery") });
@@ -2402,7 +2406,7 @@ export function App() {
       const sets = script
         ? scriptSets(
             await withWriteConsent(conn.connId, stmts, () =>
-              runStatements(conn.connId, stmts, PAGE_LIMIT, exec),
+              runStatements(conn.connId, stmts, limit, exec),
             ),
             activeDialect(),
           )
@@ -2416,7 +2420,7 @@ export function App() {
       const result = sets
         ? (shown?.result ?? null)
         : await withWriteConsent(conn.connId, [trimmed], () =>
-            exec(trimmed, () => runQuery(conn.connId, trimmed, PAGE_LIMIT, offset, offset === 0)),
+            exec(trimmed, () => runQuery(conn.connId, trimmed, limit, offset, offset === 0)),
           );
       const elapsedMs = performance.now() - started;
       // The page cache starts here and grows only through the cursor: pages of
@@ -2425,7 +2429,7 @@ export function App() {
       // showing yesterday's rows). It is indexed by page number, so a re-run at
       // an offset lands in its own slot.
       const pages: ResultSet[] | undefined = script || !result ? undefined : [];
-      if (pages && result) pages[Math.round(offset / PAGE_LIMIT)] = result;
+      if (pages && result) pages[Math.round(offset / limit)] = result;
       setResults(id, {
         loading: false,
         error: shown?.error ?? null,
@@ -2437,7 +2441,7 @@ export function App() {
         ranScope: scope,
         pageSql: script ? undefined : trimmed,
         offset,
-        pageSize: PAGE_LIMIT,
+        pageSize: limit,
         cursor: result?.cursor ?? false,
         pages,
         source: keepSource,
@@ -2529,12 +2533,13 @@ export function App() {
       });
       return;
     }
+    const limit = pageSize();
     // The filter the panel applied travels INTO the paged query, so narrowing a
     // table narrows the table and not the page (issue #347).
     const sql = objectPreviewQuery(
       preview.parts,
       preview.engine,
-      PAGE_LIMIT,
+      limit,
       offset,
       filters[tabId]?.applied ?? undefined,
     );
@@ -2548,10 +2553,10 @@ export function App() {
     setTabs((s) => updateTabSql(s, tabId, sql));
     const started = performance.now();
     try {
-      const result = await runQuery(conn.connId, sql, PAGE_LIMIT, 0);
+      const result = await runQuery(conn.connId, sql, limit, 0);
       // The preview caps its own rows, so the core can't mark truncation; infer a
       // further page from a full page.
-      const paged: ResultSet = { ...result, truncated: pageHasMore(result.rows.length, PAGE_LIMIT) };
+      const paged: ResultSet = { ...result, truncated: pageHasMore(result.rows.length, limit) };
       setResults(tabId, {
         loading: false,
         error: null,
@@ -2560,7 +2565,7 @@ export function App() {
         ranScope: "document",
         pageSql: sql,
         offset,
-        pageSize: PAGE_LIMIT,
+        pageSize: limit,
         source: keepSource,
         preview,
       });
@@ -2584,7 +2589,7 @@ export function App() {
     const conn = tabConn(tabs().tabs.find((x) => x.id === tabId));
     const r = results[tabId];
     if (!conn || !r) return;
-    const size = r.pageSize ?? PAGE_LIMIT;
+    const size = r.pageSize ?? pageSize();
     setResults(tabId, { loading: true });
     const started = performance.now();
     try {
@@ -2632,7 +2637,7 @@ export function App() {
     if (!r || r.loading || currentEdit().editing) return;
     const step = pageStep(r, delta);
     if (!step) return;
-    const size = r.pageSize ?? PAGE_LIMIT;
+    const size = r.pageSize ?? pageSize();
     if (step.kind === "cached") {
       const page = r.pages?.[step.index];
       if (page) setResults(t.id, { result: page, offset: step.index * size, error: null });
@@ -2668,7 +2673,7 @@ export function App() {
     return pagerView({
       offset: r?.offset ?? 0,
       rows: r?.result?.rows.length ?? 0,
-      size: r?.pageSize ?? PAGE_LIMIT,
+      size: r?.pageSize ?? pageSize(),
       total: dataTotal(tabId),
       more: !!r?.result?.truncated,
       paused: !!edits[tabId]?.editing || !!r?.loading,
@@ -2693,6 +2698,13 @@ export function App() {
     const r = results[tabId];
     if (!r?.preview || r.loading || edits[tabId]?.editing) return;
     void runPreviewPage(tabId, r.preview, offset);
+  };
+  // The pager's size selector (A-20, R-38): remembered for every table, and the
+  // table re-read at once on the page that still holds its first row.
+  const changePageSize = (tabId: number, size: number) => {
+    setPageSize(size);
+    resolveStore().setItem(PAGE_SIZE_KEY, String(size));
+    goToDataOffset(tabId, offsetForPageSize(results[tabId]?.offset ?? 0, size));
   };
 
   /** The variable values this tab last ran with. */
@@ -2945,7 +2957,7 @@ export function App() {
       parts: { db: node.db, schema: node.schema, name: node.label },
       engine: activeDialect(),
     };
-    const sql = objectPreviewQuery(preview.parts, preview.engine, PAGE_LIMIT);
+    const sql = objectPreviewQuery(preview.parts, preview.engine, pageSize());
     let newId = 0;
     setTabs((s) => {
       // The tab is named after the object it opens, not "Consulta N".
@@ -5622,6 +5634,8 @@ export function App() {
                       onFirst={isDataTab(tab().id) ? () => goToDataOffset(tab().id, 0) : undefined}
                       onPrev={() => pageBy(-1)}
                       onNext={() => pageBy(1)}
+                      pageSize={isDataTab(tab().id) ? (currentResult().pageSize ?? pageSize()) : undefined}
+                      onPageSize={isDataTab(tab().id) ? (n) => changePageSize(tab().id, n) : undefined}
                       onLast={
                         isDataTab(tab().id)
                           ? () => {

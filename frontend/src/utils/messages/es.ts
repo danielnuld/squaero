@@ -656,6 +656,8 @@ export const es: Record<string, string> = {
   "pager.last": "Última página",
   "pager.lastNeedsCount": "Última página: cuenta el total primero",
   "pager.pageOf": "{page} / {pages}",
+  "pager.size": "Filas por página",
+  "pager.sizeOption": "{n} por página",
   "result.rowsRange": "Filas {from}–{to}",
   "result.pagingPaused": " · paginación en pausa durante la edición",
   "result.rowDetail": "Ver detalle de fila",

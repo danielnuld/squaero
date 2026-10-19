@@ -653,6 +653,8 @@ export const en: Record<string, string> = {
   "pager.last": "Last page",
   "pager.lastNeedsCount": "Last page: count the total first",
   "pager.pageOf": "{page} / {pages}",
+  "pager.size": "Rows per page",
+  "pager.sizeOption": "{n} per page",
   "result.rowsRange": "Rows {from}–{to}",
   "result.pagingPaused": " · pagination paused while editing",
   "result.rowDetail": "View row detail",
