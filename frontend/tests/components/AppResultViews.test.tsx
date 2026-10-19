@@ -159,6 +159,23 @@ describe("App — result pane views (#691)", () => {
     expect(explains.every((c) => c.includes("SELECT * FROM t") && !c.includes("DELETE"))).toBe(true);
   });
 
+  it("shows each statement's tab as it finishes while the script runs (M14)", async () => {
+    await connect();
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "UPDATE t SET a = 1; SELECT slow" } });
+    click(host!.querySelector(".editor-run-scope"));
+    click([...document.querySelectorAll(".context-menu-item")].find((b) => b.textContent?.startsWith("Script completo")));
+    await settle();
+    const tabs = [...host!.querySelectorAll('.result-tabs [role="tab"]')];
+    expect(tabs[0].textContent).toContain("UPDATE");
+    expect(tabs[1].classList.contains("is-running")).toBe(true);
+    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
+    expect(host!.querySelector(".run-status-text")!.textContent).toMatch(/^Ejecutando script · .* · 2 de 2$/);
+    click(host!.querySelector(".editor-stop"));
+    await settle();
+    expect(host!.querySelector(".result-tabs .is-running")).toBeNull();
+  });
+
   it("stops the running query on Ctrl+Break (#691)", async () => {
     await connect();
     const ctrlBreak = () =>

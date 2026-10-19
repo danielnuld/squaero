@@ -700,6 +700,7 @@ export const es: Record<string, string> = {
   "result.setRows": "{n} filas",
   "result.setAffected": "{n} afectadas",
   "result.setFailed": "error",
+  "result.setRunning": "ejecutando…",
   "result.copyRowJson": "Copiar fila como JSON",
   "result.copyAs": "Copiar como",
   // poner NULL desde la rejilla (#398): vaciar la celda deja "", que es otro valor
@@ -905,7 +906,7 @@ export const es: Record<string, string> = {
   "grid.runToSee": "Ejecuta una consulta para ver resultados.",
   "grid.running": "Ejecutando…",
   "run.running": "Ejecutando · {time}",
-  "run.progress": "sentencia {n} de {total}",
+  "run.runningScript": "Ejecutando script · {time} · {n} de {total}",
   "run.rows": "Resultado · {n} filas",
   "run.rowsOne": "Resultado · 1 fila",
   "run.affected": "{n} filas afectadas",

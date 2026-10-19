@@ -21,7 +21,7 @@ import {
   runStatements,
   type ResultSet,
 } from "./utils/query";
-import { scriptSets, pickActiveSet, type ScriptSet } from "./utils/scriptRuns";
+import { scriptSets, pickActiveSet, statementLabel, type ScriptSet } from "./utils/scriptRuns";
 import {
   cancelQuery,
   connActivity,
@@ -461,7 +461,7 @@ interface TabResult {
   /** When the run in flight started, epoch ms: the result panel's clock (#691). */
   startedAt?: number;
   /** Which statement of a script is running (issue #691). */
-  progress?: { n: number; total: number } | null;
+  progress?: { n: number; total: number; label?: string } | null;
   /** The statement that failed, as sent: the editor marks its line (#691). */
   errorSql?: string;
   /** The table this result was read from + its PK, when opened from the tree.
@@ -2677,7 +2677,12 @@ export function App() {
     // sends them one at a time through here.
     let sent = 0;
     const exec = (stmt: string, query: () => Promise<ResultSet>) => {
-      if (script) setResults(id, { progress: { n: ++sent, total: stmts.length } });
+      if (script) {
+        sent++;
+        setResults(id, {
+          progress: { n: sent, total: stmts.length, label: statementLabel(stmt, conn.driver) },
+        });
+      }
       return offset === 0 ? runTx(conn, stmt, query, () => (implicitCommit = true)) : query();
     };
     try {
@@ -2687,7 +2692,14 @@ export function App() {
       const sets = script
         ? scriptSets(
             await withWriteConsent(conn.connId, stmts, () =>
-              runStatements(conn.connId, stmts, limit, exec),
+              // Each statement's tab appears as it finishes (M14 EditorRunning),
+              // the running one after them.
+              runStatements(conn.connId, stmts, limit, exec, (done) =>
+                setResults(id, {
+                  sets: scriptSets(done, activeDialect()),
+                  activeSet: done.length,
+                }),
+              ),
             ),
             activeDialect(),
           )
@@ -5854,6 +5866,11 @@ export function App() {
                   <Show when={!isDataTab(tab().id) || (currentResult().sets?.length ?? 0) > 1}>
                     <ResultTabs
                       sets={currentResult().sets ?? []}
+                      running={
+                        currentResult().loading && currentResult().progress?.label
+                          ? { label: currentResult().progress!.label! }
+                          : null
+                      }
                       active={currentResult().activeSet ?? 0}
                       onSelect={(i) => selectSet(tab().id, i)}
                       view={isDataTab(tab().id) ? undefined : resultView(tab().id)}
