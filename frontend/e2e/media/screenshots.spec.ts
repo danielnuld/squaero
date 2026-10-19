@@ -161,9 +161,9 @@ test("data search across the schema", async ({ page }) => {
   await openMedia(page, rpc);
   await connectDemo(page);
   await openTool(page, "Buscar en los datos");
-  await page.getByLabel("Texto:").fill("pe");
-  await page.getByRole("button", { name: "Buscar", exact: true }).click();
-  await expect(page.getByRole("status").getByText(/Terminado/)).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("searchbox", { name: "Texto" }).fill("pe");
+  await page.getByRole("button", { name: /^Buscar en \d+ tablas?$/ }).click();
+  await expect(page.getByRole("status").getByText(/coincidencias? de/)).toBeVisible({ timeout: 30_000 });
   await shot(page, "screenshot-data-search");
 });
 

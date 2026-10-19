@@ -442,7 +442,7 @@ import { SchemaSyncWizard } from "./components/SchemaSyncWizard";
 import { DataDiffWizard } from "./components/DataDiffWizard";
 import { TransferWizard } from "./components/TransferWizard";
 import { BackupPanel } from "./components/BackupPanel";
-import { DataSearchPanel } from "./components/DataSearchPanel";
+import { DataSearchPanel, type SearchRequest } from "./components/DataSearchPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { LocalHistoryPanel } from "./components/LocalHistoryPanel";
 import {
@@ -5598,6 +5598,13 @@ export function App() {
                 engine={activeDialect()}
                 db={activeDb()}
                 onOpen={(sql, table) => openSearchMatches(sql, table, conn().defId)}
+                onSearch={(request) =>
+                  showTool("dataSearch", t("tool.search.tab"), {
+                    key: "dataSearch",
+                    params: { request },
+                    connDefId: conn().defId,
+                  })
+                }
               />
             )}
           </Show>
@@ -6775,6 +6782,7 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb()}
+                    request={(tt().params as { request?: SearchRequest } | undefined)?.request}
                     onOpen={(sql, table) => openSearchMatches(sql, table, tt().connDefId)}
                   />
                 </Match>

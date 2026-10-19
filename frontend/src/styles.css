@@ -10589,3 +10589,147 @@ ul.sidebar-tree {
 .routine-ddl .tok-typeName {
   color: var(--syntax-type);
 }
+
+/* Data search: the form, and the results as a document. */
+.ds-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  gap: var(--sp-5);
+}
+
+.ds-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-height: 0;
+  overflow: auto;
+}
+
+.ds-row {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.ds-limit {
+  width: 6rem;
+}
+
+.ds-tables-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.ds-tables {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.ds-table {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.ds-table-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-results {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.ds-progress-line,
+.ds-matches-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.ds-bar {
+  height: 4px;
+  margin-top: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.ds-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.ds-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.ds-list {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+}
+
+.ds-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.ds-item .ds-table-name {
+  flex: 1;
+}
+
+.ds-item:hover:not(:disabled) {
+  background: var(--bg-elev2);
+}
+
+.ds-item[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.ds-item:disabled {
+  color: var(--text-dim);
+}
+
+.ds-matches {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+}
+
+.ds-grid {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
