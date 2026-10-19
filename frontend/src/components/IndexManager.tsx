@@ -179,6 +179,7 @@ export function IndexManager(props: {
         }
       }
       setPending(null);
+      setSelected(null);
       props.onChanged?.();
       await load();
     } catch (e) {
@@ -248,6 +249,23 @@ export function IndexManager(props: {
   const previewError = (b: { ok: boolean } & Partial<{ error: string }>) =>
     !b.ok ? b.error : null;
 
+  // The toolbar (#692): Nuevo índice / Nueva restricción take the cursor to
+  // their form; Eliminar acts on the row selected in either list.
+  const [selected, setSelected] = createSignal<{ kind: "index" | "constraint"; name: string; row: (string | null)[] } | null>(null);
+  let idxNameInput: HTMLInputElement | undefined;
+  let conNameInput: HTMLInputElement | undefined;
+  const focusForm = (el: HTMLInputElement | undefined) => {
+    el?.scrollIntoView?.({ block: "nearest" });
+    el?.focus();
+  };
+  const dropSelected = () => {
+    const s = selected();
+    if (!s) return;
+    if (s.kind === "index") dropIndexRow(s.name);
+    else dropConstraintRow(s.name, conTypeIdx() >= 0 ? s.row[conTypeIdx()] : null);
+  };
+  const count = (rs: ResultSet | null) => rs?.rows.length ?? 0;
+
   return (
     <Panel
       title={t("im.title", { name: props.table })}
@@ -259,6 +277,31 @@ export function IndexManager(props: {
       onRefresh={() => void load()}
       refreshing={loading()}
     >
+      <div class="edit-toolbar" role="toolbar" aria-label={t("im.title", { name: props.table })}>
+        <Show when={idxSupport().supported}>
+          <button type="button" class="edit-btn" onClick={() => focusForm(idxNameInput)}>
+            <Icon name="plus" size={14} />
+            {t("im.newIndex")}
+          </button>
+        </Show>
+        <Show when={conSupport().supported}>
+          <button type="button" class="edit-btn" onClick={() => focusForm(conNameInput)}>
+            <Icon name="plus" size={14} />
+            {t("im.newConstraint")}
+          </button>
+        </Show>
+        <span class="toolbar-sep" />
+        <button
+          type="button"
+          class="edit-btn"
+          disabled={!selected() || busy()}
+          onClick={dropSelected}
+        >
+          <Icon name="trash" size={14} />
+          {selected() ? t("im.dropNamed", { name: selected()!.name }) : t("im.drop")}
+        </button>
+      </div>
+
       <Show when={error()}>
         <div class="grid-error" role="alert">
           {error()}
@@ -286,7 +329,9 @@ export function IndexManager(props: {
       </datalist>
 
       {/* ── Índices ── */}
-      <h3>{t("im.indexes")}</h3>
+      <h3>
+        {t("im.indexes")} <span class="help">{count(indexRows())}</span>
+      </h3>
       <Show
         when={idxSupport().supported}
         fallback={<p class="grid-empty">{idxSupport().reason}</p>}
@@ -298,6 +343,8 @@ export function IndexManager(props: {
           loading={loading()}
           empty={t("im.noIndexes")}
           onDrop={(name) => dropIndexRow(name)}
+          selected={selected()?.kind === "index" ? selected()!.name : null}
+          onSelect={(name, row) => setSelected({ kind: "index", name, row })}
         />
 
         <div class="im-form">
@@ -305,6 +352,8 @@ export function IndexManager(props: {
           <div class="im-fields">
             <input
               class="td-in"
+              ref={idxNameInput}
+              aria-label={t("im.indexNamePlaceholder")}
               placeholder={t("im.indexNamePlaceholder")}
               value={idxName()}
               onInput={(e) => setIdxName(e.currentTarget.value)}
@@ -329,7 +378,9 @@ export function IndexManager(props: {
       </Show>
 
       {/* ── Constraints ── */}
-      <h3>{t("im.constraints")}</h3>
+      <h3>
+        {t("im.constraints")} <span class="help">{count(conRows())}</span>
+      </h3>
       <Show
         when={conSupport().supported}
         fallback={<p class="grid-empty">{conSupport().reason}</p>}
@@ -341,6 +392,8 @@ export function IndexManager(props: {
           loading={loading()}
           empty={t("im.noConstraints")}
           onDrop={(name, row) => dropConstraintRow(name, conTypeIdx() >= 0 ? row[conTypeIdx()] : null)}
+          selected={selected()?.kind === "constraint" ? selected()!.name : null}
+          onSelect={(name, row) => setSelected({ kind: "constraint", name, row })}
         />
 
         <div class="im-form">
@@ -353,6 +406,8 @@ export function IndexManager(props: {
             />
             <input
               class="td-in"
+              ref={conNameInput}
+              aria-label={t("im.constraintNamePlaceholder")}
               placeholder={t("im.constraintNamePlaceholder")}
               value={conName()}
               onInput={(e) => setConName(e.currentTarget.value)}
@@ -407,6 +462,9 @@ function CatalogTable(props: {
   loading: boolean;
   empty: string;
   onDrop: (name: string, row: (string | null)[]) => void;
+  /** The row the toolbar's Eliminar acts on. */
+  selected: string | null;
+  onSelect: (name: string, row: (string | null)[]) => void;
 }) {
   const dataRows = () => props.rows?.rows ?? [];
   const detailIdx = (col: string) =>
@@ -430,7 +488,11 @@ function CatalogTable(props: {
             {(row) => {
               const name = props.nameIdx >= 0 ? row[props.nameIdx] : null;
               return (
-                <tr>
+                <tr
+                  class={name && name === props.selected ? "is-selected" : undefined}
+                  aria-selected={!!name && name === props.selected}
+                  onClick={() => name && props.onSelect(name, row)}
+                >
                   <td>{name ?? <span class="cell-null">NULL</span>}</td>
                   <For each={props.support.detailCols}>
                     {(d) => {

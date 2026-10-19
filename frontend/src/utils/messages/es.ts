@@ -1057,13 +1057,13 @@ export const es: Record<string, string> = {
   "td.applying": "Aplicando…",
 
   // index & constraint manager (IndexManager.tsx)
-  "im.title": "Índices y constraints · {name}",
+  "im.title": "Índices y restricciones · {name}",
   "im.indexes": "Índices",
-  "im.constraints": "Constraints",
+  "im.constraints": "Restricciones",
   "im.noIndexes": "No hay índices.",
-  "im.noConstraints": "No hay constraints.",
+  "im.noConstraints": "No hay restricciones.",
   "im.newIndex": "Nuevo índice",
-  "im.newConstraint": "Nueva constraint",
+  "im.newConstraint": "Nueva restricción",
   "im.indexNamePlaceholder": "nombre_del_indice",
   "im.constraintNamePlaceholder": "nombre_constraint",
   "im.columnsPlaceholder": "columnas (col1, col2)",
@@ -1072,7 +1072,7 @@ export const es: Record<string, string> = {
   "im.refColumnsPlaceholder": "columnas referenciadas",
   "im.unique": "Único",
   "im.createIndex": "Crear índice",
-  "im.addConstraint": "Añadir constraint",
+  "im.addConstraint": "Añadir restricción",
   "im.name": "Nombre",
 
   // schema-sync wizard (SchemaSyncWizard.tsx)
@@ -2311,4 +2311,6 @@ export const es: Record<string, string> = {
   "td.statementsN.one": "1 sentencia",
   "td.statementsN.other": "{n} sentencias",
   "td.sqliteNote": "SQLite solo admite añadir y renombrar columnas con ALTER TABLE; cambiar un tipo, NULL o el valor por defecto obliga a recrear la tabla.",
+  "im.drop": "Eliminar…",
+  "im.dropNamed": "Eliminar {name}…",
 };

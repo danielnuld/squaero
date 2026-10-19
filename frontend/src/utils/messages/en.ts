@@ -2293,4 +2293,6 @@ export const en: Record<string, string> = {
   "td.statementsN.one": "1 statement",
   "td.statementsN.other": "{n} statements",
   "td.sqliteNote": "SQLite only adds and renames columns with ALTER TABLE; changing a type, NULL or the default means recreating the table.",
+  "im.drop": "Delete…",
+  "im.dropNamed": "Delete {name}…",
 };
