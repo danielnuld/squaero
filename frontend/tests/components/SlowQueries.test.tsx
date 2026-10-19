@@ -122,7 +122,7 @@ describe("SlowQueries", () => {
     expect(onExplain).toHaveBeenCalledWith("SELECT * FROM orders");
   });
 
-  it("resets server stats then reloads", async () => {
+  it("resets server stats only after confirming, then reloads", async () => {
     const calls = installBridge();
     mount();
     await flush();
@@ -130,6 +130,13 @@ describe("SlowQueries", () => {
       (b) => b.textContent?.includes("Reiniciar"),
     )!;
     reset.click();
+    await flush();
+    // Nothing runs before the confirmation, which says it is server-wide.
+    expect(calls.some((s) => s.startsWith("TRUNCATE"))).toBe(false);
+    const dlg = document.querySelector('[role="alertdialog"]')!;
+    expect(dlg.textContent).toContain("¿Reiniciar las estadísticas del servidor?");
+    expect(dlg.textContent).toContain("todos sus usuarios");
+    dlg.querySelector<HTMLButtonElement>(".btn-danger")!.click();
     await flush();
     expect(calls.some((s) => s.startsWith("TRUNCATE performance_schema"))).toBe(true);
   });

@@ -32,6 +32,8 @@ import {
 import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 import { Dropdown } from "./Dropdown";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { deleteCellConfirm, deleteNotebookConfirm, type ConfirmText } from "../utils/confirmText";
 
 interface CellResult {
   loading: boolean;
@@ -80,6 +82,16 @@ export function Notebook(props: {
   const mutate = (fn: (nb: NotebookModel) => NotebookModel) => {
     const cur = current();
     if (cur) persist(upsertNotebook(list(), fn(cur)));
+  };
+
+  // What is about to be deleted, asked first (audit P1): the notebook, or a cell
+  // with something in it. An empty cell goes at once — nothing is lost.
+  const [asking, setAsking] = createSignal<{ text: ConfirmText; run: () => void } | null>(null);
+  const askDeleteNotebook = () =>
+    setAsking({ text: deleteNotebookConfirm(current().name, current().cells.length), run: deleteNotebook });
+  const askDeleteCell = (cell: Cell, position: number) => {
+    if (!cell.source.trim()) return deleteCell(cell.id);
+    setAsking({ text: deleteCellConfirm(position, cell.source), run: () => deleteCell(cell.id) });
   };
 
   // --- notebook-level ---
@@ -217,7 +229,7 @@ export function Notebook(props: {
           class="status-btn"
           title={t("nb.deleteTitle")}
           disabled={list().length <= 1}
-          onClick={deleteNotebook}
+          onClick={askDeleteNotebook}
         >
           {t("common.delete")}
         </button>
@@ -336,7 +348,7 @@ export function Notebook(props: {
                   title={t("nb.deleteCell")}
                   aria-label={t("nb.deleteCell")}
                   disabled={current().cells.length <= 1}
-                  onClick={() => deleteCell(cell().id)}
+                  onClick={() => askDeleteCell(cell(), idx + 1)}
                 >
                   <Icon name="trash" size={14} />
                 </button>
@@ -408,6 +420,21 @@ export function Notebook(props: {
           )}
         </Index>
       </div>
+      <Show when={asking()}>
+        {(a) => (
+          <ConfirmDialog
+            title={a().text.title}
+            message={a().text.message}
+            confirmLabel={a().text.confirm}
+            onConfirm={() => {
+              const run = a().run;
+              setAsking(null);
+              run();
+            }}
+            onCancel={() => setAsking(null)}
+          />
+        )}
+      </Show>
     </Panel>
   );
 }
