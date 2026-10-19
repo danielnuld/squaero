@@ -178,3 +178,38 @@ describe("timeAgo", () => {
     expect(timeAgo(now, now, "en")).toBe("now");
   });
 });
+
+import { scopeHistory, groupByDay, parseHistory as parse2 } from "../../src/utils/history";
+
+describe("scopeHistory", () => {
+  const list = [
+    { sql: "a", ts: 1, connId: "c1", connName: "A" },
+    { sql: "b", ts: 2, connId: "c2", connName: "B", failed: true },
+  ];
+  it("keeps all, this connection's, or the failed runs", () => {
+    expect(scopeHistory(list, "all").length).toBe(2);
+    expect(scopeHistory(list, "conn", "c1").map((e) => e.sql)).toEqual(["a"]);
+    expect(scopeHistory(list, "conn")).toEqual([]);
+    expect(scopeHistory(list, "errors").map((e) => e.sql)).toEqual(["b"]);
+  });
+});
+
+describe("groupByDay", () => {
+  it("groups by local day: today, yesterday, then dates", () => {
+    const now = new Date(2026, 9, 19, 12).getTime();
+    const at = (d: number, h: number) => ({ sql: `${d}-${h}`, ts: new Date(2026, 9, d, h).getTime(), connId: "", connName: "" });
+    const groups = groupByDay([at(19, 10), at(19, 1), at(18, 23), at(10, 9)], now);
+    expect(groups.map((g) => [g.day, g.date, g.entries.length])).toEqual([
+      ["today", "2026-10-19", 2],
+      ["yesterday", "2026-10-18", 1],
+      ["older", "2026-10-10", 1],
+    ]);
+  });
+});
+
+describe("parseHistory outcome fields", () => {
+  it("keeps rows, affected, failed and db, dropping junk", () => {
+    const raw = JSON.stringify([{ sql: "x", ts: 1, connId: "", connName: "", rows: 3, affected: "2", failed: true, db: "main" }]);
+    expect(parse2(raw)[0]).toEqual({ sql: "x", ts: 1, connId: "", connName: "", rows: 3, failed: true, db: "main" });
+  });
+});

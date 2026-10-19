@@ -189,3 +189,39 @@ describe("HistoryPanel engine filter", () => {
     expect(host!.querySelectorAll(".history-run")).toHaveLength(3);
   });
 });
+
+describe("HistoryPanel scopes and days (P6)", () => {
+  const now = Date.now();
+  const list = [
+    { sql: "SELECT 1", ts: now, connId: "c1", connName: "Ventas", db: "main", rows: 3 },
+    { sql: "UPDATE t SET x = 1", ts: now - 1000, connId: "c2", connName: "Prod", affected: 2 },
+    { sql: "SELECT nope", ts: now - 2000, connId: "c1", connName: "Ventas", failed: true },
+  ];
+  const sqls = () => [...host!.querySelectorAll(".history-sql")].map((e) => e.textContent);
+  const scope = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === label)!.click();
+
+  it("groups by day and says what each run returned", () => {
+    mount({ entries: list, connId: "c1" });
+    expect(host!.querySelector(".history-day")!.textContent).toBe("Hoy");
+    const metas = [...host!.querySelectorAll(".history-meta")].map((e) => e.textContent!);
+    expect(metas[0]).toContain("Ventas · main");
+    expect(metas[0]).toContain("3 filas");
+    expect(metas[1]).toContain("2 afectadas");
+    expect(metas[2]).toContain("Error");
+  });
+
+  it("filters to this connection or to the errors", () => {
+    mount({ entries: list, connId: "c1" });
+    scope("Esta conexión");
+    expect(sqls()).toEqual(["SELECT 1", "SELECT nope"]);
+    scope("Errores");
+    expect(sqls()).toEqual(["SELECT nope"]);
+  });
+
+  it("disables «Esta conexión» without an active connection", () => {
+    mount({ entries: list });
+    const conn = [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === "Esta conexión")!;
+    expect(conn.disabled).toBe(true);
+  });
+});
