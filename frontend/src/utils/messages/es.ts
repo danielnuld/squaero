@@ -793,10 +793,11 @@ export const es: Record<string, string> = {
   "grid.cancelUnsupported": "Este motor no puede cancelar una consulta en curso; seguirá hasta terminar.",
 
   // transacciones manuales (issue #667)
-  "tx.auto": "Auto-commit",
-  "tx.manual": "Transacción manual",
-  "tx.modeTitleAuto": "Auto-commit: cada sentencia se guarda al ejecutarse. Pulsa para trabajar en una transacción manual.",
-  "tx.modeTitleManual": "Manual: la primera sentencia que modifica datos abre una transacción y nada se guarda hasta confirmar. Pulsa para volver a auto-commit.",
+  "tx.auto": "Auto",
+  "tx.manual": "Manual",
+  "tx.modeAria": "Modo de transacción",
+  "tx.modeTitleAuto": "Auto: cada sentencia se confirma al ejecutarse.",
+  "tx.modeTitleManual": "Manual: agrupa las sentencias hasta confirmar o revertir; la primera que modifica datos abre la transacción.",
   "tx.unsupported": "Este motor no admite transacciones.",
   "tx.closeFirst": "Confirma o revierte antes la transacción abierta.",
   "tx.open": "En transacción · {n}",
