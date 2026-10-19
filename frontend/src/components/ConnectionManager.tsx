@@ -110,7 +110,7 @@ export function ConnectionManager(props: ConnectionManagerProps) {
               which is the very thing the emoji-to-SVG move settled (#332). */}
           <span class="engine-icon" aria-hidden="true">{connIcon(c)}</span> {c.name}
           <Show when={props.openIds?.includes(c.id)}>
-            <span class="conn-live" title={t("conn.connectedDot")}>●</span>
+            <span class="conn-live" role="img" aria-label={t("conn.connectedDot")} title={t("conn.connectedDot")} />
           </Show>
         </span>
         <span class="conn-driver">
@@ -224,7 +224,7 @@ export function ConnectionManager(props: ConnectionManagerProps) {
                   <summary>
                     <span class="conn-group-name">{name()}</span>
                     <Show when={g.conns.some((c) => props.openIds?.includes(c.id))}>
-                      <span class="conn-live" title={t("conn.connectedDot")}>●</span>
+                      <span class="conn-live" role="img" aria-label={t("conn.connectedDot")} title={t("conn.connectedDot")} />
                     </Show>
                     <span class="conn-group-count">{g.conns.length}</span>
                   </summary>

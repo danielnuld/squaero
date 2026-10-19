@@ -4,7 +4,7 @@ import {
   cycleSort,
   compareValues,
   buildViewIndices,
-  sortGlyph,
+  sortIcon,
   type SortState,
 } from "../../src/utils/gridView";
 import type { ResultColumn } from "../../src/utils/query";
@@ -103,11 +103,11 @@ describe("buildViewIndices", () => {
   });
 });
 
-describe("sortGlyph", () => {
+describe("sortIcon", () => {
   it("shows the arrow only for the active column", () => {
-    expect(sortGlyph({ col: 1, dir: "asc" }, 1)).toBe("▲");
-    expect(sortGlyph({ col: 1, dir: "desc" }, 1)).toBe("▼");
-    expect(sortGlyph({ col: 1, dir: "asc" }, 0)).toBe("");
-    expect(sortGlyph(null, 0)).toBe("");
+    expect(sortIcon({ col: 1, dir: "asc" }, 1)).toBe("arrow-up");
+    expect(sortIcon({ col: 1, dir: "desc" }, 1)).toBe("arrow-down");
+    expect(sortIcon({ col: 1, dir: "asc" }, 0)).toBeNull();
+    expect(sortIcon(null, 0)).toBeNull();
   });
 });

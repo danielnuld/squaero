@@ -505,16 +505,16 @@ export function UserManager(props: {
                   : t("users.pickHint")}
               </pre>
 
-              <div class="modal-actions">
+              <div class="panel-foot">
                 <button
-                  class="primary"
+                  class="btn-primary"
                   disabled={busy() || !grantPreview()}
                   onClick={() => apply(grantPreview()!)}
                 >
                   {t("users.grant")}
                 </button>
                 <button
-                  class="danger"
+                  class="btn danger-text"
                   disabled={busy() || !revokePreview()}
                   onClick={() => apply(revokePreview()!)}
                 >

@@ -14,6 +14,7 @@ import {
   type QuerySpec,
 } from "../utils/queryBuilder";
 import { t } from "../utils/i18n";
+import { currentOs, orderActions } from "../utils/dialog";
 import { Icon } from "./icons";
 import { Dropdown } from "./Dropdown";
 
@@ -288,13 +289,17 @@ export function QueryBuilder(props: {
           </div>
           <pre class="ddl-text qb-preview">{sql() || "—"}</pre>
 
-          <div class="modal-actions">
-            <button onClick={() => copyText(sql())} disabled={!sql()}>
-              {t("editor.copy")}
-            </button>
-            <button class="primary" disabled={!sql()} onClick={() => props.onRun(sql())}>
-              {t("editor.run")}
-            </button>
+          <div class="panel-foot">
+            <span class="dlg-actions">
+              {orderActions(currentOs(), [
+                <button class="btn-primary" disabled={!sql()} onClick={() => props.onRun(sql())}>
+                  {t("editor.run")}
+                </button>,
+                <button class="btn" onClick={() => copyText(sql())} disabled={!sql()}>
+                  {t("editor.copy")}
+                </button>,
+              ])}
+            </span>
           </div>
         </Show>
       </Show>

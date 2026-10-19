@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
@@ -168,15 +168,49 @@ describe("styles.css colour", () => {
 });
 
 // Reported after v0.27.0 shipped: the connection form's footer buttons rendered
-// with the OS chrome. The app's button look is reachable through three
-// selectors, and a footer pinned outside .modal-actions matched none of them —
-// the same trap that once left the filter panel's Apply unstyled.
-describe("every button surface reaches the app's button look", () => {
-  const BUTTON_RULE = /\.modal-actions button,[\s\S]*?\{/;
+// with the OS chrome. The app's button look is reachable through a few
+// selectors, and a footer that matched none of them fell back to the OS — the
+// same trap that once left the filter panel's Apply unstyled.
+/** App.tsx and every component, where the markup lives. */
+const componentFiles = (): string[] => {
+  const src = resolve(process.cwd(), "src");
+  return [
+    resolve(src, "App.tsx"),
+    ...readdirSync(resolve(src, "components"))
+      .filter((f) => f.endsWith(".tsx") && f !== "icons.tsx")
+      .map((f) => resolve(src, "components", f)),
+  ];
+};
 
-  it("styles the buttons of the connection form's footer", () => {
+describe("every button surface reaches the app's button look", () => {
+  const BUTTON_RULE = /\.cf-foot button,[\s\S]*?\{/;
+
+  it("styles the buttons of the connection form's footer and every .btn", () => {
     const rule = CSS.match(BUTTON_RULE)?.[0] ?? "";
-    expect(rule).toContain(".cf-foot button");
+    expect(rule).toContain("button.btn,");
+    expect(rule).toContain("button.primary");
+  });
+
+  // Issue #696: the legacy `.modal-actions` row gave way to the Dialog's
+  // footer and the tool panels' `.panel-foot` (#769), in the OS order.
+  it("has no legacy .modal-actions row left, in the CSS or the components", () => {
+    expect(stripComments(CSS)).not.toContain("modal-actions");
+    const using = componentFiles().filter((f) => readFileSync(f, "utf8").includes("modal-actions"));
+    expect(using).toEqual([]);
+  });
+
+  // Issue #696: icons are the SVG set in components/icons.tsx, not characters
+  // whose look depends on the font (or the emoji set) of the machine.
+  it("draws no icon as a glyph or emoji in the components", () => {
+    const GLYPHS = /[★☆●▲▼✓✔✕✖⚙]|\p{Extended_Pictographic}/u;
+    const offenders = componentFiles().flatMap((f) =>
+      stripComments(readFileSync(f, "utf8"))
+        .replace(/^\s*\/\/.*$/gm, "")
+        .split("\n")
+        .filter((line) => GLYPHS.test(line))
+        .map((line) => `${f.split(/[\\/]/).pop()}: ${line.trim()}`),
+    );
+    expect(offenders).toEqual([]);
   });
 
   // The "registro" grid style puts text cells back to plain ink, and that must

@@ -333,6 +333,7 @@ import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
 import { Icon } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
+import { currentOs, orderActions } from "./utils/dialog";
 import { APP_VERSION } from "./utils/version";
 import {
   checkForUpdate,
@@ -5315,17 +5316,21 @@ export function App() {
                           </span>
                         </div>
                         <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
-                        <div class="modal-actions">
-                          <button disabled={currentEdit().busy} onClick={cancelPreview}>
-                            {t("common.cancel")}
-                          </button>
-                          <button
-                            class="primary"
-                            disabled={currentEdit().busy}
-                            onClick={applyEdit}
-                          >
-                            {t("result.applyConfirm")}
-                          </button>
+                        <div class="panel-foot">
+                          <span class="dlg-actions">
+                            {orderActions(currentOs(), [
+                              <button
+                                class="btn-primary"
+                                disabled={currentEdit().busy}
+                                onClick={applyEdit}
+                              >
+                                {t("result.applyConfirm")}
+                              </button>,
+                              <button class="btn" disabled={currentEdit().busy} onClick={cancelPreview}>
+                                {t("common.cancel")}
+                              </button>,
+                            ])}
+                          </span>
                         </div>
                       </div>
                     )}
