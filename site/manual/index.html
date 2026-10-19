@@ -4,62 +4,82 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manual de Squaero — guía de uso</title>
-<meta name="description" content="Manual de usuario de Squaero: conectar a SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB y SQL Server, explorar el esquema, consultar, editar datos en una transacción, importar y exportar, y las herramientas de servidor.">
-
+<meta name="description" content="Manual de usuario de Squaero: conectar a SQLite, MySQL/MariaDB, PostgreSQL, Informix, MongoDB y SQL Server, el editor SQL, trabajar sin riesgos en producción, editar datos en una transacción, comparar esquemas, importar y exportar, y las herramientas de servidor.">
+<link rel="canonical" href="https://danielnuld.github.io/squaero/manual/">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Squaero">
 <meta property="og:title" content="Manual de Squaero — guía de uso">
-<meta property="og:description" content="Cómo hacer cada tarea en Squaero: conexiones, consultas, edición transaccional, importar y exportar, y herramientas de servidor.">
+<meta property="og:description" content="Cómo hacer cada tarea en Squaero: conexiones, el editor, modo seguro y transacciones, edición de datos, comparar esquemas, importar y exportar, y herramientas de servidor.">
 <meta property="og:url" content="https://danielnuld.github.io/squaero/manual/">
 <meta property="og:image" content="https://danielnuld.github.io/squaero/img/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
-
-<link rel="icon" href="../assets/quaero-mark.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../styles.css">
+<meta name="theme-color" content="#eef2f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0e12" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+<script src="../style.js"></script>
+<link rel="stylesheet" href="../site.css">
 </head>
 <body>
+<a class="skip" href="#manual">Saltar al contenido</a>
 
-<header class="site">
-  <div class="wrap nav">
-    <a class="brand" href="../" style="color:inherit"><img src="../assets/quaero-mark.svg" alt=""> Squaero</a>
-    <nav class="links">
-      <a href="../#features">Características</a>
-      <a href="./">Manual</a>
-      <a href="../#download">Descargas</a>
+<header class="top">
+  <nav class="bar glass" aria-label="Principal">
+    <a class="brand" href="../" aria-label="Squaero, inicio">
+      <svg class="mark small" viewBox="0 0 128 128" width="26" height="26" aria-hidden="true"><circle class="ring" cx="58" cy="58" r="36"/><path class="tail" d="M84 84 L106 106"/><path class="prompt" d="M50 44 L64 58 L50 72"/></svg>
+      Squaero</a>
+    <div class="links">
+      <a href="../#motores">Motores</a>
+      <a href="../#funciones">Funciones</a>
+      <a href="./" aria-current="page">Manual</a>
       <a href="https://github.com/danielnuld/squaero" rel="noopener">GitHub</a>
-      <a class="btn" href="../#download">Descargar</a>
-    </nav>
-  </div>
+    </div>
+    <div class="styles" role="group" aria-label="Estilo de la página" data-style-picker hidden>
+      <button type="button" data-pick="b" aria-pressed="false" aria-label="B · Nativo" title="B · Nativo"></button>
+      <button type="button" data-pick="a" aria-pressed="false" aria-label="A · Quiet pro" title="A · Quiet pro"></button>
+      <button type="button" data-pick="c" aria-pressed="false" aria-label="C · Editorial" title="C · Editorial"></button>
+      <button type="button" data-pick="rosa" aria-pressed="false" aria-label="Rosa pastel" title="Rosa pastel"></button>
+    </div>
+    <a class="btn" href="../#descargar">Descargar</a>
+  </nav>
 </header>
 
-<main class="wrap manual">
+<div class="wrap page-head">
+  <p class="eyebrow">Manual de usuario</p>
+  <h1>Cómo se usa Squaero</h1>
+  <p>Una página, una tarea por apartado. Busca con <kbd>Ctrl</kbd>+<kbd>F</kbd>
+    lo que quieras hacer; cada sección tiene su propio enlace para compartirla.</p>
+</div>
 
-  <nav class="toc" aria-label="Contenido del manual">
-    <p class="k">Contenido</p>
+<main id="manual" class="wrap manual">
+
+  <details class="toc glass" open>
+    <summary>Contenido</summary>
+    <nav aria-label="Contenido del manual">
     <ol>
-      <li><a href="#empezar">Primeros pasos</a></li>
-      <li><a href="#conexiones">Conectar a una base</a></li>
-      <li><a href="#explorar">Explorar el esquema</a></li>
-      <li><a href="#consultar">Escribir y ejecutar SQL</a></li>
-      <li><a href="#datos">Ver y editar datos</a></li>
-      <li><a href="#importar">Importar y exportar</a></li>
-      <li><a href="#disenar">Diseñar y administrar</a></li>
-      <li><a href="#servidor">Vigilar el servidor</a></li>
-      <li><a href="#entre-conexiones">Mover datos entre bases</a></li>
-      <li><a href="#atajos">Atajos de teclado</a></li>
-      <li><a href="#problemas">Si algo va mal</a></li>
-      <li><a href="#iphone">En el iPhone</a></li>
+      <li><a href="#empezar">1. Primeros pasos</a></li>
+      <li><a href="#conexiones">2. Conectar a una base</a></li>
+      <li><a href="#seguro">3. Trabajar sin riesgos</a></li>
+      <li><a href="#explorar">4. Explorar el esquema</a></li>
+      <li><a href="#consultar">5. Escribir y ejecutar SQL</a></li>
+      <li><a href="#editor">6. El editor, a fondo</a></li>
+      <li><a href="#datos">7. Ver y editar datos</a></li>
+      <li><a href="#importar">8. Importar y exportar</a></li>
+      <li><a href="#disenar">9. Diseñar y administrar</a></li>
+      <li><a href="#servidor">10. Vigilar el servidor</a></li>
+      <li><a href="#entre-conexiones">11. Comparar y mover entre bases</a></li>
+      <li><a href="#atajos">12. Atajos de teclado</a></li>
+      <li><a href="#problemas">13. Si algo va mal</a></li>
+      <li><a href="#iphone">14. En el iPhone</a></li>
+      <li><a href="#mcp">15. Con un asistente de IA (MCP)</a></li>
     </ol>
-  </nav>
+    </nav>
+  </details>
+  <script src="toc.js"></script>
 
-  <article class="doc">
-
-    <p class="eyebrow">Manual de usuario</p>
-    <h1>Cómo se usa Squaero</h1>
-    <p class="lede">Una página, una tarea por apartado. Busca con <kbd>Ctrl</kbd>+<kbd>F</kbd>
-      lo que quieras hacer; cada sección tiene su propio enlace para compartirla.</p>
-
-    <!-- 1 ─────────────────────────────────────────────────────────────── -->
+  <article class="prose">
     <section id="empezar">
       <h2>1. Primeros pasos</h2>
 
@@ -72,7 +92,7 @@
         <li>Si quieres verificar la descarga, en la misma versión está
           <code>SHA256SUMS.txt</code>.</li>
       </ol>
-      <div class="note">
+      <div class="callout glass">
         <p><b>Windows de 64 bits.</b> Si tenías la versión de 32 bits (hasta la
           0.30), el instalador nuevo la quita y ocupa su lugar en
           <code>Program Files</code>: tus conexiones, snippets y ajustes siguen ahí.
@@ -91,14 +111,14 @@
       <p><b>En macOS</b> (Apple Silicon, macOS 15 o posterior; desde la 0.32.0):
         descarga <code>squaero-X.Y.Z-arm64.dmg</code>, ábrelo y arrastra Squaero a
         Aplicaciones.</p>
-      <div class="note">
+      <div class="callout glass">
         <p><b>La primera vez, macOS lo bloquea.</b> Squaero va firmado ad hoc, sin un
           Developer ID de Apple, y macOS dice que no puede verificarlo. Abre
           <b>Ajustes del Sistema → Privacidad y seguridad</b> y pulsa
           <b>Abrir igualmente</b>; solo hace falta una vez. Desde la Terminal vale
           también <code>xattr -dr com.apple.quarantine /Applications/Squaero.app</code>.</p>
       </div>
-      <div class="note">
+      <div class="callout glass">
         <p><b>Informix.</b> No hace falta ningún cliente de IBM: Squaero se conecta
           por DRDA al listener <code>drsoctcp</code> del servidor, normalmente en el
           puerto 9089 (no el 9088 de los clientes de IBM). Si tu servidor no lo tiene,
@@ -108,7 +128,7 @@
       <h3>La ventana, por partes</h3>
       <p>La primera vez la app abre maximizada y sin ninguna conexión:</p>
       <figure>
-        <img src="../img/screenshot-initial-dark.png" alt="Pantalla inicial de Squaero, sin conexiones" loading="lazy">
+        <img src="../img/screenshot-initial-dark.png" width="1280" height="800" alt="Pantalla inicial de Squaero, sin conexiones" loading="lazy">
         <figcaption>La pantalla inicial. Todo empieza por crear una conexión.</figcaption>
       </figure>
       <ul>
@@ -126,6 +146,14 @@
           cambio de tema y <kbd>F1</kbd> para los atajos.</li>
       </ul>
 
+      <h3>Elegir el estilo</h3>
+      <p>En <b>Ajustes › Apariencia › Estilo</b> hay cuatro: <b>B · Nativo</b> (el
+        predeterminado, claro y sobrio), <b>A · Quiet pro</b> (oscuro y frío),
+        <b>C · Editorial</b> (oscuro y cálido) y <b>Rosa pastel</b>. Todos tienen el
+        mismo diseño y las mismas pantallas; cambian los colores, la tipografía y los
+        radios. <b>Modo</b> elige entre seguir al sistema, claro u oscuro, y
+        <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd> alterna entre claro y oscuro.</p>
+
       <h3>Dónde queda todo</h3>
       <p>Las conexiones, el historial, los snippets y las preferencias se guardan en
         tu equipo. No hay cuenta, no hay nube y no hay telemetría: nada de lo que
@@ -139,7 +167,6 @@
         con cara de recién traída.</p>
     </section>
 
-    <!-- 2 ─────────────────────────────────────────────────────────────── -->
     <section id="conexiones">
       <h2>2. Conectar a una base</h2>
 
@@ -159,7 +186,7 @@
           nueva ya en ella. Abrirla es el paso siguiente.</li>
       </ol>
 
-      <table class="ref">
+      <div class="ref-box glass"><table class="ref">
         <thead><tr><th>Motor</th><th>Campos</th></tr></thead>
         <tbody>
           <tr><td class="k">SQLite</td><td><b>Archivo de base de datos</b> — la ruta del <code>.db</code>, o <code>:memory:</code> para una base temporal.</td></tr>
@@ -169,7 +196,7 @@
           <tr><td class="k">MongoDB</td><td>Host, Puerto (<code>27017</code>), Base de datos, Usuario, Contraseña, <b>Base de autenticación</b> (normalmente <code>admin</code>) y <b>TLS</b>.</td></tr>
           <tr><td class="k">SQL Server</td><td>Host, Puerto (<code>1433</code>) o <b>Instancia</b> (un nombre como <code>SQLEXPRESS</code>, en vez del puerto), Base de datos, Usuario, Contraseña y <b>Cifrado</b>.</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>En los motores de servidor, el campo <b>Base de datos</b> se puede desplegar:
         cuando el resto de los datos ya son válidos, trae la lista real del servidor
         en vez de hacerte teclear el nombre.</p>
@@ -224,7 +251,7 @@
       </ul>
       <p>De cada conexión llegan motor, host, puerto, base, usuario, el túnel SSH y la
         contraseña; de una de SQL Server, además, la instancia con nombre y el cifrado.</p>
-      <div class="note">
+      <div class="callout glass">
         <p><b>Lo que no puede traer, lo dice.</b> Un motor que Squaero no lleva
           (Oracle, Sybase) se reporta por su nombre en vez de mapearse a un driver
           que se le parezca, y una contraseña que no se puede leer —un archivo de
@@ -252,9 +279,76 @@
         sola en producción por haber cambiado de conexión en la barra.</p>
     </section>
 
-    <!-- 3 ─────────────────────────────────────────────────────────────── -->
+
+    <section id="seguro">
+      <h2>3. Trabajar sin riesgos</h2>
+
+      <h3>Proteger una conexión</h3>
+      <p>En el formulario de cada conexión, <b>Protección</b> tiene tres valores:</p>
+      <ul>
+        <li><b>Ninguna</b>: lo normal.</li>
+        <li><b>Confirmar escrituras</b>: antes de escribir, la app enseña la lista de
+          sentencias que va a enviar y pide confirmación una vez por acción, con el
+          botón <b>Escribir</b>.</li>
+        <li><b>Solo lectura</b>: cualquier sentencia que escriba (DML, DDL, editar
+          filas en la rejilla) se rechaza antes de enviarla al servidor.</li>
+      </ul>
+      <p>La protección vale para todo lo que sale de la app hacia esa conexión: el
+        editor, la edición de la rejilla y los asistentes (sincronizar, importar,
+        generar datos, diseñar tablas, restaurar). Lo que no puede demostrar que solo
+        lee lo trata como una escritura: <code>SET</code>, <code>CALL</code> y
+        <code>EXEC</code> escriben, y también un <code>EXPLAIN ANALYZE</code> de una
+        escritura o un <code>SELECT … INTO</code>. En MongoDB solo leen
+        <code>find</code> y <code>aggregate</code>, y un aggregate con
+        <code>$out</code> o <code>$merge</code> escribe.</p>
+      <div class="callout glass warn">
+        <p><b>No sustituye a un usuario de solo lectura.</b> La app no puede saber si
+          una función llamada desde un SELECT escribe algo. Para producción, lo
+          seguro de verdad sigue siendo conectar con un usuario sin permisos de
+          escritura.</p>
+      </div>
+      <p>El <b>color</b> de la conexión la distingue en la lista de conexiones, en las
+        pestañas y en la franja sobre el área de trabajo, que además sale rayada si
+        la conexión está protegida. Usa el rojo para producción: no activa la protección por
+        sí solo, pero se ve siempre en qué conexión estás.</p>
+
+      <h3>Transacciones manuales</h3>
+      <p>Por omisión cada sentencia se guarda al ejecutarse (<b>Auto-commit</b>). El
+        interruptor de la barra del editor la pasa a <b>Transacción manual</b>, para
+        esa conexión y todas sus pestañas: la primera sentencia que modifica datos
+        abre una transacción y nada queda guardado hasta que lo confirmes.</p>
+      <ul>
+        <li>Mientras está abierta, la barra dice <b>En transacción · n</b>, con los
+          botones <b>Confirmar</b> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd>) y
+          <b>Revertir</b> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd>).</li>
+        <li>Si desconectas con una abierta, la app pregunta antes.</li>
+        <li>Con una transacción abierta, la rejilla no deja editar: sus cambios van en
+          su propia transacción.</li>
+        <li>MySQL y MariaDB confirman solos al ejecutar DDL; la app avisa cuando pasa.</li>
+        <li>Funciona en los seis motores. En MongoDB necesita un replica set o un
+          mongos; contra un servidor suelto se rechaza con su mensaje.</li>
+      </ul>
+
+      <h3>Cancelar una consulta</h3>
+      <p>Mientras una consulta se ejecuta, la rejilla dice <b>Ejecutando…</b> y ofrece
+        <b>Cancelar</b>, que detiene la consulta en el servidor, no solo en pantalla.
+        En Informix (por DRDA) cancelar corta la conexión, y la app ofrece
+        reconectar; en MongoDB se cancelan <code>find</code> y
+        <code>aggregate</code>, y las escrituras llegan hasta el final. Si un motor no
+        puede cancelar, el botón lo dice.</p>
+
+      <h3>Keep-alive y reconexión</h3>
+      <p><b>Keep-alive (segundos)</b>, en el formulario de la conexión, sondea el
+        servidor mientras la conexión está ociosa; vacío o 0 lo desactiva. Si la
+        conexión se cae y no había una transacción abierta, la app reconecta sola
+        («reconectando…», luego «reconectada») y, si era una lectura, repite la
+        operación una vez. Con una transacción abierta nunca reconecta sola: lo que
+        no se confirmó se perdió en el servidor, y la app te lo dice en vez de
+        disimularlo.</p>
+    </section>
+
     <section id="explorar">
-      <h2>3. Explorar el esquema</h2>
+      <h2>4. Explorar el esquema</h2>
 
       <h3>El árbol de objetos</h3>
       <p>La barra lateral agrupa por tipo: <b>Tablas</b>, <b>Vistas</b>,
@@ -279,19 +373,42 @@
         <b>Comentario</b>, con filtro por tipo. Doble clic abre los datos. Sirve para
         lo que el árbol hace mal: ordenar por tamaño, buscar la tabla más grande,
         ver de un vistazo cuántas filas tiene cada cosa.</p>
-      <div class="note">
+      <div class="callout glass">
         <p>En MongoDB esta lista no aplica: no hay catálogo SQL que consultar. Usa el
           árbol de objetos, que muestra las colecciones.</p>
       </div>
 
       <h3>Encontrar cualquier cosa</h3>
       <p><kbd>Ctrl</kbd>+<kbd>K</kbd> abre <b>Buscar o ejecutar</b>: escribe el nombre
-        de una tabla, de una herramienta o de una acción y ejecútala desde ahí.</p>
+        de una tabla, de una herramienta o de una acción y ejecútala desde ahí.
+        <kbd>Ctrl</kbd>+<kbd>P</kbd> busca solo objetos: tablas, vistas, rutinas.</p>
+
+      <h3>Buscar un texto en todos los datos</h3>
+      <p>La herramienta <b>Buscar en los datos</b> (en el menú de herramientas o con
+        <kbd>Ctrl</kbd>+<kbd>K</kbd>) busca un texto en todas las tablas de la base
+        activa, o en las que marques:</p>
+      <ul>
+        <li><b>Coincidencia</b>: <i>contiene</i>, <i>empieza por</i> o <i>exacta</i>;
+          y <b>Ignorar mayúsculas</b>.</li>
+        <li><b>También columnas numéricas (valor exacto)</b> busca el número en las
+          columnas numéricas.</li>
+        <li><b>Filas por tabla</b> limita cuántas coincidencias trae de cada una (100
+          por omisión); si una tabla llega al límite, lo dice.</li>
+      </ul>
+      <p>Hace una consulta limitada por tabla, una tras otra, con el avance a la vista,
+        y se puede cancelar. <b>Abrir coincidencias</b> lleva a las filas
+        encontradas. No está disponible en MongoDB, y se salta las columnas de
+        arrays y los textos largos de Informix (TEXT/CLOB) y SQL Server (text/ntext).</p>
+
+      <h3>El árbol, al instante</h3>
+      <p>Squaero recuerda en tu equipo los nombres de bases, tablas y columnas de cada
+        conexión, así que al volver el árbol aparece enseguida, con la marca
+        <b>Desde caché</b> mientras lo relee del servidor. <kbd>F5</kbd> lo vuelve a
+        leer todo, y el DDL que ejecutas desde el editor invalida lo que toca.</p>
     </section>
 
-    <!-- 4 ─────────────────────────────────────────────────────────────── -->
     <section id="consultar">
-      <h2>4. Escribir y ejecutar SQL</h2>
+      <h2>5. Escribir y ejecutar SQL</h2>
 
       <h3>Ejecutar</h3>
       <ol class="steps">
@@ -335,7 +452,7 @@
         <b>Ordenar por</b> y un <b>Límite</b>. El <b>SQL generado</b> se ve todo el
         tiempo, así que también sirve para aprender la sintaxis del motor.</p>
       <figure>
-        <img src="../img/screenshot-builder.png" alt="Constructor visual de consultas" loading="lazy">
+        <img src="../img/screenshot-builder.png" width="1360" height="860" alt="Constructor visual de consultas" loading="lazy">
         <figcaption>El constructor: la consulta se arma con controles y el SQL resultante queda a la vista.</figcaption>
       </figure>
 
@@ -347,14 +464,97 @@
         a HTML.</p>
 
       <h3>MongoDB</h3>
-      <p>No es SQL: las consultas se escriben al estilo de mongosh
-        (<code>db.coleccion.find(…)</code>, <code>db.coleccion.aggregate(…)</code>) y
-        los documentos se aplanan para caber en la rejilla.</p>
+      <p>No es SQL: las consultas se escriben al estilo de mongosh y los documentos
+        se aplanan para caber en la rejilla.</p>
+      <ul>
+        <li><b>Leer</b>: <code>find</code>, <code>findOne</code>,
+          <code>aggregate</code>, <code>count</code> y <code>distinct</code>, y
+          <code>.explain()</code> para ver el plan.</li>
+        <li><b>Escribir</b>: <code>insertOne</code>/<code>insertMany</code>,
+          <code>updateOne</code>/<code>updateMany</code>,
+          <code>replaceOne</code>, <code>deleteOne</code>/<code>deleteMany</code>.
+          Las colecciones se vacían, se renombran y se eliminan desde el clic
+          derecho del árbol, y los índices desde <b>Índices y constraints</b>.</li>
+        <li><b>Editar en la rejilla</b> funciona como en cualquier tabla, con
+          <code>_id</code> como clave primaria.</li>
+        <li>Las <b>transacciones</b> necesitan un replica set o un clúster con mongos.</li>
+        <li>El monitor de servidor usa <code>currentOp</code> y <code>killOp</code>, y
+          las consultas lentas vienen del profiler, que hay que encender con
+          <code>db.setProfilingLevel(1, 100)</code>.</li>
+      </ul>
+      <p>No hay, en MongoDB, gestión de usuarios, búsqueda en los datos ni comparación
+        de esquemas.</p>
     </section>
 
-    <!-- 5 ─────────────────────────────────────────────────────────────── -->
+
+    <section id="editor">
+      <h2>6. El editor, a fondo</h2>
+
+      <h3>Completado según el contexto</h3>
+      <p>El editor entiende la consulta que escribes: sabe que <code>o</code> es el
+        alias de <code>pedidos</code>, qué columnas devuelve una CTE y cuáles una
+        subconsulta, así que después de <code>o.</code> sugiere justo esas. Después
+        de <code>JOIN … ON</code> propone las condiciones a partir de las claves
+        foráneas reales, y los identificadores se citan como pide cada motor.
+        <kbd>Ctrl</kbd>+<kbd>Espacio</kbd> abre las sugerencias a mano.</p>
+
+      <h3>Problemas marcados mientras escribes</h3>
+      <p>Al dejar de teclear, el editor subraya lo que va a fallar o lo que
+        probablemente no quieres, y al pasar el ratón dice por qué:</p>
+      <ul>
+        <li>tabla o columna desconocida, y columna ambigua (cuando existe en dos tablas de la consulta);</li>
+        <li><code>UPDATE</code> o <code>DELETE</code> sin <code>WHERE</code>, que tocan todas las filas;</li>
+        <li>un <code>INSERT</code> con distinto número de valores que de columnas.</li>
+      </ul>
+      <p>Nunca impide ejecutar, y calla mientras el esquema no está cargado. Se
+        apaga en Ajustes con <b>Marcar problemas en el editor SQL</b>.</p>
+
+      <h3>Ir a la definición, buscar usos y renombrar</h3>
+      <div class="ref-box glass"><table class="ref">
+        <thead><tr><th>Acción</th><th>Atajo</th></tr></thead>
+        <tbody>
+          <tr><td><b>Ir a la definición</b> de la tabla o la rutina bajo el cursor.</td><td class="k"><kbd>F12</kbd> o <kbd>Ctrl</kbd>+clic</td></tr>
+          <tr><td><b>Buscar usos</b>: marca cada aparición en el script; <kbd>F3</kbd> y <kbd>Mayús</kbd>+<kbd>F3</kbd> las recorren y <kbd>Esc</kbd> las quita.</td><td class="k"><kbd>Mayús</kbd>+<kbd>F12</kbd> o <kbd>Alt</kbd>+<kbd>F7</kbd></td></tr>
+          <tr><td><b>Renombrar</b> un alias, una CTE o un identificador en todo el script.</td><td class="k"><kbd>F2</kbd> o <kbd>Mayús</kbd>+<kbd>F6</kbd></td></tr>
+        </tbody>
+      </table></div>
+      <p>Las tres están también en el clic derecho del editor. Renombrar solo cambia
+        el texto de la consulta: nunca renombra un objeto de la base.</p>
+
+      <h3>Varios cursores</h3>
+      <ul>
+        <li><kbd>Ctrl</kbd>+<kbd>D</kbd> añade la siguiente coincidencia de la selección;
+          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> las selecciona todas.</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd> añade un cursor
+          arriba o abajo, y <kbd>Ctrl</kbd>+clic otro donde pulses (sobre un nombre
+          que se puede seguir, <kbd>Ctrl</kbd>+clic va a su definición).</li>
+        <li><kbd>Alt</kbd>+arrastrar hace una selección rectangular.</li>
+        <li><kbd>Esc</kbd> vuelve a un solo cursor.</li>
+      </ul>
+
+      <h3>Plantillas por abreviatura</h3>
+      <p>Escribe una abreviatura y pulsa <kbd>Tab</kbd>: <code>sel</code>,
+        <code>ins</code>, <code>upd</code>, <code>del</code> y <code>cte</code> se
+        convierten en el esqueleto de un SELECT, un INSERT, un UPDATE, un DELETE o
+        una CTE, y <kbd>Tab</kbd> salta al siguiente hueco por rellenar. También
+        salen en la lista de completado, marcadas como <i>plantilla</i>.</p>
+      <p>Cualquier snippet puede ser una plantilla: dale una <b>Abreviatura</b> al
+        guardarlo. Una tuya con el mismo nombre que una integrada gana; las
+        integradas se apagan en Ajustes.</p>
+
+      <h3>Historial local de cada pestaña</h3>
+      <p>Cada pestaña de consulta guarda versiones de su texto: al ejecutar, cada dos
+        minutos mientras cambia y al cerrarla. <b>Historial local…</b>, en el clic
+        derecho de la pestaña o del editor, las enseña con las diferencias respecto
+        al texto actual, también las de pestañas ya cerradas; desde ahí se
+        <b>Restaura</b> una versión o se abre en una pestaña nueva.</p>
+      <p>Por omisión guarda 50 versiones por pestaña durante 30 días; los dos límites
+        se cambian en Ajustes, y 0 versiones lo apaga y borra lo guardado. Una versión
+        de más de 100 000 caracteres no se guarda, y la app avisa.</p>
+    </section>
+
     <section id="datos">
-      <h2>5. Ver y editar datos</h2>
+      <h2>7. Ver y editar datos</h2>
 
       <h3>Abrir una tabla</h3>
       <p>Doble clic en el árbol, o <b>Abrir datos</b> en su menú. La pestaña abre con
@@ -382,7 +582,7 @@
         <i>contiene</i>, &lt;, &gt;; en una celda vacía, <i>es nulo</i> / <i>no es nulo</i>).
         Añade esa condición al panel y la aplica; repítelo en otra celda para afinar.
         <b>Quitar filtros y orden</b> vuelve a la tabla entera.</p>
-      <div class="note">
+      <div class="callout glass">
         <p>Los filtros de la cabecera de cada columna en la rejilla son otra cosa:
           esos afinan <b>solo las filas ya cargadas</b>. La propia rejilla lo avisa
           cuando el resultado viene truncado.</p>
@@ -409,7 +609,7 @@
         muestra vacía pero con <code>NULL</code> escrito en gris dentro. Si la
         columna es NOT NULL, lo rechaza el motor con su propio error: la rejilla no
         puede saberlo de antemano.</p>
-      <div class="note warn">
+      <div class="callout glass warn">
         <p><b>Solo lectura sin clave primaria.</b> Si la tabla no tiene PK, la rejilla
           no deja editar: no habría forma de identificar la fila sin riesgo de
           actualizar de más. El panel lo dice en vez de fallar al guardar.</p>
@@ -459,18 +659,35 @@
       <p><b>Revisar y guardar</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) enseña el SQL antes
         de ejecutarlo, como cualquier otra edición; <b>Descartar</b> las tira.</p>
 
+      <h3>Fijar un resultado y compararlo</h3>
+      <p><b>Fijar resultado</b> guarda el resultado actual en la pestaña (hasta cinco)
+        sin volver a ejecutarlo. Después, <b>Comparar con…</b> enfrenta el resultado
+        nuevo con uno fijado: empareja las filas por su clave o por posición y enseña
+        solo las añadidas, las quitadas y las que cambiaron, con las iguales ocultas.
+        Compara las filas que hay cargadas, y lo dice.</p>
+
+      <h3>Resumen de la selección</h3>
+      <p>Al seleccionar un bloque de celdas (<kbd>Mayús</kbd>+flechas,
+        <kbd>Mayús</kbd>+clic o arrastrando), o una columna en varias filas marcadas,
+        la barra de estado cuenta las celdas y los NULL y, si la columna es numérica,
+        da la suma, la media, el mínimo y el máximo, sin errores de redondeo.</p>
+
+      <h3>Vista transpuesta</h3>
+      <p><b>Transponer</b> pone las columnas en vertical: cada fila es una columna de
+        la tabla. Usa las filas marcadas, o la seleccionada, o la página entera, con
+        un máximo de 100 filas lado a lado.</p>
+
       <h3>Graficar el resultado</h3>
       <p><b>Graficar</b> convierte el resultado en barras, líneas o pastel: eliges la
         columna de etiquetas y una o varias columnas numéricas.</p>
       <figure>
-        <img src="../img/screenshot-charts.png" alt="Gráfico generado a partir del resultado de una consulta" loading="lazy">
+        <img src="../img/screenshot-charts.png" width="1360" height="860" alt="Gráfico generado a partir del resultado de una consulta" loading="lazy">
         <figcaption>Cualquier resultado con una columna numérica se puede graficar sin salir de la app.</figcaption>
       </figure>
     </section>
 
-    <!-- 6 ─────────────────────────────────────────────────────────────── -->
     <section id="importar">
-      <h2>6. Importar y exportar</h2>
+      <h2>8. Importar y exportar</h2>
 
       <h3>Exportar un resultado</h3>
       <p><b>Exportar</b>, en la barra del objeto, guarda lo que tengas en la rejilla
@@ -500,9 +717,8 @@
         asistente.</p>
     </section>
 
-    <!-- 7 ─────────────────────────────────────────────────────────────── -->
     <section id="disenar">
-      <h2>7. Diseñar y administrar</h2>
+      <h2>9. Diseñar y administrar</h2>
 
       <h3>Tablas</h3>
       <p><b>Nueva tabla…</b> abre el diseñador; <b>Modificar tabla…</b> abre la misma
@@ -529,7 +745,7 @@
           resultante se muestra antes de ejecutarlo.</li>
       </ul>
       <figure>
-        <img src="../img/screenshot-users.png" alt="Panel de usuarios y permisos" loading="lazy">
+        <img src="../img/screenshot-users.png" width="1360" height="860" alt="Panel de usuarios y permisos" loading="lazy">
         <figcaption>Usuarios y permisos: el GRANT se ve antes de ejecutarse.</figcaption>
       </figure>
 
@@ -537,28 +753,27 @@
       <p>Dibuja las tablas y sus relaciones a partir de las <b>llaves foráneas reales
         del motor</b>. Arrastra las cajas para reorganizar, usa −/+ para el zoom y
         <b>Reordenar</b> para volver a la cuadrícula.</p>
-      <div class="note">
+      <div class="callout glass">
         <p>Si el motor no expone llaves foráneas, el diagrama las <b>infiere por
           convención de nombres</b> (<code>cliente_id</code> → <code>clientes</code>)
           y lo dice en la propia pantalla: relaciones «inferidas», no reales. También
           avisa si la lista quedó incompleta por llegar al límite de filas.</p>
       </div>
       <figure>
-        <img src="../img/screenshot-er.png" alt="Diagrama entidad-relación" loading="lazy">
+        <img src="../img/screenshot-er.png" width="1360" height="860" alt="Diagrama entidad-relación" loading="lazy">
         <figcaption>El diagrama ER a partir de las llaves foráneas del motor.</figcaption>
       </figure>
     </section>
 
-    <!-- 8 ─────────────────────────────────────────────────────────────── -->
     <section id="servidor">
-      <h2>8. Vigilar el servidor</h2>
+      <h2>10. Vigilar el servidor</h2>
 
       <h3>Monitor de servidor</h3>
       <p>La lista de sesiones activas, sobre la misma rejilla que los resultados —así
         que se filtra, se ordena y se exporta igual. Selecciona una fila y
         <b>Matar sesión</b> la termina.</p>
       <figure>
-        <img src="../img/screenshot-monitor.png" alt="Monitor de servidor con la lista de procesos" loading="lazy">
+        <img src="../img/screenshot-monitor.png" width="1360" height="860" alt="Monitor de servidor con la lista de procesos" loading="lazy">
         <figcaption>Monitor de servidor: procesos en curso, con la opción de matar la sesión seleccionada.</figcaption>
       </figure>
 
@@ -569,67 +784,128 @@
         pone el contador del servidor a cero para medir desde ahora.</p>
     </section>
 
-    <!-- 9 ─────────────────────────────────────────────────────────────── -->
     <section id="entre-conexiones">
-      <h2>9. Mover datos entre bases</h2>
+      <h2>11. Comparar y mover entre bases</h2>
+
+      <h3>Comparar esquemas y generar la migración</h3>
+      <p><b>Sincronizar › Estructura…</b> compara el esquema de la conexión activa
+        con el de otra.</p>
+      <ol class="steps">
+        <li>Elige <b>Destino</b>, su <b>Base de datos</b> y su <b>Esquema</b>. Si
+          quieres que el script borre las tablas que solo existen en el destino,
+          marca <b>Generar DROP TABLE</b>.</li>
+        <li><b>Comparar</b> enseña las diferencias por tipo: tablas, columnas, claves
+          primarias, restricciones únicas, índices, claves foráneas, restricciones
+          CHECK y vistas, y aparte lo que el motor destino no soporta.</li>
+        <li>El <b>Script de migración</b> va ordenado por dependencias: primero se
+          quitan vistas y claves foráneas, después se crean las tablas referenciadas
+          antes que las que las referencian, y las claves foráneas y las vistas se
+          añaden al final. Así un ciclo de claves foráneas no lo rompe.</li>
+        <li><b>Abrir en el editor</b>, <b>Guardar .sql</b> o <b>Aplicar en destino</b>,
+          que pregunta antes y lo ejecuta en una transacción. MySQL y MariaDB no
+          pueden deshacer el DDL que ya se ejecutó.</li>
+      </ol>
+      <p>No compara MongoDB, ni los valores por omisión de SQL Server, y se salta los
+        índices sobre expresiones o parciales. SQLite no puede cambiar una columna o
+        una restricción en su sitio: la comparación lo señala.</p>
+
+      <h3>Tu esquema en git: volcar el DDL a una carpeta</h3>
+      <p>En <b>Respaldo y restauración</b>, <b>Volcar DDL a una carpeta…</b> escribe un
+        archivo <code>.sql</code> por objeto, en carpetas <code>tables/</code>,
+        <code>views/</code>, <code>procedures/</code>, <code>functions/</code>,
+        <code>triggers/</code> y <code>events/</code>. El resultado es el mismo cada
+        vez para el mismo esquema, así que un <code>git diff</code> enseña solo lo que
+        cambió. Si el sistema no ofrece elegir carpeta, el botón es <b>Volcar DDL a un
+        .zip…</b>, con el mismo árbol dentro.</p>
+      <p>Los archivos de objetos que ya no existen no se borran: limpia la carpeta
+        antes si quieres reflejar borrados. Las rutinas y los triggers se incluyen en
+        MySQL/MariaDB, SQLite (triggers) e Informix; en el resto, tablas y vistas.</p>
+
+      <h3>Mover datos</h3>
       <ul>
-        <li><b>Sincronizar → Estructura (esquema)…</b> compara el esquema de dos
-          conexiones y genera el SQL que hace falta para igualarlas.</li>
-        <li><b>Sincronizar → Datos…</b> hace lo mismo con el contenido.</li>
+        <li><b>Sincronizar › Datos…</b> hace lo mismo con el contenido de las tablas.</li>
         <li><b>Transferir</b> copia una tabla —o las filas que hayas marcado— a otra
           conexión.</li>
         <li><b>Generar datos</b> llena una tabla con datos de prueba coherentes con
           sus tipos.</li>
       </ul>
-      <div class="note">
-        <p>Las cuatro son operaciones que escriben: enseñan lo que van a hacer antes
-          de hacerlo. Léelo, sobre todo si el destino es una base que le importa a
+      <div class="callout glass">
+        <p>Todas son operaciones que escriben: enseñan lo que van a hacer antes de
+          hacerlo. Léelo, sobre todo si el destino es una base que le importa a
           alguien.</p>
       </div>
     </section>
 
-    <!-- 10 ────────────────────────────────────────────────────────────── -->
     <section id="atajos">
-      <h2>10. Atajos de teclado</h2>
+      <h2>12. Atajos de teclado</h2>
       <p><kbd>F1</kbd> muestra esta misma lista dentro de la app, generada desde el
-        código, así que nunca se desincroniza. En macOS, <kbd>Ctrl</kbd> es <kbd>⌘</kbd>.</p>
-      <table class="ref">
-        <thead><tr><th>Acción</th><th>Atajo</th></tr></thead>
+        código, así que nunca se desincroniza. En macOS, <kbd>Ctrl</kbd> es
+        <kbd>⌘</kbd> salvo para cambiar de pestaña.</p>
+      <div class="ref-box glass"><table class="ref">
+        <thead><tr><th scope="col">Acción</th><th scope="col">Atajo</th></tr></thead>
         <tbody>
-          <tr><td>Ejecutar la consulta</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td></tr>
-          <tr><td>Formatear la consulta</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td></tr>
-          <tr><td>Ver el plan de ejecución</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td></tr>
-          <tr><td>Guardar como snippet</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td></tr>
-          <tr><td>Paleta de snippets</td><td class="k"><kbd>Ctrl</kbd>+<kbd>J</kbd></td></tr>
-          <tr><td>Buscar o ejecutar</td><td class="k"><kbd>Ctrl</kbd>+<kbd>K</kbd></td></tr>
-          <tr><td>Autocompletar</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Espacio</kbd></td></tr>
+          <tr><th colspan="2">General</th></tr>
+          <tr><td>Paleta de comandos</td><td class="k"><kbd>Ctrl</kbd>+<kbd>K</kbd></td></tr>
+          <tr><td>Buscar objetos (tablas, vistas…)</td><td class="k"><kbd>Ctrl</kbd>+<kbd>P</kbd></td></tr>
           <tr><td>Nueva pestaña</td><td class="k"><kbd>Ctrl</kbd>+<kbd>T</kbd></td></tr>
           <tr><td>Cerrar la pestaña activa</td><td class="k"><kbd>Ctrl</kbd>+<kbd>W</kbd></td></tr>
-          <tr><td>Siguiente pestaña</td><td class="k"><kbd>Ctrl</kbd>+<kbd>RePág</kbd></td></tr>
-          <tr><td>Pestaña anterior</td><td class="k"><kbd>Ctrl</kbd>+<kbd>AvPág</kbd></td></tr>
+          <tr><td>Siguiente pestaña</td><td class="k"><kbd>Ctrl</kbd>+<kbd>AvPág</kbd></td></tr>
+          <tr><td>Pestaña anterior</td><td class="k"><kbd>Ctrl</kbd>+<kbd>RePág</kbd></td></tr>
           <tr><td>Refrescar datos y árbol</td><td class="k"><kbd>F5</kbd></td></tr>
-          <tr><td>Filtro de la tabla, con una condición nueva</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td></tr>
           <tr><td>Cambiar tema claro/oscuro</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd></td></tr>
-          <tr><td>Marcar todas las filas de la rejilla</td><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd></td></tr>
-          <tr><td>Mostrar / ocultar esta ayuda</td><td class="k"><kbd>F1</kbd></td></tr>
+          <tr><td>Acercar / alejar / restablecer el zoom</td><td class="k"><kbd>Ctrl</kbd>+<kbd>+</kbd> <kbd>Ctrl</kbd>+<kbd>-</kbd> <kbd>Ctrl</kbd>+<kbd>0</kbd></td></tr>
+          <tr><td>Mostrar / ocultar los atajos</td><td class="k"><kbd>F1</kbd></td></tr>
+          <tr><th colspan="2">Editor</th></tr>
+          <tr><td>Ejecutar la consulta</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td></tr>
+          <tr><td>Formatear la consulta</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td></tr>
+          <tr><td>Autocompletar</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Espacio</kbd></td></tr>
+          <tr><td>Buscar en el editor</td><td class="k"><kbd>Ctrl</kbd>+<kbd>F</kbd></td></tr>
+          <tr><td>Guardar la consulta como snippet</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td></tr>
+          <tr><td>Buscar snippets guardados</td><td class="k"><kbd>Ctrl</kbd>+<kbd>J</kbd></td></tr>
+          <tr><td>Ir a la definición</td><td class="k"><kbd>F12</kbd></td></tr>
+          <tr><td>Buscar usos</td><td class="k"><kbd>Shift</kbd>+<kbd>F12</kbd></td></tr>
+          <tr><td>Renombrar en el script</td><td class="k"><kbd>F2</kbd></td></tr>
+          <tr><td>Añadir la siguiente coincidencia / seleccionar todas</td><td class="k"><kbd>Ctrl</kbd>+<kbd>D</kbd> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td></tr>
+          <tr><td>Añadir un cursor arriba / abajo</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↑</kbd> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↓</kbd></td></tr>
+          <tr><td>Expandir una plantilla / siguiente hueco</td><td class="k"><kbd>Tab</kbd></td></tr>
+          <tr><td>Confirmar / revertir la transacción abierta</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd></td></tr>
+          <tr><th colspan="2">Rejilla</th></tr>
+          <tr><td>Marcar todas las filas</td><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd></td></tr>
+          <tr><td>Seleccionar un bloque de celdas</td><td class="k"><kbd>Shift</kbd>+<kbd>↑↓←→</kbd></td></tr>
+          <tr><td>Copiar filas marcadas o celdas</td><td class="k"><kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
+          <tr><td>Duplicar las filas marcadas</td><td class="k"><kbd>Ctrl</kbd>+<kbd>D</kbd></td></tr>
+          <tr><td>Pegar filas como filas nuevas</td><td class="k"><kbd>Ctrl</kbd>+<kbd>V</kbd></td></tr>
+          <tr><td>Ver la fila relacionada (clave foránea)</td><td class="k"><kbd>Ctrl</kbd>+<kbd>B</kbd></td></tr>
+          <tr><td>Marcar para borrar (en edición)</td><td class="k"><kbd>Supr</kbd></td></tr>
+          <tr><td>Revisar y guardar los cambios</td><td class="k"><kbd>Ctrl</kbd>+<kbd>S</kbd></td></tr>
+          <tr><td>Desmarcar</td><td class="k"><kbd>Esc</kbd></td></tr>
+          <tr><th colspan="2">Filtro de una tabla</th></tr>
+          <tr><td>Abrir el filtro con una condición nueva</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></td></tr>
+          <tr><td>Abrir el filtro con un orden nuevo</td><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td></tr>
+          <tr><td>Añadir otra condición</td><td class="k"><kbd>Shift</kbd>+<kbd>Enter</kbd></td></tr>
         </tbody>
-      </table>
-      <p>Abrir y cerrar pestañas siguen funcionando también con <kbd>Alt</kbd>
-        (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>W</kbd>).</p>
+      </table></div>
+      <p>Los atajos generales se pueden cambiar en <b>Ajustes › Atajos de teclado</b>.
+        <kbd>Ctrl</kbd>+<kbd>D</kbd> y <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>
+        hacen una cosa en el editor y otra en la rejilla o en una tabla, según dónde
+        esté el foco. Nueva pestaña y cerrar siguen funcionando también con
+        <kbd>Alt</kbd> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>,
+        <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>W</kbd>).</p>
     </section>
 
-    <!-- 11 ────────────────────────────────────────────────────────────── -->
     <section id="problemas">
-      <h2>11. Si algo va mal</h2>
+      <h2>13. Si algo va mal</h2>
 
       <h3>Se cayó la conexión</h3>
       <p>Si el servidor cierra la sesión —por inactividad, porque alguien la mató,
-        o porque se fue el túnel— la app te lo dice: la barra deja de poner
-        «conectado» y pasa a <b>desconectada</b> en rojo, y sale un aviso con el
-        botón <b>Reconectar</b>. Tus pestañas y lo que tuvieras escrito en ellas
-        no se pierden: la conexión se marca, no se cierra.</p>
-      <p>Se detecta cuando algo va al servidor, no antes; puede que te enteres al
-        ejecutar la siguiente consulta.</p>
+        o porque se fue el túnel— y no había una transacción abierta, la app
+        reconecta sola y, si lo que falló era una lectura, la repite una vez. Si no
+        puede, o si había una transacción abierta, te lo dice: la conexión pasa a
+        <b>desconectada</b> en rojo y sale un aviso con el botón <b>Reconectar</b>.
+        Tus pestañas y lo que tuvieras escrito en ellas no se pierden.</p>
+      <p>Sin keep-alive, la caída se detecta cuando algo va al servidor; con él, la
+        app sondea mientras la conexión está ociosa (ver «Keep-alive y
+        reconexión»).</p>
 
       <h3>No conecta</h3>
       <p>El error trae el motivo que devolvió el motor; empieza por ahí. Lo que más
@@ -661,9 +937,8 @@
         (está en <b>Acerca de</b>) y qué esperabas que pasara.</p>
     </section>
 
-    <!-- 12 ────────────────────────────────────────────────────────────── -->
     <section id="iphone">
-      <h2>12. En el iPhone</h2>
+      <h2>14. En el iPhone</h2>
       <p>La app de iPhone usa el mismo núcleo y los mismos drivers que escritorio,
         con pantallas pensadas para el teléfono. Lleva SQLite, PostgreSQL, Informix y
         MongoDB; MySQL y SQL Server llegan cuando tengan su propio cliente, porque los
@@ -712,6 +987,18 @@
         anterior. <b>Snippets</b> guarda consultas con nombre y las ejecuta con un
         toque.</p>
 
+      <h3>Pedir un filtro, datos o un cambio</h3>
+      <p>Con el asistente encendido (<b>Ajustes › Asistente › Asistente en el
+        iPhone</b>, apagado por omisión), una tabla ofrece <b>Pedir un filtro</b>:
+        escribe, por ejemplo, «solo las programadas de mañana», y el filtro se aplica
+        en el servidor como cualquier otro, con columnas reales. <b>Pedir datos</b>
+        responde a una pregunta con una consulta de solo lectura, y <b>Pedir un
+        cambio</b> rellena la edición de una fila y abre la vista previa: nada se
+        guarda sin tu confirmación con Face ID.</p>
+      <p>Lo resuelve el modelo que Apple ejecuta en el propio iPhone; nada sale del
+        dispositivo. Necesita iOS 26 con Apple Intelligence. Qué ve el modelo en
+        cada caso está en la <a href="../privacidad/">política de privacidad</a>.</p>
+
       <h3>Exportar</h3>
       <p>Desde una tabla o un resultado: CSV, JSON, XLSX, XML, HTML o SQL, con todas
         las filas (se leen del cursor, sin volver a consultar) o solo las visibles, a
@@ -722,16 +1009,47 @@
         versión y el texto completo de su licencia.</p>
     </section>
 
+    <!-- 15 ────────────────────────────────────────────────────────────── -->
+    <section id="mcp">
+      <h2>15. Con un asistente de IA (MCP)</h2>
+      <p><code>quaero-mcp</code> es un programa aparte que da a un cliente del
+        <a href="https://modelcontextprotocol.io" rel="noopener">Model Context Protocol</a>
+        —un asistente de IA que uses en tu equipo— acceso a tus bases, con el mismo
+        núcleo y los mismos drivers que la app. Corre en tu equipo y habla con el
+        cliente por la entrada y la salida estándar.</p>
+      <ol class="steps">
+        <li>Exporta tus conexiones desde la pestaña de conexiones (<b>Exportar</b>).</li>
+        <li>En ese archivo, añade <code>"mcp": true</code> a cada conexión que quieras
+          exponer. Sin esa marca, una conexión no existe para el asistente.</li>
+        <li>Registra el servidor en tu cliente MCP; por ejemplo, en Claude Code:
+          <code>claude mcp add quaero -- quaero-mcp --connections connections.json</code>.</li>
+      </ol>
+      <p>El asistente puede listar las conexiones (sin contraseñas), recorrer el
+        esquema, describir una tabla y ejecutar SQL, con 200 filas como máximo por
+        omisión. <b>Solo lee</b>: cualquier sentencia que no se pueda demostrar de
+        lectura se rechaza, salvo en las conexiones marcadas también con
+        <code>"mcpWrite": true</code>.</p>
+      <div class="callout glass">
+        <p>Lo que el asistente consulta lo recibe el cliente MCP, que puede enviarlo a
+          su proveedor si el modelo corre en línea. Expón solo lo que estarías
+          dispuesto a enseñarle. Los detalles, en
+          <a href="https://github.com/danielnuld/squaero/blob/main/docs/MCP.md" rel="noopener">docs/MCP.md</a>.</p>
+      </div>
+    </section>
 
   </article>
 </main>
 
-<footer class="site">
-  <div class="wrap row">
-    <span>Squaero — gestor de bases de datos ligero, local y libre.</span>
-    <span class="sp"><a href="../">Inicio</a> · <a href="https://github.com/danielnuld/squaero" rel="noopener">GitHub</a></span>
+<footer class="foot">
+  <div class="inner glass">
+    <b>Squaero</b><span>Software libre con licencia GPL-3.0.</span>
+    <nav aria-label="Pie">
+      <a href="../">Inicio</a>
+      <a href="https://github.com/danielnuld/squaero" rel="noopener">Código fuente</a>
+      <a href="https://github.com/danielnuld/squaero/issues" rel="noopener">Reportar un problema</a>
+      <a href="../privacidad/">Privacidad</a>
+    </nav>
   </div>
 </footer>
-
 </body>
 </html>
