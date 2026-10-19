@@ -6873,6 +6873,9 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     notebookId={(tt().params as { notebookId?: string } | undefined)?.notebookId}
                     engine={activeDialect()}
+                    connections={openConns()
+                      .filter((o) => !o.lost)
+                      .map((o) => ({ connId: o.connId, name: o.name, driver: o.driver }))}
                     onChart={(result) =>
                       showTool("chart", t("tab.chart"), { key: "chart", params: { result } })
                     }
