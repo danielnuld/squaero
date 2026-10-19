@@ -5145,11 +5145,19 @@ export function App() {
 
     // Tools (need a connection to be useful — except the saved connections,
     // which belong to no connection at all and are how you open the first one).
-    // A tool the engine cannot run is left out (audit A-18): the tools menu
-    // lists it disabled with the reason; here it would only be a dead end.
+    // Tools that cannot run here are listed anyway, unavailable with the reason
+    // (no connection, or the engine cannot: audit A-18), as the tools menu does.
     for (const tool of TOOL_CATALOG)
-      if ((connected || tool.tool === "connections") && !toolUnsupported(tool, active()?.driver))
-        out.push({ id: `tool:${tool.tool}`, category: "tool", label: t(tool.label), run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }) });
+      out.push({
+        id: `tool:${tool.tool}`,
+        category: "tool",
+        label: t(tool.label),
+        disabled:
+          connected || tool.tool === "connections"
+            ? (toolUnsupported(tool, active()?.driver) ?? undefined)
+            : t("cmdk.needsConn"),
+        run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }),
+      });
 
     // Objects loaded in the tree.
     for (const node of focusedObjects()) {
@@ -5202,7 +5210,7 @@ export function App() {
   const runMenuAction = (id: string) => {
     const cmd = paletteCommands().find((c) => c.id === id);
     if (cmd) {
-      cmd.run();
+      if (!cmd.disabled) cmd.run();
       return;
     }
     if (id === "run-query") requestRun();

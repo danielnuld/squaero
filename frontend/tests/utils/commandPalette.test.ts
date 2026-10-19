@@ -3,6 +3,10 @@ import {
   filterCommands,
   groupByCategory,
   stepIndex,
+  inScope,
+  nextScope,
+  scopeOf,
+  scopesFor,
   CATEGORY_ORDER,
   type Command,
 } from "../../src/utils/commandPalette";
@@ -85,5 +89,36 @@ describe("stepIndex", () => {
   });
   it("is safe for an empty list", () => {
     expect(stepIndex(0, 1, 0)).toBe(0);
+  });
+});
+
+describe("scopes (prototype CommandPaletteSearch)", () => {
+  const all = [
+    cmd("a", "action", "Ajustes"),
+    cmd("t", "tool", "Monitor"),
+    cmd("o", "object", "clientes"),
+    cmd("s", "snippet", "Activos"),
+    cmd("h", "history", "select 1"),
+  ];
+  it("files tools under actions and history under snippets", () => {
+    expect(scopeOf("tool")).toBe("action");
+    expect(scopeOf("history")).toBe("snippet");
+    expect(all.filter((c) => inScope(c, "action")).map((c) => c.id)).toEqual(["a", "t"]);
+    expect(all.filter((c) => inScope(c, "all"))).toHaveLength(5);
+  });
+  it("offers «all» plus each scope present, and none for a single one", () => {
+    expect(scopesFor(all)).toEqual(["all", "object", "action", "snippet"]);
+    expect(scopesFor([all[2]])).toEqual([]);
+    expect(scopesFor([all[0], all[2]])).toEqual(["all", "object", "action"]);
+  });
+  it("cycles with wrap-around both ways", () => {
+    const s = scopesFor(all);
+    expect(nextScope(s, "all", 1)).toBe("object");
+    expect(nextScope(s, "snippet", 1)).toBe("all");
+    expect(nextScope(s, "all", -1)).toBe("snippet");
+    expect(nextScope([], "all", 1)).toBe("all");
+  });
+  it("labels the groups in the UI's language", () => {
+    expect(groupByCategory(all).map((g) => g.label)).toEqual(["Acciones", "Herramientas", "Objetos", "Snippets", "Historial"]);
   });
 });

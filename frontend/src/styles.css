@@ -7512,6 +7512,47 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--accent-fg);
 }
 
+/* Listed with its reason, never run (disabled-with-reason). */
+.cmdk-item[aria-disabled="true"] .cmdk-item-label {
+  opacity: 0.6;
+}
+
+/* Todo · Objetos · Acciones · Snippets: Tab in the search moves between them. */
+.cmdk-scopes {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.cmdk-scope {
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-dim);
+  padding: var(--sp-1) var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-base);
+  cursor: default;
+}
+
+.cmdk-scope.on {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.cmdk-scope-count {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.cmdk-scope-hint {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
 .cmdk-item-label {
   overflow: hidden;
   text-overflow: ellipsis;
