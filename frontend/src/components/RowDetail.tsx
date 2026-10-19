@@ -1,6 +1,7 @@
 import { For, Show, createMemo, onMount } from "solid-js";
 import { keyLabel } from "../utils/shortcuts";
 import { NULL_LABEL } from "../utils/format";
+import { displayText, type DisplayOptions } from "../utils/gridDisplay";
 import { buildRowFields, canStep } from "../utils/rowDetail";
 import type { ResultColumn } from "../utils/query";
 import { fkHint, type FkLookup } from "../utils/fkLookup";
@@ -17,6 +18,9 @@ import { Icon } from "./icons";
 // index). Pure field/navigation logic lives in utils/rowDetail.ts.
 export function RowDetail(props: {
   columns: ResultColumn[];
+  /** How values read, as in the grid (Ajustes › Rejilla); the boxes for
+      editing keep the raw value. */
+  display?: DisplayOptions;
   /** The row's cells (SQL NULL => null). */
   row: (string | null)[];
   /** Original index of this row in the loaded result (edit hooks key off it). */
@@ -123,7 +127,7 @@ export function RowDetail(props: {
                 when={props.editing && !props.deleted}
                 fallback={
                   <div class={`rd-value ${f.value === null ? "rd-null" : ""}`}>
-                    {f.value === null ? NULL_LABEL : f.value}
+                    {displayText(f.value, f.type, "registro", t, props.display).text}
                   </div>
                 }
               >
@@ -136,7 +140,7 @@ export function RowDetail(props: {
                       // Same reason as the grid's cell input (issue #398): an
                       // empty box would otherwise read the same for a NULL and
                       // for an empty string.
-                      placeholder={f.value === null ? NULL_LABEL : ""}
+                      placeholder={f.value === null ? (props.display?.nullText ?? NULL_LABEL) : ""}
                       value={f.value ?? ""}
                       onInput={(e) => props.onEditCell(f.name, e.currentTarget.value)}
                     />

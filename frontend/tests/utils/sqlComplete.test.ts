@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { completionName, joinConditions, sqlCompletions, type CompleteOptions } from "../../src/utils/sqlComplete";
+import {
+  completionName,
+  completionKind,
+  joinConditions,
+  sqlCompletions,
+  tableColumns,
+  type CompleteOptions,
+} from "../../src/utils/sqlComplete";
 import { analyzeSql } from "../../src/utils/sqlScope";
 import type { ForeignKeyRelation } from "../../src/utils/foreignKeys";
 
@@ -197,5 +204,34 @@ describe("completionName", () => {
     expect(completionName("Clientes", "mysql")).toBe("Clientes");
     expect(completionName("a b", "mysql")).toBe("`a b`");
     expect(completionName("a b", "informix")).toBe("a b");
+  });
+});
+
+describe("completionKind (M14 EditorAutocomplete)", () => {
+  it("names each kind in words", () => {
+    expect(completionKind({ type: "keyword" })).toBe("complete.kind.keyword");
+    expect(completionKind({ type: "class" })).toBe("complete.kind.table");
+    expect(completionKind({ type: "class", detail: "CTE" })).toBe("complete.kind.cte");
+    expect(completionKind({ type: "type" })).toBe("complete.kind.table");
+    expect(completionKind({ type: "property" })).toBe("complete.kind.column");
+    expect(completionKind({ type: "function" })).toBe("complete.kind.function");
+    expect(completionKind({ type: "text", detail: "FK" })).toBe("complete.kind.join");
+  });
+
+  it("says nothing for a kind it cannot name", () => {
+    expect(completionKind({ type: "text", detail: "Plantilla · x" })).toBeNull();
+    expect(completionKind({})).toBeNull();
+  });
+});
+
+describe("tableColumns", () => {
+  const schema = { tables: ["Clientes", "pedidos"], columns: { Clientes: ["id", "nombre"] } };
+  it("lists a table's columns, matched as written or case-insensitively", () => {
+    expect(tableColumns(schema, "Clientes")).toEqual(["id", "nombre"]);
+    expect(tableColumns(schema, "clientes")).toEqual(["id", "nombre"]);
+  });
+  it("is null when the columns are not known", () => {
+    expect(tableColumns(schema, "pedidos")).toBeNull();
+    expect(tableColumns(null, "x")).toBeNull();
   });
 });

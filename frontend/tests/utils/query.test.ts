@@ -392,6 +392,19 @@ describe("runStatements — exec (#667)", () => {
   });
 });
 
+describe("runStatements — onDone (M14 EditorRunning)", () => {
+  it("reports what has finished after every statement, the failed one included", async () => {
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number | string; params: { sql: string } };
+      if (req.params.sql === "BAD") return { jsonrpc: "2.0", id: req.id, error: { code: -32001, message: "nope" } };
+      return { jsonrpc: "2.0", id: req.id, result: { columns: [], rows: [], rowsAffected: 1 } };
+    };
+    const seen: string[][] = [];
+    await runStatements("c1", ["A", "BAD", "C"], 10, undefined, (runs) => seen.push(runs.map((r) => r.sql)));
+    expect(seen).toEqual([["A"], ["A", "BAD"]]);
+  });
+});
+
 describe("drainCursor — Cancel (#692)", () => {
   it("stops before the next page once the signal is aborted", async () => {
     const ctl = new AbortController();

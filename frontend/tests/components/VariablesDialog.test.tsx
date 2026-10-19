@@ -39,6 +39,15 @@ const type = (id: string, value: string) => {
 };
 
 describe("VariablesDialog (audit A-35)", () => {
+  it("says how many values the statement needs, that they are remembered, and that quotes are not needed", () => {
+    mount();
+    expect(host!.querySelector(".vars-hint")!.textContent).toBe(
+      "La sentencia lleva 2 variables. Los valores se recuerdan en esta pestaña.",
+    );
+    expect(host!.textContent).toContain("no hace falta poner comillas");
+    expect(host!.textContent).toContain("Intro ejecutar · Esc cancelar");
+  });
+
   it("keeps Run pressable and says which value is missing, next to its box", () => {
     const onRun = mount();
     expect(run().disabled).toBe(false);

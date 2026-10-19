@@ -5,7 +5,7 @@ import { TxControls } from "../../src/components/TxControls";
 import type { TxSession } from "../../src/utils/txMode";
 
 // The Auto | Manual segmented switch (issue #691, TxControlsMenu): a radio group
-// over the connection's transaction mode, plus Commit/Rollback while open.
+// over the connection's transaction mode.
 
 let dispose: (() => void) | null = null;
 let host: HTMLDivElement | null = null;
@@ -23,8 +23,6 @@ const session = (over: Partial<TxSession> = {}): TxSession =>
 function mount(initial: TxSession, unsupportedReason: string | null = null) {
   const [s, setS] = createSignal(initial);
   const onToggle = vi.fn(() => setS((x) => ({ ...x, manual: !x.manual })));
-  const onCommit = vi.fn();
-  const onRollback = vi.fn();
   host = document.createElement("div");
   document.body.appendChild(host);
   dispose = render(
@@ -33,13 +31,11 @@ function mount(initial: TxSession, unsupportedReason: string | null = null) {
         session={s()}
         unsupportedReason={unsupportedReason}
         onToggle={onToggle}
-        onCommit={onCommit}
-        onRollback={onRollback}
       />
     ),
     host,
   );
-  return { onToggle, onCommit, onRollback };
+  return { onToggle };
 }
 
 const radio = (name: string) =>
@@ -72,15 +68,12 @@ describe("TxControls", () => {
     expect(h.onToggle).toHaveBeenCalledOnce();
   });
 
-  it("locks while a transaction is open and offers commit and rollback", () => {
+  it("locks while a transaction is open", () => {
     const h = mount(session({ manual: true, open: true, statements: 2 }));
     expect(radio("Auto").disabled).toBe(true);
     expect(radio("Auto").title).toBe("Confirma o revierte antes la transacción abierta.");
     radio("Auto").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
     expect(h.onToggle).not.toHaveBeenCalled();
-    expect(host!.querySelector(".tx-open")!.textContent).toBe("En transacción · 2");
-    [...host!.querySelectorAll("button")].find((b) => b.textContent === "Confirmar")!.click();
-    expect(h.onCommit).toHaveBeenCalledOnce();
   });
 
   it("says why on an engine without transactions", () => {

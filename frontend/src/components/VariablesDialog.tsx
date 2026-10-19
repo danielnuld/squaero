@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 
 import { t } from "../utils/i18n";
+import { keyParams } from "../utils/shortcuts";
 import { Dialog } from "./Dialog";
 import type { SqlVariable, VarValue, VarValues } from "../utils/sqlVariables";
 
@@ -56,8 +57,13 @@ export function VariablesDialog(props: {
       class="vars-dialog"
       onCancel={props.onCancel}
       primary={{ label: t("editor.run"), onClick: run }}
+      helpers={<span class="help">{t("vars.keys", keyParams({ enter: "Enter", esc: "Esc" }))}</span>}
     >
-      <p class="vars-hint">{t("vars.hint")}</p>
+      <p class="vars-hint">
+        {props.variables.length === 1
+          ? t("vars.hintOne")
+          : t("vars.hintMany", { n: props.variables.length })}
+      </p>
       <div class="vars-rows">
         <For each={props.variables}>
           {(v) => (
@@ -99,6 +105,9 @@ export function VariablesDialog(props: {
           )}
         </For>
       </div>
+      <Show when={props.variables.some((v) => v.kind === "value")}>
+        <p class="help">{t("vars.quotes")}</p>
+      </Show>
     </Dialog>
   );
 }

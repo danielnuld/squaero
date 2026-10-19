@@ -5,6 +5,7 @@ import {
   editDistance,
   closestName,
   didYouMean,
+  isLockError,
 } from "../../src/utils/errorHints";
 import { editorSchema } from "../../src/utils/sqlEditor";
 
@@ -107,5 +108,29 @@ describe("didYouMean", () => {
   it("is null for another kind of error, or without a close match", () => {
     expect(didYouMean("syntax error", "SELEC 1", schema)).toBeNull();
     expect(didYouMean("no such table: zzz", "SELECT * FROM zzz", schema)).toBeNull();
+  });
+});
+
+describe("isLockError (A-07)", () => {
+  it("recognises the engines' lock refusals", () => {
+    for (const m of [
+      "database is locked",
+      "database table is locked",
+      "SQLITE_BUSY: database is busy",
+      "1205 (HY000): Lock wait timeout exceeded; try restarting transaction",
+      "Deadlock found when trying to get lock",
+      "could not obtain lock on row in relation \"t\"",
+      "canceling statement due to lock timeout",
+      "Lock request time out period exceeded.",
+      "SQLCODE -244, ISAM -107, SQLSTATE IX000",
+    ]) {
+      expect(isLockError(m), m).toBe(true);
+    }
+  });
+
+  it("is false for other errors and for nothing", () => {
+    expect(isLockError("no such table: t")).toBe(false);
+    expect(isLockError("SQLCODE -206, ISAM -111, SQLSTATE 42000")).toBe(false);
+    expect(isLockError(null)).toBe(false);
   });
 });

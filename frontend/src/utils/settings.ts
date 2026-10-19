@@ -20,13 +20,43 @@ export type Density = "comfortable" | "compact";
  *
  * - `registro`: ink for text, colour kept for the types that are not text, the
  *   type under each column name, NULL as a tag. The default.
- * - `hoja`: full gridlines, shorter rows, colour on every type — a spreadsheet.
- * - `informe`: no vertical rules, taller rows, the type's colour as a rule under
- *   the header, and thousands and dates FORMATTED on screen.
+ * - `hoja`: full gridlines, colour on every type — a spreadsheet.
+ * - `informe`: no vertical rules, the type's colour as a rule under the header,
+ *   and dates written out. Numbers stay raw (rule 6): grouping them is the
+ *   separate «Números · Formato regional» setting. No style changes the row
+ *   height (R-40): that is the density's.
  */
 export type GridStyle = "registro" | "hoja" | "informe";
 
+/** What the app does with the last session when it opens (M14 SettingsGeneral). */
+export type StartupMode = "resume" | "blank" | "ask";
+/** What Ctrl/Cmd+Enter runs with nothing selected (M14 SettingsEditor). */
+export type RunKeyScope = "statement" | "script";
+/** How numbers read in the grid (R-13, audit rule 6): as stored, or grouped
+    and with the decimal mark of the interface's language. */
+export type NumberFormat = "raw" | "regional";
+
+/** The longest text NULL can be shown as. */
+export const MAX_NULL_TEXT = 16;
+
 export interface Settings {
+  /** On opening: resume the last session, start blank, or ask (the default). */
+  startup: StartupMode;
+  /** Ctrl/Cmd+Enter with nothing selected: the statement under the cursor
+      (default) or the whole script. */
+  runKeyScope: RunKeyScope;
+  /** Highlight in the editor what the next run will execute. */
+  highlightRun: boolean;
+  /** Grid numbers: raw (default, rule 6) or regional. Display only. */
+  numberFormat: NumberFormat;
+  /** How a NULL cell reads (R-25); never confused with the text, as it is
+      drawn dimmed and in italics. */
+  nullText: string;
+  /** The type on a second line under each column name (R-13). */
+  headerTypes: boolean;
+  /** The bar under the document tabs (R-40): with it off, a minimal one with
+      the connection, Ejecutar and Más stays, so running is never hidden. */
+  docBar: boolean;
   /** Interface density, the grid's rows included (#682). */
   density: Density;
   /** How the result grid is drawn and read (issue #540). */
@@ -97,6 +127,13 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  startup: "ask",
+  runKeyScope: "statement",
+  highlightRun: true,
+  numberFormat: "raw",
+  nullText: "NULL",
+  headerTypes: true,
+  docBar: true,
   density: "comfortable",
   gridStyle: "registro",
   slowThresholdMs: 1000,
@@ -154,20 +191,29 @@ export function clampLocalDays(n: number): number {
  * what a virtualized list punishes: rows that measure one thing and paint
  * another leave gaps or overlap as you scroll.
  */
-const ROW_HEIGHT: Record<GridStyle, Record<Density, number>> = {
-  registro: { comfortable: 28, compact: 24 },
-  hoja: { comfortable: 22, compact: 20 },
-  informe: { comfortable: 32, compact: 28 },
-};
+// One height per density whatever the style (R-40, audit rule 12): the style
+// is how the grid reads, the density how much fits — two settings that both
+// moved the rows left the user unsure which one was in charge.
+const ROW_HEIGHT: Record<Density, number> = { comfortable: 28, compact: 24 };
 
 /**
  * `scale` is the grid font × zoom factor (typography.ts gridScale): the heights
  * above were drawn for 12px text, and a bigger font or a zoomed interface needs
  * the row to grow with it — rounded, so a row never lands on a half pixel.
  */
-export function rowHeightFor(style: GridStyle, density: Density, scale = 1): number {
-  return Math.max(1, Math.round(ROW_HEIGHT[style][density] * scale));
+export function rowHeightFor(_style: GridStyle, density: Density, scale = 1): number {
+  return Math.max(1, Math.round(ROW_HEIGHT[density] * scale));
 }
+
+/** NULL's text as stored: trimmed, at most MAX_NULL_TEXT; blank → "NULL". */
+export function cleanNullText(v: unknown): string {
+  const text = typeof v === "string" ? v.trim().slice(0, MAX_NULL_TEXT) : "";
+  return text || DEFAULT_SETTINGS.nullText;
+}
+
+const oneOf = <T extends string>(v: unknown, opts: readonly T[], fallback: T): T =>
+  opts.includes(v as T) ? (v as T) : fallback;
+const bool = (v: unknown, fallback: boolean): boolean => (typeof v === "boolean" ? v : fallback);
 
 /**
  * The density a stored blob asks for. `density` wins; a blob saved before #682
@@ -201,6 +247,13 @@ export function parseSettings(raw: string | null | undefined): Settings {
     return { ...DEFAULT_SETTINGS };
   }
   return {
+    startup: oneOf(obj.startup, ["resume", "blank", "ask"] as const, DEFAULT_SETTINGS.startup),
+    runKeyScope: oneOf(obj.runKeyScope, ["statement", "script"] as const, DEFAULT_SETTINGS.runKeyScope),
+    highlightRun: bool(obj.highlightRun, DEFAULT_SETTINGS.highlightRun),
+    numberFormat: oneOf(obj.numberFormat, ["raw", "regional"] as const, DEFAULT_SETTINGS.numberFormat),
+    nullText: obj.nullText === undefined ? DEFAULT_SETTINGS.nullText : cleanNullText(obj.nullText),
+    headerTypes: bool(obj.headerTypes, DEFAULT_SETTINGS.headerTypes),
+    docBar: bool(obj.docBar, DEFAULT_SETTINGS.docBar),
     density: migrateDensity(obj),
     // Absent (settings saved before #540) or unknown → the default style.
     gridStyle: isGridStyle(obj.gridStyle) ? obj.gridStyle : DEFAULT_SETTINGS.gridStyle,

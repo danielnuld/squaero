@@ -40,10 +40,12 @@ export interface MenuItem {
    */
   submenu?: MenuItem[];
   /**
-   * One choice of a set (the database in use…): a menuitemradio, checked or
-   * not. Absent for an ordinary command.
+   * One choice of a set (the run scope, a connection's database): the row is a
+   * menuitemradio and this says whether it is the one in force.
    */
   checked?: boolean;
+  /** A non-interactive row of help text, never focused or activated. */
+  note?: string;
 }
 
 export interface MenuState {

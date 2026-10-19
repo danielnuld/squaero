@@ -80,3 +80,67 @@ describe("Notifications", () => {
     expect(h.onClose).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("Notifications (M14)", () => {
+  const rich: Note[] = [
+    {
+      id: 3,
+      at: NOW - 60_000,
+      level: "error",
+      text: "No se pudo conectar a «Producción»: timeout",
+      title: "No se pudo conectar a «Producción»",
+      detail: "Tiempo de espera agotado",
+      action: { kind: "retry", connDefId: "k1" },
+    },
+    { id: 2, at: NOW - 120_000, level: "ok", text: "x", title: "«Consulta 2» terminó", action: { kind: "result", tabId: 9 } },
+    { id: 1, at: NOW - 20 * 3_600_000, level: "ok", text: "Respaldo guardado" },
+  ];
+
+  function mountRich(over: Record<string, unknown> = {}) {
+    const h = { onClear: vi.fn(), onClose: vi.fn(), onMarkRead: vi.fn(), onAction: vi.fn() };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <Notifications
+            notes={rich}
+            now={() => NOW}
+            unreadSince={NOW - 90_000}
+            canAct={(a) => a.kind === "retry"}
+            {...h}
+            {...over}
+          />
+        ),
+        host!,
+      );
+    });
+    return h;
+  }
+
+  it("groups by day and shows each note's title and detail", () => {
+    mountRich();
+    expect([...host!.querySelectorAll(".notes-day")].map((d) => d.textContent)).toEqual(["Hoy", "Ayer"]);
+    const first = host!.querySelector(".notes-item")!;
+    expect(first.querySelector(".notes-text")!.textContent).toBe("No se pudo conectar a «Producción»");
+    expect(first.querySelector(".notes-detail")!.textContent).toBe("Tiempo de espera agotado");
+  });
+
+  it("marks what arrived since the last look, until «Marcar como leídas»", () => {
+    const h = mountRich();
+    const items = [...host!.querySelectorAll(".notes-item")];
+    expect(items.map((i) => i.classList.contains("is-unread"))).toEqual([true, false, false]);
+    buttonNamed("Marcar como leídas").click();
+    expect(h.onMarkRead).toHaveBeenCalled();
+  });
+
+  it("offers each note's action, disabled with the reason when it can no longer be done", () => {
+    const h = mountRich();
+    buttonNamed("Reintentar").click();
+    expect(h.onAction).toHaveBeenCalledWith({ kind: "retry", connDefId: "k1" });
+    const view = buttonNamed("Ver resultado");
+    expect(view.disabled).toBe(true);
+    expect(view.title).toBe("Esa pestaña ya se cerró.");
+  });
+});

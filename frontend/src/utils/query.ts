@@ -232,12 +232,15 @@ export interface StatementRun {
  *
  * `exec` wraps each statement's query.run — the editor passes the connection's
  * transaction handling through it (issue #667). Absent, it is just the run.
+ * `onDone` hears the runs so far each time a statement finishes, so the
+ * results can appear one by one while the script goes on.
  */
 export async function runStatements(
   connId: string,
   stmts: string[],
   limit?: number,
   exec: (sql: string, run: () => Promise<ResultSet>) => Promise<ResultSet> = (_sql, run) => run(),
+  onDone?: (runs: StatementRun[]) => void,
 ): Promise<StatementRun[]> {
   const runs: StatementRun[] = [];
   for (const sql of stmts) {
@@ -249,6 +252,10 @@ export async function runStatements(
     } catch (error) {
       runs.push({ sql, result: null, error, elapsedMs: performance.now() - started });
       break;
+    } finally {
+      // What has finished so far, after every statement — a copy, so a caller
+      // that keeps it is not changed under its feet by the next one.
+      onDone?.([...runs]);
     }
   }
   return runs;

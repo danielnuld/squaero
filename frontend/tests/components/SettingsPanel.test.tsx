@@ -1,3 +1,4 @@
+import type { UpdateInfo, UpdateStatus } from "../../src/utils/update";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
@@ -50,6 +51,8 @@ function mount(over: {
   isMac?: boolean;
   onImportConfig?: (b: ConfigBundle) => void;
   goTo?: { category: SettingsCategory };
+  onCheckUpdate?: () => Promise<UpdateStatus>;
+  onShowUpdate?: (info: UpdateInfo) => void;
 } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -79,6 +82,8 @@ function mount(over: {
           onSetShortcutOverrides={over.onSetShortcutOverrides ?? (() => {})}
           isMac={over.isMac ?? false}
           onImportConfig={over.onImportConfig ?? (() => {})}
+          onCheckUpdate={over.onCheckUpdate}
+          onShowUpdate={over.onShowUpdate}
           onClose={() => {}}
         />
       ),
@@ -168,12 +173,12 @@ describe("SettingsPanel", () => {
     expect(onSetSettings).toHaveBeenCalledWith({ gridStyle: "hoja" });
   });
 
-  // The names alone say nothing: "Informe" does not announce that it will group
-  // thousands, which is the part worth warning about.
+  // The names alone say nothing: "Informe" does not announce that it writes
+  // dates out, which is the part worth warning about.
   it("describes the style that is selected, and follows the selection", () => {
     mount({ settings: { ...DEFAULT_SETTINGS, gridStyle: "informe" } });
     goto("Rejilla");
-    expect(host!.textContent).toMatch(/Separa los miles/);
+    expect(host!.textContent).toMatch(/fechas como «14 feb 2023»/);
 
     dispose?.();
     host?.remove();
@@ -623,5 +628,99 @@ describe("SettingsPanel — themes", () => {
     expect(onImportTheme).toHaveBeenCalledTimes(1);
     expect(host!.textContent).toContain("«Mine» tiene pares por debajo de WCAG AA:");
     expect(host!.textContent).toMatch(/dark: --text-dim sobre --bg da [\d.]+:1 \(mínimo 4.5:1\)/);
+  });
+});
+
+describe("SettingsPanel — M14 rows", () => {
+  it("sets what happens on opening, what Ctrl+Intro runs and the highlight", () => {
+    const onSetSettings = vi.fn();
+    mount({ onSetSettings });
+    goto("General");
+    clickChip("Retomar la sesión");
+    expect(onSetSettings).toHaveBeenCalledWith({ startup: "resume" });
+    goto("Editor");
+    expect(host!.textContent).toContain("Ctrl+Intro ejecuta");
+    clickChip("Script completo");
+    expect(onSetSettings).toHaveBeenCalledWith({ runKeyScope: "script" });
+    const box = [...host!.querySelectorAll<HTMLLabelElement>(".settings-check")].find((l) =>
+      l.textContent?.includes("Resaltar lo que se va a ejecutar"),
+    )!;
+    box.querySelector("input")!.click();
+    expect(onSetSettings).toHaveBeenCalledWith({ highlightRun: false });
+  });
+
+  it("sets the number format, the NULL text and the header's type line", () => {
+    const onSetSettings = vi.fn();
+    mount({ onSetSettings });
+    goto("Rejilla");
+    expect(host!.textContent).toContain("sin separador de miles");
+    clickChip("Formato regional");
+    expect(onSetSettings).toHaveBeenCalledWith({ numberFormat: "regional" });
+    const input = [...host!.querySelectorAll<HTMLLabelElement>(".settings-row")]
+      .find((l) => l.textContent?.startsWith("Texto de NULL"))!
+      .querySelector("input")!;
+    input.value = "  (nulo) ";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(onSetSettings).toHaveBeenCalledWith({ nullText: "(nulo)" });
+    expect(host!.textContent).toContain("Mostrar el tipo bajo el nombre de la columna");
+  });
+
+  it("finds the new rows by their words", () => {
+    mount();
+    search("barra del documento");
+    expect(headings()).toEqual(["Ventana"]);
+  });
+});
+
+describe("SettingsPanel — navigation, shortcuts list and About (M14)", () => {
+  it("lists each search hit with its category, and a hit opens that category", () => {
+    mount();
+    search("NULL");
+    const hits = [...host!.querySelectorAll(".settings-nav-hit")];
+    expect(hits.map((h) => h.textContent)).toContain("Texto de NULLRejilla");
+    (hits.find((h) => h.textContent?.startsWith("Texto de NULL")) as HTMLButtonElement).click();
+    expect(host!.querySelector<HTMLInputElement>(".settings-search")!.value).toBe("");
+    expect(headings()).toEqual(["Rejilla"]);
+  });
+
+  it("draws an icon beside each category", () => {
+    mount();
+    expect([...host!.querySelectorAll(".settings-nav-item")].every((b) => b.querySelector("svg"))).toBe(true);
+  });
+
+  it("groups and searches the shortcuts, and can leave one with no shortcut", () => {
+    const onSetShortcutOverrides = vi.fn();
+    mount({ onSetShortcutOverrides });
+    goto("Atajos de teclado");
+    expect([...host!.querySelectorAll(".shortcuts-group h4")].map((h) => h.textContent)).toContain("Pestañas");
+    const input = host!.querySelector<HTMLInputElement>(".settings-section .shortcuts-search")!;
+    input.value = "cerrar la pestaña activa";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const rows = [...host!.querySelectorAll(".settings-shortcuts tr")];
+    expect(rows).toHaveLength(1);
+    (rows[0].querySelector('[aria-label^="Quitar el atajo"]') as HTMLButtonElement).click();
+    expect(onSetShortcutOverrides).toHaveBeenCalledWith({ "close-tab": "" });
+  });
+
+  it("checks for updates on request and says honestly what it found", async () => {
+    let answer: unknown = { kind: "current" };
+    const onShowUpdate = vi.fn();
+    mount({ onCheckUpdate: async () => answer as never, onShowUpdate });
+    goto("Acerca de");
+    expect(host!.textContent).toContain("Sistema");
+    const btn = () => [...host!.querySelectorAll("button")].find((b) => b.textContent === "Buscar actualizaciones")!;
+    btn().click();
+    await flush();
+    expect(host!.querySelector(".settings-update")!.textContent).toContain("Tienes la versión más reciente.");
+    answer = { kind: "failed" };
+    btn().click();
+    await flush();
+    expect(host!.querySelector(".settings-update")!.textContent).toContain("No se pudo comprobar");
+    answer = { kind: "newer", info: { version: "9.9.9", notes: "", releaseUrl: "", downloadUrl: null } };
+    btn().click();
+    await flush();
+    expect(host!.querySelector(".settings-update")!.textContent).toContain("9.9.9");
+    [...host!.querySelectorAll(".settings-update button")].find((b) => b.textContent === "Ver")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onShowUpdate).toHaveBeenCalled();
   });
 });

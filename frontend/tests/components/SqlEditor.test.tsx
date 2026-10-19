@@ -204,11 +204,11 @@ describe("SqlEditor toolbar run (runRequest)", () => {
     });
     const view = EditorView.findFromDOM(host!)!;
     // Reported once on mount, before anything moves.
-    expect(states[0]).toEqual({ hasSelection: false, statement: { first: 1, last: 1 }, statements: 3 });
+    expect(states[0]).toEqual({ hasSelection: false, statement: { first: 1, last: 1 }, statements: 3, firstWrite: null });
     view.dispatch({ selection: { anchor: 0, head: 6 } }); // select "SELECT"
     expect(states.at(-1)!.hasSelection).toBe(true);
     view.dispatch({ selection: { anchor: 12, head: 12 } }); // into "SELECT 2"
-    expect(states.at(-1)).toEqual({ hasSelection: false, statement: { first: 2, last: 2 }, statements: 3 });
+    expect(states.at(-1)).toEqual({ hasSelection: false, statement: { first: 2, last: 2 }, statements: 3, firstWrite: null });
   });
 });
 
@@ -414,6 +414,28 @@ describe("SqlEditor semantic completion (issue #661)", () => {
     view.dispatch({ selection: { anchor: view.state.doc.length } });
     startCompletion(view);
     expect(await options(view)).toContain("p.cliente_id = c.id");
+  });
+
+  it("names each suggestion's kind in words and lists a table's columns beside it (M14)", async () => {
+    const view = mount("select * from clie");
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    startCompletion(view);
+    expect(await options(view)).toContain("clientes");
+    // The list draws a kind column, not a glyph.
+    for (let i = 0; i < 100 && !host!.querySelector(".cm-completionKind"); i++) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    const row = [...host!.querySelectorAll(".cm-tooltip-autocomplete li")].find((li) =>
+      li.querySelector(".cm-completionLabel")?.textContent === "clientes",
+    )!;
+    expect(row.querySelector(".cm-completionKind")!.textContent).toBe("tabla");
+    expect(host!.querySelector(".cm-completionIcon")).toBeNull();
+    const pick = currentCompletions(view.state).find((c) => c.label === "clientes")!;
+    const info = (pick.info as (c: typeof pick) => Node | null)(pick) as HTMLElement;
+    expect(info.textContent).toContain("tabla · 2 columnas");
+    expect([...info.querySelectorAll("li")].map((li) => li.textContent)).toEqual(["id", "nombre"]);
+    // The key hints the stylesheet draws under the list.
+    expect(host!.querySelector<HTMLElement>(".editor")!.style.getPropertyValue("--complete-footer")).toContain("Esc cerrar");
   });
 
   it("falls back to lang-sql where it has nothing to add", async () => {

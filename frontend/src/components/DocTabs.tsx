@@ -22,6 +22,8 @@ export interface DocTabView {
   dirty?: boolean;
   /** A tool rather than a document of SQL or rows. */
   tool?: boolean;
+  /** Pinned: kept first, marked with a pin. */
+  pinned?: boolean;
 }
 
 // Desktop document tabs (issue #688): type icon, connection stripe and suffix,
@@ -111,7 +113,12 @@ export function DocTabs(props: {
             return (
               <div
                 class="tab"
-                classList={{ active: active(), "is-dirty": !!tab.dirty, "tab-tool": !!tab.tool }}
+                classList={{
+                  active: active(),
+                  "is-dirty": !!tab.dirty,
+                  "tab-tool": !!tab.tool,
+                  "is-pinned": !!tab.pinned,
+                }}
                 role="tab"
                 aria-selected={active()}
                 aria-label={tab.dirty ? t("tab.unsaved", { title: tab.title }) : tab.title}
@@ -143,6 +150,11 @@ export function DocTabs(props: {
                     title={t(tab.safe === "readOnly" ? "safe.badgeReadOnly" : "safe.badgeConfirm")}
                   >
                     <Icon name={tab.safe === "readOnly" ? "lock" : "warning"} size={12} />
+                  </span>
+                </Show>
+                <Show when={tab.pinned}>
+                  <span class="tab-pin" title={t("tab.pinned")}>
+                    <Icon name="pin" size={12} />
                   </span>
                 </Show>
                 <span class="tab-title">{tab.title}</span>

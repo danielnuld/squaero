@@ -62,6 +62,9 @@ export interface QueryTab {
       was being run with — a restored query that asks for its values again is a
       restored query nobody can just press Run on. */
   vars?: Record<string, { text: string; isNull?: boolean }>;
+  /** Pinned (M14 TabContextMenu): kept at the start of the strip, and spared by
+      «Cerrar las demás / a la derecha / todas». */
+  pinned?: boolean;
 }
 
 /** A tool tab hosting a panel that used to be a modal. */
@@ -84,6 +87,7 @@ export interface ToolTab {
       onMount: without a remount the tab would carry the new snapshot and keep
       drawing the old one. */
   rev?: number;
+  pinned?: boolean;
 }
 
 export type Tab = QueryTab | ToolTab;
@@ -326,7 +330,46 @@ export function closeOtherTabs(state: TabState, id: number): TabState {
   if (!keep) {
     return state;
   }
-  return { ...state, tabs: [keep], activeId: id };
+  // Pinned tabs stay (M14 TabContextMenu).
+  return { ...state, tabs: state.tabs.filter((t) => t.id === id || t.pinned), activeId: id };
+}
+
+/** «Cerrar todas» (Ctrl+Mayús+W): every tab but the pinned ones. */
+export function closeAllTabs(state: TabState): TabState {
+  const tabs = state.tabs.filter((t) => t.pinned);
+  const activeId = tabs.some((t) => t.id === state.activeId) ? state.activeId : (tabs[0]?.id ?? 0);
+  return { ...state, tabs, activeId };
+}
+
+/** Pins or unpins `id`; pinned tabs go first, each group keeping its order. */
+export function togglePin(state: TabState, id: number): TabState {
+  const tabs = state.tabs.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t));
+  return { ...state, tabs: [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)] };
+}
+
+/** Gives `id` a title of the user's; a blank one is ignored. */
+export function renameTab(state: TabState, id: number, title: string): TabState {
+  const name = title.trim();
+  if (!name) return state;
+  return { ...state, tabs: state.tabs.map((t) => (t.id === id ? { ...t, title: name } : t)) };
+}
+
+/**
+ * A copy of the query tab `id` right after it, active: the same SQL, connection
+ * and variable values, titled by `title`. Not the identity — a copy of a
+ * snippet's or a table's tab is a plain query, or the one-tab-per-object rule
+ * would send the next click to either of the two. Null for a tool tab.
+ */
+export function duplicateTab(state: TabState, id: number, title: (t: QueryTab) => string): TabState | null {
+  const index = state.tabs.findIndex((t) => t.id === id);
+  const src = state.tabs[index];
+  if (!src || src.kind !== "query") return null;
+  const newId = nextTabId(state.tabs, state.seq);
+  const copy: QueryTab = { id: newId, kind: "query", title: title(src), sql: src.sql };
+  if (src.connDefId) copy.connDefId = src.connDefId;
+  if (src.vars) copy.vars = src.vars;
+  const tabs = [...state.tabs.slice(0, index + 1), copy, ...state.tabs.slice(index + 1)];
+  return { ...state, tabs, activeId: newId, seq: newId };
 }
 
 /**
@@ -337,14 +380,9 @@ export function closeOtherTabs(state: TabState, id: number): TabState {
 export function closeTabsToRight(state: TabState, id: number): TabState {
   const index = state.tabs.findIndex((t) => t.id === id);
   if (index === -1 || index === state.tabs.length - 1) return state;
-  const tabs = state.tabs.slice(0, index + 1);
+  const tabs = state.tabs.filter((t, i) => i <= index || t.pinned);
   const activeId = tabs.some((t) => t.id === state.activeId) ? state.activeId : id;
   return { ...state, tabs, activeId };
-}
-
-/** Closes every tab (Ctrl+Mayús+W and the tab menu's «Cerrar todas»). */
-export function closeAllTabs(state: TabState): TabState {
-  return { ...state, tabs: [], activeId: 0 };
 }
 
 /**
@@ -491,6 +529,7 @@ export function parseWorkspace(raw: string | null): TabState | null {
       // Without this the fix for #414 would last until the next restart, and
       // come back exactly where nobody would think to test it.
       if (typeof t.objectKey === "string") tab.objectKey = t.objectKey;
+      if (t.pinned === true) tab.pinned = true;
       const vars = restoreVars(t.vars);
       if (vars !== undefined) tab.vars = vars;
       tabs.push(tab);

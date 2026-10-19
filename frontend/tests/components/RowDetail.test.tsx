@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
+import type { DisplayOptions } from "../../src/utils/gridDisplay";
 import { RowDetail } from "../../src/components/RowDetail";
 import type { ResultColumn } from "../../src/utils/query";
 import type { FkLookup } from "../../src/utils/fkLookup";
@@ -44,6 +45,7 @@ interface Opts {
   onCopy?: () => void;
   referencedBy?: { label: string; column: string }[];
   onReferenced?: (column: string) => void;
+  display?: DisplayOptions;
 }
 
 function mount(opts: Opts = {}) {
@@ -73,6 +75,7 @@ function mount(opts: Opts = {}) {
           onCopy={opts.onCopy}
           referencedBy={opts.referencedBy}
           onReferenced={opts.onReferenced}
+          display={opts.display}
         />
       ),
       host!,
@@ -82,6 +85,11 @@ function mount(opts: Opts = {}) {
 }
 
 describe("RowDetail", () => {
+  it("reads NULL with the grid's chosen text (Ajustes › Rejilla)", () => {
+    const el = mount({ rowIndex: 0, display: { nullText: "(nulo)" } });
+    expect(el.querySelector(".rd-value.rd-null")?.textContent).toBe("(nulo)");
+  });
+
   it("shows every column as a labelled field, NULL rendered explicitly", () => {
     const el = mount({ rowIndex: 0 });
     const names = [...el.querySelectorAll(".rd-name")].map((n) => n.textContent);

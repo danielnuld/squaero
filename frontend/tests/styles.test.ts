@@ -147,6 +147,9 @@ describe("styles.css colour", () => {
       // ResultGrid sets this per column header: the type's colour, for the rule
       // the report style draws underneath (#540).
       "--k",
+      // SqlEditor sets this on the editor: the completion list's key hints,
+      // from the catalog (M14 EditorAutocomplete).
+      "--complete-footer",
     ];
     const defined = new Set(
       Array.from(CSS.matchAll(/^\s*(--[a-z0-9-]+):/gm), (m) => m[1]),
