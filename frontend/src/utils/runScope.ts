@@ -19,7 +19,6 @@
 
 import { engineFamily } from "./engineFamily";
 import { classifySql } from "./safeMode";
-import { classifyTxStatement } from "./txMode";
 
 export type RunScope = "selection" | "statement" | "document";
 
@@ -304,12 +303,17 @@ export function errorOffset(doc: string, sql: string, line: number | null): numb
  * or open a transaction, they write nothing themselves. Null: the script only
  * reads. Fail-closed like safe mode: what cannot be proven a read is a write.
  */
+// Not txMode's classifier: it pulls in i18n, and runScope must stay DOM-free
+// (the iOS logic bundle). A transaction verb writes nothing itself.
+const TX_VERB = /^(?:begin|start\s+transaction|commit|end|rollback|abort)\b/i;
+
 export function firstWrite(doc: string, engine?: string): { verb: string; from: number } | null {
   for (const s of splitStatements(doc, engine)) {
     if (isCommentOnly(s.text, engine)) continue;
-    if (classifySql(s.text, engine) !== "write" || classifyTxStatement(s.text)) continue;
+    if (classifySql(s.text, engine) !== "write") continue;
     // Past the comments and blank lines that lead the statement.
     const body = s.text.replace(/^(?:\s|--[^\n]*|\/\*[\s\S]*?\*\/)+/, "");
+    if (TX_VERB.test(body)) continue;
     const verb = /^[A-Za-z_]+/.exec(body)?.[0].toUpperCase() ?? body.slice(0, 12);
     return { verb, from: s.from + s.text.length - body.length };
   }

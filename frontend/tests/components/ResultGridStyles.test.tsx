@@ -8,7 +8,7 @@ import type { GridStyle } from "../../src/utils/settings";
 // The three grid styles as the grid actually draws them (issue #540).
 //
 // The case that matters most here is the last one: the report style shows
-// "1,250.00" and the cell must still HOLD 1250.00, because every path that
+// "14 feb 2023" and the cell must still HOLD 2023-02-14, because every path that
 // copies, filters, exports or edits reads the raw rows. A formatted value
 // leaking out of the grid would be a data bug dressed as typography.
 
@@ -76,9 +76,9 @@ describe("grid styles", () => {
     expect(cell(0, 3).textContent).toBe("2023-02-14");
   });
 
-  it("formats numbers and dates in Informe", () => {
+  it("writes dates out in Informe, numbers stay raw (rule 6)", () => {
     mount("informe");
-    expect(cell(0, 2).textContent).toBe("1,250.00");
+    expect(cell(0, 2).textContent).toBe("1250.00");
     expect(cell(0, 3).textContent).toBe("14 feb 2023");
   });
 
@@ -96,9 +96,9 @@ describe("grid styles", () => {
 
   it("switches style without reloading the result", () => {
     const { setGridStyle } = mount("registro");
-    expect(cell(0, 2).textContent).toBe("1250.00");
+    expect(cell(0, 3).textContent).toBe("2023-02-14");
     setGridStyle("informe");
-    expect(cell(0, 2).textContent).toBe("1,250.00");
+    expect(cell(0, 3).textContent).toBe("14 feb 2023");
     // Same rows, still two of them: nothing was re-fetched or dropped.
     expect(host!.querySelectorAll(".grid-rows .grid-row").length).toBe(2);
   });

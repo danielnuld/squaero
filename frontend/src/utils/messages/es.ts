@@ -2191,7 +2191,7 @@ export const es: Record<string, string> = {
   "settings.startup.resume": "Retomar la sesión",
   "settings.startup.blank": "Empezar en blanco",
   "settings.startup.ask": "Preguntar",
-  "settings.startupHint": "Con «Empezar en blanco» la sesión anterior no se borra: sigue guardada hasta que haya trabajo nuevo que guardar.",
+  "settings.startupHint": "Con «Empezar en blanco» la sesión anterior no se elimina: sigue guardada hasta que haya trabajo nuevo que guardar.",
   "settings.about.tagline": "Ligero, local y libre.",
   "settings.about.appVersion": "Versión de la app",
   "settings.about.coreVersion": "Versión del núcleo",
