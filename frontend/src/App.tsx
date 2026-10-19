@@ -4122,6 +4122,10 @@ export function App() {
       params: {
         sourceResult: rows?.length ? pickRows(res.result, rows) : res.result,
         sourceTable: res.source.table,
+        // Marked rows copy just those; otherwise the whole table is offered.
+        whole: rows?.length || !tabConn(current())?.defId
+          ? undefined
+          : { defId: tabConn(current())!.defId, db: res.source.db, schema: res.source.schema },
       },
     });
   };
@@ -5714,6 +5718,7 @@ export function App() {
                   <TransferWizard
                     sourceResult={(tt().params as { sourceResult: ResultSet }).sourceResult}
                     sourceTable={(tt().params as { sourceTable: string }).sourceTable}
+                    whole={(tt().params as { whole?: { defId: string; db?: string; schema?: string } }).whole}
                     connections={connections()}
                     onClose={() => closeTool(tt().id)}
                   />
