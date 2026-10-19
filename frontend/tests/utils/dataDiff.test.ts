@@ -5,6 +5,9 @@ import {
   dataDiffCount,
   dataDiffCounts,
   diffToPlan,
+  pickOps,
+  sameValue,
+  DEFAULT_SYNC_OPS,
 } from "../../src/utils/dataDiff";
 import type { ResultSet } from "../../src/utils/query";
 
@@ -104,5 +107,57 @@ describe("compared range (#761)", () => {
     const d = diffData(s, t, ["id"]);
     expect(d.deletes).toEqual([{ where: { id: "5" } }]);
     expect(dataDiffCounts(d)).toEqual({ inserts: 1, updates: 0, deletes: 1 });
+  });
+});
+
+describe("sameValue (type-aware equality)", () => {
+  it("compares numbers by value, digit by digit", () => {
+    expect(sameValue("980.50", "980.5", "float")).toBe(true);
+    expect(sameValue("0980.500", "+980.5", "float")).toBe(true);
+    expect(sameValue("-0.0", "0", "float")).toBe(true);
+    expect(sameValue("10", "10.00", "int")).toBe(true);
+    expect(sameValue("1e3", "1000", "float")).toBe(true);
+    expect(sameValue("980.51", "980.5", "float")).toBe(false);
+    // Beyond double precision, still told apart.
+    expect(sameValue("12345678901234567890.1", "12345678901234567890.2", "float")).toBe(false);
+  });
+
+  it("compares text as text, and NULL equals only NULL", () => {
+    expect(sameValue("980.50", "980.5", "text")).toBe(false);
+    expect(sameValue(null, null, "float")).toBe(true);
+    expect(sameValue(null, "0", "float")).toBe(false);
+    expect(sameValue("", "0", "float")).toBe(false);
+    expect(sameValue("abc", "abc ", "float")).toBe(false);
+  });
+
+  it("diffData emits no UPDATE for the same number written differently", () => {
+    const cols = [
+      { name: "id", type: "int" },
+      { name: "saldo", type: "float" },
+    ];
+    const a = { columns: cols, rows: [["1", "980.50"]], truncated: false, rowsAffected: 0 };
+    const b = { columns: cols, rows: [["1", "980.5"]], truncated: false, rowsAffected: 0 };
+    expect(diffData(a, b, ["id"]).updates).toEqual([]);
+  });
+});
+
+describe("pickOps", () => {
+  const d = {
+    inserts: [{ id: "3" }],
+    updates: [{ set: { name: "x" }, where: { id: "2" } }],
+    deletes: [{ where: { id: "4" } }],
+  };
+
+  it("leaves DELETE out by default", () => {
+    expect(DEFAULT_SYNC_OPS).toEqual({ insert: true, update: true, delete: false });
+    expect(dataDiffCounts(pickOps(d, DEFAULT_SYNC_OPS))).toEqual({ inserts: 1, updates: 1, deletes: 0 });
+  });
+
+  it("keeps only the ticked kinds", () => {
+    expect(dataDiffCounts(pickOps(d, { insert: false, update: false, delete: true }))).toEqual({
+      inserts: 0,
+      updates: 0,
+      deletes: 1,
+    });
   });
 });

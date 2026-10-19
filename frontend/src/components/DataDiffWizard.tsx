@@ -1,11 +1,14 @@
 import { Show, createSignal, onCleanup } from "solid-js";
+import { createStore } from "solid-js/store";
 import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
 import { drainQuery, QueryError } from "../utils/query";
 import { qualifiedName } from "../utils/schema";
 import { openSaved, closeConnection } from "../utils/conn";
 import { runPlanItem, txBegin, txCommit, txRollback, type EditTarget } from "../utils/edit";
-import { diffData, dataDiffCounts, diffToPlan } from "../utils/dataDiff";
+import { diffData, dataDiffCounts, diffToPlan, pickOps, DEFAULT_SYNC_OPS, type SyncOps } from "../utils/dataDiff";
+import { isReadOnlyTarget, targetOptions } from "../utils/wizard";
+import { saveText, sqlFileName } from "../utils/download";
 import type { Connection } from "../utils/connections";
 import { t } from "../utils/i18n";
 import type { PlanItem } from "../utils/editSession";
@@ -40,6 +43,8 @@ export function DataDiffWizard(props: {
   const [targetDefId, setTargetDefId] = createSignal(props.connections[0]?.id ?? "");
   const [targetDb, setTargetDb] = createSignal(props.source.db ?? "");
   const [plan, setPlan] = createSignal<PlanItem[] | null>(null);
+  // Which kinds of operation to generate: DELETE off unless ticked (audit P1).
+  const [ops, setOps] = createStore<SyncOps>({ ...DEFAULT_SYNC_OPS });
   const [counts, setCounts] = createSignal({ inserts: 0, updates: 0, deletes: 0, source: 0, target: 0 });
   const [preview, setPreview] = createSignal<string[]>([]);
   const [busy, setBusy] = createSignal(false);
@@ -76,6 +81,8 @@ export function DataDiffWizard(props: {
     schema: props.source.schema,
   });
   const defOf = (id?: string) => props.connections.find((c) => c.id === id);
+  // A read-only target gets the script, never an apply button (audit P1).
+  const readOnly = () => isReadOnlyTarget(defOf(targetDefId()));
   const refOf = (engine: string, db?: string) =>
     qualifiedName({ db, schema: props.source.schema, name: props.source.table }, engine);
   const selectAll = (engine: string, db?: string) => `SELECT * FROM ${refOf(engine, db)}`;
@@ -117,7 +124,7 @@ export function DataDiffWizard(props: {
         (n) => setProgress(t("ddiff.readingTarget", { n })),
         ctl.signal,
       );
-      const diff = diffData(src, tgt, props.pk);
+      const diff = pickOps(diffData(src, tgt, props.pk), { ...ops });
       const types = Object.fromEntries(src.columns.map((c) => [c.name, c.type]));
       const items = diffToPlan(diff, types);
       // Gather the exact SQL for each op (preview) on the target.
@@ -188,7 +195,7 @@ export function DataDiffWizard(props: {
         primary={
           step() === 0
             ? { label: t("ssync.compare"), onClick: () => void compare(), disabled: !targetDefId() }
-            : step() === 1 && plan()!.length > 0
+            : step() === 1 && plan()!.length > 0 && !readOnly()
               ? {
                   label: countText("ddiff.applyN", plan()!.length, { target: planTarget().name }),
                   onClick: () => {
@@ -202,14 +209,27 @@ export function DataDiffWizard(props: {
         }
         cancelLabel={step() === 0 ? undefined : t("common.close")}
         onCancel={props.onClose}
+        helpers={
+          <Show when={step() === 1 && preview().length > 0}>
+            <button
+              type="button"
+              class="btn"
+              onClick={() => void saveText(sqlFileName("data-sync"), `${preview().join(";\n")};\n`, "application/sql")}
+            >
+              {t("ssync.saveSql")}
+            </button>
+          </Show>
+        }
       >
         <Show when={step() === 0}>
-          <p class="help">{t("ddiff.scope")}</p>
+          <p class="help">
+            {t("ddiff.scope")} {t("ddiff.typed")}
+          </p>
           <div class="wiz-form">
             <WizardField label={t("ssync.target")} help={t("ddiff.targetHelp")}>
               <Dropdown
                 value={targetDefId()}
-                options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+                options={targetOptions(props.connections)}
                 onChange={(v) => setTargetDefId(v)}
               />
             </WizardField>
@@ -221,7 +241,30 @@ export function DataDiffWizard(props: {
                 onInput={(e) => setTargetDb(e.currentTarget.value)}
               />
             </WizardField>
+            <div class="wiz-row">
+              <span class="wiz-label">{t("ddiff.ops")}</span>
+              <span class="wiz-ctl">
+                <label class="import-check">
+                  <input type="checkbox" checked={ops.insert} onChange={(e) => setOps("insert", e.currentTarget.checked)} />
+                  {t("ddiff.opInsert")}
+                </label>
+                <label class="import-check">
+                  <input type="checkbox" checked={ops.update} onChange={(e) => setOps("update", e.currentTarget.checked)} />
+                  {t("ddiff.opUpdate")}
+                </label>
+                <label class="import-check">
+                  <input type="checkbox" checked={ops.delete} onChange={(e) => setOps("delete", e.currentTarget.checked)} />
+                  {t("ddiff.opDelete")}
+                </label>
+              </span>
+              <p class="help wiz-help">{t("ddiff.opsHelp")}</p>
+            </div>
           </div>
+          <Show when={readOnly()}>
+            <p class="help" role="note">
+              {t("wiz.readOnlyScript", { name: defOf(targetDefId())?.name ?? "" })}
+            </p>
+          </Show>
           <Show when={progress()}>
             <p class="import-subtitle" role="status">
               {progress()}{" "}
@@ -244,6 +287,11 @@ export function DataDiffWizard(props: {
                   del: counts().deletes,
                 })}
               </h3>
+              <Show when={readOnly() && items().length > 0}>
+                <p class="help" role="note">
+                  {t("wiz.readOnlyScript", { name: planTarget().name })}
+                </p>
+              </Show>
               <Show when={items().length > 0} fallback={<p>{t("ddiff.alreadyMatch")}</p>}>
                 <pre class="ddl-text preview-sql">{preview().join(";\n")}</pre>
               </Show>
