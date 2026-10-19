@@ -1159,6 +1159,8 @@ export const en: Record<string, string> = {
   "struct.nColumns.one": "1 column",
   "struct.nRows": "{n} rows",
   "struct.nRows.one": "1 row",
+  "struct.nRowsApprox": "≈ {n} rows",
+  "struct.nRowsApprox.one": "≈ 1 row",
   "struct.nIndexes": "{n} indexes",
   "struct.nIndexes.one": "1 index",
   "struct.referencedBy": "referenced by {n} tables",
