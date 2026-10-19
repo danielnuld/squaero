@@ -6,6 +6,8 @@ import {
   generateRows,
   clampCount,
   type ColumnGen,
+  maxSql,
+  nextSequenceStart,
 } from "../../src/utils/dataGen";
 
 /** A ColumnGen with the given overrides on top of a text default. */
@@ -119,5 +121,26 @@ describe("clampCount", () => {
     expect(clampCount(5.9)).toBe(5);
     expect(clampCount(99999)).toBe(10000);
     expect(clampCount(NaN)).toBe(1);
+  });
+});
+
+describe("maxSql", () => {
+  it("quotes the key and qualifies the table per engine", () => {
+    expect(maxSql("id", { table: "users", db: "shop" }, "mysql")).toBe("SELECT MAX(`id`) FROM `shop`.`users`");
+    expect(maxSql("id", { table: "users", schema: "app" }, "postgres")).toBe('SELECT MAX("id") FROM "app"."users"');
+  });
+});
+
+describe("nextSequenceStart", () => {
+  it("is MAX + 1", () => {
+    expect(nextSequenceStart("12")).toBe(13);
+    expect(nextSequenceStart("0")).toBe(1);
+  });
+
+  it("is 1 on an empty table or a maximum that is not a number", () => {
+    expect(nextSequenceStart(null)).toBe(1);
+    expect(nextSequenceStart(undefined)).toBe(1);
+    expect(nextSequenceStart("")).toBe(1);
+    expect(nextSequenceStart("abc")).toBe(1);
   });
 });

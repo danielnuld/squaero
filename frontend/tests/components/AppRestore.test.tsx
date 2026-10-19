@@ -54,9 +54,21 @@ describe("App — the previous session is offered", () => {
     expect(host!.querySelector(".restore-prompt")).not.toBeNull();
     expect(host!.textContent).toContain("Sesión anterior");
 
-    button("Empezar en blanco")!.click();
+    button("Descartar pestañas")!.click();
     expect(host!.querySelector(".restore-prompt")).toBeNull();
     expect(tabTitles().join(" ")).not.toContain("Ventas");
+  });
+
+  it("Esc decides later: nothing is discarded, the session is kept for the next start (R-37)", () => {
+    localStorage.setItem("quaero.workspace", WORKSPACE);
+    mount();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(host!.querySelector(".restore-prompt")).toBeNull();
+    dispose?.();
+    host?.remove();
+    expect(localStorage.getItem("quaero.workspace")).toContain("Pedidos");
+    mount();
+    expect(host!.querySelector(".restore-prompt")).not.toBeNull();
   });
 
   it("puts the saved tabs back when the answer is Retomar", () => {

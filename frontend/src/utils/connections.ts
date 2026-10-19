@@ -26,7 +26,11 @@ export interface DriverField {
   label: string;
   type: FieldType;
   required: boolean;
+  /** An example shown greyed out while the field is empty (never a default). */
   placeholder?: string;
+  /** The value the engine uses when none is given: the form fills it in as a
+      real, editable value (audit A-22) instead of greying it as a placeholder. */
+  defaultValue?: string;
   /** Choices for a `select` field. */
   options?: FieldOption[];
   /** Optional group, as an i18n KEY. It doubles as the group's identity (the
@@ -93,7 +97,7 @@ export const SSH_GROUP = "group.ssh";
 
 export const SSH_TUNNEL_FIELDS: DriverField[] = [
   { key: "ssh_host", label: "field.sshHost", type: "text", required: false, placeholder: "bastion.example.com", group: SSH_GROUP },
-  { key: "ssh_port", label: "field.sshPort", type: "number", required: false, placeholder: "22", group: SSH_GROUP },
+  { key: "ssh_port", label: "field.sshPort", type: "number", required: false, defaultValue: "22", group: SSH_GROUP },
   { key: "ssh_user", label: "field.sshUser", type: "text", required: false, group: SSH_GROUP },
   {
     key: "ssh_auth",
@@ -128,6 +132,21 @@ export const SSH_TUNNEL_FIELDS: DriverField[] = [
   },
   { key: "ssh_known_hosts", label: "field.knownHosts", type: "file", required: false, placeholder: "~/.ssh/known_hosts", group: SSH_GROUP },
 ];
+
+/**
+ * A form's starting params: each field's real default, wherever `params` leaves
+ * it empty (audit A-22). What was typed or saved always wins.
+ */
+export function withFieldDefaults(
+  schema: DriverSchema | undefined,
+  params: Record<string, string> = {},
+): Record<string, string> {
+  const out = { ...params };
+  for (const f of schema?.fields ?? []) {
+    if (f.defaultValue !== undefined && (out[f.key] ?? "") === "") out[f.key] = f.defaultValue;
+  }
+  return out;
+}
 
 /** Appends the engine-agnostic SSH-tunnel fields to a driver's base fields. */
 export function withSshTunnel(base: DriverField[]): DriverField[] {
@@ -262,8 +281,8 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "postgres",
     label: "PostgreSQL",
     fields: withSshTunnel([
-      { key: "host", label: "field.host", type: "text", required: true, placeholder: "localhost" },
-      { key: "port", label: "field.port", type: "number", required: false, placeholder: "5432" },
+      { key: "host", label: "field.host", type: "text", required: true, defaultValue: "localhost" },
+      { key: "port", label: "field.port", type: "number", required: false, defaultValue: "5432" },
       { key: "database", label: "field.database", type: "text", required: true, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: true },
       { key: "password", label: "field.password", type: "password", required: false },
@@ -274,8 +293,8 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "mysql",
     label: "MySQL / MariaDB",
     fields: withSshTunnel([
-      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "field.port", type: "number", required: false, placeholder: "3306" },
+      { key: "host", label: "field.host", type: "text", required: true, defaultValue: "127.0.0.1" },
+      { key: "port", label: "field.port", type: "number", required: false, defaultValue: "3306" },
       { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: true, placeholder: "root" },
       { key: "password", label: "field.password", type: "password", required: false },
@@ -291,8 +310,8 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "informix",
     label: "IBM Informix",
     fields: withSshTunnel([
-      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "field.portDrda", type: "number", required: false, placeholder: INFORMIX_DRDA_PORT },
+      { key: "host", label: "field.host", type: "text", required: true, defaultValue: "127.0.0.1" },
+      { key: "port", label: "field.portDrda", type: "number", required: false, defaultValue: INFORMIX_DRDA_PORT },
       { key: INFORMIX_SQLI_SERVER, label: "field.sqliServer", type: "text", required: false, placeholder: "ol_informix" },
       { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: true, placeholder: "informix" },
@@ -322,8 +341,8 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "mongodb",
     label: "MongoDB",
     fields: withSshTunnel([
-      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "field.port", type: "number", required: false, placeholder: "27017" },
+      { key: "host", label: "field.host", type: "text", required: true, defaultValue: "127.0.0.1" },
+      { key: "port", label: "field.port", type: "number", required: false, defaultValue: "27017" },
       { key: "database", label: "field.database", type: "text", required: true, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: false },
       { key: "password", label: "field.password", type: "password", required: false },
@@ -351,8 +370,8 @@ export const DRIVER_SCHEMAS: Record<string, DriverSchema> = {
     driver: "mssql",
     label: "SQL Server",
     fields: withSshTunnel([
-      { key: "host", label: "field.host", type: "text", required: true, placeholder: "127.0.0.1" },
-      { key: "port", label: "field.port", type: "number", required: false, placeholder: "1433" },
+      { key: "host", label: "field.host", type: "text", required: true, defaultValue: "127.0.0.1" },
+      { key: "port", label: "field.port", type: "number", required: false, defaultValue: "1433" },
       { key: "instance", label: "field.instance", type: "text", required: false, placeholder: "SQLEXPRESS" },
       { key: "database", label: "field.database", type: "text", required: false, fetch: "databases" },
       { key: "user", label: "field.user", type: "text", required: true, placeholder: "sa" },

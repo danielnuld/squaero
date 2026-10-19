@@ -126,6 +126,7 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     const download = page.waitForEvent("download", { timeout: 60_000 });
     await page.getByRole("button", { name: /Exportar/ }).click();
     await page.getByRole("menuitem", { name: "CSV" }).click();
+    await page.getByRole("button", { name: "Exportar…" }).click();
 
     const file = await (await download).path();
     const lines = readFileSync(file, "utf8").trim().split("\n");
