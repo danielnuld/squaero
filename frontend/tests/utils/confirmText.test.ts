@@ -196,8 +196,8 @@ describe("plural keys", () => {
   it("read the singular for 1 and the plural otherwise", () => {
     expect(countText("grid.rowsAffected", 1)).toBe("1 fila afectada.");
     expect(countText("grid.rowsAffected", 0)).toBe("0 filas afectadas.");
-    expect(countText("monitor.sessions", 3)).toBe("3 sesiones");
-    expect(countText("ds.matches", 50, { n: "≥ 50" })).toBe("≥ 50 filas");
+    expect(countText("monitor.count", 3)).toBe("3 sesiones");
+    expect(countText("ds.found", 50, { n: "≥ 50" })).toBe("≥ 50 coincidencias");
     setLocale("en");
     expect(countText("tx.openTitle", 1)).toContain("1 statement ran in it and is not");
     expect(countText("er.edges", 2)).toBe("2 relationships");

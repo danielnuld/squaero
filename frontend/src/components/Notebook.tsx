@@ -1,4 +1,3 @@
-import { countText } from "../utils/confirmText";
 import { For, Index, Show, createSignal, createMemo } from "solid-js";
 import { keyLabel } from "../utils/shortcuts";
 import { createStore } from "solid-js/store";

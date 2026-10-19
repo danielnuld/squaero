@@ -1,6 +1,4 @@
-import { countText } from "../utils/confirmText";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
-import { EmptyNote } from "./EmptyNote";
 import { drainQuery, runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
 import {
