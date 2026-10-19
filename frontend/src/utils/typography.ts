@@ -88,9 +88,10 @@ export function treeRowHeight(zoom: number): number {
   return scalePx(TREE_ROW_PX, zoom);
 }
 
-/** The stacks styles.css ships; a user's family is prepended, never alone. */
-export const UI_FALLBACK = 'system-ui, "Segoe UI", sans-serif';
-export const MONO_FALLBACK = '"Cascadia Code", "Consolas", ui-monospace, monospace';
+/** What a user's family is prepended to, never left alone: the theme's own
+ *  stacks (#747), which themeSchema.ts writes as these two properties. */
+export const UI_FALLBACK = "var(--font-theme-ui)";
+export const MONO_FALLBACK = "var(--font-mono)";
 
 /** Safe choices offered in the pickers; free text is accepted as well. */
 export const UI_FONT_CHOICES: readonly string[] = [

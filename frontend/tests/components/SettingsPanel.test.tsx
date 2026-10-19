@@ -38,6 +38,7 @@ function mount(over: {
   onSetThemeId?: (id: string) => void;
   onImportTheme?: (t: Theme) => void;
   onRemoveTheme?: (id: string) => void;
+  resolvedMode?: "light" | "dark";
   onSetHistoryLimit?: (n: number) => void;
   onSetSettings?: (p: Partial<Settings>) => void;
   cellColors?: CellColors;
@@ -63,6 +64,7 @@ function mount(over: {
           onSetThemeId={over.onSetThemeId ?? (() => {})}
           onImportTheme={over.onImportTheme ?? (() => {})}
           onRemoveTheme={over.onRemoveTheme ?? (() => {})}
+          resolvedMode={over.resolvedMode}
           historyLimit={200}
           onSetHistoryLimit={over.onSetHistoryLimit ?? (() => {})}
           settings={over.settings ?? DEFAULT_SETTINGS}
@@ -328,7 +330,7 @@ describe("SettingsPanel — categories and search", () => {
     (host!.querySelector(".settings-reset") as HTMLButtonElement).click();
     expect(onSetSettings).toHaveBeenCalledWith({ zoom: 100, uiFont: "", uiFontSize: 12 });
     expect(onSetTheme).toHaveBeenCalledWith("system");
-    expect(onSetThemeId).toHaveBeenCalledWith("indigo");
+    expect(onSetThemeId).toHaveBeenCalledWith("nativo");
     goto("Consultas");
     (host!.querySelector(".settings-reset") as HTMLButtonElement).click();
     expect(onSetSettings).toHaveBeenCalledWith({ slowThresholdMs: 1000 });
@@ -453,7 +455,7 @@ describe("SettingsPanel — shortcuts", () => {
 // Themes as data (#680): every theme has both variants, so the mode chips stay
 // alive under every theme, imported ones included.
 describe("SettingsPanel — themes", () => {
-  const custom: Theme = { ...BUILTIN_THEMES[0], id: "mine", name: "Mine" };
+  const custom: Theme = { ...BUILTIN_THEMES.find((t) => t.id === "indigo")!, id: "mine", name: "Mine" };
   // jsdom's File has no text(); the panel only needs that one method.
   const chooseFile = (input: HTMLInputElement, text: string) => {
     const file = { name: "theme.json", text: async () => text } as unknown as File;
@@ -464,10 +466,48 @@ describe("SettingsPanel — themes", () => {
       (i) => i.getAttribute("aria-label") === "Importar tema…",
     )!;
 
+  // The M14 styles (#747) are cards; the rest stay chips.
+  const cards = () => [...host!.querySelectorAll<HTMLButtonElement>('[aria-label="Estilo"] .style-card')];
+
+  it("offers the four styles as cards, B · Nativo marked as the default", () => {
+    mount({ themeId: "quiet" });
+    goto("Apariencia");
+    expect(cards().map((c) => c.querySelector(".style-card-name")!.textContent)).toEqual([
+      "B · NativoPredeterminado",
+      "A · Quiet pro",
+      "C · Editorial",
+      "Rosa pastel",
+    ]);
+    expect(cards().map((c) => c.getAttribute("aria-checked"))).toEqual(["false", "true", "false", "false"]);
+    expect(cards()[3].textContent).toContain("Claro y suave, esquinas amplias. Figtree.");
+  });
+
+  it("picks a style through the theme handler", () => {
+    const onSetThemeId = vi.fn();
+    mount({ onSetThemeId });
+    goto("Apariencia");
+    cards()[2].click();
+    expect(onSetThemeId).toHaveBeenCalledWith("editorial");
+  });
+
+  it("previews each style in its own tokens, in the mode on screen", () => {
+    const rosa = BUILTIN_THEMES.find((t) => t.id === "rosa")!;
+    const preview = () => cards()[3].querySelector<HTMLElement>(".style-preview")!;
+    mount({});
+    goto("Apariencia");
+    expect(preview().style.getPropertyValue("--bg")).toBe(rosa.light.bg);
+    expect(preview().style.getPropertyValue("--font-theme-ui")).toContain("Figtree");
+    dispose?.();
+    host?.remove();
+    mount({ resolvedMode: "dark" });
+    goto("Apariencia");
+    expect(preview().style.getPropertyValue("--bg")).toBe(rosa.dark.bg);
+  });
+
   it("offers every built-in theme by its translated name, then the imported ones", () => {
     mount({ themes: [...BUILTIN_THEMES, custom] });
     goto("Apariencia");
-    const chips = [...host!.querySelectorAll('[aria-label="Tema"] .chip')].map((c) => c.textContent);
+    const chips = [...host!.querySelectorAll('[aria-label="Otros temas"] .chip')].map((c) => c.textContent);
     expect(chips).toEqual([
       "Squaero (índigo)",
       "Azul",
