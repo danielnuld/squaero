@@ -1966,4 +1966,13 @@ export const en: Record<string, string> = {
   "ddiff.opsHelp": "DELETE is unticked by default: it would delete target rows.",
   "ddiff.typed": "Values compare by type (980.50 and 980.5 are equal).",
   "bk.content": "Content",
+
+  // tools menu groups (audit A-18) and the menu/palette disconnect (R-05)
+  "tool.group.schema": "Schema",
+  "tool.group.queries": "Queries",
+  "tool.group.server": "Server",
+  "tool.group.data": "Data",
+  "tool.group.compare": "Compare and back up",
+  "tool.unsupportedTitle": "Not available with this engine",
+  "conn.disconnect": "Disconnect",
 };

@@ -330,7 +330,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
 import { UpdateModal } from "./components/UpdateModal";
-import { TOOL_CATALOG } from "./utils/toolCatalog";
+import { TOOL_CATALOG, toolUnsupported, toolsByGroup } from "./utils/toolCatalog";
 import { sourceLabel } from "./utils/resultFacts";
 import { summarizeRange } from "./utils/cellSummary";
 import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
@@ -1383,13 +1383,25 @@ export function App() {
   // The sidebar tools live behind a single wrench button in the object-tree header
   // now (the always-open list was removed in the Explorer-first layout): open a
   // context menu of the tool catalog, each launching its tool tab.
+  // Grouped as the menu bar's Herramientas (audit A-18): what the engine cannot
+  // run stays listed, disabled, with the reason beside it.
+  const toolsMenuItems = (engine: string | undefined): MenuItem[] =>
+    toolsByGroup().flatMap(({ group, tools }) => [
+      group ? { heading: true, label: t(`tool.group.${group}`) } : { separator: true },
+      ...tools.map((item): MenuItem => {
+        const reason = toolUnsupported(item, engine);
+        return {
+          label: t(item.label),
+          Icon: item.Icon,
+          disabled: reason !== null,
+          hint: reason ?? undefined,
+          title: reason ? `${t(item.label)}: ${reason}` : undefined,
+          action: () => showTool(item.tool, t(item.tabTitle), { key: item.key }),
+        };
+      }),
+    ]);
   const openToolsMenu = (e: MouseEvent) => {
-    const items: MenuItem[] = TOOL_CATALOG.map((item) => ({
-      label: t(item.label),
-      Icon: item.Icon,
-      action: () => showTool(item.tool, t(item.tabTitle), { key: item.key }),
-    }));
-    openContextMenu(e, items);
+    openContextMenu(e, toolsMenuItems(active()?.driver));
   };
   const closeTool = (id: number) => setTabs((s) => closeTab(s, id));
   const closeToolByKind = (tool: ToolTab["tool"]) =>
@@ -4854,6 +4866,10 @@ export function App() {
     out.push({ id: "act:new", category: "action", label: t("toolbar.newQuery.title"), run: () => setTabs((s) => addTab(s, newQueryTitle(), focusedDefId() ?? undefined)) });
     if (connected)
       out.push({ id: "act:reconnect", category: "action", label: t("conn.reconnect"), run: reconnect });
+    // Named after the connection it closes: with several open, the palette and
+    // Archivo › Desconectar act on the focused one (R-05).
+    if (connected)
+      out.push({ id: "act:disconnect", category: "action", label: t("conn.disconnectOf", { name: active()?.name ?? "" }), run: () => void disconnect() });
     // The ribbon used to own these two; without it the palette is where they
     // live (issue #386). New table needs a connection, the object list a
     // working database, exactly as the ribbon's disabled states said.
@@ -4866,8 +4882,10 @@ export function App() {
 
     // Tools (need a connection to be useful — except the saved connections,
     // which belong to no connection at all and are how you open the first one).
+    // A tool the engine cannot run is left out (audit A-18): the tools menu
+    // lists it disabled with the reason; here it would only be a dead end.
     for (const tool of TOOL_CATALOG)
-      if (connected || tool.tool === "connections")
+      if ((connected || tool.tool === "connections") && !toolUnsupported(tool, active()?.driver))
         out.push({ id: `tool:${tool.tool}`, category: "tool", label: t(tool.label), run: () => showTool(tool.tool, t(tool.tabTitle), { key: tool.key }) });
 
     // Objects loaded in the tree.
@@ -4937,6 +4955,7 @@ export function App() {
       hasDb: !!activeDb(),
       hasTab: !!current(),
       isMac: isMac(),
+      engine: active()?.driver,
     }),
   );
   createEffect(() => {

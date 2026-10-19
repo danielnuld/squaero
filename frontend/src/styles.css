@@ -2621,6 +2621,14 @@ body {
   background: var(--bg-elev);
 }
 
+/* A section title inside a menu (tools groups, «Zona de peligro»). */
+.context-menu-heading {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
 /* Status bar */
 /* The bar that swallowed the pager and the information pane (issue #386): one
    28 px band at the bottom instead of three totalling 98 px. */

@@ -1984,4 +1984,13 @@ export const es: Record<string, string> = {
   "ddiff.opsHelp": "DELETE está desmarcado por defecto: eliminaría filas del destino.",
   "ddiff.typed": "Los valores se comparan por tipo (980.50 y 980.5 son iguales).",
   "bk.content": "Contenido",
+
+  // tools menu groups (audit A-18) and the menu/palette disconnect (R-05)
+  "tool.group.schema": "Esquema",
+  "tool.group.queries": "Consultas",
+  "tool.group.server": "Servidor",
+  "tool.group.data": "Datos",
+  "tool.group.compare": "Comparar y respaldar",
+  "tool.unsupportedTitle": "No disponible con este motor",
+  "conn.disconnect": "Desconectar",
 };
