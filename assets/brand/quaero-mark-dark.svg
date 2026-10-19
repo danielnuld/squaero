@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Squaero">
+  <title>Squaero</title>
+  <!-- Dark backgrounds: light ink ring, teal prompt + tail (B · Nativo, dark). Use from 48px up. -->
+  <circle cx="58" cy="58" r="36" fill="none" stroke="#e6e9ee" stroke-width="14"/>
+  <g fill="none" stroke="#3fb8a9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M84 84 L106 106" stroke-width="14"/>
+    <path d="M50 44 L64 58 L50 72" stroke-width="10"/>
+  </g>
+</svg>
