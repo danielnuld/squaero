@@ -246,7 +246,7 @@ import { indexListFor, uniqueSetsFrom } from "./utils/indexes";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
 import type { Command } from "./utils/commandPalette";
-import { schemaDescribe, schemaTree, parseTreeRows } from "./utils/schema";
+import { schemaDescribe, schemaTree, parseTreeRows, catalogTables } from "./utils/schema";
 import { objectPreviewQuery, objectCountQuery } from "./utils/pagination";
 import {
   pageStep,
@@ -803,6 +803,8 @@ export function App() {
   // the command palette; `focusedObjects` is what the rest of the app reads.
   const [loadedObjects, setLoadedObjects] = createSignal<Record<string, TreeNode[]>>({});
   const focusedObjects = () => connObjects(loadedObjects(), focusedDefId());
+  // The working database's tables, read on connect (audit A-06; see below).
+  const [catalog, setCatalog] = createSignal<{ connId: string; tables: string[] } | null>(null);
 
   // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
   const [findTick, setFindTick] = createSignal(0);
@@ -1442,6 +1444,10 @@ export function App() {
     const out: Record<string, string[]> = {};
     for (const n of focusedObjects()) {
       if (n.kind === "table" || n.kind === "view") out[n.label] = cache[n.label] ?? [];
+    }
+    const cat = catalog();
+    if (cat && cat.connId === active()?.connId) {
+      for (const name of cat.tables) out[name] ??= cache[name] ?? [];
     }
     // Tables the query mentioned and we described, even though the tree never
     // listed them: without this the columns were fetched and then thrown away.
@@ -2398,6 +2404,29 @@ export function App() {
     const c = id ? connections().find((x) => x.id === id) : undefined;
     if (c) void onConnect(c, true);
   };
+
+  // The working database's tables for the editor's completion (audit A-06),
+  // read in the background on connect and on a database change — so FROM cli…
+  // offers clientes before anyone expands the tree. Failure leaves it empty:
+  // completion then knows what the tree has loaded, as before.
+  createEffect(() => {
+    const conn = active();
+    const db = activeDb();
+    if (!conn || conn.features?.introspection === false) {
+      setCatalog(null);
+      return;
+    }
+    const connId = conn.connId;
+    void catalogTables(
+      async (d, sc) => parseTreeRows(await schemaTree(connId, d, sc), "schema"),
+      db ?? undefined,
+    )
+      .then((tables) => {
+        // A newer read (another connection or database) owns the answer.
+        if (active()?.connId === connId && activeDb() === db) setCatalog({ connId, tables });
+      })
+      .catch(() => {});
+  });
 
   // Load the connection's databases and pick a default working one (the DSN's
   // database if set, else the first). Runs whenever the active connection

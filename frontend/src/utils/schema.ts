@@ -142,3 +142,28 @@ export function qualifiedName(
     .map(q)
     .join(".");
 }
+
+/** Schemas tried first when a database's level holds schemas, not tables. */
+const DEFAULT_SCHEMAS = ["public", "dbo", "main"];
+
+/**
+ * The tables and views of a database, for the editor's completion (audit A-06):
+ * loaded on connect, whatever the tree has expanded. `list` is schema.tree
+ * already parsed (fallback "schema"). When the database's level holds schemas,
+ * the conventional default one is read (public, dbo, main), else the first.
+ * ponytail: one schema only; a search path across schemas would need the
+ * engine's own default, which the core does not report.
+ */
+export async function catalogTables(
+  list: (db?: string, schema?: string) => Promise<TreeRow[]>,
+  db?: string,
+): Promise<string[]> {
+  const leaves = (rows: TreeRow[]) =>
+    rows.filter((r) => r.kind === "table" || r.kind === "view").map((r) => r.name);
+  const rows = await list(db);
+  const direct = leaves(rows);
+  if (direct.length > 0 || rows.length === 0) return direct;
+  const names = rows.map((r) => r.name);
+  const schema = DEFAULT_SCHEMAS.find((s) => names.includes(s)) ?? names[0];
+  return leaves(await list(db, schema));
+}
