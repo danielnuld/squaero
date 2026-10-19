@@ -5,6 +5,7 @@ import { UserManager } from "../../src/components/UserManager";
 import { paneSize } from "../../src/utils/paneSizes";
 import { setConnGuard, setSafeModeUi } from "../../src/utils/transport";
 import { dropdownValues, pickOption } from "./dropdownHarness";
+import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 
 // Drives the real UserManager in jsdom against a mocked bridge: it lists users,
 // shows a selected user's grants, builds a GRANT from the form and applies it,
@@ -71,6 +72,18 @@ function installBridge() {
       return { jsonrpc: "2.0", id: req.id, result: { columns: [], rows: [], truncated: false, rowsAffected: 0 } };
     }
     // schema.tree (issue #657): databases at the root, a database's tables below.
+    if (req.method === "schema.describe") {
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: {
+          columns: [{ name: "name", type: "text" }, { name: "type", type: "text" }],
+          rows: [["id", "int"], ["total", "float"]],
+          truncated: false,
+          rowsAffected: 0,
+        },
+      };
+    }
     if (req.method === "schema.tree") {
       const db = (req.params as { db?: string }).db;
       const result = db
@@ -178,7 +191,43 @@ describe("UserManager", () => {
     app.click();
     await flush();
     expect(host!.textContent).toContain("Permisos de app@%");
-    expect(host!.textContent).toContain("GRANT USAGE ON *.*");
+    // Read as scope → privileges; the statement is one click away.
+    const grant = host!.querySelector(".um-grant")!;
+    expect(grant.querySelector(".um-grant-scope")!.textContent).toBe("Todo el servidor (*.*)");
+    expect(grant.querySelector(".um-priv-chip")!.textContent).toBe("USAGE");
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Ver sentencias GRANT")!.click();
+    expect(host!.textContent).toContain("GRANT USAGE ON *.* TO `app`@`%`;");
+  });
+
+  it("changes the password and locks the account from «Más»", async () => {
+    const calls = installBridge();
+    mount("mysql");
+    await flush();
+    const more = [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === "Más")!;
+    expect(more.disabled).toBe(true); // nobody selected
+    [...host!.querySelectorAll<HTMLElement>(".um-user")].find((el) => el.textContent?.includes("app"))!.click();
+    await flush();
+    more.click();
+    const items = contextMenu()!.items;
+    expect(items.map((i) => i.label ?? "-")).toEqual([
+      "Cambiar contraseña…",
+      "Bloquear cuenta",
+      "Desbloquear cuenta",
+      "-",
+      "Copiar sentencias GRANT",
+    ]);
+    items[1].action!();
+    await flush();
+    expect(calls.some((c) => c.params.sql === "ALTER USER 'app'@'%' ACCOUNT LOCK")).toBe(true);
+    items[0].action!();
+    await flush();
+    const pw = host!.querySelector<HTMLInputElement>(".dlg input[type=password]")!;
+    pw.value = "s3cret";
+    pw.dispatchEvent(new Event("input", { bubbles: true }));
+    [...host!.querySelectorAll<HTMLButtonElement>(".dlg button")].find((b) => b.textContent === "Cambiar contraseña")!.click();
+    await flush();
+    expect(calls.some((c) => c.params.sql === "ALTER USER 'app'@'%' IDENTIFIED BY 's3cret'")).toBe(true);
+    closeContextMenu();
   });
 
   it("builds and applies a GRANT from the form", async () => {
@@ -284,6 +333,8 @@ describe("UserManager", () => {
       .click();
   const selects = () => [...host!.querySelectorAll<HTMLElement>(".um-form-row .dropdown")];
   const choose = (sel: HTMLElement, value: string) => pickOption(sel, value);
+  const scope = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".um-form-row [role=radio]")].find((b) => b.textContent === label)!.click();
   const preview = () => host!.querySelector(".um-detail .um-preview")!.textContent!;
 
   it("builds no statement until a database is picked when none is active", async () => {
@@ -293,7 +344,7 @@ describe("UserManager", () => {
     await selectApp();
     tick("SELECT");
     expect(preview()).not.toContain("GRANT");
-    const [, db] = selects();
+    const [db] = selects();
     expect(dropdownValues(db)).toEqual(["", "shop", "sello"]);
     choose(db, "sello");
     expect(preview()).toContain("GRANT SELECT ON `sello`.* TO 'app'@'%'");
@@ -306,7 +357,7 @@ describe("UserManager", () => {
     await selectApp();
     tick("SELECT");
     expect(host!.querySelector(".related-warn")).toBeNull();
-    choose(selects()[0], "server");
+    scope("Todo el servidor");
     expect(preview()).toContain("GRANT SELECT ON *.* TO 'app'@'%'");
     expect(host!.querySelector(".related-warn")!.textContent).toContain("todas las bases de datos");
   });
@@ -318,12 +369,12 @@ describe("UserManager", () => {
     await selectApp();
     tick("EXECUTE");
     tick("SELECT");
-    choose(selects()[0], "table");
+    scope("Una tabla");
     await flush();
     const privNames = () =>
       [...host!.querySelectorAll(".um-priv")].map((l) => l.textContent!.trim());
     expect(privNames()).not.toContain("EXECUTE");
-    const table = selects()[2];
+    const table = selects()[1];
     expect(dropdownValues(table)).toEqual(["", "orders", "recent"]);
     choose(table, "orders");
     // EXECUTE was ticked before switching: it is not sent ON a table.
@@ -336,16 +387,41 @@ describe("UserManager", () => {
     await flush();
     await selectApp();
     tick("SELECT");
-    choose(selects()[0], "custom");
+    scope("Otro (ON …)");
     const input = host!.querySelector<HTMLInputElement>(".um-scope input")!;
     input.value = "`app\_%`.*";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(preview()).toContain("GRANT SELECT ON `app\_%`.* TO 'app'@'%'");
   });
 
+  it("grants on some columns only", async () => {
+    const calls = installBridge();
+    mount("mysql", "shop");
+    await flush();
+    await selectApp();
+    scope("Unas columnas");
+    await flush();
+    expect([...host!.querySelectorAll(".um-priv")].map((l) => l.textContent!.trim())).toEqual([
+      "SELECT",
+      "INSERT",
+      "UPDATE",
+      "REFERENCES",
+    ]);
+    tick("SELECT");
+    choose(selects()[1], "orders");
+    await flush();
+    await flush();
+    expect(calls.some((c) => c.method === "schema.describe")).toBe(true);
+    const col = [...host!.querySelectorAll<HTMLLabelElement>(".um-cols label")].find((l) => l.textContent?.trim() === "total")!;
+    col.querySelector("input")!.click();
+    expect(preview()).toContain("GRANT SELECT (`total`) ON `shop`.`orders` TO 'app'@'%'");
+  });
+
   it("creates a new user from the form (CREATE USER)", async () => {
     const calls = installBridge();
     mount("mysql");
+    await flush();
+    [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === "Nuevo usuario…")!.click();
     await flush();
     const field = (label: string) =>
       host!.querySelector<HTMLInputElement>(`.um-new-user input[aria-label="${label}"]`)!;
@@ -362,7 +438,7 @@ describe("UserManager", () => {
     expect(previewText).toContain("CREATE USER 'reporter'@'localhost' IDENTIFIED BY '••••••'");
     expect(previewText).not.toContain("pw123");
 
-    [...host!.querySelectorAll<HTMLButtonElement>(".um-new-user button")]
+    [...host!.querySelectorAll<HTMLButtonElement>(".dlg button")]
       .find((b) => b.textContent === "Crear usuario")!
       .click();
     await flush();

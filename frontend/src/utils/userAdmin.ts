@@ -49,6 +49,8 @@ export interface GrantOptions {
   scope: string;
   user: string;
   host?: string;
+  /** Column-level grant: the privileges apply to these columns only. */
+  columns?: string[];
 }
 
 /** Options for creating a new user. */
@@ -75,6 +77,7 @@ export type GrantTarget =
   | { level: "server" }
   | { level: "database"; db: string }
   | { level: "table"; db: string; table: string }
+  | { level: "column"; db: string; table: string; columns: string[] }
   | { level: "custom"; text: string };
 
 export type GrantLevel = GrantTarget["level"];
@@ -93,6 +96,10 @@ export function grantScope(target: GrantTarget): string | null {
       return target.db ? `${id(target.db)}.*` : null;
     case "table":
       return target.db && target.table ? `${id(target.db)}.${id(target.table)}` : null;
+    case "column":
+      return target.db && target.table && target.columns.length > 0
+        ? `${id(target.db)}.${id(target.table)}`
+        : null;
     case "custom":
       return target.text.trim() || null;
   }
@@ -104,6 +111,8 @@ export function grantScope(target: GrantTarget): string | null {
  * levels. A custom target is not inspected, so it keeps the full list.
  */
 export function privilegesFor(level: GrantLevel): string[] {
+  // MySQL grants only these four per column.
+  if (level === "column") return ["SELECT", "INSERT", "UPDATE", "REFERENCES"];
   return level === "table" ? MYSQL_PRIVILEGES.filter((p) => p !== "EXECUTE") : MYSQL_PRIVILEGES;
 }
 
@@ -205,10 +214,15 @@ export function showGrantsSql(engine: string, user: string, host = "%"): string 
   return `SHOW GRANTS FOR '${q(user)}'@'${q(host)}'`;
 }
 
-/** Normalize the privilege list: ALL PRIVILEGES collapses to itself alone. */
-function privilegeList(privileges: string[]): string | null {
+/** Normalize the privilege list: ALL PRIVILEGES collapses to itself alone.
+    With columns, each privilege names them: SELECT (`a`, `b`). */
+function privilegeList(privileges: string[], columns: string[] = []): string | null {
   const cleaned = privileges.map((p) => p.trim()).filter((p) => p.length > 0);
   if (cleaned.length === 0) return null;
+  if (columns.length > 0) {
+    const cols = columns.map((c) => quoteIdentifier(c, "mysql")).join(", ");
+    return cleaned.map((p) => `${p} (${cols})`).join(", ");
+  }
   if (cleaned.some((p) => p.toUpperCase() === "ALL PRIVILEGES")) return "ALL PRIVILEGES";
   return cleaned.join(", ");
 }
@@ -217,7 +231,7 @@ function privilegeList(privileges: string[]): string | null {
     incomplete (no privileges, scope, or user). */
 export function buildGrantSql(engine: string, opts: GrantOptions): string | null {
   if (family(engine) !== "mysql") return null;
-  const privs = privilegeList(opts.privileges);
+  const privs = privilegeList(opts.privileges, opts.columns);
   if (!privs || !opts.scope.trim() || !opts.user.trim()) return null;
   return `GRANT ${privs} ON ${opts.scope.trim()} TO '${q(opts.user.trim())}'@'${q((opts.host ?? "%").trim())}'`;
 }
@@ -225,7 +239,7 @@ export function buildGrantSql(engine: string, opts: GrantOptions): string | null
 /** Build a REVOKE statement, or null (same rules as buildGrantSql). */
 export function buildRevokeSql(engine: string, opts: GrantOptions): string | null {
   if (family(engine) !== "mysql") return null;
-  const privs = privilegeList(opts.privileges);
+  const privs = privilegeList(opts.privileges, opts.columns);
   if (!privs || !opts.scope.trim() || !opts.user.trim()) return null;
   return `REVOKE ${privs} ON ${opts.scope.trim()} FROM '${q(opts.user.trim())}'@'${q((opts.host ?? "%").trim())}'`;
 }
@@ -263,4 +277,92 @@ export function unsupportedReason(engine: string): string {
   if (f === "postgres") return t("users.unsupported.postgres");
   if (f === "mongodb") return t("users.unsupported.mongodb");
   return t("users.unsupported.other", { engine: engine || t("engine.unknown") });
+}
+
+/** ALTER USER … IDENTIFIED BY: a new password, or null (unsupported / blank). */
+export function buildSetPasswordSql(engine: string, user: string, host: string, password: string): string | null {
+  if (family(engine) !== "mysql" || !user.trim() || password.length === 0) return null;
+  return `ALTER USER '${q(user.trim())}'@'${q(host.trim() || "%")}' IDENTIFIED BY '${q(password)}'`;
+}
+
+/** ALTER USER … ACCOUNT LOCK / UNLOCK (MySQL 5.7.6+, MariaDB 10.4.2+; an older
+    server refuses it and the panel shows its words). */
+export function buildLockUserSql(engine: string, user: string, host: string, lock: boolean): string | null {
+  if (family(engine) !== "mysql" || !user.trim()) return null;
+  return `ALTER USER '${q(user.trim())}'@'${q(host.trim() || "%")}' ACCOUNT ${lock ? "LOCK" : "UNLOCK"}`;
+}
+
+/** One privilege of a readable grant, with the columns it is limited to. */
+export interface GrantPrivilege {
+  name: string;
+  columns: string[];
+}
+
+/** A SHOW GRANTS line read into scope → privileges (P6: readable grants). */
+export interface ReadableGrant {
+  /** What it applies to, unquoted: `*.*`, `ventas.*`, `ventas.pedidos`,
+      `PROCEDURE ventas.p`; null for a role grant. */
+  scope: string | null;
+  level: "server" | "database" | "object" | "role";
+  privileges: GrantPrivilege[];
+  grantOption: boolean;
+}
+
+/** Split on commas outside parentheses and quotes. */
+function splitTop(text: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let cur = "";
+  for (const ch of text) {
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === "`" || ch === "'" || ch === '"') quote = ch;
+    else if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "," && depth === 0) {
+      out.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+const unquote = (s: string) => s.replace(/[`'"]/g, "");
+
+/**
+ * Read one line of SHOW GRANTS (MySQL/MariaDB) into what it grants and where:
+ * «GRANT SELECT (`id`), UPDATE ON `ventas`.`pedidos` TO …» → scope
+ * `ventas.pedidos`, SELECT on (id), UPDATE. Role grants («GRANT `r`@`%` TO …»)
+ * list the roles. Null when the line is not a GRANT it can read; the panel then
+ * shows it as written.
+ */
+export function parseGrant(line: string): ReadableGrant | null {
+  const text = line.trim().replace(/;$/, "");
+  const grantOption = /\sWITH\s+GRANT\s+OPTION\b/i.test(text);
+  const on = /^GRANT\s+([\s\S]+?)\s+ON\s+([\s\S]+?)\s+TO\s+/i.exec(text);
+  if (on) {
+    const scope = unquote(on[2].trim());
+    const privileges = splitTop(on[1]).map((p) => {
+      const m = /^([^(]+?)\s*\(([^)]*)\)$/.exec(p);
+      return m
+        ? { name: m[1].trim().toUpperCase(), columns: m[2].split(",").map((c) => unquote(c.trim())).filter(Boolean) }
+        : { name: p.trim().toUpperCase(), columns: [] };
+    });
+    const level = scope === "*.*" ? "server" : /^[^.\s]+\.\*$/.test(scope) ? "database" : "object";
+    return { scope, level, privileges, grantOption };
+  }
+  const role = /^GRANT\s+([\s\S]+?)\s+TO\s+/i.exec(text);
+  if (role) {
+    return {
+      scope: null,
+      level: "role",
+      privileges: splitTop(role[1]).map((r) => ({ name: unquote(r), columns: [] })),
+      grantOption: false,
+    };
+  }
+  return null;
 }

@@ -15,12 +15,21 @@ import {
   searchUsers,
   grantScope,
   privilegesFor,
+  parseGrant,
+  buildSetPasswordSql,
+  buildLockUserSql,
   type GrantLevel,
   type GrantOptions,
   type GrantTarget,
   type UserRow,
 } from "../utils/userAdmin";
-import { parseTreeRows, schemaTree } from "../utils/schema";
+import { parseTreeRows, schemaDescribe, schemaTree } from "../utils/schema";
+import { describeColumnNames } from "../utils/edit";
+import { copyText } from "../utils/rowCopy";
+import { openContextMenu } from "../utils/contextMenu";
+import { Dialog } from "./Dialog";
+import { Segmented } from "./Segmented";
+import { EmptyNote } from "./EmptyNote";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
@@ -30,6 +39,10 @@ import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "..
 import { paneSize, savePaneSize } from "../utils/paneSizes";
 import { Dropdown } from "./Dropdown";
 
+// P6 depth (prototype UsersGrants): the grants read as scope → privilege chips
+// (the raw GRANT lines one click away), a grant can be limited to columns, the
+// scope is a segmented choice, «Nuevo usuario» is a dialog, and «Más» changes
+// the password, locks or unlocks the account and copies its GRANT lines.
 // User / privilege management (issue #140): list the server's users, view a
 // selected user's grants, and grant/revoke privileges from a form with a live SQL
 // preview — all via query.run using the per-engine SQL in utils/userAdmin.ts.
@@ -96,6 +109,13 @@ export function UserManager(props: {
   const [level, setLevel] = createSignal<GrantLevel>("database");
   const [scopeDb, setScopeDb] = createSignal(props.db ?? "");
   const [scopeTable, setScopeTable] = createSignal("");
+  const [scopeCols, setScopeCols] = createSignal<string[]>([]);
+  const [tableCols, setTableCols] = createSignal<string[]>([]);
+  const [showRaw, setShowRaw] = createSignal(false);
+  const [newOpen, setNewOpen] = createSignal(false);
+  const [pwOpen, setPwOpen] = createSignal(false);
+  const [pw, setPw] = createSignal("");
+  const readable = createMemo(() => grants().map((g) => ({ raw: g, parsed: parseGrant(g) })));
   const [customScope, setCustomScope] = createSignal("");
   const [databases, setDatabases] = createSignal<string[]>([]);
   const [tables, setTables] = createSignal<string[]>([]);
@@ -105,6 +125,8 @@ export function UserManager(props: {
         return { level: "server" };
       case "table":
         return { level: "table", db: scopeDb(), table: scopeTable() };
+      case "column":
+        return { level: "column", db: scopeDb(), table: scopeTable(), columns: scopeCols() };
       case "custom":
         return { level: "custom", text: customScope() };
       default:
@@ -162,10 +184,24 @@ export function UserManager(props: {
     const db = scopeDb();
     setScopeTable("");
     setTables([]);
-    if (level() !== "table" || !db) return;
+    if ((level() !== "table" && level() !== "column") || !db) return;
     schemaTree(props.connId, db)
       .then((res) => {
         if (scopeDb() === db) setTables(parseTreeRows(res, "schema").map((r) => r.name));
+      })
+      .catch((err) => setError(errorText(err)));
+  });
+
+  // The column list follows the table, at column level only.
+  createEffect(() => {
+    const table = scopeTable();
+    const db = scopeDb();
+    setScopeCols([]);
+    setTableCols([]);
+    if (level() !== "column" || !table) return;
+    schemaDescribe(props.connId, table, db || undefined)
+      .then((res) => {
+        if (scopeTable() === table) setTableCols(describeColumnNames(res));
       })
       .catch((err) => setError(errorText(err)));
   });
@@ -179,6 +215,7 @@ export function UserManager(props: {
     scope: grantScope(target()) ?? "",
     user: selected()?.name ?? "",
     host: hostInput(),
+    columns: level() === "column" ? scopeCols() : undefined,
   });
 
   const grantPreview = createMemo(() => buildGrantSql(props.engine, grantOpts()));
@@ -227,6 +264,7 @@ export function UserManager(props: {
       const host = newHost().trim() || "%";
       setNewName("");
       setNewPass("");
+      setNewOpen(false);
       await loadUsers();
       // Focus the just-created user, taking its row from the reloaded list so
       // its privilege flags are the server's, not assumed.
@@ -269,6 +307,42 @@ export function UserManager(props: {
     }
   };
 
+  const runOnSelected = async (sql: string | null, done?: () => void) => {
+    if (!sql) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await runQuery(props.connId, sql);
+      done?.();
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openPassword = () => {
+    setPw("");
+    setError(null);
+    setPwOpen(true);
+  };
+
+  const moreMenu = (e: MouseEvent) => {
+    const u = selected();
+    if (!u) return;
+    openContextMenu(e, [
+      { label: t("users.more.password"), action: openPassword },
+      { label: t("users.more.lock"), action: () => void runOnSelected(buildLockUserSql(props.engine, u.name, u.host, true)) },
+      { label: t("users.more.unlock"), action: () => void runOnSelected(buildLockUserSql(props.engine, u.name, u.host, false)) },
+      { separator: true },
+      {
+        label: t("users.more.copyGrants"),
+        disabled: grants().length === 0,
+        action: () => copyText(grants().map((g) => g + ";").join("\n")),
+      },
+    ]);
+  };
+
   onMount(() => {
     void loadUsers();
     if (support.supported) void loadDatabases();
@@ -280,6 +354,30 @@ export function UserManager(props: {
       wide
       class="user-mgr"
       onClose={props.onClose}
+      actions={
+        <Show when={support.supported}>
+          <button
+            type="button"
+            class="edit-btn"
+            onClick={() => {
+              setError(null);
+              setNewOpen(true);
+            }}
+          >
+            {t("users.newUserBtn")}
+          </button>
+          <button
+            type="button"
+            class="edit-btn edit-btn-menu"
+            aria-haspopup="menu"
+            disabled={!selected() || busy()}
+            title={selected() ? t("users.moreTitle") : t("users.selectHint")}
+            onClick={moreMenu}
+          >
+            {t("users.more")}
+          </button>
+        </Show>
+      }
       status={
         <Show when={support.supported}>
           {filtering()
@@ -298,7 +396,7 @@ export function UserManager(props: {
 
       <Show
         when={support.supported}
-        fallback={<p class="grid-empty">{unsupportedReason(props.engine)}</p>}
+        fallback={<EmptyNote title={t("users.unsupportedTitle")} text={unsupportedReason(props.engine)} />}
       >
         <div
           class="um-body"
@@ -306,7 +404,15 @@ export function UserManager(props: {
           style={{ "grid-template-columns": `${listWidth()}px 5px 1fr` }}
         >
           <div class="um-users">
-            <div class="import-subtitle">{t("users.newUser")}</div>
+            <Show when={newOpen()}>
+            <Dialog
+              title={t("users.newUser")}
+              size="sm"
+              onCancel={() => setNewOpen(false)}
+              busy={busy()}
+              error={error()}
+              primary={{ label: t("users.create"), disabled: !createUserPreview(), onClick: () => void createUser() }}
+            >
             <div class="um-new-user">
               <input
                 type="text"
@@ -329,17 +435,12 @@ export function UserManager(props: {
                 placeholder={t("users.passPlaceholder")}
                 aria-label={t("users.passAria")}
               />
-              <button
-                class="primary"
-                disabled={busy() || !createUserPreview()}
-                onClick={createUser}
-              >
-                {t("users.create")}
-              </button>
               <Show when={createUserDisplay()}>
                 <pre class="ddl-text um-preview">{createUserDisplay()};</pre>
               </Show>
             </div>
+            </Dialog>
+            </Show>
 
             <div class="import-subtitle">{t("users.users")}</div>
             <input
@@ -430,7 +531,62 @@ export function UserManager(props: {
                 when={grants().length > 0}
                 fallback={<p class="grid-empty">{t("users.noPerms")}</p>}
               >
-                <pre class="ddl-text">{grants().join(";\n")}</pre>
+                <button
+                  type="button"
+                  class="edit-btn um-raw-toggle"
+                  aria-pressed={showRaw()}
+                  onClick={() => setShowRaw(!showRaw())}
+                >
+                  {t("users.showGrantSql")}
+                </button>
+                <Show
+                  when={!showRaw()}
+                  fallback={<pre class="ddl-text">{grants().map((g) => g + ";").join("\n")}</pre>}
+                >
+                  <ul class="um-grants">
+                    <For each={readable()}>
+                      {(g) => (
+                        <Show
+                          when={g.parsed}
+                          fallback={
+                            <li class="um-grant">
+                              <code>{g.raw}</code>
+                            </li>
+                          }
+                        >
+                          {(p) => (
+                            <li class="um-grant">
+                              <span class="um-grant-scope">
+                                {p().level === "role"
+                                  ? t("users.scopeRoles")
+                                  : p().level === "server"
+                                    ? t("users.scopeAll", { scope: p().scope! })
+                                    : p().scope}
+                              </span>
+                              <span class="um-grant-privs">
+                                <For each={p().privileges}>
+                                  {(pr) => (
+                                    <span
+                                      class="chip um-priv-chip"
+                                      title={pr.name === "USAGE" ? t("users.usageTitle") : undefined}
+                                    >
+                                      {pr.columns.length > 0 ? pr.name + " (" + pr.columns.join(", ") + ")" : pr.name}
+                                    </span>
+                                  )}
+                                </For>
+                                <Show when={p().grantOption}>
+                                  <span class="chip um-priv-chip" title={t("users.grantTitle")}>
+                                    GRANT OPTION
+                                  </span>
+                                </Show>
+                              </span>
+                            </li>
+                          )}
+                        </Show>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
               </Show>
 
               <div class="import-subtitle" style={{ "margin-top": "0.8rem" }}>
@@ -460,15 +616,22 @@ export function UserManager(props: {
                     placeholder="%  |  localhost  |  10.0.0.5"
                   />
                 </label>
-                <label class="field">
+                <div class="field">
                   <span>{t("users.scope")}</span>
-                  <Dropdown
+                  <Segmented
+                    label={t("users.scope")}
                     value={level()}
-                    options={[{ value: "database", label: t("users.scopeDatabase") }, { value: "table", label: t("users.scopeTable") }, { value: "server", label: t("users.scopeServer") }, { value: "custom", label: t("users.scopeCustom") }]}
-                    onChange={(v) => setLevel(v as GrantLevel)}
+                    options={[
+                      { value: "server" as GrantLevel, label: t("users.scopeServer") },
+                      { value: "database" as GrantLevel, label: t("users.scopeDatabase") },
+                      { value: "table" as GrantLevel, label: t("users.scopeTable") },
+                      { value: "column" as GrantLevel, label: t("users.scopeColumn") },
+                      { value: "custom" as GrantLevel, label: t("users.scopeCustom") },
+                    ]}
+                    onChange={setLevel}
                   />
-                </label>
-                <Show when={level() === "database" || level() === "table"}>
+                </div>
+                <Show when={level() === "database" || level() === "table" || level() === "column"}>
                   <label class="field um-scope">
                     <span>{t("users.database")}</span>
                     <Dropdown
@@ -478,7 +641,7 @@ export function UserManager(props: {
                     />
                   </label>
                 </Show>
-                <Show when={level() === "table"}>
+                <Show when={level() === "table" || level() === "column"}>
                   <label class="field um-scope">
                     <span>{t("users.table")}</span>
                     <Dropdown
@@ -501,6 +664,29 @@ export function UserManager(props: {
                   </label>
                 </Show>
               </div>
+
+              <Show when={level() === "column" && scopeTable()}>
+                <fieldset class="um-cols">
+                  <legend>{t("users.columns")}</legend>
+                  <Show when={tableCols().length > 0} fallback={<span class="help">{t("users.columnsLoading")}</span>}>
+                    <For each={tableCols()}>
+                      {(c) => (
+                        <label class="um-priv">
+                          <input
+                            type="checkbox"
+                            checked={scopeCols().includes(c)}
+                            onChange={(e) => {
+                              const on = e.currentTarget.checked;
+                              setScopeCols((cur) => (on ? [...cur, c] : cur.filter((x) => x !== c)));
+                            }}
+                          />{" "}
+                          {c}
+                        </label>
+                      )}
+                    </For>
+                  </Show>
+                </fieldset>
+              </Show>
 
               <Show when={level() === "server"}>
                 <p class="related-warn um-scope">{t("users.serverWide")}</p>
@@ -539,6 +725,36 @@ export function UserManager(props: {
         </div>
       </Show>
 
+      <Show when={pwOpen() && selected()}>
+        {(u) => (
+          <Dialog
+            title={t("users.pwTitle", { who: u().name + "@" + u().host })}
+            size="sm"
+            onCancel={() => setPwOpen(false)}
+            busy={busy()}
+            error={error()}
+            primary={{
+              label: t("users.pwApply"),
+              disabled: pw().length === 0,
+              onClick: () =>
+                void runOnSelected(buildSetPasswordSql(props.engine, u().name, u().host, pw()), () => {
+                  setPw("");
+                  setPwOpen(false);
+                }),
+            }}
+          >
+            <label class="field">
+              <span>{t("users.pwNew")}</span>
+              <input
+                type="password"
+                value={pw()}
+                autocomplete="new-password"
+                onInput={(e) => setPw(e.currentTarget.value)}
+              />
+            </label>
+          </Dialog>
+        )}
+      </Show>
       <Show when={pendingRevoke()}>
         {(p) => (
           <ConfirmDialog

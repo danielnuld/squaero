@@ -291,3 +291,89 @@ describe("privilegesFor", () => {
     expect(t.length).toBe(MYSQL_PRIVILEGES.length - 1);
   });
 });
+
+import { parseGrant, buildSetPasswordSql, buildLockUserSql } from "../../src/utils/userAdmin";
+
+describe("parseGrant", () => {
+  it("reads a database-wide grant", () => {
+    expect(parseGrant("GRANT SELECT, INSERT, UPDATE ON `ventas`.* TO `app`@`%`")).toEqual({
+      scope: "ventas.*",
+      level: "database",
+      privileges: [
+        { name: "SELECT", columns: [] },
+        { name: "INSERT", columns: [] },
+        { name: "UPDATE", columns: [] },
+      ],
+      grantOption: false,
+    });
+  });
+
+  it("reads server-wide grants with GRANT OPTION and MySQL 8's comma lists", () => {
+    const g = parseGrant("GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost` WITH GRANT OPTION")!;
+    expect(g.level).toBe("server");
+    expect(g.privileges).toEqual([{ name: "ALL PRIVILEGES", columns: [] }]);
+    expect(g.grantOption).toBe(true);
+    expect(parseGrant("GRANT AUDIT_ADMIN,BACKUP_ADMIN ON *.* TO `root`@`%`")!.privileges.map((p) => p.name)).toEqual([
+      "AUDIT_ADMIN",
+      "BACKUP_ADMIN",
+    ]);
+  });
+
+  it("keeps the columns of column-level privileges", () => {
+    const g = parseGrant("GRANT SELECT (`id`, `nombre`), UPDATE (`nombre`) ON `ventas`.`clientes` TO 'u'@'%';")!;
+    expect(g.level).toBe("object");
+    expect(g.scope).toBe("ventas.clientes");
+    expect(g.privileges).toEqual([
+      { name: "SELECT", columns: ["id", "nombre"] },
+      { name: "UPDATE", columns: ["nombre"] },
+    ]);
+  });
+
+  it("reads routine grants and role grants", () => {
+    expect(parseGrant("GRANT EXECUTE ON PROCEDURE `ventas`.`cierre` TO `u`@`%`")!.scope).toBe("PROCEDURE ventas.cierre");
+    expect(parseGrant("GRANT `lector`@`%`,`escritor`@`%` TO `u`@`%`")).toEqual({
+      scope: null,
+      level: "role",
+      privileges: [
+        { name: "lector@%", columns: [] },
+        { name: "escritor@%", columns: [] },
+      ],
+      grantOption: false,
+    });
+  });
+
+  it("is null for what it cannot read", () => {
+    expect(parseGrant("REVOKE x")).toBeNull();
+    expect(parseGrant("")).toBeNull();
+  });
+});
+
+describe("column-level grants", () => {
+  it("scopes to the table and names the columns on each privilege", () => {
+    const scope = grantScope({ level: "column", db: "ventas", table: "clientes", columns: ["id", "nombre"] });
+    expect(scope).toBe("`ventas`.`clientes`");
+    expect(
+      buildGrantSql("mysql", { privileges: ["SELECT", "UPDATE"], scope: scope!, user: "u", columns: ["id", "nombre"] }),
+    ).toBe("GRANT SELECT (`id`, `nombre`), UPDATE (`id`, `nombre`) ON `ventas`.`clientes` TO 'u'@'%'");
+    expect(
+      buildRevokeSql("mysql", { privileges: ["SELECT"], scope: scope!, user: "u", columns: ["id"] }),
+    ).toBe("REVOKE SELECT (`id`) ON `ventas`.`clientes` FROM 'u'@'%'");
+  });
+  it("is incomplete without columns, and offers the four column privileges", () => {
+    expect(grantScope({ level: "column", db: "ventas", table: "clientes", columns: [] })).toBeNull();
+    expect(privilegesFor("column")).toEqual(["SELECT", "INSERT", "UPDATE", "REFERENCES"]);
+  });
+});
+
+describe("buildSetPasswordSql / buildLockUserSql", () => {
+  it("builds ALTER USER, escaping the password", () => {
+    expect(buildSetPasswordSql("mysql", "u", "%", "a'b\\")).toBe("ALTER USER 'u'@'%' IDENTIFIED BY 'a''b\\\\'");
+    expect(buildLockUserSql("mariadb", "u", "localhost", true)).toBe("ALTER USER 'u'@'localhost' ACCOUNT LOCK");
+    expect(buildLockUserSql("mysql", "u", "", false)).toBe("ALTER USER 'u'@'%' ACCOUNT UNLOCK");
+  });
+  it("is null for a blank password, a blank user or another engine", () => {
+    expect(buildSetPasswordSql("mysql", "u", "%", "")).toBeNull();
+    expect(buildLockUserSql("mysql", " ", "%", true)).toBeNull();
+    expect(buildSetPasswordSql("postgres", "u", "%", "x")).toBeNull();
+  });
+});
