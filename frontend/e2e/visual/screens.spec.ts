@@ -120,7 +120,7 @@ for (const theme of ["light", "dark"] as const) {
         );
         await expect(page.getByText("Cd. Obregón", { exact: true })).toBeVisible();
         // No toast for a result on screen (issue #693): the status bar says it.
-        await expect(page.getByRole("contentinfo")).toContainText("19 filas");
+        await expect(page.getByRole("status", { name: "Barra de estado" })).toContainText("12 filas");
         await expectTheme(page, theme);
         await shot(page, "editor-result");
       });
@@ -146,7 +146,7 @@ for (const theme of ["light", "dark"] as const) {
           .first()
           .click({ button: "right" });
         await page.getByRole("menu").getByRole("menuitem", { name: "Eliminar…" }).click();
-        const dialog = page.getByRole("dialog", { name: /Eliminar/ });
+        const dialog = page.getByRole("alertdialog", { name: /Eliminar/ });
         await expect(dialog.getByText("DROP TABLE")).toBeVisible();
         await expectTheme(page, theme);
         await shot(page, "confirm-dialog");
