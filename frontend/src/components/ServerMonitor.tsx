@@ -5,6 +5,8 @@ import { monitorFor, buildKillSql, unsupportedReason } from "../utils/serverMoni
 import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { killSessionConfirm } from "../utils/confirmText";
 
 // Server monitor / process list (issue #148): lists the server's active
 // sessions/queries for the active connection and, where the engine allows, kills
@@ -14,6 +16,8 @@ import { t } from "../utils/i18n";
 export function ServerMonitor(props: {
   connId: string;
   engine: string;
+  /** The connection's name, for the kill confirmation. */
+  connName?: string;
   onClose: () => void;
 }) {
   const support = monitorFor(props.engine);
@@ -22,6 +26,9 @@ export function ServerMonitor(props: {
   const [error, setError] = createSignal<string | null>(null);
   const [killing, setKilling] = createSignal<string | null>(null);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
+  // Killing cuts off someone else's work: it asks first, naming the session and
+  // the server (audit A-10, R-31). Errors stay in the dialog to retry.
+  const [confirmKill, setConfirmKill] = createSignal<string | null>(null);
 
   const idIndex = createMemo(() => {
     const cols = result()?.columns ?? [];
@@ -58,6 +65,7 @@ export function ServerMonitor(props: {
     setError(null);
     try {
       await runQuery(props.connId, sql);
+      setConfirmKill(null);
       await load();
     } catch (err) {
       setError(errorText(err));
@@ -88,7 +96,10 @@ export function ServerMonitor(props: {
                 ? t("monitor.killHint")
                 : t("monitor.killTitle", { id: selectedId()! })
             }
-            onClick={() => void kill(selectedId()!)}
+            onClick={() => {
+              setError(null);
+              setConfirmKill(selectedId());
+            }}
           >
             {killing() !== null ? "…" : t("monitor.kill")}
           </button>
@@ -102,7 +113,22 @@ export function ServerMonitor(props: {
       onRefresh={support.supported ? load : undefined}
       refreshing={loading()}
     >
-      <Show when={error()}>
+      <Show when={confirmKill()}>
+        {(id) => (
+          <ConfirmDialog
+            title={killSessionConfirm(id(), props.connName ?? "").title}
+            message={killSessionConfirm(id(), props.connName ?? "").message}
+            sql={buildKillSql(props.engine, id()) ?? undefined}
+            confirmLabel={killSessionConfirm(id(), props.connName ?? "").confirm}
+            busy={killing() !== null}
+            error={error()}
+            onConfirm={() => void kill(id())}
+            onCancel={() => setConfirmKill(null)}
+          />
+        )}
+      </Show>
+
+      <Show when={error() && !confirmKill()}>
         <div class="grid-error" role="alert">
           {error()}
         </div>

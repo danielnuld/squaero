@@ -47,7 +47,7 @@ function mount(props: { onInstall?: (url: string) => Promise<boolean> }) {
 describe("UpdateModal", () => {
   it("without the native installer, sends the user to the release page, never the MSI", () => {
     const onDownload = mount({});
-    const primary = host!.querySelector<HTMLButtonElement>(".update-actions button.primary")!;
+    const primary = host!.querySelector<HTMLButtonElement>(".dlg-actions button.btn-primary")!;
     primary.click();
     expect(onDownload).toHaveBeenCalledWith(update.releaseUrl);
   });
