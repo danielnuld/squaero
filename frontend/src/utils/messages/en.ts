@@ -330,6 +330,10 @@ export const en: Record<string, string> = {
 
   // tool panels — shared chrome
   "panel.refresh": "Refresh",
+  "panel.leaveTitle": "Close without finishing?",
+  "panel.leaveMessage": "This tab has unfinished work. If you close it, it is lost.",
+  "panel.leaveDiscard": "Close and discard",
+  "panel.leaveStay": "Stay here",
   "panel.refreshing": "Refreshing…",
   "panel.close": "Close",
   "panel.loading": "Loading…",
@@ -536,7 +540,9 @@ export const en: Record<string, string> = {
   "restore.message": "{n} tab(s) were left open with SQL not yet run.",
   "restore.conns": "Will reopen: {names}",
   "restore.resume": "Resume",
-  "restore.blank": "Start blank",
+  "restore.discard": "Discard tabs",
+  "restore.later": "Not now",
+  "restore.laterHelp": "«Not now» or Esc discard nothing: you will be offered them again next time the app starts.",
   "tree.dropObject": "Delete…",
   "tree.emptyCollection": "Empty collection…",
   "tree.emptyTitle": "Empty “{name}”",

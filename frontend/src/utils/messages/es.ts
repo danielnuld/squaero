@@ -333,6 +333,10 @@ export const es: Record<string, string> = {
 
   // tool panels — shared chrome
   "panel.refresh": "Refrescar",
+  "panel.leaveTitle": "¿Cerrar sin terminar?",
+  "panel.leaveMessage": "Esta pestaña tiene trabajo sin terminar. Si la cierras, se pierde.",
+  "panel.leaveDiscard": "Cerrar y descartar",
+  "panel.leaveStay": "Seguir aquí",
   "panel.refreshing": "Refrescando…",
   "panel.close": "Cerrar",
   "panel.loading": "Cargando…",
@@ -539,7 +543,9 @@ export const es: Record<string, string> = {
   "restore.message": "Quedaron {n} pestaña(s) abiertas con SQL sin ejecutar.",
   "restore.conns": "Se reabrirán: {names}",
   "restore.resume": "Retomar",
-  "restore.blank": "Empezar en blanco",
+  "restore.discard": "Descartar pestañas",
+  "restore.later": "Ahora no",
+  "restore.laterHelp": "«Ahora no» o Esc no descartan nada: se volverá a ofrecer en el próximo arranque.",
   "tree.dropObject": "Eliminar…",
   "tree.emptyCollection": "Vaciar colección…",
   "tree.emptyTitle": "Vaciar «{name}»",

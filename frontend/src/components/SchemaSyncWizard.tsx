@@ -202,7 +202,7 @@ ${scriptText(r.script)}` : "";
   const destructive = () => chosen().some(isDestructiveSql);
 
   return (
-    <Panel wide onClose={props.onClose}>
+    <Panel wide onClose={props.onClose} dirty={busy() || (!!result() && !applied())}>
       <Wizard
         title={t("ssync.title")}
         subtitle={t("ssync.subtitle")}

@@ -20,23 +20,31 @@ export function RestorePrompt(props: {
   /** Names of the connections resuming would reopen (may be empty). */
   connections: string[];
   onResume: () => void;
-  onBlank: () => void;
+  /** «Descartar pestañas»: start clean and let the saved session go. */
+  onDiscard: () => void;
+  /** Esc, × and «Ahora no»: decide later, the saved session kept for the next
+      start (audit R-37, A-36: Esc never throws work away). */
+  onLater: () => void;
 }) {
-  // Escape starts clean: the safe half of the choice is the one that throws
-  // nothing away — the saved workspace is still on disk until the first edit.
   return (
     <Dialog
       title={t("restore.title")}
       size="sm"
       class="restore-prompt"
-      onCancel={props.onBlank}
-      cancelLabel={t("restore.blank")}
+      onCancel={props.onLater}
+      cancelLabel={t("restore.later")}
+      helpers={
+        <button type="button" class="btn" onClick={props.onDiscard}>
+          {t("restore.discard")}
+        </button>
+      }
       primary={{ label: t("restore.resume"), onClick: props.onResume }}
     >
       <p>{t("restore.message", { n: props.tabCount })}</p>
       <Show when={props.connections.length > 0}>
         <p class="restore-conns">{t("restore.conns", { names: props.connections.join(", ") })}</p>
       </Show>
+      <p class="help">{t("restore.laterHelp")}</p>
     </Dialog>
   );
 }
