@@ -162,13 +162,21 @@ describe("App — theme & shortcuts", () => {
   });
 });
 
-// EXPLAIN plan (issue #131): the toolbar wires the button to the plan action.
+/** An entry of the editor toolbar's «Más» menu (issue #691), by its label. */
+const moreItem = (label: string) => {
+  ([...host!.querySelectorAll(".editor-toolbar button")] as HTMLElement[])
+    .find((b) => b.getAttribute("aria-label")?.startsWith("Más:"))!
+    .click();
+  return ([...document.querySelectorAll(".context-menu-item")] as HTMLElement[]).find(
+    (b) => b.textContent!.replace(b.querySelector(".context-menu-hint")?.textContent ?? "", "").trim() === label,
+  ) as HTMLElement;
+};
+
+// EXPLAIN plan (issue #131): «Más» in the run toolbar wires it to the plan action.
 describe("App — EXPLAIN", () => {
-  it("has a Plan button that surfaces an honest error on an empty query", () => {
+  it("has a Plan entry that surfaces an honest error on an empty query", () => {
     mount();
-    const btn = [...host!.querySelectorAll(".editor-hint .status-btn")].find(
-      (b) => b.textContent === "Plan",
-    ) as HTMLButtonElement;
+    const btn = moreItem("Plan");
     expect(btn).toBeTruthy();
     btn.click(); // fresh tab has empty SQL
     expect(host!.textContent).toContain("La consulta está vacía");

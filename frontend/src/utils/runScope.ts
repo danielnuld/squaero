@@ -273,3 +273,91 @@ export function pickRunTarget(
   if (!stmt) return whole;
   return { text: doc.slice(stmt.from, stmt.to), scope: "statement", ...stmt };
 }
+
+/**
+ * Where an error belongs in the document (issue #691): the start of the line
+ * the engine blamed (`line`, 1-based within `sql`, see errorLine), else the
+ * start of the failed statement. `sql` is the statement as it was sent, so it
+ * is found by its text — the first occurrence, which is the one that ran unless
+ * the script repeats itself. Null when the document no longer holds it.
+ */
+export function errorOffset(doc: string, sql: string, line: number | null): number | null {
+  const text = sql.trim();
+  const at = text ? doc.indexOf(text) : -1;
+  if (at < 0) return null;
+  if (line === null || line <= 1) return at;
+  let pos = at;
+  for (let n = 1; n < line; n++) {
+    const nl = doc.indexOf("\n", pos);
+    // A line past the statement's end: the statement is all there is to show.
+    if (nl < 0 || nl >= at + text.length) return at;
+    pos = nl + 1;
+  }
+  return pos;
+}
+
+/** What a run would execute right now, as the editor reports it (issue #691). */
+export interface RunInfo {
+  hasSelection: boolean;
+  /** Lines (1-based) of the statement under the cursor; null: nothing runnable. */
+  statement: { first: number; last: number } | null;
+  /** Runnable statements in the whole document. */
+  statements: number;
+}
+
+/** One entry of the run button's menu: a scope, and what it would run now. */
+export interface RunChoice {
+  scope: RunScope;
+  /** i18n key of the entry's name. */
+  label: string;
+  /** i18n key + params of what it covers now («líneas 2–5», «3 sentencias»). */
+  hint: { key: string; params?: Record<string, number> };
+  /** Shortcut label (shortcuts.ts notation) that runs it, or "" for none. */
+  keys: string;
+  disabled: boolean;
+  /** The one Ctrl/Cmd+Enter and the main button run. */
+  current: boolean;
+}
+
+/** The label of the main run button: it always names what it will run. */
+export function runButtonLabel(info: RunInfo): string {
+  return info.hasSelection ? "editor.runSelection" : "editor.runStatement";
+}
+
+/** The run button's menu (R-04): current statement · selection · whole script. */
+export function runChoices(info: RunInfo): RunChoice[] {
+  const st = info.statement;
+  return [
+    {
+      scope: "statement",
+      label: "editor.scope.statement",
+      hint: !st
+        ? { key: "editor.scope.nothing" }
+        : st.first === st.last
+          ? { key: "editor.scope.line", params: { n: st.first } }
+          : { key: "editor.scope.lines", params: { from: st.first, to: st.last } },
+      keys: info.hasSelection ? "" : "Mod+Enter",
+      disabled: !st,
+      current: !info.hasSelection,
+    },
+    {
+      scope: "selection",
+      label: "editor.scope.selection",
+      hint: { key: info.hasSelection ? "editor.scope.selected" : "editor.scope.noSelection" },
+      keys: info.hasSelection ? "Mod+Enter" : "",
+      disabled: !info.hasSelection,
+      current: info.hasSelection,
+    },
+    {
+      scope: "document",
+      label: "editor.scope.script",
+      hint:
+        info.statements === 1
+          ? { key: "editor.scope.statementsOne" }
+          : { key: "editor.scope.statements", params: { n: info.statements } },
+      keys: "Mod+Shift+Enter",
+      disabled: info.statements === 0,
+      current: false,
+    },
+  ];
+}

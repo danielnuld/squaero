@@ -69,6 +69,7 @@ import {
   closeTabsForConn,
   cycleTab,
   updateTabSql,
+  bindTabConn,
   updateTabVars,
   activeTab,
   objectTabKey,
@@ -97,7 +98,7 @@ import {
 } from "./utils/dataFilter";
 import { emptyCondition, type ColumnTypes } from "./utils/queryBuilder";
 import { autoFocus } from "./utils/autoFocus";
-import { runnableStatements, type RunScope } from "./utils/runScope";
+import { errorOffset, runnableStatements, type RunInfo, type RunScope } from "./utils/runScope";
 import { copyRows, rowToJson, rowsAsInserts, copyText } from "./utils/rowCopy";
 import {
   saveTheme,
@@ -300,13 +301,16 @@ import {
 } from "./utils/fkLookup";
 import { buildXlsx, XLSX_MAX_ROWS, XLSX_MIME } from "./utils/xlsx";
 import { saveText, pickSaveTarget, sqlFileName } from "./utils/download";
+import { errorLine } from "./utils/errors";
 import type { TreeNode } from "./utils/tree";
 import { objectNodeFor } from "./utils/sqlNavigation";
 import { definitionFor as routineDefinitionFor } from "./utils/routines";
 import { readDefinitionText } from "./utils/treeObjects";
 import { runnableRoutineDdl } from "./utils/routineDdl";
 import type { ObjectTarget } from "./components/editorNavigation";
-import { SqlEditor } from "./components/SqlEditor";
+import { SqlEditor, type ErrorMark } from "./components/SqlEditor";
+import { EditorToolbar } from "./components/EditorToolbar";
+import { RunStatus } from "./components/RunStatus";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
@@ -411,6 +415,12 @@ interface TabResult {
   ranAt?: number;
   /** What the last run executed — selection / statement / document (issue #130). */
   ranScope?: RunScope | null;
+  /** When the run in flight started, epoch ms: the result panel's clock (#691). */
+  startedAt?: number;
+  /** Which statement of a script is running (issue #691). */
+  progress?: { n: number; total: number } | null;
+  /** The statement that failed, as sent: the editor marks its line (#691). */
+  errorSql?: string;
   /** The table this result was read from + its PK, when opened from the tree.
       Present + pk non-empty => the grid is editable. */
   source?: EditSource | null;
@@ -517,6 +527,9 @@ const emptyResult = (): TabResult => ({
   sets: undefined,
   activeSet: 0,
   editBlock: undefined,
+  startedAt: undefined,
+  progress: null,
+  errorSql: undefined,
 });
 
 // A table target (import / generator / diff / transfer / structure).
@@ -718,12 +731,14 @@ export function App() {
   // Bumped by Ctrl/Cmd+F to open the SQL editor's find panel (see SqlEditor).
   const [findTick, setFindTick] = createSignal(0);
 
-  // Bumped by the toolbar Run button to trigger the editor's run (selection,
-  // statement or whole document — the same choice Ctrl/Cmd+Enter makes). The
-  // editor reports whether it currently has a selection so the button can offer
-  // "Ejecutar selección".
-  const [runTick, setRunTick] = createSignal(0);
-  const [hasEditorSelection, setHasEditorSelection] = createSignal(false);
+  // A run from the toolbar (issue #691): a bumped tick, and the scope picked in
+  // the run button's menu (none: what Ctrl/Cmd+Enter would run). The editor
+  // reports what that is, so the button can name it.
+  const [runRequest, setRunRequest] = createSignal<{ tick: number; scope?: RunScope }>({ tick: 0 });
+  const requestRun = (scope?: RunScope) => setRunRequest((r) => ({ tick: r.tick + 1, scope }));
+  const [runInfo, setRunInfo] = createSignal<RunInfo>({ hasSelection: false, statement: null, statements: 0 });
+  // Bumped by «Ir a la línea» in the result panel: the editor shows the failed line.
+  const [revealErrorTick, setRevealErrorTick] = createSignal(0);
 
   // A newer release found on startup (autoupdater); drives the update modal.
   const [update, setUpdate] = createSignal<UpdateInfo | null>(null);
@@ -2308,7 +2323,7 @@ export function App() {
     const prev = results[id];
     const keepSource =
       prev?.source && prev.pageSql === trimmed ? prev.source : undefined;
-    setResults(id, { ...emptyResult(), loading: true, ranScope: scope });
+    setResults(id, { ...emptyResult(), loading: true, ranScope: scope, startedAt: Date.now() });
     if (!keepSource) {
       setFkLookups(id, {}); // the pickers belong to the old table
       dropUniqueSets(id); // and so do its unique indexes
@@ -2324,8 +2339,13 @@ export function App() {
     // Every statement of a fresh run goes through the connection's transaction
     // state (issue #667); a page turn re-reads what already ran and does not.
     let implicitCommit = false;
-    const exec = (stmt: string, query: () => Promise<ResultSet>) =>
-      offset === 0 ? runTx(conn, stmt, query, () => (implicitCommit = true)) : query();
+    // Which statement is running, for the result panel (issue #691): a script
+    // sends them one at a time through here.
+    let sent = 0;
+    const exec = (stmt: string, query: () => Promise<ResultSet>) => {
+      if (script) setResults(id, { progress: { n: ++sent, total: stmts.length } });
+      return offset === 0 ? runTx(conn, stmt, query, () => (implicitCommit = true)) : query();
+    };
     try {
       // A script keeps one entry per statement (issue #450) and opens one of
       // them; the mirrored fields below are that entry, so nothing downstream
@@ -2360,6 +2380,8 @@ export function App() {
       setResults(id, {
         loading: false,
         error: shown?.error ?? null,
+        errorSql: shown?.error ? shown.sql : undefined,
+        progress: null,
         result,
         elapsedMs,
         ranAt,
@@ -2399,6 +2421,8 @@ export function App() {
       setResults(id, {
         loading: false,
         error: errorText(err),
+        errorSql: trimmed,
+        progress: null,
         result: null,
         elapsedMs,
         ranAt,
@@ -2427,6 +2451,7 @@ export function App() {
       activeSet: index,
       result: set.result,
       error: set.error,
+      errorSql: set.error ? set.sql : undefined,
       elapsedMs: set.elapsedMs,
       pageSql: undefined,
       source: undefined,
@@ -2686,10 +2711,93 @@ export function App() {
     return !!tab && findVariables(sqlOfTab(tab.id), dialectOfTab(tab.id)).length > 0;
   };
 
+  // --- The editor's run toolbar and its result (issue #691) -----------------
+  // Where the run on screen failed: the statement as sent and the line its
+  // engine blamed. The editor marks that line; the result panel links to it.
+  const errorMark = createMemo<ErrorMark | null>(() => {
+    const r = currentResult();
+    if (r.loading || !r.error || !r.errorSql) return null;
+    return { sql: r.errorSql, line: errorLine(r.error) };
+  });
+  // The same place as a line of the editor, for «Ir a la línea N». Null when
+  // the editor no longer holds the statement. `named`: the engine named the line.
+  const errorPlace = createMemo(() => {
+    const mark = errorMark();
+    const tab = current();
+    if (!mark || !tab) return null;
+    const doc = sqlOfTab(tab.id);
+    const at = errorOffset(doc, mark.sql, mark.line);
+    if (at === null) return null;
+    return { line: doc.slice(0, at).split("\n").length, named: mark.line !== null };
+  });
+
+  // The connection selector: the tab's databases (on the focused connection,
+  // which owns the working-database list), then the other open connections.
+  const editorConnItems = (tab: Tab): MenuItem[] => {
+    const conn = tabConn(tab);
+    const items: MenuItem[] = [];
+    if (conn && conn.defId === focusedDefId() && databases().length > 0) {
+      items.push({ label: t("editor.connMenuDbs"), disabled: true });
+      for (const db of databases()) {
+        items.push({
+          label: db,
+          hint: db === activeDb() ? t("editor.connCurrent") : undefined,
+          action: () => selectDb(db),
+        });
+      }
+    }
+    const others = openConns().filter((o) => o.defId !== conn?.defId);
+    if (others.length > 0) {
+      if (items.length) items.push({ separator: true });
+      items.push({ label: t("editor.connMenuConns"), disabled: true });
+      for (const o of others) {
+        items.push({
+          label: o.name,
+          hint: driverSchema(o.driver)?.label ?? o.driver,
+          action: () => {
+            setTabs((st) => bindTabConn(st, tab.id, o.defId));
+            setFocusedDefId(o.defId);
+          },
+        });
+      }
+    }
+    if (items.length === 0) items.push({ label: conn ? conn.name : t("editor.noConn"), disabled: true });
+    return items;
+  };
+
+  // «Más»: everything the run toolbar does not show (R-20).
+  const editorMoreItems = (e: MouseEvent, tab: Tab): MenuItem[] => [
+    { label: t("editor.plan"), hint: displayKeys("Mod+Shift+E", isMac()), action: explainActive },
+    ...(hasVariables() ? [{ label: t("vars.button"), action: editVariables }] : []),
+    { separator: true },
+    {
+      label: t("editor.history"),
+      action: () => showTool("history", t("editor.history"), { key: "history" }),
+    },
+    { label: t("hist.recentTitle"), action: () => openRecentHistory(e, tab) },
+    { label: t("lhist.menu"), action: () => openLocalHistory(tab.id) },
+    { separator: true },
+    { label: t("editor.openFile"), action: openSqlFile },
+    {
+      label: t("editor.saveFile"),
+      action: () => void saveText(sqlFileName(tab.title), sqlOfTab(tab.id), "application/sql"),
+    },
+    { separator: true },
+    {
+      label: t("editor.saveSnippetMenu"),
+      hint: displayKeys("Mod+Shift+S", isMac()),
+      action: requestSaveSnippet,
+    },
+    {
+      label: t("editor.snippets"),
+      action: () => showTool("snippets", t("editor.snippets"), { key: "snippets" }),
+    },
+  ];
+
   // The editor's run (Ctrl+Enter / "Ejecutar"). When the tab still shows a table
   // preview and its SQL is unchanged, re-run through the preview path so paging
   // (offset / has-more) is preserved; anything else is a plain query.
-  const runEditor = (sql: string, scope: RunScope = "document") => {
+  const runEditor = (sql: string, scope: RunScope = "statement") => {
     const t = current();
     const r = t ? results[t.id] : undefined;
     if (t && r?.preview && sql.trim() === (r.pageSql ?? "").trim()) {
@@ -4539,7 +4647,9 @@ export function App() {
       cmd.run();
       return;
     }
-    if (id === "run-query") setRunTick((n) => n + 1);
+    if (id === "run-query") requestRun();
+    else if (id === "run-script") requestRun("document");
+    else if (id === "explain") explainActive();
     else if (id === "format-sql") setFormatTick((n) => n + 1);
     else runShortcut(id as ActionId);
   };
@@ -4852,144 +4962,46 @@ export function App() {
                       addSortRef={(add) => (addFilterSort = add)}
                     />
                   </Show>
+                  {/* The run toolbar (issue #691) sits ABOVE the editor: the
+                      connection first, then what the run will execute. Naming a
+                      snippet happens in it too, so the query stays on screen
+                      (issue #320). A data tab has none (issue #386). */}
                   <Show when={!isDataTab(tab().id)}>
-                  <SqlEditor
-                    activeId={tab().id}
-                    sqlFor={sqlOfTab}
-                    onChange={onEditorChange}
-                    onRun={runEditor}
-                    onExplain={explainActive}
-                    dialect={activeDialect()}
-                    formatTick={formatTick()}
-                    searchTick={findTick()}
-                    runTick={runTick()}
-                    saveTick={saveTick()}
-                    onSaveRequest={beginNaming}
-                    onSelectionChange={setHasEditorSelection}
-                    insertRequest={snippetInsert()}
-                    schema={sqlSchema()}
-                    defaultTable={sqlDefaultTable()}
-                    foreignKeys={sqlForeignKeys()}
-                    missingTables={missingTables()}
-                    diagnostics={settings().editorDiagnostics}
-                    onGoToObject={(target) => void goToObject(target)}
-                    templates={editorTemplates()}
-                    onLocalHistory={() => openLocalHistory(tab().id)}
-                  />
-                  </Show>
-                  {/* The editor's own bar. A data tab has no editor: its
-                      Plan/Historial/Snippets buttons used to render here anyway,
-                      as a 29 px band of three items above the action bar, and
-                      they now ride inside that bar instead (issue #386). */}
-                  <Show when={!isDataTab(tab().id)}>
-                  <div class="editor-hint">
-                    <button
-                      class="status-btn run-btn"
-                      title={
-                        hasEditorSelection()
-                          ? t("editor.runSelectionTitle")
-                          : t("editor.runTitle")
-                      }
-                      onClick={() => setRunTick((n) => n + 1)}
-                    >
-                      {hasEditorSelection() ? t("editor.runSelection") : t("editor.run")}
-                    </button>
-                    <Show when={tabConn(tab())}>
-                      {(conn) => (
+                  <EditorToolbar
+                    conn={
+                      tabConn(tab())
+                        ? {
+                            name: tabConn(tab())!.name,
+                            color: tabConn(tab())!.color,
+                            db: tabConn(tab())!.defId === focusedDefId() ? activeDb() : null,
+                          }
+                        : null
+                    }
+                    connItems={() => editorConnItems(tab())}
+                    info={runInfo()}
+                    running={!!results[tab().id]?.loading}
+                    stopBlocked={
+                      tabConn(tab())?.features?.cancel === false ? t("grid.cancelUnsupported") : undefined
+                    }
+                    isMac={isMac()}
+                    onRun={requestRun}
+                    onStop={cancelActive}
+                    onFormat={() => setFormatTick((n) => n + 1)}
+                    moreItems={(e) => editorMoreItems(e, tab())}
+                    tx={
+                      tabConn(tab()) ? (
                         <TxControls
-                          session={{ ...txOf(conn()), open: txOpenCount(conn()) !== null }}
-                          unsupportedReason={txUnsupported(conn())}
+                          session={{ ...txOf(tabConn(tab())), open: txOpenCount(tabConn(tab())) !== null }}
+                          unsupportedReason={txUnsupported(tabConn(tab()))}
                           busy={txBusy()}
-                          onToggle={() => toggleTxMode(conn())}
+                          onToggle={() => toggleTxMode(tabConn(tab()))}
                           onCommit={() => void endTabTx("commit")}
                           onRollback={() => void endTabTx("rollback")}
                         />
-                      )}
-                    </Show>
-                    <button
-                      class="status-btn"
-                      title={t("editor.formatTitle")}
-                      onClick={() => setFormatTick((n) => n + 1)}
-                    >
-                      {t("editor.format")}
-                    </button>
-                    {/* Only where there is something to fill in: a button that
-                        opens an empty dialog teaches nothing (issue #481). */}
-                    <Show when={hasVariables()}>
-                      <button
-                        class="status-btn"
-                        title={t("vars.buttonTitle")}
-                        onClick={editVariables}
-                      >
-                        {t("vars.button")}
-                      </button>
-                    </Show>
-                    <button
-                      class="status-btn"
-                      title={t("editor.planTitle")}
-                      onClick={explainActive}
-                    >
-                      {t("editor.plan")}
-                    </button>
-                    <button
-                      class="status-btn"
-                      title={t("editor.historyTitle")}
-                      onClick={() => showTool("history", t("editor.history"), { key: "history" })}
-                    >
-                      {t("editor.history")}
-                    </button>
-                    <button
-                      class="status-btn"
-                      title={t("hist.recentTitle")}
-                      aria-label={t("hist.recentTitle")}
-                      onClick={(e) => openRecentHistory(e, tab())}
-                    >
-                      <Icon name="chevron-down" size={12} />
-                    </button>
-                    <button
-                      class="status-btn"
-                      title={t("editor.saveSnippetTitle")}
-                      onClick={requestSaveSnippet}
-                    >
-                      {t("editor.saveSnippet")}
-                    </button>
-                    <button
-                      class="status-btn"
-                      title={t("editor.snippetsTitle")}
-                      onClick={() => showTool("snippets", t("editor.snippets"), { key: "snippets" })}
-                    >
-                      {t("editor.snippets")}
-                    </button>
-                    <button class="status-btn" title={t("editor.openFileTitle")} onClick={openSqlFile}>
-                      {t("editor.openFile")}
-                    </button>
-                    <button
-                      class="status-btn"
-                      title={t("editor.saveFileTitle")}
-                      onClick={() =>
-                        void saveText(sqlFileName(tab().title), sqlOfTab(tab().id), "application/sql")
-                      }
-                    >
-                      {t("editor.saveFile")}
-                    </button>
-                    {/* Naming a snippet happens HERE, in the editor's own bar:
-                        it takes the place of the run hint while it is open, so
-                        the query stays on screen (issue #320).
-
-                        The spacer goes with the hint, not before it: its whole
-                        job is pushing that hint to the right edge, and leaving it
-                        in while naming made it claim half the free room as a
-                        second flex:1 sibling — which squeezed the field to its
-                        6rem minimum and pushed its right half off the window. */}
-                    <Show
-                      when={naming()}
-                      fallback={
-                        <>
-                          <span class="editor-hint-spacer" />
-                          <span>{t("editor.runHint")}</span>
-                        </>
-                      }
-                    >
+                      ) : undefined
+                    }
+                  >
+                    <Show when={naming()}>
                       {(pending) => (
                         <span class="snip-save">
                           <span class="snip-save-label">{t("snip.nameLabel")}</span>
@@ -5020,7 +5032,32 @@ export function App() {
                         </span>
                       )}
                     </Show>
-                  </div>
+                  </EditorToolbar>
+                  <SqlEditor
+                    activeId={tab().id}
+                    sqlFor={sqlOfTab}
+                    onChange={onEditorChange}
+                    onRun={runEditor}
+                    onExplain={explainActive}
+                    dialect={activeDialect()}
+                    formatTick={formatTick()}
+                    searchTick={findTick()}
+                    runRequest={runRequest()}
+                    saveTick={saveTick()}
+                    onSaveRequest={beginNaming}
+                    onRunInfo={setRunInfo}
+                    errorMark={errorMark()}
+                    revealErrorTick={revealErrorTick()}
+                    insertRequest={snippetInsert()}
+                    schema={sqlSchema()}
+                    defaultTable={sqlDefaultTable()}
+                    foreignKeys={sqlForeignKeys()}
+                    missingTables={missingTables()}
+                    diagnostics={settings().editorDiagnostics}
+                    onGoToObject={(target) => void goToObject(target)}
+                    templates={editorTemplates()}
+                    onLocalHistory={() => openLocalHistory(tab().id)}
+                  />
                   </Show>
                 </div>
                 <Show when={!isDataTab(tab().id)}>
@@ -5037,6 +5074,24 @@ export function App() {
                   />
                 </Show>
                 <div class="result-pane">
+                  {/* What the run did or is doing (issue #691, R-01): the clock
+                      while it runs, the summary or the failed line after. */}
+                  <Show when={!isDataTab(tab().id)}>
+                    <RunStatus
+                      loading={currentResult().loading}
+                      startedAt={currentResult().startedAt}
+                      progress={currentResult().progress}
+                      result={currentResult().result}
+                      error={currentResult().error}
+                      elapsedMs={currentResult().elapsedMs}
+                      errorLine={errorPlace()?.named ? errorPlace()!.line : null}
+                      onCancel={cancelActive}
+                      cancelBlocked={
+                        tabConn(tab())?.features?.cancel === false ? t("grid.cancelUnsupported") : undefined
+                      }
+                      onReveal={errorPlace() ? () => setRevealErrorTick((n) => n + 1) : undefined}
+                    />
+                  </Show>
                   {/* One tab per statement when a script ran (issue #450).
                       Above the toolbar: the tab chooses which result Refrescar,
                       Graficar and Exportar act on. */}
@@ -5248,7 +5303,7 @@ export function App() {
                             sortedColumn={
                               isDataTab(tab().id) ? (filterOf(tab().id).order[0] ?? null) : null
                             }
-                            onCancel={cancelActive}
+                            onCancel={isDataTab(tab().id) ? cancelActive : undefined}
                             cancelDisabledReason={
                               tabConn(tab())?.features?.cancel === false
                                 ? t("grid.cancelUnsupported")

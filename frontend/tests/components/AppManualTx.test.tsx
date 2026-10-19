@@ -91,7 +91,7 @@ const connect = async () => {
 const runSql = async (sql: string) => {
   const view = EditorView.findFromDOM(host!)!;
   view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: sql } });
-  click(host!.querySelector(".run-btn"));
+  click(host!.querySelector(".editor-run-main"));
   await settle();
 };
 

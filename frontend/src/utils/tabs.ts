@@ -354,6 +354,18 @@ export function updateTabVars(
   };
 }
 
+/** Binds the query tab with `id` to another saved connection (issue #691: the
+    editor's connection selector). A data tab is left alone: it shows one table
+    of one connection, and would show nothing anywhere else. */
+export function bindTabConn(state: TabState, id: number, connDefId: string): TabState {
+  return {
+    ...state,
+    tabs: state.tabs.map((t) =>
+      t.id === id && t.kind === "query" && !t.objectKey ? { ...t, connDefId } : t,
+    ),
+  };
+}
+
 /** Replaces the SQL text of the query tab with `id` (no-op if not found or not a
     query tab). */
 export function updateTabSql(state: TabState, id: number, sql: string): TabState {

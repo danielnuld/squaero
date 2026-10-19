@@ -3,6 +3,10 @@ import {
   splitStatements,
   pickRunTarget,
   statementAt,
+  errorOffset,
+  runButtonLabel,
+  runChoices,
+  type RunInfo,
   isCommentOnly,
   runnableStatements,
 } from "../../src/utils/runScope";
@@ -316,5 +320,86 @@ describe("runnableStatements (issue #653)", () => {
   it("drops engine-specific trailing comments", () => {
     expect(runnableStatements("SELECT 1; # x", "mysql")).toEqual(["SELECT 1"]);
     expect(runnableStatements("SELECT 1; { x }", "informix")).toEqual(["SELECT 1"]);
+  });
+});
+
+describe("errorOffset", () => {
+  const doc = "SELECT 1;\nSELECT *\nFORM t\nWHERE a = 1;";
+  const stmt = "SELECT *\nFORM t\nWHERE a = 1";
+
+  it("is the start of the statement when no line is named", () => {
+    expect(errorOffset(doc, stmt, null)).toBe(doc.indexOf("SELECT *"));
+    expect(errorOffset(doc, stmt, 1)).toBe(doc.indexOf("SELECT *"));
+  });
+
+  it("is the start of the blamed line inside the statement", () => {
+    expect(errorOffset(doc, stmt, 2)).toBe(doc.indexOf("FORM"));
+    expect(errorOffset(doc, stmt, 3)).toBe(doc.indexOf("WHERE"));
+  });
+
+  it("falls back to the statement for a line past its end", () => {
+    expect(errorOffset(doc, stmt, 9)).toBe(doc.indexOf("SELECT *"));
+  });
+
+  it("finds the statement despite the whitespace trimmed off when it was sent", () => {
+    expect(errorOffset(doc, `  ${stmt}\n`, null)).toBe(doc.indexOf("SELECT *"));
+  });
+
+  it("is null when the document no longer holds it", () => {
+    expect(errorOffset(doc, "DELETE FROM t", null)).toBeNull();
+    expect(errorOffset(doc, "  ", null)).toBeNull();
+  });
+});
+
+describe("run button and its menu (R-04)", () => {
+  const info = (over: Partial<RunInfo> = {}): RunInfo => ({
+    hasSelection: false,
+    statement: { first: 2, last: 5 },
+    statements: 2,
+    ...over,
+  });
+
+  it("names the statement, or the selection when there is one", () => {
+    expect(runButtonLabel(info())).toBe("editor.runStatement");
+    expect(runButtonLabel(info({ hasSelection: true }))).toBe("editor.runSelection");
+  });
+
+  it("offers the statement under the cursor as what Ctrl+Enter runs", () => {
+    const [stmt, sel, script] = runChoices(info());
+    expect(stmt).toMatchObject({
+      scope: "statement",
+      hint: { key: "editor.scope.lines", params: { from: 2, to: 5 } },
+      keys: "Mod+Enter",
+      current: true,
+      disabled: false,
+    });
+    expect(sel).toMatchObject({ scope: "selection", disabled: true, current: false, keys: "" });
+    expect(sel.hint.key).toBe("editor.scope.noSelection");
+    expect(script).toMatchObject({
+      scope: "document",
+      hint: { key: "editor.scope.statements", params: { n: 2 } },
+      keys: "Mod+Shift+Enter",
+      current: false,
+    });
+  });
+
+  it("with a selection, Ctrl+Enter is the selection's", () => {
+    const [stmt, sel] = runChoices(info({ hasSelection: true }));
+    expect(stmt).toMatchObject({ current: false, keys: "", disabled: false });
+    expect(sel).toMatchObject({ current: true, keys: "Mod+Enter", disabled: false });
+    expect(sel.hint.key).toBe("editor.scope.selected");
+  });
+
+  it("says one line, one statement, in the singular", () => {
+    const [stmt, , script] = runChoices(info({ statement: { first: 3, last: 3 }, statements: 1 }));
+    expect(stmt.hint).toEqual({ key: "editor.scope.line", params: { n: 3 } });
+    expect(script.hint).toEqual({ key: "editor.scope.statementsOne" });
+  });
+
+  it("disables what an empty editor cannot run", () => {
+    const [stmt, sel, script] = runChoices(info({ statement: null, statements: 0 }));
+    expect(stmt).toMatchObject({ disabled: true, hint: { key: "editor.scope.nothing" } });
+    expect(sel.disabled).toBe(true);
+    expect(script.disabled).toBe(true);
   });
 });

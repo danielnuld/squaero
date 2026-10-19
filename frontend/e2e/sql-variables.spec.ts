@@ -48,12 +48,14 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     await expect(cell(page, "Nogales")).toBeVisible({ timeout: 20_000 });
 
     // Running again asks nothing: the tab kept what it was run with.
-    await page.getByRole("button", { name: "Ejecutar", exact: true }).click();
+    await page.getByRole("button", { name: "Ejecutar sentencia", exact: true }).click();
     await expect(dialog(page)).toHaveCount(0);
     await expect(cell(page, "Nogales")).toBeVisible({ timeout: 20_000 });
 
     // Changing them is the button's job, since nothing else asks any more.
-    await page.getByRole("button", { name: "Variables", exact: true }).click();
+    // In the run toolbar's «Más» since #691.
+    await page.getByRole("button", { name: /^Más:/ }).click();
+    await page.getByRole("menuitem", { name: "Variables", exact: true }).click();
     await expect(dialog(page)).toBeVisible();
     await dialog(page).getByLabel(":nombre").fill("Cd. Obregón");
     await dialog(page).getByRole("button", { name: "Ejecutar" }).click();
@@ -72,6 +74,8 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
 
     await expect(cell(page, "Nogales")).toBeVisible({ timeout: 20_000 });
     await expect(dialog(page)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Variables", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: /^Más:/ }).click();
+    await expect(page.getByRole("menuitem", { name: "Variables", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
   });
 });
