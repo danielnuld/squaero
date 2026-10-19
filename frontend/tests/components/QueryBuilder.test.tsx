@@ -1,5 +1,4 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { QueryBuilder } from "../../src/components/QueryBuilder";
 import { dropdownLabels, pickOption } from "./dropdownHarness";
@@ -46,9 +45,14 @@ function installBridge() {
         ),
       );
     }
+    if (req.method === "query.run") {
+      runs.push(req.params as { sql: string; limit?: number });
+      return ok(rs([{ name: "id", type: "int" }], [["1"], ["2"]]));
+    }
     return { jsonrpc: "2.0", id: req.id, result: {} };
   };
 }
+const runs: { sql: string; limit?: number }[] = [];
 
 /** A listing with `n` tables followed by the views, the order every driver
     returns (ORDER BY type, name) — so a truncating walk loses the views first. */
@@ -70,15 +74,16 @@ function installBigBridge(n: number) {
   };
 }
 
-function mount(onRun = vi.fn()) {
+function mount(onRun = vi.fn(), onOpen = vi.fn()) {
   host = document.createElement("div");
   document.body.appendChild(host);
-  createRoot((d) => {
-    dispose = d;
-    render(() => <QueryBuilder connId="c1" engine="mysql" onRun={onRun} onClose={() => {}} />, host!);
-  });
+  // render's own disposer: it makes a root of its own, which a surrounding
+  // createRoot would not take down (its debounced preview would fire later).
+  dispose = render(() => <QueryBuilder connId="c1" engine="mysql" onRun={onRun} onOpen={onOpen} onClose={() => {}} />, host!);
   return onRun;
 }
+const barButton = (text: string) =>
+  [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === text)!;
 
 const preview = () => host!.querySelector(".qb-preview")?.textContent ?? "";
 
@@ -125,6 +130,39 @@ describe("QueryBuilder", () => {
     expect(opts).toContain("testdb.t299");
     expect(opts).toContain("testdb.v_last");
     expect(host!.textContent).not.toContain("Mostrando los primeros");
+  });
+
+  it("previews the rows a moment after the form settles, capped", async () => {
+    vi.useFakeTimers();
+    try {
+      installBridge();
+      mount();
+      await vi.advanceTimersByTimeAsync(0);
+      const before = runs.length;
+      await vi.advanceTimersByTimeAsync(500);
+      expect(runs.slice(before)).toEqual([expect.objectContaining({ sql: "SELECT * FROM `testdb`.`users`;", limit: 100 })]);
+      expect(host!.querySelectorAll(".qb-grid .grid-rows [role='row']").length).toBe(2);
+      expect(host!.querySelector(".qb-output")!.textContent).toContain("2 filas");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("opens the SQL without running it, combines with OR and clears the form", async () => {
+    installBridge();
+    const onOpen = vi.fn();
+    const onRun = mount(vi.fn(), onOpen);
+    await flush();
+    barButton("Abrir en el editor").click();
+    expect(onOpen).toHaveBeenCalledWith("SELECT * FROM `testdb`.`users`;");
+    expect(onRun).not.toHaveBeenCalled();
+    host!.querySelector<HTMLInputElement>(".qb-col input")!.click();
+    expect(preview()).toBe("SELECT `id` FROM `testdb`.`users`;");
+    barButton("Limpiar formulario").click();
+    expect(preview()).toBe("SELECT * FROM `testdb`.`users`;");
+    const or = [...host!.querySelectorAll<HTMLButtonElement>("[role=radio]")].find((b) => b.textContent === "Alguna (OR)")!;
+    or.click();
+    expect(or.getAttribute("aria-checked")).toBe("true");
   });
 
   it("runs the built SQL through onRun", async () => {

@@ -6900,6 +6900,7 @@ export function App() {
                       closeTool(tt().id);
                       runFromHistory(sql);
                     }}
+                    onOpen={(sql) => openSqlInNewTab(sql, undefined, undefined, tt().connDefId)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
