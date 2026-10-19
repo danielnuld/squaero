@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { render } from "solid-js/web";
+import type { DisplayOptions } from "../../src/utils/gridDisplay";
 import { ResultGrid } from "../../src/components/ResultGrid";
 import type { ResultSet } from "../../src/utils/query";
 import type { GridStyle } from "../../src/utils/settings";
@@ -37,7 +38,7 @@ const result: ResultSet = {
   rowsAffected: 0,
 };
 
-function mount(style: GridStyle) {
+function mount(style: GridStyle, extra: { display?: DisplayOptions; headerTypes?: boolean } = {}) {
   host = document.createElement("div");
   document.body.appendChild(host);
   const [gridStyle, setGridStyle] = createSignal<GridStyle>(style);
@@ -51,6 +52,8 @@ function mount(style: GridStyle) {
           error={null}
           gridStyle={gridStyle()}
           keyColumns={["id"]}
+          display={extra.display}
+          headerTypes={extra.headerTypes}
         />
       ),
       host!,
@@ -117,5 +120,28 @@ describe("grid styles", () => {
     expect(key.querySelector("svg")).not.toBeNull();
     expect(key.textContent).not.toContain("🔑");
     expect(key.querySelector(".visually-hidden")!.textContent).toBeTruthy();
+  });
+});
+
+describe("grid display settings (Ajustes › Rejilla)", () => {
+  it("shows numbers the regional way when chosen, keeping the raw value in the tooltip", () => {
+    mount("registro", { display: { numbers: "regional", locale: "es" } });
+    expect(cell(0, 2).textContent).toBe("1.250,00");
+    expect(cell(0, 2).title).toBe("1250.00");
+    expect(cell(0, 0).textContent).toBe("1");
+  });
+
+  it("writes NULL as the chosen text", () => {
+    mount("registro", { display: { nullText: "(nulo)" } });
+    expect(cell(1, 2).textContent).toBe("(nulo)");
+  });
+
+  it("drops the type line under the column names when asked", () => {
+    mount("registro");
+    expect(host!.querySelectorAll(".col-type").length).toBe(4);
+    dispose?.();
+    host?.remove();
+    mount("registro", { headerTypes: false });
+    expect(host!.querySelector(".col-type")).toBeNull();
   });
 });

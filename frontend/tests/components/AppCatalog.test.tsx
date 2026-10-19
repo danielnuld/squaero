@@ -37,7 +37,10 @@ beforeEach(() => {
           }
         : { columns: [{ name: "name", type: "text" }], rows: [["main"]], rowsAffected: 0, truncated: false };
     } else if (req.method === "query.run") {
-      result = { columns: [], rows: [], rowsAffected: 0, truncated: false };
+      result =
+        p.sql === "SELECT n"
+          ? { columns: [{ name: "n", type: "float" }, { name: "x", type: "text" }], rows: [["1250.5", null]], rowsAffected: 0, truncated: false }
+          : { columns: [], rows: [], rowsAffected: 0, truncated: false };
     }
     return { jsonrpc: "2.0", id: req.id, result };
   };
@@ -133,5 +136,32 @@ describe("App — catalog for completion (A-06)", () => {
     await settle();
     const item = [...host.querySelectorAll(".cmdk-item")].find((i) => i.textContent?.includes("clientes"))!;
     expect(item.querySelector(".cmdk-item-hint")!.textContent).toBe("tabla · main");
+  });
+
+  it("draws the grid with the Rejilla settings: regional numbers, NULL text, no type line", async () => {
+    localStorage.setItem(
+      "quaero.settings",
+      JSON.stringify({ numberFormat: "regional", nullText: "(nulo)", headerTypes: false }),
+    );
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <App />, host!);
+    });
+    (host.querySelector(".connbar-add") as HTMLElement).click();
+    (host.querySelector(".connsearch-hit") as HTMLElement).click();
+    await settle();
+    openQueryTab(host);
+    await settle();
+    const view = EditorView.findFromDOM(host)!;
+    view.dispatch({ changes: { from: 0, insert: "SELECT n" } });
+    (host.querySelector(".editor-run-main") as HTMLElement).click();
+    await settle();
+    const cell = (c: number) => host!.querySelector<HTMLElement>(`[data-cell="0-${c}"]`)!;
+    expect(cell(0).textContent).toBe("1.250,5");
+    expect(cell(0).title).toBe("1250.5");
+    expect(cell(1).textContent).toBe("(nulo)");
+    expect(host.querySelector(".col-type")).toBeNull();
   });
 });

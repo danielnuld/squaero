@@ -373,6 +373,7 @@ import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
 import { Icon } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
+import type { DisplayOptions } from "./utils/gridDisplay";
 import { currentOs, orderActions } from "./utils/dialog";
 import { ABOUT_LINKS, APP_VERSION, DOCS_URL } from "./utils/version";
 import {
@@ -849,6 +850,12 @@ export function App() {
     loadShortcutOverrides(),
   );
   const shortcuts = createMemo(() => effectiveShortcuts(shortcutOverrides()));
+  /** How grid values read (Ajustes › Rejilla), for every grid and the row detail. */
+  const gridDisplay = (): DisplayOptions => ({
+    numbers: settings().numberFormat,
+    nullText: settings().nullText,
+    locale: locale(),
+  });
   /** An action's binding as the user reads it, or undefined when it has none. */
   const shortcutKeys = (id: ActionId): string | undefined => {
     return keysOf(id, shortcuts(), currentOs()) || undefined;
@@ -6271,6 +6278,8 @@ export function App() {
                                 error={null}
                                 rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                                 gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                                 keyColumns={c().key}
                                 cellType={(r, ci) =>
                                   !identical() && c().view.changed[r]?.has(ci) ? "text" : undefined
@@ -6289,6 +6298,8 @@ export function App() {
                             error={null}
                             rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                             keyColumns={p().pk}
                           />
                         )}
@@ -6328,6 +6339,8 @@ export function App() {
                             }
                             rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                             gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                             emptyState={
                               <EmptyState
                                 recentTables={recentTables()}
@@ -6418,6 +6431,8 @@ export function App() {
                               error={null}
                               rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
                               gridStyle={settings().gridStyle}
+                            display={gridDisplay()}
+                            headerTypes={settings().headerTypes}
                               cellType={(r, c) => (c >= 2 ? tv().types[r] : undefined)}
                             />
                             <Show when={tv().capped}>
@@ -6498,6 +6513,7 @@ export function App() {
                     <Show when={detailData()}>
                       {(d) => (
                         <RowDetail
+                          display={gridDisplay()}
                           columns={d().res.columns}
                           row={d().res.rows[d().idx]}
                           rowIndex={d().idx}
