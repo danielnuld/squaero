@@ -2125,6 +2125,56 @@ static void set_theme_handler(const char *id, const char *req, void *arg)
     webview_return(w, id, 0, "null");
 }
 
+#if defined(__APPLE__)
+// Bridge: window.quaeroWindow(command, ...args) — titlebar.h lists them; the
+// macOS share (issue #688): the frame, the traffic lights' commands, dragging.
+// "snap", "system-menu" and "backdrop" are Windows' and do nothing here.
+static void window_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    void *win = webview_get_window(w);
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *name = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    const quaero_window_command cmd =
+        quaero_window_command_parse(cJSON_IsString(name) ? name->valuestring : nullptr);
+    switch (cmd) {
+    case QUAERO_WINDOW_FRAMELESS:
+        mac_set_frameless(win, cJSON_IsTrue(cJSON_GetArrayItem(args, 1)));
+        break;
+    case QUAERO_WINDOW_MINIMIZE:
+        mac_window_minimize(win);
+        break;
+    case QUAERO_WINDOW_MAXIMIZE:
+        mac_window_zoom(win);
+        break;
+    case QUAERO_WINDOW_CLOSE:
+        mac_window_close(win);
+        break;
+    case QUAERO_WINDOW_DRAG:
+        mac_window_drag(win);
+        break;
+    case QUAERO_WINDOW_DOUBLE_CLICK:
+        mac_window_double_click(win);
+        break;
+    case QUAERO_WINDOW_STATE:
+    case QUAERO_WINDOW_SYSTEM_MENU:
+    case QUAERO_WINDOW_SNAP:
+    case QUAERO_WINDOW_BACKDROP:
+        break;
+    case QUAERO_WINDOW_UNKNOWN:
+    default:
+        cJSON_Delete(args);
+        webview_return(w, id, 1, "\"unknown window command\"");
+        return;
+    }
+    cJSON_Delete(args);
+    char buf[128];
+    quaero_window_state_json("macos", mac_is_frameless(win) ? 1 : 0, mac_is_zoomed(win) ? 1 : 0,
+                             "none", buf, sizeof buf);
+    webview_return(w, id, 0, buf);
+}
+#endif
+
 #if defined(_WIN32) || defined(__linux__)
 // Bridge: window.quaeroSetMenu(json) — the native menu bar (issue #686), built
 // from the model the UI sends (menu_model.h); "[]" takes the bar away. A model

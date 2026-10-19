@@ -30,4 +30,21 @@ void mac_harden_webview(void *webview, bool (*allow)(const char *uri));
 // Title bar (window appearance) following the UI theme (issue #685).
 void mac_set_dark(void *window, bool dark);
 
+// The app's own title bar (issue #688): a transparent, full-size-content
+// title bar — the traffic lights stay, over the UI's bar — or the system's.
+// The choice is remembered in the user defaults; mac_setup_app applies it.
+void mac_set_frameless(void *window, bool on);
+bool mac_is_frameless(void *window);
+bool mac_is_zoomed(void *window);
+
+// The window commands the UI's bar sends (titlebar.h): minimize, zoom,
+// close, drag (the press in progress moves the window) and the title bar
+// double click, which does what System Settings says (zoom, minimize or
+// nothing).
+void mac_window_minimize(void *window);
+void mac_window_zoom(void *window);
+void mac_window_close(void *window);
+void mac_window_drag(void *window);
+void mac_window_double_click(void *window);
+
 #endif
