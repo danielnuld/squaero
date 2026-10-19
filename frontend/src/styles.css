@@ -119,10 +119,17 @@
   --h-sm: 24px;
   --h-md: 28px;
 
-  /* Alturas de banda: filtro / pestañas y acciones / herramientas. */
+  /* Alturas de banda: filtro / pestañas y acciones / herramientas / cabecera
+     de diálogo o panel. */
   --band-sm: 28px;
   --band-md: 32px;
   --band-lg: 40px;
+  --band-xl: 48px;
+
+  /* Densidad (issue #682): estas escalas son las de «Cómoda». «Compacta» las
+     baja un escalón y App las escribe en línea sobre la raíz
+     (typography.ts, DENSITY_SCALES): ninguna regla decide su propia
+     compacidad, todas leen las mismas variables. */
 
   /* Movimiento (issue #386). La app tenía UNA transición en 105 KB de CSS, y
      una sola es indistinguible de un descuido. La decisión, escrita: esto es una

@@ -16,6 +16,7 @@ import {
   sanitizeFontFamily,
   scalePx,
   treeRowHeight,
+  DENSITY_SCALES,
   typeScale,
   typographyVars,
   UI_FALLBACK,
@@ -92,12 +93,46 @@ describe("row heights follow the zoom and the font", () => {
     expect(treeRowHeight(150)).toBe(36);
     expect(typographyVars({ ...DEFAULT_SETTINGS, zoom: 150 })["--h-sm"]).toBe("36px");
   });
+  it("the tree row and --h-sm follow the density (#682)", () => {
+    expect(treeRowHeight(100, "compact")).toBe(20);
+    expect(treeRowHeight(150, "compact")).toBe(30);
+    const compact = typographyVars({ ...DEFAULT_SETTINGS, density: "compact" });
+    expect(compact["--h-sm"]).toBe(`${treeRowHeight(100, "compact")}px`);
+  });
   it("the grid scale is the font over 12px times the zoom", () => {
     expect(gridScale({ gridFontSize: 12, zoom: 100 })).toBe(1);
     expect(gridScale({ gridFontSize: 18, zoom: 100 })).toBe(1.5);
     expect(gridScale({ gridFontSize: 12, zoom: 200 })).toBe(2);
-    expect(rowHeightFor("registro", "normal", gridScale({ gridFontSize: 12, zoom: 200 }))).toBe(56);
+    expect(rowHeightFor("registro", "comfortable", gridScale({ gridFontSize: 12, zoom: 200 }))).toBe(56);
     expect(rowHeightFor("hoja", "compact", gridScale({ gridFontSize: 15, zoom: 100 }))).toBe(25);
+  });
+});
+
+describe("density scales (#682)", () => {
+  const steps = (d: "comfortable" | "compact") => Object.values(DENSITY_SCALES[d]);
+  it("comfortable is exactly what styles.css declares", () => {
+    for (const [name, px] of Object.entries(DENSITY_SCALES.comfortable)) {
+      expect(CSS, name).toContain(`  ${name}: ${px}px;`);
+    }
+  });
+  it("compact covers the same tokens and is never larger, never collapsing", () => {
+    expect(Object.keys(DENSITY_SCALES.compact)).toEqual(Object.keys(DENSITY_SCALES.comfortable));
+    const c = steps("compact");
+    steps("comfortable").forEach((v, i) => {
+      expect(c[i]).toBeLessThanOrEqual(v);
+      expect(c[i]).toBeGreaterThan(0);
+    });
+  });
+  it("compact grid rows are the REDESIGN's 28/24", () => {
+    expect(rowHeightFor("registro", "comfortable")).toBe(28);
+    expect(rowHeightFor("registro", "compact")).toBe(24);
+  });
+  it("typographyVars writes the density's scale under the zoom", () => {
+    const v = typographyVars({ ...DEFAULT_SETTINGS, density: "compact", zoom: 200 });
+    expect(v["--band-lg"]).toBe(`${DENSITY_SCALES.compact["--band-lg"] * 2}px`);
+    expect(v["--sp-3"]).toBe(`${DENSITY_SCALES.compact["--sp-3"] * 2}px`);
+    // Density never touches the type scale: compact is less air, not smaller text.
+    expect(v["--fs-base"]).toBe(typographyVars({ ...DEFAULT_SETTINGS, zoom: 200 })["--fs-base"]);
   });
 });
 

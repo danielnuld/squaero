@@ -120,10 +120,9 @@ const checkbox = (label: string) =>
 
 describe("SettingsPanel", () => {
   it("marks the active theme and density chips", () => {
-    mount({ theme: "dark", settings: { ...DEFAULT_SETTINGS, gridDensity: "compact" } });
+    mount({ theme: "dark", settings: { ...DEFAULT_SETTINGS, density: "compact" } });
     goto("Apariencia");
     expect(activeChips()).toContain("Oscuro");
-    goto("Rejilla");
     expect(activeChips()).toContain("Compacta");
   });
 
@@ -197,12 +196,13 @@ describe("SettingsPanel", () => {
     expect(onSetThemeId).toHaveBeenCalledWith("blue");
   });
 
-  it("patches grid density and clamps the slow threshold", () => {
+  it("patches the density from Appearance and clamps the slow threshold", () => {
     const onSetSettings = vi.fn();
     mount({ onSetSettings });
-    goto("Rejilla");
+    goto("Apariencia");
     clickChip("Compacta");
-    expect(onSetSettings).toHaveBeenCalledWith({ gridDensity: "compact" });
+    expect(onSetSettings).toHaveBeenCalledWith({ density: "compact" });
+    goto("Rejilla");
     // slow threshold: a negative value clamps to 0
     const numbers = queryNumbers();
     numbers[0].value = "-50";
@@ -360,7 +360,7 @@ describe("SettingsPanel — categories and search", () => {
     mount({ onSetSettings, onSetTheme, onSetThemeId, onSetHistoryLimit, theme: "dark", themeId: "terminal" });
     goto("Apariencia");
     (host!.querySelector(".settings-reset") as HTMLButtonElement).click();
-    expect(onSetSettings).toHaveBeenCalledWith({ zoom: 100, uiFont: "", uiFontSize: 12 });
+    expect(onSetSettings).toHaveBeenCalledWith({ density: "comfortable", zoom: 100, uiFont: "", uiFontSize: 12 });
     expect(onSetTheme).toHaveBeenCalledWith("system");
     expect(onSetThemeId).toHaveBeenCalledWith("nativo");
     goto("Consultas");
