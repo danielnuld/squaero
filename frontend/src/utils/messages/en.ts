@@ -319,14 +319,17 @@ export const en: Record<string, string> = {
   "editor.nav.unsupported": "This engine cannot open routine definitions.",
 
   // editor empty state (issue #178)
-  "empty.lead": "Run a query to see results.",
+  "empty.lead": "Run a query to see results",
+  "empty.keys": "{run} runs the statement at the cursor (or the selection); {script} runs the whole script.",
+  "empty.pickSnippet": "Insert a snippet",
+  "empty.allHistory": "Show history",
+  "empty.allShortcuts": "All shortcuts",
   "empty.recentTables": "Recent tables",
   "empty.openTable": "Open {name}",
   "empty.recentQueries": "Recent queries",
   "empty.rerunNewTab": "Run again in a new tab",
   "empty.insertSnippet": "Insert into the editor",
   "empty.shortcuts": "Shortcuts",
-  "empty.hint": "Open a table from the tree or write SQL and press {keys}.",
 
   // tool panels — shared chrome
   "panel.refresh": "Refresh",
