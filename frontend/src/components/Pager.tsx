@@ -5,7 +5,8 @@ import { Icon } from "./icons";
 
 // The footer under a table's rows (issues #688, A-20, R-38): which rows are on
 // screen, «Contar total» to learn of how many, and first/previous/next/last.
-// Presentational: the workspace runs the queries.
+// A query's result pages with the same footer, minus the jumps that need an
+// offset of their own (issue #693). Presentational: the workspace runs the queries.
 export function Pager(props: {
   view: PagerView;
   total: number | null;
@@ -15,10 +16,11 @@ export function Pager(props: {
   onCount?: () => void;
   /** Unsaved edits hold the page still (#134). */
   paused: boolean;
-  onFirst: () => void;
+  /** Absent (a query's pager, issue #693) → no first/last jumps. */
+  onFirst?: () => void;
   onPrev: () => void;
   onNext: () => void;
-  onLast: () => void;
+  onLast?: () => void;
 }) {
   const range = () =>
     props.total === null
@@ -37,10 +39,12 @@ export function Pager(props: {
       </Show>
       <span class="toolbar-spacer" />
       <span class="seg" role="group" aria-label={t("pager.pages")}>
-        <button class="seg-btn" aria-label={t("pager.first")} title={t("pager.first")} disabled={!props.view.canFirst} onClick={() => props.onFirst()}>
-          <Icon name="chevron-left" size={12} />
-          <Icon name="chevron-left" size={12} />
-        </button>
+        <Show when={props.onFirst}>
+          <button class="seg-btn" aria-label={t("pager.first")} title={t("pager.first")} disabled={!props.view.canFirst} onClick={() => props.onFirst!()}>
+            <Icon name="chevron-left" size={12} />
+            <Icon name="chevron-left" size={12} />
+          </button>
+        </Show>
         <button class="seg-btn" aria-label={t("pager.prev")} title={t("pager.prev")} disabled={!props.view.canPrev} onClick={() => props.onPrev()}>
           <Icon name="chevron-left" size={12} />
         </button>
@@ -52,16 +56,18 @@ export function Pager(props: {
         <button class="seg-btn" aria-label={t("pager.next")} title={t("pager.next")} disabled={!props.view.canNext} onClick={() => props.onNext()}>
           <Icon name="chevron-right" size={12} />
         </button>
-        <button
-          class="seg-btn"
-          aria-label={t("pager.last")}
-          title={props.view.pages === null ? t("pager.lastNeedsCount") : t("pager.last")}
-          disabled={!props.view.canLast}
-          onClick={() => props.onLast()}
-        >
-          <Icon name="chevron-right" size={12} />
-          <Icon name="chevron-right" size={12} />
-        </button>
+        <Show when={props.onLast}>
+          <button
+            class="seg-btn"
+            aria-label={t("pager.last")}
+            title={props.view.pages === null ? t("pager.lastNeedsCount") : t("pager.last")}
+            disabled={!props.view.canLast}
+            onClick={() => props.onLast!()}
+          >
+            <Icon name="chevron-right" size={12} />
+            <Icon name="chevron-right" size={12} />
+          </button>
+        </Show>
       </span>
     </div>
   );

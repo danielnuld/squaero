@@ -2335,21 +2335,9 @@ body {
 
 /* The three groups the bar reads as: where you are, where in the rows you are,
    and what the run cost. The gap inside a group is tighter than between them. */
-.status-sep {
-  color: var(--text-dim);
-  opacity: 0.6;
-}
-
-.status-object,
-.status-range {
+.status-object {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-}
-
-.status-page {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
 }
 
 /* Compact controls at the right of the status bar (theme toggle, help). */
@@ -2460,6 +2448,48 @@ kbd {
 
 .status-spacer {
   flex: 1;
+}
+
+/* The bar's context (issue #693): the connection's own colour on the dot, its
+   engine dimmed after the name, and neutral chips for protection and an open
+   transaction — red is for errors, not for a connection that is merely careful. */
+.statusbar .conn-dot.on {
+  background: var(--conn-accent, var(--accent));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--conn-accent, var(--accent)) 25%, transparent);
+}
+
+.statusbar .conn-dot.lost {
+  background: var(--error);
+}
+
+.status-conn-name {
+  color: var(--text);
+}
+
+.status-dim {
+  color: var(--text-dim);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 18px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--bg-alt);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+button.status-chip:not(:disabled) {
+  cursor: pointer;
+}
+
+button.status-chip:not(:disabled):hover {
+  color: var(--text);
 }
 
 /* The connection form as one page of sections (issue #531). The fields used to

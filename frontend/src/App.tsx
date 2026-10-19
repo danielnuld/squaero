@@ -314,6 +314,7 @@ import { EditorToolbar } from "./components/EditorToolbar";
 import { RunStatus } from "./components/RunStatus";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
+import type { StatusTabKind } from "./utils/statusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
 import { BrandWordmark } from "./components/Brand";
@@ -3037,6 +3038,14 @@ export function App() {
   /** A tab that shows a table's rows rather than a query the user wrote. Mongo
       is excluded: its preview is find({}), not a SELECT, so the panel would be
       offering something it cannot build. */
+  // What the status bar's facts belong to (issue #693).
+  const [editorCursor, setEditorCursor] = createSignal<{ line: number; col: number } | null>(null);
+  const statusKind = (): StatusTabKind => {
+    const tab = current();
+    if (!tab) return "none";
+    if (tab.kind === "tool") return "tool";
+    return isDataTab(tab.id) ? "data" : "query";
+  };
   const isDataTab = (id: number): boolean => {
     const preview = results[id]?.preview;
     return !!preview && engineFamily(preview.engine) !== "mongodb";
@@ -5062,6 +5071,7 @@ export function App() {
                   </EditorToolbar>
                   <SqlEditor
                     activeId={tab().id}
+                    onCursor={setEditorCursor}
                     sqlFor={sqlOfTab}
                     onChange={onEditorChange}
                     onRun={runEditor}
@@ -5444,11 +5454,12 @@ export function App() {
                       )}
                     </Show>
                   </div>
-                  {/* A table's pager lives under its rows (#688); a query's
-                      stays in the status bar until #693 moves it. */}
+                  {/* The pager lives under the rows (#688); a paged query's
+                      moved here from the status bar (#693), without the
+                      first/last jumps a table's offset query gives. */}
                   <Show
                     when={
-                      isDataTab(tab().id) &&
+                      (isDataTab(tab().id) || !!currentResult().pageSql) &&
                       !comparison() &&
                       !shownPin() &&
                       (currentResult().result?.columns.length ?? 0) > 0
@@ -5460,13 +5471,17 @@ export function App() {
                       counting={counting() === tab().id}
                       onCount={dataCountSql(tab().id) ? () => void countDataTotal(tab().id) : undefined}
                       paused={currentEdit().editing}
-                      onFirst={() => goToDataOffset(tab().id, 0)}
+                      onFirst={isDataTab(tab().id) ? () => goToDataOffset(tab().id, 0) : undefined}
                       onPrev={() => pageBy(-1)}
                       onNext={() => pageBy(1)}
-                      onLast={() => {
-                        const last = dataPager(tab().id).lastOffset;
-                        if (last !== null) goToDataOffset(tab().id, last);
-                      }}
+                      onLast={
+                        isDataTab(tab().id)
+                          ? () => {
+                              const last = dataPager(tab().id).lastOffset;
+                              if (last !== null) goToDataOffset(tab().id, last);
+                            }
+                          : undefined
+                      }
                     />
                   </Show>
                 </div>
@@ -6017,10 +6032,31 @@ export function App() {
       </Show>
 
       <StatusBar
-        connection={active()?.name ?? null}
+        connection={
+          tabConn(current())
+            ? {
+                name: tabConn(current())!.name,
+                engine: driverSchema(tabConn(current())!.driver)?.label ?? tabConn(current())!.driver,
+                color: tabConn(current())!.color,
+                db: tabConn(current())!.defId === focusedDefId() ? activeDb() : null,
+                lost: tabConn(current())!.lost,
+              }
+            : null
+        }
+        safeMode={tabSafeMode(current())}
+        txStatements={txOpenCount(tabConn(current()))}
+        onTxAction={
+          current()?.kind === "query"
+            ? (e) =>
+                openContextMenu(e, [
+                  { label: t("tx.commit"), action: () => void endTabTx("commit") },
+                  { label: t("tx.rollback"), danger: true, action: () => void endTabTx("rollback") },
+                ])
+            : undefined
+        }
+        kind={statusKind()}
         rowCount={currentResult().result?.rows.length ?? null}
         markedCount={markedRows().length}
-        txStatements={txOpenCount(tabConn(current()))}
         summary={cellSummary()}
         truncated={currentResult().result?.truncated ?? false}
         elapsedMs={currentResult().elapsedMs}
@@ -6028,30 +6064,9 @@ export function App() {
         ranScope={currentResult().ranScope ?? null}
         object={sourceLabel(currentResult().source)}
         columnCount={currentResult().result?.columns.length ?? null}
-        /* The pager only exists for a result that was fetched page by page, and
-           it holds still while there are unsaved cell edits: paging away would
-           drop them (issue #134). */
-        page={
-          currentResult().pageSql &&
-          !isDataTab(current()?.id ?? -1) &&
-          (currentResult().result?.columns.length ?? 0) > 0
-            ? {
-                from:
-                  (currentResult().offset ?? 0) +
-                  ((currentResult().result?.rows.length ?? 0) > 0 ? 1 : 0),
-                to: (currentResult().offset ?? 0) + (currentResult().result?.rows.length ?? 0),
-                canPrev: (currentResult().offset ?? 0) > 0 && !currentEdit().editing,
-                canNext: !!currentResult().result?.truncated && !currentEdit().editing,
-                paused: currentEdit().editing,
-              }
-            : null
-        }
-        onPage={pageBy}
+        cursor={editorCursor()}
         zoom={settings().zoom}
         onResetZoom={() => patchSettings({ zoom: 100 })}
-        theme={theme()}
-        onToggleTheme={toggleTheme}
-        onShowHelp={() => showTool("help", t("status.shortcuts"), { key: "help" })}
       />
 
       <CommandPalette

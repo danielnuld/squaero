@@ -1384,6 +1384,10 @@ export const es: Record<string, string> = {
   "lang.en": "English",
 
   // status bar
+  "status.connLost": "{name} (desconectada)",
+  "status.safeTitle": "Conexión protegida. Se cambia al editar la conexión, en «Protección».",
+  "status.cursor": "Lín {line}, col {col}",
+  "status.cursorTitle": "Posición del cursor en el editor",
   "status.noConnection": "Sin conexión",
   "status.rowsOne": "{n} fila",
   "status.rowsOther": "{n} filas",
