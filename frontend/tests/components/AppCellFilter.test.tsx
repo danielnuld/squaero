@@ -115,6 +115,8 @@ describe("App — filter by the cell's value (issue #593)", () => {
   it("filters the table at the server by the cell's column and value", async () => {
     await openTable();
     rightClick("0-1"); // cliente = ana
+    // The conditions live in their own submenu (audit A-14).
+    click(menuItem("Filtrar por este valor"));
     expect(menuItems()).toContain("Filtrar: cliente ≠ ana");
     sqls = [];
     click(menuItem("Filtrar: cliente = ana"));
@@ -122,13 +124,15 @@ describe("App — filter by the cell's value (issue #593)", () => {
     expect(sqls.some((s) => s.includes("WHERE `cliente` = 'ana'"))).toBe(true);
     // And, now that something is filtered, the menu offers the way back.
     rightClick("0-1");
+    click(menuItem("Filtrar por este valor"));
     expect(menuItem("Quitar filtros y orden")).toBeTruthy();
   });
 
   it("offers only the NULL tests on a NULL cell", async () => {
     await openTable();
     rightClick("2-1");
-    const filters = menuItems().filter((m) => m.startsWith("Filtrar"));
+    click(menuItem("Filtrar por este valor"));
+    const filters = menuItems().filter((m) => m.startsWith("Filtrar:"));
     expect(filters).toEqual(["Filtrar: cliente es nulo", "Filtrar: cliente no es nulo"]);
   });
 });
