@@ -10,6 +10,7 @@ import { parseTreeRows, schemaDescribe, schemaTree } from "../utils/schema";
 import { describeColumnTypes } from "../utils/edit";
 import { cancelQuery } from "../utils/transport";
 import { countText } from "../utils/confirmText";
+import { keyLabel } from "../utils/shortcuts";
 import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
@@ -363,7 +364,7 @@ export function DataSearchPanel(props: {
       <button type="submit" class="btn btn-primary" disabled={busy() || chosen().length === 0 || !props.connId}>
         {countText("ds.start", chosen().length)}
       </button>
-      <span class="help">{t(props.onSearch ? "ds.hintDocked" : "ds.hint")}</span>
+      <span class="help">{t(props.onSearch ? "ds.hintDocked" : "ds.hint", { keys: keyLabel("Enter") })}</span>
     </form>
   );
 

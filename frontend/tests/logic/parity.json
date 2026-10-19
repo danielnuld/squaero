@@ -897,11 +897,33 @@
       "db": null,
       "expected": {
         "supported": true,
-        "listSql": "SELECT n.nspname AS schema, p.proname AS name, CASE p.prokind WHEN 'p' THEN 'PROCEDURE' WHEN 'a' THEN 'AGGREGATE' WHEN 'w' THEN 'WINDOW' ELSE 'FUNCTION' END AS type, pg_get_function_result(p.oid) AS returns FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, p.proname",
+        "listSql": "SELECT n.nspname AS schema, p.proname AS name, CASE p.prokind WHEN 'p' THEN 'PROCEDURE' WHEN 'a' THEN 'AGGREGATE' WHEN 'w' THEN 'WINDOW' ELSE 'FUNCTION' END AS type, pg_get_function_result(p.oid) AS returns, pg_get_function_arguments(p.oid) AS arguments, l.lanname AS language, CASE p.provolatile WHEN 'i' THEN 'IMMUTABLE' WHEN 's' THEN 'STABLE' ELSE 'VOLATILE' END AS volatility, pg_get_userbyid(p.proowner) AS owner FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, p.proname",
         "nameCol": "name",
         "typeCol": "type",
         "schemaCol": "schema",
-        "idCol": null
+        "idCol": null,
+        "metaCols": [
+          {
+            "col": "returns",
+            "label": "explorer.meta.returns"
+          },
+          {
+            "col": "arguments",
+            "label": "explorer.meta.arguments"
+          },
+          {
+            "col": "language",
+            "label": "explorer.meta.language"
+          },
+          {
+            "col": "volatility",
+            "label": "explorer.meta.volatility"
+          },
+          {
+            "col": "owner",
+            "label": "explorer.meta.owner"
+          }
+        ]
       }
     },
     {
@@ -913,7 +935,8 @@
         "nameCol": "name",
         "typeCol": "type",
         "schemaCol": null,
-        "idCol": "procid"
+        "idCol": "procid",
+        "metaCols": []
       }
     },
     {
@@ -925,7 +948,8 @@
         "nameCol": null,
         "typeCol": null,
         "schemaCol": null,
-        "idCol": null
+        "idCol": null,
+        "metaCols": []
       }
     }
   ]
