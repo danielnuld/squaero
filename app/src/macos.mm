@@ -55,6 +55,75 @@ void mac_set_dark(void *window, bool dark)
     }
 }
 
+// --- The app's own title bar (issue #688) --------------------------------------
+
+static NSString *const kCustomTitleBarKey = @"QuaeroCustomTitleBar";
+
+static void apply_frameless(NSWindow *win, bool on)
+{
+    if (on) {
+        win.styleMask |= NSWindowStyleMaskFullSizeContentView;
+    } else {
+        win.styleMask &= ~NSWindowStyleMaskFullSizeContentView;
+    }
+    win.titlebarAppearsTransparent = on ? YES : NO;
+    win.titleVisibility = on ? NSWindowTitleHidden : NSWindowTitleVisible;
+}
+
+void mac_set_frameless(void *window, bool on)
+{
+    @autoreleasepool {
+        [[NSUserDefaults standardUserDefaults] setBool:on ? YES : NO forKey:kCustomTitleBarKey];
+        apply_frameless((__bridge NSWindow *)window, on);
+    }
+}
+
+bool mac_is_frameless(void *window)
+{
+    NSWindow *win = (__bridge NSWindow *)window;
+    return (win.styleMask & NSWindowStyleMaskFullSizeContentView) != 0;
+}
+
+bool mac_is_zoomed(void *window)
+{
+    return [(__bridge NSWindow *)window isZoomed] == YES;
+}
+
+void mac_window_minimize(void *window)
+{
+    [(__bridge NSWindow *)window miniaturize:nil];
+}
+
+void mac_window_zoom(void *window)
+{
+    [(__bridge NSWindow *)window zoom:nil];
+}
+
+void mac_window_close(void *window)
+{
+    [(__bridge NSWindow *)window performClose:nil];
+}
+
+void mac_window_drag(void *window)
+{
+    // The binding call arrives while the press that sent it is the current
+    // event (as Tauri's start_dragging relies on); anything else is ignored.
+    NSEvent *e = [NSApp currentEvent];
+    if (e != nil && (e.type == NSEventTypeLeftMouseDown || e.type == NSEventTypeLeftMouseDragged)) {
+        [(__bridge NSWindow *)window performWindowDragWithEvent:e];
+    }
+}
+
+void mac_window_double_click(void *window)
+{
+    NSString *action = [[NSUserDefaults standardUserDefaults] stringForKey:@"AppleActionOnDoubleClick"];
+    if ([action isEqualToString:@"Minimize"]) {
+        mac_window_minimize(window);
+    } else if (![action isEqualToString:@"None"]) {
+        mac_window_zoom(window);
+    }
+}
+
 std::string mac_write_ui(const char *html)
 {
     @autoreleasepool {
@@ -161,6 +230,11 @@ void mac_setup_app(void *window)
             }
         }
         [win setFrameAutosaveName:kFrameName];
+        // The app's own title bar unless the user went back to the system's
+        // (issue #688); the UI confirms its setting once it has booted.
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        apply_frameless(win, [defaults objectForKey:kCustomTitleBarKey] == nil ||
+                                 [defaults boolForKey:kCustomTitleBarKey]);
         [NSApp activateIgnoringOtherApps:YES];
     }
 }
