@@ -348,7 +348,16 @@ import { StatusBar } from "./components/StatusBar";
 import { Welcome, ConnectedHome } from "./components/Welcome";
 import { loadUsage, recentConnections, saveUsage, touchConnection } from "./utils/recentConnections";
 import { Notifications } from "./components/Notifications";
-import { loadNotes, pushNote, saveNotes, unreadCount, type NoteLevel, type NoteLog } from "./utils/notifications";
+import {
+  loadNotes,
+  pushNote,
+  saveNotes,
+  unreadCount,
+  type Note,
+  type NoteAction,
+  type NoteLevel,
+  type NoteLog,
+} from "./utils/notifications";
 import type { StatusTabKind } from "./utils/statusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
@@ -2236,7 +2245,13 @@ export function App() {
     } catch (err) {
       const f = describeError(err);
       const detail = f.detail ?? f.title;
-      setConnError(t("conn.failed", { name: c.name, detail }));
+      const text = t("conn.failed", { name: c.name, detail });
+      notify("error", text, {
+        title: t("notes.connFailedTitle", { name: c.name }),
+        detail,
+        action: { kind: "retry", connDefId: c.id },
+      });
+      setConnError(text);
     } finally {
       setConnectingId(null);
     }
@@ -2506,8 +2521,26 @@ export function App() {
   const showRunToast = (tabId: number, ranAt: number, elapsedMs: number, failed: boolean) => {
     if (current()?.id === tabId) return;
     const args = { time: formatClock(ranAt), duration: formatDuration(elapsedMs) };
+    const text = t(failed ? "run.failed" : "run.done", args);
+    // The history keeps which tab it was, what it gave and the way back to it.
+    const tab = tabs().tabs.find((x) => x.id === tabId);
+    const r = results[tabId];
+    const n = r?.result ? (r.result.columns.length > 0 ? r.result.rows.length : r.result.rowsAffected) : 0;
+    const summary = failed
+      ? (r?.error ?? "").split("\n")[0]
+      : t(
+          r?.result?.columns.length
+            ? n === 1 ? "run.rowsOne" : "run.rows"
+            : n === 1 ? "run.affectedOne" : "run.affected",
+          { n },
+        );
+    notify(failed ? "error" : "ok", text, {
+      title: t(failed ? "notes.runFailedTitle" : "notes.runDoneTitle", { tab: tab?.title ?? "" }),
+      detail: t("notes.runDetail", { summary, duration: args.duration }),
+      action: { kind: "result", tabId },
+    });
     // The Toast clears a success itself; an error stays until it is closed.
-    setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
+    setRunToast({ text, error: failed });
   };
   // A tool's job that ends in a tab the user has left (M14 P6), said like a
   // run's. Under a second it was a refresh caught mid-flight, not news.
@@ -3545,12 +3578,33 @@ export function App() {
   const [noteLog, setNoteLog] = createSignal<NoteLog>(loadNotes(resolveStore(), Date.now()));
   const [notesOpen, setNotesOpen] = createSignal(false);
   createEffect(on(noteLog, (l) => saveNotes(resolveStore(), l), { defer: true }));
-  const notify = (level: NoteLevel, text: string) =>
-    setNoteLog((l) => ({ ...l, notes: pushNote(l.notes, { at: Date.now(), level, text }) }));
+  // A caller that knows more than the toast's line (a title, a detail, an
+  // action) notifies FIRST: the toast's own entry then folds into it.
+  const notify = (level: NoteLevel, text: string, extra?: Pick<Note, "title" | "detail" | "action">) =>
+    setNoteLog((l) => ({ ...l, notes: pushNote(l.notes, { at: Date.now(), level, text, ...extra }) }));
+  // What was unread when the panel opened stays marked in it until «Marcar
+  // como leídas» (M14); the bell's badge clears on opening, as before.
+  const [unreadSince, setUnreadSince] = createSignal(0);
   const toggleNotes = () => {
-    if (!notesOpen()) setNoteLog((l) => ({ ...l, seenAt: Date.now() }));
+    if (!notesOpen()) {
+      setUnreadSince(noteLog().seenAt);
+      setNoteLog((l) => ({ ...l, seenAt: Date.now() }));
+    }
     setNotesOpen((o) => !o);
   };
+  const noteAction = (a: NoteAction) => {
+    setNotesOpen(false);
+    if (a.kind === "result") {
+      selectTab(a.tabId);
+      return;
+    }
+    const c = connections().find((x) => x.id === a.connDefId);
+    if (c) void onConnect(c, true);
+  };
+  const canNoteAct = (a: NoteAction) =>
+    a.kind === "result"
+      ? tabs().tabs.some((x) => x.id === a.tabId)
+      : connections().some((x) => x.id === a.connDefId);
   const logToast = <T,>(sig: () => T | null, note: (v: T) => [NoteLevel, string] | null) =>
     createEffect(
       on(sig, (v) => {
@@ -5481,6 +5535,10 @@ export function App() {
         <Show when={notesOpen()}>
           <Notifications
             notes={noteLog().notes}
+            unreadSince={unreadSince()}
+            onMarkRead={() => setUnreadSince(Date.now())}
+            onAction={noteAction}
+            canAct={canNoteAct}
             onClear={() => setNoteLog((l) => ({ ...l, notes: [] }))}
             onClose={() => setNotesOpen(false)}
           />
