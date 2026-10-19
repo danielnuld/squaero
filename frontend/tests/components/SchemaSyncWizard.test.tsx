@@ -229,6 +229,23 @@ describe("SchemaSyncWizard", () => {
     expect(runs).toContain('ALTER TABLE "users" DROP COLUMN "legacy"');
   });
 
+  it("a read-only target only gets the script: no apply button, nothing written", async () => {
+    const calls = installBridge();
+    conns[0].safeMode = "readOnly";
+    try {
+      mount();
+      expect(host!.textContent).toContain("Prod es de solo lectura: solo se genera el script");
+      await compare();
+      expect(host!.querySelector("pre")!.textContent).toContain('CREATE TABLE "orders"');
+      const foot = [...host!.querySelectorAll(".wiz-foot button")].map((b) => b.textContent);
+      expect(foot.some((l) => l?.startsWith("Aplicar"))).toBe(false);
+      expect(foot).toContain("Guardar .sql");
+      expect(calls.some((c) => c.method === "tx.begin")).toBe(false);
+    } finally {
+      delete conns[0].safeMode;
+    }
+  });
+
   it("asks for a schema when the container lists schemas instead of tables", async () => {
     treeHasType = false;
     installBridge();

@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { UserManager } from "../../src/components/UserManager";
 import { paneSize } from "../../src/utils/paneSizes";
+import { setConnGuard, setSafeModeUi } from "../../src/utils/transport";
 import { dropdownValues, pickOption } from "./dropdownHarness";
 
 // Drives the real UserManager in jsdom against a mocked bridge: it lists users,
@@ -221,6 +222,30 @@ describe("UserManager", () => {
     ).toBe(2);
   });
 
+  it("revokes only after a confirmation naming who loses what, where", async () => {
+    const calls = installBridge();
+    mount("mysql", "shop");
+    await flush();
+    [...host!.querySelectorAll<HTMLElement>(".um-user")].find((el) => el.textContent?.includes("app"))!.click();
+    await flush();
+    [...host!.querySelectorAll<HTMLLabelElement>(".um-priv")]
+      .find((l) => l.textContent?.trim().startsWith("SELECT"))!
+      .querySelector("input")!
+      .click();
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Revocar")!.click();
+    await flush();
+    const revokes = () => calls.filter((c) => (c.params.sql ?? "").startsWith("REVOKE"));
+    expect(revokes()).toHaveLength(0);
+    const dlg = document.querySelector('[role="alertdialog"]')!;
+    expect(dlg.textContent).toContain("¿Revocar permisos a app@%?");
+    expect(dlg.textContent).toContain("app@% dejará de tener SELECT sobre `shop`.*");
+    const confirm = dlg.querySelector<HTMLButtonElement>(".btn-danger")!;
+    expect(confirm.textContent).toBe("Revocar 1 permiso");
+    confirm.click();
+    await flush();
+    expect(revokes()).toHaveLength(1);
+  });
+
   it("targets an edited host in the GRANT/REVOKE", async () => {
     installBridge();
     mount("mysql", "shop");
@@ -370,6 +395,43 @@ describe("UserManager", () => {
     await flush();
     const dropped = calls.find((c) => (c.params.sql ?? "").startsWith("DROP USER"));
     expect(dropped!.params.sql).toBe("DROP USER 'app'@'%'");
+  });
+
+  it("on a protected connection asks for the user's name in the same dialog, once", async () => {
+    const calls = installBridge();
+    const asked: string[][] = [];
+    setConnGuard("c1", { mode: "confirm", engine: "mysql", name: "Prod" });
+    setSafeModeUi({
+      confirm: async (_g, writes) => {
+        asked.push(writes);
+        return true;
+      },
+      blocked: () => "blocked",
+      declined: () => "declined",
+    });
+    try {
+      mount("mysql");
+      await flush();
+      [...host!.querySelectorAll<HTMLElement>(".um-user")]
+        .find((el) => el.textContent?.includes("app"))!
+        .querySelector<HTMLButtonElement>(".um-drop")!
+        .click();
+      await flush();
+      const dialog = host!.querySelector(".confirm-dialog")!;
+      const confirm = dialog.querySelector<HTMLButtonElement>(".btn-danger")!;
+      expect(confirm.disabled).toBe(true);
+      const input = dialog.querySelector<HTMLInputElement>(".dlg-field input")!;
+      input.value = "app";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      confirm.click();
+      await flush();
+      expect(calls.some((c) => (c.params.sql ?? "").startsWith("DROP USER"))).toBe(true);
+      // The typed name was the confirmation: the guard did not ask again.
+      expect(asked).toEqual([]);
+    } finally {
+      setConnGuard("c1", null);
+      setSafeModeUi(null);
+    }
   });
 
   it("does not drop when the dialog is cancelled", async () => {

@@ -71,3 +71,24 @@ export function unsupportedReason(engine: string): string {
   if (f === "informix") return t("monitor.unsupported.informix");
   return t("monitor.unsupported.other", { engine: engine || t("engine.unknown") });
 }
+
+/** Longest value a session fact shows; a long query is cut, the SQL box below
+    the dialog is not where it is read. */
+const FACT_MAX = 160;
+
+/**
+ * What the kill confirmation says about the session (audit P1): every column of
+ * its row that has a value — user, host, database, state, time, the running
+ * query — as the engine named them, long values cut. Pure.
+ */
+export function sessionFacts(
+  columns: readonly { name: string }[],
+  row: readonly (string | null)[],
+): { name: string; value: string }[] {
+  return columns.flatMap((c, i) => {
+    const v = row[i];
+    if (v === null || v === undefined || v.trim() === "") return [];
+    const one = v.replace(/\s+/g, " ").trim();
+    return [{ name: c.name, value: one.length > FACT_MAX ? `${one.slice(0, FACT_MAX)}…` : one }];
+  });
+}

@@ -285,6 +285,23 @@ describe("Reaching the editor from the snippets panel", () => {
     expect(tabNames()).toEqual(["Snippets", "cuadernos"]);
     expect(editor().state.doc.toString()).toBe("SELECT * FROM cuadernos");
   });
+  it("deletes a snippet with an undo that puts it back", () => {
+    localStorage.setItem(
+      "quaero.snippets",
+      JSON.stringify([
+        { id: "snip-1", name: "cuadernos", body: "SELECT * FROM cuadernos" },
+        { id: "snip-2", name: "libros", body: "SELECT * FROM libros" },
+      ]),
+    );
+    mount();
+    openPanel();
+    host!.querySelector(".snippet-row")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    byText(".context-menu button", "Eliminar").click();
+    expect(stored().map((x) => x.name)).toEqual(["libros"]);
+    expect(toast()!.textContent).toContain("Snippet «cuadernos» eliminado");
+    byText(".app-toast button", "Deshacer").click();
+    expect(stored().map((x) => x.name)).toEqual(["cuadernos", "libros"]);
+  });
 });
 
 // Issue #338: a snippet's tab behaves like the document it is — Ctrl+Shift+S

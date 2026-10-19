@@ -158,6 +158,40 @@ describe("TableDesigner — alter mode", () => {
     expect(onApplied).toHaveBeenCalledTimes(1);
   });
 
+  it("a dropped column turns the button red and asks first, naming it", async () => {
+    const calls = installBridge();
+    mount(() => <TableDesigner connId="c1" engine="mysql" table="users" onClose={() => {}} />);
+    await flush();
+
+    const nameRow = host!.querySelectorAll("table.td-table tbody tr")[1];
+    (nameRow.querySelector('button[aria-label="Quitar columna"]') as HTMLButtonElement).click();
+
+    const apply = [...host!.querySelectorAll(".panel-foot button")].find((b) =>
+      b.textContent?.includes("Aplicar y eliminar 1 columna"),
+    ) as HTMLButtonElement;
+    expect(apply.classList.contains("btn-danger")).toBe(true);
+    apply.click();
+    await flush();
+    // Nothing ran yet: the confirmation names the column and the table.
+    expect(calls.some((c) => c.method === "query.run")).toBe(false);
+    const dlg = document.querySelector('[role="alertdialog"]')!;
+    expect(dlg.textContent).toContain("¿Eliminar la columna name de users?");
+    expect(dlg.textContent).toContain("ALTER TABLE `users` DROP COLUMN `name`");
+
+    // Cancel keeps everything as it was.
+    ([...dlg.querySelectorAll("button")].find((b) => b.textContent === "Cancelar") as HTMLButtonElement).click();
+    await flush();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(calls.some((c) => c.method === "query.run")).toBe(false);
+
+    apply.click();
+    await flush();
+    (document.querySelector('[role="alertdialog"] .btn-danger') as HTMLButtonElement).click();
+    await flush();
+    const runs = calls.filter((c) => c.method === "query.run").map((c) => c.params.sql);
+    expect(runs).toEqual(["ALTER TABLE `users` DROP COLUMN `name`"]);
+  });
+
   it("resets state when the target table changes on the shared instance (no stale bleed)", async () => {
     // App renders one shared TableDesigner across all designer tabs, so a prop
     // change must not leave a previous table's data behind.

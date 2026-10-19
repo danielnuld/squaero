@@ -95,6 +95,14 @@ describe("readsOnly", () => {
   it("is not fooled by a keyword inside a string", () => {
     expect(readsOnly("SELECT 'for update' FROM t")).toBe(true);
   });
+
+  it("treats a CTE as a read only when no part of it writes", () => {
+    expect(readsOnly("WITH r AS (SELECT cliente_id, sum(total) FROM pedidos GROUP BY 1) SELECT * FROM r")).toBe(true);
+    expect(readsOnly("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 5) SELECT i FROM n")).toBe(true);
+    expect(readsOnly("WITH u AS (UPDATE t SET a = 1 RETURNING *) SELECT * FROM u")).toBe(false);
+    expect(readsOnly("WITH r AS (SELECT 1) INSERT INTO t SELECT * FROM r")).toBe(false);
+    expect(readsOnly("WITH r AS (SELECT * FROM t FOR UPDATE) SELECT * FROM r")).toBe(false);
+  });
 });
 
 describe("planStatement", () => {

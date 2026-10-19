@@ -1,3 +1,4 @@
+import { connGuard, withConfirmedWrites } from "../utils/transport";
 import { For, Show, createEffect, createMemo, createSignal, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 import { runQuery } from "../utils/query";
@@ -23,7 +24,7 @@ import { parseTreeRows, schemaTree } from "../utils/schema";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
-import { dropConfirm } from "../utils/confirmText";
+import { dropConfirm, revokeConfirm, type ConfirmText } from "../utils/confirmText";
 import { Icon } from "./icons";
 import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
@@ -71,6 +72,8 @@ export function UserManager(props: {
     document.addEventListener("mouseup", onUp);
   };
   const [pendingDrop, setPendingDrop] = createSignal<{ user: UserRow; sql: string } | null>(null);
+  // Revoking asks first (audit P1): who loses which privileges, where.
+  const [pendingRevoke, setPendingRevoke] = createSignal<{ sql: string; text: ConfirmText } | null>(null);
 
   // Search + quick filters (issue #360). Everything filters the loaded list in
   // memory — no re-query, so typing stays instant on a server with many accounts.
@@ -245,13 +248,17 @@ export function UserManager(props: {
     setPendingDrop({ user: u, sql });
   };
 
+  const typedDrop = () => connGuard(props.connId)?.mode === "confirm";
   const confirmDropUser = async () => {
     const p = pendingDrop();
     if (!p) return;
     setBusy(true);
     setError(null);
     try {
-      await runQuery(props.connId, p.sql);
+      // On a protected connection the dialog itself took the typed name: the
+      // guard is not asked a second time.
+      if (typedDrop()) await withConfirmedWrites(props.connId, () => runQuery(props.connId, p.sql));
+      else await runQuery(props.connId, p.sql);
       if (selected()?.name === p.user.name && selected()?.host === p.user.host) setSelected(null);
       setPendingDrop(null); // close only on success; on error keep the dialog open
       await loadUsers();
@@ -516,7 +523,13 @@ export function UserManager(props: {
                 <button
                   class="btn danger-text"
                   disabled={busy() || !revokePreview()}
-                  onClick={() => apply(revokePreview()!)}
+                  onClick={() => {
+                    const o = grantOpts();
+                    setPendingRevoke({
+                      sql: revokePreview()!,
+                      text: revokeConfirm(`${o.user}@${o.host}`, o.privileges, o.scope),
+                    });
+                  }}
                 >
                   {t("users.revoke")}
                 </button>
@@ -526,12 +539,30 @@ export function UserManager(props: {
         </div>
       </Show>
 
+      <Show when={pendingRevoke()}>
+        {(p) => (
+          <ConfirmDialog
+            title={p().text.title}
+            message={p().text.message}
+            sql={p().sql}
+            confirmLabel={p().text.confirm}
+            busy={busy()}
+            onConfirm={() => {
+              const sql = p().sql;
+              setPendingRevoke(null);
+              void apply(sql);
+            }}
+            onCancel={() => setPendingRevoke(null)}
+          />
+        )}
+      </Show>
       <Show when={pendingDrop()}>
         {(p) => (
           <ConfirmDialog
             title={dropConfirm("user", `${p().user.name}@${p().user.host}`).title}
             message={dropConfirm("user", "").message}
             sql={p().sql}
+            typeToConfirm={typedDrop() ? p().user.name : undefined}
             confirmLabel={dropConfirm("user", "").confirm}
             busy={busy()}
             error={error()}

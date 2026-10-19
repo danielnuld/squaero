@@ -7,6 +7,7 @@ import {
   requestWrites,
   SAFE_MODE_BLOCKED,
   setConnGuard,
+  withConfirmedWrites,
   withWriteConsent,
   type BridgeHost,
   type ConfirmWrites,
@@ -248,6 +249,28 @@ describe("safe mode guard", () => {
       await expect(withWriteConsent("c1", ["SELECT 1", "DROP TABLE t"], fn)).rejects.toThrow(/Prod/);
       expect(fn).not.toHaveBeenCalled();
       expect(ask).not.toHaveBeenCalled();
+    });
+
+    it("withConfirmedWrites: the caller's own dialog confirmed, the guard does not ask", async () => {
+      const rpc = okRpc();
+      (globalThis as BridgeHost).quaeroRpc = rpc;
+      setConnGuard("c1", { mode: "confirm", engine: "mysql", name: "Prod" });
+      const ask = vi.fn<ConfirmWrites>(async () => false);
+      onConfirm(ask);
+      const res = await withConfirmedWrites("c1", () => call("query.run", { connId: "c1", sql: "DROP TABLE t" }));
+      expect(isError(res)).toBe(false);
+      expect(ask).not.toHaveBeenCalled();
+      // Only for that action.
+      expect(isError(await call("query.run", { connId: "c1", sql: "DROP TABLE t" }))).toBe(true);
+    });
+
+    it("withConfirmedWrites never opens a read-only connection", async () => {
+      const rpc = okRpc();
+      (globalThis as BridgeHost).quaeroRpc = rpc;
+      setConnGuard("c1", { mode: "readOnly", engine: "mysql", name: "Prod" });
+      const res = await withConfirmedWrites("c1", () => call("query.run", { connId: "c1", sql: "DROP TABLE t" }));
+      expect(isError(res)).toBe(true);
+      expect(rpc).not.toHaveBeenCalled();
     });
 
     it("reads only, or an unprotected connection: just runs", async () => {

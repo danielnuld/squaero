@@ -4001,6 +4001,22 @@ button.btn-danger:disabled {
   background: var(--bg-elev2);
 }
 
+/* The selected entry shows the whole statement and its actions. */
+.history-run.active {
+  background: var(--bg-elev2);
+}
+
+.history-run.active .history-sql {
+  max-height: none;
+}
+
+.history-actions {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-3);
+  background: var(--bg-elev2);
+}
+
 .history-sql {
   font-family: var(--font-mono);
   font-size: var(--fs-base);
@@ -9106,4 +9122,23 @@ ul.sidebar-tree {
 }
 .error-hints-where {
   color: var(--text-dim);
+}
+
+/* The facts of the session a kill confirmation names (audit P1). */
+.kill-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-1) var(--sp-3);
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.kill-facts dt {
+  color: var(--text-dim);
+}
+
+.kill-facts dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  word-break: break-word;
 }

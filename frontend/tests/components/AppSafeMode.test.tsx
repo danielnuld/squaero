@@ -94,7 +94,12 @@ async function connectAndRunHistory() {
   // Connecting lands on the connection's home (#694); open a query tab.
   openQueryTab(host);
   await settle();
-  click(host.querySelector(".empty-history button, .empty-state .empty-sql"));
+  // A write is run on purpose: from the history panel's «Ejecutar» (a click on
+  // a recent write only opens it, audit P1).
+  click([...host.querySelectorAll(".rail-btn")].find((b) => b.textContent?.trim() === "Historial"));
+  await settle();
+  click(host.querySelector(".history-run"));
+  click(byText(".history-actions button", "Ejecutar"));
   await settle();
 }
 

@@ -24,6 +24,7 @@ import { saveText, sqlFileName } from "../utils/download";
 import type { Connection } from "../utils/connections";
 import { t } from "../utils/i18n";
 import { Dropdown } from "./Dropdown";
+import { isReadOnlyTarget, targetOptions } from "../utils/wizard";
 import { Wizard, WizardField } from "./Wizard";
 import { countText, isDestructiveSql } from "../utils/confirmText";
 
@@ -198,6 +199,9 @@ ${scriptText(r.script)}` : "";
   // 0 what to compare, 1 the differences and the script, 2 applied.
   const step = () => (applied() ? 2 : result() ? 1 : 0);
   const targetName = () => props.connections.find((c) => c.id === result()?.defId)?.name ?? "";
+  // A read-only target gets the script, never an apply button (audit P1).
+  const readOnly = () => isReadOnlyTarget(props.connections.find((c) => c.id === targetDefId()));
+  const resultReadOnly = () => isReadOnlyTarget(props.connections.find((c) => c.id === result()?.defId));
   // A script that drops something is applied with the red button (R-15).
   const destructive = () => chosen().some(isDestructiveSql);
 
@@ -215,7 +219,7 @@ ${scriptText(r.script)}` : "";
         primary={
           step() === 0
             ? { label: t("ssync.compare"), onClick: () => void compare(), disabled: !targetDefId() }
-            : step() === 1 && chosen().length > 0
+            : step() === 1 && chosen().length > 0 && !resultReadOnly()
               ? {
                   label: countText("ssync.applyN", chosen().length, { target: targetName() }),
                   onClick: () => setConfirming(true),
@@ -265,7 +269,7 @@ ${scriptText(r.script)}` : "";
             <WizardField label={t("ssync.target")} help={t("ssync.targetHelp")}>
               <Dropdown
                 value={targetDefId()}
-                options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+                options={targetOptions(props.connections)}
                 onChange={(v) => setTargetDefId(v)}
               />
             </WizardField>
@@ -285,6 +289,13 @@ ${scriptText(r.script)}` : "";
                 onInput={(e) => setTargetSchema(e.currentTarget.value)}
               />
             </WizardField>
+            <Show when={readOnly()}>
+              <p class="help" role="note">
+                {t("wiz.readOnlyScript", {
+                  name: props.connections.find((c) => c.id === targetDefId())?.name ?? "",
+                })}
+              </p>
+            </Show>
             <div class="wiz-row">
               <span class="wiz-label">{t("ssync.extraTables")}</span>
               <label class="wiz-ctl import-check">
@@ -306,6 +317,11 @@ ${scriptText(r.script)}` : "";
             return (
               <>
                 <p class="wiz-sub">{t("ssync.direction", { target: r().target })}</p>
+                <Show when={resultReadOnly()}>
+                  <p class="help" role="note">
+                    {t("wiz.readOnlyScript", { name: targetName() })}
+                  </p>
+                </Show>
                 <h3>{t("ssync.differences", { n: r().items.length })}</h3>
                 <Show when={!r().empty} fallback={<p>{t("ssync.alreadyMatch")}</p>}>
                   <ul class="ssync-diff">

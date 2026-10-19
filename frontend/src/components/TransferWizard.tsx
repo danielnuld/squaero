@@ -19,6 +19,7 @@ import {
 } from "../utils/importers";
 import type { Connection } from "../utils/connections";
 import { Dropdown } from "./Dropdown";
+import { isReadOnlyTarget, targetOptions } from "../utils/wizard";
 import { RowErrorPolicy, Wizard, WizardField } from "./Wizard";
 import { countText } from "../utils/confirmText";
 
@@ -182,6 +183,8 @@ export function TransferWizard(props: {
   // 0 where to, 1 columns, 2 the result.
   const step = () => (summary() ? 2 : destCols() ? 1 : 0);
   const destName = () => props.connections.find((c) => c.id === destDefId())?.name ?? "";
+  // A read-only destination would refuse every row: said up front (audit P1).
+  const readOnly = () => isReadOnlyTarget(props.connections.find((c) => c.id === destDefId()));
 
   return (
     <Panel wide onClose={props.onClose} dirty={busy() || (!!destCols() && !summary())}>
@@ -198,7 +201,7 @@ export function TransferWizard(props: {
         onBack={step() === 1 ? () => setDestCols(null) : undefined}
         primary={
           step() === 0
-            ? { label: t("wiz.next"), onClick: () => void prepare(), disabled: !destDefId() || !destTable().trim() }
+            ? { label: t("wiz.next"), onClick: () => void prepare(), disabled: !destDefId() || !destTable().trim() || readOnly() }
             : step() === 1
               ? {
                   label:
@@ -234,10 +237,15 @@ export function TransferWizard(props: {
             <WizardField label={t("tw.targetConn")} help={t("tw.targetHelp")}>
               <Dropdown
                 value={destDefId()}
-                options={props.connections.map((c) => ({ value: c.id, label: c.name }))}
+                options={targetOptions(props.connections)}
                 onChange={(v) => setDestDefId(v)}
               />
             </WizardField>
+            <Show when={readOnly()}>
+              <p class="help" role="note">
+                {t("wiz.readOnlyNoTransfer", { name: destName() })}
+              </p>
+            </Show>
             <WizardField label={t("wiz.db")}>
               <input
                 type="text"

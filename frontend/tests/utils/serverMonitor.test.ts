@@ -3,6 +3,7 @@ import {
   monitorFor,
   buildKillSql,
   unsupportedReason,
+  sessionFacts,
 } from "../../src/utils/serverMonitor";
 
 describe("monitorFor", () => {
@@ -79,5 +80,25 @@ describe("unsupportedReason", () => {
     expect(unsupportedReason("informix")).toContain("onmode");
     expect(unsupportedReason("mongodb")).toContain("mongodb");
     expect(unsupportedReason("")).toContain("desconocido");
+  });
+});
+
+describe("sessionFacts", () => {
+  it("keeps the columns with a value, in order, one line each", () => {
+    const facts = sessionFacts(
+      [{ name: "Id" }, { name: "User" }, { name: "Info" }, { name: "db" }],
+      ["7", "root", "SELECT *\n  FROM big", null],
+    );
+    expect(facts).toEqual([
+      { name: "Id", value: "7" },
+      { name: "User", value: "root" },
+      { name: "Info", value: "SELECT * FROM big" },
+    ]);
+  });
+
+  it("cuts a long query and skips blanks", () => {
+    const [q] = sessionFacts([{ name: "q" }, { name: "e" }], ["x".repeat(300), "  "]);
+    expect(q.value).toHaveLength(161);
+    expect(q.value.endsWith("…")).toBe(true);
   });
 });

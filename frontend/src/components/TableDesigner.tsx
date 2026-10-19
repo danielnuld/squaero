@@ -21,6 +21,8 @@ import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { currentOs, orderActions } from "../utils/dialog";
 import { Icon } from "./icons";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { countText, dropColumnsConfirm } from "../utils/confirmText";
 
 // Table designer (issue #136). Two modes selected by the `table` prop:
 //  • create — a blank form → CREATE TABLE (phase 1);
@@ -149,6 +151,17 @@ export function TableDesigner(props: {
     const b = built();
     return !!b && b.ok && "statements" in b && b.statements.length === 0;
   };
+
+  // The original columns the edit leaves out: applying drops them and their data,
+  // so the button turns red and asks first, naming each one.
+  const dropped = createMemo(() => {
+    const orig = original();
+    if (!alter() || !orig) return [];
+    const kept = new Set(columns.map((c) => c.origName));
+    return orig.columns.filter((o) => !kept.has(o.name)).map((o) => o.name);
+  });
+  const [confirmDrop, setConfirmDrop] = createSignal(false);
+  const dropText = () => dropColumnsConfirm(props.table ?? name(), dropped());
 
   const addColumn = () => setColumns(columns.length, { ...emptyColumn() });
   const removeColumn = (i: number) => setColumns(produce((cs) => cs.splice(i, 1)));
@@ -323,17 +336,19 @@ export function TableDesigner(props: {
         <span class="dlg-actions">
           {orderActions(currentOs(), [
             <button
-              class="btn-primary"
+              class={dropped().length > 0 ? "btn btn-danger" : "btn-primary"}
               disabled={busy() || !built()?.ok || noChanges()}
-              onClick={apply}
+              onClick={() => (dropped().length > 0 ? setConfirmDrop(true) : void apply())}
             >
               {busy()
                 ? alter()
                   ? t("td.applying")
                   : t("td.creating")
-                : alter()
-                  ? t("td.applyChanges")
-                  : t("td.create")}
+                : dropped().length > 0
+                  ? countText("td.applyDropping", dropped().length)
+                  : alter()
+                    ? t("td.applyChanges")
+                    : t("td.create")}
             </button>,
             <button class="btn" disabled={busy()} onClick={props.onClose}>
               {t("common.cancel")}
@@ -341,6 +356,19 @@ export function TableDesigner(props: {
           ])}
         </span>
       </div>
+      <Show when={confirmDrop()}>
+        <ConfirmDialog
+          title={dropText().title}
+          message={dropText().message}
+          confirmLabel={dropText().confirm}
+          sql={preview()}
+          onConfirm={() => {
+            setConfirmDrop(false);
+            void apply();
+          }}
+          onCancel={() => setConfirmDrop(false)}
+        />
+      </Show>
     </Panel>
   );
 }

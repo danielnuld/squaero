@@ -206,10 +206,10 @@ import {
   typographyVars,
 } from "./utils/typography";
 import { applyPlan } from "./utils/editApply";
-import { idleTx, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
+import { idleTx, readsOnly, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
 import { TxControls } from "./components/TxControls";
 import { ConfirmDialog } from "./components/ConfirmDialog";
-import { needsTypedName } from "./utils/confirmText";
+import { countText, deleteRowsConfirm, needsTypedName } from "./utils/confirmText";
 
 /** Rows to read from a table's index catalog; one per index, so plenty. */
 const UNIQUE_CATALOG_LIMIT = 500;
@@ -235,6 +235,7 @@ import {
   contiguousPages,
   refreshAction,
   refreshBlock,
+  rerunnable,
 } from "./utils/gridPaging";
 import { useDatabaseSql } from "./utils/dbContext";
 import {
@@ -1525,6 +1526,9 @@ export function App() {
     });
     void run(sql);
   };
+  // The history panel's «Insertar» (#689 / audit P1): at the caret, like a snippet.
+  const insertFromHistory = (sql: string) =>
+    insertSnippet({ id: "", name: oneLine(sql, 30), body: sql });
 
   // The editor's quick recall (issue #642): the latest distinct queries run on
   // this tab's ENGINE, from any connection of it, as a menu under the button.
@@ -1618,6 +1622,28 @@ export function App() {
   const renameSnip = (id: string, name: string) =>
     persistSnippets(renameSnippet(snippets(), id, name));
   const removeSnip = (id: string) => persistSnippets(removeSnippet(snippets(), id));
+  // Deleting a snippet from the panel (audit P1) takes effect at once and offers
+  // an undo that puts the very snippet back where it was.
+  let snipUndoTimer: ReturnType<typeof setTimeout> | undefined;
+  const deleteSnip = (id: string) => {
+    const index = snippets().findIndex((x) => x.id === id);
+    if (index === -1) return;
+    const gone = snippets()[index];
+    removeSnip(id);
+    const toast = {
+      text: t("snip.deleted", { name: gone.name }),
+      undo: () => {
+        const list = [...snippets()];
+        list.splice(index, 0, gone);
+        persistSnippets(list);
+      },
+    };
+    setSnipToast(toast);
+    clearTimeout(snipUndoTimer);
+    snipUndoTimer = setTimeout(() => {
+      if (snipToast() === toast) setSnipToast(null);
+    }, 10_000);
+  };
   const setSnipAbbr = (id: string, abbr: string) =>
     persistSnippets(setSnippetAbbr(snippets(), id, abbr));
   // Editor templates (issue #665): snippets with an abbreviation, then the
@@ -2654,7 +2680,8 @@ export function App() {
       });
     } catch (err) {
       setResults(tabId, { loading: false, cursor: false });
-      if (r.pageSql) {
+      // The fallback re-runs the statement: only ever a read.
+      if (rerunnable(r.pageSql)) {
         void run(r.pageSql, r.ranScope ?? "document", index * size, tabId);
       } else {
         setResults(tabId, { error: errorText(err) });
@@ -3710,6 +3737,28 @@ export function App() {
     }
   };
 
+  // Rows staged for deletion are named before anything runs (audit P1, rule 7):
+  // each by its key, with the tables whose foreign keys point at this one.
+  const [confirmDeleteRows, setConfirmDeleteRows] = createSignal(false);
+  const deleteRowsText = () => {
+    const tab = current();
+    const res = currentResult();
+    const src = res.source;
+    const rs = res.result;
+    const dels = currentEdit().pending.deletes;
+    if (!tab || !src || !rs || dels.length === 0) return null;
+    const pkAt = src.pk.map((c) => rs.columns.findIndex((col) => col.name === c));
+    const rows = dels.map((r) =>
+      src.pk.length > 0
+        ? src.pk.map((c, k) => `${c} ${rs.rows[r]?.[pkAt[k]] ?? "NULL"}`).join(" · ")
+        : `#${r + 1}`,
+    );
+    const deps = (inbound[tab.id]?.rels ?? []).map(
+      (rel) => `${rel.fromTable}.${rel.columns.map((c) => c.from).join(", ")}`,
+    );
+    return deleteRowsConfirm(src.table, rows, deps);
+  };
+
   // Aplicar: execute the plan for real, then commit and reload. A failure rolls
   // the transaction back and opens a new one (utils/editApply.ts): the old
   // "leave it open to fix and retry" kept the items that had already run, so a
@@ -4235,7 +4284,8 @@ export function App() {
         filters[tabId]?.applied ?? undefined,
       );
     }
-    return r.pageSql ?? null;
+    // Re-reading an UPDATE … RETURNING would write again.
+    return rerunnable(r.pageSql) ? r.pageSql : null;
   };
 
   /**
@@ -4948,6 +4998,8 @@ export function App() {
               slowThresholdMs={settings().slowThresholdMs}
               engine={active()?.driver}
               onRun={runFromHistory}
+              onInsert={insertFromHistory}
+              onOpen={(sql) => openSqlInNewTab(sql)}
               onClear={clearHistory}
               onClose={() => setSide((s) => ({ ...s, panel: "explorer" }))}
             />
@@ -4961,7 +5013,7 @@ export function App() {
               onRename={renameSnip}
               onSetAbbr={setSnipAbbr}
               onDuplicate={duplicateSnip}
-              onRemove={removeSnip}
+              onRemove={deleteSnip}
               onExport={exportSnippets}
               onImport={importSnippets}
               onClose={() => setSide((s) => ({ ...s, panel: "explorer" }))}
@@ -5489,11 +5541,15 @@ export function App() {
                           <span class="dlg-actions">
                             {orderActions(currentOs(), [
                               <button
-                                class="btn-primary"
+                                class={deleteRowsText() ? "btn btn-danger" : "btn-primary"}
                                 disabled={currentEdit().busy}
-                                onClick={applyEdit}
+                                onClick={() =>
+                                  deleteRowsText() ? setConfirmDeleteRows(true) : void applyEdit()
+                                }
                               >
-                                {t("result.applyConfirm")}
+                                {deleteRowsText()
+                                  ? countText("result.applyDeleting", currentEdit().pending.deletes.length)
+                                  : t("result.applyConfirm")}
                               </button>,
                               <button class="btn" disabled={currentEdit().busy} onClick={cancelPreview}>
                                 {t("common.cancel")}
@@ -5501,6 +5557,21 @@ export function App() {
                             ])}
                           </span>
                         </div>
+                        <Show when={confirmDeleteRows() && deleteRowsText()}>
+                          {(c) => (
+                            <ConfirmDialog
+                              title={c().title}
+                              message={c().message}
+                              confirmLabel={c().confirm}
+                              sql={sqls().join(";\n")}
+                              onConfirm={() => {
+                                setConfirmDeleteRows(false);
+                                void applyEdit();
+                              }}
+                              onCancel={() => setConfirmDeleteRows(false)}
+                            />
+                          )}
+                        </Show>
                       </div>
                     )}
                   </Show>
@@ -5563,7 +5634,7 @@ export function App() {
                                 isMac={isMac()}
                                 shortcuts={shortcuts()}
                                 onOpenTable={openData}
-                                onRunHistory={runFromHistory}
+                                onRunHistory={(sql) => (readsOnly(sql) ? runFromHistory(sql) : openSqlInNewTab(sql))}
                                 onInsertSnippet={insertSnippet}
                                 onPickSnippet={() => runShortcut("snippet-palette")}
                                 onHistory={() => showTool("history", t("editor.history"), { key: "history" })}
@@ -5946,6 +6017,8 @@ export function App() {
                     slowThresholdMs={settings().slowThresholdMs}
                     engine={active()?.driver}
                     onRun={runFromHistory}
+                    onInsert={insertFromHistory}
+                    onOpen={(sql) => openSqlInNewTab(sql)}
                     onClear={clearHistory}
                     onClose={() => closeTool(tt().id)}
                   />
@@ -5968,7 +6041,7 @@ export function App() {
                     onRename={renameSnip}
                     onSetAbbr={setSnipAbbr}
                     onDuplicate={duplicateSnip}
-                    onRemove={removeSnip}
+                    onRemove={deleteSnip}
                     onExport={exportSnippets}
                     onImport={importSnippets}
                     onClose={() => closeTool(tt().id)}
