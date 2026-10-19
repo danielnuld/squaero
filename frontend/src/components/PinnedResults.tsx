@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Show } from "solid-js";
 import type { ResultSet } from "../utils/query";
 import type { ResultComparison } from "../utils/resultCompare";
@@ -158,7 +159,7 @@ export function CompareBar(props: {
           <span class="diff-changed">~{count("changed")}</span> · {t("compare.same", { n: c().same })}
         </span>
         <Show when={c().duplicateKeys > 0}>
-          <span class="edit-error">{t("compare.duplicates", { n: c().duplicateKeys })}</span>
+          <span class="edit-error">{countText("compare.duplicates", c().duplicateKeys)}</span>
         </Show>
       </Show>
       <Show when={c().onlyLeft.length > 0}>

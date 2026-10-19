@@ -24,7 +24,7 @@ import { parseTreeRows, schemaTree } from "../utils/schema";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
-import { dropConfirm, revokeConfirm, type ConfirmText } from "../utils/confirmText";
+import { countText, dropConfirm, revokeConfirm, type ConfirmText } from "../utils/confirmText";
 import { Icon } from "./icons";
 import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
@@ -284,7 +284,7 @@ export function UserManager(props: {
         <Show when={support.supported}>
           {filtering()
             ? t("users.countFiltered", { n: shown().length, m: users().length })
-            : t("users.count", { n: users().length })}
+            : countText("users.count", users().length)}
         </Show>
       }
       onRefresh={support.supported ? loadUsers : undefined}

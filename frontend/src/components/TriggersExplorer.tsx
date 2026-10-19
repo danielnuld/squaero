@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { EmptyNote } from "./EmptyNote";
 import { runQuery, type ResultSet } from "../utils/query";
@@ -191,7 +192,7 @@ export function TriggersExplorer(props: {
         <Show when={support().supported}>
           {filtering()
             ? t("explorer.objectsFiltered", { n: rows().length, m: allRows().length })
-            : t("explorer.objects", { n: rows().length })}
+            : countText("explorer.objects", rows().length)}
         </Show>
       }
       onRefresh={support().supported ? load : undefined}

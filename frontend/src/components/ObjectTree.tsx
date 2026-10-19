@@ -29,7 +29,6 @@ import {
   updateSql,
   type TableRef,
 } from "../utils/tableSql";
-import { countText } from "../utils/confirmText";
 import { formatKeys } from "../utils/shortcuts";
 import { currentOs } from "../utils/dialog";
 import { treeKey, type ConnMetaCache } from "../utils/metaCache";
@@ -71,7 +70,7 @@ export interface ConnRowState {
   busy?: boolean;
 }
 import { t, locale } from "../utils/i18n";
-import { dropConfirm, dropConsequences, type DropFacts } from "../utils/confirmText";
+import { countText, dropConfirm, dropConsequences, type DropFacts } from "../utils/confirmText";
 import { objectCountQuery } from "../utils/pagination";
 import { withConfirmedWrites } from "../utils/transport";
 
@@ -1216,7 +1215,7 @@ export function ObjectTree(props: {
             </button>
             <div class="objtree-actions">
               <Show when={c().txStatements !== undefined}>
-                <span class="conn-tx" title={t("tx.openTitle", { n: c().txStatements! })}>
+                <span class="conn-tx" title={countText("tx.openTitle", c().txStatements!)}>
                   {t("tx.connMark")}
                 </span>
               </Show>

@@ -3964,7 +3964,7 @@ export function App() {
     // passes through here, so this is the one place that blocks it.
     const conflicts = currentConflicts().size;
     if (conflicts > 0) {
-      patchEdit(tab.id, { error: t("pending.blockedConfirm", { n: conflicts }) });
+      patchEdit(tab.id, { error: countText("pending.blockedConfirm", conflicts) });
       return;
     }
     const plan = buildPlan(res.source, res.result.columns, res.result.rows,
@@ -4052,7 +4052,7 @@ export function App() {
     if (applied > 0) {
       setEdits(tab.id, {
         ...emptyEdit(),
-        error: t("edit.partialNoTx", { n: applied, reason: errMsg(outcome.error) }),
+        error: countText("edit.partialNoTx", applied, { reason: errMsg(outcome.error) }),
       });
       reloadCurrent(tab.id);
       return;
@@ -5873,7 +5873,7 @@ export function App() {
                         <div class="edit-preview-head">
                           <strong>{t("result.confirmChanges")}</strong>
                           <span>
-                            {t("result.willRun", { n: sqls().length })}
+                            {countText("result.willRun", sqls().length)}
                           </span>
                         </div>
                         <pre class="ddl-text preview-sql">{sqls().join(";\n")}</pre>
@@ -5930,7 +5930,7 @@ export function App() {
                               when={!identical() || showSameRows()}
                               fallback={
                                 <div class="grid-empty pane-empty compare-identical" role="status">
-                                  <span>{t("compare.identical", { n: c().cmp.same })}</span>
+                                  <span>{countText("compare.identical", c().cmp.same)}</span>
                                   <button class="btn" onClick={() => setShowSameRows(true)}>
                                     {t("compare.showSame")}
                                   </button>
@@ -6850,7 +6850,7 @@ export function App() {
         {(conn) => (
           <ConfirmDialog
             title={t("tx.closeTitle")}
-            message={t("tx.closeMessage", { name: conn().name, n: txOf(conn()).statements })}
+            message={countText("tx.closeMessage", txOf(conn()).statements, { name: conn().name })}
             confirmLabel={t("tx.rollback")}
             altLabel={t("tx.commit")}
             busy={txBusy()}

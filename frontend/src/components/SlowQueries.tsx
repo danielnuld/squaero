@@ -1,3 +1,4 @@
+import { countText } from "../utils/confirmText";
 import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { runQuery, type ResultSet } from "../utils/query";
 import { errorText } from "../utils/errors";
@@ -165,7 +166,7 @@ export function SlowQueries(props: {
           </Show>
         </Show>
       }
-      status={<Show when={support().supported}>{t("slow.count", { n: rows().length })}</Show>}
+      status={<Show when={support().supported}>{countText("slow.count", rows().length)}</Show>}
       onRefresh={support().supported ? load : undefined}
       refreshing={loading()}
     >
