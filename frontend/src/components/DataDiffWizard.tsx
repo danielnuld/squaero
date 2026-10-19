@@ -175,7 +175,7 @@ export function DataDiffWizard(props: {
   const step = () => (applied() ? 2 : plan() ? 1 : 0);
 
   return (
-    <Panel wide onClose={props.onClose}>
+    <Panel wide onClose={props.onClose} dirty={busy() || (!!plan() && !applied())}>
       <Wizard
         title={t("ddiff.title", { name: props.source.table })}
         subtitle={t("ddiff.subtitle")}

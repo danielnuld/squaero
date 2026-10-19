@@ -184,7 +184,7 @@ export function TransferWizard(props: {
   const destName = () => props.connections.find((c) => c.id === destDefId())?.name ?? "";
 
   return (
-    <Panel wide onClose={props.onClose}>
+    <Panel wide onClose={props.onClose} dirty={busy() || (!!destCols() && !summary())}>
       <Wizard
         title={t("tw.title", { name: props.sourceTable })}
         subtitle={t(props.sourceResult.truncated ? "ddiff.sourceTruncated" : "ddiff.source", {

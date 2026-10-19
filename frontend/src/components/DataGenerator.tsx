@@ -139,7 +139,7 @@ export function DataGenerator(props: {
   };
 
   return (
-    <Panel title={t("dg.title")} wide onClose={props.onClose}>
+    <Panel title={t("dg.title")} wide onClose={props.onClose} dirty={busy()}>
       <Wizard
         title={t("dg.heading", { name: props.target.table })}
         subtitle={t("dg.subtitle")}

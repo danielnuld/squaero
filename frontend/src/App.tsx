@@ -571,6 +571,11 @@ export function App() {
   const [pendingRestore, setPendingRestore] = createSignal<TabState | null>(
     stored && worthRestoring(stored) ? stored : null,
   );
+  // «Ahora no» / Esc on that offer (audit R-37, A-36): nothing is thrown away.
+  // The saved session stays on disk for the next start until there is new work
+  // worth saving in its place.
+  const [restoreDeferred, setRestoreDeferred] = createSignal(false);
+  const keepsDeferred = (state: TabState) => restoreDeferred() && !worthRestoring(state);
   // Whether or not there is a session to offer, the app opens with no tab, on
   // the welcome screen (issue #694); a saved session comes back only when resumed.
   const [tabs, setTabs] = createSignal<TabState>(emptySession(stored));
@@ -1126,7 +1131,7 @@ export function App() {
     // Nothing is written while the restore prompt is up (issue #465): the empty
     // workspace behind it would overwrite the very session being offered, and a
     // machine that dies with the dialog open would take it with no answer given.
-    if (pendingRestore()) return;
+    if (pendingRestore() || keepsDeferred(state)) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveWorkspace(state), 1000);
   });
@@ -1137,6 +1142,7 @@ export function App() {
     metaCache.flush();
     clearTimeout(saveTimer);
     if (pendingRestore()) return; // the offer outlives the window, unanswered
+    if (keepsDeferred(tabs())) return;
     saveWorkspace(tabs());
   };
   const onHidden = () => {
@@ -6257,7 +6263,11 @@ export function App() {
               .map((id) => connections().find((c) => c.id === id)?.name)
               .filter((n): n is string => !!n)}
             onResume={() => void resumeSession()}
-            onBlank={() => setPendingRestore(null)}
+            onDiscard={() => setPendingRestore(null)}
+            onLater={() => {
+              setRestoreDeferred(true);
+              setPendingRestore(null);
+            }}
           />
         )}
       </Show>

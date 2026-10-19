@@ -114,3 +114,43 @@ describe("Panel", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe("Panel — Escape never throws work away (rule 11)", () => {
+  const esc = () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  const buttonByText = (label: string) =>
+    [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === label);
+
+  it("closes straight away when there is nothing in progress", () => {
+    const onClose = vi.fn();
+    mount(() => <Panel onClose={onClose}>cuerpo</Panel>);
+    esc();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks first when there is work in progress; Esc again keeps it open", () => {
+    const onClose = vi.fn();
+    mount(() => (
+      <Panel onClose={onClose} dirty>
+        cuerpo
+      </Panel>
+    ));
+    esc();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("¿Cerrar sin terminar?");
+    esc(); // the question's own Escape: stay
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain("¿Cerrar sin terminar?");
+  });
+
+  it("closes once the discard is confirmed", () => {
+    const onClose = vi.fn();
+    mount(() => (
+      <Panel onClose={onClose} dirty>
+        cuerpo
+      </Panel>
+    ));
+    esc();
+    buttonByText("Cerrar y descartar")!.click();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
