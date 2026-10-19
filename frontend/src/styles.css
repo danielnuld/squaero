@@ -10317,3 +10317,9 @@ ul.sidebar-tree {
 [data-case="keep"] {
   text-transform: none !important;
 }
+
+.error-hints-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}

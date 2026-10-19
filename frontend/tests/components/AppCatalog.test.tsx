@@ -113,4 +113,25 @@ describe("App — catalog for completion (A-06)", () => {
     await settle();
     expect(host.querySelector(".connsearch-hit")).not.toBeNull();
   });
+
+  it("says what each object is and where in the object palette (M14 ObjectPalette)", async () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <App />, host!);
+    });
+    (host.querySelector(".connbar-add") as HTMLElement).click();
+    (host.querySelector(".connsearch-hit") as HTMLElement).click();
+    await settle();
+    const main = [...host.querySelectorAll<HTMLElement>('[role="treeitem"]')].find(
+      (r) => r.getAttribute("aria-label") === "main",
+    )!;
+    main.click();
+    await settle();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, bubbles: true }));
+    await settle();
+    const item = [...host.querySelectorAll(".cmdk-item")].find((i) => i.textContent?.includes("clientes"))!;
+    expect(item.querySelector(".cmdk-item-hint")!.textContent).toBe("tabla · main");
+  });
 });
