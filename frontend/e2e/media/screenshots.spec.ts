@@ -134,7 +134,7 @@ test("protected connection asks before writing", async ({ page }) => {
   await newQuery(page);
   await typeSql(page, "UPDATE productos SET existencias = existencias + 10 WHERE id = 4");
   await runEditor(page);
-  const dialog = page.getByRole("dialog", { name: /Conexión protegida/ });
+  const dialog = page.getByRole("alertdialog", { name: /Conexión protegida/ });
   await expect(dialog).toBeVisible();
   await shot(page, "screenshot-safe-mode");
   await dialog.getByRole("button", { name: "Cancelar" }).click();
@@ -144,14 +144,15 @@ test("manual transaction pending", async ({ page }) => {
   await openMedia(page, rpc);
   await openDemoTable(page, "productos", "Teclado mecánico");
   await newQuery(page);
-  await page.getByRole("button", { name: "Auto-commit", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Transacción manual", exact: true })).toBeVisible();
+  const txMode = page.getByRole("radiogroup", { name: "Modo de transacción" });
+  await txMode.getByRole("radio", { name: "Manual" }).click();
+  await expect(txMode.getByRole("radio", { name: "Manual" })).toBeChecked();
   await typeSql(page, "UPDATE productos SET existencias = existencias - 1 WHERE id = 2");
   await runEditor(page);
   await expect(page.getByText(/En transacción · 1/).first()).toBeVisible();
   await shot(page, "screenshot-manual-tx");
   // Leave the demo as it was for the shots after this one.
-  await page.getByRole("button", { name: "Revertir", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Revertir/ }).first().click();
   await expect(page.getByText(/En transacción/)).toHaveCount(0);
 });
 
@@ -273,8 +274,8 @@ const TOOLS: [string, string, RegExp][] = [
   // Case-insensitive: several labels are uppercased by CSS, so the rendered text
   // and the DOM text differ.
   ["Diagrama ER", "screenshot-er", /\d+ relaci(ón|ones)\b/i],
-  ["Monitor de servidor", "screenshot-monitor", /sesi[óo]n\(es\)/i],
-  ["Usuarios y permisos", "screenshot-users", /usuario\(s\)/i],
+  ["Monitor de servidor", "screenshot-monitor", /\d+ sesi(ón|ones)/i],
+  ["Usuarios y permisos", "screenshot-users", /\d+ usuarios?/i],
 ];
 for (const [tool, file, ready] of TOOLS) {
   test(tool, async ({ page }) => {
@@ -288,7 +289,7 @@ for (const [tool, file, ready] of TOOLS) {
       // A user's grants, rather than an empty "pick a user" pane.
       // vendedor is the demo's own account (demo.ts), with grants on `ventas`.
       await page.getByText("vendedor", { exact: true }).click();
-      await expect(page.getByText(/GRANT .*INSERT/).first()).toBeVisible();
+      await expect(page.getByText("Permisos de vendedor@%")).toBeVisible();
     }
     await shot(page, file);
   });
@@ -302,8 +303,8 @@ test("schema compare with migration script", async ({ page }) => {
   await page.getByRole("toolbar", { name: "Acciones del objeto" }).getByRole("button", { name: "Más acciones" }).click();
   await page.getByRole("menuitem", { name: "Sincronizar estructura…" }).click();
   // The target is the same server, the older copy of the schema.
-  await pick(page.getByLabel("Destino:"), "Ventas (demo)");
-  await page.getByLabel("Base de datos:").nth(1).fill("ventas_v1");
+  await pick(page.getByLabel(/^Conexión/), "Ventas (demo)");
+  await page.getByLabel("Base de datos", { exact: true }).nth(1).fill("ventas_v1");
   await page.getByRole("button", { name: "Comparar", exact: true }).click();
   await expect(page.getByText(/SQL de migración/).first()).toBeVisible({ timeout: 30_000 });
   await shot(page, "screenshot-schema-compare");
@@ -326,7 +327,8 @@ test("DDL dump to a folder", async ({ page }) => {
   await connectDemo(page);
   await treeRow(page, "ventas").click();
   await openTool(page, "Respaldo y restauración");
+  await page.getByRole("tab", { name: "DDL a una carpeta" }).click();
   await page.getByRole("button", { name: "Volcar DDL a una carpeta…" }).click();
-  await expect(page.getByText(/archivo\(s\) escritos en ventas-ddl/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/\d+ archivos? escritos en ventas-ddl/)).toBeVisible({ timeout: 30_000 });
   await shot(page, "screenshot-ddl-dump");
 });
