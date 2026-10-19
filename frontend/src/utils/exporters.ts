@@ -16,6 +16,33 @@ import { classifyType } from "./format";
 /** Text export formats. XLSX is binary and handled separately (utils/xlsx.ts). */
 export type ExportFormat = "csv" | "json" | "sql" | "xml" | "html";
 
+/** CSV's options (audit R-36): separator, header row, text for NULL, and a
+    byte-order mark so Excel reads UTF-8 accents right. */
+export interface CsvOptions {
+  delimiter?: string;
+  header?: boolean;
+  nullText?: string;
+  bom?: boolean;
+}
+
+/** Which rows an export writes: every row of the table or query, the page the
+    grid holds, or the rows marked in it. */
+export type ExportScope = "all" | "page" | "marked";
+
+/**
+ * The scopes an export can offer, and the one it starts on (audit R-36): the
+ * whole result whenever it can be re-read, since a page exported as if it were
+ * the table is the silent loss the audit names; marked rows only when there are.
+ */
+export function exportScopes(o: { canReadAll: boolean; marked: number }): {
+  scopes: ExportScope[];
+  initial: ExportScope;
+} {
+  const scopes: ExportScope[] = o.canReadAll ? ["all", "page"] : ["page"];
+  if (o.marked > 0) scopes.push("marked");
+  return { scopes, initial: o.canReadAll ? "all" : "page" };
+}
+
 /** A field needs quoting in CSV when it holds the delimiter, a quote, CR or LF. */
 function csvField(value: string, delimiter: string): string {
   if (
@@ -211,10 +238,11 @@ export function* exportChunks(
   format: ExportFormat,
   table = "exported",
   rowsPerChunk = CHUNK_ROWS,
+  csv: CsvOptions = {},
 ): Generator<string> {
   const size = Math.max(1, Math.floor(rowsPerChunk));
   const rows = result.rows;
-  const plan = chunkPlan(result, format, table);
+  const plan = chunkPlan(result, format, table, csv);
   yield plan.head;
   for (let start = 0; start < rows.length; start += size) {
     const end = Math.min(rows.length, start + size);
@@ -239,16 +267,19 @@ interface ChunkPlan {
   emptyTail: string;
 }
 
-function chunkPlan(result: ResultSet, format: ExportFormat, table: string): ChunkPlan {
+function chunkPlan(result: ResultSet, format: ExportFormat, table: string, csv: CsvOptions = {}): ChunkPlan {
   const cols = result.columns;
   switch (format) {
     case "csv": {
-      const line = (cells: string[]) => cells.map((c) => csvField(c, ",")).join(",");
+      const d = csv.delimiter || ",";
+      const nullText = csv.nullText ?? "";
+      const header = csv.header ?? true;
+      const line = (cells: string[]) => cells.map((c) => csvField(c, d)).join(d);
       return {
-        head: line(cols.map((c) => c.name)),
-        firstSep: "\r\n",
+        head: (csv.bom ? "﻿" : "") + (header ? line(cols.map((c) => c.name)) : ""),
+        firstSep: header ? "\r\n" : "",
         sep: "\r\n",
-        row: (row) => line(cols.map((_, i) => row[i] ?? "")),
+        row: (row) => line(cols.map((_, i) => row[i] ?? nullText)),
         tail: "",
         emptyTail: "",
       };

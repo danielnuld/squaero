@@ -276,6 +276,7 @@ import {
   type ExportFormat,
 } from "./utils/exporters";
 import { pickRows } from "./utils/rowSelection";
+import { ExportDialog, type ExportChoice } from "./components/ExportDialog";
 import { editablePk, engineEdits, queryEditCheck, type EditBlock } from "./utils/queryTarget";
 import { tablesInStatement } from "./utils/queryTables";
 import { changesCatalog } from "./utils/sqlEffects";
@@ -4213,7 +4214,19 @@ export function App() {
   // "Guardar como" is asked FIRST and the file written afterwards. The dialog
   // needs the user's click still to be recent, and reading a million rows takes
   // far longer than that — asking afterwards threw, and the button looked dead.
-  const doExport = async (format: AnyExportFormat) => {
+  //
+  // The toolbar and the context menu first open the export dialog (audit R-36):
+  // format, which rows (the whole result by default, the loaded page, or the
+  // marked rows) and CSV's options; the toast then carries a Cancel.
+  const [exportAsk, setExportAsk] = createSignal<AnyExportFormat | null>(null);
+  let exportCtl: AbortController | null = null;
+  const doExport = (format: AnyExportFormat) => {
+    const res = currentResult().result;
+    if (res && res.columns.length > 0) setExportAsk(format);
+  };
+  const runExport = async (choice: ExportChoice<AnyExportFormat>) => {
+    setExportAsk(null);
+    const format = choice.format;
     const tab = current();
     const r = currentResult();
     const res = r.result;
@@ -4222,11 +4235,18 @@ export function App() {
     const base = src?.table ?? tab.title ?? "export";
     const table = src?.table ?? "exported";
     const conn = tabConn(tab);
-    const sql = exportSql(tab.id, r);
+    const sql = choice.scope === "all" ? exportSql(tab.id, r) : null;
     const binary = format === "xlsx";
     const file = fileNameFor(base, binary ? "xlsx" : format);
     const target = await pickSaveTarget(file, binary ? XLSX_MIME : mimeFor(format));
     if (!target) return;  // dialog dismissed
+    const ctl = new AbortController();
+    exportCtl?.abort();
+    exportCtl = ctl;
+    const cancelled = () => {
+      setExportStatus({ text: t("export.cancelled") });
+      setResults(tab.id, { cursor: false });
+    };
     let total: number | undefined;
     const working = (text: string, rows?: number) =>
       setExportStatus({ text, hint: t("export.hint", { file }), rows, total });
@@ -4240,7 +4260,7 @@ export function App() {
     const fetched = contiguousPages(r.pages);
     const held = fetched?.flatMap((page) => page.rows);
     const holdsAll = fetched !== null && !fetched[fetched.length - 1].truncated;
-    let full = res;
+    let full = choice.scope === "marked" ? pickRows(res, markedRows()) : res;
     if (conn && sql && (res.truncated || (fetched?.length ?? 0) > 1)) {
       const progress = (rows: number) =>
         working(t("export.progress", { n: String(rows) }), rows);
@@ -4255,20 +4275,22 @@ export function App() {
           // bar starts moving at once and gains its scale a moment later.
           countForBar(conn, r, tab.id, (n) => (total = n));
           try {
-            const rest = await drainCursor(conn.connId, EXPORT_PAGE, held.length, progress);
+            const rest = await drainCursor(conn.connId, EXPORT_PAGE, held.length, progress, ctl.signal);
             full = { ...res, rows: [...held, ...rest], truncated: false, cursor: false };
-          } catch {
+          } catch (err) {
+            if (ctl.signal.aborted) throw err;
             // The cursor went away mid-read (another tab paged this connection).
             // Read it again from the start rather than write half a file.
-            full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress);
+            full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress, ctl.signal);
           }
           setResults(tab.id, { cursor: false });
         } else {
           countForBar(conn, r, tab.id, (n) => (total = n));
-          full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress);
+          full = await drainQuery(conn.connId, sql, EXPORT_PAGE, progress, ctl.signal);
           setResults(tab.id, { cursor: false });
         }
       } catch (err) {
+        if (ctl.signal.aborted) return cancelled();
         setExportStatus({ text: t("export.failed", { reason: errorText(err) }), error: true });
         setResults(tab.id, { cursor: false });
         return;
@@ -4303,7 +4325,11 @@ export function App() {
       } else {
         let written = 0;
         let sinceFrame = 0;
-        for (const chunk of exportChunks(full, format, table, EXPORT_CHUNK_ROWS)) {
+        for (const chunk of exportChunks(full, format, table, EXPORT_CHUNK_ROWS, choice.csv)) {
+          if (ctl.signal.aborted) {
+            await writer.abort();
+            return cancelled();
+          }
           await writer.write(chunk);
           written = Math.min(full.rows.length, written + EXPORT_CHUNK_ROWS);
           working(t("export.writing", { n: String(full.rows.length), file }), written);
@@ -6014,6 +6040,25 @@ export function App() {
         )}
       </Show>
 
+      <Show when={exportAsk()}>
+        {(fmt) => {
+          const tab = current();
+          const r = currentResult();
+          return (
+            <ExportDialog
+              formats={EXPORT_FORMATS}
+              initialFormat={fmt()}
+              loaded={r.result?.rows.length ?? 0}
+              marked={markedRows().length}
+              canReadAll={!!tab && !!tabConn(tab) && exportSql(tab.id, r) !== null}
+              more={!!r.result?.truncated}
+              onExport={(choice) => void runExport(choice)}
+              onCancel={() => setExportAsk(null)}
+            />
+          );
+        }}
+      </Show>
+
       <Show when={exportStatus()}>
         {(status) => (
           <div
@@ -6046,6 +6091,11 @@ export function App() {
                 <span class="app-toast-hint">{status().hint}</span>
               </Show>
             </span>
+            <Show when={status().rows !== undefined}>
+              <button type="button" class="btn" onClick={() => exportCtl?.abort()}>
+                {t("common.cancel")}
+              </button>
+            </Show>
             <button
               class="app-toast-close"
               title={t("panel.close")}
