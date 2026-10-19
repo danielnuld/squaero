@@ -55,6 +55,107 @@ void mac_set_dark(void *window, bool dark)
     }
 }
 
+// --- The menu bar from the UI's model (A-11) -----------------------------------
+
+static void (*g_on_menu_item)(size_t index) = nullptr;
+
+@interface QuaeroMenuTarget : NSObject
+- (void)run:(NSMenuItem *)item;
+@end
+
+@implementation QuaeroMenuTarget
+- (void)run:(NSMenuItem *)item
+{
+    if (g_on_menu_item != nullptr) {
+        g_on_menu_item(static_cast<size_t>(item.tag));
+    }
+}
+@end
+
+// NSMenuItem keeps its target weakly; this is the strong reference.
+static QuaeroMenuTarget *g_menu_target = nil;
+
+// The items AppKit runs itself: the selector, its key and modifiers. A null
+// selector is a UI action that still gets the standard key (Cmd+, Settings).
+struct NativeItem {
+    const char *id;
+    const char *selector;
+    const char *key;
+    NSEventModifierFlags mods;
+};
+
+static const NativeItem *native_item(const char *id)
+{
+    static const NSEventModifierFlags cmd = NSEventModifierFlagCommand;
+    static const NativeItem k_items[] = {
+        {"edit:undo", "undo:", "z", cmd},
+        {"edit:redo", "redo:", "z", cmd | NSEventModifierFlagShift},
+        {"edit:cut", "cut:", "x", cmd},
+        {"edit:copy", "copy:", "c", cmd},
+        {"edit:paste", "paste:", "v", cmd},
+        {"edit:select-all", "selectAll:", "a", cmd},
+        {"mac:hide", "hide:", "h", cmd},
+        {"mac:hide-others", "hideOtherApplications:", "h", cmd | NSEventModifierFlagOption},
+        {"mac:show-all", "unhideAllApplications:", "", 0},
+        {"quit", "terminate:", "q", cmd},
+        {"act:settings", nullptr, ",", cmd},
+    };
+    for (const NativeItem &n : k_items) {
+        if (std::strcmp(n.id, id) == 0) {
+            return &n;
+        }
+    }
+    return nullptr;
+}
+
+void mac_set_menu(const quaero_menu &m, void (*on_item)(size_t index))
+{
+    if (m.count == 0) {
+        return;
+    }
+    @autoreleasepool {
+        g_on_menu_item = on_item;
+        if (g_menu_target == nil) {
+            g_menu_target = [[QuaeroMenuTarget alloc] init];
+        }
+        NSMenu *bar = [[NSMenu alloc] init];
+        NSMenu *sub = nil;
+        for (size_t i = 0; i < m.count; i++) {
+            const quaero_menu_entry &e = m.entries[i];
+            if (e.kind == QUAERO_MENU_TOP) {
+                NSString *title = [NSString stringWithUTF8String:e.label];
+                NSMenuItem *top = [[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""];
+                sub = [[NSMenu alloc] initWithTitle:title];
+                sub.autoenablesItems = NO;
+                top.submenu = sub;
+                [bar addItem:top];
+            } else if (sub == nil) {
+                continue;
+            } else if (e.kind == QUAERO_MENU_SEPARATOR) {
+                [sub addItem:[NSMenuItem separatorItem]];
+            } else {
+                const NativeItem *n = native_item(e.id);
+                NSMenuItem *item = [[NSMenuItem alloc]
+                    initWithTitle:[NSString stringWithUTF8String:e.label]
+                           action:n != nullptr && n->selector != nullptr
+                                      ? NSSelectorFromString([NSString stringWithUTF8String:n->selector])
+                                      : @selector(run:)
+                    keyEquivalent:n != nullptr ? [NSString stringWithUTF8String:n->key] : @""];
+                if (n != nullptr) {
+                    item.keyEquivalentModifierMask = n->mods;
+                }
+                if (n == nullptr || n->selector == nullptr) {
+                    item.target = g_menu_target;
+                    item.tag = static_cast<NSInteger>(i);
+                }
+                item.enabled = e.enabled ? YES : NO;
+                [sub addItem:item];
+            }
+        }
+        [NSApplication sharedApplication].mainMenu = bar;
+    }
+}
+
 // --- The app's own title bar (issue #688) --------------------------------------
 
 static NSString *const kCustomTitleBarKey = @"QuaeroCustomTitleBar";

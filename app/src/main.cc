@@ -472,7 +472,32 @@ static void load_frontend(webview_t w)
     webview_set_html(w, html);
 }
 
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_WIN32)
+// The standard Edit commands (A-11; menu_model.h) on whatever has the focus in
+// the page. WebView2 has no editing API, so Windows types the command's own
+// chord: the page sees exactly the key the menu names — Ctrl+C in the grid
+// copies its rows, Ctrl+Z in the editor is the editor's undo.
+static void run_edit_command(const char *command)
+{
+    const char key = quaero_menu_edit_key(command);
+    if (key == 0) {
+        return;
+    }
+    INPUT in[4] = {};
+    for (INPUT &i : in) {
+        i.type = INPUT_KEYBOARD;
+    }
+    in[0].ki.wVk = VK_CONTROL;
+    in[1].ki.wVk = static_cast<WORD>(key);
+    in[2].ki.wVk = static_cast<WORD>(key);
+    in[2].ki.dwFlags = KEYEVENTF_KEYUP;
+    in[3].ki.wVk = VK_CONTROL;
+    in[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(4, in, sizeof(INPUT));
+}
+#endif
+
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 // --- Native menu bar (issue #686) ---------------------------------------------
 //
 // The UI owns the menu: it sends the model (menu_model.h) through quaeroSetMenu
@@ -497,6 +522,22 @@ static void run_menu_action(size_t index)
         webview_terminate(g_menu_webview);
         return;
     }
+#if defined(_WIN32)
+    if (const char *command = quaero_menu_edit_command(id)) {
+        run_edit_command(command);
+        return;
+    }
+#elif defined(__linux__)
+    if (const char *command = quaero_menu_edit_command(id)) {
+        // WebKitGTK names its editing commands exactly as the model does.
+        void *view = webview_get_native_handle(g_menu_webview,
+                                               WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER);
+        if (view != nullptr) {
+            webkit_web_view_execute_editing_command(WEBKIT_WEB_VIEW(view), command);
+        }
+        return;
+    }
+#endif
     // A JSON string literal is a JS string literal, so cJSON does the quoting.
     cJSON *str = cJSON_CreateString(id);
     char *quoted = cJSON_PrintUnformatted(str);
@@ -604,7 +645,9 @@ static std::wstring widen(const char *utf8)
 // The Win32 menu bar (issue #686). Each item's command id is its index in the
 // model offset by k_menu_cmd_base, which WM_COMMAND (shell_wndproc) maps back.
 // The accelerator is only the text after the tab: no accelerator table, so the
-// key reaches the page once, through the UI's own shortcut handling.
+// key reaches the page once, through the UI's own shortcut handling. The
+// labels carry their access keys as Win32 spells them ("&Archivo", R-41), so
+// Alt+letter and F10 work as in any Windows menu.
 //
 // Known limitation: a Win32 menu bar follows the system's light/dark setting
 // for menus, not the app's theme — there is no documented API to darken it.
@@ -1505,6 +1548,12 @@ static void window_handler(const char *id, const char *req, void *arg)
         }
         layout_titlebar(hwnd);
         break;
+    case QUAERO_WINDOW_EDIT: {
+        // The bar's own Edit menu: the page put the focus back first.
+        const cJSON *item = cJSON_GetArrayItem(args, 1);
+        run_edit_command(quaero_menu_edit_command(cJSON_IsString(item) ? item->valuestring : nullptr));
+        break;
+    }
     case QUAERO_WINDOW_STATE:
         break;
     case QUAERO_WINDOW_UNKNOWN:
@@ -1866,7 +1915,9 @@ static void restore_window_state(GtkWindow *win)
 // then on apply_menu_bar swaps the bar at the top of that box: GtkMenuBar on
 // GTK3, a GtkPopoverMenuBar over a GMenuModel with one GSimpleAction per item
 // on GTK4. The accelerators are shown (gtk_accel_label_set_accel / the "accel"
-// attribute) but bound to nothing: the keys stay the UI's.
+// attribute) but bound to nothing: the keys stay the UI's. The labels carry
+// their access keys as GTK spells them ("_Archivo", R-41): a GMenu label is a
+// mnemonic already, and GTK3 builds its items with _with_mnemonic.
 
 static GtkWidget *g_menu_box = nullptr;
 static GtkWidget *g_menu_bar = nullptr;
@@ -1966,7 +2017,7 @@ static GtkWidget *build_menu_bar(GtkWindow *, const quaero_menu &m)
     for (size_t i = 0; i < m.count; i++) {
         const quaero_menu_entry &e = m.entries[i];
         if (e.kind == QUAERO_MENU_TOP) {
-            GtkWidget *top = gtk_menu_item_new_with_label(e.label);
+            GtkWidget *top = gtk_menu_item_new_with_mnemonic(e.label);
             sub = gtk_menu_new();
             gtk_menu_item_set_submenu(GTK_MENU_ITEM(top), sub);
             gtk_menu_shell_append(GTK_MENU_SHELL(bar), top);
@@ -1975,7 +2026,7 @@ static GtkWidget *build_menu_bar(GtkWindow *, const quaero_menu &m)
         } else if (e.kind == QUAERO_MENU_SEPARATOR) {
             gtk_menu_shell_append(GTK_MENU_SHELL(sub), gtk_separator_menu_item_new());
         } else {
-            GtkWidget *item = gtk_menu_item_new_with_label(e.label);
+            GtkWidget *item = gtk_menu_item_new_with_mnemonic(e.label);
             char accel[64];
             if (e.accel != nullptr && quaero_menu_accel_gtk(e.accel, accel, sizeof accel) > 0) {
                 guint key = 0;
@@ -2160,6 +2211,7 @@ static void window_handler(const char *id, const char *req, void *arg)
     case QUAERO_WINDOW_SYSTEM_MENU:
     case QUAERO_WINDOW_SNAP:
     case QUAERO_WINDOW_BACKDROP:
+    case QUAERO_WINDOW_EDIT:  // the AppKit Edit menu does it (macos.mm)
         break;
     case QUAERO_WINDOW_UNKNOWN:
     default:
@@ -2175,7 +2227,7 @@ static void window_handler(const char *id, const char *req, void *arg)
 }
 #endif
 
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 // Bridge: window.quaeroSetMenu(json) — the native menu bar (issue #686), built
 // from the model the UI sends (menu_model.h); "[]" takes the bar away. A model
 // the parser refuses is reported and the bar is left as it was — never half a
@@ -2194,6 +2246,8 @@ static void set_menu_handler(const char *id, const char *req, void *arg)
     g_menu_webview = w;
 #if defined(_WIN32)
     apply_menu_bar(static_cast<HWND>(webview_get_window(w)));
+#elif defined(__APPLE__)
+    mac_set_menu(g_menu, run_menu_action);
 #else
     apply_menu_bar(GTK_WINDOW(webview_get_window(w)));
 #endif
@@ -2377,11 +2431,10 @@ int main()
 #endif
     webview_bind(w, "quaeroSetTitle", set_title_handler, w);
     webview_bind(w, "quaeroSetTheme", set_theme_handler, w);
-#if defined(_WIN32) || defined(__linux__)
-    // macOS keeps its AppKit menu (macos.mm): the binding's absence is how the
-    // UI knows there is no bar of its own to fill or hide there.
+    // Every shell draws the UI's menu. macOS builds its AppKit bar from it
+    // (macos.mm: the app menu and the Edit menu's native roles included) and
+    // has no setting to hide it.
     webview_bind(w, "quaeroSetMenu", set_menu_handler, w);
-#endif
 #if defined(_WIN32) || defined(__APPLE__)
     // The app's own title bar (issue #688). Linux keeps the system's: the
     // binding's absence is how the UI knows to draw no window buttons there.

@@ -10,7 +10,10 @@
    Parsed here into one flat list so the Win32 (HMENU) and GTK builders in the
    shell walk the same thing: a TOP entry opens a menu, the ITEM and SEPARATOR
    entries after it are its contents. The entry's index is what a native item
-   carries (a WM_COMMAND id, a GAction name) to find its action id again. Pure:
+   carries (a WM_COMMAND id, a GAction name) to find its action id again.
+   Labels arrive with their access key marked the toolkit's way ("&Archivo" on
+   Windows, "_Archivo" with GTK; the UI's nativeMenu.ts marks them) and pass
+   through untouched. Pure:
    no window, no toolkit; the shell applies it. */
 #ifndef QUAERO_APP_MENU_MODEL_H
 #define QUAERO_APP_MENU_MODEL_H
@@ -55,6 +58,20 @@ void quaero_menu_free(quaero_menu *menu);
    "<Control>Page_Down", "F5" -> "F5". Returns the characters written (no NUL),
    or 0 when accel is NULL/empty, has no key, or buf is too small. */
 size_t quaero_menu_accel_gtk(const char *accel, char *buf, size_t cap);
+
+/* The standard Edit command an item id names (A-11): "edit:undo" -> "Undo",
+   "edit:redo" -> "Redo", "edit:cut" -> "Cut", "edit:copy" -> "Copy",
+   "edit:paste" -> "Paste", "edit:select-all" -> "SelectAll"; NULL for any
+   other id or NULL. Spelled as WebKitGTK's editing commands, which GTK runs
+   as is; macOS sends the selector of the same name with a lowercase first
+   letter ("selectAll:") and Windows types the chord quaero_menu_edit_key
+   gives. The shell runs these itself: they act on whatever has the focus in
+   the page, which a click sent to the page could not reach. */
+const char *quaero_menu_edit_command(const char *id);
+
+/* The letter of the command's Ctrl chord on Windows: Undo 'Z', Redo 'Y',
+   Cut 'X', Copy 'C', Paste 'V', SelectAll 'A'; 0 for anything else. */
+char quaero_menu_edit_key(const char *command);
 
 #ifdef __cplusplus
 }
