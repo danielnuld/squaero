@@ -65,8 +65,10 @@ export function ConnectionManager(props: ConnectionManagerProps) {
     saveCollapsedGroups(next);
   };
 
-  // Right-click a connection to move it between the groups that already exist.
-  // Creating a group is done in the connection form, where it can be typed.
+  // Right-click a connection (or its "more" button) to move it between the
+  // groups that already exist — creating one is done in the connection form —
+  // or to delete it. Delete is the LAST item, in danger colour, away from Edit
+  // (issue #762): it used to be a bare icon touching the pencil.
   const rowMenu = (e: MouseEvent, c: Connection) => {
     const current = (c.group ?? "").trim();
     const items: MenuItem[] = connectionGroups(props.connections)
@@ -77,6 +79,8 @@ export function ConnectionManager(props: ConnectionManagerProps) {
     }
     if (items.length > 0) items.push({ separator: true });
     items.push({ label: t("common.edit"), action: () => props.onEdit(c) });
+    items.push({ separator: true });
+    items.push({ label: t("conn.deleteItem"), danger: true, action: () => props.onDelete(c.id) });
     openContextMenu(e, items);
   };
 
@@ -123,12 +127,11 @@ export function ConnectionManager(props: ConnectionManagerProps) {
           <Icon name="edit" size={14} />
         </button>
         <button
-          class="danger"
-          title={t("common.delete")}
-          aria-label={t("common.delete")}
-          onClick={() => props.onDelete(c.id)}
+          title={t("conn.more", { name: c.name })}
+          aria-label={t("conn.more", { name: c.name })}
+          onClick={(e) => rowMenu(e, c)}
         >
-          <Icon name="trash" size={14} />
+          <Icon name="more" size={14} />
         </button>
       </div>
     </li>

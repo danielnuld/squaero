@@ -154,6 +154,7 @@ import {
   driverSchema,
   setConnectionGroup,
   removeConnection,
+  restoreConnection,
   AVAILABLE_DRIVERS,
   type Connection,
 } from "./utils/connections";
@@ -1592,6 +1593,7 @@ export function App() {
     values: VarValues;
   } | null>(null);
 
+  // The app's undo toast: a saved snippet, and a deleted connection (#762).
   const [snipToast, setSnipToast] = createSignal<{ text: string; undo: () => void } | null>(null);
   // Reading every row of a big table takes a while and can fail halfway; an
   // export that says nothing looks like an export that did nothing (issue #479).
@@ -1761,12 +1763,37 @@ export function App() {
   const onEditConnection = (c: Connection) =>
     openConnForm({ ...c, params: { ...c.params } });
 
-  const onDeleteConnection = (id: string) => {
-    persist(removeConnection(connections(), id));
-    // Close it if it happens to be open (focused or not).
-    if (openConns().some((o) => o.defId === id)) {
-      void disconnect(id);
+  // Deleting a saved connection (issue #762) takes effect at once and offers an
+  // undo toast that puts back the very object — password, tunnel, group, colour,
+  // safe mode — at its old position. The password lives in that object (no
+  // keychain), so nothing is lost before the toast leaves. An OPEN connection
+  // asks first: deleting it disconnects a live session.
+  const [deletingConn, setDeletingConn] = createSignal<Connection | null>(null);
+  let connUndoTimer: ReturnType<typeof setTimeout> | undefined;
+  const deleteConnection = async (c: Connection) => {
+    if (openConns().some((o) => o.defId === c.id)) {
+      await disconnect(c.id);
+      // An open transaction sent the user to its own prompt: delete nothing yet.
+      if (openConns().some((o) => o.defId === c.id)) return;
     }
+    const index = connections().findIndex((x) => x.id === c.id);
+    if (index === -1) return;
+    persist(removeConnection(connections(), c.id));
+    const toast = {
+      text: t("conn.deleted", { name: c.name }),
+      undo: () => persist(restoreConnection(connections(), c, index)),
+    };
+    setSnipToast(toast);
+    clearTimeout(connUndoTimer);
+    connUndoTimer = setTimeout(() => {
+      if (snipToast() === toast) setSnipToast(null);
+    }, 10_000);
+  };
+  const onDeleteConnection = (id: string) => {
+    const c = connections().find((x) => x.id === id);
+    if (!c) return;
+    if (openConns().some((o) => o.defId === id)) setDeletingConn(c);
+    else void deleteConnection(c);
   };
 
   // The saved connections get a tab of their own (issue #525): the sidebar bar
@@ -5624,6 +5651,22 @@ export function App() {
               <Icon name="close" size={12} />
             </button>
           </div>
+        )}
+      </Show>
+
+      <Show when={deletingConn()}>
+        {(c) => (
+          <ConfirmDialog
+            title={t("conn.deleteOpenTitle")}
+            message={t("conn.deleteOpenMessage", { name: c().name })}
+            confirmLabel={t("conn.deleteOpenConfirm")}
+            onConfirm={() => {
+              const conn = c();
+              setDeletingConn(null);
+              void deleteConnection(conn);
+            }}
+            onCancel={() => setDeletingConn(null)}
+          />
         )}
       </Show>
 
