@@ -7,15 +7,22 @@ import {
   diffSchemas,
   diffEmpty,
   diffItems,
+  filterDiff,
   generateMigration,
   isExecutable,
   losesData,
   scriptText,
   type DiffItem,
   type DiffKind,
+  type CompareScope,
   type MigrationScript,
   type ScriptIssue,
 } from "../utils/schemaDiff";
+import { runStatements, type StepStatus, type StepsOutcome } from "../utils/statementRun";
+import { copyText } from "../utils/rowCopy";
+import { formatDuration } from "../utils/duration";
+import { RunProgress } from "./RunProgress";
+import { Icon } from "./icons";
 import { readSnapshot, NotATableListError, type SnapshotSource } from "../utils/schemaCatalog";
 import { openSaved, closeConnection } from "../utils/conn";
 import { runQuery, drainQuery, QueryError } from "../utils/query";
@@ -57,6 +64,8 @@ export function SchemaSyncWizard(props: {
   const [targetDb, setTargetDb] = createSignal(props.sourceDb ?? "");
   const [targetSchema, setTargetSchema] = createSignal(props.sourceSchema ?? "");
   const [dropTables, setDropTables] = createSignal(false);
+  /** «Qué comparar»: the groups of objects the comparison looks at. */
+  const [scope, setScope] = createSignal<CompareScope>({ structure: true, constraints: true, views: true });
   const [result, setResult] = createSignal<{
     items: DiffItem[];
     empty: boolean;
@@ -67,7 +76,15 @@ export function SchemaSyncWizard(props: {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [confirming, setConfirming] = createSignal(false);
-  const [applied, setApplied] = createSignal<string | null>(null);
+  /** The apply step: every executable statement with its status, and how it ended. */
+  const [run, setRun] = createSignal<{
+    statements: string[];
+    statuses: StepStatus[];
+    startedAt: number;
+    ms?: number;
+    outcome?: StepsOutcome;
+  } | null>(null);
+  let runCtl: AbortController | null = null;
   // Data-losing statements the user opted into (indexes into executable()):
   // they start unchecked (audit A-30).
   const [optIn, setOptIn] = createSignal<ReadonlySet<number>>(new Set());
@@ -80,7 +97,10 @@ export function SchemaSyncWizard(props: {
       targetConnId = null;
     }
   };
-  onCleanup(closeTarget);
+  onCleanup(() => {
+    runCtl?.abort();
+    closeTarget();
+  });
 
   const errMsg = (e: unknown) =>
     e instanceof NotATableListError
@@ -111,7 +131,7 @@ export function SchemaSyncWizard(props: {
     setBusy(true);
     setError(null);
     setResult(null);
-    setApplied(null);
+    setRun(null);
     try {
       closeTarget();
       targetConnId = await openSaved(def);
@@ -119,7 +139,7 @@ export function SchemaSyncWizard(props: {
         readSnapshot(source(props.sourceConnId, props.sourceEngine, sourceDb(), sourceSchema())),
         readSnapshot(source(targetConnId, def.driver, targetDb(), targetSchema())),
       ]);
-      const diff = diffSchemas(src, tgt);
+      const diff = filterDiff(diffSchemas(src, tgt), scope());
       const script = generateMigration(diff, {
         container: { db: targetDb() || undefined, schema: targetSchema() || undefined },
         sourceContainer: { db: sourceDb() || undefined, schema: sourceSchema() || undefined },
@@ -159,31 +179,48 @@ export function SchemaSyncWizard(props: {
 ${scriptText(r.script)}` : "";
   };
 
+  // The apply step (R-15): every statement on screen with its status, one
+  // transaction, stopped at the first failure or by Cancelar — both roll back.
   const apply = async () => {
     const sql = chosen();
-    if (!targetConnId || sql.length === 0) return;
+    if (!targetConnId || sql.length === 0 || resultReadOnly()) return;
     const connId = targetConnId;
-    setBusy(true);
+    const all = executable();
+    const excluded = new Set(all.flatMap((s, i) => (losesData(s) && !optIn().has(i) ? [i] : [])));
+    const ctl = new AbortController();
+    runCtl = ctl;
     setError(null);
+    setConfirming(false);
+    const startedAt = Date.now();
     try {
       await withWriteConsent(connId, sql, async () => {
+        setRun({
+          statements: all,
+          statuses: all.map((_, i) => (excluded.has(i) ? { state: "excluded" } : { state: "pending" })),
+          startedAt,
+        });
         await txBegin(connId);
+        let outcome: StepsOutcome;
         try {
-          for (const stmt of sql) {
-            await runQuery(connId, stmt.replace(/;\s*$/, ""));
-          }
-          await txCommit(connId);
-          setApplied(t("ssync.applied", { n: sql.length }));
-          setConfirming(false);
+          outcome = await runStatements(
+            all,
+            async (stmt) => void (await runQuery(connId, stmt.replace(/;\s*$/, ""))),
+            (i, status) => setRun((r) => r && { ...r, statuses: r.statuses.map((s, j) => (j === i ? status : s)) }),
+            { excluded, signal: ctl.signal },
+          );
         } catch (err) {
           await txRollback(connId).catch(() => {});
           throw err;
         }
+        if (outcome.failedAt !== null || outcome.cancelled) await txRollback(connId).catch(() => {});
+        else await txCommit(connId);
+        setRun((r) => r && { ...r, outcome, ms: Date.now() - startedAt });
       });
     } catch (err) {
+      setRun(null);
       setError(t("ssync.applyError", { reason: errMsg(err) }));
     } finally {
-      setBusy(false);
+      if (runCtl === ctl) runCtl = null;
     }
   };
 
@@ -196,8 +233,30 @@ ${scriptText(r.script)}` : "";
         })
       : `${i.object}: ${t(`ssync.issue.${i.code}`)}${i.detail ? ` (${i.detail})` : ""}`;
 
-  // 0 what to compare, 1 the differences and the script, 2 applied.
-  const step = () => (applied() ? 2 : result() ? 1 : 0);
+  // 0 what to compare, 1 the differences and the script, 2 the apply.
+  const step = () => (run() ? 2 : result() ? 1 : 0);
+  const applying = () => !!run() && !run()!.outcome;
+  const statusText = (s: StepStatus) =>
+    s.state === "done"
+      ? t("ssync.st.done", { time: formatDuration(s.ms) })
+      : s.state === "failed"
+        ? t("ssync.st.failed", { message: s.message })
+        : t(`ssync.st.${s.state}`);
+  /** The apply log, for «Copiar registro»: one line per statement. */
+  const runLog = () => {
+    const r = run();
+    return r ? r.statements.map((sql, i) => `${i + 1}\t${statusText(r.statuses[i])}\t${sql}`).join("\n") : "";
+  };
+  const outcomeText = () => {
+    const r = run();
+    const o = r?.outcome;
+    if (!r || !o) return "";
+    const time = formatDuration(r.ms ?? 0);
+    if (o.cancelled) return t("ssync.outcome.cancelled", { target: targetName() });
+    if (o.failedAt !== null) return t("ssync.outcome.failed", { n: o.failedAt + 1, target: targetName() });
+    return countText("ssync.outcome.done", o.done, { target: targetName(), time });
+  };
+  const setScopeKey = (key: keyof CompareScope, on: boolean) => setScope((s) => ({ ...s, [key]: on }));
   const targetName = () => props.connections.find((c) => c.id === result()?.defId)?.name ?? "";
   // A read-only target gets the script, never an apply button (audit P1).
   const readOnly = () => isReadOnlyTarget(props.connections.find((c) => c.id === targetDefId()));
@@ -206,7 +265,7 @@ ${scriptText(r.script)}` : "";
   const destructive = () => chosen().some(isDestructiveSql);
 
   return (
-    <Panel wide onClose={props.onClose} dirty={busy() || (!!result() && !applied())}>
+    <Panel wide onClose={props.onClose} dirty={busy() || applying() || (!!result() && !run())}>
       <Wizard
         title={t("ssync.title")}
         subtitle={t("ssync.subtitle")}
@@ -227,9 +286,18 @@ ${scriptText(r.script)}` : "";
                 }
               : undefined
         }
-        cancelLabel={step() === 0 ? undefined : t("common.close")}
-        onCancel={props.onClose}
+        cancelLabel={applying() ? t("ssync.cancelRun") : step() === 0 ? undefined : t("common.close")}
+        onCancel={applying() ? () => runCtl?.abort() : props.onClose}
         helpers={
+          <>
+          <Show when={step() === 2 && run()?.outcome}>
+            <button type="button" class="btn" onClick={() => copyText(runLog())}>
+              {t("ssync.copyLog")}
+            </button>
+            <button type="button" class="btn" onClick={() => void compare()}>
+              {t("ssync.compareAgain")}
+            </button>
+          </Show>
           <Show when={step() === 1 && result()!.script.statements.length > 0}>
             <button type="button" class="btn" onClick={() => props.onOpenSql(text(), result()!.defId)}>
               {t("ssync.openInEditor")}
@@ -242,6 +310,7 @@ ${scriptText(r.script)}` : "";
               {t("ssync.saveSql")}
             </button>
           </Show>
+          </>
         }
       >
         <Show when={step() === 0}>
@@ -296,6 +365,26 @@ ${scriptText(r.script)}` : "";
                 })}
               </p>
             </Show>
+          </div>
+          <h3>{t("ssync.whatHeading")}</h3>
+          <div class="wiz-form">
+            <div class="wiz-row" role="group" aria-label={t("ssync.objects")}>
+              <span class="wiz-label">{t("ssync.objects")}</span>
+              <span class="wiz-ctl wiz-radios">
+                <For each={["structure", "constraints", "views"] as (keyof CompareScope)[]}>
+                  {(key) => (
+                    <label class="import-check">
+                      <input
+                        type="checkbox"
+                        checked={scope()[key]}
+                        onChange={(e) => setScopeKey(key, e.currentTarget.checked)}
+                      />
+                      {t(`ssync.scope.${key}`)}
+                    </label>
+                  )}
+                </For>
+              </span>
+            </div>
             <div class="wiz-row">
               <span class="wiz-label">{t("ssync.extraTables")}</span>
               <label class="wiz-ctl import-check">
@@ -362,7 +451,17 @@ ${scriptText(r.script)}` : "";
                 </Show>
 
                 <Show when={r().script.statements.length > 0}>
-                  <h3>{t("ssync.migrationSql", { n: executable().length })}</h3>
+                  <div class="colmap-head">
+                    <h3>{t("ssync.migrationSql", { n: executable().length })}</h3>
+                    <span class="help">
+                      {t("ssync.marked", { n: chosen().length, total: executable().length })}
+                    </span>
+                    <span class="toolbar-spacer" />
+                    <button type="button" class="btn" onClick={() => copyText(text())}>
+                      <Icon name="copy" size={14} />
+                      {t("ssync.copyScript")}
+                    </button>
+                  </div>
                   <pre class="ddl-text preview-sql ssync-script" aria-label={t("ssync.script")}>
                     {text()}
                   </pre>
@@ -391,8 +490,40 @@ ${scriptText(r.script)}` : "";
           }}
         </Show>
 
-        <Show when={applied()}>
-          <p class="import-applied">{applied()}</p>
+        <Show when={run()}>
+          {(r) => (
+            <>
+              <Show
+                when={r().outcome}
+                fallback={
+                  <RunProgress
+                    title={t("ssync.applyingIn", { target: targetName() })}
+                    done={r().statuses.filter((s) => s.state === "done").length}
+                    total={r().statuses.filter((s) => s.state !== "excluded").length}
+                    unit="statements"
+                    startedAt={r().startedAt}
+                    note={t("ssync.cancelNote", { target: targetName() })}
+                  />
+                }
+              >
+                <p role="status" class={r().outcome!.failedAt !== null ? "field-error" : "import-applied"}>
+                  {outcomeText()}
+                </p>
+              </Show>
+              <h3>{t("ssync.statements")}</h3>
+              <ol class="stmt-list">
+                <For each={r().statements}>
+                  {(sql, i) => (
+                    <li class={`stmt is-${r().statuses[i()].state}`}>
+                      <span class="stmt-num">{i() + 1}</span>
+                      <code class="stmt-sql">{sql}</code>
+                      <span class="stmt-status">{statusText(r().statuses[i()])}</span>
+                    </li>
+                  )}
+                </For>
+              </ol>
+            </>
+          )}
         </Show>
       </Wizard>
 
