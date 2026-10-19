@@ -13,6 +13,9 @@ import { objectFolders, objectLeaves, readDefinitionText } from "../utils/treeOb
 import { definitionFor as routineDefinitionFor } from "../utils/routines";
 import { definitionFor as objectDefinitionFor } from "../utils/triggers";
 import { Dropdown } from "./Dropdown";
+import { Wizard, WizardField } from "./Wizard";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { countText, restoreConfirm } from "../utils/confirmText";
 
 /** Rows per page while reading a table for the dump. */
 const PAGE = 5000;
@@ -42,6 +45,8 @@ export function BackupPanel(props: {
   const [status, setStatus] = createSignal<{ text: string; error?: boolean } | null>(null);
   // What the last DDL dump could not include, and why (#673): never left out silently.
   const [skipped, setSkipped] = createSignal<string[]>([]);
+  const [mode, setMode] = createSignal<"dump" | "ddl" | "restore">("dump");
+  const [confirmRestore, setConfirmRestore] = createSignal(false);
   const canPickFolder = typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === "function";
 
   // The database's level is either its tables (MySQL, SQLite, Informix) or its
@@ -248,102 +253,180 @@ export function BackupPanel(props: {
     }
   };
 
+  // Restoring runs a whole file over the database: it asks first, naming the
+  // file, the statements and where they go (audit A-10).
+  const target = () => [props.connName, props.db].filter(Boolean).join(" › ");
+  const askRestore = () => {
+    if (script()) setConfirmRestore(true);
+  };
+
+  const primary = () => {
+    if (mode() === "dump") {
+      return {
+        label: t("bk.dump"),
+        onClick: () => void backup(),
+        disabled: !props.db || chosen().length === 0 || (!structure() && !data()),
+      };
+    }
+    if (mode() === "ddl") {
+      return {
+        label: canPickFolder ? t("ddl.dump") : t("ddl.dumpZip"),
+        onClick: () => void dumpDdl(),
+        disabled: !props.db || (schemas().length > 0 && !schema()),
+      };
+    }
+    return {
+      label: countText("confirm.restore.button", script()?.stmts.length ?? 0),
+      onClick: askRestore,
+      disabled: !script() || !props.connId,
+      danger: true,
+    };
+  };
+
+  const MODES = [
+    ["dump", "bk.dumpHeading"],
+    ["ddl", "ddl.heading"],
+    ["restore", "bk.restoreHeading"],
+  ] as const;
+
   return (
     <Panel title={t("tool.backup.tab")}>
-      <Show when={status()}>
-        <div class={status()!.error ? "grid-error" : "import-subtitle"} role={status()!.error ? "alert" : "status"}>
-          {status()!.text}
+      <Wizard
+        title={t("tool.backup.tab")}
+        subtitle={props.db ? t("bk.db", { db: target() }) : t("bk.noDb")}
+        error={status()?.error ? status()!.text : null}
+        busy={busy()}
+        primary={primary()}
+      >
+        {/* Three jobs, one primary each (audit A-32): tabs, not three
+            sections with a primary button apiece. */}
+        <div class="seg" role="tablist" aria-label={t("tool.backup.tab")}>
+          <For each={MODES}>
+            {([id, label]) => (
+              <button
+                type="button"
+                role="tab"
+                class={mode() === id ? "seg-btn on" : "seg-btn"}
+                aria-selected={mode() === id}
+                onClick={() => {
+                  setMode(id);
+                  setStatus(null);
+                }}
+              >
+                {t(label)}
+              </button>
+            )}
+          </For>
         </div>
-      </Show>
 
-      <h2>{t("bk.dumpHeading")}</h2>
-      <Show when={props.db} fallback={<p class="import-subtitle">{t("bk.noDb")}</p>}>
-        <div class="import-field">
-          <span>{t("bk.db", { db: props.db! })}</span>{" "}
-          <Show when={schemas().length > 0}>
-            <label>
-              {t("bk.schema")}{" "}
-              <Dropdown
-                value={schema()}
-                options={[{ value: "", label: "" }, ...schemas().map((s) => ({ value: s, label: s }))]}
-                onChange={(v) => setSchema(v)}
-              />
-            </label>{" "}
-          </Show>
-          <label>
-            <input type="checkbox" checked={structure()} onChange={(e) => setStructure(e.currentTarget.checked)} />{" "}
-            {t("bk.structure")}
-          </label>{" "}
-          <label>
-            <input type="checkbox" checked={data()} onChange={(e) => setData(e.currentTarget.checked)} />{" "}
-            {t("bk.data")}
-          </label>
-        </div>
-        <Show when={objects().length > 0}>
-          <div class="import-subtitle">
-            {t("bk.objects", { n: chosen().length })}{" "}
-            <button class="edit-btn" onClick={() => pickAll(true)}>{t("bk.selectAll")}</button>{" "}
-            <button class="edit-btn" onClick={() => pickAll(false)}>{t("bk.selectNone")}</button>
-          </div>
-          <div class="import-mapping">
-            <For each={objects()}>
-              {(o) => (
-                <label class="map-row">
-                  <input
-                    type="checkbox"
-                    checked={!!picked()[o.name]}
-                    onChange={(e) => setPicked((p) => ({ ...p, [o.name]: e.currentTarget.checked }))}
-                  />{" "}
-                  {o.name}
-                  <Show when={o.kind === "view"}> ({t("tree.views")})</Show>
+        <Show when={status() && !status()!.error}>
+          <p class="import-subtitle" role="status">
+            {status()!.text}
+          </p>
+        </Show>
+
+        <Show when={mode() === "dump" && props.db}>
+          <div class="wiz-form">
+            <Show when={schemas().length > 0}>
+              <WizardField label={t("bk.schema")}>
+                <Dropdown
+                  value={schema()}
+                  options={[{ value: "", label: "" }, ...schemas().map((s) => ({ value: s, label: s }))]}
+                  onChange={(v) => setSchema(v)}
+                />
+              </WizardField>
+            </Show>
+            <div class="wiz-row">
+              <span class="wiz-label">{t("bk.content")}</span>
+              <span class="wiz-ctl wiz-radios">
+                <label>
+                  <input type="checkbox" checked={structure()} onChange={(e) => setStructure(e.currentTarget.checked)} />
+                  {t("bk.structure")}
                 </label>
-              )}
-            </For>
+                <label>
+                  <input type="checkbox" checked={data()} onChange={(e) => setData(e.currentTarget.checked)} />
+                  {t("bk.data")}
+                </label>
+              </span>
+            </div>
+          </div>
+          <Show when={objects().length > 0}>
+            <h3>
+              {t("bk.objects", { n: chosen().length })}{" "}
+              <button type="button" class="btn" onClick={() => pickAll(true)}>
+                {t("bk.selectAll")}
+              </button>{" "}
+              <button type="button" class="btn" onClick={() => pickAll(false)}>
+                {t("bk.selectNone")}
+              </button>
+            </h3>
+            <div class="import-mapping">
+              <For each={objects()}>
+                {(o) => (
+                  <label class="map-row">
+                    <input
+                      type="checkbox"
+                      checked={!!picked()[o.name]}
+                      onChange={(e) => setPicked((p) => ({ ...p, [o.name]: e.currentTarget.checked }))}
+                    />{" "}
+                    {o.name}
+                    <Show when={o.kind === "view"}> ({t("tree.views")})</Show>
+                  </label>
+                )}
+              </For>
+            </div>
+          </Show>
+        </Show>
+
+        <Show when={mode() === "ddl"}>
+          <p class="help">{t("ddl.hint")}</p>
+          <Show when={!canPickFolder}>
+            <p class="help">{t("ddl.hintZip")}</p>
+          </Show>
+          <Show when={schemas().length > 0}>
+            <div class="wiz-form">
+              <WizardField label={t("bk.schema")}>
+                <Dropdown
+                  value={schema()}
+                  options={[{ value: "", label: "" }, ...schemas().map((s) => ({ value: s, label: s }))]}
+                  onChange={(v) => setSchema(v)}
+                />
+              </WizardField>
+            </div>
+          </Show>
+          <Show when={skipped().length > 0}>
+            <ul class="import-subtitle">
+              <For each={skipped()}>{(line) => <li>{line}</li>}</For>
+            </ul>
+          </Show>
+        </Show>
+
+        <Show when={mode() === "restore"}>
+          <p class="help">{t("bk.restoreHint")}</p>
+          <div class="wiz-form">
+            <WizardField
+              label={t("bk.filePick")}
+              help={script() ? t("bk.fileStatements", { name: script()!.name, n: script()!.stmts.length }) : undefined}
+            >
+              <input type="file" accept=".sql,text/plain,application/sql" onChange={onFile} />
+            </WizardField>
           </div>
         </Show>
-        <div class="modal-actions">
-          <button
-            class="primary"
-            disabled={busy() || chosen().length === 0 || (!structure() && !data())}
-            onClick={backup}
-          >
-            {t("bk.dump")}
-          </button>
-        </div>
-      </Show>
+      </Wizard>
 
-      <h2>{t("ddl.heading")}</h2>
-      <p class="import-subtitle">{t("ddl.hint")}</p>
-      <Show when={!canPickFolder}>
-        <p class="import-subtitle">{t("ddl.hintZip")}</p>
-      </Show>
-      <Show when={props.db}>
-        <div class="modal-actions">
-          <button class="primary" disabled={busy() || (schemas().length > 0 && !schema())} onClick={dumpDdl}>
-            {canPickFolder ? t("ddl.dump") : t("ddl.dumpZip")}
-          </button>
-        </div>
-      </Show>
-      <Show when={skipped().length > 0}>
-        <ul class="import-subtitle">
-          <For each={skipped()}>{(line) => <li>{line}</li>}</For>
-        </ul>
-      </Show>
-
-      <h2>{t("bk.restoreHeading")}</h2>
-      <p class="import-subtitle">{t("bk.restoreHint")}</p>
-      <div class="import-field">
-        <label>
-          {t("bk.filePick")} <input type="file" accept=".sql,text/plain,application/sql" onChange={onFile} />
-        </label>
-      </div>
-      <Show when={script()}>
-        <p class="import-subtitle">{t("bk.fileStatements", { name: script()!.name, n: script()!.stmts.length })}</p>
-        <div class="modal-actions">
-          <button class="primary" disabled={busy() || !props.connId} onClick={restore}>
-            {t("bk.restore")}
-          </button>
-        </div>
+      <Show when={confirmRestore() && script()}>
+        {(s) => (
+          <ConfirmDialog
+            title={restoreConfirm(s().name, s().stmts.length, target()).title}
+            message={restoreConfirm(s().name, s().stmts.length, target()).message}
+            confirmLabel={restoreConfirm(s().name, s().stmts.length, target()).confirm}
+            onConfirm={() => {
+              setConfirmRestore(false);
+              void restore();
+            }}
+            onCancel={() => setConfirmRestore(false)}
+          />
+        )}
       </Show>
     </Panel>
   );

@@ -20,6 +20,8 @@ import {
 } from "../utils/importers";
 import { openWorkbook, isXlsxName, type XlsxWorkbook } from "../utils/xlsxRead";
 import { Dropdown } from "./Dropdown";
+import { RowErrorPolicy, Wizard, WizardField } from "./Wizard";
+import { countText } from "../utils/confirmText";
 
 const PREVIEW_ROWS = 5;
 const OMIT = ""; // select value meaning "leave this column unset"
@@ -63,6 +65,7 @@ export function ImportWizard(props: {
   const [blankIsNull, setBlankIsNull] = createSignal(true);
   const [running, setRunning] = createSignal(false);
   const [summary, setSummary] = createSignal<ImportSummary | null>(null);
+  const [stage, setStage] = createSignal<0 | 1>(0);
   const [error, setError] = createSignal<string | null>(null);
 
   onMount(async () => {
@@ -192,79 +195,85 @@ export function ImportWizard(props: {
     }
   };
 
+  /** The step on screen: 0 where the rows come from, 1 columns, 2 the result. */
+  const step = () => (summary() ? 2 : stage());
+  const rowCount = () => effective()?.rows.length ?? 0;
+
   return (
     <Panel wide onClose={props.onClose}>
-        <h2>{t("imp.title", { name: props.target.table })}</h2>
-
-        <Show when={error()}>
-          <div class="grid-error" role="alert">
-            {error()}
-          </div>
-        </Show>
-
-        <Show
-          when={!summary()}
-          fallback={
-            <div class="import-summary">
-              <p>
-                <strong>{summary()!.inserted}</strong> {t("imp.inserted")}
-                {summary()!.aborted
-                  ? t("imp.aborted")
-                  : summary()!.errors.length > 0
-                    ? t("imp.withErrors", { n: summary()!.errors.length })
-                    : t("imp.done")}
-              </p>
-              <Show when={summary()!.errors.length > 0}>
-                <ul class="import-errors">
-                  <For each={summary()!.errors.slice(0, 20)}>
-                    {(e) => (
-                      <li>{t("imp.rowError", { row: e.row + 1, message: e.message })}</li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
-              <div class="modal-actions">
-                <button class="primary" onClick={props.onClose}>
-                  {t("common.close")}
-                </button>
-              </div>
+      <Wizard
+        title={t("imp.title", { name: props.target.table })}
+        subtitle={t("imp.subtitle", { n: targetCols().length })}
+        steps={[t("imp.step.source"), t("imp.step.columns"), t("imp.step.import")]}
+        step={step()}
+        error={error()}
+        busy={running()}
+        busyLabel={t("imp.importing")}
+        onBack={step() === 1 ? () => setStage(0) : undefined}
+        primary={
+          step() === 0
+            ? { label: t("wiz.next"), onClick: () => setStage(1), disabled: !effective() }
+            : step() === 1
+              ? {
+                  label: countText("imp.importN", rowCount()),
+                  onClick: () => void runNow(),
+                  disabled: !effective() || !hasMapping(mapping()),
+                }
+              : undefined
+        }
+        cancelLabel={step() === 2 ? t("common.close") : undefined}
+        onCancel={props.onClose}
+      >
+        <Show when={step() === 0}>
+          <div class="wiz-form">
+            <div class="wiz-row" role="radiogroup" aria-label={t("imp.sourceLabel")}>
+              <span class="wiz-label">{t("imp.sourceLabel")}</span>
+              <span class="wiz-ctl">
+                <span class="seg">
+                  <button
+                    type="button"
+                    class={source() === "file" ? "seg-btn on" : "seg-btn"}
+                    role="radio"
+                    aria-checked={source() === "file"}
+                    onClick={() => setSource("file")}
+                  >
+                    {t("imp.file")}
+                  </button>
+                  <button
+                    type="button"
+                    class={source() === "clipboard" ? "seg-btn on" : "seg-btn"}
+                    role="radio"
+                    aria-checked={source() === "clipboard"}
+                    onClick={() => {
+                      setSource("clipboard");
+                      usePasted(pasted());
+                    }}
+                  >
+                    {t("imp.clipboard")}
+                  </button>
+                </span>
+              </span>
             </div>
-          }
-        >
-          <div class="import-source" role="radiogroup" aria-label={t("imp.sourceLabel")}>
-            <button
-              class={`chip ${source() === "file" ? "active" : ""}`}
-              role="radio"
-              aria-checked={source() === "file"}
-              onClick={() => setSource("file")}
-            >
-              {t("imp.file")}
-            </button>
-            <button
-              class={`chip ${source() === "clipboard" ? "active" : ""}`}
-              role="radio"
-              aria-checked={source() === "clipboard"}
-              onClick={() => {
-                setSource("clipboard");
-                usePasted(pasted());
-              }}
-            >
-              {t("imp.clipboard")}
-            </button>
-          </div>
-
-          <Show when={source() === "file"}>
-            <div class="import-field">
-              <label>
-                {t("imp.filePick")}{" "}
+            <Show when={source() === "file"}>
+              <WizardField label={t("imp.filePick")} help={t("imp.fileHelp")}>
                 <input
                   type="file"
                   accept=".csv,.json,.xlsx,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   onChange={onFile}
                 />
-              </label>
-            </div>
-          </Show>
+              </WizardField>
+            </Show>
+            <Show when={workbook() && workbook()!.sheets.length > 1}>
+              <WizardField label={t("imp.sheet")}>
+                <Dropdown
+                  value={sheetName()}
+                  options={workbook()!.sheets.map((s) => ({ value: s.name, label: s.name }))}
+                  onChange={(v) => selectSheet(v)}
+                  class="map-select"
+                />
+              </WizardField>
+            </Show>
+          </div>
 
           {/* A textarea rather than navigator.clipboard.readText(): reading the
               clipboard needs a permission the webview may simply deny, while
@@ -285,122 +294,106 @@ export function ImportWizard(props: {
                 onInput={(e) => usePasted(e.currentTarget.value)}
               />
             </div>
-            <label class="import-field import-check">
+            <label class="import-check">
               <input
                 type="checkbox"
                 checked={blankIsNull()}
                 onChange={(e) => setBlankIsNull(e.currentTarget.checked)}
-              />{" "}
+              />
               {t("imp.blankIsNull")}
             </label>
           </Show>
 
-          <Show when={workbook() && workbook()!.sheets.length > 1}>
-            <div class="import-field">
-              <label>
-                {t("imp.sheet")}{" "}
-                <Dropdown
-                  value={sheetName()}
-                  options={workbook()!.sheets.map((s) => ({ value: s.name, label: s.name }))}
-                  onChange={(v) => selectSheet(v)}
-                  class="map-select"
-                />
-              </label>
-            </div>
-          </Show>
-
           <Show when={effective()}>
             {(table) => (
-              <>
-                <div class="import-preview">
-                  <div class="import-subtitle">
-                    {t("imp.previewOf", {
-                      source: source() === "clipboard" ? t("imp.pastedSource") : fileName(),
-                      n: table().rows.length,
-                    })}
-                  </div>
-                  <div class="import-preview-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <For each={table().headers}>{(h) => <th>{h}</th>}</For>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <For each={table().rows.slice(0, PREVIEW_ROWS)}>
-                          {(row) => (
-                            <tr>
-                              <For each={table().headers}>
-                                {(_, i) => (
-                                  <td>
-                                    <Show when={row[i()] !== null} fallback={<em class="cell-null">NULL</em>}>
-                                      {row[i()]}
-                                    </Show>
-                                  </td>
-                                )}
-                              </For>
-                            </tr>
-                          )}
-                        </For>
-                      </tbody>
-                    </table>
-                  </div>
+              <div class="import-preview">
+                <h3 class="import-subtitle">
+                  {t("imp.previewOf", {
+                    source: source() === "clipboard" ? t("imp.pastedSource") : fileName(),
+                    n: table().rows.length,
+                  })}
+                </h3>
+                <div class="import-preview-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <For each={table().headers}>{(h) => <th>{h}</th>}</For>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <For each={table().rows.slice(0, PREVIEW_ROWS)}>
+                        {(row) => (
+                          <tr>
+                            <For each={table().headers}>
+                              {(_, i) => (
+                                <td>
+                                  <Show when={row[i()] !== null} fallback={<em class="cell-null">NULL</em>}>
+                                    {row[i()]}
+                                  </Show>
+                                </td>
+                              )}
+                            </For>
+                          </tr>
+                        )}
+                      </For>
+                    </tbody>
+                  </table>
                 </div>
-
-                <div class="import-mapping">
-                  <div class="import-subtitle">{t("imp.mapping")}</div>
-                  <For each={targetCols()}>
-                    {(col) => (
-                      <div class="map-row">
-                        <span class="map-target">{col}</span>
-                        <span class="map-arrow">←</span>
-                        <Dropdown
-                          value={mapping()[col] ?? OMIT}
-                          options={[{ value: OMIT, label: t("imp.omit") }, ...table().headers.map((h) => ({ value: h, label: h }))]}
-                          onChange={(v) => setColumn(col, v)}
-                          class="map-select"
-                        />
-                      </div>
-                    )}
-                  </For>
-                </div>
-
-                <div class="import-policy">
-                  <span class="import-subtitle">{t("imp.onRowError")}</span>
-                  <label>
-                    <input
-                      type="radio"
-                      name="policy"
-                      checked={policy() === "skip"}
-                      onChange={() => setPolicy("skip")}
-                    />{" "}
-                    {t("imp.skipRest")}
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="policy"
-                      checked={policy() === "abort"}
-                      onChange={() => setPolicy("abort")}
-                    />{" "}
-                    {t("imp.abortAll")}
-                  </label>
-                </div>
-              </>
+              </div>
             )}
           </Show>
-
-          <div class="modal-actions">
-            <button onClick={props.onClose}>{t("common.cancel")}</button>
-            <button
-              class="primary"
-              disabled={running() || !effective() || !hasMapping(mapping())}
-              onClick={runNow}
-            >
-              {running() ? t("imp.importing") : t("imp.import")}
-            </button>
-          </div>
         </Show>
+
+        <Show when={step() === 1 && effective()}>
+          {(table) => (
+            <>
+              <h3>{t("imp.mapping")}</h3>
+              <div class="import-mapping">
+                <For each={targetCols()}>
+                  {(col) => (
+                    <div class="map-row">
+                      <span class="map-target">{col}</span>
+                      <span class="map-arrow">←</span>
+                      <Dropdown
+                        value={mapping()[col] ?? OMIT}
+                        options={[{ value: OMIT, label: t("imp.omit") }, ...table().headers.map((h) => ({ value: h, label: h }))]}
+                        onChange={(v) => setColumn(col, v)}
+                        class="map-select"
+                      />
+                    </div>
+                  )}
+                </For>
+              </div>
+              <div class="wiz-form">
+                <RowErrorPolicy name="policy" value={policy()} onChange={setPolicy} />
+              </div>
+              <p class="help">{t("imp.txHelp")}</p>
+            </>
+          )}
+        </Show>
+
+        <Show when={summary()}>
+          {(sum) => (
+            <div class="import-summary">
+              <p>
+                <strong>{sum().inserted}</strong> {t("imp.inserted")}
+                {sum().aborted
+                  ? t("imp.aborted")
+                  : sum().errors.length > 0
+                    ? t("imp.withErrors", { n: sum().errors.length })
+                    : t("imp.done")}
+              </p>
+              <Show when={sum().errors.length > 0}>
+                <ul class="import-errors">
+                  <For each={sum().errors.slice(0, 20)}>
+                    {(e) => <li>{t("imp.rowError", { row: e.row + 1, message: e.message })}</li>}
+                  </For>
+                </ul>
+              </Show>
+            </div>
+          )}
+        </Show>
+      </Wizard>
     </Panel>
   );
 }

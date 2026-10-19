@@ -37,7 +37,7 @@ describeAllEngines(["mysql", "postgres"], (name) => {
     await openTool(page, "Respaldo y restauración");
 
     // PostgreSQL's database holds schemas, so the tables come once one is chosen.
-    if (name === "postgres") await pick(page.getByLabel("Esquema:"), "public");
+    if (name === "postgres") await pick(page.getByLabel("Esquema", { exact: true }), "public");
     const box = page.getByRole("checkbox", { name: "e2e_items", exact: true });
     await box.waitFor();
     await page.getByRole("button", { name: "Ninguno", exact: true }).click();
@@ -50,13 +50,19 @@ describeAllEngines(["mysql", "postgres"], (name) => {
 
     await onCore(app, "DROP TABLE e2e_items");
 
-    await page.getByLabel("Archivo:").setInputFiles({
+    // Restore is its own tab now (#692), and asks before it runs (audit A-10).
+    await page.getByRole("tab", { name: "Restaurar", exact: true }).click();
+    await page.getByLabel("Archivo", { exact: true }).setInputFiles({
       name: "dump.sql",
       mimeType: "application/sql",
       buffer: Buffer.from(dump, "utf8"),
     });
     await expect(page.getByText(/dump\.sql: \d+ sentencia\(s\)/)).toBeVisible();
-    await page.getByRole("button", { name: "Restaurar", exact: true }).click();
+    await page.getByRole("button", { name: /^Restaurar \d+ sentencias?$/ }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: /^Restaurar \d+ sentencias?$/ })
+      .click();
     await expect(page.getByText(/sentencia\(s\) ejecutada\(s\)\./)).toBeVisible({ timeout: 30_000 });
 
     expect(await onCore(app, select)).toEqual(before);
