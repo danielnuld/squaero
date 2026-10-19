@@ -17,7 +17,8 @@ cambiando ⏳ → ✅/⚠️/❌ a medida que se prueba en vivo. El smoke automa
 | ⏳ | Sin verificar todavía |
 
 **Motores:** SQLite (embebido), MySQL/MariaDB (motor de referencia), Informix
-(ODBC, build x86), MongoDB (find/aggregate, escrituras mongosh, edición por `_id`, transacciones en replica set, explain, monitor, consultas lentas, cancel). **PostgreSQL** (libpq)
+(por DRDA desde #557, nota 40; las notas 28-32 se verificaron antes por ODBC en
+el build x86), MongoDB (find/aggregate, escrituras mongosh, edición por `_id`, transacciones en replica set, explain, monitor, consultas lentas, cancel). **PostgreSQL** (libpq)
 ya se distribuye (#22/#23, PR #275); su camino núcleo + funciones específicas del
 motor están verificados en vivo por `scripts/smoke/postgres-features.mjs` (10/10
 vs `postgres:16`, ver [QA-SMOKE](./QA-SMOKE.md)). Aún no tiene columna propia en

@@ -2,14 +2,15 @@
 
 El frontend (webview) y el núcleo (C) se comunican con **JSON-RPC 2.0** sobre el mecanismo `webview_bind`/`webview_eval` de la librería `webview`. Es la **única** frontera entre ambos mundos y se versiona con cuidado.
 
-> **Protocolo v7.** El dispatcher JSON-RPC del núcleo está implementado y
+> **Protocolo v8.** El dispatcher JSON-RPC del núcleo está implementado y
 > testeado (`core/src/ipc/`, entrada pública `dbcore_ipc_handle` en
 > `core/include/dbcore/ipc.h`). Cubre el camino de datos de M1
 > (`conn.open`/`conn.close`/`query.run` y el rango de errores de dominio
 > `-32000..`), la introspección de M3 (`schema.*`), la edición transaccional de
 > M7 (`tx.*` en v4, `row.*` en v5), la paginación por offset de `query.run`
-> (`params.offset` en v6, issue #134) y la cancelación de una consulta en curso
-> (`op.cancel` en v7). Este módulo es puro: JSON entra, JSON sale. El
+> (`params.offset` en v6, issue #134), la cancelación de una consulta en curso
+> (`op.cancel` en v7) y la paginación por cursor (`query.next` /
+> `query.cursorClose` en v8, #478). Este módulo es puro: JSON entra, JSON sale. El
 > objeto `dsn` de `conn.open` es opaco al protocolo: el núcleo interpreta de él
 > los campos `ssh_*` (túnel, abajo) de forma aditiva y compatible, sin cambiar la
 > forma del método ni la versión.
@@ -139,6 +140,31 @@ núcleo); en confirmar, se pide confirmación una vez por acción del usuario.
 de datos sin permisos de escritura: una función con efectos llamada desde un
 `SELECT` no se puede detectar por el texto.
 
+### Caché de introspección, historial local, transacción manual y keep-alive — sin cambio de protocolo
+
+Son funciones del frontend sobre los métodos de siempre; ninguna agregó un método
+ni cambió una forma:
+
+- **Caché de introspección** (#675, `frontend/src/utils/metaCache.ts`): los
+  niveles de `schema.tree` y las columnas de `schema.describe` se guardan por
+  conexión guardada (solo nombres de objetos y columnas, nunca credenciales) y se
+  muestran marcados «desde caché» mientras se vuelven a pedir al núcleo
+  (*stale-while-revalidate*). Un DDL ejecutado desde el editor invalida lo que
+  pudo cambiar.
+- **Historial local** de cada pestaña del editor (#674,
+  `frontend/src/utils/localHistory.ts`): versiones del texto guardadas en el
+  almacenamiento del webview. No toca el núcleo.
+- **Transacción manual** (#667, `frontend/src/utils/txMode.ts`): en ese modo la
+  primera sentencia que no es una lectura abre la transacción con `tx.begin`, y
+  Confirmar/Revertir envían `tx.commit`/`tx.rollback`. El núcleo solo aporta el
+  rechazo de un `tx.begin` anidado (ver [Transacciones](#transacciones-m7)).
+- **Keep-alive** (#676, `frontend/src/utils/reconnect.ts`): con un intervalo
+  configurado en la conexión, el frontend envía un `query.run` mínimo
+  (`SELECT 1`; en Informix `SELECT 1 FROM systables WHERE tabid = 1`) cuando la
+  conexión lleva ese tiempo ociosa. SQLite y MongoDB no lo usan. Si la sonda
+  encuentra la sesión muerta, sigue el camino de la
+  [conexión perdida](#códigos-de-error).
+
 ## Referencia de métodos
 
 **`app.hello`** — handshake. Negocia la versión del protocolo.
@@ -148,7 +174,7 @@ de datos sin permisos de escritura: una función con efectos llamada desde un
 { "jsonrpc": "2.0", "id": 1, "method": "app.hello" }
 // respuesta
 { "jsonrpc": "2.0", "id": 1,
-  "result": { "name": "quaero", "coreVersion": "0.0.1", "protocolVersion": 5 } }
+  "result": { "name": "quaero", "coreVersion": "0.39.0", "protocolVersion": 8 } }
 ```
 
 **`ping`** — liveness. Devuelve `{"pong": true}` y hace eco de `params.message`.
@@ -453,7 +479,8 @@ sobre la conexión activa. `params: { connId }`; resultado `{ ok: true }`. Sirve
 para agrupar una tanda de ediciones (`row.*`) y confirmarlas o descartarlas en
 bloque (edición segura, issue #28). Requieren que el driver anuncie
 `DBC_FEAT_TRANSACTIONS`; un motor sin soporte devuelve `-32001` (no soportado)
-en lugar de fingir éxito. Los motores SQL (SQLite, MySQL/MariaDB) los soportan.
+en lugar de fingir éxito. Todos los motores SQL (SQLite, PostgreSQL, MySQL/MariaDB,
+Informix, SQL Server) los soportan.
 MongoDB los anuncia, pero la capacidad depende del servidor: `tx.begin` comprueba la
 topología y, en un `mongod` standalone (o un secundario, o un servidor anterior a 4.0),
 responde `-32001` con «transactions need a replica set…»; una sesión de edición lo lee y
@@ -565,7 +592,7 @@ cuenta el layout de la vtable núcleo↔driver. Suelen subir juntos porque una
 capacidad nueva toca ambos, pero no tienen por qué.
 
 **Cómo se negocia.** Al arrancar, el frontend llama `app.hello` y lee
-`result.protocolVersion` (hoy **7**). Esa es la fuente de verdad en runtime; la
+`result.protocolVersion` (hoy **8**). Esa es la fuente de verdad en runtime; la
 constante vive en el núcleo (`app.hello` la reporta) y este documento la refleja.
 
 **Qué sube la versión del protocolo** (cualquiera de estos es un cambio
