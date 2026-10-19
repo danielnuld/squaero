@@ -117,4 +117,18 @@ describe("App — connect failures are visible (toast)", () => {
     // Connected: the bar now draws a row for it (issue #525).
     expect(host!.querySelector(".connbar-item")).not.toBeNull();
   });
+
+  it("keeps the failure in the notifications with its detail and a «Reintentar» that connects (M14)", async () => {
+    mountApp();
+    await connect();
+    click(host!.querySelector(".tb-bell"));
+    const item = host!.querySelector(".notes-item")!;
+    expect(item.querySelector(".notes-text")!.textContent).toBe("No se pudo conectar a «local»");
+    expect(item.querySelector(".notes-detail")!.textContent).toContain("Access denied");
+    expect(host!.querySelectorAll(".notes-item")).toHaveLength(1); // the toast folded into it
+    failConnect = false;
+    click([...item.querySelectorAll("button")].find((b) => b.textContent === "Reintentar"));
+    await settle();
+    expect(host!.querySelector(".connbar-item")).not.toBeNull();
+  });
 });

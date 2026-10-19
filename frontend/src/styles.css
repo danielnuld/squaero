@@ -9883,6 +9883,39 @@ ul.sidebar-tree {
   color: var(--error);
 }
 
+/* M14 Notifications: day headings, title over detail, unread tinted. */
+.notes-day {
+  padding: var(--sp-3) var(--sp-5) var(--sp-1);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.notes-item.is-unread {
+  background: var(--accent-soft);
+}
+.notes-item.is-unread .notes-text {
+  font-weight: 600;
+}
+.notes-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+}
+.notes-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  width: 100%;
+}
+.notes-detail {
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  overflow-wrap: anywhere;
+}
+
 .notes-text {
   flex: 1;
   min-width: 0;
