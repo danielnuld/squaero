@@ -8916,7 +8916,7 @@ ul.sidebar-tree {
   position: relative;
   display: grid;
   place-items: center;
-  width: 32px;
+  width: var(--band-md);
   height: var(--h-md);
   border: 0;
   border-radius: var(--r-sm);
@@ -8975,8 +8975,8 @@ ul.sidebar-tree {
 }
 
 .tb-winbtn.tb-close:hover {
-  background: #c42b1c;
-  color: #ffffff;
+  background: var(--error);
+  color: var(--error-fg);
 }
 
 /* Mica (Windows 11, Nativo style): the shell paints the backdrop behind a

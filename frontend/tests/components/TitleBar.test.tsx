@@ -102,6 +102,7 @@ describe("TitleBar", () => {
     mount("windows");
     await flush();
     expect(fn).toHaveBeenCalledWith("frameless", true);
+    expect(fn).toHaveBeenCalledWith("backdrop", true);
     expect(tops().map((b) => b.textContent)).toEqual(["Archivo", "Editar", "Ayuda"]);
     expect(host!.querySelectorAll(".tb-winbtn")).toHaveLength(3);
     // The maximize button's place, for Snap layouts.
@@ -110,10 +111,11 @@ describe("TitleBar", () => {
     expect(document.documentElement.getAttribute("data-backdrop")).toBe("mica");
   });
 
-  it("keeps the page opaque for a style without the backdrop", async () => {
-    fakeShell(WIN);
+  it("asks the shell for the backdrop only for a style that wants it", async () => {
+    const fn = fakeShell(WIN);
     mount("windows", { backdrop: false });
     await flush();
+    expect(fn).toHaveBeenCalledWith("backdrop", false);
     expect(document.documentElement.hasAttribute("data-backdrop")).toBe(false);
   });
 

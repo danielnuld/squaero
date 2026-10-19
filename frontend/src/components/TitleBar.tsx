@@ -63,7 +63,13 @@ export function TitleBar(props: {
     onCleanup(onWindowEvent(window, setState, setMaxHover));
   });
 
-  // Mica only where the page lets it through (styles.css, data-backdrop).
+  // Mica only for the style that wants it (the shell turns it on, where the
+  // system has it), and only where the page lets it through (styles.css).
+  createEffect(() => {
+    const want = props.backdrop;
+    if (!hasWindowBinding()) return;
+    void windowCommand("backdrop", want).then((s) => s && setState(s));
+  });
   createEffect(() => {
     const on = props.backdrop && state()?.backdrop === "mica" && !!state()?.frameless;
     const root = document.documentElement;
