@@ -9661,3 +9661,9 @@ ul.sidebar-tree {
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
+
+/* R-39: a label that holds a name the user typed, code or an acronym keeps its
+   own case under a style that cases labels (--label-case). The one escape. */
+[data-case="keep"] {
+  text-transform: none !important;
+}

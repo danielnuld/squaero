@@ -370,3 +370,15 @@ describe("accessibility floor", () => {
     expect(ruleBody(".app-toast")).toContain("bottom: 64px;");
   });
 });
+
+describe("label case escape (R-39)", () => {
+  it("lets data-case=keep opt out of --label-case", () => {
+    expect(RULES).toMatch(/\[data-case="keep"\] \{\n {2}text-transform: none !important;\n\}/);
+  });
+  it("keeps the user's group names as typed", () => {
+    for (const f of ["ConnectionManager.tsx", "ConnectionSearch.tsx"]) {
+      const src = readFileSync(resolve(process.cwd(), "src/components", f), "utf8");
+      expect(src, f).toMatch(/class="conn(search)?-group(-name)?" data-case="keep"/);
+    }
+  });
+});

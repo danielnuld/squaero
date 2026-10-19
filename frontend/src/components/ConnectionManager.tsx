@@ -287,7 +287,7 @@ export function ConnectionManager(props: ConnectionManagerProps) {
                   onToggle={(e) => toggleGroup(name(), e.currentTarget.open)}
                 >
                   <summary>
-                    <span class="conn-group-name">{name()}</span>
+                    <span class="conn-group-name" data-case="keep">{name()}</span>
                     <Show when={g.conns.some((c) => props.openIds?.includes(c.id))}>
                       <span class="conn-live" role="img" aria-label={t("conn.connectedDot")} title={t("conn.connectedDot")} />
                     </Show>
