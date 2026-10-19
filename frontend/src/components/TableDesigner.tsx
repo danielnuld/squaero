@@ -9,6 +9,7 @@ import { describePkColumns } from "../utils/edit";
 import {
   buildAlterTable,
   buildCreateTable,
+  columnState,
   columnsFromDescribe,
   emptyColumn,
   typeSuggestions,
@@ -19,10 +20,12 @@ import {
 } from "../utils/tableDesign";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
-import { currentOs, orderActions } from "../utils/dialog";
 import { Icon } from "./icons";
-import { ConfirmDialog } from "./ConfirmDialog";
 import { countText, dropColumnsConfirm } from "../utils/confirmText";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { copyText } from "../utils/rowCopy";
+import { engineFamily } from "../utils/engineFamily";
+
 
 // Table designer (issue #136). Two modes selected by the `table` prop:
 //  • create — a blank form → CREATE TABLE (phase 1);
@@ -44,6 +47,8 @@ export function TableDesigner(props: {
   schema?: string;
   onClose: () => void;
   onApplied?: () => void;
+  /** Open the SQL preview in a query tab; absent hides «Abrir en el editor». */
+  onOpenSql?: (sql: string) => void;
 }) {
   const alter = () => !!props.table;
 
@@ -57,6 +62,9 @@ export function TableDesigner(props: {
     props.table ? [] : defaultCreateColumns(),
   );
   const [original, setOriginal] = createSignal<OriginalTable | null>(null);
+  /** The rows as loaded, for «Descartar». */
+  const [loaded, setLoaded] = createSignal<AlterColumn[]>([]);
+  let tableEl: HTMLTableElement | undefined;
   const [loadError, setLoadError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -95,19 +103,17 @@ export function TableDesigner(props: {
         const originals = columnsFromDescribe(desc);
         const pk = new Set(describePkColumns(desc));
         setOriginal({ name: t, columns: originals });
-        setColumns(
-          reconcile(
-            originals.map((o) => ({
-              origName: o.name,
-              name: o.name,
-              type: o.type,
-              nullable: o.nullable,
-              primaryKey: pk.has(o.name),
-              autoIncrement: false,
-              defaultValue: o.defaultValue,
-            })),
-          ),
-        );
+        const rows = originals.map((o) => ({
+          origName: o.name,
+          name: o.name,
+          type: o.type,
+          nullable: o.nullable,
+          primaryKey: pk.has(o.name),
+          autoIncrement: false,
+          defaultValue: o.defaultValue,
+        }));
+        setLoaded(rows);
+        setColumns(reconcile(rows.map((r) => ({ ...r }))));
       } catch (err) {
         if (!superseded) setLoadError(errorText(err));
       }
@@ -164,6 +170,37 @@ export function TableDesigner(props: {
   const dropText = () => dropColumnsConfirm(props.table ?? name(), dropped());
 
   const addColumn = () => setColumns(columns.length, { ...emptyColumn() });
+  /** Ctrl+Intro anywhere in the grid adds a column and puts the cursor in its name. */
+  const onGridKey = (e: KeyboardEvent) => {
+    if (e.key !== "Enter" || !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    addColumn();
+    queueMicrotask(() => tableEl?.querySelector<HTMLInputElement>("tbody tr:last-child input.td-in")?.focus());
+  };
+  const discard = () => {
+    setName(props.table ?? "");
+    setColumns(reconcile(loaded().map((r) => ({ ...r }))));
+    setError(null);
+  };
+  const statementCount = () => {
+    const b = built();
+    return b && b.ok ? ("sql" in b ? 1 : b.statements.length) : 0;
+  };
+  const states = () => (alter() ? columns.map((c) => columnState(c, original())) : []);
+  const hint = () => {
+    const s = states();
+    const added = s.filter((x) => x === "added").length;
+    const changed = s.filter((x) => x === "changed").length;
+    const parts = [
+      ...(added ? [countText("td.addedN", added)] : []),
+      ...(changed ? [countText("td.changedN", changed)] : []),
+    ];
+    return parts.length ? [...parts, t("td.txNote")].join(" · ") : "";
+  };
+  const sqlText = () => {
+    const b = built();
+    return b && b.ok ? ("sql" in b ? b.sql : b.statements.map((s) => s + ";").join("\n")) : "";
+  };
   const removeColumn = (i: number) => setColumns(produce((cs) => cs.splice(i, 1)));
   const patch = (i: number, key: keyof AlterColumn, value: string | boolean) =>
     setColumns(i, key as keyof AlterColumn, value as never);
@@ -211,10 +248,50 @@ export function TableDesigner(props: {
 
   return (
     <Panel title={title()} wide onClose={props.onClose}>
-      <h2>
-        {alter() ? t("td.headingAlter") : t("td.titleNew")}
-        {props.container ? ` · ${props.container}` : ""}
-      </h2>
+      {/* The toolbar carries the verb with its count (#692): «Aplicar 2 cambios»
+          beside Descartar, or «Crear tabla proveedores» beside Cancelar. */}
+      <div class="edit-toolbar td-toolbar" role="toolbar" aria-label={title()}>
+        <h2>
+          {alter() ? t("td.headingAlter") : t("td.titleNew")}
+          {alter() ? ` · ${props.table}` : ""}
+        </h2>
+        <Show when={props.container}>
+          <span class="help">{props.container}</span>
+        </Show>
+        <span class="toolbar-spacer" />
+        <button
+          type="button"
+          class={dropped().length > 0 ? "btn btn-danger" : "btn btn-primary"}
+          disabled={busy() || !built()?.ok || noChanges()}
+          onClick={() => (dropped().length > 0 ? setConfirmDrop(true) : void apply())}
+        >
+          {busy()
+            ? alter()
+              ? t("td.applying")
+              : t("td.creating")
+            : dropped().length > 0
+              ? countText("td.applyDropping", dropped().length)
+              : alter()
+              ? statementCount() > 0
+                ? countText("td.applyN", statementCount())
+                : t("td.applyChanges")
+              : name().trim()
+                ? t("td.createNamed", { name: name().trim() })
+                : t("td.create")}
+        </button>
+        <Show
+          when={alter()}
+          fallback={
+            <button type="button" class="btn" disabled={busy()} onClick={props.onClose}>
+              {t("common.cancel")}
+            </button>
+          }
+        >
+          <button type="button" class="btn" disabled={busy() || noChanges()} onClick={discard}>
+            {t("td.discard")}
+          </button>
+        </Show>
+      </div>
 
       <Show when={loadError()}>
         <p class="test-error">{loadError()}</p>
@@ -234,7 +311,7 @@ export function TableDesigner(props: {
         <For each={suggestions}>{(type) => <option value={type} />}</For>
       </datalist>
 
-      <table class="td-table">
+      <table class="td-table" ref={tableEl} onKeyDown={onGridKey}>
         <thead>
           <tr>
             <th>{t("td.colColumn")}</th>
@@ -249,7 +326,7 @@ export function TableDesigner(props: {
         <tbody>
           <For each={columns}>
             {(c, i) => (
-              <tr>
+              <tr class={states()[i()] ? `td-row is-${states()[i()]}` : "td-row"}>
                 <td>
                   <input
                     class="td-in"
@@ -317,45 +394,45 @@ export function TableDesigner(props: {
         </tbody>
       </table>
 
-      <button class="edit-btn" onClick={addColumn}>
-        {t("td.addColumn")}
-      </button>
+      <div class="td-under">
+        <button type="button" class="btn" onClick={addColumn}>
+          <Icon name="plus" size={14} />
+          {t("td.addColumn")}
+          <kbd class="tab-kbd">{t("td.addKey")}</kbd>
+        </button>
+        <Show when={hint()}>
+          <span class="help" role="status">
+            {hint()}
+          </span>
+        </Show>
+      </div>
 
-      <div class="ddl-header" style={{ "margin-top": "1rem" }}>
-        <span>{t("td.preview")}</span>
+      <div class="ddl-header">
+        <span>
+          {t("td.preview")}
+          {statementCount() > 0 ? ` · ${countText("td.statementsN", statementCount())}` : ""}
+        </span>
+        <span class="td-preview-actions">
+          <button type="button" disabled={!sqlText()} onClick={() => copyText(sqlText())}>
+            {t("ssync.copyScript")}
+          </button>
+          <Show when={props.onOpenSql}>
+            <button type="button" disabled={!sqlText()} onClick={() => props.onOpenSql?.(sqlText())}>
+              {t("ssync.openInEditor")}
+            </button>
+          </Show>
+        </span>
       </div>
       <pre class="ddl-text">{preview()}</pre>
+      <Show when={alter() && engineFamily(props.engine) === "sqlite"}>
+        <p class="help">{t("td.sqliteNote")}</p>
+      </Show>
 
       {/* Live validation error (why it can't be applied yet) or an apply failure. */}
       <Show when={error() || validationError()}>
         <p class="test-error">{error() ?? validationError()}</p>
       </Show>
 
-      {/* The form's action row in the OS order, like a dialog's (#692). */}
-      <div class="panel-foot">
-        <span class="dlg-actions">
-          {orderActions(currentOs(), [
-            <button
-              class={dropped().length > 0 ? "btn btn-danger" : "btn-primary"}
-              disabled={busy() || !built()?.ok || noChanges()}
-              onClick={() => (dropped().length > 0 ? setConfirmDrop(true) : void apply())}
-            >
-              {busy()
-                ? alter()
-                  ? t("td.applying")
-                  : t("td.creating")
-                : dropped().length > 0
-                  ? countText("td.applyDropping", dropped().length)
-                  : alter()
-                    ? t("td.applyChanges")
-                    : t("td.create")}
-            </button>,
-            <button class="btn" disabled={busy()} onClick={props.onClose}>
-              {t("common.cancel")}
-            </button>,
-          ])}
-        </span>
-      </div>
       <Show when={confirmDrop()}>
         <ConfirmDialog
           title={dropText().title}

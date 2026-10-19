@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { SchemaSyncWizard } from "../../src/components/SchemaSyncWizard";
@@ -252,5 +252,78 @@ describe("SchemaSyncWizard", () => {
     mount();
     await compare();
     expect(host!.querySelector('[role="alert"]')!.textContent).toContain("indica el esquema");
+  });
+});
+
+// #692 (P5): «Qué comparar», Copiar, and the apply step with a status per statement.
+describe("SchemaSyncWizard — depth", () => {
+  async function applyAll() {
+    host!.querySelector<HTMLButtonElement>(".wiz-foot .btn-primary")!.click();
+    await flush();
+    host!.querySelector<HTMLButtonElement>(".confirm-dialog .btn-primary, .confirm-dialog .btn-danger")!.click();
+    for (let i = 0; i < 8; i++) await flush();
+  }
+  const statuses = () => [...host!.querySelectorAll(".stmt-status")].map((s) => s.textContent);
+
+  it("compares only the groups asked for", async () => {
+    installBridge();
+    mount();
+    const box = [...host!.querySelectorAll<HTMLLabelElement>("label.import-check")].find((l) =>
+      l.textContent?.includes("Tablas, columnas y claves primarias"),
+    )!.querySelector("input")!;
+    expect(box.checked).toBe(true);
+    box.checked = false;
+    box.dispatchEvent(new Event("change"));
+    await compare();
+    expect(host!.textContent).toContain("Las estructuras ya coinciden.");
+  });
+
+  it("copies the script and says how many statements are checked", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    installBridge();
+    mount();
+    await compare();
+    expect(host!.textContent).toContain("2 de 3 sentencias marcadas");
+    clickButton("Copiar");
+    expect(writeText.mock.calls[0][0]).toContain('CREATE TABLE "orders"');
+  });
+
+  it("shows each statement's status as it applies, the data-losing one excluded", async () => {
+    installBridge();
+    mount();
+    await compare();
+    await applyAll();
+    expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Aplicar");
+    const s = statuses();
+    expect(s).toHaveLength(3);
+    expect(s.filter((x) => x?.startsWith("Aplicada · "))).toHaveLength(2);
+    expect(s).toContain("Excluida · elimina datos");
+    expect(host!.querySelector(".import-applied")!.textContent).toMatch(/^2 sentencias aplicadas en Prod · .* · transacción confirmada$/);
+    // Done: the log can be copied and the comparison run again.
+    expect([...host!.querySelectorAll(".wiz-foot button")].map((b) => b.textContent)).toContain("Comparar de nuevo");
+  });
+
+  it("stops at the failing statement and rolls back", async () => {
+    const calls = installBridge();
+    const base = (globalThis as BridgeHost).quaeroRpc!;
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      if (req.method === "query.run" && String(req.params.sql).startsWith("ALTER TABLE")) {
+        calls.push({ method: req.method, params: req.params });
+        return { jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "duplicate column" } };
+      }
+      return base(requestJson);
+    };
+    mount();
+    await compare();
+    await applyAll();
+    expect(statuses()).toContain("Error: duplicate column");
+    const methods = calls.map((c) => c.method);
+    expect(methods).toContain("tx.rollback");
+    expect(methods).not.toContain("tx.commit");
+    expect(host!.querySelector('p[role="status"].field-error')!.textContent).toBe(
+      "La sentencia 2 falló: se revirtió la transacción en Prod.",
+    );
   });
 });

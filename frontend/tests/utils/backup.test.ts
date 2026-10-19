@@ -8,6 +8,8 @@ import {
   runRestore,
   type DumpSource,
   type DumpObject,
+  objectCounts,
+  backupProgress,
 } from "../../src/utils/backup";
 import type { ResultSet } from "../../src/utils/query";
 
@@ -167,5 +169,32 @@ describe("runRestore", () => {
     expect(report.failed?.index).toBe(2);
     expect(report.failed?.statement).toBe("bad");
     expect((report.failed?.error as Error).message).toBe("syntax");
+  });
+});
+
+describe("backup summary and progress (#692)", () => {
+  const objs = [
+    { name: "clientes", kind: "table" as const },
+    { name: "pedidos", kind: "table" as const },
+    { name: "v", kind: "view" as const },
+  ];
+  it("counts tables and views", () => {
+    expect(objectCounts(objs)).toEqual({ tables: 2, views: 1 });
+    expect(objectCounts([])).toEqual({ tables: 0, views: 0 });
+  });
+  it("moves by rows when every table's count is known", () => {
+    const p = backupProgress(objs, { structure: true, data: true }, { clientes: 12, pedidos: 48 }, { clientes: 12, pedidos: 20 }, 2);
+    expect(p).toEqual({ unit: "rows", done: 32, total: 60 });
+  });
+  it("never counts more rows than the table had", () => {
+    expect(backupProgress(objs, { structure: false, data: true }, { clientes: 1, pedidos: 1 }, { clientes: 5 }, 0).done).toBe(1);
+  });
+  it("moves by objects without data or with a count missing", () => {
+    expect(backupProgress(objs, { structure: true, data: false }, {}, {}, 1)).toEqual({ unit: "objects", done: 1, total: 3 });
+    expect(backupProgress(objs, { structure: true, data: true }, { clientes: 3, pedidos: null }, {}, 9)).toEqual({
+      unit: "objects",
+      done: 3,
+      total: 3,
+    });
   });
 });

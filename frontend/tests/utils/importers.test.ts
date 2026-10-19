@@ -162,7 +162,7 @@ describe("runImport", () => {
     const { ops } = fakeOps();
     const seen: [number, number][] = [];
     await runImport(parsed, mapping, "skip", ops, { onProgress: (d, n) => seen.push([d, n]) });
-    expect(seen).toEqual([[0, 3], [1, 3], [2, 3]]);
+    expect(seen).toEqual([[0, 3], [1, 3], [2, 3], [3, 3]]);
   });
 
   it("cancelled midway, rolls back and rejects without committing", async () => {

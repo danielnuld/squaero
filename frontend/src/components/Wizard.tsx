@@ -146,3 +146,22 @@ export function RowErrorPolicy(props: { value: ErrorPolicy; onChange: (p: ErrorP
     </div>
   );
 }
+
+/**
+ * The closing card of a wizard run: the figures of what was done, side by
+ * side («4810 insertadas · 2 con error · 00:12»), the failures in red.
+ */
+export function WizardSummary(props: { stats: { value: string | number; label: string; error?: boolean }[] }) {
+  return (
+    <div class="wiz-summary" role="status">
+      <For each={props.stats}>
+        {(s) => (
+          <div class={s.error ? "wiz-stat is-error" : "wiz-stat"}>
+            <strong>{s.value}</strong>
+            <span>{s.label}</span>
+          </div>
+        )}
+      </For>
+    </div>
+  );
+}

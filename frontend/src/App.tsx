@@ -6227,6 +6227,7 @@ export function App() {
                   <ImportWizard
                     connId={toolConn()?.connId ?? ""}
                     target={(tt().params as { target: EditTarget }).target}
+                    engine={activeDialect()}
                     initialText={(tt().params as { initialText?: string }).initialText}
                     onClose={() => closeTool(tt().id)}
                     onImported={() => {
@@ -6245,6 +6246,7 @@ export function App() {
                     schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
                     onApplied={reloadTree}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
                   />
                 </Match>
                 <Match when={tt().tool === "indexes"}>

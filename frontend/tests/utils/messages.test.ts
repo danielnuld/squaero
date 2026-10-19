@@ -21,8 +21,6 @@ const FRAGMENTS = [
   "nb.paramsHintPre",
   "nb.paramsHintPost",
   "nb.truncatedSuffix",
-  "imp.aborted",
-  "imp.withErrors",
   "hist.slowTag",
 ];
 

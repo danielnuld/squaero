@@ -102,6 +102,10 @@ const setCount = (n: number) => {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 };
 
+/** The preview's rows, in the shared grid, and a row's data cells. */
+const previewRows = () => [...host!.querySelectorAll(".wiz-preview .grid-rows [role=row]")];
+const cells = (row: Element) => [...row.querySelectorAll("[role=gridcell]:not(.grid-mark)")];
+
 describe("DataGenerator", () => {
   it("starts the key sequence after the rows already in the table (audit A-29)", async () => {
     maxId = "12";
@@ -111,8 +115,7 @@ describe("DataGenerator", () => {
     expect((calls.find((c) => c.method === "query.run")!.params as { sql: string }).sql).toBe(
       "SELECT MAX(`id`) FROM `users`",
     );
-    const firstCell = host!.querySelector(".import-preview-scroll tbody tr td")!;
-    expect(firstCell.textContent).toBe("13");
+    expect(cells(previewRows()[0])[0].textContent).toBe("13");
   });
 
   it("loads columns and assigns default strategies by type", async () => {
@@ -134,11 +137,9 @@ describe("DataGenerator", () => {
     await flush();
     setCount(3);
     await flush();
-    const bodyRows = host!.querySelectorAll(".import-preview-scroll tbody tr");
-    expect(bodyRows.length).toBe(3);
+    expect(previewRows().length).toBe(3);
     // The sequence column starts at 1.
-    const firstCell = bodyRows[0].querySelector("td")!;
-    expect(firstCell.textContent).toBe("1");
+    expect(cells(previewRows()[0])[0].textContent).toBe("1");
   });
 
   it("generates and inserts N rows in one transaction", async () => {
@@ -228,5 +229,53 @@ describe("DataGenerator", () => {
     expect(methods).not.toContain("tx.rollback");
     expect(host!.textContent).toContain("duplicate key");
     expect(host!.querySelector(".wiz-step.is-current")!.textContent).toContain("Resultado");
+  });
+});
+
+// #692 (P5): text templates, «Otra muestra», and the closing summary card.
+describe("DataGenerator — templates and result", () => {
+  it("fills text columns from an editable template", async () => {
+    installBridge();
+    mount();
+    await flush();
+    const tpl = host!.querySelector<HTMLInputElement>('input[aria-label="Plantilla de name"]')!;
+    expect(tpl.value).toBe("{nombre} {apellido}");
+    tpl.value = "cliente {n}";
+    tpl.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+    expect(cells(previewRows()[1])[1].textContent).toBe("cliente 2");
+  });
+
+  it("draws another sample on «Otra muestra», keeping the sequence", async () => {
+    installBridge();
+    mount();
+    await flush();
+    const names = () => previewRows().map((r) => cells(r)[1].textContent);
+    const before = names();
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Otra muestra")!.click();
+    await flush();
+    expect(names()).not.toEqual(before);
+    expect(cells(previewRows()[0])[0].textContent).toBe("1");
+  });
+
+  it("ends on a summary card with the failed rows", async () => {
+    let n = 0;
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string };
+      if (req.method === "schema.describe") return describeResponse(req.id);
+      if (req.method === "row.insert" && n++ === 1) {
+        return { jsonrpc: "2.0", id: req.id, error: { code: -32000, message: "duplicate key" } };
+      }
+      return { jsonrpc: "2.0", id: req.id, result: { ok: true } };
+    };
+    mount();
+    await flush();
+    setCount(3);
+    host!.querySelectorAll<HTMLInputElement>("input[type=radio]")[0].click();
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Generar 3 filas")!.click();
+    for (let i = 0; i < 3; i++) await flush();
+    const stats = [...host!.querySelectorAll(".wiz-stat")].map((s) => s.textContent);
+    expect(stats.slice(0, 2)).toEqual(["2filas generadas e insertadas", "1con error"]);
+    expect(host!.querySelector(".run-errors")!.textContent).toContain("Fila 2: duplicate key");
   });
 });

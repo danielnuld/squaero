@@ -338,3 +338,21 @@ function columnChange(
     );
   return { ok: true, statements: stmts };
 }
+
+/**
+ * How a designer row differs from the table as loaded (#692), to highlight it:
+ * «added» has no original, «changed» differs in name, type, NULL or default.
+ * Null when it is as loaded (or there is no original yet).
+ */
+export function columnState(col: AlterColumn, original: OriginalTable | null): "added" | "changed" | null {
+  if (!original) return null;
+  if (col.origName === undefined) return "added";
+  const o = original.columns.find((c) => c.name === col.origName);
+  if (!o) return "added";
+  const same =
+    col.name === o.name &&
+    col.type.trim().toLowerCase() === o.type.trim().toLowerCase() &&
+    col.nullable === o.nullable &&
+    col.defaultValue.trim() === o.defaultValue.trim();
+  return same ? null : "changed";
+}
