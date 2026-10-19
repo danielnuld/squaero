@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import {
+  catalogTables,
   parseTreeRows,
   quoteIdentifier,
   qualifiedName,
@@ -198,5 +199,29 @@ describe("schemaDdl forwarding", () => {
     const sent = JSON.parse(rpc.mock.calls[0][0]) as { method: string; params: unknown };
     expect(sent.method).toBe("schema.ddl");
     expect(sent.params).toEqual({ connId: "c1", object: "users" });
+  });
+});
+
+describe("catalogTables (A-06)", () => {
+  const t = (name: string, kind: "table" | "view" | "schema" = "table") => ({ name, kind });
+
+  it("lists a database's tables and views when its level holds them", async () => {
+    const list = vi.fn(async () => [t("clientes"), t("v_ventas", "view")]);
+    expect(await catalogTables(list, "main")).toEqual(["clientes", "v_ventas"]);
+    expect(list).toHaveBeenCalledWith("main");
+  });
+
+  it("reads the default schema when the level holds schemas", async () => {
+    const list = vi.fn(async (_db?: string, schema?: string) =>
+      schema ? [t(`${schema}_t`)] : [t("audit", "schema"), t("public", "schema")],
+    );
+    expect(await catalogTables(list, "ventas")).toEqual(["public_t"]);
+    expect(list).toHaveBeenLastCalledWith("ventas", "public");
+  });
+
+  it("falls back to the first schema, and to nothing for an empty level", async () => {
+    const list = async (_db?: string, schema?: string) => (schema ? [t("x")] : [t("app", "schema")]);
+    expect(await catalogTables(list)).toEqual(["x"]);
+    expect(await catalogTables(async () => [])).toEqual([]);
   });
 });
