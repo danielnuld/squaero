@@ -24,7 +24,6 @@ const base = {
   theme: "dark" as const,
   onToggleTheme: () => {},
   onShowHelp: () => {},
-  onShowSettings: () => {},
 };
 
 type Props = Parameters<typeof StatusBar>[0];

@@ -26,7 +26,10 @@ describeEngine("sqlite", () => {
   }
 
   const editor = (page: Page) => page.getByRole("textbox", { name: "Editor SQL", exact: true });
-  const tab = (page: Page, name: string) => page.getByRole("tab", { name, exact: true });
+  // The document tabs only: the rail and the object switch are tab lists too (#688).
+  const docTabs = (page: Page) =>
+    page.getByRole("tablist", { name: "Pestañas abiertas" }).getByRole("tab");
+  const tab = (page: Page, name: string) => docTabs(page).filter({ hasText: name }).first();
 
   /** Opens the snippet palette and activates the first match for `name`. */
   async function openFromPalette(page: Page, name: string, key = "Enter"): Promise<void> {
@@ -70,12 +73,12 @@ describeEngine("sqlite", () => {
     await tab(page, "Consulta 1").click();
     await openFromPalette(page, "conteo");
 
-    await expect(page.getByRole("tab")).toHaveCount(2);
+    await expect(docTabs(page)).toHaveCount(2);
     await expect(tab(page, "conteo")).toHaveAttribute("aria-selected", "true");
 
     // A different snippet is a different tab.
     await openFromPalette(page, "artículos por ciudad");
-    await expect(page.getByRole("tab")).toHaveCount(3);
+    await expect(docTabs(page)).toHaveCount(3);
   });
 
   test("Ctrl+Enter still drops a snippet at the cursor", async ({ app }) => {
@@ -89,7 +92,7 @@ describeEngine("sqlite", () => {
     await openFromPalette(page, "conteo", "ControlOrMeta+Enter");
 
     await expect(editor(page)).toContainText("SELECT 1; SELECT count(*) FROM e2e_items");
-    await expect(page.getByRole("tab")).toHaveCount(1); // inserting opens nothing
+    await expect(docTabs(page)).toHaveCount(1); // inserting opens nothing
   });
 
   test("the library searches by body, opens, and stays open for the next one", async ({ app }) => {

@@ -62,6 +62,36 @@ describe("App — one navigation band", () => {
   });
 });
 
+// The rail and the side column (issues #688, #689).
+describe("App — rail", () => {
+  const railButton = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".rail-btn")].find(
+      (b) => b.textContent?.trim() === label,
+    )!;
+
+  it("switches the side column and folds it on the panel already shown", () => {
+    localStorage.clear();
+    mount();
+    const aside = host!.querySelector<HTMLElement>("aside.sidebar")!;
+    expect(aside.hidden).toBe(false);
+    railButton("Historial").click();
+    expect(aside.querySelector(".history")).not.toBeNull();
+    expect(aside.querySelector<HTMLElement>(".side-explorer")!.hidden).toBe(true);
+    railButton("Objetos").click();
+    expect(aside.querySelector(".history")).toBeNull();
+    railButton("Objetos").click();
+    expect(aside.hidden).toBe(true);
+    railButton("Objetos").click();
+    expect(aside.hidden).toBe(false);
+  });
+
+  it("opens the settings as a tab from the rail", () => {
+    mount();
+    railButton("Ajustes").click();
+    expect(host!.querySelector(".tab.active")?.textContent).toContain("Ajustes");
+  });
+});
+
 // UX polish (issue #42): theme toggle, shortcuts, help overlay.
 describe("App — theme & shortcuts", () => {
   it("stamps a resolved theme on the document root at mount", () => {

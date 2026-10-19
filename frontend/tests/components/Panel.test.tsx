@@ -102,4 +102,15 @@ describe("Panel", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("leaves Escape to the document when docked in the side column", () => {
+    const onClose = vi.fn();
+    mount(() => (
+      <Panel title="X" docked onClose={onClose}>
+        cuerpo
+      </Panel>
+    ));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });

@@ -30,6 +30,8 @@ export function SnippetsPanel(props: {
   onExport: () => void;
   onImport: (file: File) => void;
   onClose: () => void;
+  /** Shown in the side column (#689). */
+  docked?: boolean;
 }) {
   const [query, setQuery] = createSignal("");
   const [selectedId, setSelectedId] = createSignal<string | null>(null);
@@ -88,6 +90,7 @@ export function SnippetsPanel(props: {
     <Panel
       title={t("editor.snippetsTitle")}
       class="snippets"
+      docked={props.docked}
       onClose={props.onClose}
       actions={
         <>

@@ -18,6 +18,8 @@ import { t } from "../utils/i18n";
 export function Panel(props: {
   title?: string;
   onClose?: () => void;
+  /** Shown in the side column (#689): Escape belongs to the document then. */
+  docked?: boolean;
   /** Accepted for compatibility with former Modal call sites; panels fill the area. */
   wide?: boolean;
   /** Extra class (component-specific layout hook, e.g. "user-mgr"). */
@@ -33,7 +35,7 @@ export function Panel(props: {
   children: JSX.Element;
 }) {
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") props.onClose?.();
+    if (e.key === "Escape" && !props.docked) props.onClose?.();
   };
   onMount(() => document.addEventListener("keydown", onKey));
   onCleanup(() => document.removeEventListener("keydown", onKey));

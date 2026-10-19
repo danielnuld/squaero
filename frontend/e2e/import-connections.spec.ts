@@ -46,14 +46,11 @@ describeEngine("sqlite", () => {
   /**
    * Opens the connections tab, where importing lives since #525 — the bar's +
    * opens a search for OPENING a connection, and the file picker moved to the
-   * tab with the rest of what outlives a session. Reached from the tool strip,
-   * which keeps this one tool enabled with nothing connected.
+   * tab with the rest of what outlives a session. Reached from the rail's
+   * Conexiones button (#688), usable with nothing connected.
    */
   const openManager = (page: import("@playwright/test").Page) =>
-    page
-      .getByRole("toolbar", { name: "Acciones" })
-      .getByRole("button", { name: "Conexiones", exact: true })
-      .click();
+    page.getByRole("navigation", { name: "Paneles laterales" }).getByRole("button", { name: "Conexiones", exact: true }).click();
 
   /** Hands `text` to the manager's hidden file input under `name`. */
   const importFile = async (
