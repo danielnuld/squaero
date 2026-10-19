@@ -5593,6 +5593,7 @@ export function App() {
               entries={snippets()}
               onOpen={openSnippet}
               onInsert={insertSnippet}
+              onRun={(snip) => runFromHistory(snip.body)}
               onRename={renameSnip}
               onSetAbbr={setSnipAbbr}
               onDuplicate={duplicateSnip}
@@ -6851,6 +6852,7 @@ export function App() {
                     entries={snippets()}
                     onOpen={openSnippet}
                     onInsert={insertSnippet}
+                    onRun={(snip) => runFromHistory(snip.body)}
                     onRename={renameSnip}
                     onSetAbbr={setSnipAbbr}
                     onDuplicate={duplicateSnip}

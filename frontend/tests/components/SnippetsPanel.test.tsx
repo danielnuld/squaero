@@ -229,3 +229,22 @@ function menuItem(label: string): HTMLButtonElement {
   if (!found) throw new Error(`no menu item "${label}"`);
   return found as HTMLButtonElement;
 }
+
+describe("SnippetsPanel keys and drag (P6)", () => {
+  it("runs with Ctrl+Intro, inserts with Alt+Intro, and drags its body", () => {
+    const onRun = vi.fn();
+    const onInsert = vi.fn();
+    mount({ onRun, onInsert });
+    const list = host!.querySelector(".snippet-list")!;
+    list.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+    expect(onRun).toHaveBeenCalledWith(entries[0]);
+    list.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }));
+    expect(onInsert).toHaveBeenCalledWith(entries[0]);
+    const data: Record<string, string> = {};
+    const drag = new Event("dragstart", { bubbles: true }) as DragEvent;
+    Object.defineProperty(drag, "dataTransfer", { value: { setData: (k: string, v: string) => (data[k] = v), effectAllowed: "" } });
+    host!.querySelector(".snippet-row")!.dispatchEvent(drag);
+    expect(data["text/plain"]).toBe(entries[0].body);
+    expect(host!.querySelector(".snippet-keys")!.textContent).toContain("Intro");
+  });
+});

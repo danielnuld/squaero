@@ -10849,3 +10849,8 @@ ul.sidebar-tree {
   text-align: right;
   user-select: none;
 }
+
+/* Snippets: the keys the list answers to. */
+.snippet-keys {
+  margin: var(--sp-3) 0 0;
+}
