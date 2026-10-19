@@ -10,6 +10,7 @@ import { errorText } from "../utils/errors";
 import { Panel } from "./Panel";
 import type { TreeNodeKind } from "../utils/tree";
 import { t } from "../utils/i18n";
+import { currentOs, orderActions } from "../utils/dialog";
 
 // Panel showing a table/view structure: the column list (schema.describe) and
 // the engine's CREATE statement (schema.ddl) with a copy button (#20/#21). For
@@ -290,20 +291,22 @@ export function StructureView(props: {
           </Show>
         </Show>
 
-        <div class="modal-actions">
-          <span class="status-spacer" />
-          <Show
-            when={editing()}
-            fallback={<button onClick={props.onClose}>{t("common.close")}</button>}
-          >
-            <button disabled={busy()} onClick={() => setEditing(false)}>
-              {t("common.cancel")}
-            </button>
-            <button class="primary" disabled={busy()} onClick={applyEdit}>
-              {busy() ? t("struct.applying") : t("struct.apply")}
-            </button>
-          </Show>
-        </div>
+        {/* No «Cerrar» here: the view is a tab with its own close (audit A-21).
+            While editing, the action row in the OS order (#692). */}
+        <Show when={editing()}>
+          <div class="panel-foot">
+            <span class="dlg-actions">
+              {orderActions(currentOs(), [
+                <button class="btn-primary" disabled={busy()} onClick={applyEdit}>
+                  {busy() ? t("struct.applying") : t("struct.apply")}
+                </button>,
+                <button class="btn" disabled={busy()} onClick={() => setEditing(false)}>
+                  {t("common.cancel")}
+                </button>,
+              ])}
+            </span>
+          </div>
+        </Show>
     </Panel>
   );
 }
