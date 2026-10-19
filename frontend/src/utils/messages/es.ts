@@ -1587,6 +1587,7 @@ export const es: Record<string, string> = {
   "status.avg": "Media {v}",
   "status.min": "Mín {v}",
   "status.max": "Máx {v}",
+  "status.label": "Barra de estado",
   "status.shortcuts": "Atajos de teclado",
 
   // run scope indicator (issue #130)

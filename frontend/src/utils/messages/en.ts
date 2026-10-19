@@ -1572,6 +1572,7 @@ export const en: Record<string, string> = {
   "status.avg": "Avg {v}",
   "status.min": "Min {v}",
   "status.max": "Max {v}",
+  "status.label": "Status bar",
   "status.shortcuts": "Keyboard shortcuts",
 
   // run scope indicator

@@ -89,7 +89,7 @@ export function StatusBar(props: {
       .join(" · ");
 
   return (
-    <footer class="statusbar">
+    <footer class="statusbar" role="status" aria-label={t("status.label")}>
       <span class="status-item status-conn">
         <span
           class={`conn-dot ${props.connection ? (props.connection.lost ? "lost" : "on") : "off"}`}

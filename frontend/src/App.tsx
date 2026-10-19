@@ -1,3 +1,4 @@
+import { Toast } from "./components/Toast";
 import {
   For,
   Show,
@@ -2435,7 +2436,6 @@ export function App() {
   // When the run happened and how long it took (issue #643), said once and gone:
   // the status bar keeps the same two facts for after the toast has left.
   const [runToast, setRunToast] = createSignal<{ text: string; error: boolean } | null>(null);
-  let runToastTimer: ReturnType<typeof setTimeout> | undefined;
   //
   // Issue #693 (audit R-30, A-33): no toast for a run whose result is on
   // screen — the run status band and the status bar already say it. Only a run
@@ -2443,13 +2443,11 @@ export function App() {
   // until it is closed.
   const showRunToast = (tabId: number, ranAt: number, elapsedMs: number, failed: boolean) => {
     if (current()?.id === tabId) return;
-    clearTimeout(runToastTimer);
     const args = { time: formatClock(ranAt), duration: formatDuration(elapsedMs) };
+    // The Toast clears a success itself; an error stays until it is closed.
     setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
-    if (!failed) runToastTimer = setTimeout(() => setRunToast(null), 6000);
   };
   const showErrorToast = (text: string) => {
-    clearTimeout(runToastTimer);
     setRunToast({ text, error: true });
   };
 
@@ -5020,9 +5018,7 @@ export function App() {
   // definition in a new tab, as the tree does. Either way, a miss is said.
   const goToObject = async (target: ObjectTarget) => {
     const say = (text: string) => {
-      clearTimeout(runToastTimer);
       setRunToast({ text, error: true });
-      runToastTimer = setTimeout(() => setRunToast(null), 4000);
     };
     if (target.kind === "table") {
       const node = objectNodeFor(focusedObjects(), target.name);
@@ -6644,20 +6640,12 @@ export function App() {
 
       <Show when={snipToast()}>
         {(toast) => (
-          <div class="app-toast" role="status">
+          <Toast onClose={() => setSnipToast(null)}>
             <span class="app-toast-text">{toast().text}</span>
             <button class="app-toast-action" onClick={undoSaveSnippet}>
               {t("snip.undo")}
             </button>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setSnipToast(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
@@ -6758,73 +6746,39 @@ export function App() {
 
       <Show when={localWarn()}>
         {(text) => (
-          <div class="app-toast app-toast-error" role="alert">
+          <Toast error onClose={() => setLocalWarn(null)}>
             <span class="app-toast-text">{text()}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setLocalWarn(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
-      <Show when={runToast()}>
+      {/* Keyed: a newer run's toast restarts the clock. */}
+      <Show when={runToast()} keyed>
         {(toast) => (
-          <div
-            class={`app-toast app-toast-run${toast().error ? " app-toast-error" : ""}`}
-            role="status"
-          >
-            <span class="app-toast-text">{toast().text}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setRunToast(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          <Toast class="app-toast-run" error={toast.error} autoHideMs={6000} onClose={() => setRunToast(null)}>
+            <span class="app-toast-text">{toast.text}</span>
+          </Toast>
         )}
       </Show>
 
       <Show when={notice()}>
         {(text) => (
-          <div class="app-toast" role="status">
+          <Toast onClose={() => setNotice(null)}>
             <span class="app-toast-text">{text()}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setNotice(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
       <Show when={cacheNotice()}>
         {(text) => (
-          <div class="app-toast" role="status">
+          <Toast onClose={() => setCacheNotice(null)}>
             <span class="app-toast-text">{text()}</span>
-            <button
-              class="app-toast-close"
-              title={t("panel.close")}
-              aria-label={t("panel.close")}
-              onClick={() => setCacheNotice(null)}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+          </Toast>
         )}
       </Show>
 
       <Show when={connError()}>
-        <div class="app-toast app-toast-error" role="alert">
+        <Toast error onClose={() => setConnError(null)}>
           <span class="app-toast-text">{connError()}</span>
           {/* Saying the connection is gone without offering the one action that
               fixes it is half a message (issue #407). Only when there is one to
@@ -6835,15 +6789,7 @@ export function App() {
               {t("conn.reconnect")}
             </button>
           </Show>
-          <button
-            class="app-toast-close"
-            title={t("panel.close")}
-            aria-label={t("panel.close")}
-            onClick={() => setConnError(null)}
-          >
-            <Icon name="close" size={12} />
-          </button>
-        </div>
+        </Toast>
       </Show>
 
       <Show when={txPrompt()}>
