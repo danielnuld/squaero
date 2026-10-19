@@ -10733,3 +10733,35 @@ ul.sidebar-tree {
   display: flex;
   flex-direction: column;
 }
+
+/* Query builder: the form beside the SQL and its preview. */
+.qb-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(20rem, 2fr) minmax(0, 3fr);
+  gap: var(--sp-5);
+}
+
+.qb-form {
+  min-height: 0;
+  overflow: auto;
+}
+
+.qb-output {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.qb-output .ddl-header {
+  gap: var(--sp-3);
+}
+
+.qb-grid {
+  flex: 1;
+  min-height: 10rem;
+  display: flex;
+  flex-direction: column;
+}
