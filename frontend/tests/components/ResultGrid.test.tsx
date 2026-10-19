@@ -39,6 +39,15 @@ afterEach(() => {
   host = null;
 });
 
+/** Opens the page search (hidden by default, issue #690) with Ctrl+F on the
+    grid, and returns column `i`'s search box. */
+function searchBox(i: number): HTMLInputElement {
+  host!
+    .querySelector(".grid-scroll")!
+    .dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, bubbles: true, cancelable: true }));
+  return host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[i];
+}
+
 /** Mount ResultGrid in edit mode over `result`, with pending changes held in a
     signal so the grid re-renders as a user's edits accumulate. */
 function mountEditable(initial: PendingChanges = emptyPending()) {
@@ -357,14 +366,14 @@ describe("ResultGrid sort + filter (issue #132)", () => {
 
   it("filters rows by a per-column substring", () => {
     mountReadonly(numeric);
-    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    const filter = searchBox(1);
     type(filter, "y");
     expect(colValues(1)).toEqual(["y"]);
   });
 
   it("shows a no-match note when the filter excludes every loaded row", () => {
     mountReadonly(numeric);
-    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    const filter = searchBox(1);
     type(filter, "zzz");
     expect(host!.querySelector(".grid-empty-filter")).not.toBeNull();
   });
@@ -539,10 +548,10 @@ describe("ResultGrid selection + keyboard + bit display", () => {
 
   const cells = () => host!.querySelectorAll<HTMLElement>(".grid-rows .grid-cell");
 
-  it("renders boolean/bit values as 0/1", () => {
+  it("renders boolean/bit values as true/false (issue #690: raw, not 0/1)", () => {
     mountRO();
     const boolCol = [...cells()].filter((c) => c.classList.contains("cell-bool"));
-    expect(boolCol.map((c) => c.textContent)).toEqual(["1", "0", "1"]);
+    expect(boolCol.map((c) => c.textContent)).toEqual(["true", "false", "true"]);
   });
 
   it("selects a cell on click", () => {
@@ -633,7 +642,7 @@ describe("ResultGrid per-cell type", () => {
     const cell = (r: number, c: number) => host!.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`)!;
     expect(cell(0, 0).classList.contains("cell-text")).toBe(true);
     expect(cell(0, 1).classList.contains("cell-number")).toBe(true);
-    expect(cell(1, 1).textContent).toBe("1");
+    expect(cell(1, 1).textContent).toBe("true");
     expect(cell(2, 1).classList.contains("cell-null")).toBe(true);
   });
 });
@@ -889,7 +898,7 @@ describe("ResultGrid row marking", () => {
   };
 
   let marked: number[] = [];
-  let cells: { column: number; rows: number[] } | null = null;
+  let cells: { columns: number[]; rows: number[] } | null = null;
 
   function mountMarkable() {
     marked = [];
@@ -938,14 +947,21 @@ describe("ResultGrid row marking", () => {
     expect(marked).toEqual([]);
   });
 
-  // Issue #670: what the status-bar summary adds up.
-  it("reports the selected cell's column over the marked rows", () => {
+  // Issues #670, #690: what the status-bar summary adds up.
+  it("reports the selected block of cells", () => {
     mountMarkable();
     expect(cells).toBeNull();
     click(1);
-    expect(cells).toEqual({ column: 0, rows: [1] });
+    expect(cells).toEqual({ columns: [0], rows: [1] });
     click(3, { shiftKey: true });
-    expect(cells).toEqual({ column: 0, rows: [1, 2, 3] });
+    expect(cells).toEqual({ columns: [0], rows: [1, 2, 3] });
+  });
+
+  it("reports the focused cell's column over the marked rows", () => {
+    mountMarkable();
+    click(0, { ctrlKey: true });
+    click(2, { ctrlKey: true });
+    expect(cells).toEqual({ columns: [0], rows: [0, 2] });
   });
 
   it("marks with cmd + click too (macOS)", () => {
@@ -954,35 +970,50 @@ describe("ResultGrid row marking", () => {
     expect(marked).toEqual([2]);
   });
 
-  it("extends the range with shift + click", () => {
+  // Issue #690: Shift selects a block of CELLS; marking rows is the gutter's
+  // and Ctrl+click's job.
+  it("extends the block of cells with shift + click, marking no row", () => {
     mountMarkable();
     click(1);
     click(3, { shiftKey: true });
-    expect(marked).toEqual([1, 2, 3]);
-    expect(markedRowEls()).toHaveLength(3);
+    expect(marked).toEqual([]);
+    expect(host!.querySelectorAll('.grid-rows [role="gridcell"][aria-selected="true"]')).toHaveLength(3);
   });
 
   it("extends backwards too", () => {
     mountMarkable();
     click(3);
     click(1, { shiftKey: true });
-    expect(marked).toEqual([1, 2, 3]);
+    expect(cells).toEqual({ columns: [0], rows: [1, 2, 3] });
   });
 
   it("drops the marks on a plain click", () => {
     mountMarkable();
-    click(0);
-    click(2, { shiftKey: true });
+    click(0, { ctrlKey: true });
+    click(2, { ctrlKey: true });
     click(3);
     expect(marked).toEqual([]);
   });
 
-  it("extends with shift + ArrowDown from the selected row", () => {
+  it("extends with shift + arrows across rows and columns", () => {
     mountMarkable();
     click(0);
     key({ key: "ArrowDown", shiftKey: true });
     key({ key: "ArrowDown", shiftKey: true });
-    expect(marked).toEqual([0, 1, 2]);
+    key({ key: "ArrowRight", shiftKey: true });
+    expect(cells).toEqual({ columns: [0, 1], rows: [0, 1, 2] });
+    expect(marked).toEqual([]);
+    // A plain move starts over from the new cell.
+    key({ key: "ArrowUp" });
+    expect(cells).toEqual({ columns: [1], rows: [1] });
+  });
+
+  it("collapses the block to the focused cell with Escape", () => {
+    mountMarkable();
+    click(0);
+    click(2, { shiftKey: true });
+    key({ key: "Escape" });
+    expect(cells).toEqual({ columns: [0], rows: [2] });
   });
 
   it("marks every row of the view with ctrl + A", () => {
@@ -993,7 +1024,7 @@ describe("ResultGrid row marking", () => {
 
   it("marks only what the filter shows", () => {
     mountMarkable();
-    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    const filter = searchBox(1);
     filter.value = "a";
     filter.dispatchEvent(new Event("input", { bubbles: true })); // ana, carla, dora
     key({ key: "a", ctrlKey: true });
@@ -1359,7 +1390,7 @@ describe("ResultGrid mark column", () => {
 
   it("marks only what the filter shows", () => {
     mountMarks();
-    const filter = host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1];
+    const filter = searchBox(1);
     filter.value = "a";
     filter.dispatchEvent(new Event("input", { bubbles: true })); // ana, carla, dora
     click(box("Marcar todas las filas visibles"));
@@ -1417,5 +1448,205 @@ describe("ResultGrid per-cell class", () => {
     expect(cell(0, 0).classList.contains("diff-changed")).toBe(false);
     expect(cell(1, 0).classList.contains("diff-added")).toBe(true);
     expect(cell(1, 1).classList.contains("diff-added")).toBe(true);
+  });
+});
+
+// The redesigned grid (issue #690): header marks, page search, NULL vs '',
+// blocks of cells, the foreign-key link and the staged-change marks.
+describe("ResultGrid redesign (#690)", () => {
+  const people: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "nombre", type: "text" },
+      { name: "cliente_id", type: "int" },
+    ],
+    rows: [
+      ["1", "ana", "7"],
+      ["2", "", "8"],
+      ["3", null, "9"],
+    ],
+    truncated: false,
+    rowsAffected: 0,
+  };
+
+  let cells: { columns: number[]; rows: number[] } | null = null;
+  let related: [number, number][] = [];
+
+  function mount(over: Partial<Parameters<typeof ResultGrid>[0]> = {}) {
+    cells = null;
+    related = [];
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={people}
+            loading={false}
+            error={null}
+            keyColumns={["id"]}
+            foreignKeys={{ cliente_id: "clientes.id" }}
+            onRelated={(r, c) => related.push([r, c])}
+            onSelectedCellsChange={(c) => (cells = c)}
+            {...over}
+          />
+        ),
+        host!,
+      );
+    });
+  }
+
+  const cell = (r: number, c: number) => host!.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`)!;
+  const key = (init: KeyboardEventInit) =>
+    host!
+      .querySelector<HTMLElement>(".grid-scroll")!
+      .dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+  const heads = () => [...host!.querySelectorAll<HTMLElement>(".grid-head-sort")];
+
+  it("says the key and where a foreign key points, in the header", () => {
+    mount();
+    const [id, name, fk] = heads();
+    expect(id.querySelector(".col-key-mark")!.textContent).toContain("Clave primaria");
+    expect(fk.querySelector(".col-ref-mark")!.textContent).toContain("Clave foránea → clientes.id");
+    expect(fk.querySelector(".col-type")!.textContent).toBe("int → clientes.id");
+    expect(name.querySelector(".col-type")!.textContent).toBe("text");
+    expect(name.querySelector(".col-ref-mark")).toBeNull();
+  });
+
+  it("keeps the page search closed until Ctrl+F, and says it is page-local", () => {
+    mount();
+    expect(host!.querySelector(".grid-filter")).toBeNull();
+    expect(key({ key: "f", ctrlKey: true })).toBe(false);
+    const box = host!.querySelector<HTMLInputElement>(".grid-filter-input")!;
+    expect(box.getAttribute("aria-label")).toBe("Buscar en id (página cargada)");
+    expect(host!.querySelector(".grid-search-note")!.textContent).toContain(
+      "solo en las filas cargadas (3)",
+    );
+  });
+
+  it("marks a searched column and drops the search when it closes", () => {
+    mount();
+    key({ key: "f", ctrlKey: true });
+    type(host!.querySelectorAll<HTMLInputElement>(".grid-filter-input")[1], "ana");
+    expect(host!.querySelectorAll(".grid-rows .grid-row")).toHaveLength(1);
+    expect(heads()[1].querySelector(".col-search-mark")).not.toBeNull();
+    host!.querySelector<HTMLButtonElement>(".grid-search-close")!.click();
+    expect(host!.querySelector(".grid-filter")).toBeNull();
+    expect(host!.querySelectorAll(".grid-rows .grid-row")).toHaveLength(3);
+  });
+
+  it("tells NULL from an empty string", () => {
+    mount();
+    expect(cell(2, 1).querySelector(".cell-null-tag")!.textContent).toBe("NULL");
+    expect(cell(1, 1).querySelector(".cell-empty-tag")!.textContent?.trim()).toBe("''");
+    expect(cell(1, 1).title).toBe("Cadena vacía");
+    expect(cell(0, 1).querySelector(".cell-empty-tag")).toBeNull();
+  });
+
+  it("selects a block by dragging over the cells", () => {
+    mount();
+    cell(0, 0).dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+    cell(1, 1).dispatchEvent(new MouseEvent("mouseenter"));
+    document.dispatchEvent(new MouseEvent("mouseup"));
+    // Released: moving on no longer extends.
+    cell(2, 2).dispatchEvent(new MouseEvent("mouseenter"));
+    expect(cells).toEqual({ columns: [0, 1], rows: [0, 1] });
+    expect(cell(1, 0).getAttribute("aria-selected")).toBe("true");
+    expect(cell(2, 0).getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("copies a block as TSV with Ctrl+C", () => {
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (t: string) => void copied.push(t) },
+    });
+    let rows: number[] | null = null;
+    mount({ onCopyRows: (r) => (rows = r) });
+    cell(0, 1).click();
+    cell(2, 2).dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: true }));
+    expect(key({ key: "c", ctrlKey: true })).toBe(false);
+    expect(copied).toEqual(["ana\t7\n\t8\n\t9"]);
+    // The rows path is for marked rows or a single cell, not a block.
+    expect(rows).toBeNull();
+  });
+
+  it("follows the focused cell's foreign key with Ctrl+B and Ctrl+click", () => {
+    mount();
+    cell(1, 2).click();
+    expect(cell(1, 2).closest(".grid-row")!.classList.contains("row-focus")).toBe(true);
+    expect(key({ key: "b", ctrlKey: true })).toBe(false);
+    cell(2, 2).dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true }));
+    expect(related).toEqual([
+      [1, 2],
+      [2, 2],
+    ]);
+    // A column with nothing related leaves Ctrl+B alone.
+    cell(0, 1).click();
+    expect(key({ key: "b", ctrlKey: true })).toBe(true);
+  });
+
+  it("exposes the grid's size to assistive tech", () => {
+    mount();
+    const grid = host!.querySelector(".grid-scroll")!;
+    expect(grid.getAttribute("role")).toBe("grid");
+    expect(grid.getAttribute("aria-rowcount")).toBe("4");
+    expect(grid.getAttribute("aria-colcount")).toBe("3");
+  });
+});
+
+describe("ResultGrid staged changes (#690)", () => {
+  function mountStaged(pending: PendingChanges, showOldValues = false) {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <ResultGrid
+            result={result}
+            loading={false}
+            error={null}
+            showOldValues={showOldValues}
+            onMarkedRowsChange={() => {}}
+            edit={{
+              active: true,
+              pending,
+              onEditCell: () => {},
+              onToggleDelete: () => {},
+              onInsertCell: () => {},
+              onRemoveInsert: () => {},
+            }}
+          />
+        ),
+        host!,
+      );
+    });
+  }
+
+  const glyphs = () =>
+    [...host!.querySelectorAll(".row-glyph .visually-hidden")].map((g) => g.textContent);
+
+  it("marks a changed cell and says its original value", () => {
+    mountStaged(setCell(emptyPending(), 1, "name", "roberto"));
+    const dirty = host!.querySelector<HTMLElement>('[data-cell="1-1"]')!;
+    expect(dirty.classList.contains("cell-dirty")).toBe(true);
+    expect(dirty.title).toBe("Valor original: bob");
+    expect(host!.querySelector('[data-cell="0-1"]')!.classList.contains("cell-dirty")).toBe(false);
+    expect(dirty.querySelector(".cell-old")).toBeNull();
+  });
+
+  it("prints the original value struck through when asked", () => {
+    mountStaged(setCell(emptyPending(), 0, "name", null), true);
+    expect(host!.querySelector('[data-cell="0-1"] .cell-old')!.textContent).toBe("alice");
+  });
+
+  it("puts + ~ − in the gutter for new, changed and deleted rows", () => {
+    mountStaged(toggleDelete(addInsert(setCell(emptyPending(), 0, "name", "x")), 1));
+    expect(glyphs()).toEqual(["Fila modificada", "Fila eliminada", "Fila nueva"]);
+    expect(
+      [...host!.querySelectorAll(".row-glyph > [aria-hidden]")].map((g) => g.textContent),
+    ).toEqual(["~", "−", "+"]);
   });
 });

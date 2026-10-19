@@ -131,3 +131,18 @@ export function summarizeCells(values: readonly (string | null)[], type: string)
 
   return out;
 }
+
+/**
+ * Summarizes a block of cells over several columns (issue #690). The
+ * statistics only apply when every column is of the same kind — a sum over a
+ * price and a date is no number at all — so a mixed block gets the count and
+ * the NULLs, and nothing else.
+ */
+export function summarizeRange(
+  columns: readonly { values: readonly (string | null)[]; type: string }[],
+): CellSummary {
+  const all = columns.flatMap((c) => c.values);
+  const kinds = new Set(columns.map((c) => classifyType(c.type)));
+  if (kinds.size === 1) return summarizeCells(all, columns[0].type);
+  return { count: all.length, nulls: all.filter((v) => v === null).length };
+}

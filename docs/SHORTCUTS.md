@@ -25,17 +25,20 @@ En la **rejilla de resultados** (cuando el foco está en ella):
 | Acción | Atajo |
 |---|---|
 | Marcar todas las filas visibles | `Mod`+A |
-| Copiar las filas marcadas | `Mod`+C |
+| Seleccionar un bloque de celdas | Mayús+flechas, Mayús+clic o arrastrar |
+| Copiar las filas marcadas, o el bloque de celdas como TSV | `Mod`+C |
 | Duplicar las filas marcadas como filas nuevas | `Mod`+D |
 | Pegar filas como filas nuevas | `Mod`+V |
-| Desmarcar | Esc |
+| Desmarcar, o reducir el bloque a la celda con el foco | Esc |
+| Ver la fila relacionada (clave foránea) | `Mod`+B o `Mod`+clic |
+| Abrir/cerrar «Buscar en la página» (solo las filas cargadas) | `Mod`+F |
 | Marcar para borrar las filas seleccionadas (en modo edición) | Supr (Delete) |
 | Revisar y guardar los cambios | `Mod`+S |
 
 Notas:
 
 - Los atajos de la rejilla actúan sobre las filas marcadas o, si no hay ninguna,
-  sobre la fila de la celda seleccionada. Sin nada que copiar o duplicar, la
+  sobre las filas del bloque de celdas seleccionado. Sin nada que copiar o duplicar, la
   combinación se deja al navegador. Duplicar y pegar solo funcionan en una tabla
   con clave primaria.
 - **Ejecutar** y **formatear** los maneja el editor (CodeMirror); funcionan

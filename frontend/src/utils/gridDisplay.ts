@@ -64,7 +64,7 @@ export function humanDate(value: string, t: (key: string) => string): string {
  *
  * Outside "informe" — and for NULL in every style — this is exactly
  * `formatCell`, so the other two styles cannot drift from the shared formatting
- * by accident.
+ * by accident; the one exception is a boolean, shown as `true`/`false`.
  */
 export function displayText(
   value: string | null,
@@ -73,9 +73,14 @@ export function displayText(
   t: (key: string) => string,
 ): FormattedCell {
   const base = formatCell(value, type);
-  if (style !== "informe" || value === null) return base;
-
+  if (value === null) return base;
   const kind = classifyType(type);
+  // A boolean shows as the literal it means, never as 0/1 nor yes/no (issue
+  // #690: raw values). formatCell has already folded every engine's spelling to
+  // 0/1; anything it could not fold is shown as it came.
+  if (kind === "bool") return { ...base, text: base.text === "1" ? "true" : base.text === "0" ? "false" : base.text };
+  if (style !== "informe") return base;
+
   if (kind === "number") return { ...base, text: groupThousands(base.text) };
   if (kind === "temporal") return { ...base, text: humanDate(base.text, t) };
   return base;

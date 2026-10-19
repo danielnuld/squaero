@@ -58,6 +58,14 @@ export type PlanItem =
     };
 
 /** An empty change set. */
+/** What a staged change does to an existing row, for the grid's gutter glyph
+    (issue #690): a deletion wins over edits made before it. */
+export function rowChange(state: PendingChanges, rowIndex: number): "removed" | "changed" | null {
+  if (state.deletes.includes(rowIndex)) return "removed";
+  const edits = state.edits[rowIndex];
+  return edits && Object.keys(edits).length > 0 ? "changed" : null;
+}
+
 export function emptyPending(): PendingChanges {
   return { edits: {}, deletes: [], inserts: [] };
 }
