@@ -10787,3 +10787,65 @@ ul.sidebar-tree {
 .history-error {
   color: var(--error);
 }
+
+/* Local history: the summary and the side-by-side diff. */
+.lhist-summary {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-base);
+}
+
+.lhist-sides {
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+}
+
+.lhist-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.lhist-head {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elev);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.lhist-head > span {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.lhist-cell {
+  min-width: 0;
+  padding: 0 var(--sp-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.lhist-cell + .lhist-cell {
+  border-left: 1px solid var(--border);
+}
+
+.lhist-cell.lhist-add {
+  background: var(--ok-soft);
+}
+
+.lhist-cell.lhist-del {
+  background: var(--error-soft);
+}
+
+.lhist-no {
+  display: inline-block;
+  width: 3ch;
+  margin-right: var(--sp-3);
+  color: var(--text-faint);
+  text-align: right;
+  user-select: none;
+}

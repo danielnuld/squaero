@@ -189,10 +189,10 @@ export function scopeHistory(list: HistoryEntry[], scope: HistoryScope, connId?:
 }
 
 /** A day of history: today, yesterday, or an earlier date (YYYY-MM-DD, local). */
-export interface HistoryDay {
+export interface HistoryDay<T = HistoryEntry> {
   day: "today" | "yesterday" | "older";
   date: string;
-  entries: HistoryEntry[];
+  entries: T[];
 }
 
 const localDate = (ts: number) => {
@@ -200,13 +200,14 @@ const localDate = (ts: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-/** Group a newest-first list by local calendar day, in order. Pure given `now`. */
-export function groupByDay(list: HistoryEntry[], now: number): HistoryDay[] {
+/** Group a newest-first list (history entries, tab versions…) by local
+    calendar day, in order. Pure given `now`. */
+export function groupByDay<T extends { ts: number }>(list: T[], now: number): HistoryDay<T>[] {
   const today = localDate(now);
   const y = new Date(now);
   y.setDate(y.getDate() - 1);
   const yesterday = localDate(y.getTime());
-  const out: HistoryDay[] = [];
+  const out: HistoryDay<T>[] = [];
   for (const e of list) {
     const date = localDate(e.ts);
     let g = out[out.length - 1];
