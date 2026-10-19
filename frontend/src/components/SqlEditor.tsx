@@ -43,6 +43,7 @@ import {
   completionKeymap,
   completionStatus,
   startCompletion,
+  type Completion,
   type CompletionContext,
   type CompletionResult,
   type CompletionSource,
@@ -66,7 +67,7 @@ import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { copyText } from "../utils/rowCopy";
 import { t } from "../utils/i18n";
 import { editorSchema } from "../utils/sqlEditor";
-import { sqlCompletions, type Completions } from "../utils/sqlComplete";
+import { completionKind, sqlCompletions, tableColumns, type Completions } from "../utils/sqlComplete";
 import { sqlDiagnostics, type SqlDiagnostic } from "../utils/sqlDiagnostics";
 import type { ForeignKeyRelation } from "../utils/foreignKeys";
 import { sqlNavigation, type ObjectTarget } from "./editorNavigation";
@@ -395,14 +396,52 @@ export function SqlEditor(props: {
     }
     return lastAsk!.out;
   };
+  // A table's suggestion opens its columns beside the list (M14
+  // EditorAutocomplete), when the schema knows them — nothing is guessed.
+  const tableInfo = (c: Completion): Node | null => {
+    if (completionKind(c) !== "complete.kind.table") return null;
+    const cols = tableColumns(schemaNow(), c.label);
+    if (!cols) return null;
+    const box = document.createElement("div");
+    box.className = "cm-info-table";
+    const head = document.createElement("div");
+    head.className = "cm-info-head";
+    head.textContent = c.label;
+    const kind = document.createElement("span");
+    kind.className = "cm-info-kind";
+    kind.textContent = cols.length === 1 ? t("complete.tableInfoOne") : t("complete.tableInfo", { n: cols.length });
+    head.append(" ", kind);
+    const list = document.createElement("ul");
+    for (const col of cols) {
+      const li = document.createElement("li");
+      li.textContent = col;
+      list.append(li);
+    }
+    box.append(head, list);
+    return box;
+  };
+  const withInfo = <R extends CompletionResult | null>(r: R): R =>
+    r && ({ ...r, options: r.options.map((o) => (o.info ? o : { ...o, info: tableInfo })) } as R);
   const semanticSource: CompletionSource = (ctx) => {
     const r = semantic(ctx);
-    return r && ({ ...r, validFor: /^[\p{L}\p{N}_$]*$/u } as CompletionResult);
+    return withInfo(r && ({ ...r, validFor: /^[\p{L}\p{N}_$]*$/u } as CompletionResult));
   };
-  const fallbackSource = (i: number): CompletionSource => (ctx) => {
+  const fallbackSource = (i: number): CompletionSource => async (ctx) => {
     if (semantic(ctx)) return null;
     const src = ctx.state.languageDataAt<CompletionSource>("autocomplete", ctx.pos)[i];
-    return typeof src === "function" ? src(ctx) : null;
+    return typeof src === "function" ? withInfo(await src(ctx)) : null;
+  };
+  // What each suggestion is, in words, at the end of its row.
+  const kindColumn = {
+    render: (c: Completion) => {
+      const key = completionKind(c);
+      if (!key) return null;
+      const el = document.createElement("span");
+      el.className = "cm-completionKind";
+      el.textContent = t(key);
+      return el;
+    },
+    position: 90,
   };
 
   // Diagnostics run once typing settles, and again when the schema they read
@@ -528,7 +567,11 @@ export function SqlEditor(props: {
           closeBrackets(),
           indentOnInput(),
           // lang-sql registers two sources: schema names, then keywords.
-          autocompletion({ override: [semanticSource, fallbackSource(0), fallbackSource(1), templateSource] }),
+          autocompletion({
+            override: [semanticSource, fallbackSource(0), fallbackSource(1), templateSource],
+            icons: false,
+            addToOptions: [kindColumn],
+          }),
           diagnosticsField,
           diagnosticHover,
           runField,
@@ -821,6 +864,13 @@ export function SqlEditor(props: {
   };
 
   return (
-    <div class="editor" ref={host} onContextMenu={(e) => openContextMenu(e, editorMenu(e))} />
+    <div
+      class="editor"
+      ref={host}
+      // The completion list's key hints (M14 EditorAutocomplete): CodeMirror has
+      // no footer, so its stylesheet draws this string under the list.
+      style={{ "--complete-footer": JSON.stringify(t("complete.footer")) }}
+      onContextMenu={(e) => openContextMenu(e, editorMenu(e))}
+    />
   );
 }
