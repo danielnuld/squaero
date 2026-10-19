@@ -20,6 +20,7 @@ import {
   rowChange,
   revertCell,
   revertRow,
+  changeKinds,
   type EditSource,
 } from "../../src/utils/editSession";
 import type { ResultColumn } from "../../src/utils/query";
@@ -350,5 +351,15 @@ describe("revertCell / revertRow", () => {
     expect(r.edits).toEqual({ 3: { a: "z" } });
     expect(r.deletes).toEqual([]);
     expect(revertRow(r, 7)).toBe(r);
+  });
+});
+
+describe("changeKinds", () => {
+  it("counts changed, added and removed rows, a deleted edit only as removed", () => {
+    let s = setCell(setCell(emptyPending(), 0, "a", "x"), 1, "a", "y");
+    s = toggleDelete(s, 1);
+    s = addInsert(s);
+    expect(changeKinds(s)).toEqual({ changed: 1, added: 1, removed: 1 });
+    expect(changeKinds(emptyPending())).toEqual({ changed: 0, added: 0, removed: 0 });
   });
 });

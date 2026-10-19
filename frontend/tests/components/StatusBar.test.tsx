@@ -126,3 +126,14 @@ describe("StatusBar with the page search on (A-05)", () => {
     expect(host!.textContent).not.toContain("de 12");
   });
 });
+
+describe("StatusBar unsaved changes chip (R-26)", () => {
+  it("says how many changes are not saved, and nothing when there are none", () => {
+    mount({ pendingChanges: 3 });
+    expect(host!.querySelector(".status-pending")!.textContent).toBe("3 cambios sin guardar");
+    dispose?.();
+    host?.remove();
+    mount({ pendingChanges: 0 });
+    expect(host!.querySelector(".status-pending")).toBeNull();
+  });
+});

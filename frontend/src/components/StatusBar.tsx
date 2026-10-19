@@ -32,6 +32,8 @@ export function StatusBar(props: {
   /** Statements in the connection's open transaction (issue #667); null/absent
       = no transaction open. */
   txStatements?: number | null;
+  /** Unsaved changes of the tab's edit session (R-26); 0/absent hides it. */
+  pendingChanges?: number;
   /** Commit or roll back the open transaction (the chip is a button then). */
   onTxAction?: (e: MouseEvent) => void;
   /** What the active tab is, which decides the facts on the right. */
@@ -123,6 +125,11 @@ export function StatusBar(props: {
         >
           {t("tx.open", { n: props.txStatements! })}
         </button>
+      </Show>
+      <Show when={(props.pendingChanges ?? 0) > 0}>
+        <span class="status-chip status-pending" role="status">
+          {t(props.pendingChanges === 1 ? "pending.unsavedOne" : "pending.unsavedN", { n: props.pendingChanges! })}
+        </span>
       </Show>
       <span class="status-spacer" />
       <For each={items()}>

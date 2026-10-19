@@ -5438,6 +5438,25 @@ svg.icon {
   color: var(--error);
 }
 
+/* The unsaved changes, by kind and with their glyphs (R-26). */
+.pending-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  background: var(--bg-elev2);
+  border-top: 1px solid var(--border);
+}
+
+.pending-chip {
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  font-weight: 600;
+}
+
 button.grid-action {
   border: none;
   background: transparent;
