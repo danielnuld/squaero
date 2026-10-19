@@ -6944,9 +6944,14 @@ button.grid-action.danger:hover:not(:disabled) {
 
 .settings-links {
   display: flex;
-  gap: var(--sp-5);
-  margin-top: var(--sp-3);
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  margin-top: var(--sp-4);
   font-size: var(--fs-md);
+}
+
+.settings-about + .btn {
+  margin-top: var(--sp-4);
 }
 
 /* Editor empty state with quick actions (issue #178) */

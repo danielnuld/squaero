@@ -256,6 +256,39 @@ describe("SettingsPanel", () => {
     expect(about.textContent).toContain("v6");
   });
 
+  // Issue #694: licence, links that open in the system browser, a copyable report.
+  it("shows the licence, opens links outside and copies the details", async () => {
+    const opened: string[] = [];
+    (globalThis as { quaeroOpenExternal?: (u: string) => void }).quaeroOpenExternal = (u) => opened.push(u);
+    let copied = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (s: string) => void (copied = s) },
+    });
+    try {
+      mount();
+      await flush();
+      goto("Acerca de");
+      expect(host!.querySelector(".settings-about")!.textContent).toContain("GNU GPL v3");
+      const links = [...host!.querySelectorAll<HTMLAnchorElement>(".settings-links a")];
+      expect(links.map((a) => a.textContent)).toEqual([
+        "Repositorio",
+        "Notas de la versión",
+        "Licencias de terceros",
+        "Licencia",
+        "Informar de un problema",
+      ]);
+      links[2].click();
+      expect(opened).toEqual([expect.stringMatching(/THIRD-PARTY\.md$/)]);
+      const copy = [...host!.querySelectorAll("button")].find((b) => b.textContent?.startsWith("Copiar la información"))!;
+      copy.click();
+      expect(copied).toMatch(/^Squaero /);
+    } finally {
+      delete (globalThis as { quaeroOpenExternal?: unknown }).quaeroOpenExternal;
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("falls back to a dash when the bridge is unavailable", async () => {
     mount(); // no quaeroRpc installed -> call() throws
     await flush();
