@@ -106,6 +106,8 @@ describe("ObjectToolbar", () => {
   it("shows a query result's read-only reason, without the table actions", () => {
     mount({ isTable: false, editable: false, readOnlyReason: "Solo lectura: un join" });
     expect(host!.querySelector(".edit-hint-ro")?.textContent?.trim()).toBe("Solo lectura: un join");
+    // A chip cut short by a narrow bar still reads in full on hover (A-03).
+    expect(host!.querySelector(".edit-hint-ro")?.getAttribute("title")).toBe("Solo lectura: un join");
     expect(btn("Más acciones")).toBeUndefined();
   });
 
