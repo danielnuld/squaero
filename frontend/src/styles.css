@@ -5210,8 +5210,13 @@ svg.icon {
   min-width: 0;
   font-size: var(--fs-base);
   color: var(--fg-dim);
-  overflow: hidden;
   white-space: nowrap;
+}
+
+/* The ellipsis has to be on the text itself: a flex container never draws one. */
+.edit-hint-ro-text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 
