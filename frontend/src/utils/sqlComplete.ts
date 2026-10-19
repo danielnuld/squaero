@@ -255,3 +255,43 @@ function column(name: string, rel: string, engine: string, qualified = false): S
   }
   return { label: name, apply: apply === name ? undefined : apply, type: "property", detail: rel || undefined, boost: 2 };
 }
+
+/**
+ * The i18n key of what a completion IS, shown in words beside it (M14
+ * EditorAutocomplete: «tabla», «columna», «función»…) instead of a coloured
+ * glyph that has to be learnt. Covers lang-sql's own kinds too (a schema table
+ * comes from it as "type"); null for a kind with nothing useful to say.
+ */
+export function completionKind(c: { type?: string; detail?: string }): string | null {
+  switch (c.type) {
+    case "keyword":
+      return "complete.kind.keyword";
+    case "class":
+      return c.detail === "CTE" ? "complete.kind.cte" : "complete.kind.table";
+    case "type":
+      return "complete.kind.table";
+    case "property":
+      return "complete.kind.column";
+    case "function":
+    case "method":
+      return "complete.kind.function";
+    case "text":
+      return c.detail === "FK" ? "complete.kind.join" : null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * What the info pane beside a table completion lists: its columns, as the
+ * schema knows them. Matched as written, then case-insensitively. Null when the
+ * table's columns are not known yet — nothing is guessed.
+ */
+export function tableColumns(schema: EditorSchema | null | undefined, table: string): string[] | null {
+  const cols = schema?.columns;
+  if (!cols) return null;
+  if (cols[table]) return cols[table];
+  const lower = table.toLowerCase();
+  const key = Object.keys(cols).find((k) => k.toLowerCase() === lower);
+  return key ? cols[key] : null;
+}

@@ -1737,11 +1737,57 @@ kbd {
   border-left-color: var(--null);
 }
 
+/* What a suggestion is, in words (M14 EditorAutocomplete), at the row's end. */
+.cm-completionKind {
+  margin-left: auto;
+  padding-left: var(--sp-4);
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+}
+.cm-tooltip-autocomplete > ul > li {
+  display: flex;
+  align-items: baseline;
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionKind,
+.cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionDetail {
+  color: inherit;
+}
+
+/* The keys that drive the list, under it. The text comes from the catalog,
+   set on the editor as --complete-footer. */
+.cm-tooltip.cm-tooltip-autocomplete::after {
+  content: var(--complete-footer);
+  display: block;
+  padding: var(--sp-1) var(--sp-2);
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
 /* The info panel shown beside a highlighted completion. */
 .cm-tooltip.cm-completionInfo {
   background: var(--bg-elev2) !important;
   border: 1px solid var(--border) !important;
   color: var(--text) !important;
+}
+.cm-info-head {
+  font-weight: 600;
+}
+.cm-info-kind {
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+.cm-info-table ul {
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
 }
 
 .editor-hint-spacer {
