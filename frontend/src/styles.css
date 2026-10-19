@@ -3090,16 +3090,15 @@ kbd {
   cursor: default;
   padding: 0 var(--sp-2);
   font-size: var(--fs-md);
+  /* WCAG 2.2 target size (issue #762). */
+  min-width: 24px;
+  min-height: 24px;
 }
 
 .conn-actions button:hover {
   color: var(--text);
 }
 
-/* Destructive connection action (delete): the shared `.danger` pattern (#185). */
-.conn-actions button.danger:hover:not(:disabled) {
-  color: var(--error);
-}
 
 /* Connection form modal */
 .modal-backdrop {
