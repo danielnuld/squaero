@@ -153,6 +153,9 @@ export function ObjectTree(props: {
   /** Emits the currently-loaded table/view leaves so the command palette can
       search them (issue #174). Fires whenever the loaded set changes. */
   onObjectsLoaded?: (nodes: TreeNode[]) => void;
+  /** Bumping `tick` shows the loaded node `key`: its ancestors open, the tree
+      scrolled to it and it made the active row («Mostrar en el explorador»). */
+  reveal?: { key: string; tick: number };
   /** Clicking a database/schema node makes it the working database. */
   onSelectDatabase?: (name: string) => void;
   /** Name of the current working database; its tree node is highlighted. */
@@ -980,6 +983,30 @@ export function ObjectTree(props: {
 
   const rowId = (index: number) => `objtree-row-${index}`;
   const rowH = () => props.rowHeight ?? ROW_HEIGHT;
+
+  // «Mostrar en el explorador» (M14 TabContextMenu): open the levels above the
+  // node, then make it the active row and hand the tree the focus.
+  createEffect(
+    on(
+      () => props.reveal?.tick,
+      () => {
+        const key = props.reveal?.key;
+        if (!key || !nodeByKey(key)) return;
+        const kids = children();
+        const parentOf = (k: string) =>
+          Object.keys(kids).find((p) => kids[p].some((n) => n.key === k));
+        const open: string[] = [];
+        for (let p = parentOf(key); p; p = parentOf(p)) open.push(p);
+        setFilter("");
+        setExpanded((s) => new Set([...s, ...open]));
+        const index = flat().findIndex((n) => n.key === key);
+        if (index < 0) return;
+        moveActive(index);
+        scrollerEl?.focus();
+      },
+      { defer: true },
+    ),
+  );
 
   /** Moves the active row, keeping it inside the rendered window. */
   const moveActive = (next: number) => {

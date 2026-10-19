@@ -78,6 +78,9 @@ import {
   closeTabsToRight,
   closeAllTabs,
   closedQueryTabs,
+  togglePin,
+  duplicateTab,
+  renameTab,
   closeTabsForConn,
   cycleTab,
   updateTabSql,
@@ -227,6 +230,7 @@ import { idleTx, readsOnly, runInTx, type TxSession, type TxVerb } from "./utils
 import { TxControls } from "./components/TxControls";
 import { TxBand } from "./components/TxBand";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { Dialog } from "./components/Dialog";
 import { countText, deleteRowsConfirm, needsTypedName } from "./utils/confirmText";
 
 /** Rows to read from a table's index catalog; one per index, so plenty. */
@@ -998,6 +1002,10 @@ export function App() {
       closedStack.splice(0, Math.max(0, closedStack.length - CLOSED_KEPT));
     }),
   );
+  const reopenClosedTab = () => {
+    const last = closedStack.pop();
+    if (last) openSqlInNewTab(last.sql, last.title, undefined, last.connDefId);
+  };
   /** Save the active query tab's text as a .sql file; nothing elsewhere. */
   const saveCurrentSql = () => {
     const tab = currentQuery();
@@ -1109,11 +1117,9 @@ export function App() {
       case "close-all-tabs":
         setTabs(closeAllTabs);
         break;
-      case "reopen-tab": {
-        const last = closedStack.pop();
-        if (last) openSqlInNewTab(last.sql, last.title, undefined, last.connDefId);
+      case "reopen-tab":
+        reopenClosedTab();
         break;
-      }
       case "editor-find":
         setFindTick((t) => t + 1);
         break;
@@ -5038,9 +5044,33 @@ export function App() {
   };
 
   // Right-click on a tab.
+  // The tab being renamed (M14 TabContextMenu), with the name being typed.
+  const [renaming, setRenaming] = createSignal<{ id: number; name: string } | null>(null);
+  // Bumped to show a table in its connection's tree («Mostrar en el explorador»).
+  const [revealReq, setRevealReq] = createSignal<{ defId: string; key: string; tick: number } | null>(null);
+  /** The tree node behind a table's tab, when that tree has it loaded. */
+  const tabTreeNode = (tab: Tab): { defId: string; node: TreeNode } | null => {
+    if (tab.kind !== "query" || !isDataTab(tab.id)) return null;
+    const defId = tab.connDefId ?? focusedDefId();
+    const p = results[tab.id]?.preview?.parts;
+    if (!defId || !p) return null;
+    const node = connObjects(loadedObjects(), defId).find(
+      (n) =>
+        n.label === p.name &&
+        (p.db === undefined || n.db === p.db) &&
+        (p.schema === undefined || n.schema === p.schema),
+    );
+    return node ? { defId, node } : null;
+  };
+
   const tabMenu = (e: MouseEvent, id: number) => {
+    const tab = tabs().tabs.find((x) => x.id === id);
+    if (!tab) return;
+    const keys = (k: ActionId) => shortcutKeys(k);
+    const isQuery = tab.kind === "query" && !isDataTab(id);
+    const inTree = tabTreeNode(tab);
     openContextMenu(e, [
-      { label: t("common.close"), action: () => setTabs((s) => closeTab(s, id)) },
+      { label: t("common.close"), hint: keys("close-tab"), action: () => setTabs((s) => closeTab(s, id)) },
       {
         label: t("tabmenu.closeOthers"),
         action: () => setTabs((s) => closeOtherTabs(s, id)),
@@ -5052,16 +5082,51 @@ export function App() {
         disabled: tabs().tabs.at(-1)?.id === id,
       },
       { label: t("tabmenu.closeAll"), hint: keysOf("close-all-tabs", shortcuts(), currentOs()), action: () => setTabs(closeAllTabs) },
+      {
+        label: t("tabmenu.reopen"),
+        hint: keysOf("reopen-tab", shortcuts(), currentOs()),
+        disabled: closedStack.length === 0,
+        title: closedStack.length === 0 ? t("tabmenu.reopenNone") : undefined,
+        action: reopenClosedTab,
+      },
+      { separator: true },
+      {
+        label: tab.pinned ? t("tabmenu.unpin") : t("tabmenu.pin"),
+        action: () => setTabs((s) => togglePin(s, id)),
+      },
+      {
+        label: t("tabmenu.duplicate"),
+        disabled: tab.kind !== "query",
+        title: tab.kind !== "query" ? t("tabmenu.duplicateTool") : undefined,
+        action: () =>
+          setTabs((s) => duplicateTab(s, id, (q) => t("tabmenu.copyTitle", { title: q.title })) ?? s),
+      },
+      {
+        label: t("tabmenu.rename"),
+        action: () => setRenaming({ id, name: tab.title }),
+      },
+      {
+        label: t("tabmenu.reveal"),
+        disabled: !inTree,
+        title: inTree
+          ? undefined
+          : isDataTab(id)
+            ? t("tabmenu.revealNotLoaded")
+            : t("tabmenu.revealNoObject"),
+        action: () => {
+          if (!inTree) return;
+          setSide((sd) => ({ ...sd, panel: "explorer" }));
+          setRevealReq((r) => ({ defId: inTree.defId, key: inTree.node.key, tick: (r?.tick ?? 0) + 1 }));
+        },
+      },
       { separator: true },
       {
         label: t("tabmenu.copyName"),
-        action: () => void copyText(tabs().tabs.find((x) => x.id === id)?.title ?? ""),
+        action: () => void copyText(tab.title),
       },
-      ...(tabs().tabs.some((x) => x.id === id && x.kind === "query" && !isDataTab(id))
-        ? [{ label: t("lhist.menu"), action: () => openLocalHistory(id) }]
-        : []),
+      ...(isQuery ? [{ label: t("lhist.menu"), action: () => openLocalHistory(id) }] : []),
       { separator: true },
-      { label: t("toolbar.newQuery.title"), action: newTab },
+      { label: t("toolbar.newQuery.title"), hint: keys("new-tab"), action: newTab },
     ]);
   };
 
@@ -5515,6 +5580,7 @@ export function App() {
                     >
                       <ObjectTree
                         connId={conn.connId}
+                        reveal={revealReq()?.defId === conn.defId ? revealReq()! : undefined}
                         rowHeight={treeRowHeight(settings().zoom, settings().density)}
                         engine={conn.driver}
                         title={conn.name}
@@ -5631,6 +5697,7 @@ export function App() {
               running: !!results[tab.id]?.loading || busyTools().has(tab.id),
               dirty: isUnsaved(tab),
               tool: tab.kind === "tool",
+              pinned: tab.pinned,
             }))}
             activeId={tabs().activeId}
             onSelect={selectTab}
@@ -6999,6 +7066,35 @@ export function App() {
             </button>
           </Show>
         </Toast>
+      </Show>
+
+      <Show when={renaming()}>
+        {(r) => (
+          <Dialog
+            title={t("tabmenu.renameTitle")}
+            size="sm"
+            onCancel={() => setRenaming(null)}
+            primary={{
+              label: t("tabmenu.renameOk"),
+              onClick: () => {
+                setTabs((s) => renameTab(s, r().id, r().name));
+                setRenaming(null);
+              },
+            }}
+          >
+            <label class="dlg-field">
+              <span>{t("tabmenu.renameLabel")}</span>
+              <input
+                class="td-in"
+                type="text"
+                data-autofocus
+                autocomplete="off"
+                value={r().name}
+                onInput={(e) => setRenaming((x) => (x ? { ...x, name: e.currentTarget.value } : x))}
+              />
+            </label>
+          </Dialog>
+        )}
       </Show>
 
       <Show when={txPrompt()}>
