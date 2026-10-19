@@ -61,7 +61,7 @@ export function scalePx(px: number, zoom: number): number {
  * values in styles.css, which is what keeps the default look unchanged.
  */
 export const BASE_FONT_PX = 12;
-const TYPE_RATIOS = { micro: 10, sm: 11, base: 12, md: 13, lg: 15 } as const;
+const TYPE_RATIOS = { micro: 11, sm: 11, base: 12, md: 13, lg: 15 } as const;
 export type TypeScale = Record<keyof typeof TYPE_RATIOS, number>;
 
 export function typeScale(uiFontPx: number, zoom: number): TypeScale {
