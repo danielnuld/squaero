@@ -194,3 +194,40 @@ export function readDefinitionText(
   const idx = found >= 0 ? found : 0;
   return concatRows ? rows.map((r) => r[idx] ?? "").join("") : (rows[0]?.[idx] ?? "");
 }
+
+/**
+ * The metadata header of an object explorer (P6): the value of each listed
+ * column of the selected row, labelled, skipping the empty ones. `label` is
+ * whatever the caller shows (an i18n key in the panels). Pure.
+ */
+export function rowMeta(
+  columns: readonly { name: string }[],
+  row: readonly (string | null)[],
+  fields: readonly { col: string; label: string }[],
+): { label: string; value: string }[] {
+  return fields.flatMap((f) => {
+    const i = columns.findIndex((c) => c.name.toLowerCase() === f.col.toLowerCase());
+    const v = i < 0 ? null : row[i];
+    return v === null || v === undefined || v.trim() === "" ? [] : [{ label: f.label, value: v }];
+  });
+}
+
+/**
+ * Rows grouped by one column (the triggers of each table), in the order the
+ * groups first appear, so a listing ordered by that column keeps its order.
+ * Without the column (idx < 0) there is one group with a null key. Pure.
+ */
+export function groupRows<R extends readonly (string | null)[]>(
+  rows: readonly R[],
+  idx: number,
+): { key: string | null; rows: R[] }[] {
+  if (idx < 0) return rows.length ? [{ key: null, rows: [...rows] }] : [];
+  const groups = new Map<string, R[]>();
+  for (const r of rows) {
+    const k = r[idx] ?? "";
+    const g = groups.get(k);
+    if (g) g.push(r);
+    else groups.set(k, [r]);
+  }
+  return [...groups].map(([key, rows]) => ({ key, rows }));
+}

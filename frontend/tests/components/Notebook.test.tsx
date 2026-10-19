@@ -124,3 +124,38 @@ describe("Notebook deletions ask first (audit P1)", () => {
     expect(dialog()).toBeNull();
   });
 });
+
+describe("Notebook running (P6)", () => {
+  interface BridgeHost {
+    quaeroRpc?: (requestJson: string) => Promise<unknown>;
+  }
+  afterEach(() => delete (globalThis as BridgeHost).quaeroRpc);
+
+  it("runs the cell with Ctrl+Intro, says it saved, and exports from one menu", async () => {
+    const sqls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string; params: { sql?: string } };
+      if (req.params.sql) sqls.push(req.params.sql);
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: [{ name: "n", type: "int" }], rows: [["1"]], truncated: false, rowsAffected: 0 },
+      };
+    };
+    mount();
+    await flush();
+    const ta = sqlCell();
+    type(ta, "select 1");
+    await flush();
+    expect(host!.querySelector(".nb-saved")!.textContent).toContain("Guardado a las");
+    ta.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+    for (let i = 0; i < 5; i++) await flush();
+    expect(sqls).toContain("select 1");
+    expect(host!.querySelector(".nb-result-info")!.textContent).toContain("1 fila");
+    const stop = [...host!.querySelectorAll<HTMLButtonElement>(".nb-header button")].find((b) => b.textContent === "Detener")!;
+    expect(stop.disabled).toBe(true); // nothing running any more
+    const { contextMenu } = await import("../../src/utils/contextMenu");
+    [...host!.querySelectorAll<HTMLButtonElement>(".nb-header button")].find((b) => b.textContent === "Exportar")!.click();
+    expect(contextMenu()!.items.map((i) => i.label)).toEqual(["Exportar a Markdown", "Exportar a HTML"]);
+  });
+});

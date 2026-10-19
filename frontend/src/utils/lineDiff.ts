@@ -71,3 +71,47 @@ export function diffLines(before: string, after: string): DiffLine[] | null {
   for (const text of a.slice(a.length - tail)) out.push({ kind: "same", text });
   return out;
 }
+
+/** One row of a side-by-side diff: the old line on the left, the new on the right. */
+export interface SideRow {
+  left: { no: number; text: string; kind: "same" | "del" } | null;
+  right: { no: number; text: string; kind: "same" | "add" } | null;
+}
+
+/**
+ * Lay a diff out in two columns (P6): unchanged lines face each other, a run of
+ * removals faces the run of additions that replaces it, line by line, and the
+ * longer side leaves the other blank. Line numbers are each side's own.
+ */
+export function sideBySide(lines: DiffLine[]): SideRow[] {
+  const rows: SideRow[] = [];
+  let ln = 0;
+  let rn = 0;
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i].kind === "same") {
+      rows.push({ left: { no: ++ln, text: lines[i].text, kind: "same" }, right: { no: ++rn, text: lines[i].text, kind: "same" } });
+      i++;
+      continue;
+    }
+    const dels: string[] = [];
+    const adds: string[] = [];
+    while (i < lines.length && lines[i].kind === "del") dels.push(lines[i++].text);
+    while (i < lines.length && lines[i].kind === "add") adds.push(lines[i++].text);
+    for (let k = 0; k < Math.max(dels.length, adds.length); k++) {
+      rows.push({
+        left: k < dels.length ? { no: ++ln, text: dels[k], kind: "del" } : null,
+        right: k < adds.length ? { no: ++rn, text: adds[k], kind: "add" } : null,
+      });
+    }
+  }
+  return rows;
+}
+
+/** How many lines a diff adds and removes. */
+export function diffSummary(lines: DiffLine[]): { added: number; removed: number } {
+  return {
+    added: lines.filter((l) => l.kind === "add").length,
+    removed: lines.filter((l) => l.kind === "del").length,
+  };
+}

@@ -21,6 +21,14 @@ export interface HistoryEntry {
   engine?: string;
   /** Wall-clock duration of the run in ms (issue #179), when measured. */
   durationMs?: number;
+  /** Rows a query returned (P6), when it returned a result set. */
+  rows?: number;
+  /** Rows a write changed (P6). */
+  affected?: number;
+  /** The run failed (P6): the «Errores» filter. */
+  failed?: boolean;
+  /** The database it ran in (P6), when one was chosen. */
+  db?: string;
 }
 
 /** Default cap on stored entries; the oldest are purged past this. */
@@ -160,8 +168,54 @@ export function parseHistory(raw: string | null): HistoryEntry[] {
         entry.durationMs = e.durationMs;
       }
       if (typeof e.engine === "string" && e.engine) entry.engine = e.engine;
+      if (typeof e.rows === "number" && Number.isFinite(e.rows)) entry.rows = e.rows;
+      if (typeof e.affected === "number" && Number.isFinite(e.affected)) entry.affected = e.affected;
+      if (e.failed === true) entry.failed = true;
+      if (typeof e.db === "string" && e.db) entry.db = e.db;
       out.push(entry);
     }
+  }
+  return out;
+}
+
+/** The panel's «Todas | Esta conexión | Errores» choice (P6). */
+export type HistoryScope = "all" | "conn" | "errors";
+
+/** Narrow the list by scope; «Esta conexión» needs the saved connection's id. */
+export function scopeHistory(list: HistoryEntry[], scope: HistoryScope, connId?: string): HistoryEntry[] {
+  if (scope === "errors") return list.filter((e) => e.failed);
+  if (scope === "conn") return connId ? list.filter((e) => e.connId === connId) : [];
+  return list;
+}
+
+/** A day of history: today, yesterday, or an earlier date (YYYY-MM-DD, local). */
+export interface HistoryDay<T = HistoryEntry> {
+  day: "today" | "yesterday" | "older";
+  date: string;
+  entries: T[];
+}
+
+const localDate = (ts: number) => {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/** Group a newest-first list (history entries, tab versions…) by local
+    calendar day, in order. Pure given `now`. */
+export function groupByDay<T extends { ts: number }>(list: T[], now: number): HistoryDay<T>[] {
+  const today = localDate(now);
+  const y = new Date(now);
+  y.setDate(y.getDate() - 1);
+  const yesterday = localDate(y.getTime());
+  const out: HistoryDay<T>[] = [];
+  for (const e of list) {
+    const date = localDate(e.ts);
+    let g = out[out.length - 1];
+    if (!g || g.date !== date) {
+      g = { day: date === today ? "today" : date === yesterday ? "yesterday" : "older", date, entries: [] };
+      out.push(g);
+    }
+    g.entries.push(e);
   }
   return out;
 }

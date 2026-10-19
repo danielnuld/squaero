@@ -122,3 +122,37 @@ describe("unsupportedReason", () => {
     expect(unsupportedReason("weird")).toContain("weird");
   });
 });
+
+import { slowFacts, slowSourceKey } from "../../src/utils/slowQueries";
+
+describe("slowSourceKey", () => {
+  it("names the catalog per engine, none for the unsupported ones", () => {
+    expect(slowSourceKey("postgres")).toBe("slow.source.postgres");
+    expect(slowSourceKey("mariadb")).toBe("slow.source.mysql");
+    expect(slowSourceKey("mongodb")).toBe("slow.source.mongodb");
+    expect(slowSourceKey("sqlite")).toBeNull();
+  });
+});
+
+describe("slowFacts", () => {
+  const res = {
+    columns: [{ name: "query" }, { name: "ejecuciones" }, { name: "avg_ms" }, { name: "total_ms" }, { name: "max_ms" }],
+    rows: [
+      ["SELECT 1", "10", "2.5", "25", "9"],
+      ["SELECT 2", "3", "25", "75", "40"],
+    ],
+  };
+  it("reads the numbers and the share of the listed total", () => {
+    expect(slowFacts(res, 1)).toEqual({ calls: "3", avgMs: "25", maxMs: "40", totalMs: "75", share: 75 });
+    expect(slowFacts(res, 0)!.share).toBe(25);
+  });
+  it("is null for a row that is not there; share null without totals", () => {
+    expect(slowFacts(res, 5)).toBeNull();
+    expect(slowFacts({ columns: [{ name: "query" }], rows: [["x"]] }, 0)).toEqual({
+      calls: null, avgMs: null, maxMs: null, totalMs: null, share: null,
+    });
+  });
+  it("has no share when every total is zero", () => {
+    expect(slowFacts({ columns: [{ name: "total_ms" }], rows: [["0"]] }, 0)!.share).toBeNull();
+  });
+});

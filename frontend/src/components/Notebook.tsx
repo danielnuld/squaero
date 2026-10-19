@@ -1,4 +1,3 @@
-import { countText } from "../utils/confirmText";
 import { For, Index, Show, createSignal, createMemo } from "solid-js";
 import { keyLabel } from "../utils/shortcuts";
 import { createStore } from "solid-js/store";
@@ -6,7 +5,8 @@ import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { runScript, type ResultSet } from "../utils/query";
 import { runnableStatements } from "../utils/runScope";
-import { withWriteConsent } from "../utils/transport";
+import { cancelQuery, withWriteConsent } from "../utils/transport";
+import { openContextMenu } from "../utils/contextMenu";
 import { writeStatements } from "../utils/safeMode";
 import { errorText } from "../utils/errors";
 import { changesCatalog } from "../utils/sqlEffects";
@@ -35,7 +35,7 @@ import { t } from "../utils/i18n";
 import { Icon } from "./icons";
 import { Dropdown } from "./Dropdown";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { deleteCellConfirm, deleteNotebookConfirm, type ConfirmText } from "../utils/confirmText";
+import { countText, deleteCellConfirm, deleteNotebookConfirm, type ConfirmText } from "../utils/confirmText";
 
 interface CellResult {
   loading: boolean;
@@ -48,6 +48,12 @@ interface CellResult {
 // Markdown cells render (safely) for narration; a result can be charted (opens
 // the chart tool). Notebooks persist to localStorage. All model/parse logic is
 // the pure module utils/notebook.ts; this is the binding + per-cell run state.
+//
+// P6 (prototype Notebook): the bar picks the connection the cells run on,
+// runs everything (primary) and stops a run (Detener: no further cell starts
+// and the running statement is cancelled the uniform way), exports from one
+// menu and says when the notebook was last saved; Ctrl+Intro in a SQL cell
+// runs that cell.
 export function Notebook(props: {
   /** Connection SQL cells run against (empty when none is focused). */
   connId: string;
@@ -55,6 +61,8 @@ export function Notebook(props: {
   notebookId?: string;
   /** Active engine name, used to pick the SQL dialect when formatting. */
   engine?: string;
+  /** The open connections the cells can run on; the first pick is connId. */
+  connections?: { connId: string; name: string; driver: string }[];
   /** Chart a cell's result by opening the chart tool. */
   onChart: (result: ResultSet) => void;
   /** A cell ran DDL: the object tree is stale (issue #317). */
@@ -74,12 +82,24 @@ export function Notebook(props: {
   const current = createMemo(() => list().find((n) => n.id === currentId()) ?? list()[0]);
 
   const [results, setResults] = createStore<Record<string, CellResult>>({});
+  // The connection the cells run on: the tab's, unless another open one is
+  // picked in the bar (and only while it is still open).
+  const [picked, setPicked] = createSignal<string | null>(null);
+  const conn = () => {
+    const p = picked();
+    return p && props.connections?.some((c) => c.connId === p) ? p : props.connId;
+  };
+  const engine = () => props.connections?.find((c) => c.connId === conn())?.driver ?? props.engine;
+  const [running, setRunning] = createSignal(0);
+  let stopRequested = false;
+  const [savedAt, setSavedAt] = createSignal<Date | null>(null);
   // Which Markdown cells are in edit mode (rendered otherwise).
   const [editing, setEditing] = createStore<Record<string, boolean>>({});
 
   const persist = (next: NotebookModel[]) => {
     setList(next);
     saveNotebooks(next);
+    setSavedAt(new Date());
   };
   const mutate = (fn: (nb: NotebookModel) => NotebookModel) => {
     const cur = current();
@@ -129,7 +149,7 @@ export function Notebook(props: {
   // Beautify a SQL cell in place with the same formatter as the SQL editor
   // (a no-op on empty text, a non-SQL engine or a parse error — see sqlFormat.ts).
   const formatCell = (id: string, source: string) =>
-    editSource(id, formatSql(source, props.engine));
+    editSource(id, formatSql(source, engine()));
   const switchKind = (id: string, kind: CellKind) =>
     mutate((nb) => ({ ...nb, cells: setCellKind(nb.cells, id, kind) }));
   const move = (id: string, dir: -1 | 1) =>
@@ -151,16 +171,17 @@ export function Notebook(props: {
     if (cell.kind !== "sql") return;
     const sql = applyParams(cell.source, current().params).trim();
     if (sql === "") return;
-    if (!props.connId) {
+    if (!conn()) {
       setResults(cell.id, { loading: false, error: t("nb.noConnErr"), result: null });
       return;
     }
     setResults(cell.id, { loading: true, error: null, result: null });
+    setRunning((n) => n + 1);
     try {
       // A cell holding several statements runs them one by one, like the editor:
       // engines take a single statement per call.
-      const stmts = runnableStatements(sql, props.engine);
-      const connId = props.connId;
+      const stmts = runnableStatements(sql, engine());
+      const connId = conn();
       const result = await withWriteConsent(connId, stmts, () => runScript(connId, stmts));
       setResults(cell.id, { loading: false, error: null, result });
       // A cell can create or drop objects too — the tree must hear about it
@@ -168,27 +189,35 @@ export function Notebook(props: {
       if (changesCatalog(sql)) props.onCatalogChanged?.();
     } catch (err) {
       setResults(cell.id, { loading: false, error: errorText(err), result: null });
+    } finally {
+      setRunning((n) => n - 1);
     }
+  };
+  const stop = () => {
+    stopRequested = true;
+    if (conn()) void cancelQuery(conn()).catch(() => {});
   };
   const runAll = async () => {
     const cells = current().cells.filter((c) => c.kind === "sql");
+    stopRequested = false;
     const runEach = async () => {
       for (const cell of cells) {
+        if (stopRequested) return;
         // eslint-disable-next-line no-await-in-loop -- cells run in document order
         await runCell(cell);
       }
     };
-    if (!props.connId) return runEach();
+    if (!conn()) return runEach();
     // One action, one question on a protected connection (issue #666): every
     // cell's statements are listed together, and a refusal stops the whole run
     // before anything is sent — the same rule as a script in the editor.
     const stmtsOf = (c: Cell) =>
-      runnableStatements(applyParams(c.source, current().params), props.engine);
+      runnableStatements(applyParams(c.source, current().params), engine());
     try {
-      await withWriteConsent(props.connId, cells.flatMap(stmtsOf), runEach);
+      await withWriteConsent(conn(), cells.flatMap(stmtsOf), runEach);
     } catch (err) {
       for (const c of cells) {
-        if (writeStatements(stmtsOf(c), props.engine).length > 0) {
+        if (writeStatements(stmtsOf(c), engine()).length > 0) {
           setResults(c.id, { loading: false, error: errorText(err), result: null });
         }
       }
@@ -207,10 +236,24 @@ export function Notebook(props: {
     void saveText(`${current().name}.md`, notebookToMarkdown(current(), resultsMap()), "text/markdown");
   const exportHtml = () =>
     void saveText(`${current().name}.html`, notebookToHtml(current(), resultsMap()), "text/html");
+  const exportMenu = (e: MouseEvent) =>
+    openContextMenu(e, [
+      { label: t("nb.exportMd"), action: exportMd },
+      { label: t("nb.exportHtml"), action: exportHtml },
+    ]);
 
   return (
     <Panel title={t("tool.notebook.tab")} onClose={props.onClose}>
       <div class="nb-header">
+        <Show when={(props.connections?.length ?? 0) > 1}>
+          <Dropdown
+            value={conn()}
+            options={props.connections!.map((c) => ({ value: c.connId, label: c.name }))}
+            onChange={(v) => setPicked(v)}
+            class="nb-conn"
+            title={t("nb.connTitle")}
+          />
+        </Show>
         <input
           class="nb-name"
           value={current().name}
@@ -236,14 +279,26 @@ export function Notebook(props: {
           {t("common.delete")}
         </button>
         <span class="editor-hint-spacer" />
-        <button class="status-btn run-btn" title={t("nb.runAllTitle")} onClick={runAll}>
+        <Show when={savedAt()}>
+          {(at) => (
+            <span class="nb-saved" role="status">
+              {t("nb.savedAt", { time: at().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}
+            </span>
+          )}
+        </Show>
+        <button class="status-btn" aria-haspopup="menu" onClick={exportMenu}>
+          {t("nb.export")}
+        </button>
+        <button
+          class="status-btn"
+          disabled={running() === 0}
+          title={running() === 0 ? t("nb.stopIdle") : t("nb.stopTitle")}
+          onClick={stop}
+        >
+          {t("nb.stop")}
+        </button>
+        <button class="btn btn-primary" title={t("nb.runAllTitle")} disabled={running() > 0} onClick={runAll}>
           {t("nb.runAll")}
-        </button>
-        <button class="status-btn" title={t("nb.exportMd")} onClick={exportMd}>
-          .md
-        </button>
-        <button class="status-btn" title={t("nb.exportHtml")} onClick={exportHtml}>
-          .html
         </button>
       </div>
 
@@ -298,6 +353,7 @@ export function Notebook(props: {
                   <button
                     class="status-btn run-btn"
                     title={t("nb.runCellTitle")}
+                    aria-keyshortcuts="Control+Enter"
                     onClick={() => void runCell(cell())}
                   >
                     {t("nb.runCell")}
@@ -375,6 +431,12 @@ export function Notebook(props: {
                   placeholder={cell().kind === "sql" ? "SELECT …" : t("nb.mdPlaceholder")}
                   onInput={(e) => editSource(cell().id, e.currentTarget.value)}
                   onKeyDown={(e) => {
+                    // Ctrl+Intro runs the cell, as it runs the statement in the editor.
+                    if (cell().kind === "sql" && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "Enter") {
+                      e.preventDefault();
+                      void runCell({ ...cell(), source: e.currentTarget.value });
+                      return;
+                    }
                     // Same key the SQL editor uses to format (see SqlEditor.tsx);
                     // this is a plain textarea, so it needs its own binding.
                     if (

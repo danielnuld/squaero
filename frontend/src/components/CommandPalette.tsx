@@ -65,7 +65,7 @@ export function CommandPalette(props: {
   /** The highlighted command, whose body the preview pane shows. */
   const activeCmd = () => flat()[Math.min(active(), flat().length - 1)];
 
-  const runAt = (index: number, alt?: "shift" | "mod") => {
+  const runAt = (index: number, alt?: "shift" | "mod" | "alt") => {
     const cmd = flat()[index];
     // An unavailable command stays listed with its reason; it does not run.
     if (!cmd || cmd.disabled) return;
@@ -90,7 +90,7 @@ export function CommandPalette(props: {
         e.preventDefault();
         runAt(
           Math.min(active(), flat().length - 1),
-          e.shiftKey ? "shift" : e.ctrlKey || e.metaKey ? "mod" : undefined,
+          e.shiftKey ? "shift" : e.ctrlKey || e.metaKey ? "mod" : e.altKey ? "alt" : undefined,
         );
         break;
       case "Escape":
@@ -215,8 +215,41 @@ export function CommandPalette(props: {
               </For>
             </Show>
           </div>
-          <Show when={activeCmd()?.preview}>
-            {(body) => <pre class="cmdk-preview">{body()}</pre>}
+          <Show when={activeCmd()?.preview !== undefined && activeCmd()}>
+            {(cmd) => (
+              <div class="cmdk-preview-pane" aria-label={t("cmdk.previewAria", { name: cmd().label })} role="region">
+                <Show when={cmd().actions || cmd().detail || cmd().chips}>
+                  <div class="cmdk-preview-head">
+                    <span class="cmdk-preview-name">{cmd().label}</span>
+                    <For each={cmd().chips ?? []}>{(chip) => <span class="chip">{chip}</span>}</For>
+                  </div>
+                  <Show when={cmd().detail}>
+                    <div class="help">{cmd().detail}</div>
+                  </Show>
+                </Show>
+                <pre class="cmdk-preview">{cmd().preview}</pre>
+                <Show when={cmd().actions}>
+                  <div class="cmdk-preview-actions">
+                    <For each={cmd().actions}>
+                      {(a) => (
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          class={a.primary ? "btn btn-primary" : "btn"}
+                          title={a.title}
+                          onClick={() => {
+                            props.onClose();
+                            a.run();
+                          }}
+                        >
+                          {a.label}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            )}
           </Show>
           </div>
           <Show when={props.footer}>
