@@ -112,6 +112,8 @@ import {
 import { installHostGuards } from "./utils/hostGuards";
 import { setShellTheme, setShellTitle, windowTitle } from "./utils/shell";
 import { buildMenuModel, hasShellMenu, onShellMenu, setShellMenu } from "./utils/nativeMenu";
+import { detectOs } from "./utils/titleBar";
+import { TitleBar } from "./components/TitleBar";
 import {
   loadThemeChoice,
   saveThemeId,
@@ -4787,18 +4789,18 @@ export function App() {
     else if (id === "format-sql") setFormatTick((n) => n + 1);
     else runShortcut(id as ActionId);
   };
+  // The one model for the native bar and the title bar's own menu (#688).
+  const menuModel = createMemo(() =>
+    buildMenuModel(t, {
+      connected: !!active(),
+      hasDb: !!activeDb(),
+      hasTab: !!current(),
+      isMac: isMac(),
+    }),
+  );
   createEffect(() => {
     if (!hasShellMenu()) return;
-    setShellMenu(
-      settings().nativeMenu
-        ? buildMenuModel(t, {
-            connected: !!active(),
-            hasDb: !!activeDb(),
-            hasTab: !!current(),
-            isMac: isMac(),
-          })
-        : [],
-    );
+    setShellMenu(settings().nativeMenu ? menuModel() : []);
   });
   onMount(() => {
     if (typeof window === "undefined") return;
@@ -4807,6 +4809,22 @@ export function App() {
 
   return (
     <div class="app">
+      <TitleBar
+        os={detectOs(typeof navigator !== "undefined" ? navigator.platform || navigator.userAgent : "")}
+        custom={settings().customTitleBar}
+        showMenu={settings().nativeMenu}
+        menus={menuModel()}
+        onMenuAction={runMenuAction}
+        backdrop={themeId() === "nativo"}
+        paletteKeys={paletteKeys()}
+        onPalette={() => {
+          setPaletteMode("all");
+          setPaletteOpen(true);
+        }}
+        unread={unreadCount(noteLog())}
+        notesOpen={notesOpen()}
+        onNotifications={toggleNotes}
+      />
       <div class="main">
         <Rail
           side={side()}
@@ -4814,9 +4832,6 @@ export function App() {
           connected={!!active()}
           onConnections={openConnectionsTab}
           onSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
-          unread={unreadCount(noteLog())}
-          notesOpen={notesOpen()}
-          onNotifications={toggleNotes}
         />
         <Show when={notesOpen()}>
           <Notifications
@@ -5034,11 +5049,6 @@ export function App() {
             onKeyDown={onTabKeyDown}
             onContextMenu={tabMenu}
             onNew={newTab}
-            paletteKeys={paletteKeys()}
-            onPalette={() => {
-              setPaletteMode("all");
-              setPaletteOpen(true);
-            }}
           />
 
           <div class="workspace-main">

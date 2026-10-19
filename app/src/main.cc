@@ -7,6 +7,7 @@ extern "C" {
 #include "dbcore/runtime.h"
 #include "frontend_assets.h"
 #include "menu_model.h"
+#include "titlebar.h"
 #include "window_state.h"
 }
 
@@ -609,6 +610,11 @@ static std::wstring widen(const char *utf8)
 // for menus, not the app's theme — there is no documented API to darken it.
 static const UINT k_menu_cmd_base = 1000;
 
+/* The app's own title bar is on (issue #688; see "The app's own title bar"
+   below). With it there is no non-client area for a Win32 menu bar to live
+   in: the UI draws the same model in its bar instead. */
+static bool g_frameless = false;
+
 static HMENU build_menu_bar(const quaero_menu &m)
 {
     HMENU bar = CreateMenu();
@@ -634,16 +640,17 @@ static HMENU build_menu_bar(const quaero_menu &m)
     return bar;
 }
 
-/* Replace the window's menu bar with the current model; an empty model takes
-   it away. The client area changes height either way, and the webview library
-   fits its child to the client area on WM_SIZE, so one is sent. */
+/* Replace the window's menu bar with the current model; an empty model — or
+   the app's own title bar, which carries the menu itself — takes it away. The
+   client area changes height either way, and the webview library fits its
+   child to the client area on WM_SIZE, so one is sent. */
 static void apply_menu_bar(HWND hwnd)
 {
     if (hwnd == nullptr) {
         return;
     }
     HMENU prev = GetMenu(hwnd);
-    SetMenu(hwnd, g_menu.count > 0 ? build_menu_bar(g_menu) : nullptr);
+    SetMenu(hwnd, g_menu.count > 0 && !g_frameless ? build_menu_bar(g_menu) : nullptr);
     if (prev != nullptr) {
         DestroyMenu(prev);
     }
@@ -743,7 +750,8 @@ static void apply_browser_settings(webview_t w)
 // normal (un-maximised) rectangle plus whether the window was maximised is
 // exactly what WINDOWPLACEMENT carries, so that is what is saved and restored.
 
-static std::wstring window_state_path()
+/* %APPDATA%\Squaero\<name>, the folder created if missing; empty on failure. */
+static std::wstring config_path(const wchar_t *name)
 {
     wchar_t appdata[MAX_PATH];
     if (!SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appdata))) {
@@ -751,7 +759,12 @@ static std::wstring window_state_path()
     }
     std::wstring dir = std::wstring(appdata) + L"\\Squaero";
     SHCreateDirectoryExW(nullptr, dir.c_str(), nullptr);
-    return dir + L"\\window";
+    return dir + L"\\" + name;
+}
+
+static std::wstring window_state_path()
+{
+    return config_path(L"window");
 }
 
 static void save_window_state(HWND hwnd)
@@ -827,8 +840,16 @@ static WNDPROC g_prev_wndproc = nullptr;
 static bool g_run_loop_ready = false;
 static bool g_close_deferred = false;
 
+/* The app's own title bar's share of the window procedure (defined with it,
+   below): true when it handled `msg`, with the result in *result. */
+static bool titlebar_message(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, LRESULT *result);
+
 static LRESULT CALLBACK shell_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+    LRESULT handled_result = 0;
+    if (titlebar_message(hwnd, msg, wp, lp, &handled_result)) {
+        return handled_result;
+    }
     if (msg == WM_CLOSE) {
         if (!g_run_loop_ready) {
             g_close_deferred = true;
@@ -911,6 +932,9 @@ static void bring_to_front(HWND hwnd)
    This is also where the window claims the foreground, rather than at creation:
    here the message loop is running and the app has something to show, so being
    raised is what the user asked for by launching it. */
+/* The title bar's part of the reveal (defined with it, below). */
+static void titlebar_reveal(HWND hwnd, webview_t w);
+
 void reveal_ui(webview_t w)
 {
     if (g_ui_visible) {
@@ -920,6 +944,7 @@ void reveal_ui(webview_t w)
     set_webview_visible(w, TRUE);
     HWND hwnd = static_cast<HWND>(webview_get_window(w));
     if (hwnd != nullptr) {
+        titlebar_reveal(hwnd, w);
         bring_to_front(hwnd);
     }
 }
@@ -952,6 +977,8 @@ static void CALLBACK reveal_timer(HWND hwnd, UINT, UINT_PTR id, DWORD)
 //
 // The brush lives for the process: it is one GDI object, and the class outlives
 // every place we could sensibly free it.
+static HBRUSH g_startup_brush = nullptr;  /* also what the backdrop gives back */
+
 static void apply_startup_background(webview_t w)
 {
     HWND hwnd = static_cast<HWND>(webview_get_window(w));
@@ -963,6 +990,7 @@ static void apply_startup_background(webview_t w)
     ShowWindow(hwnd, SW_HIDE);
     COLORREF color = startup_background();
     HBRUSH brush = CreateSolidBrush(color);
+    g_startup_brush = brush;
     if (brush != nullptr) {
         SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND,
                          reinterpret_cast<LONG_PTR>(brush));
@@ -996,6 +1024,499 @@ static void apply_startup_background(webview_t w)
 #endif
 
 #if defined(_WIN32)
+// --- The app's own title bar (issue #688) ---------------------------------------
+//
+// The UI draws the whole title bar — brand, menu, search, notifications and
+// the minimize / maximize / close buttons — and the window keeps everything a
+// native one does:
+//
+// - Frame: WM_NCCALCSIZE gives the client area the whole window except the
+//   side and bottom resize borders, which stay native (invisible on Windows
+//   10/11, outside the visible edge). The window keeps WS_OVERLAPPEDWINDOW, so
+//   Snap, the min/max animations and Alt+Space work as before.
+// - Top edge: the client area now starts at the window's top, under the web
+//   view, so a thin "top band" child window (above the web view) answers
+//   HTTOP / HTTOPLEFT / HTTOPRIGHT and hands the press to the frame.
+// - Snap layouts (Windows 11): the flyout appears when the hit test under the
+//   pointer says HTMAXBUTTON. The web view's own windows (another process)
+//   cannot say that, so a second child window sits exactly over the UI's
+//   maximize button — the UI reports where it is ("snap") — and answers
+//   HTMAXBUTTON, as "Support snap layouts for desktop apps on Windows 11"
+//   asks and as Windows Terminal's drag bar does. It tells the page when it is
+//   hovered, so the button still lights up, and a click on it maximizes or
+//   restores.
+// - Dragging, double click and the window menu come from the UI as commands
+//   ("drag", "double-click", "system-menu"): a press on the bar's empty space
+//   becomes the WM_NCLBUTTONDOWN/HTCAPTION a real caption would send.
+// - Backdrop: Mica (DWMWA_SYSTEMBACKDROP_TYPE, Windows 11 22H2+) behind a
+//   web view with a clear background, only while the UI asks for it — the
+//   Nativo style, which makes only the title bar and the side column
+//   see-through. Otherwise — and on Windows 10, where the attribute is
+//   refused — the window and the page are opaque as always.
+//
+// Both helper windows are layered with no redirection bitmap: they draw
+// nothing, so the web view shows through them, and they still hit-test.
+//
+// The choice is remembered in %APPDATA%\Squaero\titlebar ("custom"/"system")
+// so the next launch opens with the right frame before the UI has booted. The
+// UI sends its setting on every start ("frameless"); the fallback the user can
+// pick when something goes wrong is the plain system frame, with the native
+// menu bar back, applied at once.
+
+static HWND g_top_band = nullptr;
+static HWND g_snap_overlay = nullptr;
+static double g_snap_css[4] = {0, 0, 0, 0};  // x y w h of the UI's maximize button
+static bool g_snap_hover = false;
+static bool g_snap_pressed = false;
+static bool g_backdrop_mica = false;
+static bool g_backdrop_wanted = false;  // the UI's style asks for it ("backdrop")
+static int g_last_maximized = -1;
+static webview_t g_titlebar_webview = nullptr;
+
+#ifndef WS_EX_NOREDIRECTIONBITMAP
+#define WS_EX_NOREDIRECTIONBITMAP 0x00200000L
+#endif
+
+/* GetDpiForWindow and GetSystemMetricsForDpi (Windows 10 1607+), looked up
+   at run time like the webview library does, so older SDK headers build and
+   an older system falls back to the system-wide values. */
+static UINT window_dpi(HWND hwnd)
+{
+    using Fn = UINT(WINAPI *)(HWND);
+    static const Fn fn = reinterpret_cast<Fn>(reinterpret_cast<void *>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow")));
+    return fn != nullptr ? fn(hwnd) : 96;
+}
+
+static int metric_for_dpi(int metric, UINT dpi)
+{
+    using Fn = int(WINAPI *)(int, UINT);
+    static const Fn fn = reinterpret_cast<Fn>(reinterpret_cast<void *>(
+        GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetSystemMetricsForDpi")));
+    return fn != nullptr ? fn(metric, dpi) : GetSystemMetrics(metric);
+}
+
+static int frame_thickness(HWND hwnd, int metric)
+{
+    UINT dpi = window_dpi(hwnd);
+    return metric_for_dpi(metric, dpi) + metric_for_dpi(SM_CXPADDEDBORDER, dpi);
+}
+
+static void load_titlebar_mode()
+{
+    std::wstring path = config_path(L"titlebar");
+    char line[32] = {0};
+    if (!path.empty()) {
+        if (FILE *f = _wfopen(path.c_str(), L"rb")) {
+            size_t n = std::fread(line, 1, sizeof line - 1, f);
+            line[n] = '\0';
+            std::fclose(f);
+            g_frameless = quaero_titlebar_parse_mode(line) != 0;
+            return;
+        }
+    }
+    g_frameless = quaero_titlebar_parse_mode(nullptr) != 0;
+}
+
+static void save_titlebar_mode()
+{
+    std::wstring path = config_path(L"titlebar");
+    if (path.empty()) {
+        return;
+    }
+    if (FILE *f = _wfopen(path.c_str(), L"wb")) {
+        std::fputs(quaero_titlebar_format_mode(g_frameless ? 1 : 0), f);
+        std::fclose(f);
+    }
+}
+
+static std::string window_state_json(HWND hwnd)
+{
+    char buf[128];
+    quaero_window_state_json("windows", g_frameless ? 1 : 0, IsZoomed(hwnd) ? 1 : 0,
+                             g_backdrop_mica ? "mica" : "none", buf, sizeof buf);
+    return buf;
+}
+
+/* Tell the page, as a `quaero-window` event on window: the state, or the
+   maximize button's hover. Only once the UI has booted — before, nobody is
+   listening, and the UI asks for the state itself when it starts. */
+static void notify_window(const std::string &detail)
+{
+    if (!g_ui_visible || g_titlebar_webview == nullptr) {
+        return;
+    }
+    std::string js = "window.dispatchEvent(new CustomEvent('quaero-window',{detail:";
+    js += detail;
+    js += "}))";
+    webview_eval(g_titlebar_webview, js.c_str());
+}
+
+static void set_snap_hover(bool hover)
+{
+    if (hover == g_snap_hover) {
+        return;
+    }
+    g_snap_hover = hover;
+    if (!hover) {
+        g_snap_pressed = false;
+    }
+    notify_window(hover ? "{\"maxHover\":true}" : "{\"maxHover\":false}");
+}
+
+static void toggle_maximized(HWND hwnd)
+{
+    ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
+}
+
+/* Put the helper windows where they belong, or hide them: only with the
+   app's own bar, once the UI is on screen; the top band only when the window
+   can be resized from its top (not maximized). */
+static void layout_titlebar(HWND hwnd)
+{
+    if (g_top_band == nullptr || g_snap_overlay == nullptr) {
+        return;
+    }
+    const bool on = g_frameless && g_ui_visible && !IsIconic(hwnd);
+    const UINT show = SWP_NOACTIVATE | SWP_SHOWWINDOW;
+    const UINT dpi = window_dpi(hwnd);
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    if (on && !IsZoomed(hwnd)) {
+        int band = metric_for_dpi(SM_CYFRAME, dpi);
+        SetWindowPos(g_top_band, HWND_TOP, 0, 0, rc.right, band, show);
+    } else {
+        ShowWindow(g_top_band, SW_HIDE);
+    }
+    quaero_rect r = quaero_rect_to_device(g_snap_css[0], g_snap_css[1], g_snap_css[2],
+                                          g_snap_css[3], dpi);
+    if (on && r.width > 0 && r.height > 0) {
+        SetWindowPos(g_snap_overlay, HWND_TOP, r.x, r.y, r.width, r.height, show);
+    } else {
+        ShowWindow(g_snap_overlay, SW_HIDE);
+        set_snap_hover(false);
+    }
+}
+
+static LRESULT CALLBACK caption_helper_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
+{
+    HWND top = GetParent(h);
+    const bool snap = h == g_snap_overlay;
+    switch (msg) {
+    case WM_NCHITTEST: {
+        if (snap) {
+            return HTMAXBUTTON;
+        }
+        POINT pt = {static_cast<short>(LOWORD(lp)), static_cast<short>(HIWORD(lp))};
+        ScreenToClient(top, &pt);
+        RECT rc;
+        GetClientRect(top, &rc);
+        switch (quaero_top_band_hit(pt.x, rc.right, frame_thickness(top, SM_CXFRAME) * 2)) {
+        case QUAERO_TOP_LEFT_CORNER:
+            return HTTOPLEFT;
+        case QUAERO_TOP_RIGHT_CORNER:
+            return HTTOPRIGHT;
+        default:
+            return HTTOP;
+        }
+    }
+    case WM_NCMOUSEMOVE:
+        if (snap) {
+            TRACKMOUSEEVENT tme = {sizeof tme, TME_LEAVE | TME_NONCLIENT, h, 0};
+            TrackMouseEvent(&tme);
+            set_snap_hover(true);
+            return 0;
+        }
+        break;
+    case WM_NCMOUSELEAVE:
+        set_snap_hover(false);
+        return 0;
+    case WM_NCLBUTTONDOWN:
+    case WM_NCLBUTTONDBLCLK:
+        if (snap) {
+            g_snap_pressed = true;
+            return 0;
+        }
+        // The top band: the frame resizes, exactly as from its own border.
+        return SendMessageW(top, WM_NCLBUTTONDOWN, wp, lp);
+    case WM_NCLBUTTONUP:
+        if (snap && g_snap_pressed) {
+            g_snap_pressed = false;
+            toggle_maximized(top);
+            return 0;
+        }
+        break;
+    case WM_NCRBUTTONDOWN:
+    case WM_NCRBUTTONUP:
+        if (snap) {
+            return 0;  // no window menu from the button itself
+        }
+        break;
+    default:
+        break;
+    }
+    return DefWindowProcW(h, msg, wp, lp);
+}
+
+static HWND create_caption_helper(HWND parent)
+{
+    static bool registered = false;
+    HINSTANCE inst = GetModuleHandleW(nullptr);
+    if (!registered) {
+        WNDCLASSEXW wc = {};
+        wc.cbSize = sizeof wc;
+        wc.lpfnWndProc = caption_helper_proc;
+        wc.hInstance = inst;
+        wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));  // IDC_ARROW
+        wc.lpszClassName = L"squaero_caption";
+        registered = RegisterClassExW(&wc) != 0;
+    }
+    HWND h = CreateWindowExW(WS_EX_LAYERED | WS_EX_NOREDIRECTIONBITMAP, L"squaero_caption",
+                             nullptr, WS_CHILD, 0, 0, 0, 0, parent, nullptr, inst, nullptr);
+    if (h != nullptr) {
+        SetLayeredWindowAttributes(h, 0, 255, LWA_ALPHA);
+    }
+    return h;
+}
+
+/* Mica behind a clear web view, or back to the opaque window. The attribute
+   is refused before Windows 11 22H2, which leaves the window as it was. */
+static void apply_backdrop(HWND hwnd, webview_t w, bool want)
+{
+    int type = want ? 2 : 1;  // DWMSBT_MAINWINDOW (Mica) : DWMSBT_NONE
+    // 38 is DWMWA_SYSTEMBACKDROP_TYPE, spelled as a number for older SDKs.
+    const bool mica = SUCCEEDED(DwmSetWindowAttribute(hwnd, 38, &type, sizeof type)) && want;
+    if (mica == g_backdrop_mica) {
+        return;
+    }
+    g_backdrop_mica = mica;
+    // The backdrop shows through the client area only where the frame is
+    // extended into it — all of it — and where nothing opaque is painted:
+    // black is "nothing" on an extended frame.
+    MARGINS margins = {mica ? -1 : 0, mica ? -1 : 0, mica ? -1 : 0, mica ? -1 : 0};
+    DwmExtendFrameIntoClientArea(hwnd, &margins);
+    // On an extended frame DWM draws its own caption buttons, and they show
+    // through the clear title bar behind the UI's. A window without a caption
+    // style has none to draw; it keeps its resize frame, Snap and the menu.
+    LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    SetWindowLongPtrW(hwnd, GWL_STYLE, mica ? style & ~WS_CAPTION : style | WS_CAPTION);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    HBRUSH brush = mica ? static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)) : g_startup_brush;
+    if (brush != nullptr) {
+        SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, reinterpret_cast<LONG_PTR>(brush));
+    }
+    auto controller = static_cast<ICoreWebView2Controller *>(
+        webview_get_native_handle(w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER));
+    ICoreWebView2Controller2 *controller2 = nullptr;
+    if (controller != nullptr &&
+        SUCCEEDED(controller->QueryInterface(IID_ICoreWebView2Controller2,
+                                             reinterpret_cast<void **>(&controller2))) &&
+        controller2 != nullptr) {
+        // WebView2 takes a fully clear or a fully opaque colour, nothing between.
+        COLORREF c = startup_background();
+        COREWEBVIEW2_COLOR bg = {255, GetRValue(c), GetGValue(c), GetBValue(c)};
+        if (mica) {
+            bg = {0, 0, 0, 0};
+        }
+        controller2->put_DefaultBackgroundColor(bg);
+        controller2->Release();
+    }
+    InvalidateRect(hwnd, nullptr, TRUE);
+}
+
+/* Mica when the UI wants it, the app's own bar is on and the UI is on screen. */
+static void update_backdrop(HWND hwnd, webview_t w)
+{
+    apply_backdrop(hwnd, w, g_frameless && g_backdrop_wanted && g_ui_visible);
+}
+
+/* Switch between the app's own bar and the system's, at once. */
+static void set_frameless(HWND hwnd, webview_t w, bool on)
+{
+    if (on == g_frameless) {
+        return;
+    }
+    g_frameless = on;
+    save_titlebar_mode();
+    apply_menu_bar(hwnd);  // the Win32 bar comes back with the system frame
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    update_backdrop(hwnd, w);
+    layout_titlebar(hwnd);
+}
+
+static void titlebar_reveal(HWND hwnd, webview_t w)
+{
+    update_backdrop(hwnd, w);
+    layout_titlebar(hwnd);
+}
+
+/* The window menu where the pointer is, with the items a caption would
+   enable for the window's state; the choice runs as the system command. */
+static void show_system_menu(HWND hwnd)
+{
+    HMENU menu = GetSystemMenu(hwnd, FALSE);
+    if (menu == nullptr) {
+        return;
+    }
+    const bool max = IsZoomed(hwnd) != 0;
+    const UINT on = MF_BYCOMMAND | MF_ENABLED;
+    const UINT off = MF_BYCOMMAND | MF_GRAYED;
+    EnableMenuItem(menu, SC_RESTORE, max ? on : off);
+    EnableMenuItem(menu, SC_MOVE, max ? off : on);
+    EnableMenuItem(menu, SC_SIZE, max ? off : on);
+    EnableMenuItem(menu, SC_MINIMIZE, on);
+    EnableMenuItem(menu, SC_MAXIMIZE, max ? off : on);
+    EnableMenuItem(menu, SC_CLOSE, on);
+    POINT pt;
+    GetCursorPos(&pt);
+    UINT cmd = static_cast<UINT>(TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.x,
+                                                pt.y, 0, hwnd, nullptr));
+    if (cmd != 0) {
+        PostMessageW(hwnd, WM_SYSCOMMAND, cmd, 0);
+    }
+}
+
+static bool titlebar_message(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, LRESULT *result)
+{
+    switch (msg) {
+    case WM_NCCALCSIZE:
+        if (wp == TRUE && g_frameless) {
+            // The default rectangle keeps the side and bottom borders; the
+            // top border and the caption become client area. Maximized, the
+            // window hangs over the monitor by its frame on every side, so
+            // the top gets that much back.
+            auto *p = reinterpret_cast<NCCALCSIZE_PARAMS *>(lp);
+            const LONG top = p->rgrc[0].top;
+            *result = CallWindowProcW(g_prev_wndproc, hwnd, msg, wp, lp);
+            p->rgrc[0].top = top;
+            if (IsZoomed(hwnd)) {
+                p->rgrc[0].top += frame_thickness(hwnd, SM_CYFRAME);
+            }
+            return true;
+        }
+        return false;
+    case WM_GETMINMAXINFO:
+        if (g_frameless) {
+            // Without WS_CAPTION (under Mica, see apply_backdrop) Windows
+            // maximizes over the whole monitor, taskbar included. Give it what
+            // a captioned window gets: the work area, hanging over it by the
+            // frame on every side, as the WM_NCCALCSIZE above expects.
+            *result = CallWindowProcW(g_prev_wndproc, hwnd, msg, wp, lp);
+            MONITORINFO mi = {};
+            mi.cbSize = sizeof mi;
+            if (GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mi)) {
+                auto *mmi = reinterpret_cast<MINMAXINFO *>(lp);
+                const int frame = frame_thickness(hwnd, SM_CXFRAME);
+                const RECT &work = mi.rcWork;
+                mmi->ptMaxPosition.x = work.left - mi.rcMonitor.left - frame;
+                mmi->ptMaxPosition.y = work.top - mi.rcMonitor.top - frame;
+                mmi->ptMaxSize.x = work.right - work.left + 2 * frame;
+                mmi->ptMaxSize.y = work.bottom - work.top + 2 * frame;
+            }
+            return true;
+        }
+        return false;
+    case WM_SIZE:
+    case WM_DPICHANGED: {
+        *result = CallWindowProcW(g_prev_wndproc, hwnd, msg, wp, lp);
+        layout_titlebar(hwnd);
+        const int max = IsZoomed(hwnd) ? 1 : 0;
+        if (max != g_last_maximized) {
+            g_last_maximized = max;
+            notify_window(window_state_json(hwnd));
+        }
+        return true;
+    }
+    case WM_SYSCOMMAND:
+        // Alt alone or Alt+letter would start an invisible menu loop on a
+        // window with no menu bar and swallow the next key; the UI's bar
+        // takes those keys. Alt+Space (the window menu) goes through.
+        if (g_frameless && (wp & 0xFFF0) == SC_KEYMENU && lp != ' ') {
+            *result = 0;
+            return true;
+        }
+        return false;
+    default:
+        return false;
+    }
+}
+
+static void install_titlebar(HWND hwnd, webview_t w)
+{
+    g_titlebar_webview = w;
+    g_top_band = create_caption_helper(hwnd);
+    g_snap_overlay = create_caption_helper(hwnd);
+    if (g_top_band == nullptr || g_snap_overlay == nullptr) {
+        std::fprintf(stderr, "Squaero: title bar helpers unavailable; top-edge resize "
+                             "and Snap layouts need the system title bar\n");
+    }
+}
+
+// Bridge: window.quaeroWindow(command, ...args) — titlebar.h lists them.
+// Resolves to the window's state; an unknown command is rejected.
+static void window_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    HWND hwnd = static_cast<HWND>(webview_get_window(w));
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *name = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    const quaero_window_command cmd =
+        quaero_window_command_parse(cJSON_IsString(name) ? name->valuestring : nullptr);
+    switch (cmd) {
+    case QUAERO_WINDOW_FRAMELESS:
+        set_frameless(hwnd, w, cJSON_IsTrue(cJSON_GetArrayItem(args, 1)));
+        break;
+    case QUAERO_WINDOW_BACKDROP:
+        g_backdrop_wanted = cJSON_IsTrue(cJSON_GetArrayItem(args, 1));
+        update_backdrop(hwnd, w);
+        break;
+    case QUAERO_WINDOW_MINIMIZE:
+        ShowWindow(hwnd, SW_MINIMIZE);
+        break;
+    case QUAERO_WINDOW_MAXIMIZE:
+    case QUAERO_WINDOW_DOUBLE_CLICK:
+        toggle_maximized(hwnd);
+        break;
+    case QUAERO_WINDOW_CLOSE:
+        PostMessageW(hwnd, WM_CLOSE, 0, 0);  // through WM_CLOSE: the placement is saved
+        break;
+    case QUAERO_WINDOW_DRAG: {
+        // Only while the button is still down: a press that is already over
+        // must not leave the window stuck to the pointer.
+        const int button = GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON;
+        if (g_frameless && (GetAsyncKeyState(button) & 0x8000) != 0) {
+            POINT pt;
+            GetCursorPos(&pt);
+            ReleaseCapture();
+            PostMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION,
+                         MAKELPARAM(static_cast<short>(pt.x), static_cast<short>(pt.y)));
+        }
+        break;
+    }
+    case QUAERO_WINDOW_SYSTEM_MENU:
+        show_system_menu(hwnd);
+        break;
+    case QUAERO_WINDOW_SNAP:
+        for (int i = 0; i < 4; i++) {
+            const cJSON *v = cJSON_GetArrayItem(args, i + 1);
+            g_snap_css[i] = cJSON_IsNumber(v) ? v->valuedouble : 0;
+        }
+        layout_titlebar(hwnd);
+        break;
+    case QUAERO_WINDOW_STATE:
+        break;
+    case QUAERO_WINDOW_UNKNOWN:
+    default:
+        cJSON_Delete(args);
+        webview_return(w, id, 1, "\"unknown window command\"");
+        return;
+    }
+    cJSON_Delete(args);
+    webview_return(w, id, 0, window_state_json(hwnd).c_str());
+}
+
 // Bridge: window.quaeroOpenExternal(url) opens an http(s) URL in the user's
 // default browser (used by the update modal's download button). Only http/https
 // is honored — never ShellExecute an arbitrary path or command.
@@ -1604,6 +2125,56 @@ static void set_theme_handler(const char *id, const char *req, void *arg)
     webview_return(w, id, 0, "null");
 }
 
+#if defined(__APPLE__)
+// Bridge: window.quaeroWindow(command, ...args) — titlebar.h lists them; the
+// macOS share (issue #688): the frame, the traffic lights' commands, dragging.
+// "snap", "system-menu" and "backdrop" are Windows' and do nothing here.
+static void window_handler(const char *id, const char *req, void *arg)
+{
+    auto w = static_cast<webview_t>(arg);
+    void *win = webview_get_window(w);
+    cJSON *args = cJSON_Parse(req);
+    const cJSON *name = cJSON_IsArray(args) ? cJSON_GetArrayItem(args, 0) : nullptr;
+    const quaero_window_command cmd =
+        quaero_window_command_parse(cJSON_IsString(name) ? name->valuestring : nullptr);
+    switch (cmd) {
+    case QUAERO_WINDOW_FRAMELESS:
+        mac_set_frameless(win, cJSON_IsTrue(cJSON_GetArrayItem(args, 1)));
+        break;
+    case QUAERO_WINDOW_MINIMIZE:
+        mac_window_minimize(win);
+        break;
+    case QUAERO_WINDOW_MAXIMIZE:
+        mac_window_zoom(win);
+        break;
+    case QUAERO_WINDOW_CLOSE:
+        mac_window_close(win);
+        break;
+    case QUAERO_WINDOW_DRAG:
+        mac_window_drag(win);
+        break;
+    case QUAERO_WINDOW_DOUBLE_CLICK:
+        mac_window_double_click(win);
+        break;
+    case QUAERO_WINDOW_STATE:
+    case QUAERO_WINDOW_SYSTEM_MENU:
+    case QUAERO_WINDOW_SNAP:
+    case QUAERO_WINDOW_BACKDROP:
+        break;
+    case QUAERO_WINDOW_UNKNOWN:
+    default:
+        cJSON_Delete(args);
+        webview_return(w, id, 1, "\"unknown window command\"");
+        return;
+    }
+    cJSON_Delete(args);
+    char buf[128];
+    quaero_window_state_json("macos", mac_is_frameless(win) ? 1 : 0, mac_is_zoomed(win) ? 1 : 0,
+                             "none", buf, sizeof buf);
+    webview_return(w, id, 0, buf);
+}
+#endif
+
 #if defined(_WIN32) || defined(__linux__)
 // Bridge: window.quaeroSetMenu(json) — the native menu bar (issue #686), built
 // from the model the UI sends (menu_model.h); "[]" takes the bar away. A model
@@ -1739,6 +2310,8 @@ int main()
     const int dev_tools = 0;
 #endif
 #if defined(_WIN32)
+    // Before the window exists: its very first WM_NCCALCSIZE needs to know.
+    load_titlebar_mode();
     g_create_hook = SetWindowsHookExW(WH_CBT, subclass_on_create, nullptr,
                                       GetCurrentThreadId());
 #endif
@@ -1788,6 +2361,7 @@ int main()
         // The title bar follows the system until the UI reports its theme.
         apply_title_bar_theme(hwnd, !system_prefers_light());
         restore_window_state(hwnd);
+        install_titlebar(hwnd, w);
     }
 #elif defined(__linux__)
     gtk_window_set_default_icon_name("squaero");
@@ -1807,6 +2381,11 @@ int main()
     // macOS keeps its AppKit menu (macos.mm): the binding's absence is how the
     // UI knows there is no bar of its own to fill or hide there.
     webview_bind(w, "quaeroSetMenu", set_menu_handler, w);
+#endif
+#if defined(_WIN32) || defined(__APPLE__)
+    // The app's own title bar (issue #688). Linux keeps the system's: the
+    // binding's absence is how the UI knows to draw no window buttons there.
+    webview_bind(w, "quaeroWindow", window_handler, w);
 #endif
 #if defined(_WIN32)
     webview_bind(w, "quaeroDownloadAndInstall", download_install_handler, w);

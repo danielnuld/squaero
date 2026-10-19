@@ -93,6 +93,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   // One row: the whole editor, findable by any action's name.
   { id: "shortcuts", category: "shortcuts", keys: ["settings.cat.shortcuts", ...SHORTCUTS.map((sc) => sc.description)] },
   { id: "nativeMenu", category: "window", keys: ["settings.nativeMenu"] },
+  { id: "customTitleBar", category: "window", keys: ["settings.customTitleBar"] },
   {
     id: "about",
     category: "about",
@@ -136,7 +137,7 @@ const SECTION_FIELDS: Partial<Record<SettingsCategory, readonly (keyof Settings)
   ],
   grid: ["colorTypes", "showOldValues", "gridStyle", "gridFont", "gridFontSize"],
   queries: ["slowThresholdMs"],
-  window: ["nativeMenu"],
+  window: ["nativeMenu", "customTitleBar"],
 };
 
 /** The defaults of the Settings fields a section owns; empty for a section that owns none. */

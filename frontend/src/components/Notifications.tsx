@@ -14,7 +14,7 @@ const LEVEL_ICON: Record<NoteLevel, IconName> = {
 };
 
 // The notification history (issue #693): what the toasts said, newest first,
-// with when and how serious. Opened from the bell in the rail; Esc or a click
+// with when and how serious. Opened from the bell in the title bar; Esc or a click
 // outside closes it. Emptying it asks first, through the app's confirmation.
 export function Notifications(props: {
   notes: readonly Note[];
@@ -35,7 +35,7 @@ export function Notifications(props: {
       const target = e.target as Node;
       if (confirming() || box?.contains(target)) return;
       // The bell toggles the panel itself.
-      if ((target as Element).closest?.(".rail-bell")) return;
+      if ((target as Element).closest?.(".tb-bell")) return;
       props.onClose();
     };
     document.addEventListener("keydown", onKey);

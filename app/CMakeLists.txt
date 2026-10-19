@@ -22,7 +22,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(webview)
 
 # --- App executable --------------------------------------------------------
-add_executable(quaero src/main.cc src/window_state.c src/menu_model.c)
+add_executable(quaero src/main.cc src/window_state.c src/menu_model.c src/titlebar.c)
 # The CMake target keeps the old name — it is plumbing, like quaero_set_warnings
 # and the QUAERO_* options — while the FILE people launch is squaero.exe (#466).
 set_target_properties(quaero PROPERTIES OUTPUT_NAME squaero)
@@ -51,6 +51,7 @@ if(WIN32)
   # Absolute path with forward slashes for the ICON directive (accepted by both
   # the MSVC rc compiler and MinGW windres).
   set(QUAERO_ICON_PATH "${CMAKE_SOURCE_DIR}/assets/icons/quaero.ico")
+  set(QUAERO_MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/squaero.manifest")
   set(QUAERO_RC "${CMAKE_CURRENT_BINARY_DIR}/quaero.rc")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/quaero.rc.in" "${QUAERO_RC}" @ONLY)
   target_sources(quaero PRIVATE "${QUAERO_RC}")
@@ -62,7 +63,8 @@ if(WIN32)
   # printf startup diagnostics simply have no console to write to — acceptable.
   set_target_properties(quaero PROPERTIES WIN32_EXECUTABLE TRUE)
   if(MSVC)
-    target_link_options(quaero PRIVATE /ENTRY:mainCRTStartup)
+    # /MANIFEST:NO: the manifest is the one quaero.rc embeds (issue #688).
+    target_link_options(quaero PRIVATE /ENTRY:mainCRTStartup /MANIFEST:NO)
   endif()
 endif()
 
