@@ -31,6 +31,7 @@ import { keepAliveProbe, normalizeKeepAlive } from "../utils/reconnect";
 import { canPickFile, pickFile } from "../utils/pickFile";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { currentOs, orderActions } from "../utils/dialog";
 import { Dropdown } from "./Dropdown";
 
 type TestState =
@@ -795,15 +796,23 @@ export function ConnectionForm(props: {
           {test().kind === "testing" ? t("cform.testing") : t("cform.test")}
         </button>
         <span class="status-spacer" />
-        <button onClick={props.onCancel}>{t("common.cancel")}</button>
-        <button class={props.onSaveAndConnect ? "" : "primary"} onClick={save}>
-          {t("cform.save")}
-        </button>
-        <Show when={props.onSaveAndConnect}>
-          <button class="primary" onClick={saveAndConnect}>
-            {t("cform.saveAndConnect")}
-          </button>
-        </Show>
+        {/* The OS order (issue #692): Windows reads [Guardar y conectar]
+            [Guardar] [Cancelar], macOS and Linux the other way round. */}
+        <span class="dlg-actions">
+          {orderActions(currentOs(), [
+            <Show when={props.onSaveAndConnect}>
+              <button class="btn-primary" onClick={saveAndConnect}>
+                {t("cform.saveAndConnect")}
+              </button>
+            </Show>,
+            <button class={props.onSaveAndConnect ? "btn" : "btn-primary"} onClick={save}>
+              {t("cform.save")}
+            </button>,
+            <button class="btn" onClick={props.onCancel}>
+              {t("common.cancel")}
+            </button>,
+          ])}
+        </span>
       </div>
     </Panel>
   );

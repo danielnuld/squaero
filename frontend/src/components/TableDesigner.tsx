@@ -19,6 +19,7 @@ import {
 } from "../utils/tableDesign";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
+import { currentOs, orderActions } from "../utils/dialog";
 import { Icon } from "./icons";
 
 // Table designer (issue #136). Two modes selected by the `table` prop:
@@ -317,24 +318,28 @@ export function TableDesigner(props: {
         <p class="test-error">{error() ?? validationError()}</p>
       </Show>
 
-      <div class="modal-actions">
-        <span class="status-spacer" />
-        <button disabled={busy()} onClick={props.onClose}>
-          {t("common.cancel")}
-        </button>
-        <button
-          class="primary"
-          disabled={busy() || !built()?.ok || noChanges()}
-          onClick={apply}
-        >
-          {busy()
-            ? alter()
-              ? t("td.applying")
-              : t("td.creating")
-            : alter()
-              ? t("td.applyChanges")
-              : t("td.create")}
-        </button>
+      {/* The form's action row in the OS order, like a dialog's (#692). */}
+      <div class="panel-foot">
+        <span class="dlg-actions">
+          {orderActions(currentOs(), [
+            <button
+              class="btn-primary"
+              disabled={busy() || !built()?.ok || noChanges()}
+              onClick={apply}
+            >
+              {busy()
+                ? alter()
+                  ? t("td.applying")
+                  : t("td.creating")
+                : alter()
+                  ? t("td.applyChanges")
+                  : t("td.create")}
+            </button>,
+            <button class="btn" disabled={busy()} onClick={props.onClose}>
+              {t("common.cancel")}
+            </button>,
+          ])}
+        </span>
       </div>
     </Panel>
   );

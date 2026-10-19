@@ -763,7 +763,7 @@ describe("ObjectTree delete", () => {
     const dialog = host!.querySelector(".confirm-dialog")!;
     expect(dialog.querySelector("pre.ddl-text")!.textContent).toBe('DROP TABLE "main"."customers"');
 
-    const confirm = dialog.querySelector("button.danger") as HTMLButtonElement;
+    const confirm = dialog.querySelector(".btn-danger") as HTMLButtonElement;
     confirm.click();
     await flush();
     const ran = calls.find((c) => c.method === "query.run");
@@ -795,7 +795,7 @@ describe("ObjectTree delete", () => {
     row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
     menuItem("Eliminar…")!.action!();
     await flush();
-    (host!.querySelector(".confirm-dialog button.danger") as HTMLButtonElement).click();
+    (host!.querySelector(".confirm-dialog .btn-danger") as HTMLButtonElement).click();
     await flush();
     const dialog = host!.querySelector(".confirm-dialog")!;
     expect(dialog).toBeTruthy();
@@ -877,7 +877,7 @@ describe("ObjectTree MongoDB collection management", () => {
     await flush();
     const dialog = host!.querySelector(".confirm-dialog")!;
     expect(dialog.querySelector("pre.ddl-text")!.textContent).toBe("db.orders.deleteMany({})");
-    (dialog.querySelector("button.danger") as HTMLButtonElement).click();
+    (dialog.querySelector(".btn-danger") as HTMLButtonElement).click();
     await flush();
     expect(calls.find((c) => c.method === "query.run")!.params.sql).toBe("db.orders.deleteMany({})");
     expect(refreshed).toBe(1);
@@ -903,7 +903,7 @@ describe("ObjectTree MongoDB collection management", () => {
     expect(dialog.querySelector("pre.ddl-text")!.textContent).toBe(
       'db.orders.renameCollection("orders_old")',
     );
-    (dialog.querySelector("button.danger") as HTMLButtonElement).click();
+    (dialog.querySelector(".btn-danger") as HTMLButtonElement).click();
     await flush();
     expect(calls.find((c) => c.method === "query.run")!.params.sql).toBe(
       'db.orders.renameCollection("orders_old")',
@@ -921,7 +921,7 @@ describe("ObjectTree MongoDB collection management", () => {
     input.value = "a$b";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await flush();
-    (dialog.querySelector("button.danger") as HTMLButtonElement).click();
+    (dialog.querySelector(".btn-danger") as HTMLButtonElement).click();
     await flush();
     expect(calls.some((c) => c.method === "query.run")).toBe(false);
   });

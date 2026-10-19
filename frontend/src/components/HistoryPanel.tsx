@@ -1,5 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { Panel } from "./Panel";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { clearHistoryConfirm } from "../utils/confirmText";
 import { t } from "../utils/i18n";
 import { autoFocus } from "../utils/autoFocus";
 import { historyEngines, searchHistory, type HistoryEntry } from "../utils/history";
@@ -26,6 +28,7 @@ export function HistoryPanel(props: {
 }) {
   const [query, setQuery] = createSignal("");
   const [onlySlow, setOnlySlow] = createSignal(false);
+  const [confirmClear, setConfirmClear] = createSignal(false);
   const engines = createMemo(() => historyEngines(props.entries));
   // Start on the focused connection's engine when the history has any of it;
   // "" is every engine, legacy entries without one included.
@@ -115,18 +118,29 @@ export function HistoryPanel(props: {
         </ul>
       </Show>
 
-      <div class="modal-actions">
+      {/* No «Cerrar» here (audit A-21): the panel lives in a tab or the side
+          column, which close themselves. Clearing asks first (A-10, R-31). */}
+      <div class="panel-foot">
         <button
-          class="danger"
-          onClick={props.onClear}
+          class="btn danger-text"
+          onClick={() => setConfirmClear(true)}
           disabled={props.entries.length === 0}
         >
           {t("hist.clear")}
         </button>
-        <button class="primary" onClick={props.onClose}>
-          {t("common.close")}
-        </button>
       </div>
+      <Show when={confirmClear()}>
+        <ConfirmDialog
+          title={clearHistoryConfirm(props.entries.length).title}
+          message={clearHistoryConfirm(props.entries.length).message}
+          confirmLabel={clearHistoryConfirm(props.entries.length).confirm}
+          onConfirm={() => {
+            setConfirmClear(false);
+            props.onClear();
+          }}
+          onCancel={() => setConfirmClear(false)}
+        />
+      </Show>
     </Panel>
   );
 }

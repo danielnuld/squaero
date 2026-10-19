@@ -149,17 +149,20 @@ describe("DataDiffWizard", () => {
     clickButton("Comparar");
     await settle();
 
-    clickButton("Aplicar (3)");
+    // Deleting target rows makes it the red button, with count and target.
+    const primary = document.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!;
+    expect(primary.textContent).toBe("Aplicar 3 cambios en Ventas copia");
+    primary.click();
     await settle();
-    const dialog = document.querySelector('[role="dialog"]')!;
+    const dialog = document.querySelector('[role="alertdialog"]')!;
     expect(dialog.textContent).toContain("Ventas copia › \"main\".\"clientes\"");
     expect(dialog.textContent).toContain("1 INSERT · 1 UPDATE · 1 DELETE");
     expect(writes(calls)).toEqual([]);
 
     // Cancel writes nothing.
-    clickButton("Cancelar");
+    dialog.querySelector<HTMLButtonElement>(".dlg-actions .btn:not(.btn-danger)")!.click();
     await settle();
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(writes(calls)).toEqual([]);
   });
 
@@ -168,11 +171,11 @@ describe("DataDiffWizard", () => {
     mount();
     clickButton("Comparar");
     await settle();
-    clickButton("Aplicar (3)");
+    document.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!.click();
     await settle();
 
     const before = calls.length;
-    clickButton("Aplicar 3 cambio(s) en Ventas copia");
+    document.querySelector<HTMLButtonElement>(".confirm-dialog .btn-danger")!.click();
     await settle();
     const methods = calls.slice(before).map((c) => c.method);
     expect(methods[0]).toBe("tx.begin");

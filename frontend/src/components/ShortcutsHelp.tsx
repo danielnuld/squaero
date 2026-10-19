@@ -5,7 +5,8 @@ import { t } from "../utils/i18n";
 
 // Keyboard-shortcuts reference overlay (issue #42). Renders the single source
 // of truth in utils/shortcuts.ts, so the documentation cannot drift from the
-// behaviour. Opened with F1 (or the status-bar "?"), closed by Escape/clicking away.
+// behaviour. Opened with F1 (or the status-bar "?"), closed by Escape or its tab —
+// no «Cerrar» of its own (audit A-21).
 // App passes the effective table (the user's rebound keys applied, #684).
 export function ShortcutsHelp(props: {
   isMac: boolean;
@@ -29,11 +30,6 @@ export function ShortcutsHelp(props: {
             </For>
           </tbody>
         </table>
-      <div class="modal-actions">
-        <button class="primary" onClick={props.onClose}>
-          {t("common.close")}
-        </button>
-      </div>
     </Panel>
   );
 }

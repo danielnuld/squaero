@@ -1,7 +1,7 @@
 import { For, Show, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { t } from "../utils/i18n";
-import { Icon } from "./icons";
+import { Dialog } from "./Dialog";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
 import type { RelatedQuery } from "../utils/relatedData";
 import type { ResultSet } from "../utils/query";
@@ -45,21 +45,11 @@ export function RelatedData(props: {
   onOpenTab: () => void;
   onClose: () => void;
 }) {
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      props.onClose();
-    }
-  };
-  onMount(() => document.addEventListener("keydown", onKeyDown, true));
-  onCleanup(() => document.removeEventListener("keydown", onKeyDown, true));
-
   // The dialog is dragged by its corner (CSS `resize`, issue #494) and comes
   // back the size it was left at. The browser owns the drag; all this does is
   // restore the remembered size on open and write back whatever size the box
   // ends up at — which also covers the window being resized under it.
   let dialogEl: HTMLDivElement | undefined;
-  let pressedBackdrop = false;
   onMount(() => {
     if (!dialogEl) return;
     const width = paneSize("relatedW", 0);
@@ -83,49 +73,32 @@ export function RelatedData(props: {
 
   return (
     <Portal>
-      <div
-        class="modal-backdrop"
-        /* Closing on a click outside has to mean a click that STARTED outside.
-           Dragging the dialog's resize corner (issue #494) ends with the pointer
-           past its edge, and the click that follows is reported on the backdrop
-           — which closed the dialog the moment it was made bigger. */
-        onMouseDown={(e) => {
-          pressedBackdrop = e.target === e.currentTarget;
-        }}
-        onClick={(e) => {
-          if (pressedBackdrop && e.target === e.currentTarget) props.onClose();
-        }}
+      {/* The shared Dialog closes on a backdrop click only when the click
+          also started there: dragging the resize corner (issue #494) ends past
+          the edge. Escape is swallowed before the grid behind sees it. */}
+      <Dialog
+        ref={(el) => (dialogEl = el)}
+        title={t("related.title", {
+          table: props.table,
+          column: props.column,
+          value: props.value,
+        })}
+        size="lg"
+        class="related-modal"
+        onCancel={props.onClose}
+        cancelLabel={t("common.close")}
+        /* One way out (issue #464): the tab that opens already has the SQL in
+           its editor, so "send to the editor" was the same button without the
+           answer. The dialog stays open behind it. */
+        primary={{ label: t("related.openTab"), onClick: props.onOpenTab, disabled: !canCarry() }}
+        helpers={
+          <span class="related-rows">
+            <Show when={props.result && !props.loading}>
+              {t("related.rows", { n: String(props.result!.rows.length) })}
+            </Show>
+          </span>
+        }
       >
-        <div
-          class="modal related-modal"
-          ref={dialogEl}
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("related.title", {
-            table: props.table,
-            column: props.column,
-            value: props.value,
-          })}
-        >
-          <div class="related-head">
-            <h2>
-              {t("related.title", {
-                table: props.table,
-                column: props.column,
-                value: props.value,
-              })}
-            </h2>
-            <span class="status-spacer" />
-            <button
-              class="related-close"
-              title={t("common.close")}
-              aria-label={t("common.close")}
-              onClick={props.onClose}
-            >
-              <Icon name="close" size={14} />
-            </button>
-          </div>
-
           <Show
             when={!props.unsupported}
             fallback={<p class="grid-empty related-unsupported">{props.unsupported}</p>}
@@ -209,23 +182,7 @@ export function RelatedData(props: {
             </Show>
           </Show>
 
-          <div class="modal-actions related-actions">
-            <span class="related-rows">
-              <Show when={props.result && !props.loading}>
-                {t("related.rows", { n: String(props.result!.rows.length) })}
-              </Show>
-            </span>
-            <span class="status-spacer" />
-            {/* One way out (issue #464): the tab that opens already has the
-                SQL in its editor, so "send to the editor" was the same button
-                without the answer. The modal stays open behind it. */}
-            <button class="primary" disabled={!canCarry()} onClick={props.onOpenTab}>
-              {t("related.openTab")}
-            </button>
-            <button onClick={props.onClose}>{t("common.close")}</button>
-          </div>
-        </div>
-      </div>
+      </Dialog>
     </Portal>
   );
 }
