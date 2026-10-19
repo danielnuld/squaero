@@ -34,7 +34,6 @@ import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
 import { countText, dropConfirm, revokeConfirm, type ConfirmText } from "../utils/confirmText";
-import { Icon } from "./icons";
 import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
 import { Dropdown } from "./Dropdown";
@@ -494,18 +493,6 @@ export function UserManager(props: {
                         <span class="um-chip grant" title={t("users.grantTitle")}>GRANT</span>
                       </Show>
                     </span>
-                    <button
-                      class="grid-action danger um-drop"
-                      title={t("users.dropTitle", { who: `${u.name}@${u.host}` })}
-                      aria-label={t("users.dropTitle", { who: `${u.name}@${u.host}` })}
-                      disabled={busy()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        requestDropUser(u);
-                      }}
-                    >
-                      <Icon name="trash" size={14} />
-                    </button>
                   </li>
                 )}
               </For>
@@ -524,8 +511,22 @@ export function UserManager(props: {
               when={selected()}
               fallback={<p class="grid-empty">{t("users.selectHint")}</p>}
             >
-              <div class="import-subtitle">
-                {t("users.permsOf", { who: `${selected()!.name}@${selected()!.host}` })}
+              <div class="um-detail-head">
+                <span class="import-subtitle">
+                  {t("users.permsOf", { who: `${selected()!.name}@${selected()!.host}` })}
+                </span>
+                <span class="panel-bar-spacer" />
+                {/* The one place a user is dropped from: the account being looked at,
+                    behind the confirmation (typed name on a protected connection). */}
+                <button
+                  type="button"
+                  class="btn danger-text um-drop"
+                  disabled={busy()}
+                  title={t("users.dropTitle", { who: `${selected()!.name}@${selected()!.host}` })}
+                  onClick={() => requestDropUser(selected()!)}
+                >
+                  {t("users.dropUser")}
+                </button>
               </div>
               <Show
                 when={grants().length > 0}

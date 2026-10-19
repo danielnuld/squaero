@@ -459,8 +459,11 @@ describe("UserManager", () => {
     await flush();
     [...host!.querySelectorAll<HTMLElement>(".um-user")]
       .find((el) => el.textContent?.includes("app"))!
-      .querySelector<HTMLButtonElement>(".um-drop")!
       .click();
+    await flush();
+    // Deleting is the selected account's action, in its heading.
+    expect(host!.querySelectorAll(".um-user .um-drop").length).toBe(0);
+    host!.querySelector<HTMLButtonElement>(".um-detail-head .um-drop")!.click();
     await flush();
     // The themed confirm dialog shows the exact SQL — no native confirm().
     const dialog = host!.querySelector(".confirm-dialog")!;
@@ -490,8 +493,11 @@ describe("UserManager", () => {
       await flush();
       [...host!.querySelectorAll<HTMLElement>(".um-user")]
         .find((el) => el.textContent?.includes("app"))!
-        .querySelector<HTMLButtonElement>(".um-drop")!
         .click();
+      await flush();
+      // Deleting is the selected account's action, in its heading.
+      expect(host!.querySelectorAll(".um-user .um-drop").length).toBe(0);
+      host!.querySelector<HTMLButtonElement>(".um-detail-head .um-drop")!.click();
       await flush();
       const dialog = host!.querySelector(".confirm-dialog")!;
       const confirm = dialog.querySelector<HTMLButtonElement>(".btn-danger")!;
@@ -516,8 +522,11 @@ describe("UserManager", () => {
     await flush();
     [...host!.querySelectorAll<HTMLElement>(".um-user")]
       .find((el) => el.textContent?.includes("app"))!
-      .querySelector<HTMLButtonElement>(".um-drop")!
       .click();
+    await flush();
+    // Deleting is the selected account's action, in its heading.
+    expect(host!.querySelectorAll(".um-user .um-drop").length).toBe(0);
+    host!.querySelector<HTMLButtonElement>(".um-detail-head .um-drop")!.click();
     await flush();
     clickText("Cancelar");
     await flush();
