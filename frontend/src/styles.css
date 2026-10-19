@@ -2158,9 +2158,45 @@ body {
   color: var(--text);
 }
 
+/* An empty or affected-rows note is information, not an error (A-27): the
+   red belongs to .grid-error alone. */
 .grid-empty {
-  color: var(--error);
-  font-weight: 600;
+  color: var(--text-dim);
+}
+
+/* Rows that are still coming (R-01): bars where the cells will be. */
+.grid-skeleton {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+}
+
+.grid-skeleton span {
+  display: block;
+  height: var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev2);
+  animation: grid-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.grid-skeleton span:nth-child(3n + 2) {
+  width: 80%;
+}
+
+.grid-skeleton span:nth-child(3n) {
+  width: 60%;
+}
+
+@keyframes grid-skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-skeleton span {
+    animation: none;
+  }
 }
 
 .grid-error {
@@ -5172,6 +5208,36 @@ svg.icon {
 .cell-dirty .cell-input,
 .grid-cell.cell-dirty:not(.cell-edit) {
   background: color-mix(in srgb, var(--null) 18%, var(--bg));
+}
+
+/* The pager's page as a field (R-38). */
+.pager-page {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.pager-page-input {
+  width: auto;
+  padding: 0 var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+}
+
+/* The transposed view says it is one (rows are columns) and how to leave. */
+.transpose-band {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  background: var(--bg-elev2);
+  border-bottom: 1px solid var(--border);
 }
 
 /* The open cell editor's line (R-14): the value before, the type, the keys. */

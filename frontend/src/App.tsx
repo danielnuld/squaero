@@ -1049,6 +1049,15 @@ export function App() {
       case "tx-rollback":
         void endTabTx("rollback");
         break;
+      case "pin-result":
+        pinCurrent();
+        break;
+      case "view-data":
+      case "view-structure":
+      case "view-indexes":
+      case "view-ddl":
+        showCurrentObjectView(OBJECT_VIEW_OF[action]);
+        break;
     }
   };
 
@@ -4123,6 +4132,8 @@ export function App() {
     pin: number;
     live: ResultSet | null;
   } | null>(null);
+  // «Mostrar filas iguales» on a comparison where nothing differs (A-34).
+  const [showSameRows, setShowSameRows] = createSignal(false);
   const [comparing, setComparing] = createSignal<{
     tabId: number;
     base: Side;
@@ -4209,6 +4220,7 @@ export function App() {
     const pk = o.pk.length > 0 ? o.pk : b.pk;
     const has = (rs: ResultSet) => pk.every((k) => rs.columns.some((c) => c.name === k));
     leaveLiveGrid();
+    setShowSameRows(false);
     setComparing({
       tabId: tb.id,
       base,
@@ -4675,6 +4687,7 @@ export function App() {
         {
           label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
           action: () => copyRowsFromGrid(targets, true),
+          hint: displayKeys("Mod+Shift+C", isMac()),
         },
       ];
       if (res.rows.length > n) {
@@ -4883,6 +4896,21 @@ export function App() {
     if (view === "data") openData(node);
     else if (view === "indexes") openIndexes(node);
     else openStructure(node, view === "ddl" ? "definition" : "structure");
+  };
+  // Alt+1…4 (R-12): the same switch as the toolbar's, from the keyboard.
+  const OBJECT_VIEW_OF = {
+    "view-data": "data",
+    "view-structure": "structure",
+    "view-indexes": "indexes",
+    "view-ddl": "ddl",
+  } as const;
+  const showCurrentObjectView = (view: ObjectView) => {
+    const tab = currentQuery();
+    if (!tab || !isDataTab(tab.id)) return;
+    const node = dataTabNode(tab.id);
+    if (!node) return;
+    if (tab.connDefId) inConn(tab.connDefId, showObjectView)(node, view);
+    else showObjectView(node, view);
   };
   /** The tree node a data tab browses: the tree's own when it is loaded. */
   const dataTabNode = (tabId: number): TreeNode | null => {
@@ -5809,18 +5837,38 @@ export function App() {
                       {/* A comparison, else a pinned result (issue #669): both
                           read-only, in the same virtualized grid. */}
                       <Show when={comparison()}>
-                        {(c) => (
-                          <ResultGrid
-                            result={c().view.result}
-                            loading={false}
-                            error={null}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
-                            gridStyle={settings().gridStyle}
-                            keyColumns={c().key}
-                            cellType={(r, ci) => (c().view.changed[r]?.has(ci) ? "text" : undefined)}
-                            cellClass={(r, ci) => diffCellClass(c().view, r, ci)}
-                          />
-                        )}
+                        {(c) => {
+                          // Nothing differs (A-34): say so instead of an empty
+                          // grid, and offer the rows themselves.
+                          const identical = () =>
+                            c().cmp.rows.length === 0 && c().cmp.missingKey.length === 0;
+                          return (
+                            <Show
+                              when={!identical() || showSameRows()}
+                              fallback={
+                                <div class="grid-empty pane-empty compare-identical" role="status">
+                                  <span>{t("compare.identical", { n: c().cmp.same })}</span>
+                                  <button class="btn" onClick={() => setShowSameRows(true)}>
+                                    {t("compare.showSame")}
+                                  </button>
+                                </div>
+                              }
+                            >
+                              <ResultGrid
+                                result={identical() ? c().base.result : c().view.result}
+                                loading={false}
+                                error={null}
+                                rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
+                                gridStyle={settings().gridStyle}
+                                keyColumns={c().key}
+                                cellType={(r, ci) =>
+                                  !identical() && c().view.changed[r]?.has(ci) ? "text" : undefined
+                                }
+                                cellClass={(r, ci) => (identical() ? undefined : diffCellClass(c().view, r, ci))}
+                              />
+                            </Show>
+                          );
+                        }}
                       </Show>
                       <Show when={!comparison() && shownPin()}>
                         {(p) => (
@@ -5932,6 +5980,12 @@ export function App() {
                           // the source's COLUMNS, so a row index here means
                           // nothing to copy, edit or the context menu.
                           <>
+                            <div class="transpose-band" role="note">
+                              <span>{t("transpose.band")}</span>
+                              <button class="btn" onClick={toggleTranspose}>
+                                {t("transpose.back")}
+                              </button>
+                            </div>
                             <ResultGrid
                               result={tv().result}
                               loading={currentResult().loading}
@@ -6055,6 +6109,7 @@ export function App() {
                       onNext={() => pageBy(1)}
                       pageSize={isDataTab(tab().id) ? (currentResult().pageSize ?? pageSize()) : undefined}
                       onPageSize={isDataTab(tab().id) ? (n) => changePageSize(tab().id, n) : undefined}
+                      onGoTo={isDataTab(tab().id) ? (offset) => goToDataOffset(tab().id, offset) : undefined}
                       onLast={
                         isDataTab(tab().id)
                           ? () => {

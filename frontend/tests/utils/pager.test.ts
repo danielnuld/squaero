@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  offsetForPage,
   pagerView,
   PAGE_SIZES,
   DEFAULT_PAGE_SIZE,
@@ -85,5 +86,17 @@ describe("page size (A-20, R-38)", () => {
   it("clamps a negative offset or a degenerate size", () => {
     expect(offsetForPageSize(-5, 100)).toBe(0);
     expect(offsetForPageSize(7, 0)).toBe(7);
+  });
+});
+
+describe("offsetForPage", () => {
+  it("turns a typed page into the offset of its first row", () => {
+    expect(offsetForPage("1", 1000, 5)).toBe(0);
+    expect(offsetForPage(" 3 ", 500, null)).toBe(1000);
+  });
+  it("refuses what is not a page", () => {
+    for (const text of ["", "0", "-2", "1.5", "abc", "6"]) {
+      expect(offsetForPage(text, 1000, 5)).toBeNull();
+    }
   });
 });
