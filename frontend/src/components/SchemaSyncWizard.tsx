@@ -117,6 +117,7 @@ export function SchemaSyncWizard(props: {
       const diff = diffSchemas(src, tgt);
       const script = generateMigration(diff, {
         container: { db: targetDb() || undefined, schema: targetSchema() || undefined },
+        sourceContainer: { db: sourceDb() || undefined, schema: sourceSchema() || undefined },
         dropTables: dropTables(),
       });
       const where = [targetDb(), targetSchema()].filter(Boolean).join(".");
