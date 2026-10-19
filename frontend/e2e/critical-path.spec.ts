@@ -8,6 +8,7 @@ import {
   connect,
   disconnect,
   editRow,
+  newQuery,
   nombreCell,
   openFixtureTable,
   readNombre,
@@ -100,6 +101,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
   test("reports a statement the engine rejects, and stays usable", async ({ app }) => {
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     await runSql(app.page, "SELECT * FROM tabla_que_no_existe_e2e");
     // The engine's own words reach the user; the interface does not hang waiting.
@@ -130,6 +132,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (engineName) => 
   test("filters by an accented value and finds its rows", async ({ app }) => {
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     // Sending an accented literal is its own hazard: on Informix an unconverted
     // statement matched nothing at all, silently (#324).

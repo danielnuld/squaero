@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "../../src/App";
+import { openQueryTab } from "./appHelpers";
 
 // Integration (issue #666): a protected connection, end to end through the App.
 // The core is faked at the bridge (globalThis.quaeroRpc), the same seam the
@@ -89,6 +90,9 @@ async function connectAndRunHistory() {
   });
   click(host.querySelector(".connbar-add"));
   click(host.querySelector(".connsearch-hit"));
+  await settle();
+  // Connecting lands on the connection's home (#694); open a query tab.
+  openQueryTab(host);
   await settle();
   click(host.querySelector(".empty-history button, .empty-state button"));
   await settle();

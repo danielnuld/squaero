@@ -6,7 +6,7 @@
 // wrote. A tab that quietly rewrote its own SQL would look identical on the first
 // run and be unusable on the second.
 
-import { connect, runSql, cell } from "./support/app-actions";
+import { connect, newQuery, runSql, cell } from "./support/app-actions";
 import { describeAllEngines, test, expect } from "./support/fixtures";
 
 type Page = import("@playwright/test").Page;
@@ -19,6 +19,7 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     await runSql(page, "SELECT * FROM ${tabla} WHERE nombre = :nombre");
 
@@ -40,6 +41,7 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     await runSql(page, "SELECT * FROM ${tabla} WHERE nombre = :nombre");
     await dialog(page).getByLabel("${tabla}").fill("e2e_items");
@@ -68,6 +70,7 @@ describeAllEngines(["sqlite", "mysql", "postgres", "informix"], () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     // A cast and a time in a string: punctuation, not variables.
     await runSql(page, "SELECT nombre FROM e2e_items WHERE nombre = 'Nogales' -- :nada");

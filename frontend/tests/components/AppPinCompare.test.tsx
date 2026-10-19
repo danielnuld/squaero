@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "../../src/App";
+import { openQueryTab } from "./appHelpers";
 
 // Integration (issue #669): pin a result, run again, compare the two. The pure
 // comparison is covered by utils/resultCompare; this covers the WIRING — the
@@ -108,6 +109,9 @@ const openWithRows = async () => {
   });
   click(host.querySelector(".connbar-add"));
   click(host.querySelector(".connsearch-hit"));
+  await settle();
+  // Connecting lands on the connection's home (#694); open a query tab.
+  openQueryTab(host);
   await settle();
   click(host.querySelector(".empty-history button, .empty-state button"));
   await settle();

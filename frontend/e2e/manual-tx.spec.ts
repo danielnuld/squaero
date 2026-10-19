@@ -5,7 +5,7 @@
 // throws it away, and Commit makes it stick. A fake core would only prove that
 // tx.* was called.
 
-import { connect, runSql, readNombre } from "./support/app-actions";
+import { connect, newQuery, runSql, readNombre } from "./support/app-actions";
 import { describeAllEngines, test, expect } from "./support/fixtures";
 
 describeAllEngines(["sqlite", "postgres", "mysql"], () => {
@@ -15,6 +15,7 @@ describeAllEngines(["sqlite", "postgres", "mysql"], () => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     await page.getByRole("button", { name: "Auto-commit", exact: true }).click();
     await expect(page.getByRole("button", { name: "Transacción manual", exact: true })).toBeVisible();

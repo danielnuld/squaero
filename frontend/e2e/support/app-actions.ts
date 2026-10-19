@@ -39,7 +39,19 @@ export async function connect(app: App): Promise<void> {
 }
 
 /**
- * Answers the "previous session" prompt (#465) with a clean start.
+ * Opens a query tab from the tab bar's «Nueva consulta» (+), as a user would.
+ * The app starts with no tab, on the welcome screen (#694), and connecting
+ * lands on the connection's home, so a journey that types SQL opens its editor
+ * first.
+ */
+export async function newQuery(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Nueva consulta", exact: true }).click();
+  await page.getByRole("textbox", { name: "Editor SQL", exact: true }).waitFor();
+}
+
+/**
+ * Answers the "previous session" prompt (#465) with a clean start: the welcome
+ * screen, with no tab (#694) — open one with `newQuery` where a journey needs it.
  *
  * A test or a capture that reloads mid-run has, by then, a workspace worth
  * restoring — the app saves one as you work — so the prompt is up and its

@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "../../src/App";
+import { openQueryTab } from "./appHelpers";
 
 // Integration (issue #382): marking rows in the grid and acting on them from the
 // cell menu. The unit tests cover the pieces (utils/rowSelection, ResultGrid);
@@ -104,6 +105,9 @@ const openWithRows = async () => {
   });
   click(host.querySelector(".connbar-add"));
   click(host.querySelector(".connsearch-hit"));
+  await settle();
+  // Connecting lands on the connection's home (#694); open a query tab.
+  openQueryTab(host);
   await settle();
   click(host.querySelector(".empty-history button, .empty-state button"));
   await settle();

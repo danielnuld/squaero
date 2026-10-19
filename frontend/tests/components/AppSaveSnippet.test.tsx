@@ -3,6 +3,7 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { EditorView } from "@codemirror/view";
 import { App } from "../../src/App";
+import { openQueryTab } from "./appHelpers";
 import { parseSnippets } from "../../src/utils/snippets";
 
 // Saving the query you are writing (issue #320), driven through the real
@@ -29,6 +30,7 @@ const mount = () => {
     dispose = d;
     render(() => <App />, host!);
   });
+  openQueryTab(host);
   return EditorView.findFromDOM(host!)!;
 };
 
