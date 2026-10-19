@@ -18,6 +18,9 @@ import {
   changeCount,
   buildPlan,
   rowChange,
+  revertCell,
+  revertRow,
+  changeKinds,
   type EditSource,
 } from "../../src/utils/editSession";
 import type { ResultColumn } from "../../src/utils/query";
@@ -324,5 +327,39 @@ describe("rowChange", () => {
 
   it("ignores an empty edit map", () => {
     expect(rowChange({ ...emptyPending(), edits: { 0: {} } }, 0)).toBeNull();
+  });
+});
+
+describe("revertCell / revertRow", () => {
+  it("drops one cell's edit and keeps the rest of the row", () => {
+    const s = setCell(setCell(emptyPending(), 0, "a", "x"), 0, "b", "y");
+    expect(revertCell(s, 0, "a").edits).toEqual({ 0: { b: "y" } });
+  });
+  it("drops the row from the set when its last edit goes", () => {
+    const s = setCell(emptyPending(), 2, "a", null);
+    expect(revertCell(s, 2, "a").edits).toEqual({});
+  });
+  it("returns the same state for a cell with no edit", () => {
+    const s = setCell(emptyPending(), 0, "a", "x");
+    expect(revertCell(s, 0, "b")).toBe(s);
+    expect(revertCell(s, 1, "a")).toBe(s);
+  });
+  it("reverts a whole row: its edits and its staged deletion", () => {
+    let s = setCell(setCell(emptyPending(), 1, "a", "x"), 3, "a", "z");
+    s = toggleDelete(s, 1);
+    const r = revertRow(s, 1);
+    expect(r.edits).toEqual({ 3: { a: "z" } });
+    expect(r.deletes).toEqual([]);
+    expect(revertRow(r, 7)).toBe(r);
+  });
+});
+
+describe("changeKinds", () => {
+  it("counts changed, added and removed rows, a deleted edit only as removed", () => {
+    let s = setCell(setCell(emptyPending(), 0, "a", "x"), 1, "a", "y");
+    s = toggleDelete(s, 1);
+    s = addInsert(s);
+    expect(changeKinds(s)).toEqual({ changed: 1, added: 1, removed: 1 });
+    expect(changeKinds(emptyPending())).toEqual({ changed: 0, added: 0, removed: 0 });
   });
 });

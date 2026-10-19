@@ -5,6 +5,8 @@ import {
   boolTo01,
   cellAlign,
   NULL_LABEL,
+  decimalScale,
+  withScale,
 } from "../../src/utils/format";
 
 describe("classifyType", () => {
@@ -83,5 +85,24 @@ describe("cellAlign", () => {
     expect(cellAlign("number")).toBe("right");
     expect(cellAlign("text")).toBe("left");
     expect(cellAlign("null")).toBe("left");
+  });
+});
+
+describe("decimalScale / withScale (A-39)", () => {
+  it("reads the scale of a declared decimal type", () => {
+    expect(decimalScale("numeric(10,2)")).toBe(2);
+    expect(decimalScale("DECIMAL( 12 , 4 )")).toBe(4);
+    expect(decimalScale("number(8,0)")).toBe(0);
+    expect(decimalScale("numeric")).toBeNull();
+    expect(decimalScale("integer")).toBeNull();
+    expect(decimalScale("varchar(10)")).toBeNull();
+  });
+  it("pads a decimal to the scale and never cuts one", () => {
+    expect(withScale("980.5", 2)).toBe("980.50");
+    expect(withScale("12", 2)).toBe("12.00");
+    expect(withScale("-3.", 1)).toBe("-3.0");
+    expect(withScale("4321.999", 2)).toBe("4321.999");
+    expect(withScale("1e5", 2)).toBe("1e5");
+    expect(withScale("7", 0)).toBe("7");
   });
 });

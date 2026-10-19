@@ -65,6 +65,7 @@ import {
 } from "./utils/cellColors";
 import { loadCellColors, saveCellColors } from "./utils/cellColorStore";
 import type { CellKind } from "./utils/format";
+import { decimalScale } from "./utils/format";
 import {
   addTab,
   emptySession,
@@ -98,7 +99,9 @@ import { DataFilterBar } from "./components/DataFilterBar";
 import {
   addCellCondition,
   applyFilter,
+  appliedCount,
   cellFilterOps,
+  draftFilter,
   cycleSortColumn,
   emptyFilter,
   filterIsDirty,
@@ -231,6 +234,7 @@ import {
 } from "./utils/rowPaste";
 import { RowActionBar } from "./components/RowActionBar";
 import { PendingRowsBar } from "./components/PendingRowsBar";
+import { PendingChangesBand } from "./components/PendingChangesBand";
 import { indexListFor, uniqueSetsFrom } from "./utils/indexes";
 import { loadSettings, saveSettings } from "./utils/settingsStore";
 import { pushRecent } from "./utils/recentTables";
@@ -262,6 +266,9 @@ import {
 import {
   emptyPending,
   setCell,
+  revertCell,
+  revertRow,
+  rowChange,
   toggleDelete,
   toggleDeleteRows,
   addInsert,
@@ -634,6 +641,11 @@ export function App() {
   // The grid's page search row ("Buscar en la página", #690), driven by the
   // toolbar button and by the grid's own Ctrl+F.
   const [gridSearch, setGridSearch] = createSignal(false);
+  // Rows the page search leaves on screen, for the status bar (A-05).
+  const [searchMatches, setSearchMatches] = createSignal<number | null>(null);
+  // «Mostrar valores anteriores» from the pending-changes band, on top of the
+  // setting (R-26).
+  const [showOldOverride, setShowOldOverride] = createSignal(false);
   let panesEl: HTMLDivElement | undefined;
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
@@ -1041,6 +1053,15 @@ export function App() {
         break;
       case "tx-rollback":
         void endTabTx("rollback");
+        break;
+      case "pin-result":
+        pinCurrent();
+        break;
+      case "view-data":
+      case "view-structure":
+      case "view-indexes":
+      case "view-ddl":
+        showCurrentObjectView(OBJECT_VIEW_OF[action]);
         break;
     }
   };
@@ -3219,6 +3240,14 @@ export function App() {
     const t = current();
     if (t) mutatePending(t.id, (p) => setCell(p, rowIndex, column, value));
   };
+  const onRevertCell = (rowIndex: number, column: string) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => revertCell(p, rowIndex, column));
+  };
+  const onRevertRow = (rowIndex: number) => {
+    const t = current();
+    if (t) mutatePending(t.id, (p) => revertRow(p, rowIndex));
+  };
   const onToggleDelete = (rowIndex: number) => {
     const t = current();
     if (t) mutatePending(t.id, (p) => toggleDelete(p, rowIndex));
@@ -3454,6 +3483,44 @@ export function App() {
     if (!preview) return;
     withFilter(id, (f) => applyFilter(preview.engine, f, colsOf(id).types));
     void runPreviewPage(id, preview, 0);
+  };
+
+  /** Decimal places per column of a table tab, from its declared types (A-39). */
+  const scalesOf = (id: number): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const [name, type] of Object.entries(colsOf(id).types)) {
+      const scale = decimalScale(type);
+      if (scale !== null) out[name] = scale;
+    }
+    return out;
+  };
+
+  /** «Filtrar en la tabla» (R-21): the page search's boxes become CONTAINS
+      conditions at the server, and the page search closes. */
+  const filterTableBy = (id: number, terms: { column: string; value: string }[]) => {
+    if (terms.length === 0) return;
+    withFilter(id, (f) =>
+      terms.reduce<FilterState>((acc, x) => addCellCondition(acc, x.column, "CONTAINS", x.value), {
+        ...f,
+        mode: "conditions" as const,
+      }),
+    );
+    setGridSearch(false);
+    applyDataFilter(id);
+  };
+
+  /** The statement the panel's draft will run, for its live preview (R-22). */
+  const filterPreviewSql = (id: number): string | undefined => {
+    const preview = results[id]?.preview;
+    if (!preview) return undefined;
+    const size = results[id]?.pageSize ?? pageSize();
+    return objectPreviewQuery(
+      preview.parts,
+      preview.engine,
+      size,
+      0,
+      draftFilter(preview.engine, filterOf(id), colsOf(id).types),
+    );
   };
 
   const clearDataFilter = (id: number) => {
@@ -4080,6 +4147,8 @@ export function App() {
     pin: number;
     live: ResultSet | null;
   } | null>(null);
+  // «Mostrar filas iguales» on a comparison where nothing differs (A-34).
+  const [showSameRows, setShowSameRows] = createSignal(false);
   const [comparing, setComparing] = createSignal<{
     tabId: number;
     base: Side;
@@ -4166,6 +4235,7 @@ export function App() {
     const pk = o.pk.length > 0 ? o.pk : b.pk;
     const has = (rs: ResultSet) => pk.every((k) => rs.columns.some((c) => c.name === k));
     leaveLiveGrid();
+    setShowSameRows(false);
     setComparing({
       tabId: tb.id,
       base,
@@ -4380,7 +4450,10 @@ export function App() {
   const openChart = () => {
     const res = currentResult().result;
     if (!res || res.columns.length === 0) return;
-    showTool("chart", t("tab.chart"), { key: "chart", params: { result: res } });
+    showTool("chart", t("tab.chart"), {
+      key: "chart",
+      params: { result: res, keyColumns: currentResult().source?.pk ?? [] },
+    });
   };
 
   // --- Export (issue #30) ------------------------------------------------
@@ -4632,6 +4705,7 @@ export function App() {
         {
           label: n === 1 ? t("result.copyRowHeader") : t("result.copyRowsNHeader", { n }),
           action: () => copyRowsFromGrid(targets, true),
+          hint: displayKeys("Mod+Shift+C", isMac()),
         },
       ];
       if (res.rows.length > n) {
@@ -4661,12 +4735,9 @@ export function App() {
       // the same rule as the related-data entry below (#344). Whether the
       // COLUMN accepts a NULL is not knowable from a ResultColumn (name + type,
       // nothing else), so a NOT NULL is rejected by the engine, with its error.
+      // Out of an edit session it opens one first (R-14), as the grid's keys do.
       const nullBlocked = () =>
-        !currentEditable()
-          ? readOnlyReason("result.setNullReadOnly")
-          : !currentEdit().editing
-            ? t("result.setNullNeedsEdit")
-            : null;
+        !currentEditable() ? readOnlyReason("result.setNullReadOnly") : null;
       items.push({
         get label() {
           return nullBlocked() ?? t("result.setNull");
@@ -4674,8 +4745,17 @@ export function App() {
         get disabled() {
           return nullBlocked() !== null;
         },
-        action: () => onEditCell(rowIndex, column, null),
+        hint: displayKeys("Mod+Shift+N", isMac()),
+        action: () => void inEdit(() => onEditCell(rowIndex, column, null)),
       });
+      // Taking a change back without discarding the others (A-04).
+      const rowEdits = () => currentEdit().pending.edits[rowIndex];
+      if (currentEdit().editing && rowEdits() && column in rowEdits()!) {
+        items.push({ label: t("result.revertCell"), action: () => onRevertCell(rowIndex, column) });
+      }
+      if (currentEdit().editing && rowChange(currentEdit().pending, rowIndex) !== null) {
+        items.push({ label: t("result.revertRow"), action: () => onRevertRow(rowIndex) });
+      }
       items.push({ label: t("result.rowDetail"), action: () => setDetailIndex(rowIndex) });
       items.push({ separator: true });
 
@@ -4753,11 +4833,7 @@ export function App() {
       // runs before the SQL preview. Always listed, with its reason when it
       // cannot run — the same rule as "Set NULL" above.
       const deleteBlocked = () =>
-        !currentEditable()
-          ? readOnlyReason("result.deleteRowsReadOnly")
-          : !currentEdit().editing
-            ? t("result.deleteRowsNeedsEdit")
-            : null;
+        !currentEditable() ? readOnlyReason("result.deleteRowsReadOnly") : null;
       const allDeleted = () => targets.every((r) => currentEdit().pending.deletes.includes(r));
       items.push({
         get label() {
@@ -4777,7 +4853,7 @@ export function App() {
           return !allDeleted();
         },
         hint: displayKeys("Delete", isMac()),
-        action: () => onToggleDeleteRows(targets),
+        action: () => void inEdit(() => onToggleDeleteRows(targets)),
       });
       items.push({ separator: true });
     }
@@ -4839,6 +4915,21 @@ export function App() {
     else if (view === "indexes") openIndexes(node);
     else openStructure(node, view === "ddl" ? "definition" : "structure");
   };
+  // Alt+1…4 (R-12): the same switch as the toolbar's, from the keyboard.
+  const OBJECT_VIEW_OF = {
+    "view-data": "data",
+    "view-structure": "structure",
+    "view-indexes": "indexes",
+    "view-ddl": "ddl",
+  } as const;
+  const showCurrentObjectView = (view: ObjectView) => {
+    const tab = currentQuery();
+    if (!tab || !isDataTab(tab.id)) return;
+    const node = dataTabNode(tab.id);
+    if (!node) return;
+    if (tab.connDefId) inConn(tab.connDefId, showObjectView)(node, view);
+    else showObjectView(node, view);
+  };
   /** The tree node a data tab browses: the tree's own when it is loaded. */
   const dataTabNode = (tabId: number): TreeNode | null => {
     const p = results[tabId]?.preview?.parts;
@@ -4854,13 +4945,15 @@ export function App() {
       }
     );
   };
-  // A new row opens the edit session first: there is no Editar button (#688).
-  const addRowInPlace = async () => {
+  /** Runs `fn` inside the tab's edit session, opening it first: there is no
+      Editar button (#688), so a new row, a NULL or a deletion starts one (R-14). */
+  const inEdit = async (fn: () => void) => {
     const tab = current();
     if (!tab) return;
     if (!currentEdit().editing) await beginEdit();
-    if (edits[tab.id]?.editing) onAddInsert();
+    if (edits[tab.id]?.editing) fn();
   };
+  const addRowInPlace = () => inEdit(onAddInsert);
 
   // Go to definition from the editor (issue #663): a table or view opens its
   // structure (columns + DDL) when the tree has loaded it; a routine opens its
@@ -5432,6 +5525,9 @@ export function App() {
                         withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
                       }
                       onOpenSql={() => openSqlInNewTab(sqlOfTab(tab().id), tab().title)}
+                      onMode={(mode) => withFilter(tab().id, (f) => ({ ...f, mode }))}
+                      onRaw={(patch) => withFilter(tab().id, (f) => ({ ...f, ...patch }))}
+                      previewSql={filterPreviewSql(tab().id)}
                       addRef={(add) => (addFilterCondition = add)}
                       addSortRef={(add) => (addFilterSort = add)}
                     />
@@ -5684,6 +5780,8 @@ export function App() {
                       onSearch={() => setGridSearch((v) => !v)}
                       editHint={t("objbar.editHint")}
                       filterOpen={isDataTab(tab().id) && !filterOf(tab().id).collapsed}
+                      filterCount={isDataTab(tab().id) ? appliedCount(filterOf(tab().id)) : 0}
+                      onSort={isDataTab(tab().id) ? () => addFilterSort?.() : undefined}
                       onFilter={
                         isDataTab(tab().id)
                           ? () => withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
@@ -5757,18 +5855,38 @@ export function App() {
                       {/* A comparison, else a pinned result (issue #669): both
                           read-only, in the same virtualized grid. */}
                       <Show when={comparison()}>
-                        {(c) => (
-                          <ResultGrid
-                            result={c().view.result}
-                            loading={false}
-                            error={null}
-                            rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
-                            gridStyle={settings().gridStyle}
-                            keyColumns={c().key}
-                            cellType={(r, ci) => (c().view.changed[r]?.has(ci) ? "text" : undefined)}
-                            cellClass={(r, ci) => diffCellClass(c().view, r, ci)}
-                          />
-                        )}
+                        {(c) => {
+                          // Nothing differs (A-34): say so instead of an empty
+                          // grid, and offer the rows themselves.
+                          const identical = () =>
+                            c().cmp.rows.length === 0 && c().cmp.missingKey.length === 0;
+                          return (
+                            <Show
+                              when={!identical() || showSameRows()}
+                              fallback={
+                                <div class="grid-empty pane-empty compare-identical" role="status">
+                                  <span>{t("compare.identical", { n: c().cmp.same })}</span>
+                                  <button class="btn" onClick={() => setShowSameRows(true)}>
+                                    {t("compare.showSame")}
+                                  </button>
+                                </div>
+                              }
+                            >
+                              <ResultGrid
+                                result={identical() ? c().base.result : c().view.result}
+                                loading={false}
+                                error={null}
+                                rowHeight={rowHeightFor(settings().gridStyle, settings().density, gridScale(settings()))}
+                                gridStyle={settings().gridStyle}
+                                keyColumns={c().key}
+                                cellType={(r, ci) =>
+                                  !identical() && c().view.changed[r]?.has(ci) ? "text" : undefined
+                                }
+                                cellClass={(r, ci) => (identical() ? undefined : diffCellClass(c().view, r, ci))}
+                              />
+                            </Show>
+                          );
+                        }}
                       </Show>
                       <Show when={!comparison() && shownPin()}>
                         {(p) => (
@@ -5823,6 +5941,7 @@ export function App() {
                             onSelectedCellsChange={setSelectedCells}
                             onColumnOrderChange={setColumnOrder}
                             onCopyRows={copyRowsFromGrid}
+                            onRowDetail={setDetailIndex}
                             onDuplicateRows={currentEditable() ? duplicateRows : undefined}
                             clearMarksTick={clearMarksTick()}
                             referencedColumns={referencedColumns()}
@@ -5846,15 +5965,21 @@ export function App() {
                               currentEditable() && !currentEdit().editing ? beginEdit : undefined
                             }
                             fk={currentFk()}
-                            showOldValues={settings().showOldValues}
+                            showOldValues={settings().showOldValues || showOldOverride()}
                             searchOpen={gridSearch()}
                             onSearchOpenChange={setGridSearch}
+                            onSearchCountChange={setSearchMatches}
+                            scales={isDataTab(tab().id) ? scalesOf(tab().id) : undefined}
+                            onFilterTable={
+                              isDataTab(tab().id) ? (terms) => filterTableBy(tab().id, terms) : undefined
+                            }
                             edit={
                               currentEditable()
                                 ? {
                                     active: currentEdit().editing,
                                     pending: currentEdit().pending,
                                     onEditCell,
+                                    onRevertCell,
                                     onToggleDelete,
                                     onToggleDeleteRows,
                                     onInsertCell,
@@ -5874,6 +5999,12 @@ export function App() {
                           // the source's COLUMNS, so a row index here means
                           // nothing to copy, edit or the context menu.
                           <>
+                            <div class="transpose-band" role="note">
+                              <span>{t("transpose.band")}</span>
+                              <button class="btn" onClick={toggleTranspose}>
+                                {t("transpose.back")}
+                              </button>
+                            </div>
                             <ResultGrid
                               result={tv().result}
                               loading={currentResult().loading}
@@ -5905,6 +6036,25 @@ export function App() {
                           onDuplicate={() => duplicateRows(markedRows())}
                           onPaste={pasteRowClipboard}
                           onClear={() => setClearMarksTick((n) => n + 1)}
+                        />
+                      </Show>
+                      {/* New rows have their own bar; any other change gets the
+                          band that counts it (R-26). */}
+                      <Show
+                        when={
+                          currentEdit().editing &&
+                          currentEdit().pending.inserts.length === 0 &&
+                          changeCount(currentEdit().pending) > 0 &&
+                          !currentEdit().preview
+                        }
+                      >
+                        <PendingChangesBand
+                          pending={currentEdit().pending}
+                          showOld={settings().showOldValues || showOldOverride()}
+                          busy={currentEdit().busy}
+                          onToggleOld={() => setShowOldOverride((v) => !v)}
+                          onReview={() => void confirmEdit()}
+                          onDiscard={() => void discardEdit()}
                         />
                       </Show>
                       <Show
@@ -5960,6 +6110,17 @@ export function App() {
                             setDetailIndex((i) => stepRowIndex(i ?? 0, 1, d().res.rows.length))
                           }
                           onClose={() => setDetailIndex(null)}
+                          onCopy={() => copyRowsFromGrid([d().idx])}
+                          referencedBy={(inbound[tab().id]?.rels ?? []).map((r) => ({
+                            label: `${r.fromTable}.${r.columns.map((c) => c.from).join(", ")}`,
+                            column: r.columns[0]?.to ?? "",
+                          }))}
+                          onReferenced={(column) => {
+                            const ci = d().res.columns.findIndex(
+                              (c) => c.name.toLowerCase() === column.toLowerCase(),
+                            );
+                            if (ci >= 0) openRelated(d().idx, ci);
+                          }}
                         />
                       )}
                     </Show>
@@ -5986,6 +6147,7 @@ export function App() {
                       onNext={() => pageBy(1)}
                       pageSize={isDataTab(tab().id) ? (currentResult().pageSize ?? pageSize()) : undefined}
                       onPageSize={isDataTab(tab().id) ? (n) => changePageSize(tab().id, n) : undefined}
+                      onGoTo={isDataTab(tab().id) ? (offset) => goToDataOffset(tab().id, offset) : undefined}
                       onLast={
                         isDataTab(tab().id)
                           ? () => {
@@ -6250,6 +6412,7 @@ export function App() {
                 <Match when={tt().tool === "chart"}>
                   <ChartView
                     result={(tt().params as { result: ResultSet }).result}
+                    keyColumns={(tt().params as { keyColumns?: string[] }).keyColumns}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -6646,6 +6809,7 @@ export function App() {
         }
         safeMode={tabSafeMode(current())}
         txStatements={txOpenCount(tabConn(current()))}
+        pendingChanges={currentEdit().editing ? changeCount(currentEdit().pending) : 0}
         onTxAction={
           current()?.kind === "query"
             ? (e) =>
@@ -6657,6 +6821,7 @@ export function App() {
         }
         kind={statusKind()}
         rowCount={currentResult().result?.rows.length ?? null}
+        matchCount={searchMatches()}
         markedCount={markedRows().length}
         summary={cellSummary()}
         truncated={currentResult().result?.truncated ?? false}

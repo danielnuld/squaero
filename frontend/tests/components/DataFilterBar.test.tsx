@@ -171,3 +171,75 @@ describe("DataFilterBar join toggle", () => {
     ]);
   });
 });
+
+describe("DataFilterBar SQL mode, help, preview and Esc (R-21, R-22)", () => {
+  const mountSql = (mode: "conditions" | "sql") => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const calls = { applied: 0, folded: 0, modes: [] as string[], raw: [] as unknown[] };
+    const state = { ...emptyFilter(), collapsed: false, mode, rawWhere: "a > 1" };
+    createRoot((d) => {
+      dispose = d;
+      render(
+        () => (
+          <DataFilterBar
+            state={state}
+            columns={["a"]}
+            dirty={true}
+            onChange={() => {}}
+            onAdd={() => {}}
+            onRemove={() => {}}
+            onSort={() => {}}
+            onAddSort={() => {}}
+            onRemoveSort={() => {}}
+            onApply={() => calls.applied++}
+            onClear={() => {}}
+            onToggleCollapsed={() => calls.folded++}
+            onOpenSql={() => {}}
+            onMode={(m) => calls.modes.push(m)}
+            onRaw={(p) => calls.raw.push(p)}
+            previewSql="SELECT * FROM t WHERE a > 1 LIMIT 1000;"
+          />
+        ),
+        host!,
+      );
+    });
+    return calls;
+  };
+
+  it("says the filter runs at the server over the whole table, and previews the statement", () => {
+    mountSql("conditions");
+    expect(host!.querySelector(".filter-help")!.textContent).toContain("en el servidor a toda la tabla");
+    expect(host!.querySelector(".filter-preview-sql")!.textContent).toBe("SELECT * FROM t WHERE a > 1 LIMIT 1000;");
+  });
+
+  it("switches between conditions and SQL", () => {
+    const calls = mountSql("conditions");
+    const sql = [...host!.querySelectorAll<HTMLButtonElement>(".filter-mode button")].find(
+      (b) => b.textContent === "SQL",
+    )!;
+    expect(sql.getAttribute("aria-pressed")).toBe("false");
+    sql.click();
+    expect(calls.modes).toEqual(["sql"]);
+  });
+
+  it("edits the WHERE as text: Enter is a new line, Ctrl+Enter applies", () => {
+    const calls = mountSql("sql");
+    const where = host!.querySelector<HTMLTextAreaElement>(".filter-raw-where")!;
+    expect(where.value).toBe("a > 1");
+    where.value = "a > 2";
+    where.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(calls.raw).toEqual([{ rawWhere: "a > 2" }]);
+    press(where);
+    expect(calls.applied).toBe(0);
+    press(where, { ctrlKey: true });
+    expect(calls.applied).toBe(1);
+  });
+
+  it("folds on Esc without applying", () => {
+    const calls = mountSql("sql");
+    press(host!.querySelector(".filter-raw-where")!, { key: "Escape" });
+    expect(calls.folded).toBe(1);
+    expect(calls.applied).toBe(0);
+  });
+});

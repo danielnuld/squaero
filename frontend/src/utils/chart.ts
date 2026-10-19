@@ -35,9 +35,15 @@ export function toNumber(v: string | null): number | null {
  * A sensible default column pick: the first non-numeric column as the label axis
  * (falling back to column 0), and the first numeric column as the single value
  * series (falling back to none). Numeric-ness uses the column's neutral type.
+ * A key column (`keyColumns`) is never the value: an id is a name for a row,
+ * not a quantity, so a chart of ids measures nothing.
  */
-export function defaultColumns(result: ResultSet): { labelCol: number; valueCols: number[] } {
-  const numeric = result.columns.map((c) => classifyType(c.type) === "number");
+export function defaultColumns(
+  result: ResultSet,
+  keyColumns: readonly string[] = [],
+): { labelCol: number; valueCols: number[] } {
+  const isKey = (name: string) => keyColumns.some((k) => k.toLowerCase() === name.toLowerCase());
+  const numeric = result.columns.map((c) => classifyType(c.type) === "number" && !isKey(c.name));
   const labelCol = numeric.findIndex((n) => !n);
   const firstValue = numeric.findIndex((n) => n);
   return {

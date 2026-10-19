@@ -147,11 +147,22 @@ const editInPlace = () => {
   cell!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
 };
 
+/** Open the editor of the first row's `cliente_id` cell: only the cell being
+    edited is an input (R-14), so the picker shows there and nowhere else. */
+const openFkCell = () => {
+  const names = [...host!.querySelectorAll(".grid-head-sort .col-name")].map((n) => n.textContent);
+  const ci = names.indexOf("cliente_id");
+  expect(ci, "the grid should show the FK column").toBeGreaterThanOrEqual(0);
+  host!
+    .querySelector(`.grid-rows [data-cell="0-${ci}"]`)!
+    .dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+};
+
 /** The `nombre` column of every row the open FK dialog is showing. The dialog is
     portalled to <body>, so it is read from the document, not from the grid. */
 const pickedLabels = () =>
-  [...document.querySelectorAll(".fk-browser tbody tr")].map(
-    (tr) => tr.querySelectorAll("td")[2]?.textContent,
+  [...document.querySelectorAll(".fk-browser .grid-rows .grid-row")].map(
+    (row) => row.querySelector('[data-cell$="-1"]')?.textContent,
   );
 
 describe("App — the foreign-key picker, end to end", () => {
@@ -180,8 +191,9 @@ describe("App — the foreign-key picker, end to end", () => {
     // (issue #299): a double click on a cell opens the edit session (#688).
     editInPlace();
     await settle();
+    openFkCell();
 
-    // The FK column (cliente_id) now has a picker; the others are plain inputs.
+    // The FK column (cliente_id) now has a picker.
     const toggles = host.querySelectorAll<HTMLButtonElement>(".grid-rows .fk-toggle");
     expect(toggles.length, "the FK column should offer a picker").toBe(1);
 
@@ -189,7 +201,9 @@ describe("App — the foreign-key picker, end to end", () => {
     toggles[0].click();
     expect(pickedLabels()).toEqual(["Ferretería López", "Aceros del Norte"]);
     // Picking one writes its key into the cell.
-    document.querySelectorAll<HTMLButtonElement>(".fk-browser .fk-pick")[1].click();
+    document
+      .querySelector('.fk-browser .grid-rows [data-cell="1-0"]')!
+      .dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     await settle();
     const cell = host.querySelector<HTMLInputElement>(".grid-rows .fk-value")!;
     expect(cell.value).toBe("2");
@@ -230,10 +244,55 @@ describe("App — the foreign-key picker, end to end", () => {
 
     editInPlace();
     await settle();
+    openFkCell();
 
     const toggles = host.querySelectorAll<HTMLButtonElement>(".grid-rows .fk-toggle");
     expect(toggles.length, "the FK column should offer a picker").toBe(1);
     toggles[0].click();
     expect(pickedLabels()).toEqual(["Ferretería López", "Aceros del Norte"]);
+  });
+});
+
+describe("App — editing in place without an Editar step (R-14)", () => {
+  /** Connect, open a query tab and run the history's single-table query. */
+  const mountWithRows = async () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <App />, host!);
+    });
+    click(host.querySelector(".connbar-add"));
+    click(host.querySelector(".connsearch-hit"));
+    await settle();
+    openQueryTab(host);
+    await settle();
+    click(host.querySelector(".empty-history button, .empty-state .empty-sql"));
+    await settle();
+  };
+  /** Right-click a body cell and press the menu entry whose label starts with `label`. */
+  const menuOn = async (cell: string, label: string) => {
+    host!
+      .querySelector(`.grid-rows [data-cell="${cell}"]`)!
+      .dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((b) =>
+      b.textContent?.startsWith(label),
+    );
+    expect(item, `the cell menu should offer «${label}»`).toBeTruthy();
+    item!.click();
+    await settle();
+  };
+
+  it("sets NULL from the cell menu, opening the edit session, and reverts the cell", async () => {
+    await mountWithRows();
+    await menuOn("0-2", "Poner NULL");
+    expect(sent.some((r) => r.method === "tx.begin")).toBe(true);
+    expect(host!.querySelector('.grid-rows [data-cell="0-2"] .cell-null-tag')).not.toBeNull();
+    expect(host!.querySelector('.grid-rows [data-cell="0-2"]')!.classList.contains("cell-dirty")).toBe(true);
+    expect(host!.querySelector(".pending-band")!.textContent).toContain("1 cambio sin guardar");
+    await menuOn("0-2", "Revertir celda");
+    const cell = host!.querySelector('.grid-rows [data-cell="0-2"]')!;
+    expect(cell.textContent).toBe("1520.50");
+    expect(cell.classList.contains("cell-dirty")).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from "solid-js";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
-import { cellAlign, boolTo01, classifyType, NULL_LABEL } from "../utils/format";
+import { cellAlign, boolTo01, classifyType, NULL_LABEL, withScale } from "../utils/format";
 import { displayText } from "../utils/gridDisplay";
 import type { GridStyle } from "../utils/settings";
 import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../utils/gridNav";
@@ -10,6 +10,7 @@ import {
   sortIcon,
   type SortState,
   type ColumnFilters,
+  searchTerms,
 } from "../utils/gridView";
 import { computeColumnWidths, resizeColumn, MIN_COL_WIDTH } from "../utils/gridColumns";
 import {
@@ -25,6 +26,9 @@ import { copyText } from "../utils/rowCopy";
 import type { PkMode } from "../utils/rowPaste";
 import type { FkLookup } from "../utils/fkLookup";
 import { FkPicker } from "./FkPicker";
+import { cellEditorKey, gridEditKey } from "../utils/cellEditKeys";
+import { displayKeys } from "../utils/shortcuts";
+import { currentOs } from "../utils/dialog";
 import { Icon, IconKey, IconRelated, IconSearch } from "./icons";
 import { t } from "../utils/i18n";
 
@@ -43,6 +47,9 @@ export interface GridEdit {
   pending: PendingChanges;
   /** `null` is a SQL NULL, distinct from "" (issue #398). */
   onEditCell: (rowIndex: number, column: string, value: string | null) => void;
+  /** Drop one cell's pending edit (Esc in its editor puts the value back).
+      Absent → Esc writes the original value back as an edit. */
+  onRevertCell?: (rowIndex: number, column: string) => void;
   onToggleDelete: (rowIndex: number) => void;
   /** Delete key on the grid: the marked rows, or the selected cell's row (#644). */
   onToggleDeleteRows?: (rows: number[]) => void;
@@ -91,9 +98,18 @@ export function ResultGrid(props: {
   emptyState?: JSX.Element;
   /** Shown under the error message (the engine's code, «¿Querías …?», #691). */
   errorExtra?: JSX.Element;
-  /** Ask the workspace to enter edit mode (double-click / Enter on a cell in a
-      read-only but editable table). No-op when absent → the grid stays read-only. */
-  onRequestEdit?: () => void;
+  /** Ask the workspace to enter edit mode (double-click, F2, Enter or typing on
+      a cell of an editable table; Supr and Ctrl+Mayús+N too). The grid waits
+      for it and then carries on with what the key asked for. No-op when
+      absent → the grid stays read-only. */
+  onRequestEdit?: () => void | Promise<void>;
+  /** Space on a selected cell: open its row in the row detail. */
+  onRowDetail?: (rowIndex: number) => void;
+  /**
+   * Enter or double-click on a row of a grid that is not edited — a picker's
+   * "choose this one" (the FK browser, A-40). Absent → nothing.
+   */
+  onRowActivate?: (rowIndex: number) => void;
   /** Cancel the running query (op.cancel). When present, a Cancelar button shows
       alongside the "Ejecutando…" state; absent → no cancel affordance. */
   onCancel?: () => void;
@@ -146,6 +162,12 @@ export function ResultGrid(props: {
    */
   searchOpen?: boolean;
   onSearchOpenChange?: (open: boolean) => void;
+  /** How many loaded rows the page search leaves, or null while it hides
+      none — for the status bar (A-05). */
+  onSearchCountChange?: (shown: number | null) => void;
+  /** «Filtrar en la tabla» (R-21): the page search's boxes as server-side
+      conditions. Absent → no button (only a table tab has the filter panel). */
+  onFilterTable?: (terms: { column: string; value: string }[]) => void;
   /** Print a changed cell's original value struck through beside the new one,
       instead of only in its tooltip (issue #690). Off by default. */
   showOldValues?: boolean;
@@ -180,7 +202,7 @@ export function ResultGrid(props: {
    * Ctrl+C on the grid (#517): the marked rows, or else the selected cell's row,
    * by index into `result.rows`. Absent → the key is left to the browser.
    */
-  onCopyRows?: (rows: number[]) => void;
+  onCopyRows?: (rows: number[], withHeader?: boolean) => void;
   /** Ctrl+D: the same rows, to add again as new pending rows. Absent → no-op. */
   onDuplicateRows?: (rows: number[]) => void;
   /**
@@ -192,6 +214,9 @@ export function ResultGrid(props: {
   /** Extra classes for one read-only cell (issue #669: a comparison's added,
       removed and changed cells). Undefined → none. */
   cellClass?: (rowIndex: number, colIndex: number) => string | undefined;
+  /** Decimal places per column name, from the table's declared types
+      (numeric(10,2) → 2): numbers are drawn padded to them (A-39). */
+  scales?: Record<string, number>;
   /** Bumped by the workspace to clear the marks (the row bar's ✕). */
   clearMarksTick?: number;
 }) {
@@ -206,11 +231,20 @@ export function ResultGrid(props: {
   let scrollerEl: HTMLDivElement | undefined;
 
   // Keyboard selection (spreadsheet-style): a selected cell keyed by its VIEW
-  // position (r) and column (c). Click selects; arrow keys move; double-click or
-  // Enter on a selected cell requests edit mode. `pendingEditFocus` remembers the
-  // cell to focus once the (async) edit session turns on.
+  // position (r) and column (c). Click selects; arrow keys move; double-click,
+  // F2, Enter or typing open the cell's editor.
   const [sel, setSel] = createSignal<CellPos | null>(null);
-  const [pendingEditFocus, setPendingEditFocus] = createSignal<CellPos | null>(null);
+  // The one cell being edited (R-14): only it is an input, every other cell
+  // keeps its type colours and its NULL tag. Keyed by ORIGINAL row and column,
+  // so a sort or the page search does not move it to another row. `before` is
+  // what Esc puts back: the pending edit the cell had when the editor opened.
+  const [editCell, setEditCell] = createSignal<{
+    row: number;
+    c: number;
+    had: boolean;
+    before: string | null;
+    browse: boolean;
+  } | null>(null);
 
   // Multi-row marking (issue #382): ctrl/cmd+click toggles a row, shift+click
   // and shift+arrows extend from the anchor, ctrl+A takes the whole view. Marks
@@ -332,6 +366,7 @@ export function ResultGrid(props: {
 
   createEffect(() => {
     props.result; // reset on identity change
+    setEditCell(null);
     setSort(null);
     setFilters({});
     clearSel();
@@ -356,6 +391,7 @@ export function ResultGrid(props: {
   });
   const view = createMemo(() => buildViewIndices(rows(), cols(), sort(), filters()));
   const filtersActive = () => Object.values(filters()).some((q) => q.trim() !== "");
+  createEffect(() => props.onSearchCountChange?.(filtersActive() ? view().length : null));
 
   // The page search row (issue #690): closed by default, since it only ever
   // searches the loaded rows and an always-open row of boxes read as a filter
@@ -560,26 +596,94 @@ export function ResultGrid(props: {
     }),
   );
 
-  // Once the (async) edit session turns on, focus the cell that requested it.
+  // Leaving the edit session closes the editor.
   createEffect(() => {
-    if (!editing()) return;
-    const f = pendingEditFocus();
-    if (!f || !scrollerEl) return;
-    setPendingEditFocus(null);
-    queueMicrotask(() => {
-      // data-cell is on the cell element: a <div> in both modes now (an editable
-      // cell wraps its input so the wrapper can be the gridcell). Reach the input
-      // through it, and tolerate the older shape where the input carried the
-      // attribute itself.
-      const el = scrollerEl?.querySelector(`[data-cell="${f.r}-${f.c}"]`);
-      const input = (el?.tagName === "INPUT" ? el : el?.querySelector("input")) as
-        | HTMLInputElement
-        | null
-        | undefined;
-      input?.focus();
-      input?.select();
-    });
+    if (!editing()) setEditCell(null);
   });
+  const isEditingCell = (rowIndex: number, ci: number) => {
+    const ed = editCell();
+    return !!ed && ed.row === rowIndex && ed.c === ci;
+  };
+
+  /** Runs `fn` inside the edit session, opening it first when the table is
+      editable but not being edited (Supr, Ctrl+Mayús+N, typing: R-14). */
+  const withEdit = async (fn: () => void) => {
+    if (!props.edit) return;
+    if (!editing()) {
+      if (!props.onRequestEdit) return;
+      await props.onRequestEdit();
+      if (!editing()) return;
+    }
+    fn();
+  };
+
+  /** Focus the open editor's input: all of it selected for F2/Enter, the caret
+      at the end when a typed character opened it. data-cell is on the cell
+      wrapper, or on the input itself for a foreign-key picker. */
+  const focusEditor = (selectAll: boolean) => {
+    const ed = editCell();
+    if (!ed || !scrollerEl) return;
+    const el = scrollerEl.querySelector(`[data-cell="${view().indexOf(ed.row)}-${ed.c}"]`);
+    const input = (el?.tagName === "INPUT" ? el : el?.querySelector("input")) as
+      | HTMLInputElement
+      | null
+      | undefined;
+    if (!input) return;
+    input.focus();
+    if (selectAll) input.select();
+    else input.setSelectionRange(input.value.length, input.value.length);
+  };
+
+  /** Open the editor on a cell, optionally with a first character typed. */
+  const openEditor = (pos: CellPos, opts: { seed?: string; browse?: boolean } = {}) =>
+    withEdit(() => {
+      const row = view()[pos.r];
+      const name = cols()[pos.c]?.name;
+      if (row === undefined || name === undefined || isDeleted(row)) return;
+      const pend = props.edit!.pending.edits[row];
+      setEditCell({
+        row,
+        c: pos.c,
+        had: !!pend && name in pend,
+        before: pend?.[name] ?? null,
+        browse: !!opts.browse,
+      });
+      if (opts.seed !== undefined) props.edit!.onEditCell(row, name, opts.seed);
+      queueMicrotask(() => focusEditor(opts.seed === undefined));
+    });
+
+  /** Close the editor — its value is already in the pending changes — moving
+      the selection the way Enter and Tab ask. */
+  const closeEditor = (move?: string) => {
+    setEditCell(null);
+    if (move) moveSel(move, false);
+    scrollerEl?.focus({ preventScroll: true });
+  };
+
+  /** Esc in the editor: back to the value the cell had when it opened. */
+  const revertEditor = () => {
+    const ed = editCell();
+    const name = ed ? cols()[ed.c]?.name : undefined;
+    if (ed && name !== undefined && props.edit) {
+      if (ed.had) props.edit.onEditCell(ed.row, name, ed.before);
+      else if (props.edit.onRevertCell) props.edit.onRevertCell(ed.row, name);
+      else props.edit.onEditCell(ed.row, name, rows()[ed.row]?.[ed.c] ?? null);
+    }
+    closeEditor();
+  };
+
+  const onEditorKeyDown = (e: KeyboardEvent, rowIndex: number, name: string) => {
+    const action = cellEditorKey(e);
+    if (!action) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (action.kind === "revert") return revertEditor();
+    if (action.kind === "null") {
+      props.edit?.onEditCell(rowIndex, name, null);
+      return closeEditor();
+    }
+    closeEditor(action.move);
+  };
 
   // Click selects one cell; the modifiers mark rows instead of moving on their
   // own (ctrl toggles this row, shift takes everything back to the anchor).
@@ -587,6 +691,7 @@ export function ResultGrid(props: {
   // toggles the row's mark, or on a cell with related data follows the link.
   const selectCell = (viewPos: number, c: number, e?: MouseEvent) => {
     const rowIndex = view()[viewPos];
+    if (rowIndex === undefined || !isEditingCell(rowIndex, c)) setEditCell(null);
     const additive = !!(e?.ctrlKey || e?.metaKey);
     if (additive && !e?.shiftKey && rowIndex !== undefined && hasRelated(c)) {
       setSel({ r: viewPos, c });
@@ -618,6 +723,8 @@ export function ResultGrid(props: {
   onCleanup(stopDrag);
   const onCellMouseDown = (viewPos: number, c: number, e: MouseEvent) => {
     if (e.button !== 0 || e.ctrlKey || e.metaKey) return;
+    const rowIndex = view()[viewPos];
+    if (rowIndex === undefined || !isEditingCell(rowIndex, c)) setEditCell(null);
     // No text selection across cells: the block IS the selection.
     e.preventDefault();
     if (e.shiftKey) setCellAnchor((a) => a ?? sel() ?? { r: viewPos, c });
@@ -648,14 +755,6 @@ export function ResultGrid(props: {
     return !!props.onRelated && !!name && (isReferenced(name) || !!fkTarget(name));
   };
 
-  // Enter edit mode targeting a cell (double-click / Enter). No-op if already
-  // editing or the table isn't editable (onRequestEdit absent).
-  const requestEditAt = (pos: CellPos) => {
-    if (editing() || !props.onRequestEdit) return;
-    setPendingEditFocus(pos);
-    props.onRequestEdit();
-  };
-
   const onGridKeyDown = (e: KeyboardEvent) => {
     // Only act when focus is on the grid surface itself: inputs (edit cells,
     // filter boxes) and the focusable sort-header cells own their own keys. A
@@ -665,12 +764,33 @@ export function ResultGrid(props: {
     const textInput =
       target?.tagName === "INPUT" && (target as HTMLInputElement).type !== "checkbox";
     if (target && (textInput || target.closest(".grid-head-sort"))) return;
-    if (e.key === "Enter") {
-      const s = sel();
-      if (s) {
+    const s0 = sel();
+    const action = s0 ? gridEditKey(e) : null;
+    const row0 = s0 ? view()[s0.r] : undefined;
+    if (s0 && action && row0 !== undefined) {
+      if (action.kind === "detail") {
+        if (!props.onRowDetail) return;
         e.preventDefault();
-        requestEditAt(s);
+        props.onRowDetail(row0);
+        return;
       }
+      if (props.onRowActivate && !props.edit && action.kind === "edit") {
+        e.preventDefault();
+        props.onRowActivate(row0);
+        return;
+      }
+      if (!props.edit || (!editing() && !props.onRequestEdit)) return;
+      if (action.kind === "fk" && !fkFor(cols()[s0.c]?.name ?? "")) return;
+      e.preventDefault();
+      if (action.kind === "null") {
+        const name = cols()[s0.c]?.name;
+        if (name !== undefined) void withEdit(() => props.edit!.onEditCell(row0, name, null));
+        return;
+      }
+      void openEditor(s0, {
+        seed: action.kind === "type" ? action.text : undefined,
+        browse: action.kind === "fk",
+      });
       return;
     }
     const mod = e.ctrlKey || e.metaKey;
@@ -689,6 +809,15 @@ export function ResultGrid(props: {
       if (s && row !== undefined && hasRelated(s.c)) {
         e.preventDefault();
         props.onRelated?.(row, s.c);
+      }
+      return;
+    }
+    if (mod && e.shiftKey && !e.altKey && letter === "c") {
+      // The rows with the column names as the first line, for a spreadsheet.
+      const targets = rowTargets();
+      if (props.onCopyRows && targets.length > 0) {
+        e.preventDefault();
+        props.onCopyRows(targets, true);
       }
       return;
     }
@@ -711,10 +840,12 @@ export function ResultGrid(props: {
     if (e.key === "Delete" && !mod && !e.shiftKey && !e.altKey) {
       // Staged, not run: it lands in the pending changes like the 🗑 button,
       // and only in edit mode (#644).
+      // An editable table opens its edit session first (R-14).
       const targets = rowTargets();
-      if (editing() && props.edit?.onToggleDeleteRows && targets.length > 0) {
+      const del = props.edit?.onToggleDeleteRows;
+      if (del && targets.length > 0 && (editing() || props.onRequestEdit)) {
         e.preventDefault();
-        props.edit.onToggleDeleteRows(targets);
+        void withEdit(() => del(targets));
       }
       return;
     }
@@ -738,19 +869,23 @@ export function ResultGrid(props: {
     }
     if (!isNavKey(e.key)) return;
     e.preventDefault();
+    moveSel(e.key, e.shiftKey);
+  };
+
+  const moveSel = (key: string, shift: boolean) => {
     // The selection carries the ORIGINAL column index, but ←/→ must walk the
     // columns as they are DRAWN — so the move happens in display space and the
     // result is translated back (issue #446).
     const s = sel();
     const from = s === null ? null : { r: s.r, c: displayIndex(order(), s.c) };
-    const moved = moveSelection(from, e.key, view().length, cols().length);
+    const moved = moveSelection(from, key, view().length, cols().length);
     const next = moved === null ? null : { r: moved.r, c: order()[moved.c] ?? moved.c };
     // Shift keeps the block's anchor where it was (issue #690); a plain move
     // starts over from the new cell, as a click does.
-    if (e.shiftKey) setCellAnchor((a) => a ?? s ?? next);
+    if (shift) setCellAnchor((a) => a ?? s ?? next);
     setSel(next);
     if (!next) return;
-    if (!e.shiftKey) {
+    if (!shift) {
       setCellAnchor(next);
       setAnchor(next.r);
       setMarks(new Set<number>());
@@ -810,7 +945,17 @@ export function ResultGrid(props: {
   });
 
   return (
-    <div class="grid">
+    <div
+      class="grid"
+      aria-busy={props.loading}
+      // Esc stops a running query from anywhere in the grid (R-01).
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && props.loading && props.onCancel && !props.cancelDisabledReason) {
+          e.preventDefault();
+          props.onCancel();
+        }
+      }}
+    >
       <Show when={props.error}>
         <div class="grid-error" role="alert">
           {props.error}
@@ -832,7 +977,21 @@ export function ResultGrid(props: {
             <Show when={searchOn()}>
               <div class="grid-search-note" role="note">
                 <IconSearch />
-                <span>{t("grid.searchNote", { n: rows().length })}</span>
+                <span>
+                  {filtersActive()
+                    ? t("grid.searchMatches", { m: view().length, n: rows().length })
+                    : t("grid.searchNote", { n: rows().length })}
+                </span>
+                <Show when={props.onFilterTable && filtersActive()}>
+                  <button
+                    class="btn grid-search-table"
+                    type="button"
+                    title={t("grid.filterTableTitle")}
+                    onClick={() => props.onFilterTable?.(searchTerms(filters(), cols()))}
+                  >
+                    {t("grid.filterTable")}
+                  </button>
+                </Show>
                 <button
                   class="grid-search-close"
                   type="button"
@@ -1144,38 +1303,59 @@ export function ResultGrid(props: {
                                 const original = () => row()[ci()] ?? null;
                                 return (
                                   <Show
-                                    when={editing()}
+                                    when={editing() && isEditingCell(rowIndex(), ci())}
                                     fallback={(() => {
                                       // What the cell SHOWS, which in the report
                                       // style is not what it holds (#540). The
                                       // raw value stays in `title`, and every
                                       // path that copies, filters or saves reads
-                                      // `props.result.rows`, never this.
-                                      const cell = displayText(
-                                        original(),
-                                        typeOf(rowIndex(), ci(), col.type),
-                                        props.gridStyle ?? "registro",
-                                        t,
+                                      // `props.result.rows`, never this. In edit
+                                      // mode a cell that is not being edited
+                                      // shows its pending value, with its type
+                                      // colour and NULL tag (A-12).
+                                      const value = () => cellValue(rowIndex(), col.name, original());
+                                      const dirty = () => isDirty(rowIndex(), col.name);
+                                      const scale = () => props.scales?.[col.name];
+                                      const cell = createMemo(() =>
+                                        displayText(
+                                          scale() !== undefined && value() !== null
+                                            ? withScale(value()!, scale()!)
+                                            : value(),
+                                          typeOf(rowIndex(), ci(), col.type),
+                                          props.gridStyle ?? "registro",
+                                          t,
+                                        ),
                                       );
                                       const related = () => hasRelated(ci());
                                       return (
                                         <div
-                                          class={`grid-cell cell-${cell.kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${inRange(cellRange(), viewPos(), di()) ? "cell-in-range" : ""} ${related() ? "cell-related" : ""} ${props.cellClass?.(rowIndex(), ci()) ?? ""}`}
+                                          class={`grid-cell cell-${cell().kind} ${isSelected(viewPos(), ci()) ? "cell-selected" : ""} ${inRange(cellRange(), viewPos(), di()) ? "cell-in-range" : ""} ${related() ? "cell-related" : ""} ${dirty() ? "cell-dirty" : ""} ${props.cellClass?.(rowIndex(), ci()) ?? ""}`}
                                           role="gridcell"
                                           aria-colindex={di() + 1 + colOffset()}
                                           aria-selected={inRange(cellRange(), viewPos(), di())}
-                                          style={{ "text-align": cellAlign(cell.kind) }}
+                                          style={{ "text-align": cellAlign(cell().kind) }}
                                           /* The RAW value: in the report style
                                              the cell shows "1,250.00" and this
-                                             is where the real 1250.00 is. */
-                                          title={original() === "" ? t("grid.emptyString") : (original() ?? NULL_LABEL)}
+                                             is where the real 1250.00 is. A
+                                             changed cell says what it was. */
+                                          title={
+                                            dirty()
+                                              ? t("grid.originalValue", { value: original() ?? NULL_LABEL })
+                                              : value() === ""
+                                                ? t("grid.emptyString")
+                                                : (value() ?? NULL_LABEL)
+                                          }
                                           data-cell={`${viewPos()}-${ci()}`}
                                           onMouseDown={(e) => onCellMouseDown(viewPos(), ci(), e)}
                                           onMouseEnter={() => onCellMouseEnter(viewPos(), ci())}
                                           onClick={(e) => selectCell(viewPos(), ci(), e)}
                                           onDblClick={() => {
                                             selectCell(viewPos(), ci());
-                                            requestEditAt({ r: viewPos(), c: ci() });
+                                            if (props.onRowActivate && !props.edit) {
+                                              props.onRowActivate(rowIndex());
+                                              return;
+                                            }
+                                            void openEditor({ r: viewPos(), c: ci() });
                                           }}
                                           onContextMenu={(e) =>
                                             props.onCellContext?.(e, rowIndex(), ci())
@@ -1189,16 +1369,19 @@ export function ResultGrid(props: {
                                               never look alike, nor like data
                                               (issue #690). */}
                                           <Show
-                                            when={cell.kind === "null"}
+                                            when={cell().kind === "null"}
                                             fallback={
-                                              <Show when={original() === ""} fallback={cell.text}>
+                                              <Show when={value() === ""} fallback={cell().text}>
                                                 <span class="cell-empty-tag" aria-label={t("grid.emptyString")}>
                                                   ''
                                                 </span>
                                               </Show>
                                             }
                                           >
-                                            <span class="cell-null-tag">{cell.text}</span>
+                                            <span class="cell-null-tag">{cell().text}</span>
+                                          </Show>
+                                          <Show when={props.showOldValues && dirty()}>
+                                            <s class="cell-old">{original() ?? NULL_LABEL}</s>
                                           </Show>
                                           <Show when={related()}>
                                             <button
@@ -1275,6 +1458,7 @@ export function ResultGrid(props: {
                                               e.currentTarget.value,
                                             )
                                           }
+                                          onKeyDown={(e) => onEditorKeyDown(e, rowIndex(), col.name)}
                                           onContextMenu={(e) =>
                                             props.onCellContext?.(e, rowIndex(), ci())
                                           }
@@ -1296,6 +1480,8 @@ export function ResultGrid(props: {
                                           onChange={(v) =>
                                             props.edit?.onEditCell(rowIndex(), col.name, v)
                                           }
+                                          onKeyDown={(e) => onEditorKeyDown(e, rowIndex(), col.name)}
+                                          browseOnMount={editCell()?.browse}
                                         />
                                       )}
                                     </Show>
@@ -1311,6 +1497,33 @@ export function ResultGrid(props: {
                 </div>
               </div>
             </div>
+
+            {/* What the open editor is changing and how to leave it (R-14):
+                the value before, the column's type and the keys. */}
+            <Show when={editing() ? editCell() : null}>
+              {(ed) => {
+                const col = () => cols()[ed().c];
+                const before = () => rows()[ed().row]?.[ed().c] ?? null;
+                return (
+                  <div class="grid-edit-hint" role="status">
+                    <span class="grid-edit-hint-cell">
+                      {t("grid.editHint.cell", {
+                        column: col()?.name ?? "",
+                        n: view().indexOf(ed().row) + 1,
+                      })}
+                    </span>
+                    <span>
+                      {t("grid.editHint.before", { value: before() ?? NULL_LABEL, type: col()?.type ?? "" })}
+                    </span>
+                    <span class="grid-edit-hint-keys">
+                      {t("grid.editHint.keys", {
+                        keys: displayKeys("Mod+Shift+N", currentOs() === "macos"),
+                      })}
+                    </span>
+                  </div>
+                );
+              }}
+            </Show>
 
             <Show when={editing() && (props.edit?.pending.inserts.length ?? 0) > 0}>
               <div
@@ -1445,7 +1658,7 @@ export function ResultGrid(props: {
       </Show>
 
       <Show when={props.loading}>
-        <div class="grid-empty grid-running">
+        <div class="grid-empty grid-running" role="status">
           <span>{t("grid.running")}</span>
           <Show when={props.onCancel}>
             <button
@@ -1459,6 +1672,11 @@ export function ResultGrid(props: {
             </button>
           </Show>
         </div>
+        <Show when={!props.result}>
+          <div class="grid-skeleton" aria-hidden="true">
+            <For each={[0, 1, 2, 3, 4, 5]}>{() => <span />}</For>
+          </div>
+        </Show>
       </Show>
     </div>
   );

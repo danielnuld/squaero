@@ -6,6 +6,7 @@ import {
   buildViewIndices,
   sortIcon,
   type SortState,
+  searchTerms,
 } from "../../src/utils/gridView";
 import type { ResultColumn } from "../../src/utils/query";
 
@@ -109,5 +110,23 @@ describe("sortIcon", () => {
     expect(sortIcon({ col: 1, dir: "desc" }, 1)).toBe("arrow-down");
     expect(sortIcon({ col: 1, dir: "asc" }, 0)).toBeNull();
     expect(sortIcon(null, 0)).toBeNull();
+  });
+});
+
+describe("searchTerms", () => {
+  const columns = [
+    { name: "id", type: "int" },
+    { name: "ciudad", type: "text" },
+    { name: "nombre", type: "text" },
+  ];
+  it("turns the non-empty boxes into column/value pairs, in column order", () => {
+    expect(searchTerms({ 2: " ana ", 1: "Hermo", 0: "  " }, columns)).toEqual([
+      { column: "ciudad", value: "Hermo" },
+      { column: "nombre", value: "ana" },
+    ]);
+  });
+  it("ignores a box whose column no longer exists, and returns nothing for no search", () => {
+    expect(searchTerms({ 7: "x" }, columns)).toEqual([]);
+    expect(searchTerms({}, columns)).toEqual([]);
   });
 });

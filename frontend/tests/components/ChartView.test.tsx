@@ -99,3 +99,35 @@ describe("ChartView", () => {
     expect(el.textContent).toContain("al menos un valor");
   });
 });
+
+describe("ChartView key column and image", () => {
+  it("does not chart the primary key by default, and offers to save the image", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    const keyed: ResultSet = {
+      columns: [
+        { name: "id", type: "int" },
+        { name: "nombre", type: "text" },
+        { name: "saldo", type: "float" },
+      ],
+      rows: [
+        ["1", "ana", "10"],
+        ["2", "beto", "20"],
+      ],
+      truncated: false,
+      rowsAffected: 0,
+    };
+    createRoot((d) => {
+      dispose = d;
+      render(() => <ChartView result={keyed} keyColumns={["id"]} onClose={() => {}} />, host!);
+    });
+    const checked = [...host.querySelectorAll<HTMLInputElement>(".chart-value-opt input")]
+      .filter((c) => c.checked)
+      .map((c) => c.parentElement!.textContent!.trim());
+    expect(checked).toEqual(["saldo"]);
+    const save = [...host.querySelectorAll<HTMLButtonElement>("button")].find(
+      (b) => b.textContent === "Guardar imagen",
+    )!;
+    expect(save.disabled).toBe(false);
+  });
+});
