@@ -27,7 +27,8 @@ import { Panel } from "./Panel";
 import { SqlHighlight } from "./SqlHighlight";
 import { Icon } from "./icons";
 import type { TreeNodeKind } from "../utils/tree";
-import { t, tn } from "../utils/i18n";
+import { t } from "../utils/i18n";
+import { countText } from "../utils/confirmText";
 import { currentOs, orderActions } from "../utils/dialog";
 
 // Panel showing a table/view structure (audit A-28): a summary line, then
@@ -283,16 +284,16 @@ export function StructureView(props: {
     const parts = [isView() ? t("struct.kindView") : t("struct.kindTable")];
     for (const c of [props.db, props.schema]) if (c) parts.push(c);
     const c = cols();
-    if (c) parts.push(tn("struct.nColumns", c.length));
+    if (c) parts.push(countText("struct.nColumns", c.length));
     // SQL Server's partition counts are exact; the other catalogs estimate.
     if (rowCount() !== null)
-      parts.push(tn(engineFamily(engine()) === "mssql" ? "struct.nRows" : "struct.nRowsApprox", rowCount()!));
+      parts.push(countText(engineFamily(engine()) === "mssql" ? "struct.nRows" : "struct.nRowsApprox", rowCount()!));
     const ix = okData(indexes());
-    if (ix) parts.push(tn("struct.nIndexes", ix.length));
+    if (ix) parts.push(countText("struct.nIndexes", ix.length));
     const into = okData(inbound());
     if (into) {
       const n = new Set(into.map((r) => r.fromTable)).size;
-      parts.push(n ? tn("struct.referencedBy", n) : t("struct.notReferenced"));
+      parts.push(n ? countText("struct.referencedBy", n) : t("struct.notReferenced"));
     }
     return parts.join(" · ");
   };

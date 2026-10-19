@@ -2453,9 +2453,8 @@ export function App() {
   onToolJobFinished((id, ms) => {
     const tab = tabs().tabs.find((x) => x.id === id);
     if (!tab || current()?.id === id || ms < 1000) return;
-    clearTimeout(runToastTimer);
+    // The Toast clears a success itself.
     setRunToast({ text: t("tool.jobDone", { title: tab.title, duration: formatDuration(ms) }), error: false });
-    runToastTimer = setTimeout(() => setRunToast(null), 6000);
   });
   const showErrorToast = (text: string) => {
     setRunToast({ text, error: true });

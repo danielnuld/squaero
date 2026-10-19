@@ -200,7 +200,7 @@ describe("ErDiagram notation and access", () => {
     mount("mongodb");
     await flush();
     const fk = host!.querySelector('[role="radio"]') as HTMLButtonElement;
-    expect(fk.getAttribute("aria-disabled")).toBe("true");
+    expect(fk.disabled).toBe(true);
     fk.click();
     expect(fk.getAttribute("aria-checked")).toBe("false");
   });
@@ -244,5 +244,19 @@ describe("ErDiagram notation and access", () => {
     expect(host!.querySelector(".er-legend")!.textContent).toContain("Cero o muchos (clave foránea)");
     expect(host!.querySelector('.er-minimap[role="img"]')).not.toBeNull();
     expect(host!.querySelector('g[role="img"]')!.getAttribute("aria-label")).toContain("La vista v no tiene relaciones.");
+  });
+});
+
+describe("ErDiagram keys", () => {
+  it("zooms with + and leaves Ctrl+0 to the interface zoom", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const box = host!.querySelector(".er-box")!;
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "+", bubbles: true }));
+    expect(host!.querySelector(".panel-zoom")!.textContent).toBe("120%");
+    const ctrl0 = new KeyboardEvent("keydown", { key: "0", ctrlKey: true, bubbles: true, cancelable: true });
+    box.dispatchEvent(ctrl0);
+    expect(ctrl0.defaultPrevented).toBe(false);
   });
 });
