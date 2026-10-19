@@ -10,7 +10,14 @@ import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
 // belong to the sidebar's bar and its search.
 
 const conns: Connection[] = [
-  { id: "a", name: "Prod", driver: "mysql", params: { host: "10.0.4.12", database: "ventas" } },
+  {
+    id: "a",
+    name: "Prod",
+    driver: "mysql",
+    params: { host: "10.0.4.12", database: "ventas" },
+    env: "prod",
+    safeMode: "readOnly",
+  },
   { id: "b", name: "Local", driver: "sqlite", params: { path: "C:/datos/notas.db" } },
 ];
 
@@ -31,6 +38,8 @@ function mount(
     onDelete?: (id: string) => void;
     onExport?: (p: boolean) => void;
     onImport?: (files: File[]) => Promise<string>;
+    onConnect?: (c: Connection) => void;
+    onDuplicate?: (c: Connection) => void;
   } = {},
 ) {
   host = document.createElement("div");
@@ -53,6 +62,10 @@ function mount(
           onNew={() => {}}
           onExport={onExport}
           onImport={onImport}
+          onConnect={cbs.onConnect}
+          onDuplicate={cbs.onDuplicate}
+          usage={{ a: 1_000 }}
+          now={() => 1_000 + 3 * 3_600_000}
         />
       ),
       host!,
@@ -65,11 +78,51 @@ const btn = (title: string) =>
   [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.title === title) ?? null;
 
 describe("ConnectionManager", () => {
-  it("offers no way to open or close a connection — that is the bar's job", () => {
+  it("offers no way to close a connection — that is the bar's job", () => {
     mount("a");
     expect(btn("Reconectar")).toBeNull();
     expect(btn("Desconectar")).toBeNull();
-    expect(btn("Conectar")).toBeNull();
+  });
+
+  it("connects from the row, «Abrir» when it is open already (R-06)", () => {
+    const onConnect = vi.fn();
+    mount("a", { onConnect });
+    const buttons = [...host!.querySelectorAll<HTMLButtonElement>(".conn-connect")];
+    expect(buttons.map((b) => b.textContent)).toEqual(["Abrir", "Conectar"]);
+    buttons[1].click();
+    expect(onConnect).toHaveBeenCalledWith(expect.objectContaining({ id: "b" }));
+  });
+
+  it("shows environment, protection and last use in their own columns", () => {
+    mount(null);
+    const [prod, local] = [...host!.querySelectorAll(".conn-item")];
+    expect(prod.querySelector(".env-chip")!.textContent).toBe("Producción");
+    expect(prod.querySelector(".safe-chip")!.textContent).toBe("Solo lectura");
+    expect(prod.querySelector(".conn-when")!.textContent).toMatch(/3/);
+    expect(local.querySelector(".env-chip")).toBeNull();
+    expect(local.textContent).toContain("Ninguna");
+    expect(local.querySelector(".conn-when")!.textContent).toBe("sin usar");
+  });
+
+  it("narrows the list with the search", () => {
+    mount(null);
+    const search = host!.querySelector<HTMLInputElement>(".conn-search")!;
+    search.value = "notas";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    const names = [...host!.querySelectorAll(".conn-item .conn-open")].map((b) => b.getAttribute("title"));
+    expect(names).toEqual(["Editar Local"]);
+  });
+
+  it("duplicates and exports one connection from the row's menu", () => {
+    const onDuplicate = vi.fn();
+    const { onExport } = mount(null, { onDuplicate });
+    btn("Más acciones: Local")!.click();
+    const items = contextMenu()!.items;
+    items.find((i) => i.label === "Duplicar")!.action!();
+    expect(onDuplicate).toHaveBeenCalledWith(expect.objectContaining({ id: "b" }));
+    items.find((i) => i.label === "Exportar…")!.action!();
+    expect(onExport).toHaveBeenCalledWith(false, ["b"]);
+    closeContextMenu();
   });
 
   it("edits the connection the row belongs to", () => {

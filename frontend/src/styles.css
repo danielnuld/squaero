@@ -3292,7 +3292,7 @@ button.status-chip:not(:disabled):hover {
 .conn-tab {
   padding: var(--sp-4);
   overflow: auto;
-  max-width: 720px;
+  max-width: 1100px;
 }
 
 /* Connection manager (sidebar) */
@@ -3435,6 +3435,82 @@ button.status-chip:not(:disabled):hover {
 
 .conn-actions button:hover {
   color: var(--text);
+}
+
+/* The connections tab as a table (R-06): Nombre · Destino · Entorno ·
+   Protección · Último uso · Acciones. */
+.conn-head,
+.conn-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) 110px 170px 90px auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.conn-head {
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.conn-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+}
+.conn-target {
+  font-family: var(--font-mono);
+}
+.conn-none,
+.conn-when {
+  color: var(--text-dim);
+}
+.conn-actions .conn-connect {
+  color: var(--text);
+  padding: 0 var(--sp-3);
+}
+.conn-search {
+  max-width: 320px;
+}
+
+/* «Tipo de entorno» and the protection, spelled out (R-06). Neutral: a safe
+   state is not an error. */
+.conn-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+.env-chip,
+.safe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.env-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--conn-accent);
+}
+.safe-chip.safe-confirm svg {
+  color: var(--warn);
+}
+.welcome-table-rows {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.welcome-home-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
 }
 
 
