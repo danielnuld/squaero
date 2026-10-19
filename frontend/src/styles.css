@@ -9094,3 +9094,21 @@ ul.sidebar-tree {
   white-space: normal;
   color: var(--text-dim);
 }
+
+/* The engine's code and «¿Querías …?» under a failed statement (#691). */
+.error-hints {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-1) var(--sp-4);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+}
+.error-hints dt {
+  color: var(--text-dim);
+}
+.error-hints dd {
+  margin: 0;
+}
+.error-hints-where {
+  color: var(--text-dim);
+}
