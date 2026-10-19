@@ -1164,6 +1164,7 @@ export const es: Record<string, string> = {
   "sc.next-tab": "Siguiente pestaña",
   "sc.prev-tab": "Pestaña anterior",
   "sc.refresh": "Refrescar datos y árbol",
+  "sc.cancel-query": "Detener la consulta en curso",
   "sc.toggle-theme": "Cambiar tema claro/oscuro",
   "sc.toggle-help": "Mostrar/ocultar atajos",
   "sc.command-palette": "Paleta de comandos",

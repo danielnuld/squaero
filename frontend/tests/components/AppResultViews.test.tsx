@@ -15,6 +15,7 @@ import { openQueryTab } from "./appHelpers";
 // The core is faked at the bridge (globalThis.quaeroRpc), as in AppCellFilter.
 
 let calls: string[] = [];
+let release: (() => void) | undefined;
 let transactions = true;
 
 const answer = (method: string, params: Record<string, unknown>): unknown => {
@@ -53,6 +54,15 @@ beforeEach(() => {
   );
   (globalThis as Record<string, unknown>).quaeroRpc = async (raw: string) => {
     const req = JSON.parse(raw) as { id: number; method: string; params?: Record<string, unknown> };
+    if (req.method === "query.run" && String(req.params?.sql) === "SELECT slow") {
+      // Held until op.cancel, which makes it fail as an interrupted query does.
+      await new Promise<void>((resolve) => (release = resolve));
+      return { jsonrpc: "2.0", id: req.id, error: { code: -32001, message: "interrupted" } };
+    }
+    if (req.method === "op.cancel") {
+      calls.push("op.cancel");
+      release?.();
+    }
     return { jsonrpc: "2.0", id: req.id, result: answer(req.method, req.params ?? {}) };
   };
 });
@@ -134,5 +144,22 @@ describe("App — result pane views (#691)", () => {
     expect(calls.some((c) => c.startsWith("query:EXPLAIN"))).toBe(true);
     // No tool tab was opened for it.
     expect(host!.textContent).not.toContain("Plan de ejecución");
+  });
+
+  it("stops the running query on Ctrl+Break (#691)", async () => {
+    await connect();
+    const ctrlBreak = () =>
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Cancel", ctrlKey: true, bubbles: true }));
+    ctrlBreak(); // nothing runs: nothing to stop
+    expect(calls).not.toContain("op.cancel");
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "SELECT slow" } });
+    click(host!.querySelector(".editor-run-main"));
+    await settle();
+    expect(host!.querySelector(".editor-stop")!.classList.contains("is-running")).toBe(true);
+    ctrlBreak();
+    await settle();
+    expect(calls).toContain("op.cancel");
+    expect(host!.querySelector(".editor-stop")!.classList.contains("is-running")).toBe(false);
   });
 });
