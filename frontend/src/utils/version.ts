@@ -45,3 +45,15 @@ export function aboutReport(f: {
     f.system,
   ].join("\n");
 }
+
+/**
+ * The «Sistema» line of About (M14 SettingsAbout): the OS and, when the
+ * webview's user agent says so, the architecture — «Windows · x64». Only what
+ * the strings state; no version is guessed from them.
+ */
+export function systemLine(platform: string, userAgent: string): string {
+  const both = `${platform} ${userAgent}`;
+  const os = /mac/i.test(both) ? "macOS" : /win/i.test(both) ? "Windows" : /linux|x11/i.test(both) ? "Linux" : platform || "?";
+  const arch = /arm64|aarch64/i.test(both) ? "arm64" : /x64|x86_64|win64|amd64|wow64/i.test(both) ? "x64" : null;
+  return arch ? `${os} · ${arch}` : os;
+}

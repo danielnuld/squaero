@@ -111,6 +111,13 @@ describe("App — safe mode per connection (issue #666)", () => {
     expect(host!.textContent).toContain("es una conexión de solo lectura");
     // And the connection says it is protected.
     expect(host!.querySelector(".connbar-item .safe-badge")).not.toBeNull();
+    // The ways on (M14 SafeModeReadonly): another connection, or the protection.
+    click(byText(".error-hints button", "Ejecutar en otra conexión…"));
+    expect([...document.querySelectorAll(".context-menu-item")].map((b) => b.textContent)).toContain(
+      "Conectar a otra…",
+    );
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(byText(".error-hints button", "Cambiar la protección…")).toBeDefined();
   });
 
   it("read-only: a read runs, and the toolbar says why it cannot be edited", async () => {

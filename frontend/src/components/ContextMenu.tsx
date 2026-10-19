@@ -202,11 +202,15 @@ export function ContextMenu() {
   function Row(p: { item: MenuItem; index?: number }) {
     return (
       <Show
-        when={!p.item.separator && !p.item.heading}
+        when={!p.item.separator && !p.item.heading && p.item.note === undefined}
         fallback={
           p.item.heading ? (
             <div class="context-menu-heading" role="presentation">
               {p.item.label}
+            </div>
+          ) : p.item.note !== undefined ? (
+            <div class="context-menu-note" role="note">
+              {p.item.note}
             </div>
           ) : (
             <div class="context-menu-sep" role="separator" />

@@ -133,6 +133,25 @@ describe("Saving a query as a snippet from the editor", () => {
     expect(stored()).toEqual([]);
   });
 
+  it("saves and cancels with the band's own buttons too (M14 SnippetSaveInline)", () => {
+    const view = mount();
+    view.dispatch({ changes: { from: 0, insert: "SELECT * FROM cuadernos" } });
+    saveButton().click();
+    const band = host!.querySelector('[role="form"]')!;
+    expect(band.getAttribute("aria-label")).toBe("Guardar como snippet");
+    (band.querySelector('[aria-label="Cancelar (Esc)"]') as HTMLButtonElement).click();
+    expect(nameField()).toBeNull();
+    expect(stored()).toEqual([]);
+    saveButton().click();
+    const save = [...host!.querySelectorAll<HTMLButtonElement>('[role="form"] button')].find(
+      (b) => b.textContent === "Guardar",
+    )!;
+    expect(save.classList.contains("edit-btn-primary")).toBe(true);
+    save.click();
+    expect(stored()).toHaveLength(1);
+    expect(nameField()).toBeNull();
+  });
+
   it("never overwrites a snippet that already has the name", () => {
     const view = mount();
     view.dispatch({ changes: { from: 0, insert: "SELECT * FROM cuadernos" } });

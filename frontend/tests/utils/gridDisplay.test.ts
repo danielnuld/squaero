@@ -1,55 +1,32 @@
 import { describe, it, expect } from "vitest";
-import { displayText, groupThousands, humanDate } from "../../src/utils/gridDisplay";
+import { displayText, humanDate, regionalNumber } from "../../src/utils/gridDisplay";
 import { translate } from "../../src/utils/i18n";
 
 // What the grid SHOWS in each style (issue #540). The rule underneath every
-// case here: only "informe" changes anything, and even there it changes the
-// pixels and nothing that can be copied, filtered or saved.
+// case here: it changes the pixels and nothing that can be copied, filtered or
+// saved; values stay raw unless the regional number format is chosen.
 
 const es = (key: string) => translate("es", key);
 const en = (key: string) => translate("en", key);
 
-describe("groupThousands", () => {
-  it("groups the integer part and leaves the fraction alone", () => {
-    expect(groupThousands("1250")).toBe("1,250");
-    expect(groupThousands("1250.00")).toBe("1,250.00");
-    expect(groupThousands("-4321.99")).toBe("-4,321.99");
-    expect(groupThousands("1234567.5")).toBe("1,234,567.5");
+describe("regionalNumber (R-13)", () => {
+  it("groups thousands and uses the language's decimal mark", () => {
+    expect(regionalNumber("1250.00", "es")).toBe("1.250,00");
+    expect(regionalNumber("1250.00", "en")).toBe("1,250.00");
+    expect(regionalNumber("-4321.99", "en")).toBe("-4,321.99");
+    expect(regionalNumber("1234567", "en")).toBe("1,234,567");
   });
 
   // The core sends decimals and bigints as TEXT precisely because they do not
   // survive a float; going through Number would silently round them.
-  it("keeps every digit of a value beyond what a double can hold", () => {
-    expect(groupThousands("9007199254740993")).toBe("9,007,199,254,740,993");
-    expect(groupThousands("123456789012345678901234567890")).toBe(
-      "123,456,789,012,345,678,901,234,567,890",
-    );
-  });
-
-  it("keeps trailing zeros, which are precision in a decimal column", () => {
-    expect(groupThousands("12.00")).toBe("12.00");
-    expect(groupThousands("10000.500")).toBe("10,000.500");
-  });
-
-  it("leaves anything under four digits untouched", () => {
-    expect(groupThousands("999")).toBe("999");
-    expect(groupThousands("0")).toBe("0");
-    expect(groupThousands("-7")).toBe("-7");
-  });
-
-  // Known and accepted: a year in a numeric column becomes "2,024". Length
-  // cannot tell a year from a quantity; only the column can, and that belongs
-  // where the metadata is.
-  it("groups a four-digit value too, year or not", () => {
-    expect(groupThousands("2024")).toBe("2,024");
+  it("keeps every digit and the trailing zeros", () => {
+    expect(regionalNumber("9007199254740993", "en")).toBe("9,007,199,254,740,993");
+    expect(regionalNumber("10000.500", "en")).toBe("10,000.500");
+    expect(regionalNumber("999", "es")).toBe("999");
   });
 
   it("does not guess at anything that is not a plain decimal", () => {
-    expect(groupThousands("1.5e10")).toBe("1.5e10");
-    expect(groupThousands("0x1F")).toBe("0x1F");
-    expect(groupThousands("Infinity")).toBe("Infinity");
-    expect(groupThousands("")).toBe("");
-    expect(groupThousands("1,250")).toBe("1,250");
+    for (const v of ["1.5e10", "0x1F", "Infinity", "", "1,250"]) expect(regionalNumber(v, "en")).toBe(v);
   });
 });
 
@@ -85,8 +62,8 @@ describe("displayText", () => {
     }
   });
 
-  it("formats numbers and dates in Informe", () => {
-    expect(displayText("1250.00", "float", "informe", es).text).toBe("1,250.00");
+  it("writes dates out in Informe, but keeps its numbers raw (rule 6)", () => {
+    expect(displayText("1250.00", "float", "informe", es).text).toBe("1250.00");
     expect(displayText("2023-02-14", "date", "informe", es).text).toBe("14 feb 2023");
     expect(displayText("2023-02-14 08:30:00", "timestamp", "informe", es).text).toBe(
       "14 feb 2023 08:30:00",
@@ -121,6 +98,18 @@ describe("displayText", () => {
     expect(displayText("t", "bool", "registro", es).text).toBe("true");
     expect(displayText("", "bool", "hoja", es).text).toBe("true");
     expect(displayText(null, "bool", "registro", es).kind).toBe("null");
+  });
+
+  it("groups numbers in any style only when the regional format is chosen", () => {
+    for (const style of ["registro", "hoja", "informe"] as const) {
+      expect(displayText("1250.00", "float", style, es, { numbers: "regional", locale: "es" }).text).toBe("1.250,00");
+    }
+    expect(displayText("1250.00", "text", "registro", es, { numbers: "regional" }).text).toBe("1250.00");
+  });
+
+  it("writes NULL as the chosen text, keeping its kind (R-25)", () => {
+    const cell = displayText(null, "int", "registro", es, { nullText: "(nulo)" });
+    expect(cell).toMatchObject({ kind: "null", text: "(nulo)" });
   });
 
   it("shows a boolean it cannot fold as it came", () => {

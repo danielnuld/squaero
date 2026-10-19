@@ -3,7 +3,7 @@ import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup
 import { keyLabel, keyParams } from "../utils/shortcuts";
 import { visibleRange, needsMoreRows } from "../utils/virtualize";
 import { cellAlign, boolTo01, classifyType, NULL_LABEL, withScale } from "../utils/format";
-import { displayText } from "../utils/gridDisplay";
+import { displayText, type DisplayOptions } from "../utils/gridDisplay";
 import type { GridStyle } from "../utils/settings";
 import { moveSelection, scrollRowIntoView, isNavKey, type CellPos } from "../utils/gridNav";
 import {
@@ -93,6 +93,12 @@ export function ResultGrid(props: {
    * "registro", so a panel that does not care keeps the default.
    */
   gridStyle?: GridStyle;
+  /** How values read beyond the style (Ajustes › Rejilla): numbers raw or
+      regional, NULL's text, the language. Pixels only: copies, filters and
+      saves read `result.rows`. Absent → raw numbers and «NULL». */
+  display?: DisplayOptions;
+  /** The type on a second line under each column name (R-13); on unless false. */
+  headerTypes?: boolean;
   /** Rich content for the no-result state (issue #178). When absent a plain
       "run a query" message is shown. Only rendered before the tab has a result. */
   emptyState?: JSX.Element;
@@ -328,13 +334,16 @@ export function ResultGrid(props: {
       marks: (isKey(col.name) ? 1 : 0) + (isReferenced(col.name) ? 1 : 0),
     }));
 
+  // What the cells show, for sizing the columns: the raw rows unless the
+  // style or the display settings change the text.
   const shownRows = () => {
-    if (style() !== "informe") return rows();
+    const d = props.display;
+    if (style() !== "informe" && d?.numbers !== "regional" && !d?.nullText) return rows();
     const columns = cols();
     return rows().map((row, ri) =>
       row.map(
         (value, ci) =>
-          displayText(value, typeOf(ri, ci, columns[ci]?.type ?? "text"), "informe", t).text,
+          displayText(value, typeOf(ri, ci, columns[ci]?.type ?? "text"), style(), t, d).text,
       ),
     );
   };
@@ -1169,9 +1178,11 @@ export function ResultGrid(props: {
                             </span>
                           </Show>
                         </span>
-                        <span class="col-type">
-                          {fkTarget(col.name) ? `${col.type} → ${fkTarget(col.name)}` : col.type}
-                        </span>
+                        <Show when={props.headerTypes !== false}>
+                          <span class="col-type">
+                            {fkTarget(col.name) ? `${col.type} → ${fkTarget(col.name)}` : col.type}
+                          </span>
+                        </Show>
                         <span
                           class="col-resize"
                           title={t("grid.resize")}
@@ -1324,6 +1335,7 @@ export function ResultGrid(props: {
                                           typeOf(rowIndex(), ci(), col.type),
                                           props.gridStyle ?? "registro",
                                           t,
+                                          props.display,
                                         ),
                                       );
                                       const related = () => hasRelated(ci());

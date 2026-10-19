@@ -47,6 +47,11 @@ export interface SettingEntry {
  */
 export const SETTINGS_INDEX: readonly SettingEntry[] = [
   { id: "language", category: "general", keys: ["common.language", "lang.es", "lang.en"] },
+  {
+    id: "startup",
+    category: "general",
+    keys: ["settings.startup", "settings.startup.resume", "settings.startup.blank", "settings.startup.ask"],
+  },
   { id: "checkUpdates", category: "general", keys: ["settings.checkUpdates"] },
   { id: "config", category: "general", keys: ["settings.exportConfig", "settings.importConfig"] },
   {
@@ -70,6 +75,12 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   { id: "theme", category: "appearance", keys: ["settings.theme", "settings.importTheme", "settings.exportTheme"] },
   { id: "zoom", category: "appearance", keys: ["settings.zoom", "settings.zoomHint"] },
   { id: "uiFont", category: "appearance", keys: ["settings.typography", "settings.uiFont", "settings.uiFontSize", "settings.fontHint"] },
+  {
+    id: "runKey",
+    category: "editor",
+    keys: ["settings.runKey", "settings.runKey.statement", "settings.runKey.script", "settings.runKeyHint"],
+  },
+  { id: "highlightRun", category: "editor", keys: ["settings.highlightRun"] },
   { id: "editorFont", category: "editor", keys: ["settings.typography", "settings.editorFont", "settings.editorFontSize"] },
   { id: "editorLineHeight", category: "editor", keys: ["settings.editorLineHeight"] },
   { id: "editorLigatures", category: "editor", keys: ["settings.editorLigatures"] },
@@ -80,6 +91,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     category: "editor",
     keys: ["lhist.settingVersions", "lhist.settingDays", "lhist.settingHint"],
   },
+  {
+    id: "numberFormat",
+    category: "grid",
+    keys: ["settings.numbers", "settings.numbers.raw", "settings.numbers.regional"],
+  },
+  { id: "nullText", category: "grid", keys: ["settings.nullText", "settings.nullTextHint"] },
+  { id: "headerTypes", category: "grid", keys: ["settings.headerTypes"] },
   { id: "showOldValues", category: "grid", keys: ["settings.showOldValues"] },
   { id: "colorTypes", category: "grid", keys: ["settings.colorTypes", "settings.typeColors", "settings.resetColors"] },
   {
@@ -92,12 +110,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   { id: "historyLimit", category: "queries", keys: ["settings.historyLimit"] },
   // One row: the whole editor, findable by any action's name.
   { id: "shortcuts", category: "shortcuts", keys: ["settings.cat.shortcuts", ...SHORTCUTS.map((sc) => sc.description)] },
+  { id: "docBar", category: "window", keys: ["settings.docBar", "settings.docBarHint"] },
   { id: "nativeMenu", category: "window", keys: ["settings.nativeMenu"] },
   { id: "customTitleBar", category: "window", keys: ["settings.customTitleBar"] },
   {
     id: "about",
     category: "about",
-    keys: ["settings.cat.about", "settings.about.appVersion", "settings.about.coreVersion", "settings.about.protocol"],
+    keys: ["settings.cat.about", "settings.about.appVersion", "settings.about.coreVersion", "settings.about.protocol", "settings.about.system", "settings.about.checkUpdates"],
   },
 ];
 
@@ -123,9 +142,11 @@ export function searchSettings(
 
 /** Which Settings fields each section owns (the other stores are reset by their owners). */
 const SECTION_FIELDS: Partial<Record<SettingsCategory, readonly (keyof Settings)[]>> = {
-  general: ["checkUpdatesOnStart"],
+  general: ["startup", "checkUpdatesOnStart"],
   appearance: ["density", "zoom", "uiFont", "uiFontSize"],
   editor: [
+    "runKeyScope",
+    "highlightRun",
     "editorFont",
     "editorFontSize",
     "editorLineHeight",
@@ -135,9 +156,18 @@ const SECTION_FIELDS: Partial<Record<SettingsCategory, readonly (keyof Settings)
     "localHistoryVersions",
     "localHistoryDays",
   ],
-  grid: ["colorTypes", "showOldValues", "gridStyle", "gridFont", "gridFontSize"],
+  grid: [
+    "numberFormat",
+    "nullText",
+    "headerTypes",
+    "colorTypes",
+    "showOldValues",
+    "gridStyle",
+    "gridFont",
+    "gridFontSize",
+  ],
   queries: ["slowThresholdMs"],
-  window: ["nativeMenu", "customTitleBar"],
+  window: ["docBar", "nativeMenu", "customTitleBar"],
 };
 
 /** The defaults of the Settings fields a section owns; empty for a section that owns none. */

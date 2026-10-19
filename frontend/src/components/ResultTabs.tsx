@@ -14,6 +14,7 @@ import { t } from "../utils/i18n";
 // Beside them, «Mensajes» and «Plan» (issue #691, EditorMultipleResults,
 // ExplainPlan): what each run said, and the last EXPLAIN. With no script there
 // is one «Resultado» tab in the statements' place, so the strip reads the same.
+// While a script runs, each statement's tab appears as it finishes.
 export type ResultView = "result" | "messages" | "plan";
 
 export function ResultTabs(props: {
@@ -24,6 +25,9 @@ export function ResultTabs(props: {
   view?: ResultView;
   /** Given, the strip also offers the messages and plan views. */
   onView?: (view: ResultView) => void;
+  /** A script is running: the statement on its way, after those that finished
+      (M14 EditorRunning). Its tab is there but holds nothing yet. */
+  running?: { label: string } | null;
 }) {
   const view = () => props.view ?? "result";
   const summary = (s: ScriptSet): string => {
@@ -57,10 +61,26 @@ export function ResultTabs(props: {
           </button>
         )}
       </For>
+      <Show when={props.running}>
+        {(r) => (
+          <span
+            class="rtab is-running"
+            classList={{ on: view() === "result" && props.active === props.sets.length }}
+            role="tab"
+            aria-selected={view() === "result" && props.active === props.sets.length}
+            aria-disabled="true"
+          >
+            <span class="tab-spinner" aria-hidden="true" />
+            <span class="rtab-n">{props.sets.length + 1}</span>
+            <span class="rtab-label">{r().label}</span>
+            <span class="rtab-ct">{t("result.setRunning")}</span>
+          </span>
+        )}
+      </Show>
       <Show when={props.onView}>
         {(onView) => (
           <>
-            <Show when={props.sets.length <= 1}>
+            <Show when={props.sets.length <= 1 && !props.running}>
               <ViewTab label={t("result.viewResult")} on={view() === "result"} onClick={() => onView()("result")} />
             </Show>
             <ViewTab label={t("result.viewMessages")} on={view() === "messages"} onClick={() => onView()("messages")} />

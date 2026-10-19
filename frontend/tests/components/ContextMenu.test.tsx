@@ -78,6 +78,28 @@ describe("ContextMenu", () => {
   });
 });
 
+describe("ContextMenu choices, headings and notes (M14)", () => {
+  it("renders a checked choice as a menuitemradio and text rows as non-focusable", async () => {
+    mount();
+    openContextMenu(evAt(10, 10), [
+      { heading: true, label: "Conexiones abiertas" },
+      { label: "A", checked: true, action: () => {} },
+      { label: "B", checked: false, action: () => {} },
+      { note: "Cambia solo esta pestaña." },
+    ]);
+    await Promise.resolve();
+    const radios = [...host!.querySelectorAll('[role="menuitemradio"]')];
+    expect(radios.map((r) => [r.textContent, r.getAttribute("aria-checked")])).toEqual([
+      ["A", "true"],
+      ["B", "false"],
+    ]);
+    expect(host!.querySelector(".context-menu-heading")!.textContent).toBe("Conexiones abiertas");
+    expect(host!.querySelector('[role="note"]')!.textContent).toBe("Cambia solo esta pestaña.");
+    // The first focusable row is a choice, never the heading.
+    expect(document.activeElement).toBe(radios[0]);
+  });
+});
+
 describe("ContextMenu placement (issue #318)", () => {
   // jsdom has no layout: every element measures 0x0, which is exactly the shape
   // of the bug (the clamp used to measure a still-detached element and so never

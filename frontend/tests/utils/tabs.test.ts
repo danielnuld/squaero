@@ -11,6 +11,9 @@ import {
   closeOtherTabs,
   closeTabsToRight,
   closeAllTabs,
+  togglePin,
+  renameTab,
+  duplicateTab,
   closedQueryTabs,
   closeTabsForConn,
   updateTabSql,
@@ -660,5 +663,52 @@ describe("closeAllTabs / closedQueryTabs (Ctrl+Mayús+W / T)", () => {
     expect(closedQueryTabs(prev, next).map((t) => t.id)).toEqual([2]);
     expect(closedQueryTabs(prev, prev)).toEqual([]);
     expect(closedQueryTabs(prev, closeAllTabs(prev)).map((t) => t.sql)).toEqual(["select 1", "select 2"]);
+  });
+});
+
+describe("tab menu helpers (M14 TabContextMenu)", () => {
+  const three = () => addTab(addTab(addTab(emptySession(null)))); // ids 1..3, active 3
+
+  it("pins a tab to the start and unpins it in place", () => {
+    let s = togglePin(three(), 3);
+    expect(s.tabs.map((t) => [t.id, !!t.pinned])).toEqual([[3, true], [1, false], [2, false]]);
+    s = togglePin(s, 3);
+    expect(s.tabs.find((t) => t.id === 3)!.pinned).toBe(false);
+  });
+
+  it("spares pinned tabs when closing the others, those to the right, or all", () => {
+    const s = togglePin(three(), 2); // 2,1,3
+    expect(closeOtherTabs(s, 3).tabs.map((t) => t.id)).toEqual([2, 3]);
+    expect(closeTabsToRight(togglePin(three(), 3), 3).tabs.map((t) => t.id)).toEqual([3]);
+    const all = closeAllTabs(s);
+    expect(all.tabs.map((t) => t.id)).toEqual([2]);
+    expect(all.activeId).toBe(2);
+    expect(closeAllTabs(three())).toMatchObject({ tabs: [], activeId: 0 });
+  });
+
+  it("renames, ignoring a blank name", () => {
+    const s = renameTab(three(), 1, "  Ventas  ");
+    expect(s.tabs[0].title).toBe("Ventas");
+    expect(renameTab(s, 1, "  ")).toBe(s);
+  });
+
+  it("duplicates a query tab after it, without its identity", () => {
+    let s = updateTabSql(three(), 1, "SELECT 1");
+    s = setObjectKey(s, 1, "obj:x");
+    s = bindTabConn(s, 1, "k1");
+    const d = duplicateTab(s, 1, (t) => `${t.title} (copia)`)!;
+    expect(d.tabs.map((t) => t.id)).toEqual([1, 4, 2, 3]);
+    expect(d.tabs[1]).toEqual({ id: 4, kind: "query", title: "Consulta 1 (copia)", sql: "SELECT 1" });
+    expect(d.activeId).toBe(4);
+  });
+
+  it("does not duplicate a tool tab", () => {
+    const s = openTool(three(), "history", "Historial");
+    expect(duplicateTab(s, s.activeId, (t) => t.title)).toBeNull();
+  });
+
+  it("keeps a pin across a restart", () => {
+    const s = togglePin(three(), 1);
+    expect(parseWorkspace(serializeWorkspace(s))!.tabs[0].pinned).toBe(true);
   });
 });

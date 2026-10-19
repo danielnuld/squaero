@@ -11,29 +11,32 @@
 // locale, the same way validateConnection does.
 
 import { classifyType, formatCell, type FormattedCell } from "./format";
-import type { GridStyle } from "./settings";
+import type { GridStyle, NumberFormat } from "./settings";
 
 /**
- * Groups thousands in the integer part, working ON THE STRING.
- *
- * Never goes through Number: the core sends decimals and bigints as text
- * precisely because they do not survive a float. `Number("9007199254740993")`
- * is 9007199254740992, and a balance that changes when you look at it is worse
- * than one that is hard to read.
- *
- * Anything that is not a plain decimal — scientific notation, hex, Infinity,
- * an engine's own spelling — is returned untouched rather than guessed at.
+ * A plain decimal written the regional way (R-13): thousands grouped and the
+ * decimal mark of `locale` ("1250.00" → "1.250,00" in es, "1,250.00" in en).
+ * On the string, like groupThousands, so nothing loses precision; anything
+ * that is not a plain decimal is returned untouched.
  */
-export function groupThousands(value: string): string {
-  const m = /^(-?)(\d+)(\.\d+)?$/.exec(value);
+export function regionalNumber(value: string, locale: string): string {
+  const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value);
   if (!m) return value;
-  const [, sign, whole, fraction = ""] = m;
-  // Grouped from four digits up, as the prototype shows ("1,250.00"). A year in
-  // a numeric column becomes "2,024", and there is no way to tell it from a
-  // quantity BY ITS LENGTH — the honest fix is per column (ids and keys), which
-  // needs the column metadata the grid has and this module does not. Tracked as
-  // an open question on the change.
-  return sign + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + fraction;
+  const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
+  const group = parts.find((p) => p.type === "group")?.value ?? ",";
+  const decimal = parts.find((p) => p.type === "decimal")?.value ?? ".";
+  const [, sign, whole, fraction] = m;
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, group);
+  return sign + grouped + (fraction !== undefined ? decimal + fraction : "");
+}
+
+/** How the grid writes values beyond its style: numbers and NULL. */
+export interface DisplayOptions {
+  numbers?: NumberFormat;
+  /** The interface's language, for the regional format. */
+  locale?: string;
+  /** What a NULL reads as (Ajustes › Rejilla); "NULL" when absent. */
+  nullText?: string;
 }
 
 /** Month names, as i18n keys. The catalogs carry the abbreviations. */
@@ -62,26 +65,28 @@ export function humanDate(value: string, t: (key: string) => string): string {
 /**
  * The text a cell shows, for a style.
  *
- * Outside "informe" — and for NULL in every style — this is exactly
- * `formatCell`, so the other two styles cannot drift from the shared formatting
- * by accident; the one exception is a boolean, shown as `true`/`false`.
+ * Outside "informe" this is `formatCell`, so the styles cannot drift from the
+ * shared formatting by accident; the exceptions are a boolean, shown as
+ * `true`/`false`, NULL's chosen text, and numbers when `opts.numbers` is
+ * "regional". No style groups thousands on its own (rule 6): values are raw.
  */
 export function displayText(
   value: string | null,
   type: string,
   style: GridStyle,
   t: (key: string) => string,
+  opts: DisplayOptions = {},
 ): FormattedCell {
   const base = formatCell(value, type);
-  if (value === null) return base;
+  if (value === null) return opts.nullText ? { ...base, text: opts.nullText } : base;
   const kind = classifyType(type);
   // A boolean shows as the literal it means, never as 0/1 nor yes/no (issue
   // #690: raw values). formatCell has already folded every engine's spelling to
   // 0/1; anything it could not fold is shown as it came.
   if (kind === "bool") return { ...base, text: base.text === "1" ? "true" : base.text === "0" ? "false" : base.text };
-  if (style !== "informe") return base;
-
-  if (kind === "number") return { ...base, text: groupThousands(base.text) };
-  if (kind === "temporal") return { ...base, text: humanDate(base.text, t) };
+  if (kind === "number" && opts.numbers === "regional") {
+    return { ...base, text: regionalNumber(base.text, opts.locale ?? "es") };
+  }
+  if (style === "informe" && kind === "temporal") return { ...base, text: humanDate(base.text, t) };
   return base;
 }
