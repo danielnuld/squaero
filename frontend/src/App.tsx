@@ -315,12 +315,13 @@ import { EditorToolbar } from "./components/EditorToolbar";
 import { RunStatus } from "./components/RunStatus";
 import { ResultGrid } from "./components/ResultGrid";
 import { StatusBar } from "./components/StatusBar";
+import { Welcome, ConnectedHome } from "./components/Welcome";
+import { loadUsage, recentConnections, saveUsage, touchConnection } from "./utils/recentConnections";
 import { Notifications } from "./components/Notifications";
 import { loadNotes, pushNote, saveNotes, unreadCount, type NoteLevel, type NoteLog } from "./utils/notifications";
 import type { StatusTabKind } from "./utils/statusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EmptyState } from "./components/EmptyState";
-import { BrandWordmark } from "./components/Brand";
 import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
@@ -698,6 +699,8 @@ export function App() {
   // connection, persisted, shown marked "from cache" while re-read. What could
   // not be cached is said once per kind of problem, not swallowed.
   const [cacheNotice, setCacheNotice] = createSignal<string | null>(null);
+  // A plain informational toast (issue #694: an import's outcome).
+  const [notice, setNotice] = createSignal<string | null>(null);
   const cacheProblems = new Set<CacheProblem>();
   const metaCache = createMetaCacheStore(resolveStore(), (p) => {
     if (cacheProblems.has(p)) return;
@@ -1914,6 +1917,28 @@ export function App() {
   // Opening a connection ADDS it to the open set (others stay up) and focuses it;
   // if it is already open, this just focuses it. `force` (Reconectar) drops the
   // existing session and opens a fresh one to recover a dropped/killed server.
+  // When each saved connection was last opened, for the welcome (issue #694).
+  const [connUsage, setConnUsage] = createSignal(loadUsage(resolveStore()));
+  createEffect(
+    on(
+      [connUsage, connections],
+      ([u, list]) => saveUsage(resolveStore(), u, list.map((c) => c.id)),
+      { defer: true },
+    ),
+  );
+  // «Importar conexiones…» from the welcome: the same import as the
+  // connections tab, its outcome said in a toast (and kept in the history).
+  const pickConnectionsFile = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = ".json,.ncx,.xml,application/json,text/xml";
+    input.onchange = async () => {
+      const files = [...(input.files ?? [])];
+      if (files.length > 0) setNotice(await importConns(files));
+    };
+    input.click();
+  };
   const onConnect = async (c: Connection, force = false) => {
     if (connectingId() !== null) return;
     const existing = openConns().find((o) => o.defId === c.id);
@@ -1943,6 +1968,7 @@ export function App() {
         { defId: c.id, connId, name: c.name, driver: c.driver, color: c.color, features },
       ]);
       setFocusedDefId(c.id);
+      setConnUsage((u) => touchConnection(u, c.id, Date.now()));
       // Closing the dead session above fails with the very error that raises the
       // "connection lost" banner, so a successful reconnect must take it down
       // again or it outlives the problem it reported (issue #407).
@@ -3098,6 +3124,7 @@ export function App() {
   logToast(localWarn, (v) => ["warn", v]);
   logToast(runToast, (v) => [v.error ? "error" : "ok", v.text]);
   logToast(cacheNotice, (v) => ["warn", v]);
+  logToast(notice, (v) => ["info", v]);
   logToast(connError, (v) => ["error", v]);
   const tooBigWarned = new Set<number>();
   let saveFailWarned = false;
@@ -5884,14 +5911,42 @@ export function App() {
             )}
           </Show>
 
-          {/* Nothing open: the wordmark and nothing else. The tagline was the
-              landing page's slogan and the hint explained the sidebar to someone
-              already using it — copy nobody reads twice, in a place reached by
-              closing every tab. */}
+          {/* Nothing open (issue #694): with no connection, the welcome — how
+              to start, the recent connections, a few shortcuts; with one, a
+              home for it — a new query, an object, a recent table. */}
           <Show when={!current()}>
-            <div class="workspace-welcome">
-              <BrandWordmark height={56} />
-            </div>
+            <Show
+              when={active()}
+              fallback={
+                <Welcome
+                  recent={recentConnections(connections(), connUsage())}
+                  connectingId={connectingId()}
+                  isMac={isMac()}
+                  shortcuts={shortcuts()}
+                  onConnect={(c) => void onConnect(c)}
+                  onNew={onNewConnection}
+                  onOpenFile={openSqlFile}
+                  onImport={pickConnectionsFile}
+                  onShowAll={openConnectionsTab}
+                  onShortcuts={() => runShortcut("toggle-help")}
+                />
+              }
+            >
+              {(conn) => (
+                <ConnectedHome
+                  name={conn().name}
+                  engine={driverSchema(conn().driver)?.label ?? conn().driver}
+                  color={conn().color}
+                  db={activeDb()}
+                  recentTables={recentTables()}
+                  isMac={isMac()}
+                  shortcuts={shortcuts()}
+                  onNewQuery={() => runShortcut("new-tab")}
+                  onFindObject={() => runShortcut("object-palette")}
+                  onOpenTable={openData}
+                />
+              )}
+            </Show>
           </Show>
           </div>
         </section>
@@ -6015,6 +6070,22 @@ export function App() {
               title={t("panel.close")}
               aria-label={t("panel.close")}
               onClick={() => setRunToast(null)}
+            >
+              <Icon name="close" size={12} />
+            </button>
+          </div>
+        )}
+      </Show>
+
+      <Show when={notice()}>
+        {(text) => (
+          <div class="app-toast" role="status">
+            <span class="app-toast-text">{text()}</span>
+            <button
+              class="app-toast-close"
+              title={t("panel.close")}
+              aria-label={t("panel.close")}
+              onClick={() => setNotice(null)}
             >
               <Icon name="close" size={12} />
             </button>
