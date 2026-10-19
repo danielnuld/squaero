@@ -5,7 +5,7 @@
 // the result inline on the root (applyTypography), so the stylesheet keeps its
 // own values as the default and nothing changes until a setting does.
 
-import type { Settings } from "./settings";
+import type { Density, Settings } from "./settings";
 
 /** Zoom steps, in percent. Ctrl+= / Ctrl+- walk this list; Ctrl+0 goes to 100. */
 export const ZOOM_STEPS: readonly number[] = [80, 90, 100, 110, 125, 150, 175, 200];
@@ -82,10 +82,29 @@ export function gridScale(s: Pick<Settings, "gridFontSize" | "zoom">): number {
   return (clampFontSize(s.gridFontSize, BASE_FONT_PX) / BASE_FONT_PX) * (clampZoom(s.zoom) / 100);
 }
 
-/** The object tree's row: `--h-sm` (24px) under the zoom, as the CSS paints it. */
-export const TREE_ROW_PX = 24;
-export function treeRowHeight(zoom: number): number {
-  return scalePx(TREE_ROW_PX, zoom);
+/**
+ * The spacing, control-height and band-height scales per density (issue #682),
+ * in px at 100 %. `comfortable` is exactly what styles.css declares; `compact`
+ * takes each step down about one notch, so the tree, bars, tabs, dialogs and
+ * forms all tighten together instead of each rule deciding its own "compact".
+ * The grid's rows follow the same setting through rowHeightFor (28 → 24).
+ */
+export const DENSITY_SCALES: Readonly<Record<Density, Readonly<Record<string, number>>>> = {
+  comfortable: {
+    "--sp-1": 2, "--sp-2": 4, "--sp-3": 8, "--sp-4": 12, "--sp-5": 16, "--sp-6": 24,
+    "--h-micro": 20, "--h-sm": 24, "--h-md": 28,
+    "--band-sm": 28, "--band-md": 32, "--band-lg": 40, "--band-xl": 48,
+  },
+  compact: {
+    "--sp-1": 2, "--sp-2": 3, "--sp-3": 6, "--sp-4": 8, "--sp-5": 12, "--sp-6": 16,
+    "--h-micro": 18, "--h-sm": 20, "--h-md": 24,
+    "--band-sm": 24, "--band-md": 28, "--band-lg": 34, "--band-xl": 40,
+  },
+};
+
+/** The object tree's row: `--h-sm` under the density and the zoom, as the CSS paints it. */
+export function treeRowHeight(zoom: number, density: Density = "comfortable"): number {
+  return scalePx(DENSITY_SCALES[density]["--h-sm"], zoom);
 }
 
 /** What a user's family is prepended to, never left alone: the theme's own
@@ -166,8 +185,8 @@ export function fontStack(user: string, fallback: string): string {
 /**
  * Every custom property the typography settings drive, by name. Defaults give
  * back exactly what styles.css declares, so applying them is a no-op on a fresh
- * install. Spacing, control and band heights follow the zoom only; the type
- * scale follows the UI font size as well.
+ * install. Spacing, control and band heights follow the density and the zoom;
+ * the type scale follows the UI font size and the zoom.
  */
 export function typographyVars(s: Settings): Record<string, string> {
   const z = s.zoom;
@@ -179,18 +198,9 @@ export function typographyVars(s: Settings): Record<string, string> {
     "--fs-base": `${fs.base}px`,
     "--fs-md": `${fs.md}px`,
     "--fs-lg": `${fs.lg}px`,
-    "--sp-1": px(2),
-    "--sp-2": px(4),
-    "--sp-3": px(8),
-    "--sp-4": px(12),
-    "--sp-5": px(16),
-    "--sp-6": px(24),
-    "--h-micro": px(20),
-    "--h-sm": px(TREE_ROW_PX),
-    "--h-md": px(28),
-    "--band-sm": px(28),
-    "--band-md": px(32),
-    "--band-lg": px(40),
+    ...Object.fromEntries(
+      Object.entries(DENSITY_SCALES[s.density]).map(([name, v]) => [name, px(v)]),
+    ),
     "--font-system": fontStack(s.uiFont, UI_FALLBACK),
     "--font-editor": fontStack(s.editorFont, MONO_FALLBACK),
     "--fs-editor": `${scalePx(clampFontSize(s.editorFontSize, 13), z)}px`,

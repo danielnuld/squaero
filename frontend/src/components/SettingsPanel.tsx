@@ -13,7 +13,7 @@ import {
   MAX_LOCAL_DAYS,
   MIN_SLOW_MS,
   MAX_SLOW_MS,
-  type GridDensity,
+  type Density,
   type GridStyle,
   type Settings,
 } from "../utils/settings";
@@ -96,7 +96,7 @@ const ABOUT_LINK_KEYS: [string, string][] = [
 ];
 
 const THEME_OPTS: ThemePref[] = ["system", "light", "dark"];
-const DENSITY_OPTS: GridDensity[] = ["normal", "compact"];
+const DENSITY_OPTS: Density[] = ["comfortable", "compact"];
 /** How the grid reads (#540): density is how much fits; this is what it looks like. */
 const GRID_STYLE_OPTS: GridStyle[] = ["registro", "hoja", "informe"];
 
@@ -513,6 +513,20 @@ export function SettingsPanel(props: {
             </For>
           </div>
         ))}
+        {/* Next to the style: what it looks like, then how much fits (#682).
+            One density for the whole interface, the grid's rows included. */}
+        {row("density", () => (
+          <>
+            {chips(
+              t("settings.density"),
+              DENSITY_OPTS,
+              () => props.settings.density,
+              (d) => t(`settings.density.${d}`),
+              (d) => props.onSetSettings({ density: d }),
+            )}
+            <p class="settings-hint">{t("settings.densityHint")}</p>
+          </>
+        ))}
         {row("mode", () =>
           chips(t("settings.mode"), THEME_OPTS, () => props.theme, (m) => t(`settings.mode.${m}`), props.onSetTheme),
         )}
@@ -755,8 +769,7 @@ export function SettingsPanel(props: {
             </Show>
           </>
         ))}
-        {/* Style before density: first how it reads, then how much fits. Each
-            style carries its phrase because the names alone say nothing:
+        {/* Each grid style carries its phrase because the names alone say nothing:
             "Informe" does not announce that it will group thousands. */}
         {row("gridStyle", () => (
           <>
@@ -770,15 +783,6 @@ export function SettingsPanel(props: {
             <p class="settings-hint">{t(`settings.gridStyleHint.${props.settings.gridStyle}`)}</p>
           </>
         ))}
-        {row("gridDensity", () =>
-          chips(
-            t("settings.gridDensity"),
-            DENSITY_OPTS,
-            () => props.settings.gridDensity,
-            (d) => t(`settings.density.${d}`),
-            (d) => props.onSetSettings({ gridDensity: d }),
-          ),
-        )}
         {row("gridFont", () => (
           <>
             {fontRow("gridFont", MONO_FONT_CHOICES)}
