@@ -98,7 +98,7 @@ export function ConnectionSearch(props: {
             {(group) => (
               <>
                 <Show when={group.name}>
-                  <p class="connsearch-group">{group.name}</p>
+                  <p class="connsearch-group" data-case="keep">{group.name}</p>
                 </Show>
                 <ul class="connsearch-list">
                   <For each={group.hits}>

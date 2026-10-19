@@ -261,3 +261,16 @@ describe("IndexManager — toolbar", () => {
     expect(document.activeElement).toBe(host!.querySelector('input[aria-label="nombre_del_indice"]'));
   });
 });
+
+describe("IndexManager — accessible names", () => {
+  it("names the drop button after the index, and labels every form field", async () => {
+    installBridge();
+    mount(() => <IndexManager connId="c1" engine="mysql" table="users" db="shop" onClose={() => {}} />);
+    await flush();
+    const del = host!.querySelector("button.grid-action.danger")!;
+    expect(del.getAttribute("aria-label")).toBe("Eliminar el índice PRIMARY");
+    for (const input of host!.querySelectorAll<HTMLInputElement>(".im-fields input.td-in")) {
+      expect(input.getAttribute("aria-label"), input.placeholder).toBeTruthy();
+    }
+  });
+});

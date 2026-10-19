@@ -1,3 +1,4 @@
+import { keyLabel } from "../utils/shortcuts";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { withWriteConsent } from "../utils/transport";
 import { createStore, produce, reconcile } from "solid-js/store";
@@ -325,13 +326,19 @@ export function TableDesigner(props: {
         </thead>
         <tbody>
           <For each={columns}>
-            {(c, i) => (
+            {(c, i) => {
+              // Each row's controls named for a screen reader: the header they
+              // sit under and the column they edit (audit P4).
+              const colName = () => c.name.trim() || t("td.rowN", { n: i() + 1 });
+              const aria = (field: string) => t("td.cellAria", { field, column: colName() });
+              return (
               <tr class={states()[i()] ? `td-row is-${states()[i()]}` : "td-row"}>
                 <td>
                   <input
                     class="td-in"
                     value={c.name}
                     onInput={(e) => patch(i(), "name", e.currentTarget.value)}
+                    aria-label={t("td.nameAria", { n: i() + 1 })}
                     placeholder={t("td.namePlaceholder")}
                   />
                 </td>
@@ -341,6 +348,7 @@ export function TableDesigner(props: {
                     list="td-types"
                     value={c.type}
                     onInput={(e) => patch(i(), "type", e.currentTarget.value)}
+                    aria-label={aria(t("td.colType"))}
                     placeholder="INT"
                   />
                 </td>
@@ -348,6 +356,7 @@ export function TableDesigner(props: {
                   <input
                     type="checkbox"
                     checked={c.nullable}
+                    aria-label={aria(t("td.colNullTitle"))}
                     onChange={(e) => patch(i(), "nullable", e.currentTarget.checked)}
                   />
                 </td>
@@ -355,6 +364,7 @@ export function TableDesigner(props: {
                   <input
                     type="checkbox"
                     checked={c.primaryKey}
+                    aria-label={aria(t("td.colPkTitle"))}
                     disabled={alter()}
                     title={alter() ? t("td.pkLocked") : undefined}
                     onChange={(e) => patch(i(), "primaryKey", e.currentTarget.checked)}
@@ -364,6 +374,7 @@ export function TableDesigner(props: {
                   <input
                     type="checkbox"
                     checked={c.autoIncrement}
+                    aria-label={aria(t("td.colAiTitle"))}
                     disabled={alter()}
                     title={alter() ? t("td.aiLocked") : undefined}
                     onChange={(e) => patch(i(), "autoIncrement", e.currentTarget.checked)}
@@ -374,14 +385,15 @@ export function TableDesigner(props: {
                     class="td-in"
                     value={c.defaultValue}
                     onInput={(e) => patch(i(), "defaultValue", e.currentTarget.value)}
+                    aria-label={aria(t("td.colDefault"))}
                     placeholder={t("td.noDefault")}
                   />
                 </td>
                 <td class="td-c">
                   <button
                     class="grid-action danger"
-                    title={t("td.removeColumn")}
-                    aria-label={t("td.removeColumn")}
+                    title={t("td.removeColumnOf", { column: colName() })}
+                    aria-label={t("td.removeColumnOf", { column: colName() })}
                     disabled={columns.length <= 1}
                     onClick={() => removeColumn(i())}
                   >
@@ -389,7 +401,8 @@ export function TableDesigner(props: {
                   </button>
                 </td>
               </tr>
-            )}
+              );
+            }}
           </For>
         </tbody>
       </table>
@@ -398,7 +411,7 @@ export function TableDesigner(props: {
         <button type="button" class="btn" onClick={addColumn}>
           <Icon name="plus" size={14} />
           {t("td.addColumn")}
-          <kbd class="tab-kbd">{t("td.addKey")}</kbd>
+          <kbd class="tab-kbd">{keyLabel("Mod+Enter")}</kbd>
         </button>
         <Show when={hint()}>
           <span class="help" role="status">

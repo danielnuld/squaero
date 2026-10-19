@@ -342,6 +342,7 @@ export function IndexManager(props: {
           nameIdx={idxNameIdx()}
           loading={loading()}
           empty={t("im.noIndexes")}
+          dropLabel="im.dropIndexOf"
           onDrop={(name) => dropIndexRow(name)}
           selected={selected()?.kind === "index" ? selected()!.name : null}
           onSelect={(name, row) => setSelected({ kind: "index", name, row })}
@@ -361,6 +362,7 @@ export function IndexManager(props: {
             <input
               class="td-in"
               list="im-cols"
+              aria-label={t("im.columnsAria")}
               placeholder={t("im.columnsPlaceholder")}
               value={idxCols()}
               onInput={(e) => setIdxCols(e.currentTarget.value)}
@@ -391,6 +393,7 @@ export function IndexManager(props: {
           nameIdx={conNameIdx()}
           loading={loading()}
           empty={t("im.noConstraints")}
+          dropLabel="im.dropConstraintOf"
           onDrop={(name, row) => dropConstraintRow(name, conTypeIdx() >= 0 ? row[conTypeIdx()] : null)}
           selected={selected()?.kind === "constraint" ? selected()!.name : null}
           onSelect={(name, row) => setSelected({ kind: "constraint", name, row })}
@@ -400,6 +403,7 @@ export function IndexManager(props: {
           <strong>{t("im.newConstraint")}</strong>
           <div class="im-fields">
             <Dropdown
+              aria-label={t("im.constraintKindAria")}
               value={conKind()}
               options={[{ value: "unique", label: "UNIQUE" }, { value: "check", label: "CHECK" }, { value: "foreignKey", label: "FOREIGN KEY" }]}
               onChange={(v) => setConKind(v as ConstraintKind)}
@@ -416,6 +420,7 @@ export function IndexManager(props: {
               <input
                 class="td-in"
                 list="im-cols"
+                aria-label={t("im.columnsAria")}
                 placeholder={t("im.columnsPlaceholder")}
                 value={conCols()}
                 onInput={(e) => setConCols(e.currentTarget.value)}
@@ -424,6 +429,7 @@ export function IndexManager(props: {
             <Show when={conKind() === "check"}>
               <input
                 class="td-in"
+                aria-label={t("im.exprAria")}
                 placeholder={t("im.exprPlaceholder")}
                 value={conExpr()}
                 onInput={(e) => setConExpr(e.currentTarget.value)}
@@ -432,12 +438,14 @@ export function IndexManager(props: {
             <Show when={conKind() === "foreignKey"}>
               <input
                 class="td-in"
+                aria-label={t("im.refTableAria")}
                 placeholder={t("im.refTablePlaceholder")}
                 value={conRefTable()}
                 onInput={(e) => setConRefTable(e.currentTarget.value)}
               />
               <input
                 class="td-in"
+                aria-label={t("im.refColumnsAria")}
                 placeholder={t("im.refColumnsPlaceholder")}
                 value={conRefCols()}
                 onInput={(e) => setConRefCols(e.currentTarget.value)}
@@ -461,6 +469,8 @@ function CatalogTable(props: {
   nameIdx: number;
   loading: boolean;
   empty: string;
+  /** Catalog key of the drop button's name, with {name}: it names the object. */
+  dropLabel: string;
   onDrop: (name: string, row: (string | null)[]) => void;
   /** The row the toolbar's Eliminar acts on. */
   selected: string | null;
@@ -504,8 +514,8 @@ function CatalogTable(props: {
                     <Show when={name}>
                       <button
                         class="grid-action danger"
-                        title={t("common.delete")}
-                        aria-label={t("common.delete")}
+                        title={t(props.dropLabel, { name: name! })}
+                        aria-label={t(props.dropLabel, { name: name! })}
                         onClick={() => props.onDrop(name!, row)}
                       >
                         <Icon name="trash" size={14} />
