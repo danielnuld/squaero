@@ -17,6 +17,7 @@ interface SaveFilePicker {
 }
 
 interface FileSystemFileHandleLike {
+  name?: string;
   createWritable: () => Promise<{
     write: (data: string | Blob) => Promise<void>;
     close: () => Promise<void>;
@@ -44,6 +45,8 @@ function extensionOf(filename: string): string {
 
 /** Somewhere to write one file, chosen before its content exists. */
 export interface SaveTarget {
+  /** The file's name as chosen (the suggested one where the dialog cannot say). */
+  name: string;
   /** Begin writing. The caller writes any number of pieces, then closes. */
   open: () => Promise<SaveWriter>;
   /** Write the whole thing at once, for content that is already one value. */
@@ -88,6 +91,7 @@ export async function pickSaveTarget(
         types: ext ? [{ accept: { [mime]: [`.${ext}`] } }] : undefined,
       });
       return {
+        name: handle.name ?? filename,
         open: async () => {
           const writable = await handle.createWritable();
           return {
@@ -113,6 +117,7 @@ export async function pickSaveTarget(
   const download = (parts: (string | Blob)[]) =>
     anchorDownloadBlob(filename, new Blob(parts, { type: `${mime};charset=utf-8` }));
   return {
+    name: filename,
     open: async () => {
       const parts: (string | Blob)[] = [];
       return {

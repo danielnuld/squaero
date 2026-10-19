@@ -147,3 +147,29 @@ export async function runRestore(
   }
   return { ran: statements.length, total: statements.length };
 }
+
+/** «4 tablas · 1 vista»: what a backup covers, by kind. */
+export function objectCounts(objects: DumpObject[]): { tables: number; views: number } {
+  const tables = objects.filter((o) => o.kind === "table").length;
+  return { tables, views: objects.length - tables };
+}
+
+/**
+ * Where a running backup stands, for its progress bar. With the data and every
+ * table's row count known the bar moves by rows («32 de 48 filas»); otherwise
+ * by objects finished. Counts that could not be read are null.
+ */
+export function backupProgress(
+  objects: DumpObject[],
+  opts: DumpOptions,
+  counts: Record<string, number | null>,
+  read: Record<string, number>,
+  objectsDone: number,
+): { unit: "rows" | "objects"; done: number; total: number } {
+  const tables = objects.filter((o) => o.kind === "table");
+  const byRows = opts.data && tables.length > 0 && tables.every((t) => typeof counts[t.name] === "number");
+  if (!byRows) return { unit: "objects", done: Math.min(objectsDone, objects.length), total: objects.length };
+  const total = tables.reduce((n, t) => n + (counts[t.name] as number), 0);
+  const done = tables.reduce((n, t) => n + Math.min(read[t.name] ?? 0, counts[t.name] as number), 0);
+  return { unit: "rows", done, total };
+}
