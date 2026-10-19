@@ -3,6 +3,7 @@ import {
   buildAlterTable,
   buildCreateTable,
   columnsFromDescribe,
+  columnState,
   type AlterColumn,
   type AlterTableDef,
   type ColumnDef,
@@ -335,5 +336,34 @@ describe("columnsFromDescribe", () => {
       rowsAffected: 0,
     };
     expect(columnsFromDescribe(res)).toEqual([{ name: "a", type: "", nullable: true, defaultValue: "" }]);
+  });
+});
+
+describe("columnState (#692)", () => {
+  const original = { name: "t", columns: [{ name: "a", type: "TEXT", nullable: true, defaultValue: "" }] };
+  const col = (over: Partial<AlterColumn>): AlterColumn => ({
+    origName: "a",
+    name: "a",
+    type: "TEXT",
+    nullable: true,
+    primaryKey: false,
+    autoIncrement: false,
+    defaultValue: "",
+    ...over,
+  });
+  it("is null for an untouched column or before the table loads", () => {
+    expect(columnState(col({}), original)).toBeNull();
+    expect(columnState(col({ type: "text " }), original)).toBeNull();
+    expect(columnState(col({}), null)).toBeNull();
+  });
+  it("marks a new column as added", () => {
+    expect(columnState(col({ origName: undefined, name: "b" }), original)).toBe("added");
+    expect(columnState(col({ origName: "gone" }), original)).toBe("added");
+  });
+  it("marks a rename, a type, a NULL or a default change as changed", () => {
+    expect(columnState(col({ name: "b" }), original)).toBe("changed");
+    expect(columnState(col({ type: "INT" }), original)).toBe("changed");
+    expect(columnState(col({ nullable: false }), original)).toBe("changed");
+    expect(columnState(col({ defaultValue: "0" }), original)).toBe("changed");
   });
 });

@@ -147,7 +147,7 @@ describe("TableDesigner — alter mode", () => {
       "ALTER TABLE `users` MODIFY COLUMN `name` TEXT",
     );
 
-    clickText("Aplicar cambios");
+    clickText("Aplicar 1 cambio");
     await flush();
 
     const runs = calls.filter((c) => c.method === "query.run").map((c) => c.params.sql);
@@ -234,5 +234,61 @@ describe("TableDesigner — alter mode", () => {
     expect(firstRow[0].disabled).toBe(false); // nullable stays editable
     expect(firstRow[1].disabled).toBe(true); // PK
     expect(firstRow[2].disabled).toBe(true); // AI
+  });
+});
+
+// #692 (P5): the verb in the toolbar, changed rows marked, Ctrl+Intro, Copiar/Abrir.
+describe("TableDesigner — toolbar and changes", () => {
+  const rows = () => [...host!.querySelectorAll("table.td-table tbody tr")];
+  const button = (text: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === text)!;
+
+  it("says «Crear tabla X» in the toolbar of a new table", async () => {
+    installBridge();
+    mount(() => <TableDesigner connId="c1" engine="sqlite" onClose={() => {}} />);
+    setInput(host!.querySelector(".field input") as HTMLInputElement, "proveedores");
+    expect(host!.querySelector(".td-toolbar .btn-primary")!.textContent).toBe("Crear tabla proveedores");
+    expect(button("Cancelar")).toBeDefined();
+  });
+
+  it("marks added and changed rows, counts them, and Descartar puts them back", async () => {
+    installBridge();
+    mount(() => <TableDesigner connId="c1" engine="mysql" table="users" onClose={() => {}} />);
+    await flush();
+    setInput(rows()[1].querySelectorAll<HTMLInputElement>("input.td-in")[1], "TEXT");
+    // Ctrl+Intro in the grid adds a column.
+    rows()[0].querySelector("input")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+    await flush();
+    expect(rows()).toHaveLength(3);
+    expect(rows().map((r) => r.className)).toEqual(["td-row", "td-row is-changed", "td-row is-added"]);
+    expect(host!.textContent).toContain("1 columna nueva (en verde) · 1 columna cambiada (en ámbar)");
+    button("Descartar").click();
+    await flush();
+    expect(rows()).toHaveLength(2);
+    expect(host!.querySelector(".ddl-text")!.textContent).toContain("Sin cambios");
+  });
+
+  it("copies the SQL and opens it in the editor", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    installBridge();
+    const opened: string[] = [];
+    mount(() => (
+      <TableDesigner connId="c1" engine="mysql" table="users" onClose={() => {}} onOpenSql={(s) => opened.push(s)} />
+    ));
+    await flush();
+    setInput(rows()[1].querySelectorAll<HTMLInputElement>("input.td-in")[1], "TEXT");
+    expect(host!.querySelector(".td-toolbar .btn-primary")!.textContent).toBe("Aplicar 1 cambio");
+    button("Copiar").click();
+    button("Abrir en el editor").click();
+    expect(writeText).toHaveBeenCalledWith("ALTER TABLE `users` MODIFY COLUMN `name` TEXT;");
+    expect(opened).toEqual(["ALTER TABLE `users` MODIFY COLUMN `name` TEXT;"]);
+  });
+
+  it("notes what SQLite's ALTER TABLE cannot do", async () => {
+    installBridge();
+    mount(() => <TableDesigner connId="c1" engine="sqlite" table="users" onClose={() => {}} />);
+    await flush();
+    expect(host!.textContent).toContain("SQLite solo admite añadir y renombrar columnas");
   });
 });

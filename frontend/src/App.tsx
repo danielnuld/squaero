@@ -6246,6 +6246,7 @@ export function App() {
                     schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
                     onApplied={reloadTree}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
                   />
                 </Match>
                 <Match when={tt().tool === "indexes"}>

@@ -5838,6 +5838,34 @@ button.grid-action.danger:hover:not(:disabled) {
   gap: var(--sp-3);
 }
 
+/* Table designer (#692): toolbar with the verb, changed rows marked. */
+.td-toolbar h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.td-row.is-added {
+  background: var(--ok-soft);
+  box-shadow: inset 2px 0 0 var(--ok);
+}
+
+.td-row.is-changed {
+  background: var(--warn-soft);
+  box-shadow: inset 2px 0 0 var(--warn);
+}
+
+.td-under,
+.td-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.td-under + .ddl-header {
+  margin-top: var(--sp-4);
+}
+
 /* The apply step of structure sync: each statement with its status. */
 .stmt-list {
   margin: 0;
