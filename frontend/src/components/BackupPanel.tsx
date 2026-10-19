@@ -1,19 +1,28 @@
-import { For, Show, createEffect, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { withWriteConsent } from "../utils/transport";
 import { Panel } from "./Panel";
 import { t } from "../utils/i18n";
 import { errorText } from "../utils/errors";
 import { drainQuery, runQuery } from "../utils/query";
 import { parseTreeRows, qualifiedName, schemaDdl, schemaTree, type TreeRow } from "../utils/schema";
-import { dumpChunks, restoreStatements, runRestore, type DumpObject } from "../utils/backup";
+import {
+  backupProgress,
+  dumpChunks,
+  objectCounts,
+  restoreStatements,
+  runRestore,
+  type DumpObject,
+} from "../utils/backup";
 import { fileNameFor } from "../utils/exporters";
-import { pickDirectory, pickSaveTarget, writeFilesToDirectory } from "../utils/download";
+import { pickDirectory, pickSaveTarget, writeFilesToDirectory, type SaveTarget } from "../utils/download";
 import { buildDumpZip, FOLDERS, planDdlDump, readDdl, type DdlJob, type SkippedObject } from "../utils/ddlDump";
 import { objectFolders, objectLeaves, readDefinitionText } from "../utils/treeObjects";
 import { definitionFor as routineDefinitionFor } from "../utils/routines";
 import { definitionFor as objectDefinitionFor } from "../utils/triggers";
 import { Dropdown } from "./Dropdown";
-import { Wizard, WizardField } from "./Wizard";
+import { Wizard, WizardField, WizardSummary } from "./Wizard";
+import { RunProgress } from "./RunProgress";
+import { formatElapsed } from "../utils/duration";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { countText, restoreConfirm } from "../utils/confirmText";
 
@@ -47,6 +56,20 @@ export function BackupPanel(props: {
   const [skipped, setSkipped] = createSignal<string[]>([]);
   const [mode, setMode] = createSignal<"dump" | "ddl" | "restore">("dump");
   const [confirmRestore, setConfirmRestore] = createSignal(false);
+  // The backup as a wizard (#692): 0 what, 1 where, 2 review and run.
+  const [dumpStep, setDumpStep] = createSignal<0 | 1 | 2>(0);
+  const [saveTarget, setSaveTarget] = createSignal<SaveTarget | null>(null);
+  /** Rows per table, counted on the review step; null where it could not be. */
+  const [counts, setCounts] = createSignal<Record<string, number | null>>({});
+  const [run, setRun] = createSignal<{
+    startedAt: number;
+    read: Record<string, number>;
+    seen: string[];
+    current: string;
+  } | null>(null);
+  const [dumpResult, setDumpResult] = createSignal<{ ms: number; read: Record<string, number>; file: string } | null>(null);
+  let dumpCtl: AbortController | null = null;
+  onCleanup(() => dumpCtl?.abort());
   const canPickFolder = typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === "function";
 
   // The database's level is either its tables (MySQL, SQLite, Informix) or its
@@ -80,20 +103,53 @@ export function BackupPanel(props: {
   const pickAll = (on: boolean) =>
     setPicked(Object.fromEntries(objects().map((o) => [o.name, on])));
 
+  const dumpLabel = () => {
+    const sch = schema();
+    return sch ? `${props.db}.${sch}` : (props.db ?? "");
+  };
+  const tableRef = (name: string) =>
+    qualifiedName({ db: props.db ?? undefined, schema: schema() || undefined, name }, props.engine);
+
+  // «Destino»: the save dialog, opened by the click so it counts as a user gesture.
+  const chooseTarget = async () => {
+    const target = await pickSaveTarget(fileNameFor(dumpLabel(), "sql"), "application/sql");
+    if (target) setSaveTarget(target);
+  };
+
+  // «Revisar»: how many rows each table holds, for the summary and a progress
+  // bar that moves by rows. Best-effort: a count that fails is just unknown.
+  const toReview = async () => {
+    setDumpStep(2);
+    if (!data()) return;
+    const out: Record<string, number | null> = {};
+    for (const o of chosen().filter((x) => x.kind === "table")) {
+      try {
+        const r = await runQuery(props.connId, `SELECT COUNT(*) FROM ${tableRef(o.name)}`, 1);
+        const n = Number(r.rows[0]?.[0]);
+        out[o.name] = Number.isFinite(n) ? n : null;
+      } catch {
+        out[o.name] = null;
+      }
+    }
+    setCounts(out);
+  };
+
   const backup = async () => {
     const db = props.db;
-    if (!db) return;
+    const target = saveTarget();
+    if (!db || !target) return;
     const sch = schema() || undefined;
-    // The dialog first, while the click still counts as a user gesture.
-    const target = await pickSaveTarget(fileNameFor(sch ? `${db}.${sch}` : db, "sql"), "application/sql");
-    if (!target) return;
     const connId = props.connId;
     const list = chosen();
+    const ctl = new AbortController();
+    dumpCtl = ctl;
+    const startedAt = Date.now();
     let current = "";
-    setBusy(true);
     setStatus(null);
+    setRun({ startedAt, read: {}, seen: [], current: "" });
+    let writer: Awaited<ReturnType<SaveTarget["open"]>> | null = null;
     try {
-      const writer = await target.open();
+      writer = await target.open();
       await writer.write(`-- Squaero backup of ${sch ? `${db}.${sch}` : db}, ${new Date().toISOString()}\n`);
       const src = {
         ddl: async (name: string) => {
@@ -102,24 +158,68 @@ export function BackupPanel(props: {
           return ddl;
         },
         rows: (name: string) =>
-          drainQuery(connId, `SELECT * FROM ${qualifiedName({ db, schema: sch, name }, props.engine)}`, PAGE),
+          drainQuery(
+            connId,
+            `SELECT * FROM ${qualifiedName({ db, schema: sch, name }, props.engine)}`,
+            PAGE,
+            (n) => setRun((r) => r && { ...r, read: { ...r.read, [name]: n } }),
+            ctl.signal,
+          ),
       };
       const onObject = (name: string) => {
         current = name;
-        setStatus({ text: t("bk.dumping", { name }) });
+        setRun((r) => r && { ...r, current: name, seen: r.seen.includes(name) ? r.seen : [...r.seen, name] });
       };
       for await (const piece of dumpChunks(src, list, props.engine, { structure: structure(), data: data() }, onObject)) {
+        ctl.signal.throwIfAborted();
         await writer.write(piece);
       }
-      // Only a finished dump is closed, and only a closed file reaches the disk:
-      // a failure above leaves no half-written backup behind.
+      // Only a finished dump is closed, and only a closed file reaches the disk.
       await writer.close();
-      setStatus({ text: t("bk.dumped", { n: list.length }) });
+      setDumpResult({ ms: Date.now() - startedAt, read: run()?.read ?? {}, file: target.name });
     } catch (err) {
-      setStatus({ text: t("bk.dumpFailed", { name: current, reason: errorText(err) }), error: true });
+      // Cancelled or failed: what was written is discarded, never left half done.
+      await writer?.abort().catch(() => {});
+      setStatus({
+        text: ctl.signal.aborted ? t("bk.cancelled") : t("bk.dumpFailed", { name: current, reason: errorText(err) }),
+        error: true,
+      });
     } finally {
-      setBusy(false);
+      if (dumpCtl === ctl) dumpCtl = null;
+      setRun(null);
     }
+  };
+  const resetDump = () => {
+    setDumpResult(null);
+    setSaveTarget(null);
+    setStatus(null);
+    setDumpStep(0);
+  };
+  const progress = () => {
+    const r = run();
+    return r
+      ? backupProgress(chosen(), { structure: structure(), data: data() }, counts(), r.read, Math.max(0, r.seen.length - 1))
+      : null;
+  };
+  const kindsText = () => {
+    const c = objectCounts(chosen());
+    return [countText("bk.tablesN", c.tables), ...(c.views ? [countText("bk.viewsN", c.views)] : [])].join(" · ");
+  };
+  const contentText = () =>
+    structure() && data() ? t("bk.both") : structure() ? t("bk.structureOnly") : t("bk.dataOnly");
+  const totalRows = () => {
+    const values = chosen().filter((o) => o.kind === "table").map((o) => counts()[o.name]);
+    return values.length > 0 && values.every((v) => typeof v === "number")
+      ? (values as number[]).reduce((a, b) => a + b, 0)
+      : null;
+  };
+  /** One object's line in the run and the result: its rows read of its rows. */
+  const objectLine = (o: DumpObject, read: Record<string, number>) => {
+    if (o.kind === "view") return t("bk.view");
+    if (!data()) return t("bk.structureOnly");
+    const n = read[o.name] ?? 0;
+    const of = counts()[o.name];
+    return typeof of === "number" ? t("bk.rowsOf", { n, total: of }) : countText("bk.rowsN", n);
   };
 
   // Every object of the database/schema, one job each: tables and views by
@@ -262,11 +362,18 @@ export function BackupPanel(props: {
 
   const primary = () => {
     if (mode() === "dump") {
-      return {
-        label: t("bk.dump"),
-        onClick: () => void backup(),
-        disabled: !props.db || chosen().length === 0 || (!structure() && !data()),
-      };
+      if (run() || dumpResult()) return undefined;
+      if (dumpStep() === 0) {
+        return {
+          label: t("wiz.next"),
+          onClick: () => setDumpStep(1),
+          disabled: !props.db || chosen().length === 0 || (!structure() && !data()),
+        };
+      }
+      if (dumpStep() === 1) {
+        return { label: t("wiz.next"), onClick: () => void toReview(), disabled: !saveTarget() };
+      }
+      return { label: t("bk.dump"), onClick: () => void backup() };
     }
     if (mode() === "ddl") {
       return {
@@ -297,6 +404,18 @@ export function BackupPanel(props: {
         error={status()?.error ? status()!.text : null}
         busy={busy()}
         primary={primary()}
+        steps={mode() === "dump" ? [t("bk.step.what"), t("bk.step.where"), t("bk.step.review")] : undefined}
+        step={dumpResult() ? 3 : dumpStep()}
+        onBack={mode() === "dump" && dumpStep() > 0 && !run() && !dumpResult() ? () => setDumpStep((s) => (s - 1) as 0 | 1) : undefined}
+        cancelLabel={run() ? t("bk.cancelRun") : undefined}
+        onCancel={run() ? () => dumpCtl?.abort() : undefined}
+        helpers={
+          <Show when={mode() === "dump" && dumpResult()}>
+            <button type="button" class="btn" onClick={resetDump}>
+              {t("bk.again")}
+            </button>
+          </Show>
+        }
       >
         {/* Three jobs, one primary each (audit A-32): tabs, not three
             sections with a primary button apiece. */}
@@ -308,6 +427,7 @@ export function BackupPanel(props: {
                 role="tab"
                 class={mode() === id ? "seg-btn on" : "seg-btn"}
                 aria-selected={mode() === id}
+                disabled={!!run()}
                 onClick={() => {
                   setMode(id);
                   setStatus(null);
@@ -325,7 +445,7 @@ export function BackupPanel(props: {
           </p>
         </Show>
 
-        <Show when={mode() === "dump" && props.db}>
+        <Show when={mode() === "dump" && props.db && dumpStep() === 0}>
           <div class="wiz-form">
             <Show when={schemas().length > 0}>
               <WizardField label={t("bk.schema")}>
@@ -351,15 +471,19 @@ export function BackupPanel(props: {
             </div>
           </div>
           <Show when={objects().length > 0}>
-            <h3>
-              {t("bk.objects", { n: chosen().length })}{" "}
+            <div class="colmap-head">
+              <h3>{t("bk.objectsHeading")}</h3>
+              <span class="help" role="status">
+                {t("bk.picked", { n: chosen().length, total: objects().length })}
+              </span>
+              <span class="toolbar-spacer" />
               <button type="button" class="btn" onClick={() => pickAll(true)}>
                 {t("bk.selectAll")}
-              </button>{" "}
+              </button>
               <button type="button" class="btn" onClick={() => pickAll(false)}>
                 {t("bk.selectNone")}
               </button>
-            </h3>
+            </div>
             <div class="import-mapping">
               <For each={objects()}>
                 {(o) => (
@@ -375,6 +499,87 @@ export function BackupPanel(props: {
                 )}
               </For>
             </div>
+          </Show>
+        </Show>
+
+        <Show when={mode() === "dump" && props.db && dumpStep() === 1}>
+          <div class="wiz-form">
+            <WizardField label={t("bk.file")} help={t("bk.fileHelp")}>
+              <span>{saveTarget()?.name ?? fileNameFor(dumpLabel(), "sql")}</span>
+              <button type="button" class="btn" onClick={() => void chooseTarget()}>
+                {t("bk.chooseFile")}
+              </button>
+            </WizardField>
+          </div>
+        </Show>
+
+        <Show when={mode() === "dump" && props.db && dumpStep() === 2}>
+          <Show when={!run() && !dumpResult()}>
+            <h3>{t("bk.summary")}</h3>
+            <div class="wiz-form">
+              <WizardField label={t("bk.source")}>
+                <span>{target()}</span>
+              </WizardField>
+              <WizardField label={t("bk.objectsLabel")}>
+                <span>{kindsText()}</span>
+              </WizardField>
+              <WizardField label={t("bk.content")}>
+                <span>{contentText()}</span>
+              </WizardField>
+              <Show when={data()}>
+                <WizardField label={t("bk.rows")}>
+                  <span>{totalRows() ?? t("bk.rowsUnknown")}</span>
+                </WizardField>
+              </Show>
+              <WizardField label={t("bk.file")}>
+                <span>{saveTarget()?.name}</span>
+              </WizardField>
+            </div>
+            <p class="help">{t("bk.restoreNote")}</p>
+          </Show>
+          <Show when={run()}>
+            {(r) => (
+              <RunProgress
+                title={t("bk.running", { db: dumpLabel(), file: saveTarget()?.name ?? "" })}
+                done={progress()!.done}
+                total={progress()!.total}
+                unit={progress()!.unit}
+                startedAt={r().startedAt}
+                counts={r().current ? [{ label: t("bk.current", { name: r().current }) }] : []}
+                note={t("bk.cancelNote")}
+              />
+            )}
+          </Show>
+          <Show when={dumpResult()}>
+            {(res) => (
+              <>
+                <p role="status" class="import-applied">
+                  {t("bk.savedTo", { file: res().file })}
+                </p>
+                <WizardSummary
+                  stats={[
+                    { value: chosen().length, label: t("bk.stat.objects") },
+                    ...(data()
+                      ? [{ value: Object.values(res().read).reduce((a, b) => a + b, 0), label: t("bk.stat.rows") }]
+                      : []),
+                    { value: formatElapsed(res().ms), label: t("imp.stat.time") },
+                  ]}
+                />
+              </>
+            )}
+          </Show>
+          <Show when={run() || dumpResult()}>
+            <ul class="stmt-list">
+              <For each={chosen()}>
+                {(o) => (
+                  <li class={run()?.current === o.name ? "stmt is-running" : "stmt"}>
+                    <span class="stmt-num">{o.kind === "view" ? t("bk.view") : t("bk.table")}</span>
+                    <code class="stmt-sql">{o.name}</code>
+                    <span class="stmt-status">{objectLine(o, run()?.read ?? dumpResult()?.read ?? {})}</span>
+                  </li>
+                )}
+              </For>
+            </ul>
           </Show>
         </Show>
 

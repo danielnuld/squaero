@@ -192,7 +192,40 @@ describe("DataDiffWizard", () => {
     expect(methods).toContain("tx.commit");
     expect(writes(calls).map((c) => c.method)).toEqual(["row.insert", "row.update", "row.delete"]);
     expect(writes(calls).every((c) => c.params.connId === "tgt")).toBe(true);
-    expect(host!.textContent).toContain("aplicada");
+    expect(host!.textContent).toContain("3 cambios aplicados en Ventas copia");
+  });
+});
+
+// #692 (P5): the review grid, «n iguales», the confirmation with its SQL.
+describe("DataDiffWizard — review and confirm", () => {
+  it("lists every change in the shared grid: operation, key, column, now and then", async () => {
+    installBridge();
+    mount();
+    tickDelete();
+    clickButton("Comparar");
+    await settle();
+    const rows = [...host!.querySelectorAll(".wiz-preview .grid-rows [role=row]")].map((r) =>
+      [...r.querySelectorAll("[role=gridcell]:not(.grid-mark)")].map((c) => c.textContent),
+    );
+    expect(rows).toEqual([
+      ["INSERT", "3", "(fila nueva)", "(no existe)", "carol"],
+      ["UPDATE", "2", "name", "bob", "roberto"],
+      ["DELETE", "4", "(fila eliminada)", "dave", "(se elimina)"],
+    ]);
+    expect(host!.textContent).toContain("3 filas en el origen, 3 en el destino, 1 iguales.");
+  });
+
+  it("asks «¿Aplicar n cambios en X?» and shows the SQL it will run", async () => {
+    installBridge();
+    mount();
+    tickDelete();
+    clickButton("Comparar");
+    await settle();
+    document.querySelector<HTMLButtonElement>(".wiz-foot .btn-danger")!.click();
+    await settle();
+    const dialog = document.querySelector('[role="alertdialog"]')!;
+    expect(dialog.querySelector("h2, .dlg-title")!.textContent).toBe("¿Aplicar 3 cambios en Ventas copia?");
+    expect(dialog.textContent).toContain("row.insert ...");
   });
 
   it("generates no DELETE unless it is ticked", async () => {
@@ -231,5 +264,19 @@ describe("DataDiffWizard", () => {
     expect([...document.querySelectorAll(".wiz-foot button")].some((b) => b.textContent?.startsWith("Aplicar"))).toBe(false);
     expect([...document.querySelectorAll(".wiz-foot button")].some((b) => b.textContent === "Guardar .sql")).toBe(true);
     expect(writes(calls)).toEqual([]);
+  });
+});
+
+describe("DataDiffWizard — review follows the ticked operations", () => {
+  it("leaves the unticked DELETE out of the grid, but still counts equal rows over the whole table", async () => {
+    installBridge();
+    mount();
+    clickButton("Comparar");
+    await settle();
+    const ops = [...host!.querySelectorAll(".wiz-preview .grid-rows [role=row]")].map(
+      (r) => r.querySelector("[role=gridcell]:not(.grid-mark)")!.textContent,
+    );
+    expect(ops).toEqual(["INSERT", "UPDATE"]);
+    expect(host!.textContent).toContain("1 iguales.");
   });
 });

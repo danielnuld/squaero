@@ -851,3 +851,47 @@ export function diffItems(d: SchemaDiff): DiffItem[] {
   for (const v of d.changedViews) push("view", "changed", v.source.name);
   return items;
 }
+
+/** «Qué comparar» (#692): the three groups of objects the wizard offers. */
+export interface CompareScope {
+  /** Tables, columns and primary keys. */
+  structure: boolean;
+  /** Indexes, unique keys, foreign keys and CHECKs of tables on both sides. */
+  constraints: boolean;
+  views: boolean;
+}
+
+const CONSTRAINT_CATEGORIES: Category[] = ["constraints", "checks", "indexes"];
+const noChange = <T>(): AddRemove<T> => ({ added: [], removed: [] });
+
+/**
+ * The part of a diff the user asked to compare. A group left out contributes
+ * no difference, no statement and no «not compared» warning; a table created
+ * whole keeps its own keys and indexes, since a table without them is not
+ * what the source has.
+ */
+export function filterDiff(d: SchemaDiff, scope: CompareScope): SchemaDiff {
+  const changedTables = d.changedTables
+    .map((c) => ({
+      ...c,
+      ...(scope.structure ? {} : { added: [], removed: [], changed: [], pk: null }),
+      ...(scope.constraints
+        ? {}
+        : { uniques: noChange<KeyDef>(), indexes: noChange<IndexDef>(), foreignKeys: noChange<ForeignKeyDef>(), checks: noChange<CheckDef>() }),
+    }))
+    .filter((c) => !tableChangeEmpty(c));
+  return {
+    ...d,
+    addedTables: scope.structure ? d.addedTables : [],
+    removedTables: scope.structure ? d.removedTables : [],
+    changedTables,
+    addedViews: scope.views ? d.addedViews : [],
+    removedViews: scope.views ? d.removedViews : [],
+    changedViews: scope.views ? d.changedViews : [],
+    notCompared: d.notCompared.filter(
+      (n) =>
+        !(n.category === "views" && !scope.views) &&
+        !(CONSTRAINT_CATEGORIES.includes(n.category) && !scope.constraints),
+    ),
+  };
+}

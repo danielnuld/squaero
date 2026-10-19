@@ -11,6 +11,7 @@ import {
   losesData,
   isExecutable,
   scriptText,
+  filterDiff,
   type ColumnDef,
   type SchemaSnapshot,
   type TableDef,
@@ -673,5 +674,41 @@ describe("losesData", () => {
     ]) {
       expect(losesData(s), s).toBe(false);
     }
+  });
+});
+
+describe("filterDiff — «Qué comparar» (#692)", () => {
+  const ix = { name: "ix_a", columns: ["a"], unique: false };
+  const source = snap("sqlite", [table("t", [col("a"), col("b")], { indexes: [ix] }), table("nuevo", [col("x")])], {
+    views: [{ name: "v", ddl: "CREATE VIEW v AS SELECT 1" }],
+  });
+  const target = snap("sqlite", [table("t", [col("a")])], { missing: { checks: "" } });
+  const diff = diffSchemas(source, target);
+  const all = { structure: true, constraints: true, views: true };
+
+  it("keeps everything with every group on", () => {
+    expect(filterDiff(diff, all)).toEqual(diff);
+  });
+
+  it("drops views", () => {
+    const d = filterDiff(diff, { ...all, views: false });
+    expect(d.addedViews).toEqual([]);
+    expect(d.addedTables.map((t) => t.name)).toEqual(["nuevo"]);
+  });
+
+  it("drops index and key changes, and their «not compared» notes", () => {
+    const d = filterDiff(diff, { ...all, constraints: false });
+    expect(d.changedTables[0].indexes).toEqual({ added: [], removed: [] });
+    expect(d.changedTables[0].added.map((c) => c.name)).toEqual(["b"]);
+    expect(d.notCompared.some((n) => n.category === "checks")).toBe(false);
+  });
+
+  it("drops tables and columns, leaving a table with only index changes", () => {
+    const d = filterDiff(diff, { ...all, structure: false });
+    expect(d.addedTables).toEqual([]);
+    expect(d.changedTables).toHaveLength(1);
+    expect(d.changedTables[0].added).toEqual([]);
+    expect(d.changedTables[0].indexes.added).toHaveLength(1);
+    expect(diffEmpty(filterDiff(diff, { structure: false, constraints: false, views: false }))).toBe(true);
   });
 });

@@ -5710,6 +5710,253 @@ button.grid-action.danger:hover:not(:disabled) {
   font-size: var(--fs-base);
 }
 
+/* A wizard's preview of rows, in the app's grid (it needs a height to fill). */
+.wiz-preview {
+  display: flex;
+  flex-direction: column;
+}
+
+.wiz-preview-grid {
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+/* The mapping step of import and transfer: target, source, example. */
+.colmap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.colmap-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.colmap-head h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.colmap-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.colmap-grid.has-example {
+  grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr) minmax(140px, 1fr);
+}
+
+.colmap-row {
+  display: contents;
+}
+
+.colmap-th > span {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.colmap-target {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.colmap-type,
+.colmap-to {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.colmap-example {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+}
+
+.colmap-warn {
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+}
+
+/* A long wizard run (R-01): bar, figures, counters, the errors so far. */
+.run-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.run-progress h3,
+.run-progress p {
+  margin: 0;
+}
+
+.run-progress h3 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.run-progress-line {
+  font-variant-numeric: tabular-nums;
+}
+
+.run-progress-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.run-count.is-error {
+  color: var(--error);
+}
+
+.run-errors {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
+}
+
+.run-errors-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* Table designer (#692): toolbar with the verb, changed rows marked. */
+.td-toolbar h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.td-row.is-added {
+  background: var(--ok-soft);
+  box-shadow: inset 2px 0 0 var(--ok);
+}
+
+.td-row.is-changed {
+  background: var(--warn-soft);
+  box-shadow: inset 2px 0 0 var(--warn);
+}
+
+.td-under,
+.td-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.td-under + .ddl-header {
+  margin-top: var(--sp-4);
+}
+
+/* Index manager: the row the toolbar's Eliminar acts on. */
+.struct-table tr.is-selected td {
+  background: var(--accent-soft);
+}
+
+/* The apply step of structure sync: each statement with its status. */
+.stmt-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.stmt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.stmt:last-child {
+  border-bottom: 0;
+}
+
+.stmt-num {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.stmt-sql {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.stmt-status {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.stmt.is-running .stmt-status,
+.stmt.is-done .stmt-status {
+  color: var(--accent-text);
+}
+
+.stmt.is-failed .stmt-status {
+  color: var(--error);
+  white-space: normal;
+}
+
+.stmt.is-excluded,
+.stmt.is-notRun {
+  opacity: 0.6;
+}
+
+/* A wizard's closing card: the figures of what was done, then what failed. */
+.wiz-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-3);
+}
+
+.wiz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev);
+}
+
+.wiz-stat strong {
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.wiz-stat.is-error strong {
+  color: var(--error);
+}
+
+.wiz-stat span {
+  color: var(--text-dim);
+}
+
 /* Schema diff (issue #672): categorized differences, notes, script preview. */
 .ssync-diff,
 .ssync-notes {
