@@ -2,6 +2,7 @@ import { onCleanup, onMount, createEffect, createMemo } from "solid-js";
 import { keyLabel } from "../utils/shortcuts";
 import { EditorState, Compartment, RangeSet, StateEffect, StateField, type Text } from "@codemirror/state";
 import {
+  ViewPlugin,
   Decoration,
   type DecorationSet,
   EditorView,
@@ -50,6 +51,7 @@ import {
 } from "@codemirror/autocomplete";
 import { search, searchKeymap, openSearchPanel, highlightSelectionMatches } from "@codemirror/search";
 import { formatSql } from "../utils/sqlFormat";
+import { editorPhrases, matchCount, matchCountText } from "../utils/editorPhrases";
 import { editorDialect } from "../utils/sqlDialect";
 import {
   errorOffset,
@@ -204,6 +206,35 @@ const errorField = StateField.define<LineMarks>({
 // and Ctrl/Cmd+Shift+F formats it (Mod = Cmd on macOS, Ctrl elsewhere). Pure
 // tab/state logic lives in src/utils/tabs.ts and the formatter in
 // src/utils/sqlFormat.ts — this component is the thin CodeMirror binding.
+/**
+ * «1 de 2» in the find panel (audit P4): CodeMirror shows no count, so this
+ * keeps one live region at the end of the panel, announced as it changes.
+ */
+const searchCount = ViewPlugin.fromClass(
+  class {
+    constructor(view: EditorView) {
+      this.paint(view);
+    }
+    update(u: { view: EditorView }) {
+      this.paint(u.view);
+    }
+    paint(view: EditorView) {
+      const panel = view.dom.querySelector(".cm-search");
+      if (!panel) return;
+      let out = panel.querySelector<HTMLElement>(".cm-search-count");
+      if (!out) {
+        out = document.createElement("span");
+        out.className = "cm-search-count";
+        out.setAttribute("role", "status");
+        panel.insertBefore(out, panel.querySelector("button[name=close]"));
+      }
+      const count = matchCount(view.state);
+      const text = count ? matchCountText(count) : "";
+      if (out.textContent !== text) out.textContent = text;
+    }
+  },
+);
+
 /** defaultKeymap's add-cursor keys, replaced by Alt-Shift-ArrowUp/Down (R-17). */
 const CTRL_ALT_CURSOR = new Set(["Mod-Alt-ArrowUp", "Mod-Alt-ArrowDown"]);
 
@@ -280,6 +311,8 @@ export function SqlEditor(props: {
   // Reconfigured when the completion schema OR the engine changes, so autocomplete
   // tracks the active connection without rebuilding the editor.
   const sqlConf = new Compartment();
+  // CodeMirror's own words, in the UI's language; swapped when it changes.
+  const phrasesConf = new Compartment();
   // The engine's dialect drives the identifier quote the completer applies: MySQL
   // must get backticks, since a `"`-quoted name is a string literal there.
   const sqlExt = () =>
@@ -492,6 +525,8 @@ export function SqlEditor(props: {
           highlightSelectionMatches(),
           syntaxHighlighting(sqlHighlight, { fallback: true }),
           sqlConf.of(sqlExt()),
+          phrasesConf.of(EditorState.phrases.of(editorPhrases())),
+          searchCount,
           nav.extension,
           keymap.of([
             {
@@ -562,6 +597,11 @@ export function SqlEditor(props: {
     });
     props.onRunInfo?.(view.state.field(runField).info);
     emitCursor(view.state);
+  });
+
+  createEffect(() => {
+    const phrases = editorPhrases(); // tracks the locale
+    view?.dispatch({ effects: phrasesConf.reconfigure(EditorState.phrases.of(phrases)) });
   });
 
   // Swap the document when the active tab changes (tracks activeId only; the

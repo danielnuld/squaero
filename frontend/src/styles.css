@@ -9602,3 +9602,12 @@ ul.sidebar-tree {
   font-family: var(--font-mono);
   word-break: break-word;
 }
+
+/* «1 de 2» in the editor's find panel (editorPhrases.ts). */
+.cm-search-count {
+  display: inline-block;
+  margin: 0 var(--sp-2);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
