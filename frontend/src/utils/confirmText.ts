@@ -63,6 +63,71 @@ export function dropColumnsConfirm(table: string, columns: readonly string[]): C
   };
 }
 
+/** How many rows a delete confirmation lists by name; the rest are counted. */
+const LISTED_ROWS = 5;
+
+/**
+ * Deleting rows from the grid (audit P1): the table, every row by its key
+ * («id 2, id 4»; the first few, then «y n más») and the tables whose foreign
+ * keys point at it (`dependants`, as «pedidos.cliente_id»).
+ */
+export function deleteRowsConfirm(
+  table: string,
+  rows: readonly string[],
+  dependants: readonly string[] = [],
+): ConfirmText {
+  const n = rows.length;
+  const listed = rows.slice(0, LISTED_ROWS).join(", ");
+  const names = n > LISTED_ROWS ? t("confirm.deleteRows.more", { rows: listed, n: n - LISTED_ROWS }) : listed;
+  const message = countText("confirm.deleteRows.message", n, { table, rows: names });
+  return {
+    title: countText("confirm.deleteRows.title", n, { table }),
+    message:
+      dependants.length > 0
+        ? `${message} ${t("confirm.deleteRows.dependants", { table, refs: dependants.join(", ") })}`
+        : message,
+    confirm: countText("confirm.deleteRows.button", n, { table }),
+  };
+}
+
+/** Revoking privileges (audit P1): who loses what, and where. */
+export function revokeConfirm(who: string, privileges: readonly string[], scope: string): ConfirmText {
+  return {
+    title: t("confirm.revoke.title", { who }),
+    message: t("confirm.revoke.message", { who, privileges: privileges.join(", "), scope }),
+    confirm: countText("confirm.revoke.button", privileges.length),
+  };
+}
+
+/** Resetting the server's query statistics (audit P1): every user's, for good. */
+export function resetStatsConfirm(recorded: number): ConfirmText {
+  return {
+    title: t("confirm.resetStats.title"),
+    message: countText("confirm.resetStats.message", recorded),
+    confirm: t("confirm.resetStats.button"),
+  };
+}
+
+/** Deleting a whole notebook (audit P1): its name and how many cells go. */
+export function deleteNotebookConfirm(name: string, cells: number): ConfirmText {
+  return {
+    title: t("confirm.notebook.title", { name }),
+    message: countText("confirm.notebook.message", cells),
+    confirm: t("confirm.notebook.button"),
+  };
+}
+
+/** Deleting a notebook cell that has content: its number and its first line. */
+export function deleteCellConfirm(position: number, source: string): ConfirmText {
+  const first = source.trim().split("\n")[0];
+  const preview = first.length > 60 ? `${first.slice(0, 60)}…` : first;
+  return {
+    title: t("confirm.cell.title", { n: position }),
+    message: t("confirm.cell.message", { preview }),
+    confirm: t("confirm.cell.button"),
+  };
+}
+
 /** Running a .sql file over a database (audit A-10): file, size and target. */
 export function restoreConfirm(file: string, statements: number, target: string): ConfirmText {
   return {

@@ -221,6 +221,30 @@ describe("UserManager", () => {
     ).toBe(2);
   });
 
+  it("revokes only after a confirmation naming who loses what, where", async () => {
+    const calls = installBridge();
+    mount("mysql", "shop");
+    await flush();
+    [...host!.querySelectorAll<HTMLElement>(".um-user")].find((el) => el.textContent?.includes("app"))!.click();
+    await flush();
+    [...host!.querySelectorAll<HTMLLabelElement>(".um-priv")]
+      .find((l) => l.textContent?.trim().startsWith("SELECT"))!
+      .querySelector("input")!
+      .click();
+    [...host!.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Revocar")!.click();
+    await flush();
+    const revokes = () => calls.filter((c) => (c.params.sql ?? "").startsWith("REVOKE"));
+    expect(revokes()).toHaveLength(0);
+    const dlg = document.querySelector('[role="alertdialog"]')!;
+    expect(dlg.textContent).toContain("¿Revocar permisos a app@%?");
+    expect(dlg.textContent).toContain("app@% dejará de tener SELECT sobre `shop`.*");
+    const confirm = dlg.querySelector<HTMLButtonElement>(".btn-danger")!;
+    expect(confirm.textContent).toBe("Revocar 1 permiso");
+    confirm.click();
+    await flush();
+    expect(revokes()).toHaveLength(1);
+  });
+
   it("targets an edited host in the GRANT/REVOKE", async () => {
     installBridge();
     mount("mysql", "shop");

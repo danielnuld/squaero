@@ -2,12 +2,17 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
   clearHistoryConfirm,
   countText,
+  deleteCellConfirm,
+  deleteNotebookConfirm,
+  deleteRowsConfirm,
   dropColumnsConfirm,
   dropConfirm,
   isDestructiveSql,
   killSessionConfirm,
   needsTypedName,
+  resetStatsConfirm,
   restoreConfirm,
+  revokeConfirm,
 } from "../../src/utils/confirmText";
 import { setLocale } from "../../src/utils/i18n";
 
@@ -109,5 +114,50 @@ describe("dropColumnsConfirm", () => {
     expect(c.title).toBe("¿Eliminar 2 columnas de clientes?");
     expect(c.message).toContain("las columnas email, telefono");
     expect(c.confirm).toBe("Eliminar 2 columnas");
+  });
+});
+
+describe("deleteRowsConfirm", () => {
+  it("names the table and the row by its key", () => {
+    const c = deleteRowsConfirm("clientes", ["id 2"]);
+    expect(c.title).toBe("¿Eliminar 1 fila de clientes?");
+    expect(c.message).toBe("Se eliminará de forma permanente la fila id 2 de clientes.");
+    expect(c.confirm).toBe("Eliminar 1 fila de clientes");
+  });
+
+  it("lists the first rows, counts the rest, and names the dependants", () => {
+    const rows = ["id 1", "id 2", "id 3", "id 4", "id 5", "id 6", "id 7"];
+    const c = deleteRowsConfirm("clientes", rows, ["pedidos.cliente_id"]);
+    expect(c.title).toBe("¿Eliminar 7 filas de clientes?");
+    expect(c.message).toContain("7 filas de clientes: id 1, id 2, id 3, id 4, id 5 y 2 más.");
+    expect(c.message).toContain("(pedidos.cliente_id)");
+    expect(c.confirm).toBe("Eliminar 7 filas de clientes");
+  });
+});
+
+describe("the tool confirmations of audit P1", () => {
+  it("revoking names who, what and where, and counts the privileges", () => {
+    const c = revokeConfirm("app@%", ["SELECT", "INSERT"], "`shop`.*");
+    expect(c.title).toBe("¿Revocar permisos a app@%?");
+    expect(c.message).toBe("app@% dejará de tener SELECT, INSERT sobre `shop`.*.");
+    expect(c.confirm).toBe("Revocar 2 permisos");
+  });
+
+  it("resetting the statistics counts what is recorded", () => {
+    expect(resetStatsConfirm(12).message).toContain("las 12 consultas registradas");
+    expect(resetStatsConfirm(1).message).toContain("la consulta registrada");
+  });
+
+  it("deleting a notebook names it and counts its cells", () => {
+    const c = deleteNotebookConfirm("Ventas", 3);
+    expect(c.title).toBe("¿Eliminar el notebook Ventas?");
+    expect(c.message).toContain("sus 3 celdas");
+  });
+
+  it("deleting a cell shows its number and first line, cut when long", () => {
+    const c = deleteCellConfirm(2, "  DELETE FROM pedidos\nWHERE id = 1");
+    expect(c.title).toBe("¿Eliminar la celda [2]?");
+    expect(c.message).toBe("Se pierde su contenido: DELETE FROM pedidos");
+    expect(deleteCellConfirm(1, "x".repeat(80)).message).toContain(`${"x".repeat(60)}…`);
   });
 });

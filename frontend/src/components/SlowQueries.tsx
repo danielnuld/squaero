@@ -11,6 +11,8 @@ import { Panel } from "./Panel";
 import { ResultGrid } from "./ResultGrid";
 import { t } from "../utils/i18n";
 import { Dropdown } from "./Dropdown";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { resetStatsConfirm } from "../utils/confirmText";
 
 // "Consultas lentas" tool (issue #180): lists the slowest statements the SERVER
 // recorded, via query.run over performance_schema (MySQL) / pg_stat_statements
@@ -40,6 +42,8 @@ export function SlowQueries(props: {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [resetting, setResetting] = createSignal(false);
+  // Resetting wipes what the server gathered for everyone: asked first.
+  const [confirmReset, setConfirmReset] = createSignal(false);
   const [selectedRow, setSelectedRow] = createSignal<number | null>(null);
 
   let token = 0;
@@ -155,7 +159,7 @@ export function SlowQueries(props: {
             />
           </label>
           <Show when={support().resetSql}>
-            <button class="edit-btn" disabled={resetting()} onClick={reset} title={t("slow.resetTitle")}>
+            <button class="edit-btn" disabled={resetting()} onClick={() => setConfirmReset(true)} title={t("slow.resetTitle")}>
               {resetting() ? "…" : t("slow.resetStats")}
             </button>
           </Show>
@@ -187,6 +191,19 @@ export function SlowQueries(props: {
         <Show when={support().emptyHint && result() && rows().length === 0 && !loading() && !error()}>
           <p class="grid-empty">{t(support().emptyHint!)}</p>
         </Show>
+      </Show>
+      <Show when={confirmReset()}>
+        <ConfirmDialog
+          title={resetStatsConfirm(rows().length).title}
+          message={resetStatsConfirm(rows().length).message}
+          confirmLabel={resetStatsConfirm(rows().length).confirm}
+          sql={support().resetSql ?? undefined}
+          onConfirm={() => {
+            setConfirmReset(false);
+            void reset();
+          }}
+          onCancel={() => setConfirmReset(false)}
+        />
       </Show>
     </Panel>
   );

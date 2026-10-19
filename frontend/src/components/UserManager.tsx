@@ -23,7 +23,7 @@ import { parseTreeRows, schemaTree } from "../utils/schema";
 import { Panel } from "./Panel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { t } from "../utils/i18n";
-import { dropConfirm } from "../utils/confirmText";
+import { dropConfirm, revokeConfirm, type ConfirmText } from "../utils/confirmText";
 import { Icon } from "./icons";
 import { clampSidebarWidth, USERS_W_DEFAULT, USERS_W_MAX, USERS_W_MIN } from "../utils/layout";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
@@ -71,6 +71,8 @@ export function UserManager(props: {
     document.addEventListener("mouseup", onUp);
   };
   const [pendingDrop, setPendingDrop] = createSignal<{ user: UserRow; sql: string } | null>(null);
+  // Revoking asks first (audit P1): who loses which privileges, where.
+  const [pendingRevoke, setPendingRevoke] = createSignal<{ sql: string; text: ConfirmText } | null>(null);
 
   // Search + quick filters (issue #360). Everything filters the loaded list in
   // memory — no re-query, so typing stays instant on a server with many accounts.
@@ -516,7 +518,13 @@ export function UserManager(props: {
                 <button
                   class="btn danger-text"
                   disabled={busy() || !revokePreview()}
-                  onClick={() => apply(revokePreview()!)}
+                  onClick={() => {
+                    const o = grantOpts();
+                    setPendingRevoke({
+                      sql: revokePreview()!,
+                      text: revokeConfirm(`${o.user}@${o.host}`, o.privileges, o.scope),
+                    });
+                  }}
                 >
                   {t("users.revoke")}
                 </button>
@@ -526,6 +534,23 @@ export function UserManager(props: {
         </div>
       </Show>
 
+      <Show when={pendingRevoke()}>
+        {(p) => (
+          <ConfirmDialog
+            title={p().text.title}
+            message={p().text.message}
+            sql={p().sql}
+            confirmLabel={p().text.confirm}
+            busy={busy()}
+            onConfirm={() => {
+              const sql = p().sql;
+              setPendingRevoke(null);
+              void apply(sql);
+            }}
+            onCancel={() => setPendingRevoke(null)}
+          />
+        )}
+      </Show>
       <Show when={pendingDrop()}>
         {(p) => (
           <ConfirmDialog
