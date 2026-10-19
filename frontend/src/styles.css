@@ -5710,6 +5710,81 @@ button.grid-action.danger:hover:not(:disabled) {
   font-size: var(--fs-base);
 }
 
+/* A long wizard run (R-01): bar, figures, counters, the errors so far. */
+.run-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.run-progress h3,
+.run-progress p {
+  margin: 0;
+}
+
+.run-progress h3 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.run-progress-line {
+  font-variant-numeric: tabular-nums;
+}
+
+.run-progress-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.run-count.is-error {
+  color: var(--error);
+}
+
+.run-errors {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-3);
+}
+
+.run-errors-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* A wizard's closing card: the figures of what was done, then what failed. */
+.wiz-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-3);
+}
+
+.wiz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-elev);
+}
+
+.wiz-stat strong {
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.wiz-stat.is-error strong {
+  color: var(--error);
+}
+
+.wiz-stat span {
+  color: var(--text-dim);
+}
+
 /* Schema diff (issue #672): categorized differences, notes, script preview. */
 .ssync-diff,
 .ssync-notes {
