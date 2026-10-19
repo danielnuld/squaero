@@ -10,7 +10,8 @@ import { errorText } from "../utils/errors";
 import { indexListFor } from "../utils/indexes";
 import { foreignKeysFor, groupForeignKeys, parseForeignKeys, type ForeignKeyRelation } from "../utils/foreignKeys";
 import { objectsFor } from "../utils/triggers";
-import { objectCountQuery } from "../utils/pagination";
+import { rowCountSql, parseRowCounts } from "../utils/rowCounts";
+import { engineFamily } from "../utils/engineFamily";
 import { saveText, sqlFileName } from "../utils/download";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import {
@@ -182,13 +183,17 @@ export function StructureView(props: {
     void fill(setInbound, into.bulkSql, into.reason, fkRead);
     const trg = objectsFor(engine(), "trigger", scope());
     void fill(setTriggers, trg.listSql, null, (rs) => triggersOn(props.table, rs, trg));
-    const count = objectCountQuery({ db: props.db, schema: props.schema, name: props.table }, engine());
+    // The catalog's statistic, never a COUNT(*): opening a structure must not
+    // scan the table. Engines without one (SQLite, MongoDB) leave it out.
+    const count = rowCountSql(engine(), props.db, props.schema);
+    setRowCount(null);
     if (count) {
       void track(async () => {
         try {
           const r = await runQuery(props.connId, count);
-          const n = Number(r.rows[0]?.[0]);
-          setRowCount(Number.isFinite(n) ? n : null);
+          const byName = parseRowCounts(r.columns, r.rows);
+          const key = Object.keys(byName).find((k) => k.toLowerCase() === props.table.toLowerCase());
+          setRowCount(key === undefined ? null : byName[key]);
         } catch {
           setRowCount(null); // the summary simply leaves the count out
         }
@@ -279,7 +284,9 @@ export function StructureView(props: {
     for (const c of [props.db, props.schema]) if (c) parts.push(c);
     const c = cols();
     if (c) parts.push(tn("struct.nColumns", c.length));
-    if (rowCount() !== null) parts.push(tn("struct.nRows", rowCount()!));
+    // SQL Server's partition counts are exact; the other catalogs estimate.
+    if (rowCount() !== null)
+      parts.push(tn(engineFamily(engine()) === "mssql" ? "struct.nRows" : "struct.nRowsApprox", rowCount()!));
     const ix = okData(indexes());
     if (ix) parts.push(tn("struct.nIndexes", ix.length));
     const into = okData(inbound());

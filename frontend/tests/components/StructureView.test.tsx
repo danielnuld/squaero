@@ -322,7 +322,6 @@ describe("StructureView table sections", () => {
           : ok(["from_table", "from_column", "to_table", "to_column"], []);
       }
       if (sql.includes("type = 'trigger'")) return ok(["name", "table", "sql"], [["trg", "pedidos", "CREATE TRIGGER trg"]]);
-      if (/COUNT\(\*\)/.test(sql)) return ok(["n"], [["12"]]);
       return ok([], []);
     };
     host = document.createElement("div");
@@ -338,11 +337,13 @@ describe("StructureView table sections", () => {
   };
 
   it("shows the summary, readable headers and what each column takes part in", async () => {
-    mountTable();
+    const calls = mountTable();
     await flush();
     await flush();
     const text = host!.textContent ?? "";
-    expect(text).toContain("Tabla · 2 columnas · 12 filas · 1 índice");
+    // SQLite keeps no row statistic: no count, and never a COUNT(*) to get one.
+    expect(text).toContain("Tabla · 2 columnas · 1 índice");
+    expect(calls.some((sql) => /COUNT\(\*\)/i.test(sql))).toBe(false);
     const headers = [...host!.querySelectorAll("table.struct-table th")].map((th) => th.textContent);
     expect(headers.slice(0, 6)).toEqual(["#", "Nombre", "Tipo", "Admite NULL", "Por defecto", "Clave / índice"]);
     expect(text).toContain("Clave primaria");
@@ -415,5 +416,34 @@ describe("StructureView table sections", () => {
     await flush();
     const tabs = [...host!.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
     expect(tabs).not.toContain("Índices");
+  });
+});
+
+describe("StructureView row estimate", () => {
+  it("shows the catalog's statistic as approximate, without a COUNT(*)", async () => {
+    const sqls: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (requestJson: string) => {
+      const req = JSON.parse(requestJson) as { id: number; method: string; params: any };
+      const ok = (cols: string[], rows: (string | null)[][]) => ({
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: cols.map((name) => ({ name, type: "text" })), rows, truncated: false, rowsAffected: 0 },
+      });
+      if (req.method === "schema.describe") return ok(["name", "type", "notnull", "dflt_value", "pk"], [["id", "int", "1", null, "1"]]);
+      if (req.method === "schema.ddl") return ok(["sql"], [["CREATE TABLE pedidos (id int)"]]);
+      sqls.push(req.params.sql);
+      if (req.params.sql.includes("TABLE_ROWS AS n")) return ok(["name", "n"], [["otra", "5"], ["Pedidos", "1240"]]);
+      return ok([], []);
+    };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    createRoot((d) => {
+      dispose = d;
+      render(() => <StructureView connId="c1" table="pedidos" db="ventas" kind="table" engine="mysql" onClose={() => {}} />, host!);
+    });
+    await flush();
+    await flush();
+    expect(host!.querySelector(".struct-summary")!.textContent).toContain("≈ 1240 filas");
+    expect(sqls.some((sql) => /COUNT\(\*\)/i.test(sql))).toBe(false);
   });
 });

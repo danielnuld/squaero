@@ -1162,6 +1162,8 @@ export const es: Record<string, string> = {
   "struct.nColumns.one": "1 columna",
   "struct.nRows": "{n} filas",
   "struct.nRows.one": "1 fila",
+  "struct.nRowsApprox": "≈ {n} filas",
+  "struct.nRowsApprox.one": "≈ 1 fila",
   "struct.nIndexes": "{n} índices",
   "struct.nIndexes.one": "1 índice",
   "struct.referencedBy": "referenciada por {n} tablas",
