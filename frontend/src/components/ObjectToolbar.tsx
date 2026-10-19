@@ -1,28 +1,55 @@
-import { Show, createUniqueId, type JSX } from "solid-js";
+import { For, Show, type JSX } from "solid-js";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
+import { toolbarLayout, type ToolbarAction } from "../utils/objectToolbar";
 import { t } from "../utils/i18n";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 
-// Contextual object-action toolbar (design proposal, phases 2b + 8). It sits
-// above the result grid and consolidates every action that applies to the
-// object shown in the tab — edit lifecycle, import/generate/sync, transfer,
-// chart and export. Purely presentational: the workspace owns all state and
-// passes plain callbacks, so the transactional-edit flow (begin → confirm
-// preview → apply/commit; discard → rollback) is unchanged.
+// The result toolbar (issue #688): one primary action, frequent actions with
+// icon and text, the result's tools as icons, the rest under «Más». Which
+// action goes where is decided by toolbarLayout (utils/objectToolbar.ts); this
+// component only draws it. Purely presentational: the workspace owns the state
+// and passes plain callbacks, so the transactional edit flow (begin → review →
+// apply/commit; discard → rollback) is unchanged.
 //
-// Phase 8 (density + clarity): each button carries a leading glyph, and the two
-// families that used to sprawl across the bar collapse into dropdown menus —
-// "Sincronizar ▾" (Estructura / Datos, which also kills the old ambiguity
-// between "Sincronizar" and "Sincronizar datos") and "Exportar ▾" (every
-// format). The dropdowns reuse the app's single context-menu renderer.
-//
-// The primary action is highlighted with .edit-btn-primary and is contextual:
-// "Editar" when a keyed table is at rest, "Confirmar" once editing has begun.
+// There is no Editar button any more: a cell is edited in place (double click,
+// F2 or typing), which opens the edit session. While one is open the toolbar
+// leads with «Guardar (n)» and «Descartar».
 
 /** One export format offered by the workspace (text formats + xlsx). */
 export interface ExportFormatItem {
   fmt: string;
   label: string;
+}
+
+/** The views of a table that live in the same place on every one of its tabs. */
+export type ObjectView = "data" | "structure" | "indexes" | "ddl";
+
+const VIEWS: { id: ObjectView; label: string }[] = [
+  { id: "data", label: "objview.data" },
+  { id: "structure", label: "objview.structure" },
+  { id: "indexes", label: "objview.indexes" },
+  { id: "ddl", label: "objview.ddl" },
+];
+
+/** Datos · Estructura · Índices · DDL, as a segmented control. */
+export function ObjectViewSwitch(props: { current: ObjectView; onPick: (v: ObjectView) => void }) {
+  return (
+    <span class="seg" role="tablist" aria-label={t("objview.aria")}>
+      <For each={VIEWS}>
+        {(v) => (
+          <button
+            role="tab"
+            class="seg-btn"
+            classList={{ on: v.id === props.current }}
+            aria-selected={v.id === props.current}
+            onClick={() => v.id !== props.current && props.onPick(v.id)}
+          >
+            {t(v.label)}
+          </button>
+        )}
+      </For>
+    </span>
+  );
 }
 
 export interface ObjectToolbarProps {
@@ -35,9 +62,9 @@ export interface ObjectToolbarProps {
   /** True when the object is editable (has a primary key). */
   editable: boolean;
   /**
-   * Why the result is not editable, already translated (issue #718). Editar
-   * then stays on screen, disabled, and carries the reason — on a query tab
-   * too, where hiding it left the user guessing. Null/absent: nothing to say.
+   * Why the result is not editable, already translated (issue #718). Shown as
+   * a read-only note on any tab, so nobody is left guessing why a double click
+   * does nothing. Null/absent: nothing to say.
    */
   readOnlyReason?: string | null;
   /** The connection is read-only (issue #666): nothing that writes is offered. */
@@ -46,9 +73,9 @@ export interface ObjectToolbarProps {
   busy: boolean;
   /** Current edit-session error, if any. */
   error?: string | null;
-  /** Number of pending changes (label of the confirm button). */
+  /** Number of pending changes (label of the save button). */
   changeCount: number;
-  /** True when there is at least one pending change (enables Confirmar). */
+  /** True when there is at least one pending change (enables Guardar). */
   hasChanges: boolean;
   /** Export formats to offer. */
   exportFormats: ExportFormatItem[];
@@ -56,205 +83,195 @@ export interface ObjectToolbarProps {
   onRefresh: () => void;
   /**
    * Why the refresh is unavailable, already translated; null when it can run.
-   * The button is disabled and CARRIES the reason rather than disappearing —
-   * the same rule as the related-data entry (#344).
+   * The button is disabled and CARRIES the reason rather than disappearing.
    */
   refreshBlocked?: string | null;
-  onEdit: () => void;
   onImport: () => void;
   onGenerate: () => void;
   onSchemaSync: () => void;
   onDataSync: () => void;
   onTransfer: () => void;
+  /** Add a new row (opening the edit session first when needed). */
   onAddRow: () => void;
   onConfirm: () => void;
   onDiscard: () => void;
   onChart: () => void;
-  /** Columns as rows (issue #670): whether it is on, and the toggle. Absent →
-      no button. Off while editing: the transposed view is read-only. */
+  /** Columns as rows (issue #670). Absent → no button. Off while editing. */
   transposed?: boolean;
   onTranspose?: () => void;
-  /** Keep this result aside (issue #669). Absent → no button; `pinBlocked`
-      (translated) disables it and says why. */
+  /** Keep this result aside (issue #669). Absent → no button. */
   onPin?: () => void;
   pinBlocked?: string | null;
   /** Open the "compare with…" menu (issue #669). Absent → no button. */
   onCompare?: (e: MouseEvent) => void;
   onExport: (fmt: string) => void;
-  /**
-   * Actions that belong to the tab rather than to the object, dropped in the
-   * middle of the bar. A data tab has no editor, so its Plan / Historial /
-   * Snippets buttons had a 29 px band of their own directly above this one;
-   * they ride here instead (issue #386).
-   */
-  children?: JSX.Element;
+  /** The page search row of the grid (local to the loaded rows). */
+  searchOpen?: boolean;
+  onSearch?: () => void;
+  /** The table's filter panel (data tabs only). Absent → no Filtrar button. */
+  filterOpen?: boolean;
+  onFilter?: () => void;
+  /** Datos · Estructura · Índices · DDL (data tabs only). Absent → no switch. */
+  onView?: (v: ObjectView) => void;
+  /** Tab-level entries appended to «Más» (Plan, Historial, Snippets…). */
+  moreItems?: MenuItem[];
+  /** Shown while no edit session is open on an editable result. */
+  editHint?: string;
 }
 
 export function ObjectToolbar(props: ObjectToolbarProps) {
-  const reasonId = createUniqueId();
-  // Build the "Sincronizar ▾" menu: schema always, data only for an editable
-  // table with a result (the old conditional, now spelled out unambiguously).
-  const openSyncMenu = (e: MouseEvent) => {
-    const items: MenuItem[] = [
-      { label: t("objbar.syncSchema"), action: props.onSchemaSync },
-    ];
-    if (props.editable && props.hasColumns) {
-      items.push({ label: t("objbar.syncData"), action: props.onDataSync });
+  const layout = () =>
+    toolbarLayout({
+      isTable: props.isTable,
+      hasColumns: props.hasColumns,
+      editable: props.editable,
+      readOnly: !!props.readOnly,
+      canFilter: !!props.onFilter,
+      canTranspose: !!props.onTranspose,
+      canPin: !!props.onPin,
+      canCompare: !!props.onCompare,
+    });
+
+  const exportMenu = (e: MouseEvent) =>
+    openContextMenu(
+      e,
+      props.exportFormats.map((f) => ({ label: f.label, action: () => props.onExport(f.fmt) })),
+    );
+
+  const MORE: Partial<Record<ToolbarAction, () => MenuItem>> = {
+    import: () => ({ label: t("objbar.import"), action: props.onImport, disabled: props.editing }),
+    generate: () => ({ label: t("objbar.generate"), action: props.onGenerate, disabled: props.editing }),
+    transfer: () => ({ label: t("objbar.transfer"), action: props.onTransfer }),
+    syncSchema: () => ({ label: t("objbar.syncSchema"), action: props.onSchemaSync }),
+    syncData: () => ({ label: t("objbar.syncData"), action: props.onDataSync }),
+  };
+  const moreMenu = (e: MouseEvent) => {
+    const items = layout().more.map((id) => MORE[id]!());
+    if (props.moreItems?.length) {
+      if (items.length) items.push({ separator: true });
+      items.push(...props.moreItems);
     }
     openContextMenu(e, items);
   };
+  const hasMore = () => layout().more.length > 0 || (props.moreItems?.length ?? 0) > 0;
 
-  const openExportMenu = (e: MouseEvent) =>
-    openContextMenu(
-      e,
-      props.exportFormats.map((f) => ({
-        label: f.label,
-        action: () => props.onExport(f.fmt),
-      })),
-    );
+  /** A left-hand action: icon and text. */
+  const ghost = (icon: IconName, label: string, extra: JSX.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button class="edit-btn" {...extra}>
+      <Icon name={icon} size={14} class="eb-ic" /> {label}
+    </button>
+  );
+  /** A right-hand tool: icon only, named. */
+  const tool = (icon: IconName, label: string, extra: JSX.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button class="edit-btn edit-btn-icon" aria-label={label} title={label} {...extra}>
+      <Icon name={icon} size={14} />
+    </button>
+  );
+
+  const MAIN: Record<string, () => JSX.Element> = {
+    refresh: () =>
+      ghost("refresh", t("objbar.refresh"), {
+        title: props.refreshBlocked ?? t("objbar.refreshTitle"),
+        disabled: !!props.refreshBlocked,
+        onClick: () => props.onRefresh(),
+      }),
+    filter: () =>
+      ghost("filter", t("objbar.filter"), {
+        title: t("objbar.filterTitle"),
+        "aria-pressed": !!props.filterOpen,
+        onClick: () => props.onFilter?.(),
+      }),
+    search: () =>
+      ghost("search", t("objbar.search"), {
+        title: t("objbar.searchTitle"),
+        "aria-pressed": !!props.searchOpen,
+        onClick: () => props.onSearch?.(),
+      }),
+    addRow: () =>
+      ghost("plus", t("objbar.addRow"), {
+        title: t("objbar.addRowTitle"),
+        disabled: props.busy,
+        onClick: () => props.onAddRow(),
+      }),
+  };
+  const SIDE: Record<string, () => JSX.Element> = {
+    transpose: () =>
+      tool("transpose", t("objbar.transpose"), {
+        title: t("objbar.transposeTitle"),
+        "aria-pressed": !!props.transposed,
+        disabled: props.editing,
+        onClick: () => props.onTranspose?.(),
+      }),
+    pin: () =>
+      tool("pin", t("pin.pin"), {
+        title: props.pinBlocked ?? t("pin.pinTitle"),
+        disabled: !!props.pinBlocked,
+        onClick: () => props.onPin?.(),
+      }),
+    compare: () =>
+      tool("compare", t("pin.compare"), {
+        title: t("pin.compareTitle"),
+        "aria-haspopup": "menu",
+        onClick: (e: MouseEvent) => props.onCompare?.(e),
+      }),
+    chart: () => tool("chart", t("objbar.chart"), { onClick: () => props.onChart() }),
+    export: () => (
+      <button
+        class="edit-btn edit-btn-menu"
+        aria-haspopup="menu"
+        title={t("objbar.exportTitle")}
+        onClick={exportMenu}
+      >
+        <Icon name="export" size={14} class="eb-ic" /> {t("objbar.export")}{" "}
+        <Icon name="chevron-down" size={12} class="eb-caret" />
+      </button>
+    ),
+  };
 
   return (
     <div class="edit-toolbar" role="toolbar" aria-label={t("objbar.aria")}>
-      {/* First in the bar, and there for every result — a query tab's page is as
-          stale as a table's when something else writes to the database. The tree
-          has its own refresh; this one re-runs what is on screen (issue #448). */}
-      <button
-        class="edit-btn"
-        title={props.refreshBlocked ?? t("objbar.refreshTitle")}
-        disabled={!!props.refreshBlocked}
-        onClick={props.onRefresh}
-      >
-        <Icon name="refresh" size={14} class="eb-ic" /> {t("objbar.refresh")}
-      </button>
-      <span class="toolbar-sep" aria-hidden="true" />
-      <Show when={props.isTable || props.readOnlyReason}>
-        <Show
-          when={props.editing}
-          fallback={
-            <>
-              <Show
-                when={props.editable}
-                fallback={
-                  <>
-                    <button
-                      class="edit-btn edit-btn-primary"
-                      disabled
-                      aria-describedby={reasonId}
-                    >
-                      <Icon name="edit" size={14} class="eb-ic" /> {t("common.edit")}
-                    </button>
-                    <span id={reasonId} class="edit-hint-ro">
-                      {props.readOnlyReason ??
-                        t(props.readOnly ? "safe.readOnlyHint" : "objbar.readOnly.noPk")}
-                    </span>
-                  </>
-                }
-              >
-                <button
-                  class="edit-btn edit-btn-primary"
-                  disabled={props.busy}
-                  onClick={props.onEdit}
-                >
-                  <Icon name="edit" size={14} class="eb-ic" /> {t("common.edit")}
-                </button>
-              </Show>
-              <Show when={props.isTable}>
-                {/* Import and generate write into this table. */}
-                <Show when={!props.readOnly}>
-                  <button class="edit-btn" onClick={props.onImport}>
-                    <Icon name="import" size={14} class="eb-ic" /> {t("objbar.import")}
-                  </button>
-                  <button class="edit-btn" onClick={props.onGenerate}>
-                    <Icon name="generate" size={14} class="eb-ic" /> {t("objbar.generate")}
-                  </button>
-                </Show>
-                <button
-                  class="edit-btn edit-btn-menu"
-                  aria-haspopup="menu"
-                  title={t("objbar.syncTitle")}
-                  onClick={openSyncMenu}
-                >
-                  <Icon name="sync" size={14} class="eb-ic" /> {t("objbar.sync")}{" "}
-                  <Icon name="chevron-down" size={12} class="eb-caret" />
-                </button>
-                <Show when={props.hasColumns}>
-                  <button class="edit-btn" onClick={props.onTransfer}>
-                    <Icon name="transfer" size={14} class="eb-ic" /> {t("objbar.transfer")}
-                  </button>
-                </Show>
-              </Show>
-            </>
-          }
-        >
-          <button class="edit-btn" onClick={props.onAddRow}>
-            <Icon name="plus" size={14} class="eb-ic" /> {t("objbar.addRow")}
-          </button>
-          <button
-            class="edit-btn edit-btn-primary"
-            disabled={props.busy || !props.hasChanges}
-            onClick={props.onConfirm}
-          >
-            <Icon name="check" size={14} class="eb-ic" /> {t("objbar.confirm", { n: props.changeCount })}
-          </button>
-          <button
-            class="edit-btn"
-            disabled={props.busy}
-            onClick={props.onDiscard}
-          >
-            {t("objbar.discard")}
-          </button>
-        </Show>
-        <Show when={props.error}>
-          <span class="edit-error">{props.error}</span>
-        </Show>
+      <Show when={props.onView}>
+        <ObjectViewSwitch current="data" onPick={(v) => props.onView!(v)} />
+        <span class="toolbar-sep" aria-hidden="true" />
       </Show>
-
-      {props.children}
-
-      <Show when={props.hasColumns}>
-        <span class="toolbar-spacer" />
-        <Show when={props.onTranspose}>
-          <button
-            class="edit-btn"
-            aria-pressed={!!props.transposed}
-            disabled={props.editing}
-            title={t("objbar.transposeTitle")}
-            onClick={() => props.onTranspose?.()}
-          >
-            <Icon name="transpose" size={14} class="eb-ic" /> {t("objbar.transpose")}
-          </button>
-        </Show>
-        <Show when={props.onPin}>
-          <button
-            class="edit-btn"
-            disabled={!!props.pinBlocked}
-            title={props.pinBlocked ?? t("pin.pinTitle")}
-            onClick={() => props.onPin?.()}
-          >
-            <Icon name="pin" size={14} class="eb-ic" /> {t("pin.pin")}
-          </button>
-        </Show>
-        <Show when={props.onCompare}>
-          <button
-            class="edit-btn edit-btn-menu"
-            aria-haspopup="menu"
-            title={t("pin.compareTitle")}
-            onClick={(e) => props.onCompare?.(e)}
-          >
-            {t("pin.compare")} <Icon name="chevron-down" size={12} class="eb-caret" />
-          </button>
-        </Show>
-        <button class="edit-btn" onClick={props.onChart}>
-          <Icon name="chart" size={14} class="eb-ic" /> {t("objbar.chart")}
-        </button>
+      <Show when={props.editing}>
         <button
-          class="edit-btn edit-btn-menu"
-          aria-haspopup="menu"
-          title={t("objbar.exportTitle")}
-          onClick={openExportMenu}
+          class="edit-btn edit-btn-primary"
+          disabled={props.busy || !props.hasChanges}
+          onClick={() => props.onConfirm()}
         >
-          <Icon name="export" size={14} class="eb-ic" /> {t("objbar.export")}{" "}
-          <Icon name="chevron-down" size={12} class="eb-caret" />
+          <Icon name="save" size={14} class="eb-ic" /> {t("objbar.save", { n: props.changeCount })}
+        </button>
+        <button class="edit-btn" disabled={props.busy} onClick={() => props.onDiscard()}>
+          {t("objbar.discard")}
+        </button>
+        <span class="toolbar-sep" aria-hidden="true" />
+      </Show>
+      <For each={layout().main}>{(id) => MAIN[id]()}</For>
+      <Show when={!props.editable && (props.isTable || props.readOnlyReason)}>
+        <span class="edit-hint-ro" role="note">
+          <Icon name="lock" size={12} />{" "}
+          {props.readOnlyReason ??
+            t(props.readOnly ? "safe.readOnlyHint" : "objbar.readOnly.noPk")}
+        </span>
+      </Show>
+      <Show when={props.editable && !props.editing && props.editHint}>
+        <span class="edit-hint">{props.editHint}</span>
+      </Show>
+      <Show when={props.error}>
+        <span class="edit-error" role="alert">{props.error}</span>
+      </Show>
+      <span class="toolbar-spacer" />
+      <For each={layout().side}>{(id) => SIDE[id]()}</For>
+      <Show when={hasMore()}>
+        <button
+          class="edit-btn edit-btn-icon"
+          aria-haspopup="menu"
+          aria-label={t("objbar.more")}
+          title={t("objbar.more")}
+          onClick={moreMenu}
+        >
+          <Icon name="more" size={14} />
         </button>
       </Show>
     </div>

@@ -40,7 +40,7 @@ const nameField = () => host!.querySelector(".snip-save-input") as HTMLInputElem
 const toast = () => host!.querySelector(".app-toast");
 const stored = () => parseSnippets(localStorage.getItem("quaero.snippets"));
 
-const tabs = () => [...host!.querySelectorAll('[role="tab"]')] as HTMLElement[];
+const tabs = () => [...host!.querySelectorAll('.tablist [role="tab"]')] as HTMLElement[];
 const tabNames = () => tabs().map((t) => t.getAttribute("aria-label"));
 const tabByName = (name: string) => tabs().find((t) => t.getAttribute("aria-label") === name)!;
 const selectedTabName = () =>

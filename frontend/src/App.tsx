@@ -65,6 +65,7 @@ import {
   openSnippetTab,
   closeTab,
   closeOtherTabs,
+  closeTabsToRight,
   closeTabsForConn,
   cycleTab,
   updateTabSql,
@@ -320,7 +321,7 @@ import { sourceLabel } from "./utils/resultFacts";
 import { summarizeRange } from "./utils/cellSummary";
 import { transposeResult, TRANSPOSE_MAX_ROWS } from "./utils/transpose";
 import { compareResults, comparisonView, type ComparisonView } from "./utils/resultCompare";
-import { Icon, IconSearch } from "./components/icons";
+import { Icon } from "./components/icons";
 import { locale, setLocale, t } from "./utils/i18n";
 import { APP_VERSION } from "./utils/version";
 import {
@@ -331,9 +332,16 @@ import {
 } from "./utils/update";
 import { openExternal } from "./utils/openExternal";
 import { canInstall, installUpdate } from "./utils/installUpdate";
-import { ConnectionBar, SafeBadge } from "./components/ConnectionBar";
+import { ConnectionBar } from "./components/ConnectionBar";
 import { ConnectionManager } from "./components/ConnectionManager";
-import { ObjectToolbar } from "./components/ObjectToolbar";
+import { ObjectToolbar, type ObjectView } from "./components/ObjectToolbar";
+import { DocTabs } from "./components/DocTabs";
+import { Pager } from "./components/Pager";
+import { pagerView } from "./utils/pager";
+import { paneSize, savePaneSize } from "./utils/paneSizes";
+import { Rail } from "./components/Rail";
+import { loadSideState, railClick, saveSideState } from "./utils/sidePanel";
+import { tabIcon } from "./utils/tabStrip";
 import { ResultTabs } from "./components/ResultTabs";
 import {
   PinStrip,
@@ -553,10 +561,22 @@ export function App() {
   // Foreign-key pickers per tab, column -> referenced table + its candidate rows.
   // Filled when an edit session starts (loadFkLookups) and cleared with the result.
   const [fkLookups, setFkLookups] = createStore<Record<number, Record<string, FkLookup>>>({});
-  const [sidebarWidth, setSidebarWidth] = createSignal(SIDEBAR_DEFAULT);
+  // Remembered layout (#688): the side column's width, which panel it shows and
+  // whether it is folded, and the editor's share of a query tab.
+  const [sidebarWidth, setSidebarWidth] = createSignal(
+    clampSidebarWidth(paneSize("sidebar", SIDEBAR_DEFAULT)),
+  );
+  const [side, setSide] = createSignal(loadSideState());
+  createEffect(() => saveSideState(side()));
+  let sidebarEl: HTMLElement | undefined;
   // How much of a query tab the editor takes (issue #423). Dragged, not fixed:
   // a procedure's definition needs the height that an empty grid was holding.
-  const [editorPct, setEditorPct] = createSignal(EDITOR_PCT_DEFAULT);
+  const [editorPct, setEditorPct] = createSignal(
+    clampEditorPct(paneSize("editorPct", EDITOR_PCT_DEFAULT)),
+  );
+  // The grid's page search row ("Buscar en la página", #690), driven by the
+  // toolbar button and by the grid's own Ctrl+F.
+  const [gridSearch, setGridSearch] = createSignal(false);
   let panesEl: HTMLDivElement | undefined;
 
   const [connections, setConnections] = createSignal<Connection[]>(loadConnections());
@@ -2553,6 +2573,54 @@ export function App() {
     }
   };
 
+  // --- The table pager (issue #688) ----------------------------------------
+  // The total is counted on demand («Contar total») with the same filter the
+  // page uses, and kept against that exact count query: a new filter makes it
+  // stale, and a stale total would offer a last page that is not there.
+  const [totals, setTotals] = createStore<Record<number, { sql: string; n: number }>>({});
+  const [counting, setCounting] = createSignal<number | null>(null);
+  const dataCountSql = (tabId: number): string | null => {
+    const r = results[tabId];
+    if (!r?.preview) return null;
+    return objectCountQuery(r.preview.parts, r.preview.engine, filters[tabId]?.applied ?? undefined);
+  };
+  const dataTotal = (tabId: number): number | null => {
+    const sql = dataCountSql(tabId);
+    const got = totals[tabId];
+    return sql && got?.sql === sql ? got.n : null;
+  };
+  const dataPager = (tabId: number) => {
+    const r = results[tabId];
+    return pagerView({
+      offset: r?.offset ?? 0,
+      rows: r?.result?.rows.length ?? 0,
+      size: r?.pageSize ?? PAGE_LIMIT,
+      total: dataTotal(tabId),
+      more: !!r?.result?.truncated,
+      paused: !!edits[tabId]?.editing || !!r?.loading,
+    });
+  };
+  const countDataTotal = async (tabId: number) => {
+    const sql = dataCountSql(tabId);
+    const conn = tabConn(tabs().tabs.find((x) => x.id === tabId));
+    if (!sql || !conn) return;
+    setCounting(tabId);
+    try {
+      const res = await runQuery(conn.connId, sql, 1);
+      const n = Number(res.rows[0]?.[0]);
+      if (Number.isFinite(n) && n >= 0) setTotals(tabId, { sql, n });
+    } catch (err) {
+      setRunToast({ text: errMsg(err), error: true });
+    } finally {
+      setCounting(null);
+    }
+  };
+  const goToDataOffset = (tabId: number, offset: number) => {
+    const r = results[tabId];
+    if (!r?.preview || r.loading || edits[tabId]?.editing) return;
+    void runPreviewPage(tabId, r.preview, offset);
+  };
+
   /** The variable values this tab last ran with. */
   const varsOfTab = (tabId: number): VarValues => {
     const tab = tabs().tabs.find((x) => x.id === tabId);
@@ -4225,6 +4293,17 @@ export function App() {
         action: () => setTabs((s) => closeOtherTabs(s, id)),
         disabled: tabs().tabs.length < 2,
       },
+      {
+        label: t("tabmenu.closeRight"),
+        action: () => setTabs((s) => closeTabsToRight(s, id)),
+        disabled: tabs().tabs.at(-1)?.id === id,
+      },
+      { label: t("tabmenu.closeAll"), action: () => setTabs((s) => ({ ...s, tabs: [], activeId: 0 })) },
+      { separator: true },
+      {
+        label: t("tabmenu.copyName"),
+        action: () => void copyText(tabs().tabs.find((x) => x.id === id)?.title ?? ""),
+      },
       ...(tabs().tabs.some((x) => x.id === id && x.kind === "query" && !isDataTab(id))
         ? [{ label: t("lhist.menu"), action: () => openLocalHistory(id) }]
         : []),
@@ -4234,15 +4313,45 @@ export function App() {
   };
 
   // Open a table's structure (columns + DDL) as a tool tab.
-  const openStructure = (node: TreeNode) => {
+  const openStructure = (node: TreeNode, section?: "structure" | "definition") => {
     if (active()) {
       recordRecent(node);
       syncWorkingDb(node.db);
       showTool("structure", t("tab.structure", { name: node.label }), {
         key: `struct:${node.db ?? ""}.${node.schema ?? ""}.${node.label}`,
-        params: { node },
+        params: { node, section },
       });
     }
+  };
+
+  // Datos · Estructura · Índices · DDL (issue #688): the same switch on every
+  // tab of a table, each view opening (or focusing) its own tab.
+  const showObjectView = (node: TreeNode, view: ObjectView) => {
+    if (view === "data") openData(node);
+    else if (view === "indexes") openIndexes(node);
+    else openStructure(node, view === "ddl" ? "definition" : "structure");
+  };
+  /** The tree node a data tab browses: the tree's own when it is loaded. */
+  const dataTabNode = (tabId: number): TreeNode | null => {
+    const p = results[tabId]?.preview?.parts;
+    if (!p) return null;
+    const scope = p.schema ?? p.db;
+    return (
+      objectNodeFor(focusedObjects(), scope ? `${scope}.${p.name}` : p.name) ?? {
+        key: `obj:${p.db ?? ""}.${p.schema ?? ""}.${p.name}`,
+        label: p.name,
+        kind: "table",
+        db: p.db,
+        schema: p.schema,
+      }
+    );
+  };
+  // A new row opens the edit session first: there is no Editar button (#688).
+  const addRowInPlace = async () => {
+    const tab = current();
+    if (!tab) return;
+    if (!currentEdit().editing) await beginEdit();
+    if (edits[tab.id]?.editing) onAddInsert();
   };
 
   // Go to definition from the editor (issue #663): a table or view opens its
@@ -4314,12 +4423,15 @@ export function App() {
   // Sidebar drag-to-resize: track the pointer on the document until release.
   const startResize = (e: MouseEvent) => {
     e.preventDefault();
+    // Measured from the column's own left edge: the rail sits before it.
+    const left = sidebarEl?.getBoundingClientRect().left ?? 0;
     const onMove = (ev: MouseEvent) =>
-      setSidebarWidth(clampSidebarWidth(ev.clientX));
+      setSidebarWidth(clampSidebarWidth(ev.clientX - left));
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
+      savePaneSize("sidebar", sidebarWidth());
     };
     document.body.style.cursor = "col-resize";
     document.addEventListener("mousemove", onMove);
@@ -4339,6 +4451,7 @@ export function App() {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
+      savePaneSize("editorPct", editorPct());
     };
     document.body.style.cursor = "row-resize";
     document.addEventListener("mousemove", onMove);
@@ -4451,38 +4564,67 @@ export function App() {
   return (
     <div class="app">
       <div class="main">
-        <aside class="sidebar" style={{ width: `${sidebarWidth()}px` }}>
-          <div class="sidebar-section-title">{t("conn.title")}</div>
+        <Rail
+          side={side()}
+          onPick={(panel) => setSide((s) => railClick(s, panel))}
+          connected={!!active()}
+          onConnections={openConnectionsTab}
+          onSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
+        />
+        {/* The side column stays mounted when folded or switched: the trees
+            keep their expansion, filter and loaded objects (#444, #689). */}
+        <aside
+          class="sidebar"
+          ref={sidebarEl}
+          hidden={side().collapsed}
+          aria-label={t(`rail.${side().panel}Title`)}
+          style={{ width: `${sidebarWidth()}px` }}
+        >
+          <Show when={side().panel === "history"}>
+            <HistoryPanel
+              docked
+              entries={history()}
+              slowThresholdMs={settings().slowThresholdMs}
+              engine={active()?.driver}
+              onRun={runFromHistory}
+              onClear={clearHistory}
+              onClose={() => setSide((s) => ({ ...s, panel: "explorer" }))}
+            />
+          </Show>
+          <Show when={side().panel === "snippets"}>
+            <SnippetsPanel
+              docked
+              entries={snippets()}
+              onOpen={openSnippet}
+              onInsert={insertSnippet}
+              onRename={renameSnip}
+              onSetAbbr={setSnipAbbr}
+              onDuplicate={duplicateSnip}
+              onRemove={removeSnip}
+              onExport={exportSnippets}
+              onImport={importSnippets}
+              onClose={() => setSide((s) => ({ ...s, panel: "explorer" }))}
+            />
+          </Show>
+          <Show when={side().panel === "search" && active()}>
+            {(conn) => (
+              <DataSearchPanel
+                connId={conn().connId}
+                engine={activeDialect()}
+                db={activeDb()}
+                onOpen={(sql, table) => openSearchMatches(sql, table, conn().defId)}
+              />
+            )}
+          </Show>
+          <div class="side-explorer" hidden={side().panel !== "explorer"}>
           <ConnectionBar
             connections={connections()}
-            /* The bar draws one row per open connection (#525). The second line
-               comes from the SAVED connection, which is where the DSN lives. */
-            open={openConns().map((o) => {
-              const saved = connections().find((c) => c.id === o.defId);
-              const label = driverSchema(o.driver)?.label ?? o.driver;
-              const target = saved ? connectionTarget(saved) : "";
-              return {
-                defId: o.defId,
-                name: o.name,
-                driver: o.driver,
-                color: o.color,
-                lost: o.lost,
-                reconnecting: o.reconnecting,
-                reconnected: o.reconnected,
-                txStatements: txOpenCount(o) ?? undefined,
-                sub: target ? `${label} · ${target}` : label,
-                safeMode: saved?.safeMode,
-              };
-            })}
-            focusedDefId={focusedDefId()}
-            onFocus={setFocusedDefId}
-            onReconnectConn={(defId) => inConn(defId, reconnect)()}
+            openIds={openConns().map((o) => o.defId)}
             connectingId={connectingId()}
             onPick={onConnect}
             onNew={onNewConnection}
-            onDisconnect={(defId) => void disconnect(defId)}
             /* Creating, editing, importing and exporting live in their own tab
-               now (#525); the bar's search only links to it. */
+               (#525); the search only links to it. */
             onImport={openConnectionsTab}
             onManage={openConnectionsTab}
           />
@@ -4492,15 +4634,20 @@ export function App() {
               its own virtualized scroller. */}
           <Show
             when={openConns().length > 0}
-            fallback={<p class="sidebar-empty">{t("tree.connectHint")}</p>}
           >
-            <div class="sidebar-tree">
+            <ul class="sidebar-tree" aria-label={t("connbar.listLabel")}>
               <For each={openConns()}>
                 {(conn) => {
                   const focused = () => conn.defId === focusedDefId();
                   const collapsed = () => collapsedSections().has(conn.defId);
+                  const saved = () => connections().find((c) => c.id === conn.defId);
+                  const sub = () => {
+                    const label = driverSchema(conn.driver)?.label ?? conn.driver;
+                    const target = saved() ? connectionTarget(saved()!) : "";
+                    return target ? `${label} · ${target}` : label;
+                  };
                   return (
-                    <div
+                    <li
                       class="conn-section"
                       classList={{ "is-collapsed": collapsed(), "is-focused": focused() }}
                       style={{ "--conn-accent": conn.color ?? "var(--accent)" }}
@@ -4511,6 +4658,19 @@ export function App() {
                         engine={conn.driver}
                         title={conn.name}
                         accent={conn.color}
+                        conn={{
+                          driver: conn.driver,
+                          sub: sub(),
+                          focused: focused(),
+                          lost: conn.lost,
+                          reconnecting: conn.reconnecting,
+                          reconnected: conn.reconnected,
+                          txStatements: txOpenCount(conn) ?? undefined,
+                          safeMode: saved()?.safeMode,
+                          busy: connectingId() !== null,
+                        }}
+                        onFocusConn={() => setFocusedDefId(conn.defId)}
+                        onReconnect={() => inConn(conn.defId, reconnect)()}
                         collapsed={collapsed()}
                         onToggleCollapse={() =>
                           setCollapsedSections((s) => toggleSection(s, conn.defId))
@@ -4561,15 +4721,27 @@ export function App() {
                           </div>
                         </Show>
                       </ObjectTree>
-                    </div>
+                    </li>
                   );
                 }}
               </For>
-            </div>
+            </ul>
           </Show>
+          </div>
         </aside>
 
-        <div class="resizer" onMouseDown={startResize} />
+        <div
+          class="resizer"
+          role="separator"
+          aria-orientation="vertical"
+          hidden={side().collapsed}
+          title={t("panes.sidebarTitle")}
+          onMouseDown={startResize}
+          onDblClick={() => {
+            setSidebarWidth(SIDEBAR_DEFAULT);
+            savePaneSize("sidebar", SIDEBAR_DEFAULT);
+          }}
+        />
 
         <section class="workspace">
           {/* A protected connection (issue #666) keeps the strip even without a
@@ -4586,134 +4758,33 @@ export function App() {
               }
             />
           </Show>
-          {/* One navigation band instead of two (issue #386). The ribbon of 12
-              destinations above these tabs opened exactly what the tabs then
-              showed, and gave a tool the same weight as a table. What replaced
-              it is the launcher on the left — the Ctrl+K palette, which already
-              indexes every tool, object, snippet and action — plus an icon-only
-              strip that ⋯ unfolds for the times you would rather point at a
-              tool than name it. 68 px of chrome become 32.
-
-              A real tablist (issue #338): these were bare divs, so nothing but
-              sight could tell which tab was selected — and "one tab per snippet"
-              is a promise about exactly that. aria-label pins the accessible name
-              to the title, which the close button's × and the connection name
-              would otherwise pad. */}
-          <div class="tabbar">
-            <button
-              class="tab-launch"
-              title={`${t("toolbar.launchTitle")} (${paletteKeys()})`}
-              onClick={() => {
-                setPaletteMode("all");
-                setPaletteOpen(true);
-              }}
-            >
-              <span class="tab-launch-ic" aria-hidden="true">
-                <IconSearch />
-              </span>
-              <span class="tab-launch-lb">{t("toolbar.launch")}</span>
-              <kbd class="tab-kbd">{paletteKeys()}</kbd>
-            </button>
-            <span class="tab-sep" aria-hidden="true" />
-            <div class="tablist" role="tablist" aria-label={t("tab.listLabel")}>
-              <For each={tabs().tabs}>
-                {(tab) => (
-                  <div
-                    class={`tab ${tab.id === tabs().activeId ? "active" : ""} ${
-                      tab.kind === "tool" ? "tab-tool" : ""
-                    }`}
-                    role="tab"
-                    aria-selected={tab.id === tabs().activeId}
-                    aria-label={
-                      isUnsaved(tab) ? t("tab.unsaved", { title: tab.title }) : tab.title
-                    }
-                    /* The connection used to be spelled out on every tab —
-                       "clientes 🐬 (Ventas (demo))", nested parentheses and all,
-                       repeated even when only one connection was open. The colour
-                       on the edge and the dot say it without spending the width;
-                       the name stays a hover away, and in the status bar. */
-                    title={
-                      tabConn(tab) ? `${tab.title} — ${tabConn(tab)!.name}` : tab.title
-                    }
-                    tabindex={tab.id === tabs().activeId ? 0 : -1}
-                    style={
-                      tabColor(tab) ? { "border-left-color": tabColor(tab)! } : undefined
-                    }
-                    onClick={() => selectTab(tab.id)}
-                    /* Middle click closes it, the way a browser tab does
-                       (issue #459). The mousedown is cancelled as well, or
-                       Chromium answers the middle button with its autoscroll
-                       cursor before the click ever arrives. */
-                    onMouseDown={(e) => e.button === 1 && e.preventDefault()}
-                    onAuxClick={(e) => e.button === 1 && removeTab(tab.id, e)}
-                    onKeyDown={(e) => onTabKeyDown(e, tab.id)}
-                    onContextMenu={(e) => tabMenu(e, tab.id)}
-                  >
-                    <Show when={tabColor(tab)}>
-                      <span class="conn-color tab-conn-color" style={{ background: tabColor(tab) }} />
-                    </Show>
-                    <SafeBadge mode={safeModeOf(tab.connDefId)} />
-                    <span class="tab-title">{tab.title}</span>
-                    <Show when={isUnsaved(tab)}>
-                      <span class="tab-unsaved" aria-hidden="true">
-                        •
-                      </span>
-                    </Show>
-                    <button
-                      class="tab-close"
-                      title={t("tab.closeTitle")}
-                      aria-label={t("tab.closeTitle")}
-                      onClick={(e) => removeTab(tab.id, e)}
-                    >
-                      <Icon name="close" size={12} />
-                    </button>
-                  </div>
-                )}
-              </For>
-              <button
-                class="tab-new"
-                title={t("toolbar.newQuery.title")}
-                aria-label={t("toolbar.newQuery.title")}
-                onClick={newTab}
-              >
-                <Icon name="plus" size={14} />
-              </button>
-            </div>
-            <span class="tabbar-spacer" />
-            <button
-              class="tab-tools"
-              aria-expanded={settings().toolStrip}
-              title={t("toolbar.tools")}
-              aria-label={t("toolbar.tools")}
-              onClick={() => patchSettings({ toolStrip: !settings().toolStrip })}
-            >
-              <Icon name="more" />
-            </button>
-          </div>
-
-          <Show when={settings().toolStrip}>
-            <div class="toolstrip" role="toolbar" aria-label={t("toolbar.actions")}>
-              <For each={TOOL_CATALOG}>
-                {(item) => (
-                  <button
-                    class="toolstrip-btn"
-                    title={t(item.title)}
-                    aria-label={t(item.label)}
-                    /* The saved connections are the one tool that asks no server
-                       anything, so it stays usable with nothing connected —
-                       which is the whole point of it (issue #525). NOT every
-                       GLOBAL_TOOLS entry: that set means "one tab whichever
-                       connection is focused", and the notebook is in it while
-                       still needing a connection to run anything. */
-                    disabled={!active() && item.tool !== "connections"}
-                    onClick={() => showTool(item.tool, t(item.tabTitle), { key: item.key })}
-                  >
-                    <item.Icon />
-                  </button>
-                )}
-              </For>
-            </div>
-          </Show>
+          {/* Desktop document tabs (issue #688). The Ctrl+K palette keeps a door
+              at the strip's end; tools live in the Herramientas menu and the
+              palette, so the ⋯ tool strip is gone. */}
+          <DocTabs
+            tabs={tabs().tabs.map((tab) => ({
+              id: tab.id,
+              title: tab.title,
+              icon: tabIcon(tab, isDataTab(tab.id)),
+              color: tabColor(tab),
+              conn: openConns().length > 1 ? tabConn(tab)?.name : undefined,
+              safe: safeModeOf(tabConn(tab)?.defId),
+              running: !!results[tab.id]?.loading,
+              dirty: isUnsaved(tab),
+              tool: tab.kind === "tool",
+            }))}
+            activeId={tabs().activeId}
+            onSelect={selectTab}
+            onClose={removeTab}
+            onKeyDown={onTabKeyDown}
+            onContextMenu={tabMenu}
+            onNew={newTab}
+            paletteKeys={paletteKeys()}
+            onPalette={() => {
+              setPaletteMode("all");
+              setPaletteOpen(true);
+            }}
+          />
 
           <div class="workspace-main">
           <Show when={currentQuery()}>
@@ -4959,7 +5030,10 @@ export function App() {
                     aria-orientation="horizontal"
                     title={t("panes.dividerTitle")}
                     onMouseDown={startEditorResize}
-                    onDblClick={() => setEditorPct(EDITOR_PCT_DEFAULT)}
+                    onDblClick={() => {
+                      setEditorPct(EDITOR_PCT_DEFAULT);
+                      savePaneSize("editorPct", EDITOR_PCT_DEFAULT);
+                    }}
                   />
                 </Show>
                 <div class="result-pane">
@@ -5026,13 +5100,12 @@ export function App() {
                       exportFormats={EXPORT_FORMATS}
                       onRefresh={() => reloadCurrent(tab().id)}
                       refreshBlocked={refreshBlockedReason(tab().id)}
-                      onEdit={beginEdit}
+                      onAddRow={() => void addRowInPlace()}
                       onImport={() => openImport()}
                       onGenerate={openGen}
                       onSchemaSync={openSchemaSync}
                       onDataSync={openDataSync}
                       onTransfer={openTransfer}
-                      onAddRow={onAddInsert}
                       onConfirm={confirmEdit}
                       onDiscard={discardEdit}
                       onChart={openChart}
@@ -5042,31 +5115,43 @@ export function App() {
                       pinBlocked={pinBlocked()}
                       onCompare={(e) => openCompareMenu(e, "current")}
                       onExport={(fmt) => void doExport(fmt as AnyExportFormat)}
-                    >
-                      {/* A data tab has no editor bar to hold these, so they
-                          ride in the action bar rather than in a band of their
-                          own above it (issue #386). */}
-                      <Show when={isDataTab(tab().id)}>
-                        <span class="toolbar-sep" aria-hidden="true" />
-                        <button class="edit-btn" title={t("editor.planTitle")} onClick={explainActive}>
-                          {t("editor.plan")}
-                        </button>
-                        <button
-                          class="edit-btn"
-                          title={t("editor.historyTitle")}
-                          onClick={() => showTool("history", t("editor.history"), { key: "history" })}
-                        >
-                          {t("editor.history")}
-                        </button>
-                        <button
-                          class="edit-btn"
-                          title={t("editor.snippetsTitle")}
-                          onClick={() => showTool("snippets", t("editor.snippets"), { key: "snippets" })}
-                        >
-                          {t("editor.snippets")}
-                        </button>
-                      </Show>
-                    </ObjectToolbar>
+                      searchOpen={gridSearch()}
+                      onSearch={() => setGridSearch((v) => !v)}
+                      editHint={t("objbar.editHint")}
+                      filterOpen={isDataTab(tab().id) && !filterOf(tab().id).collapsed}
+                      onFilter={
+                        isDataTab(tab().id)
+                          ? () => withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
+                          : undefined
+                      }
+                      onView={
+                        isDataTab(tab().id)
+                          ? (view) => {
+                              const node = dataTabNode(tab().id);
+                              const defId = tab().connDefId;
+                              if (!node) return;
+                              if (defId) inConn(defId, showObjectView)(node, view);
+                              else showObjectView(node, view);
+                            }
+                          : undefined
+                      }
+                      /* A data tab has no editor bar to hold these (issue #386). */
+                      moreItems={
+                        isDataTab(tab().id)
+                          ? [
+                              { label: t("editor.plan"), action: explainActive },
+                              {
+                                label: t("editor.history"),
+                                action: () => showTool("history", t("editor.history"), { key: "history" }),
+                              },
+                              {
+                                label: t("editor.snippets"),
+                                action: () => showTool("snippets", t("editor.snippets"), { key: "snippets" }),
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
                   </Show>
                   <Show when={currentEdit().preview}>
                     {(sqls) => (
@@ -5173,6 +5258,9 @@ export function App() {
                               currentEditable() && !currentEdit().editing ? beginEdit : undefined
                             }
                             fk={currentFk()}
+                            showOldValues={settings().showOldValues}
+                            searchOpen={gridSearch()}
+                            onSearchOpenChange={setGridSearch}
                             edit={
                               currentEditable()
                                 ? {
@@ -5288,6 +5376,31 @@ export function App() {
                       )}
                     </Show>
                   </div>
+                  {/* A table's pager lives under its rows (#688); a query's
+                      stays in the status bar until #693 moves it. */}
+                  <Show
+                    when={
+                      isDataTab(tab().id) &&
+                      !comparison() &&
+                      !shownPin() &&
+                      (currentResult().result?.columns.length ?? 0) > 0
+                    }
+                  >
+                    <Pager
+                      view={dataPager(tab().id)}
+                      total={dataTotal(tab().id)}
+                      counting={counting() === tab().id}
+                      onCount={dataCountSql(tab().id) ? () => void countDataTotal(tab().id) : undefined}
+                      paused={currentEdit().editing}
+                      onFirst={() => goToDataOffset(tab().id, 0)}
+                      onPrev={() => pageBy(-1)}
+                      onNext={() => pageBy(1)}
+                      onLast={() => {
+                        const last = dataPager(tab().id).lastOffset;
+                        if (last !== null) goToDataOffset(tab().id, last);
+                      }}
+                    />
+                  </Show>
                 </div>
               </div>
             )}
@@ -5384,6 +5497,18 @@ export function App() {
                     schema={(tt().params as { schema?: string }).schema}
                     onClose={() => closeTool(tt().id)}
                     onChanged={reloadTree}
+                    onView={(view) => {
+                      const p = tt().params as { table: string; db?: string; schema?: string };
+                      const node: TreeNode = {
+                        key: `obj:${p.db ?? ""}.${p.schema ?? ""}.${p.table}`,
+                        label: p.table,
+                        kind: "table",
+                        db: p.db,
+                        schema: p.schema,
+                      };
+                      if (tt().connDefId) inConn(tt().connDefId!, showObjectView)(node, view);
+                      else showObjectView(node, view);
+                    }}
                   />
                 </Match>
                 <Match when={tt().tool === "structure"}>
@@ -5396,6 +5521,12 @@ export function App() {
                     engine={activeDialect()}
                     onClose={() => closeTool(tt().id)}
                     onApplied={reloadTree}
+                    initialSection={(tt().params as { section?: "structure" | "definition" }).section}
+                    onView={(view) => {
+                      const node = (tt().params as { node: TreeNode }).node;
+                      if (tt().connDefId) inConn(tt().connDefId!, showObjectView)(node, view);
+                      else showObjectView(node, view);
+                    }}
                   />
                 </Match>
                 <Match when={tt().tool === "schemaSync"}>
@@ -5831,7 +5962,9 @@ export function App() {
            it holds still while there are unsaved cell edits: paging away would
            drop them (issue #134). */
         page={
-          currentResult().pageSql && (currentResult().result?.columns.length ?? 0) > 0
+          currentResult().pageSql &&
+          !isDataTab(current()?.id ?? -1) &&
+          (currentResult().result?.columns.length ?? 0) > 0
             ? {
                 from:
                   (currentResult().offset ?? 0) +
@@ -5849,7 +5982,6 @@ export function App() {
         theme={theme()}
         onToggleTheme={toggleTheme}
         onShowHelp={() => showTool("help", t("status.shortcuts"), { key: "help" })}
-        onShowSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
       />
 
       <CommandPalette

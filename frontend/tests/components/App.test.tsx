@@ -31,8 +31,8 @@ describe("App shell", () => {
     mount();
     // Explorer-first layout: the connection bar sits at the top of the sidebar.
     expect(host!.querySelector(".connbar")).not.toBeNull();
-    // With nothing open the bar says so and offers to connect (issue #525).
-    expect(host!.textContent).toContain("Ninguna abierta");
+    // With nothing open the explorer says so and offers to connect (#525, #689).
+    expect(host!.textContent).toContain("Sin conexión");
     expect(host!.textContent).toContain("No hay ninguna conexión abierta");
     // A fresh workspace has one query tab and the empty-grid prompt.
     expect(host!.querySelector(".tabbar")).not.toBeNull();
@@ -43,29 +43,52 @@ describe("App shell", () => {
 // The navigation band (issue #386): the ribbon of 12 destinations is gone, and
 // what replaced it has to actually reach the same places.
 describe("App — one navigation band", () => {
-  it("has no ribbon; the launcher opens the palette and ⋯ folds the tools away", () => {
+  it("has no ribbon and no tool strip; the search button opens the palette", () => {
     mount();
     expect(host!.querySelector(".apptoolbar")).toBeNull();
+    // Tools live in the Herramientas menu and the palette (#688).
+    expect(host!.querySelector(".toolstrip")).toBeNull();
 
     const launch = host!.querySelector(".tab-launch") as HTMLButtonElement;
     expect(launch).not.toBeNull();
     launch.click();
     expect(host!.querySelector(".cmdk")).not.toBeNull();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-
-    // The strip shows by default: it is how someone finds out the twelve tools
-    // are there at all. ⋯ folds it away, and that choice is remembered.
-    const tools = host!.querySelector(".tab-tools") as HTMLButtonElement;
-    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(12);
-    tools.click();
-    expect(host!.querySelector(".toolstrip")).toBeNull();
-    tools.click();
-    expect(host!.querySelectorAll(".toolstrip-btn").length).toBe(12);
   });
 
-  it("does not spell the connection out on the tab", () => {
+  it("spells the connection out on the tab only when several are open", () => {
     mount();
     expect(host!.querySelector(".tab-conn")).toBeNull();
+  });
+});
+
+// The rail and the side column (issues #688, #689).
+describe("App — rail", () => {
+  const railButton = (label: string) =>
+    [...host!.querySelectorAll<HTMLButtonElement>(".rail-btn")].find(
+      (b) => b.textContent?.trim() === label,
+    )!;
+
+  it("switches the side column and folds it on the panel already shown", () => {
+    localStorage.clear();
+    mount();
+    const aside = host!.querySelector<HTMLElement>("aside.sidebar")!;
+    expect(aside.hidden).toBe(false);
+    railButton("Historial").click();
+    expect(aside.querySelector(".history")).not.toBeNull();
+    expect(aside.querySelector<HTMLElement>(".side-explorer")!.hidden).toBe(true);
+    railButton("Objetos").click();
+    expect(aside.querySelector(".history")).toBeNull();
+    railButton("Objetos").click();
+    expect(aside.hidden).toBe(true);
+    railButton("Objetos").click();
+    expect(aside.hidden).toBe(false);
+  });
+
+  it("opens the settings as a tab from the rail", () => {
+    mount();
+    railButton("Ajustes").click();
+    expect(host!.querySelector(".tab.active")?.textContent).toContain("Ajustes");
   });
 });
 

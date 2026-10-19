@@ -229,17 +229,16 @@ describe("SettingsPanel", () => {
     expect(onSetSettings).toHaveBeenCalledWith({ checkUpdatesOnStart: false });
   });
 
-  // Issue #386: the strip is what tells you the tools exist, so hiding it is a
-  // decision that has to be findable — and reversible — in words.
-  it("toggles the tool strip", () => {
+  // Issues #688/#690: the old value beside the new one is a grid preference.
+  it("toggles showing the previous value of changed cells", () => {
     const onSetSettings = vi.fn();
-    mount({ settings: { ...DEFAULT_SETTINGS, toolStrip: true }, onSetSettings });
-    goto("Ventana");
-    const check = checkbox("Barra de herramientas");
-    expect(check.checked).toBe(true);
-    check.checked = false;
+    mount({ settings: { ...DEFAULT_SETTINGS, showOldValues: false }, onSetSettings });
+    goto("Rejilla");
+    const check = checkbox("Mostrar el valor anterior");
+    expect(check.checked).toBe(false);
+    check.checked = true;
     check.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(onSetSettings).toHaveBeenCalledWith({ toolStrip: false });
+    expect(onSetSettings).toHaveBeenCalledWith({ showOldValues: true });
   });
 
   it("shows the injected app version and the core version from app.hello", async () => {

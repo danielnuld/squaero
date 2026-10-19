@@ -114,7 +114,8 @@ describeEngine("sqlite", () => {
     await page.getByRole("treeitem", { name: "e2e_items", exact: true }).click();
     await expect(page.getByText("Nogales", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Editar", exact: true }).click();
+    // Edited in place (#688): a double click on a cell opens the edit session.
+    await page.getByRole("gridcell").filter({ hasText: "Nogales" }).first().dblclick();
 
     // Both roles have to exist: the cell as a gridcell, and the editable control
     // inside it as a textbox named after its column. Putting the gridcell role on

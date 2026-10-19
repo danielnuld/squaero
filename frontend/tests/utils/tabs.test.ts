@@ -9,6 +9,7 @@ import {
   openSnippetTab,
   closeTab,
   closeOtherTabs,
+  closeTabsToRight,
   closeTabsForConn,
   updateTabSql,
   updateTabVars,
@@ -238,6 +239,28 @@ describe("closeTab", () => {
     expect(
       openSnippetTab(s, { id: "snip-1", name: "n", body: "" }).activeId,
     ).toBe(4);
+  });
+});
+
+describe("closeTabsToRight", () => {
+  it("drops the tabs right of the given one and keeps the active tab", () => {
+    let s = addTab(addTab(addTab(addTab(empty)))); // tabs 1..4, active 4
+    s = { ...s, activeId: 1 };
+    s = closeTabsToRight(s, 2);
+    expect(s.tabs.map((t) => t.id)).toEqual([1, 2]);
+    expect(s.activeId).toBe(1);
+  });
+
+  it("moves the selection to the given tab when the active one is closed", () => {
+    const s = closeTabsToRight(addTab(addTab(addTab(empty))), 1); // active 3
+    expect(s.tabs.map((t) => t.id)).toEqual([1]);
+    expect(s.activeId).toBe(1);
+  });
+
+  it("is a no-op for the last tab and for an unknown id", () => {
+    const s = addTab(addTab(empty));
+    expect(closeTabsToRight(s, 2)).toBe(s);
+    expect(closeTabsToRight(s, 999)).toBe(s);
   });
 });
 

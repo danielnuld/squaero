@@ -88,7 +88,7 @@ describe("parseSettings", () => {
       gridStyle: "informe" as const,
       slowThresholdMs: 1200,
       checkUpdatesOnStart: false,
-      toolStrip: false,
+      showOldValues: true,
       colorTypes: false,
       editorDiagnostics: false,
       builtinTemplates: false,
@@ -125,9 +125,8 @@ describe("parseSettings", () => {
     expect(out.gridDensity).toBe("compact");
     expect(out.slowThresholdMs).toBe(DEFAULT_SETTINGS.slowThresholdMs);
     expect(out.checkUpdatesOnStart).toBe(DEFAULT_SETTINGS.checkUpdatesOnStart);
-    // A blob written before the tool strip existed gets it shown, not hidden:
-    // the strip is how someone finds out the tools are there (issue #386).
-    expect(out.toolStrip).toBe(true);
+    // A blob written before the setting existed keeps the tooltip-only look.
+    expect(out.showOldValues).toBe(false);
     // Diagnostics (#662) start on for a blob saved before they existed.
     expect(out.editorDiagnostics).toBe(true);
     // Settings saved before templates existed (#665) offer the built-ins.

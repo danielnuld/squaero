@@ -21,6 +21,8 @@ export function HistoryPanel(props: {
   onRun: (sql: string) => void;
   onClear: () => void;
   onClose: () => void;
+  /** Shown in the side column (#689): running an entry keeps it open. */
+  docked?: boolean;
 }) {
   const [query, setQuery] = createSignal("");
   const [onlySlow, setOnlySlow] = createSignal(false);
@@ -37,11 +39,11 @@ export function HistoryPanel(props: {
 
   const pick = (sql: string) => {
     props.onRun(sql);
-    props.onClose();
+    if (!props.docked) props.onClose();
   };
 
   return (
-    <Panel title={t("hist.title")} class="history" onClose={props.onClose}>
+    <Panel title={t("hist.title")} class="history" docked={props.docked} onClose={props.onClose}>
       <h2>{t("hist.title")}</h2>
       <div class="history-controls">
         <input
