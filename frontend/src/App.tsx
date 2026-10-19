@@ -60,7 +60,7 @@ import { loadCellColors, saveCellColors } from "./utils/cellColorStore";
 import type { CellKind } from "./utils/format";
 import {
   addTab,
-  blankSession,
+  emptySession,
   openTool,
   GLOBAL_TOOLS,
   openSnippetTab,
@@ -564,18 +564,16 @@ export function App() {
   //
   // It is now OFFERED rather than applied (issue #465): coming back is right
   // when you were interrupted and wrong when you have moved on. A saved session
-  // worth asking about waits in `pendingRestore` while the app opens a blank
-  // tab behind the prompt — numbered from the stored `seq`, so nothing gets a
-  // recycled id whichever way the user answers (issue #355).
+  // worth asking about waits in `pendingRestore` while the app opens with no
+  // tab behind the prompt — numbering on from the stored `seq`, so nothing gets
+  // a recycled id whichever way the user answers (issue #355).
   const stored = loadWorkspace();
   const [pendingRestore, setPendingRestore] = createSignal<TabState | null>(
     stored && worthRestoring(stored) ? stored : null,
   );
-  // Whether or not there is a session to offer, the app opens on a blank tab
-  // numbered from 1 again; a saved session comes back only when resumed.
-  const [tabs, setTabs] = createSignal<TabState>(
-    blankSession(stored, t("toolbar.newQuery.label")),
-  );
+  // Whether or not there is a session to offer, the app opens with no tab, on
+  // the welcome screen (issue #694); a saved session comes back only when resumed.
+  const [tabs, setTabs] = createSignal<TabState>(emptySession(stored));
   const [results, setResults] = createStore<Record<number, TabResult>>({});
   const [edits, setEdits] = createStore<Record<number, EditSessionState>>({});
   // Foreign-key pickers per tab, column -> referenced table + its candidate rows.
@@ -1125,8 +1123,8 @@ export function App() {
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   createEffect(() => {
     const state = tabs();
-    // Nothing is written while the restore prompt is up (issue #465): the blank
-    // tab behind it would overwrite the very session being offered, and a
+    // Nothing is written while the restore prompt is up (issue #465): the empty
+    // workspace behind it would overwrite the very session being offered, and a
     // machine that dies with the dialog open would take it with no answer given.
     if (pendingRestore()) return;
     clearTimeout(saveTimer);
@@ -1995,7 +1993,7 @@ export function App() {
     const saved = pendingRestore();
     setPendingRestore(null);
     if (!saved) return;
-    // Numbering goes on from the resumed session's titles, not the blank tab's.
+    // Numbering goes on from the resumed session's titles.
     setTabs({ ...saved, seq: Math.max(saved.seq ?? 0, tabs().seq ?? 0), num: saved.num });
     for (const defId of restoreConnIds(saved)) {
       const c = connections().find((x) => x.id === defId);

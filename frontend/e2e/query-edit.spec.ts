@@ -6,7 +6,7 @@
 // editable as the table view, and one that is not must say why instead of hiding
 // the button.
 
-import { connect, readNombre, runSql } from "./support/app-actions";
+import { connect, newQuery, readNombre, runSql } from "./support/app-actions";
 import { describeAllEngines, expect, test } from "./support/fixtures";
 
 describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (name) => {
@@ -14,6 +14,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (name) => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     // Written the way people write: upper-case names, an alias, a WHERE, a
     // trailing `;`. PostgreSQL and Informix fold the unquoted table name to
@@ -42,6 +43,7 @@ describeAllEngines(["sqlite", "postgres", "mysql", "informix"], (name) => {
     const { page } = app;
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     // The key is not in the result, so no single row can be pointed at.
     await runSql(page, "SELECT nombre FROM e2e_items WHERE id = 2");

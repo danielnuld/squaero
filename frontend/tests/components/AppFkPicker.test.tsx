@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "../../src/App";
+import { openQueryTab } from "./appHelpers";
 
 // Integration: the foreign-key picker as a user actually reaches it — connect,
 // run a query over a table, press "Editar", and expect the FK column to offer
@@ -165,6 +166,9 @@ describe("App — the foreign-key picker, end to end", () => {
     // Connect (the + opens the search, which lists the saved connection).
     click(host.querySelector(".connbar-add"));
     click(host.querySelector(".connsearch-hit"));
+    await settle();
+    // Connecting lands on the connection's home (#694); open a query tab.
+    openQueryTab(host);
     await settle();
 
     // Run a plain single-table query from the empty state's history.

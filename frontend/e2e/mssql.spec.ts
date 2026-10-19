@@ -5,7 +5,7 @@
 // rows, and this driver does not build DML yet, so those cases would fail for a
 // reason that is a missing feature, not a regression.
 
-import { cell, connect, openFixtureTable, runSql } from "./support/app-actions";
+import { cell, connect, newQuery, openFixtureTable, runSql } from "./support/app-actions";
 import { describeEngine, expect, test } from "./support/fixtures";
 import { bulkFill } from "./support/seed";
 
@@ -49,6 +49,7 @@ describeEngine("mssql", () => {
   test("runs SQL typed in the editor", async ({ app }) => {
     await app.open();
     await connect(app);
+    await newQuery(app.page);
 
     await runSql(app.page, "SELECT N'ñandú' AS saludo, 6 * 7 AS respuesta");
 
