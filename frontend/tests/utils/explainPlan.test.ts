@@ -5,7 +5,10 @@ import {
   buildStructuredExplain,
   parsePlan,
   expensivePath,
-  layoutPlan,
+  analyzeBlocked,
+  visibleRows,
+  planTotals,
+  planText,
   nodeWeight,
   type PlanNode,
 } from "../../src/utils/explainPlan";
@@ -156,31 +159,6 @@ describe("expensivePath", () => {
     expect(nodeWeight({ id: 0, op: "x", cost: 5, rows: 9, children: [] })).toBe(5);
     expect(nodeWeight({ id: 0, op: "x", rows: 9, children: [] })).toBe(9);
     expect(nodeWeight({ id: 0, op: "x", children: [] })).toBe(0);
-  });
-});
-
-describe("layoutPlan", () => {
-  const tree: PlanNode = {
-    id: 0,
-    op: "root",
-    children: [
-      { id: 1, op: "a", children: [] },
-      { id: 2, op: "b", children: [] },
-    ],
-  };
-  it("places children on the next row and centers the parent over them", () => {
-    const { nodes, edges, width, height } = layoutPlan(tree, { nodeW: 100, nodeH: 50, gapX: 20, gapY: 30 });
-    const byId = new Map(nodes.map((n) => [n.id, n]));
-    const a = byId.get(1)!;
-    const b = byId.get(2)!;
-    const root = byId.get(0)!;
-    expect(a.y).toBe(80); // depth 1 * (50+30)
-    expect(root.y).toBe(0);
-    // Parent centered between the two leaves.
-    expect(root.x + 50).toBeCloseTo((a.x + 50 + b.x + 50) / 2);
-    expect(edges).toHaveLength(2);
-    expect(width).toBeGreaterThan(0);
-    expect(height).toBe(130); // two rows: 50 + 30 + 50
   });
 });
 
@@ -381,5 +359,100 @@ describe("planRows (table view)", () => {
 
   it("is one row for a single node", () => {
     expect(planRows(node(0, "Result", 0))).toHaveLength(1);
+  });
+});
+
+describe("ANALYZE", () => {
+  it("measures the plan on PostgreSQL and MongoDB", () => {
+    expect(buildStructuredExplain("postgres", "SELECT 1", true)).toBe("EXPLAIN (ANALYZE, FORMAT JSON) SELECT 1");
+    expect(buildStructuredExplain("mongodb", "db.t.find({})", true)).toBe('db.t.find({}).explain("executionStats")');
+    // Elsewhere the flag changes nothing: analyzeBlocked keeps it off.
+    expect(buildStructuredExplain("sqlite", "SELECT 1", true)).toBe("EXPLAIN QUERY PLAN SELECT 1");
+  });
+
+  it("is offered only where measured and only for a statement that reads", () => {
+    expect(analyzeBlocked("postgres", "SELECT * FROM t")).toBeNull();
+    expect(analyzeBlocked("postgres", "DELETE FROM t")).toBe("plan.analyzeWrites");
+    expect(analyzeBlocked("mongodb", "db.t.find({})")).toBeNull();
+    expect(analyzeBlocked("mysql", "SELECT 1")).toBe("plan.analyzeEngine");
+    expect(analyzeBlocked("sqlite", "SELECT 1")).toBe("plan.analyzeEngine");
+  });
+
+  it("reads PostgreSQL's measures, condition and properties", () => {
+    const raw = JSON.stringify([
+      {
+        Plan: {
+          "Node Type": "Sort",
+          "Startup Cost": 83.9,
+          "Total Cost": 86,
+          "Plan Rows": 1240,
+          "Plan Width": 48,
+          "Actual Rows": 1000,
+          "Actual Total Time": 2.1,
+          "Actual Loops": 1,
+          "Sort Key": ["fecha DESC"],
+          "Sort Method": "top-N heapsort",
+          Plans: [],
+        },
+      },
+    ]);
+    const n = parsePlan("pg-json", ["QUERY PLAN"], [[raw]])!;
+    expect(n).toMatchObject({ actualRows: 1000, actualTime: 2.1, loops: 1, startupCost: 83.9, width: 48 });
+    expect(n.detail).toBe("fecha DESC");
+    expect(n.props).toEqual([
+      ["Sort Key", "fecha DESC"],
+      ["Sort Method", "top-N heapsort"],
+    ]);
+  });
+});
+
+describe("plan rows, totals and text", () => {
+  const tree: PlanNode = {
+    id: 0,
+    op: "Sort",
+    cost: 100,
+    actualTime: 4.1,
+    children: [
+      { id: 1, op: "Hash Join", cost: 90, children: [
+        { id: 2, op: "Seq Scan", table: "pedidos", cost: 60, rows: 1240, children: [] },
+        { id: 3, op: "Hash", cost: 10, children: [] },
+      ] },
+    ],
+  };
+
+  it("works out each node's own cost and share, and the costliest node", () => {
+    const rows = planRows(tree);
+    expect(rows.map((r) => r.selfCost)).toEqual([10, 20, 60, 10]);
+    expect(rows.map((r) => r.share)).toEqual([0.1, 0.2, 0.6, 0.1]);
+    expect(rows.filter((r) => r.costliest).map((r) => r.op)).toEqual(["Seq Scan"]);
+    expect(rows.map((r) => r.parent)).toEqual([null, 0, 1, 1]);
+    expect(rows.map((r) => r.hasChildren)).toEqual([true, true, false, false]);
+  });
+
+  it("has no share without costs", () => {
+    const rows = planRows({ id: 0, op: "SCAN", children: [] });
+    expect(rows[0].selfCost).toBeUndefined();
+    expect(rows[0].share).toBeUndefined();
+    expect(rows[0].costliest).toBe(false);
+  });
+
+  it("hides the descendants of a folded node", () => {
+    const rows = planRows(tree);
+    expect(visibleRows(rows, new Set([1])).map((r) => r.id)).toEqual([0, 1]);
+    expect(visibleRows(rows, new Set([0])).map((r) => r.id)).toEqual([0]);
+    expect(visibleRows(rows, new Set())).toHaveLength(4);
+  });
+
+  it("totals the plan", () => {
+    expect(planTotals(tree)).toEqual({ nodes: 4, cost: 100, time: 4.1 });
+  });
+
+  it("writes the plan as indented text", () => {
+    expect(planText(tree).split("\n")).toEqual([
+      "Sort  [cost=100 time=4.1ms]",
+      "  -> Hash Join  [cost=90]",
+      "    -> Seq Scan on pedidos  [rows=1240 cost=60]",
+      "    -> Hash  [cost=10]",
+    ]);
   });
 });

@@ -32,11 +32,16 @@ const VIEWS: { id: ObjectView; label: string }[] = [
   { id: "ddl", label: "objview.ddl" },
 ];
 
-/** Datos · Estructura · Índices · DDL, as a segmented control. */
-export function ObjectViewSwitch(props: { current: ObjectView; onPick: (v: ObjectView) => void }) {
+/** Datos · Estructura · Índices · DDL, as a segmented control. A view has no
+    indexes of its own, so `noIndexes` leaves that one out. */
+export function ObjectViewSwitch(props: {
+  current: ObjectView;
+  onPick: (v: ObjectView) => void;
+  noIndexes?: boolean;
+}) {
   return (
     <span class="seg" role="tablist" aria-label={t("objview.aria")}>
-      <For each={VIEWS}>
+      <For each={props.noIndexes ? VIEWS.filter((v) => v.id !== "indexes") : VIEWS}>
         {(v) => (
           <button
             role="tab"
@@ -120,6 +125,8 @@ export interface ObjectToolbarProps {
   onSort?: () => void;
   /** Datos · Estructura · Índices · DDL (data tabs only). Absent → no switch. */
   onView?: (v: ObjectView) => void;
+  /** The object is a view: the switch offers no «Índices». */
+  isView?: boolean;
   /** Tab-level entries appended to «Más» (Plan, Historial, Snippets…). */
   moreItems?: MenuItem[];
   /** Shown while no edit session is open on an editable result. */
@@ -252,7 +259,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
   return (
     <div class="edit-toolbar" role="toolbar" aria-label={t("objbar.aria")}>
       <Show when={props.onView}>
-        <ObjectViewSwitch current="data" onPick={(v) => props.onView!(v)} />
+        <ObjectViewSwitch current="data" noIndexes={props.isView} onPick={(v) => props.onView!(v)} />
         <span class="toolbar-sep" aria-hidden="true" />
       </Show>
       <Show when={props.editing}>

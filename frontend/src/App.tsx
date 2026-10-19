@@ -393,6 +393,7 @@ import {
   type PinnedResult,
 } from "./components/PinnedResults";
 import { ObjectListView } from "./components/ObjectListView";
+import { ToolTabContext, busyTools, onToolJobFinished } from "./utils/toolJobs";
 import { ConnectionForm } from "./components/ConnectionForm";
 import { RelatedData } from "./components/RelatedData";
 import { RestorePrompt } from "./components/RestorePrompt";
@@ -2447,6 +2448,14 @@ export function App() {
     // The Toast clears a success itself; an error stays until it is closed.
     setRunToast({ text: t(failed ? "run.failed" : "run.done", args), error: failed });
   };
+  // A tool's job that ends in a tab the user has left (M14 P6), said like a
+  // run's. Under a second it was a refresh caught mid-flight, not news.
+  onToolJobFinished((id, ms) => {
+    const tab = tabs().tabs.find((x) => x.id === id);
+    if (!tab || current()?.id === id || ms < 1000) return;
+    // The Toast clears a success itself.
+    setRunToast({ text: t("tool.jobDone", { title: tab.title, duration: formatDuration(ms) }), error: false });
+  });
   const showErrorToast = (text: string) => {
     setRunToast({ text, error: true });
   };
@@ -5490,7 +5499,7 @@ export function App() {
               color: tabColor(tab),
               conn: openConns().length > 1 ? tabConn(tab)?.name : undefined,
               safe: safeModeOf(tabConn(tab)?.defId),
-              running: !!results[tab.id]?.loading,
+              running: !!results[tab.id]?.loading || busyTools().has(tab.id),
               dirty: isUnsaved(tab),
               tool: tab.kind === "tool",
             }))}
@@ -5852,6 +5861,7 @@ export function App() {
                           ? () => withFilter(tab().id, (f) => ({ ...f, collapsed: !f.collapsed }))
                           : undefined
                       }
+                      isView={dataTabNode(tab().id)?.kind === "view"}
                       onView={
                         isDataTab(tab().id)
                           ? (view) => {
@@ -6243,6 +6253,7 @@ export function App() {
               // result to chart, another connection to edit — has to rebuild the
               // panel, or onMount never sees the new params.
               <Show when={`${tt().id}:${tt().rev ?? 0}`} keyed>
+              <ToolTabContext.Provider value={tt().id}>
               <Switch>
                 <Match when={tt().tool === "objectList"}>
                   <ObjectListView
@@ -6257,6 +6268,12 @@ export function App() {
                         db: (tt().params as { db: string }).db,
                       })
                     }
+                    onOpenStructure={(name, type) => {
+                      const db = (tt().params as { db: string }).db;
+                      openStructure({ key: `db:${db}/obj:${name}`, label: name, kind: type === "view" ? "view" : "table", db });
+                    }}
+                    onNewTable={() => openTableDesigner((tt().params as { db: string }).db)}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -6352,6 +6369,14 @@ export function App() {
                       const node = (tt().params as { node: TreeNode }).node;
                       if (tt().connDefId) inConn(tt().connDefId!, showObjectView)(node, view);
                       else showObjectView(node, view);
+                    }}
+                    onModify={() => openAlterTable((tt().params as { node: TreeNode }).node)}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
+                    onOpenObject={(name) => {
+                      const { db, schema } = (tt().params as { node: TreeNode }).node;
+                      const node: TreeNode = { key: `obj:${db ?? ""}.${schema ?? ""}.${name}`, label: name, kind: "table", db, schema };
+                      if (tt().connDefId) inConn(tt().connDefId!, openStructure)(node);
+                      else openStructure(node);
                     }}
                   />
                 </Match>
@@ -6500,6 +6525,9 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     db={activeDb() ?? undefined}
+                    onOpenTable={(name, view) =>
+                      openData({ key: `db:${activeDb() ?? ""}/obj:${name}`, label: name, kind: view ? "view" : "table", db: activeDb() ?? undefined })
+                    }
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -6544,6 +6572,7 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     engine={activeDialect()}
                     sql={(tt().params as { sql: string }).sql}
+                    onOpenSql={(sql) => openSqlInNewTab(sql)}
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
@@ -6591,6 +6620,7 @@ export function App() {
                   <ShortcutsHelp isMac={isMac()} shortcuts={shortcuts()} onClose={() => closeTool(tt().id)} />
                 </Match>
               </Switch>
+              </ToolTabContext.Provider>
               </Show>
             )}
           </Show>
