@@ -77,11 +77,15 @@ export function commitsImplicitly(sql: string, engine: string): boolean {
 // back. Locking or writing selects count as writes.
 const READS = /^(?:select|show|describe|desc|explain|values|table)\b/;
 const WRITING_SELECT = /\bfor (?:update|share|no key update|key share)\b|\binto\b|\block in\b/;
+// A CTE reads unless one of its parts writes (PostgreSQL allows DML in WITH).
+const WITH_READ = /^with\b/;
+const DML_WORD = /\b(?:insert|update|delete|merge)\b/;
 
 /** True when `sql` only reads (by its leading verb). Fail-closed: anything
-    unrecognised — WITH included, which can wrap a write — is not. Pure. */
+    unrecognised is not, and a WITH reads only when no part of it writes. Pure. */
 export function readsOnly(sql: string): boolean {
   const s = normalized(sql);
+  if (WITH_READ.test(s)) return !DML_WORD.test(s) && !WRITING_SELECT.test(s);
   return READS.test(s) && !WRITING_SELECT.test(s);
 }
 
