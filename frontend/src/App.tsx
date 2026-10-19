@@ -356,7 +356,9 @@ import { paneSize, savePaneSize } from "./utils/paneSizes";
 import { Rail } from "./components/Rail";
 import { loadSideState, railClick, saveSideState } from "./utils/sidePanel";
 import { tabIcon } from "./utils/tabStrip";
-import { ResultTabs } from "./components/ResultTabs";
+import { ResultTabs, type ResultView } from "./components/ResultTabs";
+import { ResultMessages } from "./components/ResultMessages";
+import { runMessages, appendMessages, type RunMessage } from "./utils/runMessages";
 import {
   PinStrip,
   PinNote,
@@ -578,6 +580,14 @@ export function App() {
   // the welcome screen (issue #694); a saved session comes back only when resumed.
   const [tabs, setTabs] = createSignal<TabState>(emptySession(stored));
   const [results, setResults] = createStore<Record<number, TabResult>>({});
+  // The result pane's view per query tab (#691): the result(s), the run
+  // messages, or the plan of the statement last explained there.
+  const [resultViews, setResultViews] = createStore<Record<number, ResultView>>({});
+  const [runLogs, setRunLogs] = createStore<Record<number, RunMessage[]>>({});
+  const [planSqls, setPlanSqls] = createStore<Record<number, string>>({});
+  const resultView = (tabId: number): ResultView => resultViews[tabId] ?? "result";
+  const logRun = (tabId: number, lines: RunMessage[]) =>
+    setRunLogs(tabId, (log) => appendMessages(log ?? [], lines));
   // Rows per page, owned by the UI (sent explicitly, not the core default) and
   // remembered (A-20, R-38). Table previews fetch page-by-page with a server-side
   // LIMIT/OFFSET (runPreviewPage); a plain query pages via the core's row-skip
@@ -2357,6 +2367,8 @@ export function App() {
     }
     // What the editor held when it ran (issue #674); page turns are not a run.
     if (offset === 0 && tab.kind === "query" && !isDataTab(id)) recordLocal(tab, "run");
+    // A fresh run shows its result, whichever view the pane was on.
+    if (offset === 0) setResultViews(id, "result");
     // Run against the tab's OWN connection (bound at creation), so a prod tab and
     // a dev tab keep hitting their own servers regardless of which is focused. A
     // tab with no binding follows whatever is focused.
@@ -2456,6 +2468,18 @@ export function App() {
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
         showRunToast(id, ranAt, elapsedMs, !!shown?.error);
+        logRun(
+          id,
+          runMessages({
+            at: ranAt,
+            sql: trimmed,
+            sets,
+            result,
+            error: shown?.error ?? null,
+            elapsedMs,
+            warnings: implicitCommit ? [t("tx.implicitCommit")] : undefined,
+          }),
+        );
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
       // A page turn keeps the source it already had; a fresh query derives it.
@@ -2486,6 +2510,17 @@ export function App() {
       if (offset === 0) {
         recordHistory(trimmed, conn, elapsedMs);
         showRunToast(id, ranAt, elapsedMs, true);
+        logRun(
+          id,
+          runMessages({
+            at: ranAt,
+            sql: trimmed,
+            result: null,
+            error: errorText(err),
+            elapsedMs,
+            warnings: implicitCommit ? [t("tx.implicitCommit")] : undefined,
+          }),
+        );
       }
       if (implicitCommit) showErrorToast(t("tx.implicitCommit"));
     }
@@ -2896,6 +2931,13 @@ export function App() {
     const sql = sqlOfTab(tab.id).trim();
     if (!sql) {
       setResults(tab.id, { ...emptyResult(), error: t("error.emptyQuery") });
+      return;
+    }
+    // A query tab shows the plan in its own result pane, under «Plan» (#691);
+    // anything else keeps the plan's tool tab.
+    if (tab.kind === "query" && !isDataTab(tab.id)) {
+      setPlanSqls(tab.id, sql);
+      setResultViews(tab.id, "plan");
       return;
     }
     showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
@@ -5266,7 +5308,10 @@ export function App() {
                     }}
                   />
                 </Show>
-                <div class="result-pane">
+                <div
+                  class="result-pane"
+                  classList={{ "is-alt-view": !isDataTab(tab().id) && resultView(tab().id) !== "result" }}
+                >
                   {/* What the run did or is doing (issue #691, R-01): the clock
                       while it runs, the summary or the failed line after. */}
                   <Show when={!isDataTab(tab().id)}>
@@ -5288,12 +5333,33 @@ export function App() {
                   {/* One tab per statement when a script ran (issue #450).
                       Above the toolbar: the tab chooses which result Refrescar,
                       Graficar and Exportar act on. */}
-                  <Show when={(currentResult().sets?.length ?? 0) > 1}>
+                  {/* Plus «Mensajes» and «Plan» on a query tab (#691). */}
+                  <Show when={!isDataTab(tab().id) || (currentResult().sets?.length ?? 0) > 1}>
                     <ResultTabs
-                      sets={currentResult().sets!}
+                      sets={currentResult().sets ?? []}
                       active={currentResult().activeSet ?? 0}
                       onSelect={(i) => selectSet(tab().id, i)}
+                      view={isDataTab(tab().id) ? undefined : resultView(tab().id)}
+                      onView={isDataTab(tab().id) ? undefined : (v) => setResultViews(tab().id, v)}
                     />
+                  </Show>
+                  <Show when={!isDataTab(tab().id) && resultView(tab().id) === "messages"}>
+                    <ResultMessages messages={runLogs[tab().id] ?? []} />
+                  </Show>
+                  <Show when={!isDataTab(tab().id) && resultView(tab().id) === "plan"}>
+                    <Show
+                      when={planSqls[tab().id]}
+                      fallback={<p class="grid-empty result-alt">{t("plan.empty")}</p>}
+                    >
+                      {(sql) => (
+                        <ExplainPlan
+                          connId={tabConn(tab())?.connId ?? ""}
+                          engine={activeDialect()}
+                          sql={sql()}
+                          docked
+                        />
+                      )}
+                    </Show>
                   </Show>
                   <Show when={tabPins().length > 0}>
                     <PinStrip

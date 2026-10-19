@@ -427,3 +427,38 @@ export function layoutPlan(root: PlanNode, opts: LayoutOpts = DEFAULT_LAYOUT): P
   const maxY = nodes.reduce((m, n) => Math.max(m, n.y + nodeH), 0);
   return { nodes, edges, width: maxX, height: maxY };
 }
+
+// ---- Table view (ExplainPlanTable) ------------------------------------------
+/** One node of the plan as a row of the table view, indented by `depth`. */
+export interface PlanRow {
+  id: number;
+  depth: number;
+  op: string;
+  table?: string;
+  rows?: number;
+  cost?: number;
+  detail?: string;
+  /** On the costliest path from the root (the tree's highlight). */
+  hot: boolean;
+}
+
+/** The plan flattened top-down (parent before children), as the table lists it. */
+export function planRows(root: PlanNode): PlanRow[] {
+  const hot = expensivePath(root);
+  const out: PlanRow[] = [];
+  const walk = (n: PlanNode, depth: number) => {
+    out.push({
+      id: n.id,
+      depth,
+      op: n.op,
+      table: n.table,
+      rows: n.rows,
+      cost: n.cost,
+      detail: n.detail,
+      hot: hot.has(n.id),
+    });
+    for (const c of n.children) walk(c, depth + 1);
+  };
+  walk(root, 0);
+  return out;
+}

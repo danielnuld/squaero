@@ -9021,3 +9021,76 @@ ul.sidebar-tree {
 :root[data-backdrop="mica"] .workspace {
   background: var(--bg);
 }
+
+/* The result pane's «Mensajes» and «Plan» views (issue #691): they take the
+   pane's place below the status band and the tab strip; the grid and its bars
+   stay mounted (and keep their scroll) underneath, only out of sight. */
+.result-pane.is-alt-view > :not(.run-status):not(.result-tabs):not(.run-messages):not(.tool-pane):not(.result-alt) {
+  display: none;
+}
+.run-messages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-sm);
+}
+.run-messages ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.run-msg {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: baseline;
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--border);
+}
+.run-msg-at,
+.run-msg-ms {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.run-msg-what {
+  flex: none;
+}
+.run-msg.is-error .run-msg-what {
+  color: var(--error);
+}
+.run-msg.is-warning .run-msg-what {
+  color: var(--warn);
+}
+.run-msg-sql {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+.ep-table {
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  width: 100%;
+}
+.ep-table th,
+.ep-table td {
+  text-align: left;
+  padding: var(--sp-1) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.ep-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ep-table tr.hot td {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.ep-table .ep-detail {
+  white-space: normal;
+  color: var(--text-dim);
+}

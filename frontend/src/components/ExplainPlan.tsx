@@ -7,6 +7,7 @@ import {
   parsePlan,
   expensivePath,
   layoutPlan,
+  planRows,
   DEFAULT_LAYOUT,
   type PlanNode,
 } from "../utils/explainPlan";
@@ -25,8 +26,12 @@ export function ExplainPlan(props: {
   connId: string;
   engine: string;
   sql: string;
-  onClose: () => void;
+  onClose?: () => void;
+  /** Inside the result pane's «Plan» tab (#691): Escape is not the panel's. */
+  docked?: boolean;
 }) {
+  // Tree (the SVG) or table (ExplainPlanTable): the same nodes, two readings.
+  const [view, setView] = createSignal<"tree" | "table">("tree");
   const kind = createMemo(() => explainKind(props.engine));
   const [plan, setPlan] = createSignal<PlanNode | null>(null);
   const [raw, setRaw] = createSignal<string | null>(null);
@@ -80,6 +85,17 @@ export function ExplainPlan(props: {
       title={t("tab.explainPlan")}
       class="explain-plan"
       onClose={props.onClose}
+      docked={props.docked}
+      actions={
+        <span class="seg" role="group" aria-label={t("plan.viewAria")}>
+          <button class="seg-btn" classList={{ on: view() === "tree" }} aria-pressed={view() === "tree"} onClick={() => setView("tree")}>
+            {t("plan.tree")}
+          </button>
+          <button class="seg-btn" classList={{ on: view() === "table" }} aria-pressed={view() === "table"} onClick={() => setView("table")}>
+            {t("plan.table")}
+          </button>
+        </span>
+      }
       onRefresh={kind() ? load : undefined}
       refreshing={loading()}
     >
@@ -97,7 +113,37 @@ export function ExplainPlan(props: {
         }
       >
         {/* Parsed plan → SVG tree. */}
-        <Show when={layout()}>
+        <Show when={view() === "table" && plan()}>
+          {(root) => (
+            <div class="ep-scroll">
+              <table class="ep-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{t("plan.op")}</th>
+                    <th scope="col">{t("plan.object")}</th>
+                    <th scope="col" class="num">{t("plan.rows")}</th>
+                    <th scope="col" class="num">{t("plan.cost")}</th>
+                    <th scope="col">{t("plan.detail")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={planRows(root())}>
+                    {(r) => (
+                      <tr classList={{ hot: r.hot }}>
+                        <td style={{ "padding-left": `${8 + r.depth * 16}px` }}>{r.op}</td>
+                        <td>{r.table ?? ""}</td>
+                        <td class="num">{r.rows ?? ""}</td>
+                        <td class="num">{r.cost ?? ""}</td>
+                        <td class="ep-detail">{r.detail ?? ""}</td>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Show>
+        <Show when={view() === "tree" && layout()}>
           {(lo) => (
             <div class="ep-scroll">
               <svg
