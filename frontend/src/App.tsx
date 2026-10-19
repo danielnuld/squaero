@@ -82,6 +82,7 @@ import {
   type QueryTab,
   type ToolTab,
   type Tab,
+  type ToolKind,
 } from "./utils/tabs";
 import { loadWorkspace, saveWorkspace } from "./utils/tabsStore";
 import { openContextMenu, type MenuItem } from "./utils/contextMenu";
@@ -330,6 +331,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { SlowQueries } from "./components/SlowQueries";
 import { ExplainPlan } from "./components/ExplainPlan";
 import { UpdateModal } from "./components/UpdateModal";
+import { stripeColor } from "./utils/connectionEnv";
 import { TOOL_CATALOG, toolUnsupported, toolsByGroup } from "./utils/toolCatalog";
 import { sourceLabel } from "./utils/resultFacts";
 import { summarizeRange } from "./utils/cellSummary";
@@ -1400,6 +1402,16 @@ export function App() {
         };
       }),
     ]);
+  /** A catalog tool, by kind, as the tools menu opens it. */
+  const openCatalogTool = (tool: ToolKind) => {
+    const item = TOOL_CATALOG.find((x) => x.tool === tool);
+    if (item) showTool(item.tool, t(item.tabTitle), { key: item.key });
+  };
+  /** The working database's object list. */
+  const openObjectList = () => {
+    const db = activeDb();
+    if (db) showTool("objectList", t("tab.objectList", { db }), { key: `objlist:${db}`, params: { db } });
+  };
   const openToolsMenu = (e: MouseEvent) => {
     openContextMenu(e, toolsMenuItems(active()?.driver));
   };
@@ -1828,10 +1840,13 @@ export function App() {
 
   // Export/import saved connections (issue #188). Export defaults to no passwords;
   // import merges into the saved list and reports what changed.
-  const exportConns = (includePasswords: boolean) =>
+  const exportConns = (includePasswords: boolean, ids?: string[]) =>
     void saveText(
       "quaero-connections.json",
-      exportConnections(connections(), includePasswords),
+      exportConnections(
+        ids ? connections().filter((c) => ids.includes(c.id)) : connections(),
+        includePasswords,
+      ),
       "application/json",
     );
   /**
@@ -4876,7 +4891,7 @@ export function App() {
     if (connected)
       out.push({ id: "act:newTable", category: "action", label: t("toolbar.newTable.title"), run: () => openTableDesigner() });
     if (connected && activeDb())
-      out.push({ id: "act:objects", category: "action", label: t("toolbar.objects.title"), run: () => showTool("objectList", t("tab.objectList", { db: activeDb()! }), { key: `objlist:${activeDb()}`, params: { db: activeDb()! } }) });
+      out.push({ id: "act:objects", category: "action", label: t("toolbar.objects.title"), run: openObjectList });
     out.push({ id: "act:settings", category: "action", label: t("common.settings"), run: () => showTool("settings", t("common.settings"), { key: "settings" }) });
     out.push({ id: "act:help", category: "action", label: t("status.shortcuts"), run: () => showTool("help", t("status.shortcuts"), { key: "help" }) });
 
@@ -5177,18 +5192,21 @@ export function App() {
 
         <section class="workspace">
           {/* A protected connection (issue #666) keeps the strip even without a
-              colour, and stripes it: the "careful" cue the colour alone gave. */}
-          <Show when={tabConn(current())?.color || tabSafeMode(current())}>
+              colour, and stripes it: the "careful" cue the colour alone gave —
+              amber or neutral then, never the error red (R-06). */}
+          <Show when={stripeColor(tabConn(current())?.color, tabSafeMode(current()))}>
+            {(stripe) => (
             <div
               class="workspace-accent"
               classList={{ "is-protected": !!tabSafeMode(current()) }}
-              style={{ background: tabConn(current())!.color ?? "var(--error)" }}
+              style={{ background: stripe() }}
               title={
                 tabSafeMode(current())
                   ? t(tabSafeMode(current()) === "readOnly" ? "safe.badgeReadOnly" : "safe.badgeConfirm")
                   : t("tab.connTitle")
               }
             />
+            )}
           </Show>
           {/* Desktop document tabs (issue #688). The Ctrl+K palette keeps a door
               at the strip's end; tools live in the Herramientas menu and the
@@ -6026,6 +6044,16 @@ export function App() {
                       onExport={exportConns}
                       onImport={importConns}
                       onMoveToGroup={moveConnToGroup}
+                      onConnect={(c) => void onConnect(c)}
+                      onDuplicate={(c) =>
+                        openConnForm({
+                          ...c,
+                          params: { ...c.params },
+                          id: nextConnectionId(connections()),
+                          name: t("conn.copyName", { name: c.name }),
+                        })
+                      }
+                      usage={connUsage()}
                     />
                   </div>
                 </Match>
@@ -6230,6 +6258,11 @@ export function App() {
                   onNewQuery={() => runShortcut("new-tab")}
                   onFindObject={() => runShortcut("object-palette")}
                   onOpenTable={openData}
+                  onObjectList={activeDb() ? openObjectList : undefined}
+                  onEr={() => openCatalogTool("erDiagram")}
+                  onDataSearch={() => openCatalogTool("dataSearch")}
+                  onNewTable={() => openTableDesigner()}
+                  onTools={openToolsMenu}
                 />
               )}
             </Show>

@@ -569,3 +569,26 @@ describe("ConnectionForm protection", () => {
     expect(onSave.mock.calls[1][0].safeMode).toBeUndefined();
   });
 });
+
+// «Tipo de entorno» (R-06) sets the colour and protection by default.
+describe("ConnectionForm environment", () => {
+  it("Producción paints red, confirms writes and shows both in the preview", () => {
+    const onSave = vi.fn();
+    mount({ initial: mysql({ host: "h", user: "u" }), onSave });
+    clickText("Producción");
+    const chips = host!.querySelector(".cf-preview .conn-chips")!;
+    expect(chips.querySelector(".env-chip")!.textContent).toBe("Producción");
+    expect(chips.querySelector(".safe-chip")!.textContent).toBe("Confirma escrituras");
+    clickText("Guardar");
+    expect(onSave.mock.calls[0][0]).toMatchObject({ env: "prod", color: "#e5484d", safeMode: "confirm" });
+  });
+
+  it("keeps a protection chosen after the environment", () => {
+    const onSave = vi.fn();
+    mount({ initial: mysql({ host: "h", user: "u" }), onSave });
+    clickText("Desarrollo");
+    clickText("Solo lectura");
+    clickText("Guardar");
+    expect(onSave.mock.calls[0][0]).toMatchObject({ env: "dev", safeMode: "readOnly" });
+  });
+});
