@@ -73,6 +73,7 @@ import type { CellKind } from "../utils/format";
 import { locale, setLocale, LOCALES, t } from "../utils/i18n";
 import { Icon } from "./icons";
 import { hasShellMenu } from "../utils/nativeMenu";
+import { hasWindowBinding } from "../utils/titleBar";
 
 // Settings + About panel (issue #181), opened as a tool tab. Fully controlled:
 // the workspace (App) owns every preference signal and passes current values +
@@ -348,7 +349,8 @@ export function SettingsPanel(props: {
       | "checkUpdatesOnStart"
       | "editorDiagnostics"
       | "builtinTemplates"
-      | "nativeMenu",
+      | "nativeMenu"
+      | "customTitleBar",
     label: string,
   ) => (
     <label class="settings-row settings-check">
@@ -901,6 +903,10 @@ export function SettingsPanel(props: {
         {/* Only where the shell draws one (Windows, Linux — issue #686). */}
         <Show when={hasShellMenu()}>
           {row("nativeMenu", () => check("nativeMenu", t("settings.nativeMenu")))}
+        </Show>
+        {/* Only where the shell can draw without its frame (Windows, macOS — #688). */}
+        <Show when={hasWindowBinding()}>
+          {row("customTitleBar", () => check("customTitleBar", t("settings.customTitleBar")))}
         </Show>
       </>
     ),

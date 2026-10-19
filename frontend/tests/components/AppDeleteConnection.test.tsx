@@ -116,11 +116,11 @@ describe("App — deleting a saved connection (issue #762)", () => {
     expect(host!.querySelector(".app-toast")).toBeNull();
     expect(JSON.parse(stored()!)).toHaveLength(2);
     // The toast left, but the history behind the bell keeps it (issue #693).
-    const bell = host!.querySelector(".rail-bell") as HTMLButtonElement;
-    expect(bell.querySelector(".rail-badge")?.textContent).toBe("1");
+    const bell = host!.querySelector(".tb-bell") as HTMLButtonElement;
+    expect(bell.querySelector(".tb-badge")?.textContent).toBe("1");
     click(bell);
     expect(host!.querySelector(".notes-list")!.textContent).toContain("Conexión «Ventas» eliminada");
-    expect(bell.querySelector(".rail-badge")).toBeNull();
+    expect(bell.querySelector(".tb-badge")).toBeNull();
   });
 
   it("asks before deleting an open connection, and keeps it if cancelled", async () => {
