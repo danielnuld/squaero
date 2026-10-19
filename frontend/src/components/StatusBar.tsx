@@ -3,6 +3,7 @@ import { themeIcon, type ThemePref } from "../utils/theme";
 import { type RunScope } from "../utils/runScope";
 import { formatClock, formatDuration } from "../utils/duration";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import type { CellSummary } from "../utils/cellSummary";
 
 // Bottom status bar: active connection, the object the rows came from, the
@@ -80,7 +81,7 @@ export function StatusBar(props: {
               aria-label={t("result.prev")}
               onClick={() => props.onPage?.(-1)}
             >
-              ‹
+              <Icon name="chevron-left" size={14} />
             </button>
             <span class="status-item status-range">
               {t("result.rowsRange", { from: page().from, to: page().to })}
@@ -93,7 +94,7 @@ export function StatusBar(props: {
               aria-label={t("result.next")}
               onClick={() => props.onPage?.(1)}
             >
-              ›
+              <Icon name="chevron-right" size={14} />
             </button>
           </span>
         )}
@@ -172,7 +173,7 @@ export function StatusBar(props: {
         aria-label={t("common.settings")}
         onClick={props.onShowSettings}
       >
-        ⚙
+        <Icon name="settings" size={14} />
       </button>
       <button
         class="status-btn"

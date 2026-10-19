@@ -1,6 +1,7 @@
 import { For, Show, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import { paneSize, savePaneSize } from "../utils/paneSizes";
 import type { RelatedQuery } from "../utils/relatedData";
 import type { ResultSet } from "../utils/query";
@@ -115,8 +116,13 @@ export function RelatedData(props: {
               })}
             </h2>
             <span class="status-spacer" />
-            <button class="related-close" title={t("common.close")} onClick={props.onClose}>
-              ✕
+            <button
+              class="related-close"
+              title={t("common.close")}
+              aria-label={t("common.close")}
+              onClick={props.onClose}
+            >
+              <Icon name="close" size={14} />
             </button>
           </div>
 

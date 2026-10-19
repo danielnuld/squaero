@@ -14,6 +14,7 @@ import {
   type QuerySpec,
 } from "../utils/queryBuilder";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 import { Dropdown } from "./Dropdown";
 
 interface TableRef {
@@ -236,8 +237,13 @@ export function QueryBuilder(props: {
                     value={c.value}
                     onInput={(e) => patchCond(i(), "value", e.currentTarget.value)}
                   />
-                  <button class="grid-action danger" title={t("qb.removeCond")} onClick={() => removeCond(i())}>
-                    ✕
+                  <button
+                    class="grid-action danger"
+                    title={t("qb.removeCond")}
+                    aria-label={t("qb.removeCond")}
+                    onClick={() => removeCond(i())}
+                  >
+                    <Icon name="close" size={12} />
                   </button>
                 </div>
               )}

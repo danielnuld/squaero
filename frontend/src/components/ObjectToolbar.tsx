@@ -1,6 +1,7 @@
 import { Show, createUniqueId, type JSX } from "solid-js";
 import { openContextMenu, type MenuItem } from "../utils/contextMenu";
 import { t } from "../utils/i18n";
+import { Icon } from "./icons";
 
 // Contextual object-action toolbar (design proposal, phases 2b + 8). It sits
 // above the result grid and consolidates every action that applies to the
@@ -123,7 +124,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
         disabled={!!props.refreshBlocked}
         onClick={props.onRefresh}
       >
-        <span class="eb-ic" aria-hidden="true">⟳</span> {t("objbar.refresh")}
+        <Icon name="refresh" size={14} class="eb-ic" /> {t("objbar.refresh")}
       </button>
       <span class="toolbar-sep" aria-hidden="true" />
       <Show when={props.isTable || props.readOnlyReason}>
@@ -140,7 +141,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                       disabled
                       aria-describedby={reasonId}
                     >
-                      <span class="eb-ic" aria-hidden="true">✎</span> {t("common.edit")}
+                      <Icon name="edit" size={14} class="eb-ic" /> {t("common.edit")}
                     </button>
                     <span id={reasonId} class="edit-hint-ro">
                       {props.readOnlyReason ??
@@ -154,17 +155,17 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                   disabled={props.busy}
                   onClick={props.onEdit}
                 >
-                  <span class="eb-ic" aria-hidden="true">✎</span> {t("common.edit")}
+                  <Icon name="edit" size={14} class="eb-ic" /> {t("common.edit")}
                 </button>
               </Show>
               <Show when={props.isTable}>
                 {/* Import and generate write into this table. */}
                 <Show when={!props.readOnly}>
                   <button class="edit-btn" onClick={props.onImport}>
-                    <span class="eb-ic" aria-hidden="true">↧</span> {t("objbar.import")}
+                    <Icon name="import" size={14} class="eb-ic" /> {t("objbar.import")}
                   </button>
                   <button class="edit-btn" onClick={props.onGenerate}>
-                    <span class="eb-ic" aria-hidden="true">✦</span> {t("objbar.generate")}
+                    <Icon name="generate" size={14} class="eb-ic" /> {t("objbar.generate")}
                   </button>
                 </Show>
                 <button
@@ -173,12 +174,12 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
                   title={t("objbar.syncTitle")}
                   onClick={openSyncMenu}
                 >
-                  <span class="eb-ic" aria-hidden="true">⇅</span> {t("objbar.sync")}{" "}
-                  <span class="eb-caret" aria-hidden="true">▾</span>
+                  <Icon name="sync" size={14} class="eb-ic" /> {t("objbar.sync")}{" "}
+                  <Icon name="chevron-down" size={12} class="eb-caret" />
                 </button>
                 <Show when={props.hasColumns}>
                   <button class="edit-btn" onClick={props.onTransfer}>
-                    <span class="eb-ic" aria-hidden="true">⇄</span> {t("objbar.transfer")}
+                    <Icon name="transfer" size={14} class="eb-ic" /> {t("objbar.transfer")}
                   </button>
                 </Show>
               </Show>
@@ -186,14 +187,14 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
           }
         >
           <button class="edit-btn" onClick={props.onAddRow}>
-            <span class="eb-ic" aria-hidden="true">＋</span> {t("objbar.addRow")}
+            <Icon name="plus" size={14} class="eb-ic" /> {t("objbar.addRow")}
           </button>
           <button
             class="edit-btn edit-btn-primary"
             disabled={props.busy || !props.hasChanges}
             onClick={props.onConfirm}
           >
-            <span class="eb-ic" aria-hidden="true">✓</span> {t("objbar.confirm", { n: props.changeCount })}
+            <Icon name="check" size={14} class="eb-ic" /> {t("objbar.confirm", { n: props.changeCount })}
           </button>
           <button
             class="edit-btn"
@@ -220,7 +221,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
             title={t("objbar.transposeTitle")}
             onClick={() => props.onTranspose?.()}
           >
-            <span class="eb-ic" aria-hidden="true">⇄</span> {t("objbar.transpose")}
+            <Icon name="transpose" size={14} class="eb-ic" /> {t("objbar.transpose")}
           </button>
         </Show>
         <Show when={props.onPin}>
@@ -230,7 +231,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
             title={props.pinBlocked ?? t("pin.pinTitle")}
             onClick={() => props.onPin?.()}
           >
-            <span class="eb-ic" aria-hidden="true">📌</span> {t("pin.pin")}
+            <Icon name="pin" size={14} class="eb-ic" /> {t("pin.pin")}
           </button>
         </Show>
         <Show when={props.onCompare}>
@@ -240,11 +241,11 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
             title={t("pin.compareTitle")}
             onClick={(e) => props.onCompare?.(e)}
           >
-            {t("pin.compare")} <span class="eb-caret" aria-hidden="true">▾</span>
+            {t("pin.compare")} <Icon name="chevron-down" size={12} class="eb-caret" />
           </button>
         </Show>
         <button class="edit-btn" onClick={props.onChart}>
-          <span class="eb-ic" aria-hidden="true">📊</span> {t("objbar.chart")}
+          <Icon name="chart" size={14} class="eb-ic" /> {t("objbar.chart")}
         </button>
         <button
           class="edit-btn edit-btn-menu"
@@ -252,8 +253,8 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
           title={t("objbar.exportTitle")}
           onClick={openExportMenu}
         >
-          <span class="eb-ic" aria-hidden="true">↥</span> {t("objbar.export")}{" "}
-          <span class="eb-caret" aria-hidden="true">▾</span>
+          <Icon name="export" size={14} class="eb-ic" /> {t("objbar.export")}{" "}
+          <Icon name="chevron-down" size={12} class="eb-caret" />
         </button>
       </Show>
     </div>
