@@ -4272,12 +4272,6 @@ button.btn-danger:disabled {
   font-size: var(--fs-base);
 }
 
-.snippet-empty {
-  color: var(--text-dim);
-  padding: var(--sp-5) var(--sp-3);
-  text-align: center;
-}
-
 /* Object tree (sidebar) */
 .sidebar-tree {
   flex: 1;

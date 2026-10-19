@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from "solid-js";
+import { EmptyNote } from "./EmptyNote";
 import { visibleRange } from "../utils/virtualize";
 import {
   flattenTree,
@@ -994,13 +995,20 @@ export function ObjectTree(props: {
       <Show
         when={roots().length > 0}
         fallback={
-          <p class="sidebar-hint">
-            {rootLoading()
-              ? t("tree.loading")
-              : props.connId
-                ? t("tree.noObjects")
-                : t("tree.connectHint")}
-          </p>
+          <Show
+            when={!rootLoading() && props.connId && !error()}
+            fallback={
+              <Show when={rootLoading() || !props.connId}>
+                <p class="sidebar-hint">{rootLoading() ? t("tree.loading") : t("tree.connectHint")}</p>
+              </Show>
+            }
+          >
+            <EmptyNote
+              title={t("tree.noObjects")}
+              text={t("tree.noObjectsText")}
+              action={props.onRefresh ? { label: t("tree.refresh"), onClick: () => props.onRefresh!() } : undefined}
+            />
+          </Show>
         }
       >
         <div
