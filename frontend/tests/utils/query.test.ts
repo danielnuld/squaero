@@ -5,6 +5,7 @@ import {
   runQuery,
   queryNext,
   drainQuery,
+  drainCursor,
   runScript,
   runStatements,
 } from "../../src/utils/query";
@@ -388,5 +389,24 @@ describe("runStatements — exec (#667)", () => {
     expect(seen).toEqual(["BEGIN", "UPDATE t SET a = 1"]);
     expect(sent).toEqual(["UPDATE t SET a = 1"]);
     expect(runs.map((r) => r.result?.rowsAffected)).toEqual([0, 1]);
+  });
+});
+
+describe("drainCursor — Cancel (#692)", () => {
+  it("stops before the next page once the signal is aborted", async () => {
+    const ctl = new AbortController();
+    const methods: string[] = [];
+    (globalThis as BridgeHost).quaeroRpc = async (raw: string) => {
+      const req = JSON.parse(raw) as { id: number; method: string };
+      methods.push(req.method);
+      return {
+        jsonrpc: "2.0",
+        id: req.id,
+        result: { columns: [{ name: "id", type: "int" }], rows: [["1"]], truncated: true, cursor: true, rowsAffected: 0 },
+      };
+    };
+    const run = drainCursor("c1", 1, 0, (n) => n === 2 && ctl.abort(), ctl.signal);
+    await expect(run).rejects.toBeDefined();
+    expect(methods).toEqual(["query.next", "query.next"]);
   });
 });

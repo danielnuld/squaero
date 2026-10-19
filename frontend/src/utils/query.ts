@@ -114,9 +114,11 @@ export async function drainCursor(
   pageSize: number,
   seen = 0,
   onProgress?: (rows: number) => void,
+  signal?: AbortSignal,
 ): Promise<(string | null)[][]> {
   const rows: (string | null)[][] = [];
   for (;;) {
+    signal?.throwIfAborted();
     const page = await queryNext(connId, pageSize);
     for (const row of page.rows) rows.push(row);
     onProgress?.(seen + rows.length);

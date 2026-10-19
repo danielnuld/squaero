@@ -20,6 +20,7 @@ interface FileSystemFileHandleLike {
   createWritable: () => Promise<{
     write: (data: string | Blob) => Promise<void>;
     close: () => Promise<void>;
+    abort?: () => Promise<void>;
   }>;
 }
 
@@ -58,6 +59,8 @@ export interface SaveWriter {
   write: (chunk: string | Blob) => Promise<void>;
   /** Finish. Nothing is guaranteed on disk until this resolves. */
   close: () => Promise<void>;
+  /** Give up: what was written is discarded instead of saved (a Cancel). */
+  abort: () => Promise<void>;
 }
 
 /**
@@ -90,6 +93,7 @@ export async function pickSaveTarget(
           return {
             write: (chunk) => writable.write(chunk),
             close: () => writable.close(),
+            abort: async () => void (await writable.abort?.()),
           };
         },
         write: async (data) => {
@@ -116,6 +120,9 @@ export async function pickSaveTarget(
           parts.push(chunk);
         },
         close: async () => download(parts),
+        abort: async () => {
+          parts.length = 0;
+        },
       };
     },
     write: async (data) => download([data]),

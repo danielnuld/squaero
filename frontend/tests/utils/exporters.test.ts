@@ -7,6 +7,7 @@ import {
   toHtml,
   exportResult,
   exportChunks,
+  exportScopes,
   mimeFor,
   fileNameFor,
 } from "../../src/utils/exporters";
@@ -168,5 +169,38 @@ describe("exportChunks (issue #479)", () => {
     // Head, five chunks of ten rows, tail — not one piece holding everything.
     expect(chunks.length).toBe(7);
     expect(chunks.every((c) => c.split("\r\n").length <= 11)).toBe(true);
+  });
+});
+
+describe("exportChunks — CSV options (audit R-36)", () => {
+  const csv = (o: Parameters<typeof exportChunks>[4]) => [...exportChunks(result, "csv", "t", 1, o)].join("");
+
+  it("defaults to what toCsv writes", () => {
+    expect(csv({})).toBe(toCsv(result));
+  });
+
+  it("takes another separator, quoting the fields that hold it", () => {
+    expect(csv({ delimiter: ";" }).split("\r\n")[0]).toBe("id;name;note");
+    expect(csv({ delimiter: ";" })).toContain('2;"b""ob, jr";');
+  });
+
+  it("can leave out the header, write NULL as a text, and start with a BOM", () => {
+    const out = csv({ header: false, nullText: "NULL", bom: true });
+    expect(out.startsWith("\uFEFF1,alice,NULL\r\n")).toBe(true);
+    expect(out).not.toContain("id,name");
+  });
+});
+
+describe("exportScopes", () => {
+  it("offers and starts on the whole result when it can be re-read", () => {
+    expect(exportScopes({ canReadAll: true, marked: 0 })).toEqual({ scopes: ["all", "page"], initial: "all" });
+  });
+
+  it("offers the marked rows only when there are some", () => {
+    expect(exportScopes({ canReadAll: true, marked: 3 }).scopes).toEqual(["all", "page", "marked"]);
+  });
+
+  it("starts on the page when nothing can re-read the result", () => {
+    expect(exportScopes({ canReadAll: false, marked: 2 })).toEqual({ scopes: ["page", "marked"], initial: "page" });
   });
 });
