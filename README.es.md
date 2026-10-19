@@ -117,7 +117,10 @@ en C: agregar un motor no requiere tocar el núcleo. Ver
   preguntando. En preparación para la App Store.
 
 <p align="center">
-  <img src="assets/media/screenshot-initial-dark.png" alt="Squaero — pantalla inicial" width="820">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/media/screenshot-main-quiet.png">
+    <img src="assets/media/screenshot-main-nativo.png" alt="Squaero — una consulta sobre una base MySQL de demostración, con el árbol de objetos y la rejilla de resultados" width="820">
+  </picture>
 </p>
 
 ## Instalación

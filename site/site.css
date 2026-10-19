@@ -455,6 +455,9 @@ p { text-wrap: pretty; }
 .prose figure { margin: 24px 0; }
 .prose figure img { display: block; border-radius: 14px; border: 1px solid var(--line); }
 .prose figcaption { margin-top: 8px; font-size: 14px; color: var(--dim); }
+.prose figure.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.prose figure.shots figcaption { grid-column: 1 / -1; margin-top: 0; }
+@media (max-width: 640px) { .prose figure.shots { grid-template-columns: 1fr; } }
 .prose .callout { margin: 18px 0; padding: 16px 20px; border-radius: 18px; }
 .prose .callout p:last-child { margin-bottom: 0; }
 .prose .callout.warn { border-left: 4px solid var(--danger); }
