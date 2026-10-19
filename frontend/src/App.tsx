@@ -225,6 +225,7 @@ import {
 import { applyPlan } from "./utils/editApply";
 import { idleTx, readsOnly, runInTx, type TxSession, type TxVerb } from "./utils/txMode";
 import { TxControls } from "./components/TxControls";
+import { TxBand } from "./components/TxBand";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { countText, deleteRowsConfirm, needsTypedName } from "./utils/confirmText";
 
@@ -832,6 +833,11 @@ export function App() {
     loadShortcutOverrides(),
   );
   const shortcuts = createMemo(() => effectiveShortcuts(shortcutOverrides()));
+  /** An action's binding as the user reads it, or undefined when it has none. */
+  const shortcutKeys = (id: ActionId): string | undefined => {
+    const keys = shortcuts().find((x) => x.id === id)?.keys;
+    return keys ? displayKeys(keys, isMac()) : undefined;
+  };
   const setShortcutOverrides = (o: ShortcutOverrides) => {
     setShortcutOverridesSignal(o);
     saveShortcutOverrides(o);
@@ -2507,6 +2513,8 @@ export function App() {
       get: () => txOf(conn),
       set: (s) => setTxs(conn.connId, s),
       query,
+      // A read changes no rows; a write says how many it did.
+      rows: (r) => (r.columns.length > 0 ? null : (r.rowsAffected ?? null)),
       tx: (verb) => txCall(conn.connId, verb),
       empty: () => ({ columns: [], rows: [], truncated: false, rowsAffected: 0 }),
       onImplicitCommit,
@@ -3175,22 +3183,35 @@ export function App() {
 
   // The editor's "Plan" button: visual plan for the active tab's SQL, against
   // that tab's own connection.
+  // A query tab asks its editor, which answers through explainInPane with what a
+  // run would execute now — the statement under the cursor or the selection, not
+  // the whole script (M14). Anything else explains its whole SQL.
+  const [explainTick, setExplainTick] = createSignal(0);
   const explainActive = () => {
     const tab = current();
     if (!tab) return;
+    if (tab.kind === "query" && !isDataTab(tab.id)) {
+      setExplainTick((n) => n + 1);
+      return;
+    }
     const sql = sqlOfTab(tab.id).trim();
     if (!sql) {
       setResults(tab.id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
-    // A query tab shows the plan in its own result pane, under «Plan» (#691);
-    // anything else keeps the plan's tool tab.
-    if (tab.kind === "query" && !isDataTab(tab.id)) {
-      setPlanSqls(tab.id, sql);
-      setResultViews(tab.id, "plan");
+    showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
+  };
+  // A query tab shows the plan in its own result pane, under «Plan» (#691).
+  const explainInPane = (raw: string) => {
+    const tab = current();
+    if (!tab) return;
+    const sql = raw.trim();
+    if (!sql) {
+      setResults(tab.id, { ...emptyResult(), error: t("error.emptyQuery") });
       return;
     }
-    showExplainPlan(sql, tab.kind === "query" ? tab.connDefId : undefined);
+    setPlanSqls(tab.id, sql);
+    setResultViews(tab.id, "plan");
   };
 
   // A data tab's extra entries in the result toolbar's Más menu: the editor
@@ -5661,6 +5682,12 @@ export function App() {
                     onStop={cancelActive}
                     onFormat={() => setFormatTick((n) => n + 1)}
                     moreItems={(e) => editorMoreItems(e, tab())}
+                    manual={txOf(tabConn(tab())).manual}
+                    onUseManual={
+                      tabConn(tab()) && !txUnsupported(tabConn(tab()))
+                        ? () => toggleTxMode(tabConn(tab()))
+                        : undefined
+                    }
                     tx={
                       tabConn(tab()) ? (
                         <TxControls
@@ -5668,8 +5695,6 @@ export function App() {
                           unsupportedReason={txUnsupported(tabConn(tab()))}
                           busy={txBusy()}
                           onToggle={() => toggleTxMode(tabConn(tab()))}
-                          onCommit={() => void endTabTx("commit")}
-                          onRollback={() => void endTabTx("rollback")}
                         />
                       ) : undefined
                     }
@@ -5712,7 +5737,8 @@ export function App() {
                     sqlFor={sqlOfTab}
                     onChange={onEditorChange}
                     onRun={runEditor}
-                    onExplain={explainActive}
+                    onExplain={explainInPane}
+                    explainTick={explainTick()}
                     dialect={activeDialect()}
                     formatTick={formatTick()}
                     searchTick={findTick()}
@@ -5751,6 +5777,18 @@ export function App() {
                   class="result-pane"
                   classList={{ "is-alt-view": !isDataTab(tab().id) && resultView(tab().id) !== "result" }}
                 >
+                  {/* An open transaction stays in sight, over whatever the pane
+                      shows, until Commit or Revertir (M14 TxManualPending). */}
+                  <Show when={txOpenCount(tabConn(tab())) !== null}>
+                    <TxBand
+                      session={txOf(tabConn(tab()))}
+                      busy={txBusy()}
+                      commitKeys={shortcutKeys("tx-commit")}
+                      rollbackKeys={shortcutKeys("tx-rollback")}
+                      onCommit={() => void endTabTx("commit")}
+                      onRollback={() => void endTabTx("rollback")}
+                    />
+                  </Show>
                   {/* What the run did or is doing (issue #691, R-01): the clock
                       while it runs, the summary or the failed line after. */}
                   <Show when={!isDataTab(tab().id)}>
@@ -6860,9 +6898,10 @@ export function App() {
         {(conn) => (
           <ConfirmDialog
             title={t("tx.closeTitle")}
-            message={countText("tx.closeMessage", txOf(conn()).statements, { name: conn().name })}
-            confirmLabel={t("tx.rollback")}
-            altLabel={t("tx.commit")}
+            message={t("tx.closeMessage", { name: conn().name })}
+            sql={(txOf(conn()).log ?? []).map((e) => e.sql).join("\n") || undefined}
+            confirmLabel={t("tx.closeRollback")}
+            altLabel={t("tx.closeCommit")}
             busy={txBusy()}
             error={txPromptError()}
             onConfirm={() => void settleTxPrompt("rollback")}

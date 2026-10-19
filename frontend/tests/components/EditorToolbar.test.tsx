@@ -79,11 +79,12 @@ describe("EditorToolbar", () => {
     expect(button("Ejecutar selección")).toBeDefined();
   });
 
-  it("offers the three scopes with what each covers, and runs the one chosen", () => {
+  it("offers the three scopes as a radio set, the current one checked, and runs the one chosen", () => {
     const p = mount();
     button("Qué ejecutar: sentencia actual, selección o script completo").click();
-    const items = contextMenu()!.items;
+    const items = contextMenu()!.items.filter((i) => i.label);
     expect(items.map((i) => i.label)).toEqual(["Sentencia actual", "Selección", "Script completo"]);
+    expect(items.map((i) => i.checked)).toEqual([true, false, false]);
     expect(items[0].hint).toBe("líneas 2–5 · Ctrl+Intro");
     expect(items[1]).toMatchObject({ disabled: true, hint: "no hay texto seleccionado" });
     expect(items[2].hint).toBe("2 sentencias · Ctrl+Mayús+Intro");
@@ -91,22 +92,44 @@ describe("EditorToolbar", () => {
     expect(p.onRun).toHaveBeenCalledWith("document");
   });
 
-  it("keeps Detener in place but disabled while nothing runs", () => {
-    const p = mount();
-    const stop = button("Detener (no hay nada en ejecución)");
-    expect(stop.disabled).toBe(true);
-    stop.click();
-    expect(p.onStop).not.toHaveBeenCalled();
+  it("warns when the script writes in Auto mode, and offers manual mode", () => {
+    const onUseManual = vi.fn();
+    mount({ info: { ...INFO, firstWrite: { verb: "UPDATE", line: 7 } }, onUseManual });
+    button("Qué ejecutar: sentencia actual, selección o script completo").click();
+    const items = contextMenu()!.items;
+    expect(items.find((i) => i.note?.includes("UPDATE"))!.note).toBe(
+      "El script completo incluye un UPDATE (línea 7). En modo Auto se confirma al ejecutarse.",
+    );
+    items.find((i) => i.label === "Usar transacción manual")!.action!();
+    expect(onUseManual).toHaveBeenCalled();
   });
 
-  it("while running: Detener acts and Ejecutar waits", () => {
+  it("does not warn in manual mode, nor when the script only reads", () => {
+    mount({ info: { ...INFO, firstWrite: { verb: "UPDATE", line: 7 } }, manual: true });
+    button("Qué ejecutar: sentencia actual, selección o script completo").click();
+    expect(contextMenu()!.items.some((i) => i.note?.includes("UPDATE"))).toBe(false);
+    closeContextMenu();
+    dispose?.();
+    host?.remove();
+    mount({ info: { ...INFO, firstWrite: null } });
+    button("Qué ejecutar: sentencia actual, selección o script completo").click();
+    expect(contextMenu()!.items.some((i) => i.label === "Usar transacción manual")).toBe(false);
+  });
+
+  it("shows no Detener while nothing runs", () => {
+    mount();
+    expect(host!.querySelector(".editor-stop")).toBeNull();
+  });
+
+  it("while running: Detener takes the run button's place", () => {
     const p = mount({ running: true });
     const stop = button("Detener");
     expect(stop.disabled).toBe(false);
     expect(stop.classList.contains("is-running")).toBe(true);
     stop.click();
     expect(p.onStop).toHaveBeenCalled();
-    expect(button("Ejecutar sentencia").disabled).toBe(true);
+    expect(host!.querySelector(".editor-run-main")).toBeNull();
+    expect(host!.querySelector(".editor-run-scope")).toBeNull();
   });
 
   it("explains a query that cannot be stopped", () => {

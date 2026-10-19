@@ -2674,6 +2674,13 @@ kbd {
   background: currentColor;
   border-color: currentColor;
 }
+.context-menu-note {
+  max-width: 320px;
+  padding: var(--sp-2) var(--sp-4);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  white-space: normal;
+}
 
 .context-menu-sep {
   height: 1px;
@@ -9166,7 +9173,6 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--accent);
 }
 
-.tx-open,
 .status-tx,
 .conn-tx {
   color: var(--accent);
@@ -9573,7 +9579,7 @@ ul.sidebar-tree {
   border-left: 1px solid color-mix(in srgb, var(--accent-fg) 40%, transparent);
 }
 
-/* Detener: always in its place, the danger colour only while it can act. */
+/* Detener: in the run button's place while a run goes on (M14 EditorRunning). */
 .edit-toolbar .editor-stop.is-running:not(:disabled) {
   background: var(--error);
   border-color: var(--error);
@@ -9582,6 +9588,60 @@ ul.sidebar-tree {
 
 .edit-toolbar .editor-stop.is-running:hover:not(:disabled) {
   background: color-mix(in srgb, var(--error) 85%, black);
+}
+
+/* The open-transaction band (M14 TxManualPending, A-07): amber, persistent,
+   over the results while the tab's connection holds a transaction. */
+.tx-band {
+  flex-shrink: 0;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--warn-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.tx-band-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--band-md);
+}
+.tx-band-ic {
+  color: var(--warn);
+}
+.tx-band-title {
+  font-weight: 600;
+}
+.tx-band .btn kbd {
+  margin-left: var(--sp-2);
+}
+.tx-band-list {
+  padding-bottom: var(--sp-2);
+}
+.tx-band-list summary {
+  color: var(--text-dim);
+  cursor: default;
+}
+.tx-band-list ol {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-6);
+  max-height: 160px;
+  overflow: auto;
+}
+.tx-band-list li {
+  display: flex;
+  gap: var(--sp-3);
+}
+.tx-band-list .mono {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tx-band-list .num {
+  margin-left: auto;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 /* The result panel's first line: what the run did or is doing. */

@@ -9,6 +9,7 @@ import {
   type RunInfo,
   isCommentOnly,
   runnableStatements,
+  firstWrite,
 } from "../../src/utils/runScope";
 
 describe("splitStatements", () => {
@@ -401,5 +402,30 @@ describe("run button and its menu (R-04)", () => {
     expect(stmt).toMatchObject({ disabled: true, hint: { key: "editor.scope.nothing" } });
     expect(sel.disabled).toBe(true);
     expect(script.disabled).toBe(true);
+  });
+});
+
+describe("firstWrite (M14 run menu warning)", () => {
+  it("finds the first statement that changes something, past leading comments", () => {
+    const doc = "SELECT 1;\n-- now change\nUPDATE t SET a = 1;\nDELETE FROM t";
+    const w = firstWrite(doc)!;
+    expect(w.verb).toBe("UPDATE");
+    expect(doc.slice(w.from, w.from + 6)).toBe("UPDATE");
+  });
+
+  it("is null for a script that only reads", () => {
+    expect(firstWrite("SELECT 1; SELECT 2")).toBeNull();
+    expect(firstWrite("")).toBeNull();
+    expect(firstWrite("-- nothing")).toBeNull();
+  });
+
+  it("does not count BEGIN / COMMIT, which write nothing themselves", () => {
+    expect(firstWrite("BEGIN; SELECT 1; COMMIT")).toBeNull();
+    expect(firstWrite("BEGIN; INSERT INTO t VALUES (1); COMMIT")!.verb).toBe("INSERT");
+  });
+
+  it("counts a WITH that wraps a write, and DDL", () => {
+    expect(firstWrite("WITH x AS (SELECT 1) DELETE FROM t")!.verb).toBe("WITH");
+    expect(firstWrite("CREATE TABLE t (a int)")!.verb).toBe("CREATE");
   });
 });
