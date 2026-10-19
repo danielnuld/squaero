@@ -81,24 +81,77 @@ describe("ServerMonitor", () => {
     // The list query ran with SHOW PROCESSLIST.
     const listCall = calls.find((c) => c.method === "query.run");
     expect((listCall!.params as { sql: string }).sql).toContain("PROCESSLIST");
-    // Two session rows in the result grid + the count in the panel bar.
+    // The idle (Sleep) session is hidden by default; the bar counts both.
+    expect(host!.querySelectorAll(".grid-rows [role='row']").length).toBe(1);
+    expect(host!.querySelector(".panel-status")!.textContent).toContain("2 sesiones · 1 visible");
+    // The cards count from the list itself.
+    const kpis = host!.querySelector(".monitor-kpis")!.textContent!;
+    expect(kpis).toContain("Sesiones abiertas2");
+    expect(kpis).toContain("Activas1");
+    expect(kpis).toContain("Inactivas1");
+    // «Ocultar inactivas» off shows the idle one too.
+    barButton("Ocultar inactivas").click();
+    await flush();
     expect(host!.querySelectorAll(".grid-rows [role='row']").length).toBe(2);
-    expect(host!.textContent).toContain("2 sesiones");
+  });
+
+  it("filters the sessions by any cell and offers to show all when none match", async () => {
+    installBridge();
+    mount("mysql");
+    await flush();
+    const input = host!.querySelector<HTMLInputElement>(".monitor-filter")!;
+    input.value = "nothing-like-this";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+    expect(host!.textContent).toContain("Ninguna sesión coincide");
+    [...host!.querySelectorAll<HTMLButtonElement>(".empty-note button")].find((b) => b.textContent === "Mostrar todas")!.click();
+    await flush();
+    expect(host!.querySelectorAll(".grid-rows [role='row']").length).toBe(2);
+  });
+
+  it("cancels the selected session's query with KILL QUERY, without asking", async () => {
+    const calls = installBridge();
+    mount("mysql");
+    await flush();
+    host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
+    await flush();
+    const detail = host!.querySelector(".monitor-detail")!;
+    expect(detail.textContent).toContain("Sesión 7");
+    expect(detail.querySelector(".monitor-detail-sql")!.textContent).toBe("SELECT * FROM big");
+    detailButton("Cancelar consulta").click();
+    await flush();
+    expect(calls.some((c) => (c.params as { sql?: string }).sql === "KILL QUERY 7")).toBe(true);
+  });
+
+  it("re-reads the list every 5 s until paused", async () => {
+    vi.useFakeTimers();
+    try {
+      const calls = installBridge();
+      mount("mysql");
+      await vi.advanceTimersByTimeAsync(0);
+      const lists = () => calls.filter((c) => (c.params as { sql?: string }).sql?.includes("PROCESSLIST")).length;
+      expect(lists()).toBe(1);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(lists()).toBe(2);
+      host!.querySelector<HTMLButtonElement>("[role='radio'][aria-checked='false']")!.click();
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(lists()).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("kills the SELECTED session with KILL <id> then refreshes", async () => {
     const calls = installBridge();
     mount("mysql");
     await flush();
-    const killBtn = killButton();
-    // Nothing selected yet: the action has nothing to act on (#372).
-    expect(killBtn.disabled).toBe(true);
+    // Nothing selected yet: no session strip, nothing to act on.
+    expect(host!.querySelector(".monitor-detail")).toBeNull();
 
-    // Selecting a cell of the first row arms it.
+    // Selecting a cell of the first row opens its strip with the action.
     host!.querySelector<HTMLElement>(".grid-rows [role='gridcell']")!.click();
     await flush();
-    expect(killBtn.disabled).toBe(false);
-    killBtn.click();
+    killButton().click();
     await flush();
     // It asks first, naming the session (audit A-10); nothing ran yet.
     expect(calls.some((c) => (c.params as { sql?: string })?.sql?.startsWith("KILL"))).toBe(false);
@@ -125,17 +178,27 @@ describe("ServerMonitor", () => {
     const calls = installBridge();
     mount("sqlite");
     await flush();
-    expect(host!.textContent).toContain("embebida");
+    expect(host!.querySelector(".empty-note")!.textContent).toContain("embebida");
     expect(calls.filter((c) => c.method === "query.run").length).toBe(0);
     expect(host!.querySelector("[role='gridcell']")).toBeNull();
   });
 });
 
-/** The bar's kill action, which replaced the per-row buttons (#372). */
-function killButton(): HTMLButtonElement {
-  return [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) =>
-    b.textContent?.includes("Terminar"),
+/** A button of the panel bar, by its text. */
+function barButton(text: string): HTMLButtonElement {
+  return [...host!.querySelectorAll<HTMLButtonElement>(".panel-bar button")].find((b) => b.textContent === text)!;
+}
+
+/** A button of the selected session's strip, by its text. */
+function detailButton(text: string): HTMLButtonElement {
+  return [...host!.querySelectorAll<HTMLButtonElement>(".monitor-detail button")].find((b) =>
+    b.textContent?.includes(text),
   )!;
+}
+
+/** The selected session's kill action. */
+function killButton(): HTMLButtonElement {
+  return detailButton("Terminar");
 }
 
 /** The red button of the kill confirmation. */

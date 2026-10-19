@@ -6630,6 +6630,10 @@ export function App() {
                     connId={toolConn()?.connId ?? ""}
                     connName={toolConn()?.name ?? ""}
                     engine={activeDialect()}
+                    onOpenSql={(sql) => openSqlInNewTab(sql, undefined, undefined, tt().connDefId)}
+                    onSlowQueries={() =>
+                      showTool("slowQueries", t("tool.slow.tab"), { key: "slow", connDefId: tt().connDefId })
+                    }
                     onClose={() => closeTool(tt().id)}
                   />
                 </Match>
