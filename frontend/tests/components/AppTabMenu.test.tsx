@@ -3,6 +3,7 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
+import { EditorView } from "@codemirror/view";
 import { App } from "../../src/App";
 import { openQueryTab } from "./appHelpers";
 import { contextMenu, closeContextMenu } from "../../src/utils/contextMenu";
@@ -83,6 +84,10 @@ describe("App — tab menu (M14)", () => {
     openQueryTab(host!);
     openQueryTab(host!);
     await settle();
+    // Only a tab with something written in it is worth reopening.
+    const view = EditorView.findFromDOM(host!)!;
+    view.dispatch({ changes: { from: 0, insert: "SELECT 2" } });
+    await settle();
     const reopen = pick("Consulta 1", "Reabrir la pestaña cerrada");
     expect(reopen.disabled).toBe(true);
     expect(reopen.title).toContain("No se ha cerrado");
@@ -93,6 +98,7 @@ describe("App — tab menu (M14)", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "T", ctrlKey: true, shiftKey: true, bubbles: true }));
     await settle();
     expect(titles()).toEqual(["Consulta 1", "Consulta 2"]);
+    expect(EditorView.findFromDOM(host!)!.state.doc.toString()).toBe("SELECT 2");
   });
 
   it("says why a tab with no explorer object cannot be shown there", async () => {
