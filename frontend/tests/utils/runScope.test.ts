@@ -239,6 +239,28 @@ describe("splitStatements keeps a routine body whole", () => {
     ]);
   });
 
+  it("keeps an Informix body whole through END FOREACH, END EXCEPTION and BEGIN…END", () => {
+    const spl = [
+      "CREATE PROCEDURE baja()",
+      "  DEFINE x INT;",
+      "  ON EXCEPTION IN (-206)",
+      "    LET x = 0;",
+      "  END EXCEPTION;",
+      "  FOREACH SELECT n INTO x FROM t",
+      "    DELETE FROM u WHERE n = x;",
+      "  END FOREACH;",
+      "  BEGIN",
+      "    LET x = 1;",
+      "  END;",
+      "  LET x = 2;",
+      "END PROCEDURE",
+    ].join("\n");
+    expect(splitStatements(`${spl};\nSELECT 1`, "informix").map((s) => s.text.trim())).toEqual([
+      spl,
+      "SELECT 1",
+    ]);
+  });
+
   it("leaves an Informix trigger, which has no END, ending at its semicolon", () => {
     const sql = "CREATE TRIGGER t UPDATE ON tab REFERENCING NEW AS n FOR EACH ROW (UPDATE o SET a = 1);\nSELECT 1";
     expect(splitStatements(sql, "informix").map((s) => s.text.trim())).toHaveLength(2);
