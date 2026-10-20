@@ -57,7 +57,7 @@ const ROUTINE_HEAD =
   /\bcreate\b[\s\S]{0,300}?\b(procedure|function|trigger|event)\b/i;
 
 /** Words after END that close an inner construct, not the routine body. */
-const END_INNER = /^(?:if|loop|while|for|case|repeat)\b/i;
+const END_INNER = /^(?:if|loop|while|foreach|for|case|repeat|exception)\b/i;
 
 /** `END PROCEDURE` / `END FUNCTION` / `END TRIGGER`: Informix ends a body so. */
 const END_BODY = /^(?:procedure|function|trigger)\b/i;
@@ -146,7 +146,10 @@ export function splitStatements(sql: string, engine?: string): Statement[] {
               bodyDone = true;
             } else {
               depth = Math.max(0, depth - 1);
-              if (depth === 0) bodyDone = true;
+              // An Informix body ends only at END PROCEDURE/FUNCTION; a BEGIN…END
+              // inside it is just a block.
+              const informixBody = informix && routineKind(i) !== "trigger";
+              if (depth === 0 && !informixBody) bodyDone = true;
             }
           }
           i += word.length - 1;
