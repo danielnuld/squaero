@@ -5647,6 +5647,7 @@ export function App() {
           <div class="side-explorer" hidden={side().panel !== "explorer"}>
           <ConnectionBar
             connections={connections()}
+            usage={connUsage()}
             openIds={openConns().map((o) => o.defId)}
             connectingId={connectingId()}
             onPick={onConnect}

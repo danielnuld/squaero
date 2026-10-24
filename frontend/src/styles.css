@@ -9740,10 +9740,14 @@ button.grid-action.danger:hover:not(:disabled) {
   color: var(--text-dim);
 }
 
+/* Every saved connection is listed (#813): the list scrolls by itself rather
+   than pushing the rest of the column out of the window. */
 .explorer-saved {
   list-style: none;
   margin: 0;
   padding: 0 var(--sp-2) var(--sp-3);
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .explorer-saved-row {
