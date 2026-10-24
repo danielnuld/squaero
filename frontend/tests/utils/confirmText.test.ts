@@ -8,6 +8,7 @@ import {
   dropColumnsConfirm,
   dropConfirm,
   dropConsequences,
+  dropDependants,
   isDestructiveSql,
   killSessionConfirm,
   needsTypedName,
@@ -201,5 +202,16 @@ describe("plural keys", () => {
     setLocale("en");
     expect(countText("tx.openTitle", 1)).toContain("1 statement ran in it and is not");
     expect(countText("er.edges", 2)).toBe("2 relationships");
+  });
+});
+
+// #807: the dialog draws this one line as a warning, so it is found by itself.
+describe("dropDependants", () => {
+  it("names the foreign keys that point at the object, or nothing", () => {
+    const f = { rows: 3, dependants: ["pedidos.cliente_id"] };
+    expect(dropDependants(f)).toMatch(/^pedidos\.cliente_id referencia/);
+    expect(dropConsequences(f)).toContain(dropDependants(f));
+    expect(dropDependants({ rows: 3 })).toBeNull();
+    expect(dropDependants({ dependants: [] })).toBeNull();
   });
 });

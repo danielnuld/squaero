@@ -1,6 +1,8 @@
 import { Segmented } from "./Segmented";
 import type { Os } from "../utils/dialog";
 import { createEffect, createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js";
+import { Portal } from "solid-js/web";
+import { displayText } from "../utils/gridDisplay";
 import { Panel } from "./Panel";
 import { BrandWordmark } from "./Brand";
 import { call } from "../utils/transport";
@@ -109,6 +111,19 @@ const ABOUT_LINK_KEYS: [string, string][] = [
 ];
 
 const THEME_OPTS: ThemePref[] = ["system", "light", "dark"];
+/** The grid preview's sample (#806): a text, a number with a NULL, a date. */
+const PREVIEW_COLS = [
+  { name: "nombre", type: "text", kind: "text" },
+  { name: "saldo", type: "numeric(10,2)", kind: "number" },
+  { name: "alta", type: "date", kind: "temporal" },
+] as const;
+const PREVIEW_ROWS: readonly (readonly [string, string | null, string])[] = [
+  ["María López", "1250.00", "2023-02-14"],
+  ["Juan Pérez", "980.50", "2023-03-01"],
+  ["Ana Gómez", null, "2023-05-22"],
+  ["Luis Ramírez", "4321.99", "2024-01-09"],
+];
+
 /** Each category's icon in the navigation (M14 SettingsNav). */
 const CATEGORY_ICON: Record<SettingsCategory, IconName> = {
   general: "tools",
@@ -151,6 +166,9 @@ export function SettingsPanel(props: {
   /** A section to show, asked for from outside (Ayuda › Acerca de, A-11): a
       new object each time, so asking twice shows it twice. */
   goTo?: { category: SettingsCategory };
+  /** Where the categories go (#806): the side column, as the prototype puts
+      them. Absent — the column folded, or a test — they stay in the panel. */
+  navMount?: HTMLElement;
   theme: ThemePref;
   onSetTheme: (p: ThemePref) => void;
   /** The theme in use, every theme on offer (built-in first), and the actions (#680). */
@@ -772,6 +790,42 @@ export function SettingsPanel(props: {
     ),
     grid: () => (
       <>
+        {/* What these settings do, drawn with the grid's own classes so the
+            style, the type colours, the header and the NULL text all follow
+            live (#806, the prototype's preview). Decorative: every setting it
+            shows is a labelled control below. */}
+        <Show when={!searching()}>
+          <div class="settings-preview" aria-hidden="true">
+            <span class="settings-preview-title">{t("settings.preview")}</span>
+            <div class="grid-header settings-preview-grid">
+              <For each={PREVIEW_COLS}>
+                {(c) => (
+                  <div class={`grid-cell grid-head ${c.kind === "number" ? "head-number" : ""}`}>
+                    <span class="col-line">
+                      <span class="col-name">{c.name}</span>
+                    </span>
+                    <Show when={props.settings.headerTypes}>
+                      <span class="col-type">{c.type}</span>
+                    </Show>
+                  </div>
+                )}
+              </For>
+            </div>
+            <For each={PREVIEW_ROWS}>
+              {(r, i) => (
+                <div class={`grid-row settings-preview-grid ${i() % 2 === 1 ? "row-odd" : ""}`}>
+                  <div class="grid-cell cell-text">{r[0]}</div>
+                  <div class="grid-cell cell-number">
+                    <Show when={r[1] !== null} fallback={<span class="cell-null-tag">{props.settings.nullText || "NULL"}</span>}>
+                      {previewText(r[1], "numeric(10,2)")}
+                    </Show>
+                  </div>
+                  <div class="grid-cell cell-temporal">{previewText(r[2], "date")}</div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
         {/* Values as stored by default (audit rule 6); grouping is a choice. */}
         {row("numberFormat", () => (
           <>
@@ -1136,57 +1190,68 @@ export function SettingsPanel(props: {
       )),
   };
 
-  return (
-    <Panel title={t("common.settings")} onClose={props.onClose} class="settings">
-      <div class="settings-layout">
-        <nav class="settings-nav" aria-label={t("settings.categories")}>
-          <input
-            type="search"
-            class="settings-search"
-            placeholder={t("settings.search")}
-            aria-label={t("settings.search")}
-            value={query()}
-            onInput={(e) => setQuery(e.currentTarget.value)}
-          />
-          <For each={SETTINGS_CATEGORIES}>
-            {(cat) => (
+  /** A preview cell's text, as the grid would print it with these settings. */
+  const previewText = (value: string | null, type: string) =>
+    displayText(value, type, props.settings.gridStyle, t, { numbers: props.settings.numberFormat }).text;
+
+  /** The categories and the search over every setting (#684). */
+  const nav = () => (
+    <nav class="settings-nav" aria-label={t("settings.categories")}>
+      <input
+        type="search"
+        class="settings-search"
+        placeholder={t("settings.search")}
+        aria-label={t("settings.search")}
+        value={query()}
+        onInput={(e) => setQuery(e.currentTarget.value)}
+      />
+      <For each={SETTINGS_CATEGORIES}>
+        {(cat) => (
+          <button
+            class="settings-nav-item"
+            aria-current={!searching() && category() === cat ? "true" : undefined}
+            onClick={() => {
+              setQuery("");
+              setCategory(cat);
+            }}
+          >
+            <Icon name={CATEGORY_ICON[cat]} size={15} class="settings-nav-ic" />
+            {t(`settings.cat.${cat}`)}
+          </button>
+        )}
+      </For>
+      {/* While searching, the hits themselves, each with its category
+          (M14 SettingsNav). */}
+      <Show when={searching() && visible().size > 0}>
+        <div class="settings-nav-hits" role="group" aria-label={t("settings.searchHits")}>
+          <span class="settings-nav-hits-title">{t("settings.searchHits")}</span>
+          <For each={SETTINGS_INDEX.filter((e) => visible().has(e.id))}>
+            {(e) => (
               <button
-                class="settings-nav-item"
-                aria-current={!searching() && category() === cat ? "true" : undefined}
+                class="settings-nav-item settings-nav-hit"
                 onClick={() => {
                   setQuery("");
-                  setCategory(cat);
+                  setCategory(e.category);
                 }}
               >
-                <Icon name={CATEGORY_ICON[cat]} size={15} class="settings-nav-ic" />
-                {t(`settings.cat.${cat}`)}
+                <span class="settings-nav-hit-label">
+                  {t(e.keys[0], { keys: formatKeys("Mod+Enter", os()) })}
+                </span>
+                <span class="settings-nav-hit-cat">{t(`settings.cat.${e.category}`)}</span>
               </button>
             )}
           </For>
-          {/* While searching, the hits themselves, each with its category
-              (M14 SettingsNav). */}
-          <Show when={searching() && visible().size > 0}>
-            <div class="settings-nav-hits" role="group" aria-label={t("settings.searchHits")}>
-              <span class="settings-nav-hits-title">{t("settings.searchHits")}</span>
-              <For each={SETTINGS_INDEX.filter((e) => visible().has(e.id))}>
-                {(e) => (
-                  <button
-                    class="settings-nav-item settings-nav-hit"
-                    onClick={() => {
-                      setQuery("");
-                      setCategory(e.category);
-                    }}
-                  >
-                    <span class="settings-nav-hit-label">
-                      {t(e.keys[0], { keys: formatKeys("Mod+Enter", os()) })}
-                    </span>
-                    <span class="settings-nav-hit-cat">{t(`settings.cat.${e.category}`)}</span>
-                  </button>
-                )}
-              </For>
-            </div>
-          </Show>
-        </nav>
+        </div>
+      </Show>
+    </nav>
+  );
+
+  return (
+    <Panel title={t("common.settings")} onClose={props.onClose} class="settings">
+      <div class="settings-layout" classList={{ "has-side-nav": !!props.navMount }}>
+        <Show when={props.navMount} fallback={nav()}>
+          {(mount) => <Portal mount={mount()}>{nav()}</Portal>}
+        </Show>
         <div class="settings-body">
           <For each={SETTINGS_CATEGORIES}>
             {(cat) => (

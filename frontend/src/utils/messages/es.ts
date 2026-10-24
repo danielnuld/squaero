@@ -2345,6 +2345,7 @@ export const es: Record<string, string> = {
   "settings.gridStyleHint.hoja": "Cuadrícula completa y color en todos los tipos: se lee como una hoja de cálculo. La altura de las filas es la densidad de Apariencia.",
   "settings.gridStyleHint.informe": "Sin líneas verticales y con los datos en tinta. Escribe las fechas como «14 feb 2023» — solo en pantalla: lo que se copia o exporta no cambia. Los números siguen el ajuste Números.",
   "settings.colorTypes": "Colorear los datos por tipo",
+  "settings.preview": "Vista previa",
   "settings.typeColors": "Colores por tipo",
   "settings.sampleText": "texto",
   "settings.resetColors": "Restablecer los colores de este tema",

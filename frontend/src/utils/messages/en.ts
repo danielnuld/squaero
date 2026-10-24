@@ -2328,6 +2328,7 @@ export const en: Record<string, string> = {
   "settings.gridStyleHint.hoja": "Full gridlines and color on every type: it reads like a spreadsheet. Row height is Appearance's density.",
   "settings.gridStyleHint.informe": "No vertical rules and the data in ink. Writes dates as “14 Feb 2023” — on screen only: what you copy or export does not change. Numbers follow the Numbers setting.",
   "settings.colorTypes": "Color the data by type",
+  "settings.preview": "Preview",
   "settings.typeColors": "Colors per type",
   "settings.sampleText": "text",
   "settings.resetColors": "Reset this theme's colors",
