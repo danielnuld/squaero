@@ -583,6 +583,21 @@ describe("ConnectionForm environment", () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({ env: "prod", color: "#e5484d", safeMode: "confirm" });
   });
 
+  // #799: the strip is the shared segmented control, not bare buttons that
+  // fell back to the browser's default look.
+  it("draws the environments as the segmented control, the chosen one on", () => {
+    mount({ initial: mysql({ host: "h", user: "u" }) });
+    const strip = host!.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Tipo de entorno"]')!;
+    expect(strip.classList.contains("seg")).toBe(true);
+    const options = [...strip.querySelectorAll<HTMLButtonElement>("button")];
+    expect(options.every((b) => b.classList.contains("seg-btn"))).toBe(true);
+    expect(options.filter((b) => b.querySelector(".env-dot")).length).toBe(3);
+    clickText("Pruebas");
+    const on = options.filter((b) => b.classList.contains("on"));
+    expect(on.map((b) => b.textContent)).toEqual(["Pruebas"]);
+    expect(on[0].getAttribute("aria-checked")).toBe("true");
+  });
+
   it("keeps a protection chosen after the environment", () => {
     const onSave = vi.fn();
     mount({ initial: mysql({ host: "h", user: "u" }), onSave });

@@ -169,10 +169,11 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
   };
   const hasMore = () => layout().more.length > 0 || (props.moreItems?.length ?? 0) > 0;
 
-  /** A left-hand action: icon and text. */
+  /** A left-hand action: icon and text. The text folds away in a narrow bar
+      (styles.css, #800) and stays as the button's name. */
   const ghost = (icon: IconName, label: string, extra: JSX.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button class="edit-btn" {...extra}>
-      <Icon name={icon} size={14} class="eb-ic" /> {label}
+      <Icon name={icon} size={14} class="eb-ic" /> <span class="eb-label">{label}</span>
     </button>
   );
   /** A right-hand tool: icon only, named. */
@@ -184,7 +185,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
 
   const MAIN: Record<string, () => JSX.Element> = {
     refresh: () =>
-      ghost("refresh", t("objbar.refresh"), {
+      tool("refresh", t("objbar.refresh"), {
         title: props.refreshBlocked ?? t("objbar.refreshTitle"),
         disabled: !!props.refreshBlocked,
         onClick: () => props.onRefresh(),
@@ -196,7 +197,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
         aria-pressed={!!props.filterOpen}
         onClick={() => props.onFilter?.()}
       >
-        <Icon name="filter" size={14} class="eb-ic" /> {t("objbar.filter")}
+        <Icon name="filter" size={14} class="eb-ic" /> <span class="eb-label">{t("objbar.filter")}</span>
         <Show when={(props.filterCount ?? 0) > 0}>
           <span class="edit-btn-count" title={t("objbar.filterCount", { n: props.filterCount! })}>
             {props.filterCount}
@@ -250,7 +251,7 @@ export function ObjectToolbar(props: ObjectToolbarProps) {
         title={t("objbar.exportTitle")}
         onClick={exportMenu}
       >
-        <Icon name="export" size={14} class="eb-ic" /> {t("objbar.export")}{" "}
+        <Icon name="export" size={14} class="eb-ic" /> <span class="eb-label">{t("objbar.export")}</span>{" "}
         <Icon name="chevron-down" size={12} class="eb-caret" />
       </button>
     ),
