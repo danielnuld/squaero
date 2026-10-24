@@ -24,7 +24,12 @@ afterEach(() => {
 });
 
 function mount(
-  over: { connections?: Connection[]; openIds?: string[]; connectingId?: string | null } = {},
+  over: {
+    connections?: Connection[];
+    openIds?: string[];
+    connectingId?: string | null;
+    usage?: Record<string, number>;
+  } = {},
 ) {
   const handlers = {
     onPick: vi.fn(),
@@ -40,6 +45,7 @@ function mount(
       () => (
         <ConnectionBar
           connections={over.connections ?? conns}
+          usage={over.usage}
           openIds={over.openIds ?? []}
           connectingId={over.connectingId ?? null}
           {...handlers}
@@ -196,5 +202,20 @@ describe("ConnectionBar search", () => {
     expect(host!.querySelector(".connbar-drop")!.textContent).not.toContain("Reportes");
     setList([conns[0], { id: "c", name: "Reportes", driver: "postgres", params: {} }]);
     expect(host!.querySelector(".connbar-drop")!.textContent).toContain("Reportes");
+  });
+});
+
+// #813: six in saved order hid whole engines; now all, the most used first.
+describe("ConnectionBar saved list", () => {
+  it("lists every saved connection, the most recently used first", () => {
+    const many: Connection[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `c${i}`,
+      name: `Conn ${i}`,
+      driver: i < 6 ? "informix" : i === 6 ? "mysql" : "mongodb",
+      params: {},
+    }));
+    mount({ connections: many, usage: { c7: 2000, c6: 1000 } });
+    const names = [...host!.querySelectorAll(".explorer-saved .connbar-name")].map((n) => n.textContent);
+    expect(names).toEqual(["Conn 7", "Conn 6", "Conn 0", "Conn 1", "Conn 2", "Conn 3", "Conn 4", "Conn 5"]);
   });
 });

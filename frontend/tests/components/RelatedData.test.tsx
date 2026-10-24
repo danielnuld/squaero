@@ -1,4 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
+import { closeContextMenu, contextMenu } from "../../src/utils/contextMenu";
+import type { ResultSet } from "../../src/utils/query";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { RelatedData } from "../../src/components/RelatedData";
@@ -29,7 +31,7 @@ const query: RelatedQuery = {
   columns: [],
 } as unknown as RelatedQuery;
 
-const mount = () => {
+const mount = (result: ResultSet | null = null) => {
   host = document.createElement("div");
   document.body.appendChild(host);
   let opened = 0;
@@ -48,7 +50,7 @@ const mount = () => {
           onSelect={() => {}}
           sql="SELECT * FROM pedidos WHERE cliente_id = 7"
           keyColumns={[]}
-          result={null}
+          result={result}
           loading={false}
           error={null}
           truncated={false}
@@ -105,5 +107,44 @@ describe("RelatedData size", () => {
     const dialog = document.querySelector<HTMLElement>(".related-modal")!;
     expect(dialog.style.width).toBe("1240px");
     expect(dialog.style.height).toBe("700px");
+  });
+});
+
+// #812: the rows in the dialog can be copied out, as from the main grid.
+describe("RelatedData copy", () => {
+  const result: ResultSet = {
+    columns: [
+      { name: "id", type: "int" },
+      { name: "login", type: "text" },
+    ],
+    rows: [
+      ["1", "C.CELAYA.CAB"],
+      ["2", null],
+    ],
+  } as ResultSet;
+
+  it("offers the copy menu on a cell, and copies its value or its row", () => {
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (t: string) => void copied.push(t) },
+    });
+    mount(result);
+    const cell = [...document.querySelectorAll<HTMLElement>(".related-result .grid-cell")].find(
+      (c) => c.textContent === "C.CELAYA.CAB",
+    )!;
+    cell.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    const items = contextMenu()?.items ?? [];
+    expect(items.map((i) => i.label)).toEqual([
+      "Copiar celda",
+      "Copiar fila",
+      "Copiar fila con encabezados",
+      "Copiar las 2 filas cargadas con encabezados",
+    ]);
+    items[0].action!();
+    items[2].action!();
+    items[3].action!();
+    closeContextMenu();
+    expect(copied).toEqual(["C.CELAYA.CAB", "id\tlogin\n1\tC.CELAYA.CAB", "id\tlogin\n1\tC.CELAYA.CAB\n2\t"]);
   });
 });
