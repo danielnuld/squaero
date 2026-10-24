@@ -848,16 +848,18 @@ body {
   cursor: default;
 }
 
+/* Tinted with the connection's own colour, as the prototype draws it (#804):
+   the same hue as its stripe, its tabs and its status bar; neutral without one.
+   The ink is pulled toward the text so the monogram reads on both palettes. */
 .connbar-mono {
   flex-shrink: 0;
   display: grid;
   place-items: center;
   width: 28px;
   height: var(--h-micro);
-  border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  background: var(--bg);
-  color: var(--text-dim);
+  background: color-mix(in srgb, var(--conn-accent, var(--text-dim)) 16%, transparent);
+  color: color-mix(in srgb, var(--conn-accent, var(--text-dim)) 75%, var(--text));
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   font-weight: 600;
@@ -3109,8 +3111,8 @@ button.status-chip:not(:disabled):hover {
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-3);
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
   color: var(--text);
   font: inherit;
@@ -3135,11 +3137,22 @@ button.status-chip:not(:disabled):hover {
   width: var(--h-sm);
   height: var(--h-sm);
   border-radius: var(--r-sm);
-  background: var(--bg-elev2);
-  color: var(--text-dim);
+  background: color-mix(in srgb, var(--engine, var(--text-dim)) 16%, transparent);
+  color: color-mix(in srgb, var(--engine, var(--text-dim)) 75%, var(--text));
+  font-family: var(--font-mono);
   font-size: var(--fs-sm);
   font-weight: 600;
 }
+
+/* Each engine's own hue on its card (#804, the prototype's values). The
+   preview shows the connection instead, in the colour it will carry. */
+.cf-engine-mono[data-engine="sqlite"] { --engine: #3b7ddd; }
+.cf-engine-mono[data-engine="postgres"] { --engine: #336791; }
+.cf-engine-mono[data-engine="mysql"] { --engine: #c47a12; }
+.cf-engine-mono[data-engine="mssql"] { --engine: #b0302b; }
+.cf-engine-mono[data-engine="informix"] { --engine: #1f70c1; }
+.cf-engine-mono[data-engine="mongodb"] { --engine: #3f9142; }
+.cf-preview-mono { --engine: var(--conn-accent); }
 
 .cf-engine-text {
   min-width: 0;

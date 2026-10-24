@@ -110,6 +110,7 @@ export function ConnectionSearch(props: {
                             class="connsearch-hit"
                             classList={{ "is-highlighted": index() === clampedHighlight() }}
                             disabled={props.connectingId !== null}
+                            style={hit.conn.color ? { "--conn-accent": hit.conn.color } : undefined}
                             title={hit.isOpen ? t("conn.focus") : t("conn.connect")}
                             onMouseEnter={() => setHighlight(index())}
                             onClick={() => pick(hit.conn)}

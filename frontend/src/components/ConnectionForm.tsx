@@ -523,7 +523,7 @@ export function ConnectionForm(props: {
                       classList={{ "is-on": draft.driver === d }}
                       onClick={() => selectDriver(d)}
                     >
-                      <span class="cf-engine-mono" aria-hidden="true">
+                      <span class="cf-engine-mono" data-engine={d} aria-hidden="true">
                         {engineMonogram(d)}
                       </span>
                       <span class="cf-engine-text">
@@ -752,13 +752,13 @@ export function ConnectionForm(props: {
         <aside class="cf-side">
           <div class="cf-card">
             <h4 class="cf-card-title">{t("cform.preview")}</h4>
-            <div class="cf-preview">
+            <div class="cf-preview" style={draft.color ? { "--conn-accent": draft.color } : undefined}>
               <span
                 class="cf-preview-accent"
                 style={draft.color ? { background: draft.color } : undefined}
                 aria-hidden="true"
               />
-              <span class="cf-engine-mono" aria-hidden="true">
+              <span class="cf-engine-mono cf-preview-mono" aria-hidden="true">
                 {engineMonogram(draft.driver)}
               </span>
               <span class="cf-preview-text">
