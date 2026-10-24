@@ -7431,6 +7431,40 @@ button.grid-action.danger:hover:not(:disabled) {
   font-size: var(--fs-md);
 }
 
+/* The grid preview (#806): a card of the real grid's cells, so whatever the
+   section changes shows here at once. */
+.settings-preview {
+  display: flex;
+  flex-direction: column;
+  max-width: 28rem;
+  margin: var(--sp-2) 0 var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.settings-preview-title {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.settings-preview .grid-header {
+  position: static;
+}
+
+.settings-preview-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+}
+
+.settings-preview .head-number,
+.settings-preview .cell-number {
+  text-align: right;
+}
+
 .settings-row:has(> .settings-label) + .settings-hint {
   padding-left: calc(12rem + var(--sp-4));
 }

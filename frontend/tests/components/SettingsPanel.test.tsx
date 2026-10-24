@@ -748,3 +748,15 @@ describe("SettingsPanel categories in the side column", () => {
     }
   });
 });
+
+describe("SettingsPanel grid preview", () => {
+  it("draws the grid's cells with the chosen NULL text and header types", async () => {
+    mount({ goTo: { category: "grid" }, settings: { ...DEFAULT_SETTINGS, nullText: "∅", headerTypes: false } });
+    await flush();
+    const preview = host!.querySelector(".settings-preview")!;
+    expect(preview.getAttribute("aria-hidden")).toBe("true");
+    expect(preview.querySelector(".cell-null-tag")!.textContent).toBe("∅");
+    expect(preview.querySelectorAll(".cell-number").length).toBe(4);
+    expect(preview.querySelector(".col-type")).toBeNull();
+  });
+});
