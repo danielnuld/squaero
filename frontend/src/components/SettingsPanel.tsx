@@ -1,6 +1,7 @@
 import { Segmented } from "./Segmented";
 import type { Os } from "../utils/dialog";
 import { createEffect, createMemo, createSignal, onMount, Show, For, type JSX } from "solid-js";
+import { Portal } from "solid-js/web";
 import { Panel } from "./Panel";
 import { BrandWordmark } from "./Brand";
 import { call } from "../utils/transport";
@@ -151,6 +152,9 @@ export function SettingsPanel(props: {
   /** A section to show, asked for from outside (Ayuda › Acerca de, A-11): a
       new object each time, so asking twice shows it twice. */
   goTo?: { category: SettingsCategory };
+  /** Where the categories go (#806): the side column, as the prototype puts
+      them. Absent — the column folded, or a test — they stay in the panel. */
+  navMount?: HTMLElement;
   theme: ThemePref;
   onSetTheme: (p: ThemePref) => void;
   /** The theme in use, every theme on offer (built-in first), and the actions (#680). */
@@ -1136,57 +1140,64 @@ export function SettingsPanel(props: {
       )),
   };
 
-  return (
-    <Panel title={t("common.settings")} onClose={props.onClose} class="settings">
-      <div class="settings-layout">
-        <nav class="settings-nav" aria-label={t("settings.categories")}>
-          <input
-            type="search"
-            class="settings-search"
-            placeholder={t("settings.search")}
-            aria-label={t("settings.search")}
-            value={query()}
-            onInput={(e) => setQuery(e.currentTarget.value)}
-          />
-          <For each={SETTINGS_CATEGORIES}>
-            {(cat) => (
+  /** The categories and the search over every setting (#684). */
+  const nav = () => (
+    <nav class="settings-nav" aria-label={t("settings.categories")}>
+      <input
+        type="search"
+        class="settings-search"
+        placeholder={t("settings.search")}
+        aria-label={t("settings.search")}
+        value={query()}
+        onInput={(e) => setQuery(e.currentTarget.value)}
+      />
+      <For each={SETTINGS_CATEGORIES}>
+        {(cat) => (
+          <button
+            class="settings-nav-item"
+            aria-current={!searching() && category() === cat ? "true" : undefined}
+            onClick={() => {
+              setQuery("");
+              setCategory(cat);
+            }}
+          >
+            <Icon name={CATEGORY_ICON[cat]} size={15} class="settings-nav-ic" />
+            {t(`settings.cat.${cat}`)}
+          </button>
+        )}
+      </For>
+      {/* While searching, the hits themselves, each with its category
+          (M14 SettingsNav). */}
+      <Show when={searching() && visible().size > 0}>
+        <div class="settings-nav-hits" role="group" aria-label={t("settings.searchHits")}>
+          <span class="settings-nav-hits-title">{t("settings.searchHits")}</span>
+          <For each={SETTINGS_INDEX.filter((e) => visible().has(e.id))}>
+            {(e) => (
               <button
-                class="settings-nav-item"
-                aria-current={!searching() && category() === cat ? "true" : undefined}
+                class="settings-nav-item settings-nav-hit"
                 onClick={() => {
                   setQuery("");
-                  setCategory(cat);
+                  setCategory(e.category);
                 }}
               >
-                <Icon name={CATEGORY_ICON[cat]} size={15} class="settings-nav-ic" />
-                {t(`settings.cat.${cat}`)}
+                <span class="settings-nav-hit-label">
+                  {t(e.keys[0], { keys: formatKeys("Mod+Enter", os()) })}
+                </span>
+                <span class="settings-nav-hit-cat">{t(`settings.cat.${e.category}`)}</span>
               </button>
             )}
           </For>
-          {/* While searching, the hits themselves, each with its category
-              (M14 SettingsNav). */}
-          <Show when={searching() && visible().size > 0}>
-            <div class="settings-nav-hits" role="group" aria-label={t("settings.searchHits")}>
-              <span class="settings-nav-hits-title">{t("settings.searchHits")}</span>
-              <For each={SETTINGS_INDEX.filter((e) => visible().has(e.id))}>
-                {(e) => (
-                  <button
-                    class="settings-nav-item settings-nav-hit"
-                    onClick={() => {
-                      setQuery("");
-                      setCategory(e.category);
-                    }}
-                  >
-                    <span class="settings-nav-hit-label">
-                      {t(e.keys[0], { keys: formatKeys("Mod+Enter", os()) })}
-                    </span>
-                    <span class="settings-nav-hit-cat">{t(`settings.cat.${e.category}`)}</span>
-                  </button>
-                )}
-              </For>
-            </div>
-          </Show>
-        </nav>
+        </div>
+      </Show>
+    </nav>
+  );
+
+  return (
+    <Panel title={t("common.settings")} onClose={props.onClose} class="settings">
+      <div class="settings-layout" classList={{ "has-side-nav": !!props.navMount }}>
+        <Show when={props.navMount} fallback={nav()}>
+          {(mount) => <Portal mount={mount()}>{nav()}</Portal>}
+        </Show>
         <div class="settings-body">
           <For each={SETTINGS_CATEGORIES}>
             {(cat) => (

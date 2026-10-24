@@ -659,6 +659,8 @@ export function App() {
     clampSidebarWidth(paneSize("sidebar", SIDEBAR_DEFAULT)),
   );
   const [side, setSide] = createSignal(loadSideState());
+  /** The side column's slot for the Settings categories (#806). */
+  const [settingsNavSlot, setSettingsNavSlot] = createSignal<HTMLElement>();
   createEffect(() => saveSideState(side()));
   let sidebarEl: HTMLElement | undefined;
   // How much of a query tab the editor takes (issue #423). Dragged, not fixed:
@@ -1491,6 +1493,8 @@ export function App() {
     const t = current();
     return t && t.kind === "tool" ? t : undefined;
   });
+  /** The Settings tab is the one shown: the side column lends it its place (#806). */
+  const settingsInFront = () => currentTool()?.tool === "settings";
   // The connection a tool panel acts on: the tool tab's bound one, else focused.
   const toolConn = () => tabConn(currentTool());
   // Open (or focus) a tool tab, and close one by id. Bind the tab to the focused
@@ -5565,6 +5569,7 @@ export function App() {
           connected={!!active()}
           onConnections={openConnectionsTab}
           onSettings={() => showTool("settings", t("common.settings"), { key: "settings" })}
+          settingsOn={settingsInFront()}
         />
         <Show when={notesOpen()}>
           <Notifications
@@ -5581,11 +5586,15 @@ export function App() {
             keep their expansion, filter and loaded objects (#444, #689). */}
         <aside
           class="sidebar"
+          classList={{ "is-settings": settingsInFront() }}
           ref={sidebarEl}
           hidden={side().collapsed}
-          aria-label={t(`rail.${side().panel}Title`)}
+          aria-label={settingsInFront() ? t("common.settings") : t(`rail.${side().panel}Title`)}
           style={{ width: `${sidebarWidth()}px` }}
         >
+          {/* While the Settings tab is in front its categories take the column,
+              as the prototype has it (#806); the panels stay mounted beneath. */}
+          <div class="side-settings" ref={setSettingsNavSlot} hidden={!settingsInFront()} />
           <Show when={side().panel === "history"}>
             <HistoryPanel
               docked
@@ -6996,6 +7005,7 @@ export function App() {
                 <Match when={tt().tool === "settings"}>
                   <SettingsPanel
                     goTo={settingsGoTo()}
+                    navMount={side().collapsed ? undefined : settingsNavSlot()}
                     onCheckUpdate={() => updateStatus(APP_VERSION)}
                     onShowUpdate={setUpdate}
                     theme={theme()}

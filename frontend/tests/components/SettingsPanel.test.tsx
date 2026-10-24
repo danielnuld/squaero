@@ -51,6 +51,7 @@ function mount(over: {
   isMac?: boolean;
   onImportConfig?: (b: ConfigBundle) => void;
   goTo?: { category: SettingsCategory };
+  navMount?: HTMLElement;
   onCheckUpdate?: () => Promise<UpdateStatus>;
   onShowUpdate?: (info: UpdateInfo) => void;
 } = {}) {
@@ -62,6 +63,7 @@ function mount(over: {
       () => (
         <SettingsPanel
           goTo={over.goTo}
+          navMount={over.navMount}
           theme={over.theme ?? "system"}
           onSetTheme={over.onSetTheme ?? (() => {})}
           themeId={over.themeId ?? "indigo"}
@@ -722,5 +724,27 @@ describe("SettingsPanel — navigation, shortcuts list and About (M14)", () => {
     expect(host!.querySelector(".settings-update")!.textContent).toContain("9.9.9");
     [...host!.querySelectorAll(".settings-update button")].find((b) => b.textContent === "Ver")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onShowUpdate).toHaveBeenCalled();
+  });
+});
+
+// #806: the categories can live in the side column, and still drive the panel.
+describe("SettingsPanel categories in the side column", () => {
+  it("puts the nav in the given place and keeps it working", async () => {
+    const slot = document.createElement("div");
+    document.body.appendChild(slot);
+    try {
+      mount({ navMount: slot });
+      expect(host!.querySelector(".settings-nav")).toBeNull();
+      expect(host!.querySelector(".settings-layout.has-side-nav")).not.toBeNull();
+      const grid = [...slot.querySelectorAll<HTMLButtonElement>(".settings-nav-item")].find(
+        (b) => b.textContent?.trim() === "Rejilla",
+      )!;
+      grid.click();
+      await flush();
+      expect(grid.getAttribute("aria-current")).toBe("true");
+      expect(host!.querySelector('section[aria-label="Rejilla"]')).not.toBeNull();
+    } finally {
+      slot.remove();
+    }
   });
 });
