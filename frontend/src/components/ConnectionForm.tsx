@@ -1,7 +1,7 @@
 import { Segmented } from "./Segmented";
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
-import { CONN_ENVS, withEnv } from "../utils/connectionEnv";
+import { CONN_ENVS, ENV_DEFAULTS, withEnv } from "../utils/connectionEnv";
 import { EnvChip, SafeChip } from "./ConnChips";
 import {
   driverSchema,
@@ -591,19 +591,28 @@ export function ConnectionForm(props: {
                 such a connection usually wants; both stay editable below. */}
             <div class="cf-field">
               <span class="cf-label">{t("cform.env")}</span>
-              <div class="cf-seg" role="radiogroup" aria-label={t("cform.env")}>
+              <div class="seg cf-seg" role="radiogroup" aria-label={t("cform.env")}>
                 <For each={[undefined, ...CONN_ENVS]}>
                   {(env) => (
                     <button
                       type="button"
                       role="radio"
                       aria-checked={draft.env === env}
-                      class="cf-seg-btn"
-                      classList={{ "is-on": draft.env === env }}
+                      class="seg-btn"
+                      classList={{ on: draft.env === env }}
                       onClick={() =>
                         setDraft((d) => withEnv({ env: d.env, color: d.color, safeMode: d.safeMode }, env))
                       }
                     >
+                      <Show when={env}>
+                        {(e) => (
+                          <span
+                            class="env-dot"
+                            aria-hidden="true"
+                            style={{ "--conn-accent": ENV_DEFAULTS[e()].color }}
+                          />
+                        )}
+                      </Show>
                       {t(env ? `env.${env}` : "env.none")}
                     </button>
                   )}
