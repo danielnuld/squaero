@@ -319,6 +319,7 @@
 .cell-input,
 .grid-filter-input,
 .objtree-filter-input,
+.settings-search,
 .rd-input,
 .snip-save-input,
 .td-in,
@@ -7422,9 +7423,16 @@ button.grid-action.danger:hover:not(:disabled) {
   min-height: var(--h-md);
 }
 
+/* A label column, the control beside it (#806, the prototype's form): the eye
+   reads down the names and finds the control next to each, instead of
+   crossing the whole width to reach it. Its hint sits under the control. */
 .settings-label {
-  flex: 1;
+  flex: 0 0 12rem;
   font-size: var(--fs-md);
+}
+
+.settings-row:has(> .settings-label) + .settings-hint {
+  padding-left: calc(12rem + var(--sp-4));
 }
 
 .settings-row input[type="number"] {
@@ -7701,6 +7709,7 @@ button.grid-action.danger:hover:not(:disabled) {
   flex-direction: column;
   gap: var(--sp-1);
   flex: 0 0 11rem;
+  min-width: 0;
   position: sticky;
   top: 0;
 }
@@ -7756,10 +7765,39 @@ button.grid-action.danger:hover:not(:disabled) {
   background: var(--bg-elev);
 }
 
+/* The prototype's selection (#806): a soft accent tint and a bar on the edge,
+   not a solid fill — which also hid the accent-coloured icon on it. */
 .settings-nav-item[aria-current="true"] {
+  position: relative;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.settings-nav-item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--sp-2);
+  bottom: var(--sp-2);
+  width: 2px;
+  border-radius: var(--r-pill);
   background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
+}
+
+/* In the side column (#806): the column's padding, the full width, and the
+   panels underneath out of sight while the Settings tab is in front. */
+.sidebar.is-settings > :not(.side-settings) {
+  display: none;
+}
+
+.side-settings {
+  padding: var(--sp-3);
+  overflow: auto;
+}
+
+.side-settings .settings-nav {
+  position: static;
 }
 
 .settings-body {
