@@ -70,7 +70,7 @@ export interface ConnRowState {
   busy?: boolean;
 }
 import { t, locale } from "../utils/i18n";
-import { countText, dropConfirm, dropConsequences, type DropFacts } from "../utils/confirmText";
+import { countText, dropConfirm, dropConsequences, dropDependants, type DropFacts } from "../utils/confirmText";
 import { objectCountQuery } from "../utils/pagination";
 import { withConfirmedWrites } from "../utils/transport";
 
@@ -1314,6 +1314,7 @@ export function ObjectTree(props: {
       </Show>
       <Show when={roots().length > 0}>
         <div class="objtree-filter">
+          <Icon name="search" size={13} class="objtree-filter-ic" />
           <input
             type="text"
             class="objtree-filter-input"
@@ -1472,7 +1473,17 @@ export function ObjectTree(props: {
             onConfirm={() => void runDrop(p().sql, typedDrop())}
             onCancel={() => setPendingDrop(null)}
           >
-            <For each={dropConsequences(dropFacts())}>{(line) => <p class="confirm-message">{line}</p>}</For>
+            <For each={dropConsequences(dropFacts())}>
+              {(line) => (
+                <Show when={line === dropDependants(dropFacts())} fallback={<p class="confirm-message">{line}</p>}>
+                  {/* What breaks elsewhere is a warning, not one more fact (#807). */}
+                  <p class="confirm-warn" role="note">
+                    <Icon name="warning" size={14} />
+                    <span>{line}</span>
+                  </p>
+                </Show>
+              )}
+            </For>
           </ConfirmDialog>
         )}
       </Show>
