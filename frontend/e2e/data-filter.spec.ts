@@ -11,6 +11,9 @@ import { describeEngine, test, expect } from "./support/fixtures";
 describeEngine("sqlite", () => {
   const panel = (page: import("@playwright/test").Page) =>
     page.getByRole("region", { name: "Filtro y orden de la tabla" });
+  /** The panel rests folded and out of sight (#805): «Filtrar» opens it. */
+  const openFilter = (page: import("@playwright/test").Page) =>
+    page.getByRole("button", { name: /^Filtrar/ }).click();
 
   test("opens a table with the panel and no editor", async ({ app }) => {
     const { page } = app;
@@ -18,8 +21,11 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
+    // Folded on arrival, as the prototype has it (#805): the grid gets the room,
+    // and «Filtrar» in the toolbar opens the panel.
+    await expect(panel(page)).toBeHidden();
+    await openFilter(page);
     await expect(panel(page)).toBeVisible();
-    // Unfolded on arrival: a filter nobody can see is a filter nobody uses.
     await expect(page.getByRole("button", { name: "+ Condición" })).toBeVisible();
     // The editor is gone, and with it the buttons that acted on it.
     await expect(page.getByRole("textbox", { name: "Editor SQL", exact: true })).toHaveCount(0);
@@ -36,6 +42,7 @@ describeEngine("sqlite", () => {
     await openFixtureTable(app);
     await expect(page.getByText("Nogales", { exact: true })).toBeVisible();
 
+    await openFilter(page);
     await page.getByRole("button", { name: "+ Condición" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
     await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
@@ -67,6 +74,7 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
+    await openFilter(page);
     await page.getByRole("button", { name: "+ Condición" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
     await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
@@ -87,6 +95,7 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
+    await openFilter(page);
     await page.getByRole("button", { name: "+ Condición" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna" }), "nombre");
     await pick(panel(page).getByRole("combobox", { name: "Operador" }), "contiene");
@@ -105,6 +114,7 @@ describeEngine("sqlite", () => {
     await connect(app);
     await openFixtureTable(app);
 
+    await openFilter(page);
     await page.getByRole("button", { name: "+ Orden" }).click();
     await pick(panel(page).getByRole("combobox", { name: "Columna de ordenación" }), "nombre");
     await page.getByRole("button", { name: "Aplicar", exact: true }).click();
@@ -132,11 +142,12 @@ describeEngine("sqlite", () => {
     await header.click();
     await expect(header).toHaveAttribute("aria-sort", "ascending");
     // The click wrote the sort into the panel, which is where it now lives. The
-    // panel rests folded (#386), so its bar is what has to say so; unfolding it
-    // then shows the row itself.
+    // panel rests folded and out of sight (#805), so «Filtrar» is what says so,
+    // with its count; opening it then shows the row itself.
     const panel = page.getByRole("region", { name: "Filtro y orden de la tabla" });
-    await expect(panel.getByText("1 orden(es)")).toBeVisible();
-    await panel.getByRole("button", { name: /Filtro/ }).click();
+    const filter = page.getByRole("button", { name: /^Filtrar/ });
+    await expect(filter).toContainText("1");
+    await filter.click();
     await expect(panel.getByRole("combobox", { name: "Columna de ordenación" })).toHaveText(
       "nombre",
     );
