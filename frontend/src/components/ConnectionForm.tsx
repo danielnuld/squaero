@@ -493,7 +493,7 @@ export function ConnectionForm(props: {
                         {t(SECTION_LABEL[pane.id])}
                       </span>
                       <span class="cf-index-mark" aria-hidden="true">
-                        {status() === "ok" ? <Icon name="check" size={10} /> : STATUS_MARK[status()]}
+                        {status() === "ok" ? <Icon name="check" size={13} /> : STATUS_MARK[status()]}
                       </span>
                     </button>
                   </li>

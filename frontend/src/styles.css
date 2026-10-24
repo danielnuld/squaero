@@ -2354,12 +2354,15 @@ kbd {
   gap: var(--sp-4);
 }
 
+/* The page's title, at the size the prototype gives it (#807): the first
+   thing read on an empty window, not one more label among the rows. */
 .welcome-head h1,
 .welcome-home-title h1 {
   margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: calc(var(--fs-lg) * 1.75);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .welcome-head p,
@@ -2440,6 +2443,17 @@ kbd {
   border-radius: var(--r-md);
   background: var(--bg);
   color: var(--text-dim);
+}
+
+/* The one thing to do first is a card of its own (#807), drawn in the accent's
+   outline; the other starts stay plain rows under it. */
+.welcome-action-primary {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+}
+
+.welcome-action-primary:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
 }
 
 /* Not `.primary`: the global button.primary would fill the whole row with the accent. */
@@ -3059,10 +3073,12 @@ button.status-chip:not(:disabled):hover {
   color: transparent;
 }
 
+/* Done reads as a plain green check, as the prototype marks it (#807) — not a
+   filled disc in the number colour, which in B is amber and read as a warning. */
 .cf-index-item[data-status="ok"] .cf-index-mark {
-  background: var(--number);
-  border-color: var(--number);
-  color: var(--bg);
+  background: none;
+  border-color: transparent;
+  color: var(--ok);
 }
 
 .cf-index-item[data-status="error"] .cf-index-mark {
@@ -3792,6 +3808,26 @@ button.status-chip:not(:disabled):hover {
 
 .dlg-spacer {
   flex: 1;
+}
+
+/* A consequence that reaches beyond the object (#807): foreign keys that will
+   point at nothing. The prototype's warning callout. */
+.confirm-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--warn-soft);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.confirm-warn > svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--warn);
 }
 
 .dlg-actions {
@@ -4809,15 +4845,28 @@ button.btn-danger:disabled {
 }
 
 .objtree-filter {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   padding: 0 var(--sp-3) var(--sp-3);
 }
 
+/* A magnifier inside the field, as the prototype draws it (#807): the field
+   says it is a search before anything is typed. */
+.objtree-filter-ic {
+  position: absolute;
+  left: calc(var(--sp-3) + var(--sp-3));
+  top: calc(50% - var(--sp-3) / 2);
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
 .objtree-filter-input {
   flex: 1;
   min-width: 0;
+  padding-left: calc(var(--sp-3) + 13px + var(--sp-2));
 }
 
 .objtree-filter-input:focus {

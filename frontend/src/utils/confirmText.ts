@@ -55,9 +55,16 @@ export function dropConsequences(f: DropFacts): string[] {
   const what = rows && indexes ? t("confirm.drop.both", { rows, indexes }) : (rows ?? indexes);
   const out: string[] = [];
   if (what) out.push(t("confirm.drop.goesWith", { what }));
-  const deps = f.dependants ?? [];
-  if (deps.length > 0) out.push(countText("confirm.drop.dependants", deps.length, { refs: deps.join(", ") }));
+  const deps = dropDependants(f);
+  if (deps) out.push(deps);
   return out;
+}
+
+/** The line about foreign keys that point at the object, if any: the one
+    consequence the dialog draws as a warning (#807). */
+export function dropDependants(f: DropFacts): string | null {
+  const deps = f.dependants ?? [];
+  return deps.length > 0 ? countText("confirm.drop.dependants", deps.length, { refs: deps.join(", ") }) : null;
 }
 
 /** Killing another session on the server (audit A-10): never without asking. */
