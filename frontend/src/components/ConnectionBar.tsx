@@ -97,15 +97,19 @@ export function ConnectionBar(props: {
       </div>
 
       <Show when={props.openIds.length === 0}>
-        <div class="explorer-empty">
-          <span class="explorer-empty-title">{t("explorer.noneTitle")}</span>
-          <span>{t("connbar.emptyHint")}</span>
-          {/* Its own wording, not the + button's: two buttons with the same
-              accessible name are ambiguous for a screen reader and for a test. */}
-          <button class="primary connbar-empty-link" onClick={openSearch}>
-            {t("connbar.emptyAction")}
-          </button>
-        </div>
+        {/* Only with nothing saved: with saved connections the list under it is
+            already the way in, and the box pushed it down the column (#816). */}
+        <Show when={saved().length === 0}>
+          <div class="explorer-empty">
+            <span class="explorer-empty-title">{t("explorer.noneTitle")}</span>
+            <span>{t("connbar.emptyHint")}</span>
+            {/* Its own wording, not the + button's: two buttons with the same
+                accessible name are ambiguous for a screen reader and for a test. */}
+            <button class="primary connbar-empty-link" onClick={openSearch}>
+              {t("connbar.emptyAction")}
+            </button>
+          </div>
+        </Show>
         <Show when={saved().length > 0}>
           <div class="explorer-label">{t("explorer.saved")}</div>
           <ul class="explorer-saved" aria-label={t("explorer.saved")}>
