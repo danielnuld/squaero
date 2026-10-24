@@ -2667,10 +2667,11 @@ kbd {
   border-top: 1px solid var(--border);
 }
 
-/* Context menu (custom right-click menu; the native one is suppressed). */
+/* Context menu (custom right-click menu; the native one is suppressed). Above
+   the dialog scrim (50): a grid inside a dialog has one too (#812). */
 .context-menu {
   position: fixed;
-  z-index: 50;
+  z-index: 60;
   min-width: 180px;
   padding: var(--sp-2);
   background: var(--bg-overlay);

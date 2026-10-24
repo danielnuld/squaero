@@ -6,6 +6,10 @@ import { paneSize, savePaneSize } from "../utils/paneSizes";
 import type { RelatedQuery } from "../utils/relatedData";
 import type { ResultSet } from "../utils/query";
 import { ResultGrid } from "./ResultGrid";
+import { copyRows, copyText } from "../utils/rowCopy";
+import { openContextMenu } from "../utils/contextMenu";
+import { formatKeys } from "../utils/shortcuts";
+import { currentOs } from "../utils/dialog";
 
 // "Datos relacionados" of one row (issue #310): the tables that depend on it by
 // foreign key, and the rows of the one being looked at.
@@ -70,6 +74,39 @@ export function RelatedData(props: {
     props.queries.filter((_, i) => (props.counts[i] ?? 0) > 0).length;
   const counted = () => props.queries.every((_, i) => i in props.counts);
   const canCarry = () => !!props.sql && !props.error;
+
+  // Copying out of the dialog (#812), as from the main grid: Ctrl+C the row
+  // (or a block of cells, which the grid copies itself), Ctrl+Shift+C with
+  // the column names, and the same choices on a right-click. Read-only here:
+  // nothing to paste into, so only the text the other program gets.
+  // ponytail: table column order, not a column order dragged in the dialog.
+  const copyOut = (rows: number[], withHeader = false) => {
+    const res = props.result;
+    if (!res || rows.length === 0) return;
+    copyText(copyRows(res, rows, res.columns.map((_, i) => i), null, withHeader).text);
+  };
+  const cellMenu = (e: MouseEvent, rowIndex: number, colIndex: number) => {
+    const res = props.result;
+    const row = res?.rows[rowIndex];
+    if (!res || !row) return;
+    openContextMenu(e, [
+      { label: t("result.copyCell"), action: () => copyText(row[colIndex] ?? "") },
+      { label: t("result.copyRow"), hint: formatKeys("Mod+C", currentOs()), action: () => copyOut([rowIndex]) },
+      {
+        label: t("result.copyRowHeader"),
+        hint: formatKeys("Mod+Shift+C", currentOs()),
+        action: () => copyOut([rowIndex], true),
+      },
+      ...(res.rows.length > 1
+        ? [
+            {
+              label: t("result.copyAllHeader", { n: res.rows.length }),
+              action: () => copyOut(res.rows.map((_, i) => i), true),
+            },
+          ]
+        : []),
+    ]);
+  };
 
   return (
     <Portal>
@@ -172,6 +209,8 @@ export function RelatedData(props: {
                       loading={props.loading}
                       error={props.error}
                       keyColumns={props.keyColumns}
+                      onCopyRows={copyOut}
+                      onCellContext={cellMenu}
                     />
                   </div>
                   <Show when={props.sql}>
