@@ -358,6 +358,8 @@ interface StylePalette {
   warn: string;
   ok: string;
   null: string;
+  "type-dot-num": string;
+  "type-dot-date": string;
   "type-dot-bool": string;
   "syntax-keyword": string;
   "syntax-string": string;
@@ -368,9 +370,11 @@ interface StylePalette {
 
 /**
  * Prototype names → app tokens. The data canvas is `content` (`--bg`), the
- * chrome around it `--bg-elev` and its hover step `--bg-elev2`. Values in the
- * grid read in the text colour, as the prototype draws them; only NULL, booleans
- * and binary keep a colour of their own.
+ * chrome around it `--bg-elev` and its hover step `--bg-elev2`. Numbers and
+ * dates take the prototype's type colours (`type-dot-*`), so «Registro» and «Hoja
+ * densa» colour what is not text as they say; «Informe» and «Colorear los datos
+ * por tipo» off put them back in ink (styles.css). Every value clears 4.5:1 on
+ * `content` and on `chrome-2`.
  */
 function fromStyle(p: StylePalette, charts: Record<string, string>): ThemeTokens {
   return {
@@ -394,9 +398,9 @@ function fromStyle(p: StylePalette, charts: Record<string, string>): ThemeTokens
     warn: p.warn,
     ok: p.ok,
     "cell-null": p.null,
-    "cell-number": p.text,
+    "cell-number": p["type-dot-num"],
     "cell-text": p.text,
-    "cell-temporal": p.text,
+    "cell-temporal": p["type-dot-date"],
     "cell-bool": p["type-dot-bool"],
     "cell-blob": p["text-dim"],
     "syntax-keyword": p["syntax-keyword"],
@@ -443,6 +447,8 @@ const nativo: Theme = {
       warn: "#8f4400",
       ok: "#1a6f38",
       null: "#59626e",
+      "type-dot-num": "#0b5cad",
+      "type-dot-date": "#7a3db8",
       "type-dot-bool": "#a14d00",
       "syntax-keyword": "#1f4fd1",
       "syntax-string": "#1a6f38",
@@ -471,6 +477,8 @@ const nativo: Theme = {
       warn: "#f0a868",
       ok: "#7fcf9a",
       null: "#a3abb5",
+      "type-dot-num": "#7cc4f8",
+      "type-dot-date": "#c3a6ff",
       "type-dot-bool": "#f0a868",
       "syntax-keyword": "#82aaff",
       "syntax-string": "#9ccf8a",
@@ -509,6 +517,8 @@ const quiet: Theme = {
       warn: "#8f4400",
       ok: "#1d7340",
       null: "#535d6a",
+      "type-dot-num": "#0b5cad",
+      "type-dot-date": "#7a3db8",
       "type-dot-bool": "#94470a",
       "syntax-keyword": "#2f55c8",
       "syntax-string": "#2c6e1f",
@@ -537,6 +547,8 @@ const quiet: Theme = {
       warn: "#f5a97f",
       ok: "#8fd6a8",
       null: "#939dab",
+      "type-dot-num": "#7cc4f8",
+      "type-dot-date": "#c3a6ff",
       "type-dot-bool": "#f5a97f",
       "syntax-keyword": "#7aa2f7",
       "syntax-string": "#a6d189",
@@ -578,6 +590,8 @@ const editorial: Theme = {
       warn: "#8f400f",
       ok: "#47661c",
       null: "#63573f",
+      "type-dot-num": "#1d5a86",
+      "type-dot-date": "#7d3f86",
       "type-dot-bool": "#744b00",
       "syntax-keyword": "#744b00",
       "syntax-string": "#47661c",
@@ -606,6 +620,8 @@ const editorial: Theme = {
       warn: "#d9905a",
       ok: "#a9c77e",
       null: "#ab9f87",
+      "type-dot-num": "#8fc1e3",
+      "type-dot-date": "#d4a5d8",
       "type-dot-bool": "#e0a43c",
       "syntax-keyword": "#e0a43c",
       "syntax-string": "#a9c77e",
@@ -645,6 +661,8 @@ const rosa: Theme = {
       warn: "#9a4520",
       ok: "#24684b",
       null: "#77566a",
+      "type-dot-num": "#2d5c9a",
+      "type-dot-date": "#7340a8",
       "type-dot-bool": "#9a4520",
       "syntax-keyword": "#a8346b",
       "syntax-string": "#24684b",
@@ -673,6 +691,8 @@ const rosa: Theme = {
       warn: "#f2ab7e",
       ok: "#8fd3b0",
       null: "#cda9bb",
+      "type-dot-num": "#8fb8f0",
+      "type-dot-date": "#c9a6f0",
       "type-dot-bool": "#f2ab7e",
       "syntax-keyword": "#f08cb5",
       "syntax-string": "#8fd3b0",

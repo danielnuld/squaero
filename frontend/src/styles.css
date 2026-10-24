@@ -30,9 +30,9 @@
   --warn: #8f4400;
   --ok: #1a6f38;
   --cell-null: #59626e;
-  --cell-number: #1b1f24;
+  --cell-number: #0b5cad;
   --cell-text: #1b1f24;
-  --cell-temporal: #1b1f24;
+  --cell-temporal: #7a3db8;
   --cell-bool: #a14d00;
   --cell-blob: #59626e;
   --syntax-keyword: #1f4fd1;
@@ -934,16 +934,6 @@ body {
   color: var(--text-dim);
   font-size: var(--fs-base);
   line-height: 1.5;
-}
-
-.connbar-empty-link {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent-text);
-  font: inherit;
-  cursor: default;
-  text-decoration: underline;
 }
 
 /* Finding a saved connection to open (#525): the popover is a search, not the
@@ -1976,7 +1966,8 @@ kbd {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--bg-elev2);
+  /* The prototype's surface (#803), a step off the data rather than a grey band. */
+  background: color-mix(in srgb, var(--bg) 60%, var(--bg-elev));
   border-bottom: 1px solid var(--border);
 }
 
@@ -3260,7 +3251,7 @@ button.status-chip:not(:disabled):hover {
   gap: var(--sp-3);
   padding: var(--sp-3) var(--sp-5);
   border-top: 1px solid var(--border);
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--bg) 60%, var(--bg-elev));
 }
 
 /* One strip with every option readable at once, instead of a dropdown whose
@@ -3276,6 +3267,14 @@ button.status-chip:not(:disabled):hover {
   align-self: flex-start;
   max-width: 100%;
   gap: var(--sp-2);
+  border: 0;
+  background: none;
+  overflow: visible;
+}
+
+.seg.cf-seg .seg-btn {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
 }
 
 /* The sentence under a security control: what that mode actually protects. */
@@ -3773,7 +3772,8 @@ button.status-chip:not(:disabled):hover {
   gap: var(--sp-3);
   padding: var(--sp-4) var(--sp-6);
   border-top: 1px solid var(--border);
-  background: var(--bg-elev);
+  /* The prototype's surface (#803): a step lighter than the chrome, not a grey band. */
+  background: color-mix(in srgb, var(--bg) 60%, var(--bg-elev));
 }
 
 .dlg-spacer {
@@ -3904,7 +3904,8 @@ button.status-chip:not(:disabled):hover {
   gap: var(--sp-3);
   padding: var(--sp-4) var(--sp-6);
   border-top: 1px solid var(--border);
-  background: var(--bg-elev);
+  /* The prototype's surface (#803): a step lighter than the chrome, not a grey band. */
+  background: color-mix(in srgb, var(--bg) 60%, var(--bg-elev));
 }
 
 /* The form grid: labels in one column, fields in the other. */
@@ -4110,14 +4111,21 @@ button.danger-text {
    wherever they sit (the legacy `.modal-actions` row is gone, #696). The
    connection form's footer is pinned outside the scrolling area and its
    buttons once fell back to the OS default — reported after v0.27.0. */
+/* On the content surface with the control border, as the prototype draws it
+   (#803), and the height of every other control in the row. */
 .cf-foot button,
 button.btn,
 button.primary {
-  background: var(--bg-elev2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--h-md);
+  background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
-  padding: var(--sp-3) var(--sp-4);
+  padding: 0 var(--sp-4);
   cursor: default;
   font: inherit;
 }
@@ -4149,9 +4157,14 @@ button.primary:hover:not(:disabled) {
    red one for what destroys (audit A-25: not red text on grey). */
 button.btn-primary,
 button.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--h-md);
   border: 1px solid transparent;
   border-radius: var(--r-sm);
-  padding: var(--sp-3) var(--sp-4);
+  padding: 0 var(--sp-4);
   font: inherit;
   font-weight: 600;
   cursor: default;
@@ -4820,7 +4833,11 @@ button.btn-danger:disabled {
   align-items: center;
   gap: var(--sp-2);
   height: var(--h-sm);
+  /* Inset and rounded, as the prototype draws the tree (#802): a hover or the
+     selection is a pill inside the panel, not a band across it. */
+  margin: 0 var(--sp-2);
   padding-right: var(--sp-3);
+  border-radius: var(--r-sm);
   cursor: default;
   white-space: nowrap;
   overflow: hidden;
@@ -4828,30 +4845,31 @@ button.btn-danger:disabled {
 
 .objtree-row:hover {
   background: var(--bg-elev2);
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 /* The keyboard-active row. Focus stays on the tree container and the active item is
-   published with aria-activedescendant, so there is no :focus to style — without an
-   explicit marker a sighted keyboard user would be moving an invisible cursor. */
+   published with aria-activedescendant, so there is no :focus to style. With the
+   mouse it reads as the selection; the ring only appears when the tree is being
+   driven from the keyboard (#802), where it is the cursor. */
 .objtree-scroll:focus-visible {
   outline-offset: -2px;
 }
 
 .objtree-row.is-focused {
-  background: var(--bg-elev2);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.objtree-row.is-focused .objtree-label {
+  color: var(--accent-text);
+}
+
+.objtree-scroll:focus-visible .objtree-row.is-focused {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
-/* The node of the current working database: a persistent accent highlight so it
-   stays visible while the user drills into other databases (issue: sidebar
-   visual pass). Toggled by ObjectTree from its `activeDb` prop. */
-.objtree-row.is-active {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-
+/* The node of the current working database: its name in bold, beside its
+   «activa» tag, stays visible while the user drills into other databases. */
 .objtree-row.is-active .objtree-label {
   font-weight: 600;
   color: var(--text);
@@ -5234,6 +5252,10 @@ button.btn-danger:disabled {
   flex-shrink: 0;
 }
 
+.edit-toolbar .toolbar-sep {
+  margin: 0 var(--sp-3);
+}
+
 /* How many conditions the rows on screen are filtered by (R-22). */
 .edit-btn-count {
   margin-left: var(--sp-1);
@@ -5309,6 +5331,32 @@ svg.icon {
 .edit-toolbar {
   min-height: var(--band-lg);
   background: var(--bg);
+  /* The buttons carry their own padding; the bar adds only a hairline between
+     them, as the prototype spaces it (#800). The dividers keep their air. */
+  gap: var(--sp-1);
+  /* The bar is its own container (#800): when it is too narrow for every label,
+     the actions keep their icon and their name, only the text folds away. */
+  container-type: inline-size;
+}
+
+/* The editing hint is a nicety: it gives its room to the actions before
+   anything else does, rather than showing as «Doble …». */
+@container (max-width: 1100px) {
+  .edit-toolbar .edit-hint {
+    display: none;
+  }
+}
+
+@container (max-width: 860px) {
+  .edit-toolbar .eb-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .edit-toolbar .edit-btn {
@@ -5354,21 +5402,27 @@ svg.icon {
   color: var(--text-dim);
 }
 
-/* A segmented choice: Datos · Estructura · Índices · DDL. */
+/* A segmented choice: Datos · Estructura · Índices · DDL. The prototype's
+   (#803): one outlined strip, hairlines between the options, the chosen one
+   tinted with the accent rather than lifted on a shadow. */
 .seg {
   display: inline-flex;
   flex-shrink: 0;
-  padding: var(--sp-1);
-  gap: var(--sp-1);
-  border-radius: var(--r-md);
-  background: var(--bg-elev2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  overflow: hidden;
 }
 
 .seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
   height: var(--h-sm);
   padding: 0 var(--sp-4);
   border: 0;
-  border-radius: var(--r-sm);
+  border-right: 1px solid var(--border);
+  border-radius: 0;
   background: transparent;
   color: var(--text-dim);
   font: inherit;
@@ -5376,15 +5430,19 @@ svg.icon {
   cursor: default;
 }
 
+.seg-btn:last-child {
+  border-right: 0;
+}
+
 .seg-btn:hover:not(.on) {
+  background: var(--bg-elev2);
   color: var(--text);
 }
 
 .seg-btn.on {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
 }
 
 .edit-error {
@@ -8909,6 +8967,12 @@ button.grid-action.danger:hover:not(:disabled) {
 
 :root[data-grid-style="registro"] .grid-cell {
   border-right: none;
+}
+
+/* The rows run free, the header keeps its hairlines: where a column starts and
+   ends is read up there (#803, the prototype's grid). */
+:root[data-grid-style="registro"] .grid-header .grid-cell {
+  border-right: 1px solid var(--border);
 }
 
 /* Hoja densa: the spreadsheet. Full gridlines, shorter rows, colour on every

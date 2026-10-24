@@ -97,6 +97,22 @@ describe("the M14 styles", () => {
     expect(contrastIssues(BUILTIN_THEMES.find((t) => t.id === id)!)).toEqual([]);
   });
 
+  // #801: «Registro» colours what is not text, so numbers and dates must not be
+  // the ink — and stay AA on the data and on the hover/zebra step.
+  it("give numbers and dates a colour of their own, readable", () => {
+    for (const t of styles) {
+      for (const mode of ["light", "dark"] as const) {
+        const v = t[mode];
+        for (const k of ["cell-number", "cell-temporal"] as const) {
+          expect(v[k], `${t.id} ${mode} ${k}`).not.toBe(v.text);
+          for (const surface of ["bg", "bg-elev2"] as const) {
+            expect(contrastRatio(v[k], v[surface]), `${t.id} ${mode} ${k} on ${surface}`).toBeGreaterThanOrEqual(AA_NORMAL);
+          }
+        }
+      }
+    }
+  });
+
   it("read light-first or dark-first as designed", () => {
     const lum = (hex: string) => parseInt(hex.slice(1, 3), 16);
     for (const t of styles) {
