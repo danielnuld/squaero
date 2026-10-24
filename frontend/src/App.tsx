@@ -6076,6 +6076,11 @@ export function App() {
                       onRollback={() => void endTabTx("rollback")}
                     />
                   </Show>
+                  {/* One band for the result's head (#805): the tabs on the left, what
+                      the run did on the right, as the prototype draws it — not a
+                      status line stacked over a strip of tabs. */}
+                  <Show when={!isDataTab(tab().id) || (currentResult().sets?.length ?? 0) > 1}>
+                  <div class="result-head">
                   {/* What the run did or is doing (issue #691, R-01): the clock
                       while it runs, the summary or the failed line after. */}
                   <Show when={!isDataTab(tab().id)}>
@@ -6121,6 +6126,8 @@ export function App() {
                       view={isDataTab(tab().id) ? undefined : resultView(tab().id)}
                       onView={isDataTab(tab().id) ? undefined : (v) => setResultViews(tab().id, v)}
                     />
+                  </Show>
+                  </div>
                   </Show>
                   <Show when={!isDataTab(tab().id) && resultView(tab().id) === "messages"}>
                     <ResultMessages messages={runLogs[tab().id] ?? []} />

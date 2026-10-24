@@ -4632,6 +4632,37 @@ button.btn-danger:disabled {
   flex-shrink: 0;
 }
 
+/* The result's head (#805): the tabs and the run's summary share one band.
+   The summary is first in the document — it is the live region — and is drawn
+   on the right; it gives up its text before the tabs give up theirs. */
+.result-head {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  min-width: 0;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.result-head > .result-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.result-head > .run-status {
+  order: 2;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  border-bottom: 0;
+}
+
+.result-head > .run-status .toolbar-spacer {
+  display: none;
+}
+
 .rtab {
   display: flex;
   align-items: center;
@@ -10274,7 +10305,7 @@ ul.sidebar-tree {
 /* The result pane's «Mensajes» and «Plan» views (issue #691): they take the
    pane's place below the status band and the tab strip; the grid and its bars
    stay mounted (and keep their scroll) underneath, only out of sight. */
-.result-pane.is-alt-view > :not(.run-status):not(.result-tabs):not(.run-messages):not(.tool-pane):not(.result-alt) {
+.result-pane.is-alt-view > :not(.result-head):not(.run-status):not(.result-tabs):not(.run-messages):not(.tool-pane):not(.result-alt) {
   display: none;
 }
 .run-messages {
