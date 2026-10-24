@@ -65,7 +65,7 @@ const button = (name: RegExp | string) =>
 
 describe("ConnectionBar with nothing open", () => {
   it("says so in sentence case and offers to connect", () => {
-    mount();
+    mount({ connections: [] });
     expect(host!.querySelector(".explorer-title")?.textContent).toBe("Explorador");
     expect(host!.textContent).toContain("Sin conexión");
     expect(host!.textContent).toContain("No hay ninguna conexión abierta");
@@ -82,8 +82,15 @@ describe("ConnectionBar with nothing open", () => {
     expect(host!.querySelector(".connbar-drop")).toBeNull();
   });
 
-  it("opens the search from the empty state", () => {
+  // #816: with saved connections the list is the way in; the box only pushed it down.
+  it("drops the empty box when there are saved connections to list", () => {
     mount();
+    expect(host!.querySelector(".explorer-empty")).toBeNull();
+    expect(host!.querySelectorAll(".explorer-saved-row")).toHaveLength(2);
+  });
+
+  it("opens the search from the empty state", () => {
+    mount({ connections: [] });
     host!.querySelector<HTMLButtonElement>(".connbar-empty-link")!.click();
     expect(host!.querySelector(".connsearch")).not.toBeNull();
   });
