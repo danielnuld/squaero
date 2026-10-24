@@ -2,12 +2,11 @@ import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "s
 import { engineMonogram, connectionTarget, driverSchema, type Connection } from "../utils/connections";
 import { ConnectionSearch } from "./ConnectionSearch";
 import { t } from "../utils/i18n";
+import { recentConnections, type UsageMap } from "../utils/recentConnections";
 import { Icon } from "./icons";
 import { openContextMenu } from "../utils/contextMenu";
 import type { SafeMode } from "../utils/safeMode";
 
-/** How many saved connections the empty explorer offers directly. */
-const SAVED_SHOWN = 6;
 
 // The explorer's head (issue #689): its title, the + that searches the saved
 // connections to open one, and — with nothing open — an empty state with the
@@ -16,6 +15,8 @@ const SAVED_SHOWN = 6;
 export function ConnectionBar(props: {
   /** Every saved connection — what the search looks through. */
   connections: Connection[];
+  /** When each was last opened: the saved list puts the most used first. */
+  usage?: UsageMap;
   /** The saved ids of the open connections. */
   openIds: string[];
   /** Non-null while a connection is being opened. */
@@ -53,7 +54,11 @@ export function ConnectionBar(props: {
     onCleanup(() => document.removeEventListener("mousedown", onDown));
   });
 
-  const saved = () => props.connections.slice(0, SAVED_SHOWN);
+  // Every saved connection, the most recently used first (#813): six in saved
+  // order hid whole engines behind the first ones, and the search was the only
+  // way to reach them. The list scrolls on its own.
+  const saved = () =>
+    recentConnections(props.connections, props.usage ?? {}, props.connections.length).map((r) => r.conn);
   const subOf = (c: Connection) => {
     const label = driverSchema(c.driver)?.label ?? c.driver;
     const target = connectionTarget(c);
