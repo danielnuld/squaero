@@ -26,19 +26,19 @@ final class NavigationUITests: XCTestCase {
 
     func testATableOpensItsRowsAndStaysThere() {
         openDemo()
-        let table = app.buttons["audiencias"]
+        let table = app.buttons["entregas"]
         XCTAssertTrue(table.waitForExistence(timeout: 30))
         table.tap()
-        let rows = app.navigationBars["audiencias"]
+        let rows = app.navigationBars["entregas"]
         XCTAssertTrue(rows.waitForExistence(timeout: 15))
         sleep(2) // the loop took the stack back a moment later
         XCTAssertTrue(rows.exists)
-        XCTAssertFalse(app.buttons["audiencias"].exists)
+        XCTAssertFalse(app.buttons["entregas"].exists)
     }
 
     func testTheQueryKeyboardCanBeHidden() {
         openDemo()
-        XCTAssertTrue(app.buttons["audiencias"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["entregas"].waitForExistence(timeout: 30))
         app.tabBars.buttons.element(boundBy: 1).tap()
         let editor = app.textViews["sql-editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10))

@@ -36,23 +36,23 @@ final class DemoTests: XCTestCase {
 
     func testItOpensWithItsTablesAndRows() async throws {
         let session = try await open()
-        let expedientes = try await count(session, "SELECT COUNT(*) FROM expedientes")
-        let audiencias = try await count(session, "SELECT COUNT(*) FROM audiencias")
-        XCTAssertEqual(expedientes, "1284")
-        XCTAssertEqual(audiencias, "2400")
+        let pedidos = try await count(session, "SELECT COUNT(*) FROM pedidos")
+        let entregas = try await count(session, "SELECT COUNT(*) FROM entregas")
+        XCTAssertEqual(pedidos, "1284")
+        XCTAssertEqual(entregas, "2400")
 
         let tables = try Logic.shared.parseTreeRows(
             try await Core.shared.resultSet("schema.tree", ["connId": session.connId, "db": "main"]),
             fallback: "schema")
-        for name in ["juzgados", "salas", "expedientes", "audiencias"] {
+        for name in ["tiendas", "repartidores", "pedidos", "entregas"] {
             XCTAssertTrue(tables.contains(TreeRow(name: name, kind: "table")), "\(name): \(tables)")
         }
-        XCTAssertTrue(tables.contains(TreeRow(name: "expedientes_abiertos", kind: "view")))
+        XCTAssertTrue(tables.contains(TreeRow(name: "pedidos_pendientes", kind: "view")))
     }
 
-    func testACaseFileCanBeEditedAndPointsAtItsCourt() async throws {
+    func testAnOrderCanBeEditedAndPointsAtItsStore() async throws {
         let session = try await open()
-        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "expedientes"))
+        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "pedidos"))
         await pager.describe()
         await pager.reload()
         pager.close()
@@ -63,33 +63,33 @@ final class DemoTests: XCTestCase {
         let editor = RowEditor(session: session, ref: ref)
         XCTAssertNil(editor.readOnlyReason)
         editor.begin()
-        editor.set("estado", "archivado")
+        editor.set("estado", "cancelado")
         await editor.review()
         await editor.commit()
         XCTAssertNil(editor.failure)
 
         let related = RowRelations(session: session, ref: ref)
         await related.load()
-        XCTAssertEqual(related.parents.first?.relation.fromTable, "juzgados")
-        XCTAssertTrue(related.children.contains { $0.relation.fromTable == "audiencias" })
+        XCTAssertEqual(related.parents.first?.relation.fromTable, "tiendas")
+        XCTAssertTrue(related.children.contains { $0.relation.fromTable == "entregas" })
     }
 
     func testEditsStayUntilAReset() async throws {
         var session = try await open()
         _ = try await Core.shared.call("query.run", ["connId": session.connId, "sql":
-            "UPDATE juzgados SET nombre = 'Cambiado' WHERE id = 1"])
+            "UPDATE tiendas SET nombre = 'Cambiado' WHERE id = 1"])
         _ = try await Core.shared.call("conn.close", ["connId": session.connId])
         connId = nil
 
         session = try await open()
-        let kept = try await count(session, "SELECT nombre FROM juzgados WHERE id = 1")
+        let kept = try await count(session, "SELECT nombre FROM tiendas WHERE id = 1")
         XCTAssertEqual(kept, "Cambiado")
         _ = try await Core.shared.call("conn.close", ["connId": session.connId])
         connId = nil
 
         try DemoDatabase.reset(in: directory)
         session = try await open()
-        let fresh = try await count(session, "SELECT nombre FROM juzgados WHERE id = 1")
-        XCTAssertEqual(fresh, "Primero Civil")
+        let fresh = try await count(session, "SELECT nombre FROM tiendas WHERE id = 1")
+        XCTAssertEqual(fresh, "Centro")
     }
 }
