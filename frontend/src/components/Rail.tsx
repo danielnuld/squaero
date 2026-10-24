@@ -22,13 +22,15 @@ export function Rail(props: {
   connected: boolean;
   onConnections: () => void;
   onSettings: () => void;
+  /** The Settings tab is in front: the side column shows its categories (#806). */
+  settingsOn?: boolean;
 }) {
   return (
     <nav class="rail" aria-label={t("rail.aria")}>
       <div class="rail-group" role="tablist" aria-orientation="vertical" aria-label={t("rail.panels")}>
         <For each={PANELS}>
           {(p) => {
-            const on = () => props.side.panel === p.id && !props.side.collapsed;
+            const on = () => !props.settingsOn && props.side.panel === p.id && !props.side.collapsed;
             const disabled = () => p.id === "search" && !props.connected;
             return (
               <button
@@ -52,7 +54,13 @@ export function Rail(props: {
         <Icon name="plug" size={18} />
         <span class="rail-lb">{t("rail.connections")}</span>
       </button>
-      <button class="rail-btn" title={t("rail.settingsTitle")} onClick={() => props.onSettings()}>
+      <button
+        class="rail-btn"
+        classList={{ on: !!props.settingsOn }}
+        aria-current={props.settingsOn ? "page" : undefined}
+        title={t("rail.settingsTitle")}
+        onClick={() => props.onSettings()}
+      >
         <Icon name="settings" size={18} />
         <span class="rail-lb">{t("rail.settings")}</span>
       </button>

@@ -114,6 +114,15 @@
   --fs-base: 12px;
   --fs-md: 13px;
   --fs-lg: 15px;
+  /* The one display size: the welcome's title (#807). */
+  --fs-display: 26px;
+  /* Each engine's hue on its card in the connection form (#804, the prototype's). */
+  --engine-sqlite: #3b7ddd;
+  --engine-postgres: #336791;
+  --engine-mysql: #c47a12;
+  --engine-mssql: #b0302b;
+  --engine-informix: #1f70c1;
+  --engine-mongodb: #3f9142;
 
   /* Alturas de control, con un papel cada una: dentro de una fila de rejilla /
      compacto (barras, chips, iconos) / normal (botones y campos). */
@@ -319,6 +328,7 @@
 .cell-input,
 .grid-filter-input,
 .objtree-filter-input,
+.settings-search,
 .rd-input,
 .snip-save-input,
 .td-in,
@@ -848,16 +858,18 @@ body {
   cursor: default;
 }
 
+/* Tinted with the connection's own colour, as the prototype draws it (#804):
+   the same hue as its stripe, its tabs and its status bar; neutral without one.
+   The ink is pulled toward the text so the monogram reads on both palettes. */
 .connbar-mono {
   flex-shrink: 0;
   display: grid;
   place-items: center;
   width: 28px;
   height: var(--h-micro);
-  border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  background: var(--bg);
-  color: var(--text-dim);
+  background: color-mix(in srgb, var(--conn-accent, var(--text-dim)) 16%, transparent);
+  color: color-mix(in srgb, var(--conn-accent, var(--text-dim)) 75%, var(--text));
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   font-weight: 600;
@@ -2351,12 +2363,15 @@ kbd {
   gap: var(--sp-4);
 }
 
+/* The page's title, at the size the prototype gives it (#807): the first
+   thing read on an empty window, not one more label among the rows. */
 .welcome-head h1,
 .welcome-home-title h1 {
   margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-display);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .welcome-head p,
@@ -2437,6 +2452,17 @@ kbd {
   border-radius: var(--r-md);
   background: var(--bg);
   color: var(--text-dim);
+}
+
+/* The one thing to do first is a card of its own (#807), drawn in the accent's
+   outline; the other starts stay plain rows under it. */
+.welcome-action-primary {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+}
+
+.welcome-action-primary:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
 }
 
 /* Not `.primary`: the global button.primary would fill the whole row with the accent. */
@@ -3056,10 +3082,12 @@ button.status-chip:not(:disabled):hover {
   color: transparent;
 }
 
+/* Done reads as a plain green check, as the prototype marks it (#807) — not a
+   filled disc in the number colour, which in B is amber and read as a warning. */
 .cf-index-item[data-status="ok"] .cf-index-mark {
-  background: var(--number);
-  border-color: var(--number);
-  color: var(--bg);
+  background: none;
+  border-color: transparent;
+  color: var(--ok);
 }
 
 .cf-index-item[data-status="error"] .cf-index-mark {
@@ -3109,8 +3137,8 @@ button.status-chip:not(:disabled):hover {
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-3);
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
   color: var(--text);
   font: inherit;
@@ -3135,10 +3163,35 @@ button.status-chip:not(:disabled):hover {
   width: var(--h-sm);
   height: var(--h-sm);
   border-radius: var(--r-sm);
-  background: var(--bg-elev2);
-  color: var(--text-dim);
+  background: color-mix(in srgb, var(--engine, var(--text-dim)) 16%, transparent);
+  color: color-mix(in srgb, var(--engine, var(--text-dim)) 75%, var(--text));
+  font-family: var(--font-mono);
   font-size: var(--fs-sm);
   font-weight: 600;
+}
+
+/* Each engine's own hue on its card (#804, the prototype's values). The
+   preview shows the connection instead, in the colour it will carry. */
+.cf-engine-mono[data-engine="sqlite"] {
+  --engine: var(--engine-sqlite);
+}
+.cf-engine-mono[data-engine="postgres"] {
+  --engine: var(--engine-postgres);
+}
+.cf-engine-mono[data-engine="mysql"] {
+  --engine: var(--engine-mysql);
+}
+.cf-engine-mono[data-engine="mssql"] {
+  --engine: var(--engine-mssql);
+}
+.cf-engine-mono[data-engine="informix"] {
+  --engine: var(--engine-informix);
+}
+.cf-engine-mono[data-engine="mongodb"] {
+  --engine: var(--engine-mongodb);
+}
+.cf-preview-mono {
+  --engine: var(--conn-accent);
 }
 
 .cf-engine-text {
@@ -3778,6 +3831,26 @@ button.status-chip:not(:disabled):hover {
 
 .dlg-spacer {
   flex: 1;
+}
+
+/* A consequence that reaches beyond the object (#807): foreign keys that will
+   point at nothing. The prototype's warning callout. */
+.confirm-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--warn-soft);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.confirm-warn > svg {
+  flex: none;
+  margin-top: var(--sp-1);
+  color: var(--warn);
 }
 
 .dlg-actions {
@@ -4619,6 +4692,37 @@ button.btn-danger:disabled {
   flex-shrink: 0;
 }
 
+/* The result's head (#805): the tabs and the run's summary share one band.
+   The summary is first in the document — it is the live region — and is drawn
+   on the right; it gives up its text before the tabs give up theirs. */
+.result-head {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  min-width: 0;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.result-head > .result-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.result-head > .run-status {
+  order: 2;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  border-bottom: 0;
+}
+
+.result-head > .run-status .toolbar-spacer {
+  display: none;
+}
+
 .rtab {
   display: flex;
   align-items: center;
@@ -4764,15 +4868,28 @@ button.btn-danger:disabled {
 }
 
 .objtree-filter {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   padding: 0 var(--sp-3) var(--sp-3);
 }
 
+/* A magnifier inside the field, as the prototype draws it (#807): the field
+   says it is a search before anything is typed. */
+.objtree-filter-ic {
+  position: absolute;
+  left: calc(var(--sp-3) + var(--sp-3));
+  top: calc(50% - var(--sp-3) / 2);
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
 .objtree-filter-input {
   flex: 1;
   min-width: 0;
+  padding-left: var(--sp-6);
 }
 
 .objtree-filter-input:focus {
@@ -7378,9 +7495,55 @@ button.grid-action.danger:hover:not(:disabled) {
   min-height: var(--h-md);
 }
 
+/* A label column, the control beside it (#806, the prototype's form): the eye
+   reads down the names and finds the control next to each, instead of
+   crossing the whole width to reach it. Its hint sits under the control. */
+.settings-body {
+  --settings-label-w: 12rem;
+}
+
 .settings-label {
-  flex: 1;
+  flex: 0 0 var(--settings-label-w);
   font-size: var(--fs-md);
+}
+
+/* The grid preview (#806): a card of the real grid's cells, so whatever the
+   section changes shows here at once. */
+.settings-preview {
+  display: flex;
+  flex-direction: column;
+  max-width: 28rem;
+  margin: var(--sp-2) 0 var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.settings-preview-title {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.settings-preview .grid-header {
+  position: static;
+}
+
+.settings-preview-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+}
+
+.settings-preview .head-number,
+.settings-preview .cell-number {
+  text-align: right;
+}
+
+.settings-row:has(> .settings-label) + .settings-hint {
+  /* The label column plus the row's gap (--sp-4, 12px). */
+  padding-left: calc(var(--settings-label-w) + 12px);
 }
 
 .settings-row input[type="number"] {
@@ -7657,6 +7820,7 @@ button.grid-action.danger:hover:not(:disabled) {
   flex-direction: column;
   gap: var(--sp-1);
   flex: 0 0 11rem;
+  min-width: 0;
   position: sticky;
   top: 0;
 }
@@ -7712,10 +7876,39 @@ button.grid-action.danger:hover:not(:disabled) {
   background: var(--bg-elev);
 }
 
+/* The prototype's selection (#806): a soft accent tint and a bar on the edge,
+   not a solid fill — which also hid the accent-coloured icon on it. */
 .settings-nav-item[aria-current="true"] {
+  position: relative;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.settings-nav-item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--sp-2);
+  bottom: var(--sp-2);
+  width: 2px;
+  border-radius: var(--r-pill);
   background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
+}
+
+/* In the side column (#806): the column's padding, the full width, and the
+   panels underneath out of sight while the Settings tab is in front. */
+.sidebar.is-settings > :not(.side-settings) {
+  display: none;
+}
+
+.side-settings {
+  padding: var(--sp-3);
+  overflow: auto;
+}
+
+.side-settings .settings-nav {
+  position: static;
 }
 
 .settings-body {
@@ -10261,7 +10454,7 @@ ul.sidebar-tree {
 /* The result pane's «Mensajes» and «Plan» views (issue #691): they take the
    pane's place below the status band and the tab strip; the grid and its bars
    stay mounted (and keep their scroll) underneath, only out of sight. */
-.result-pane.is-alt-view > :not(.run-status):not(.result-tabs):not(.run-messages):not(.tool-pane):not(.result-alt) {
+.result-pane.is-alt-view > :not(.result-head):not(.run-status):not(.result-tabs):not(.run-messages):not(.tool-pane):not(.result-alt) {
   display: none;
 }
 .run-messages {
