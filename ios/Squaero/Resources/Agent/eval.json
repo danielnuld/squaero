@@ -1,23 +1,23 @@
 {
   "filters": [
-    { "table": "expedientes", "request": "solo los abiertos", "expect": [["estado", "=", "abierto"]] },
-    { "table": "expedientes", "request": "los de materia mercantil", "expect": [["materia", "=", "mercantil"]] },
-    { "table": "expedientes", "request": "los que no tienen monto", "expect": [["monto", "IS NULL", ""]] },
-    { "table": "expedientes", "request": "con un monto mayor a 50000", "expect": [["monto", ">", "50000"]] },
-    { "table": "audiencias", "request": "solo las de juicio", "expect": [["tipo", "=", "de juicio"]] },
-    { "table": "salas", "request": "las que no tienen capacidad registrada", "expect": [["capacidad", "IS NULL", ""]] }
+    { "table": "pedidos", "request": "solo los pendientes", "expect": [["estado", "=", "pendiente"]] },
+    { "table": "pedidos", "request": "los de la categoría ropa", "expect": [["categoria", "=", "ropa"]] },
+    { "table": "pedidos", "request": "los que no tienen total", "expect": [["total", "IS NULL", ""]] },
+    { "table": "pedidos", "request": "con un total mayor a 50000", "expect": [["total", ">", "50000"]] },
+    { "table": "entregas", "request": "solo las express", "expect": [["tipo", "=", "express"]] },
+    { "table": "repartidores", "request": "los que no tienen capacidad registrada", "expect": [["capacidad", "IS NULL", ""]] }
   ],
   "questions": [
-    { "question": "¿Cuántos expedientes hay?", "reference": "SELECT COUNT(*) FROM expedientes" },
-    { "question": "¿Cuántos expedientes hay por estado?", "reference": "SELECT estado, COUNT(*) FROM expedientes GROUP BY estado" },
-    { "question": "¿Cuántas audiencias hay de cada tipo?", "reference": "SELECT tipo, COUNT(*) FROM audiencias GROUP BY tipo" },
-    { "question": "¿Qué sucursales hay en Hermosillo?", "reference": "SELECT nombre FROM sucursales WHERE ciudad = 'Hermosillo'" },
-    { "question": "¿Cuál es el monto total de los expedientes mercantiles?", "reference": "SELECT SUM(monto) FROM expedientes WHERE materia = 'mercantil'" },
-    { "question": "¿Cuántas salas tiene cada sucursal?", "reference": "SELECT sucursal_id, COUNT(*) FROM salas GROUP BY sucursal_id" }
+    { "question": "¿Cuántos pedidos hay?", "reference": "SELECT COUNT(*) FROM pedidos" },
+    { "question": "¿Cuántos pedidos hay por estado?", "reference": "SELECT estado, COUNT(*) FROM pedidos GROUP BY estado" },
+    { "question": "¿Cuántas entregas hay de cada tipo?", "reference": "SELECT tipo, COUNT(*) FROM entregas GROUP BY tipo" },
+    { "question": "¿Qué tiendas hay en Guadalajara?", "reference": "SELECT nombre FROM tiendas WHERE ciudad = 'Guadalajara'" },
+    { "question": "¿Cuál es el total de los pedidos de ropa?", "reference": "SELECT SUM(total) FROM pedidos WHERE categoria = 'ropa'" },
+    { "question": "¿Cuántos repartidores tiene cada tienda?", "reference": "SELECT tienda_id, COUNT(*) FROM repartidores GROUP BY tienda_id" }
   ],
   "errors": [
-    { "sql": "SELECT numero, estdo FROM expedientes", "column": "estado" },
-    { "sql": "SELECT nombre FROM salas WHERE capasidad > 30", "column": "capacidad" },
-    { "sql": "SELECT fecah, tipo FROM audiencias", "column": "fecha" }
+    { "sql": "SELECT numero, estdo FROM pedidos", "column": "estado" },
+    { "sql": "SELECT nombre FROM repartidores WHERE capasidad > 30", "column": "capacidad" },
+    { "sql": "SELECT fecah, tipo FROM entregas", "column": "fecha" }
   ]
 }

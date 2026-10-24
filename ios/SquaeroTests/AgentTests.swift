@@ -41,14 +41,14 @@ final class AgentTests: XCTestCase {
     }
 
     func testOnlyProvablyReadOnlyStatementsPassTheGate() {
-        for sql in ["SELECT 1", "select * from audiencias where tipo = 'x'",
+        for sql in ["SELECT 1", "select * from entregas where tipo = 'x'",
                     "WITH a AS (SELECT 1 AS n) SELECT n FROM a", "SELECT 'DELETE FROM x'"] {
             XCTAssertTrue(AgentTools.isReadOnly(sql), sql)
         }
-        for sql in ["UPDATE audiencias SET tipo = 'x'", "DELETE FROM audiencias",
-                    "SELECT 1; DELETE FROM audiencias", "/* SELECT */ DROP TABLE salas",
-                    "WITH d AS (DELETE FROM audiencias RETURNING *) SELECT * FROM d",
-                    "SELECT 'a'';' ; UPDATE salas SET nombre = 'x'", "INSERT INTO salas VALUES (99, 1, 'x')",
+        for sql in ["UPDATE entregas SET tipo = 'x'", "DELETE FROM entregas",
+                    "SELECT 1; DELETE FROM entregas", "/* SELECT */ DROP TABLE repartidores",
+                    "WITH d AS (DELETE FROM entregas RETURNING *) SELECT * FROM d",
+                    "SELECT 'a'';' ; UPDATE repartidores SET nombre = 'x'", "INSERT INTO repartidores VALUES (99, 1, 'x')",
                     "CREATE TABLE t (n int)", "", "  -- nada"] {
             XCTAssertFalse(AgentTools.isReadOnly(sql), sql)
         }
@@ -58,9 +58,9 @@ final class AgentTests: XCTestCase {
     // server refuses a change, and nothing changes.
     func testTheAgentCannotChangeDataByAnyTool() async throws {
         let tools = try await tools()
-        let before = try await first("SELECT COUNT(*) || '/' || MAX(tipo) FROM audiencias")
-        for sql in ["UPDATE audiencias SET tipo = 'hackeada'", "DELETE FROM audiencias",
-                    "SELECT 1; UPDATE audiencias SET tipo = 'x'", "DROP TABLE audiencias"] {
+        let before = try await first("SELECT COUNT(*) || '/' || MAX(tipo) FROM entregas")
+        for sql in ["UPDATE entregas SET tipo = 'hackeada'", "DELETE FROM entregas",
+                    "SELECT 1; UPDATE entregas SET tipo = 'x'", "DROP TABLE entregas"] {
             do {
                 _ = try await tools.runSelect(sql)
                 XCTFail("ran: \(sql)")
@@ -68,13 +68,13 @@ final class AgentTests: XCTestCase {
                 XCTAssertFalse(refusal.localizedDescription.isEmpty)
             }
         }
-        let after = try await first("SELECT COUNT(*) || '/' || MAX(tipo) FROM audiencias")
+        let after = try await first("SELECT COUNT(*) || '/' || MAX(tipo) FROM entregas")
         XCTAssertEqual(before, after)
     }
 
     func testASelectComesBackAsTextWithARowLimit() async throws {
         let tools = try await tools()
-        let text = try await tools.runSelect("SELECT id, tipo FROM audiencias ORDER BY id")
+        let text = try await tools.runSelect("SELECT id, tipo FROM entregas ORDER BY id")
         let lines = text.split(separator: "\n")
         XCTAssertEqual(lines.first, "id\ttipo")
         XCTAssertEqual(lines.count, 1 + AgentTools.rowLimit + 1) // the header, the rows, "…"
@@ -83,16 +83,16 @@ final class AgentTests: XCTestCase {
 
     func testTheSchemaIsSearchedNotSentWhole() async throws {
         let tools = try await tools()
-        let found = try await tools.searchSchema("audien")
-        XCTAssertTrue(found.contains("audiencias("), found)
+        let found = try await tools.searchSchema("entreg")
+        XCTAssertTrue(found.contains("entregas("), found)
         XCTAssertTrue(found.contains("fecha"), found)
-        XCTAssertFalse(found.contains("sucursales("), found)
+        XCTAssertFalse(found.contains("tiendas("), found)
 
         let none = try await tools.searchSchema("zzz")
-        XCTAssertTrue(none.contains("expedientes"), none) // the table names, to pick from
+        XCTAssertTrue(none.contains("pedidos"), none) // the table names, to pick from
 
-        let described = try await tools.describeTable("EXPEDIENTES")
-        XCTAssertTrue(described.hasPrefix("expedientes("), described)
+        let described = try await tools.describeTable("PEDIDOS")
+        XCTAssertTrue(described.hasPrefix("pedidos("), described)
         XCTAssertTrue(described.contains(" PK"), described)
         let missing = try await tools.describeTable("nada")
         XCTAssertFalse(missing.contains("("), missing)
@@ -100,19 +100,19 @@ final class AgentTests: XCTestCase {
 
     // Task 8.3: what the model proposes becomes chips only once checked.
     func testAProposedFilterKeepsOnlyRealColumnsAndKnownOperators() {
-        let columns = ["id", "sala_id", "fecha", "estado"]
+        let columns = ["id", "repartidor_id", "fecha", "estado"]
         let got = AgentFilter.conditions([
-            ("Estado", "=", "programada"),                                   // case of the column
+            ("Estado", "=", "pendiente"),                                   // case of the column
             ("fecha", "between", "2026-09-26 00:00:00...2026-09-26 23:59:59"), // case of the op, "..."
-            ("sala", "=", "2"),                                              // no such column
+            ("repartidor", "=", "2"),                                        // no such column
             ("estado", "SOUNDS LIKE", "x"),                                  // no such operator
-            ("sala_id", "IS NULL", "ignored"),                               // nullary: no value
+            ("repartidor_id", "IS NULL", "ignored"),                         // nullary: no value
             ("id", ">", "  "),                                               // a value is needed
         ], columns: columns)
         XCTAssertEqual(got, [
-            Condition(column: "estado", op: "=", value: "programada"),
+            Condition(column: "estado", op: "=", value: "pendiente"),
             Condition(column: "fecha", op: "BETWEEN", value: "2026-09-26 00:00:00…2026-09-26 23:59:59"),
-            Condition(column: "sala_id", op: "IS NULL", value: ""),
+            Condition(column: "repartidor_id", op: "IS NULL", value: ""),
         ])
     }
 
@@ -120,12 +120,12 @@ final class AgentTests: XCTestCase {
         var parts = DateComponents()
         parts.year = 2026; parts.month = 9; parts.day = 25
         let today = Calendar(identifier: .gregorian).date(from: parts)!
-        let prompt = AgentFilter.prompt("solo las programadas de mañana", table: "audiencias",
+        let prompt = AgentFilter.prompt("solo las pendientes de mañana", table: "entregas",
                                         columns: ["fecha", "estado"], types: ["fecha": "datetime"], today: today)
-        XCTAssertTrue(prompt.contains("audiencias"))
+        XCTAssertTrue(prompt.contains("entregas"))
         XCTAssertTrue(prompt.contains("fecha (datetime), estado (?)"), prompt)
         XCTAssertTrue(prompt.contains("2026-09-25 Friday"), prompt)
-        XCTAssertTrue(prompt.contains("solo las programadas de mañana"))
+        XCTAssertTrue(prompt.contains("solo las pendientes de mañana"))
     }
 
     // Tasks 8.4 and 8.6: what the model writes, cleaned and checked.
@@ -133,17 +133,17 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(AgentCheck.statement("```sql\nSELECT 1;\n```"), "SELECT 1")
         XCTAssertEqual(AgentCheck.statement("  SELECT a FROM t ;; "), "SELECT a FROM t")
         XCTAssertNil(AgentCheck.statement("  "))
-        XCTAssertEqual(AgentCheck.select("SELECT sala_id, COUNT(*) FROM audiencias GROUP BY sala_id;"),
-                       "SELECT sala_id, COUNT(*) FROM audiencias GROUP BY sala_id")
-        XCTAssertNil(AgentCheck.select("UPDATE audiencias SET tipo = 'x'"))
-        XCTAssertNil(AgentCheck.select("SELECT 1; DELETE FROM audiencias"))
+        XCTAssertEqual(AgentCheck.select("SELECT repartidor_id, COUNT(*) FROM entregas GROUP BY repartidor_id;"),
+                       "SELECT repartidor_id, COUNT(*) FROM entregas GROUP BY repartidor_id")
+        XCTAssertNil(AgentCheck.select("UPDATE entregas SET tipo = 'x'"))
+        XCTAssertNil(AgentCheck.select("SELECT 1; DELETE FROM entregas"))
     }
 
     func testAProposedChangeNeverTouchesThePrimaryKey() {
-        let got = AgentCheck.changes([("TIPO", "celebrada"), ("id", "99"), ("nada", "x"), ("fecha", "null")],
+        let got = AgentCheck.changes([("TIPO", "entregada"), ("id", "99"), ("nada", "x"), ("fecha", "null")],
                                      columns: ["id", "tipo", "fecha"], pk: ["id"])
         XCTAssertEqual(got.map(\.column), ["tipo", "fecha"])
-        XCTAssertEqual(got.map(\.value), ["celebrada", nil])
+        XCTAssertEqual(got.map(\.value), ["entregada", nil])
     }
 
     // Task 8.7, the rest of it: a change the agent proposes fills in the edit
@@ -153,7 +153,7 @@ final class AgentTests: XCTestCase {
         let url = try await DemoDatabase.ensure(in: directory)
         let conn = DemoDatabase.connection(url)
         let session = Session(conn: conn, connId: try XCTUnwrap(connId))
-        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "audiencias"))
+        let pager = RowPager(session: session, object: ObjectRef(db: "main", schema: nil, name: "entregas"))
         await pager.describe()
         await pager.reload()
         pager.close()
@@ -161,14 +161,14 @@ final class AgentTests: XCTestCase {
         let editor = RowEditor(session: session, ref: RowRef(object: pager.object, columns: pager.columns, row: row,
                                                              types: pager.types, pk: pager.pk))
         let id = try XCTUnwrap(row.first ?? nil)
-        let before = try await first("SELECT tipo FROM audiencias WHERE id = \(id)")
+        let before = try await first("SELECT tipo FROM entregas WHERE id = \(id)")
 
         let changes = AgentCheck.changes([("tipo", "agente")], columns: pager.columns.map(\.name), pk: pager.pk)
         AgentChangeSheet.fill(editor, with: changes)
         await editor.review()
         let preview = try XCTUnwrap(editor.preview, editor.failure ?? "no preview")
         XCTAssertTrue(preview.joined().contains("UPDATE"), "\(preview)")
-        let after = try await first("SELECT tipo FROM audiencias WHERE id = \(id)")
+        let after = try await first("SELECT tipo FROM entregas WHERE id = \(id)")
         XCTAssertEqual(before, after)
         XCTAssertNotEqual(after, "agente")
     }
@@ -183,11 +183,11 @@ final class AgentEvalTests: XCTestCase {
     }
 
     func testAFilterHitsWhenEveryExpectedConditionIsThere() {
-        let expect = [["estado", "=", "abierto"]]
+        let expect = [["estado", "=", "pendiente"]]
         XCTAssertTrue(AgentEvalScore.filter(expect: expect, got: [
-            Condition(column: "materia", op: "=", value: "civil"), Condition(column: "estado", op: "=", value: "Abierto"),
+            Condition(column: "categoria", op: "=", value: "ropa"), Condition(column: "estado", op: "=", value: "Pendiente"),
         ]))
-        XCTAssertFalse(AgentEvalScore.filter(expect: expect, got: [Condition(column: "estado", op: "LIKE", value: "abierto")]))
+        XCTAssertFalse(AgentEvalScore.filter(expect: expect, got: [Condition(column: "estado", op: "LIKE", value: "pendiente")]))
     }
 
     func testTheSameAnswerIgnoresExtraColumnsOrderAndNumberForms() {
