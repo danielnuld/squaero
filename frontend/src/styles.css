@@ -1799,14 +1799,34 @@ kbd {
 
 /* The editor/result divider (issue #423): the sidebar resizer on its side. */
 .h-resizer {
+  position: relative;
   height: 5px;
   cursor: row-resize;
   background: transparent;
   flex-shrink: 0;
 }
 
+/* A visible grip in the middle (#807, the prototype): the divider says it can
+   be dragged before the pointer happens to find it. */
+.h-resizer::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 1px;
+  width: 32px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: var(--r-pill);
+  background: var(--border-strong);
+  opacity: 0.6;
+}
+
 .h-resizer:hover {
   background: var(--accent);
+}
+
+.h-resizer:hover::after {
+  background: var(--accent-fg);
 }
 
 .result-pane {
@@ -9373,8 +9393,11 @@ button.grid-action.danger:hover:not(:disabled) {
   min-height: 0;
 }
 
+/* Folded, the panel is not drawn at all (#805, the prototype): «Filtrar» in
+   the toolbar opens it and carries the count of what is applied. It stays
+   mounted so Ordenar and a cell's «filter by this value» can unfold it. */
 .filterbar.folded {
-  overflow: visible;
+  display: none;
 }
 
 /* Sticky inside the panel's own scroller: with several conditions the panel
