@@ -16,7 +16,7 @@ struct SearchSchemaTool: Tool {
 
     @Generable
     struct Arguments {
-        @Guide(description: "Parte del nombre de la tabla, por ejemplo audiencia")
+        @Guide(description: "Parte del nombre de la tabla, por ejemplo entrega")
         var texto: String
     }
 
