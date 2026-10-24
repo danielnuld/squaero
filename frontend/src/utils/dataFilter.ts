@@ -41,8 +41,9 @@ export interface FilterState {
   /**
    * Panel folded away. Folded is the resting state (issue #386): open, the
    * panel spent 172 px of a 720 px window to say "no conditions: every row is
-   * shown", above a grid that is the reason the tab exists. Folded it is a
-   * 28 px bar that still names the filter, summarises it, and opens on a click.
+   * shown", above a grid that is the reason the tab exists. Folded it is not
+   * drawn at all (#805, the prototype): «Filtrar» opens it and counts what is
+   * applied.
    */
   collapsed: boolean;
   /**
