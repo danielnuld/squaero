@@ -35,8 +35,8 @@ const NAVICAT = `<?xml version="1.0" encoding="UTF-8"?>
 <Connections>
   <!-- Password as Navicat 12 writes it: AES-CBC with libcc's key and IV, hex.
        This blob decrypts to "s3cr3t". -->
-  <Connection ConnectionName="SIAJ" ConnType="MySQL" Host="10.0.0.9" Port="3306"
-              UserName="root" Password="4018F6BA8332DF93F3310351960A3184" Database="siaj"/>
+  <Connection ConnectionName="ERP" ConnType="MySQL" Host="10.0.0.9" Port="3306"
+              UserName="root" Password="4018F6BA8332DF93F3310351960A3184" Database="erp"/>
 </Connections>`;
 
 describeEngine("sqlite", () => {
@@ -92,7 +92,7 @@ describeEngine("sqlite", () => {
     await openManager(page);
     await importFile(page, "servers.ncx", NAVICAT);
 
-    await expect(page.getByRole("button", { name: /SIAJ/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /ERP/ })).toBeVisible();
 
     // Straight out of storage: the whole connection arrived, decrypted.
     const saved = await page.evaluate(() =>
@@ -100,12 +100,12 @@ describeEngine("sqlite", () => {
     );
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({
-      name: "SIAJ",
+      name: "ERP",
       driver: "mysql",
       params: {
         host: "10.0.0.9",
         port: "3306",
-        database: "siaj",
+        database: "erp",
         user: "root",
         password: "s3cr3t",
       },

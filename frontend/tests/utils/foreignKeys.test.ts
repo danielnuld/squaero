@@ -229,7 +229,7 @@ describe("parseForeignKeys", () => {
 
 describe("groupForeignKeys", () => {
   const pair = (over: Partial<ForeignKey>): ForeignKey => ({
-    fromTable: "cuaderno_imputado",
+    fromTable: "pedido_producto",
     fromColumn: "ciudad",
     toTable: "cuadernos",
     toColumn: "ciudad",
@@ -239,14 +239,14 @@ describe("groupForeignKeys", () => {
   it("groups a composite key into one relationship with its columns in order", () => {
     const fks = [
       pair({ fromColumn: "ciudad", toColumn: "ciudad", constraint: "fk_ci", position: 1 }),
-      pair({ fromColumn: "anio_cuad", toColumn: "anio_cuad", constraint: "fk_ci", position: 2 }),
+      pair({ fromColumn: "anio_ped", toColumn: "anio_ped", constraint: "fk_ci", position: 2 }),
       pair({ fromColumn: "cuaderno", toColumn: "cuaderno", constraint: "fk_ci", position: 3 }),
     ];
     const rels = groupForeignKeys(fks);
     expect(rels).toHaveLength(1);
-    expect(rels[0].fromTable).toBe("cuaderno_imputado");
+    expect(rels[0].fromTable).toBe("pedido_producto");
     expect(rels[0].toTable).toBe("cuadernos");
-    expect(rels[0].columns.map((c) => c.from)).toEqual(["ciudad", "anio_cuad", "cuaderno"]);
+    expect(rels[0].columns.map((c) => c.from)).toEqual(["ciudad", "anio_ped", "cuaderno"]);
   });
 
   it("orders the columns by catalog position, not row order", () => {
@@ -276,7 +276,7 @@ describe("groupForeignKeys", () => {
   });
 
   it("falls back to the target table when the catalog gave no constraint", () => {
-    const fks = [pair({ fromColumn: "ciudad" }), pair({ fromColumn: "anio_cuad" })];
+    const fks = [pair({ fromColumn: "ciudad" }), pair({ fromColumn: "anio_ped" })];
     const rels = groupForeignKeys(fks);
     expect(rels).toHaveLength(1);
     expect(rels[0].constraint).toBe("cuadernos");

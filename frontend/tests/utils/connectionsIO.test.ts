@@ -130,7 +130,7 @@ describe("importConnections — other tools", () => {
   });
 
   const navicat = `<?xml version="1.0" encoding="UTF-8"?>
-<Connections><Connection ConnectionName="SIAJ" ConnType="MySQL" Host="10.0.0.9" Port="3306" UserName="root" Password="A3F2C1"/></Connections>`;
+<Connections><Connection ConnectionName="ERP" ConnType="MySQL" Host="10.0.0.9" Port="3306" UserName="root" Password="A3F2C1"/></Connections>`;
 
   it("imports a DBeaver file, gives it an id, and brings the password", async () => {
     const out = (await importConnections([], dbeaver)) as ImportOutcome;
@@ -177,11 +177,11 @@ describe("importConnections — other tools", () => {
   it("imports a Navicat file even though it is not JSON at all", async () => {
     const out = (await importConnections([], navicat)) as ImportOutcome;
     expect(out.summary.source).toBe("navicat");
-    expect(out.list.map((c) => c.name)).toEqual(["SIAJ"]);
+    expect(out.list.map((c) => c.name)).toEqual(["ERP"]);
   });
 
   it("updates a connection already saved under the same name", async () => {
-    const existing = [mysql("c9", "SIAJ")];
+    const existing = [mysql("c9", "ERP")];
     const out = (await importConnections(existing, navicat)) as ImportOutcome;
     expect(out.summary).toMatchObject({ added: 0, updated: 1 });
     expect(out.list).toHaveLength(1);

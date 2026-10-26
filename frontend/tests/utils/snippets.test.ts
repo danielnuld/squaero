@@ -160,7 +160,7 @@ describe("proposedSnippetName", () => {
   });
 
   it("keeps just the table of a qualified name", () => {
-    expect(proposedSnippetName("SELECT * FROM siaj:cuadernos", "informix")).toBe("cuadernos");
+    expect(proposedSnippetName("SELECT * FROM erp:cuadernos", "informix")).toBe("cuadernos");
     expect(proposedSnippetName("SELECT * FROM shop.orders", "mysql")).toBe("orders");
   });
 

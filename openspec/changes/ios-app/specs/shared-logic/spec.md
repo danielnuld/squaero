@@ -14,7 +14,7 @@ Swift.
 
 #### Scenario: Same answer on both platforms
 
-- **WHEN** the app builds the filter SQL for Informix with `juzgado = 3`
+- **WHEN** the app builds the filter SQL for Informix with `sucursal = 3`
 - **THEN** it is the exact text the desktop frontend builds for the same filter
 
 ### Requirement: The bundled modules do not depend on a browser

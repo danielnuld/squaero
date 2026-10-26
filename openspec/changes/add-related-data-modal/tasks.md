@@ -32,7 +32,7 @@
       después la misma limitación en `utils/indexes.ts`
 - [x] 3.3 Pruebas del SQL generado: una columna, cinco columnas, sin filas espurias
       por las posiciones no usadas
-- [ ] 3.4 Verificar contra el Informix real (SIAJ): una llave compuesta conocida
+- [ ] 3.4 Verificar contra el Informix real (ERP): una llave compuesta conocida
       devuelve sus pares completos y emparejados
 
 ## 4. Construcción del filtro y de la consulta
@@ -80,6 +80,6 @@
 ## 7. Cierre
 
 - [x] 7.1 `pnpm test` verde con las pruebas nuevas
-- [ ] 7.2 Compilar x86 y probar en la app real contra Informix (SIAJ) y contra el
+- [ ] 7.2 Compilar x86 y probar en la app real contra Informix (ERP) y contra el
       MySQL de pruebas
 - [ ] 7.3 Commit y PR referenciando el issue #310

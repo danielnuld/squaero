@@ -182,7 +182,7 @@
       "state": {
         "conditions": [
           {
-            "column": "juzgado",
+            "column": "sucursal",
             "op": "=",
             "value": "3"
           },
@@ -203,11 +203,11 @@
         "collapsed": true
       },
       "types": {
-        "juzgado": "int",
+        "sucursal": "int",
         "nombre": "text"
       },
       "expected": {
-        "where": "juzgado = 3 AND nombre LIKE '%o''neil%'",
+        "where": "sucursal = 3 AND nombre LIKE '%o''neil%'",
         "orderBy": "alta DESC"
       }
     },
@@ -409,12 +409,12 @@
       {
         "conn": {
           "id": "conn-1",
-          "name": "Juzgados",
+          "name": "Sucursales",
           "driver": "informix",
           "params": {
             "host": "10.0.0.5",
             "port": "9089",
-            "database": "siaj",
+            "database": "erp",
             "user": "informix",
             "password": "s3cr3t",
             "tls": "",
@@ -425,7 +425,7 @@
         "expected": {
           "host": "10.0.0.5",
           "port": "9089",
-          "database": "siaj",
+          "database": "erp",
           "user": "informix",
           "password": "s3cr3t"
         }
@@ -494,12 +494,12 @@
       {
         "conn": {
           "id": "conn-1",
-          "name": "Juzgados",
+          "name": "Sucursales",
           "driver": "informix",
           "params": {
             "host": "10.0.0.5",
             "port": "9089",
-            "database": "siaj",
+            "database": "erp",
             "user": "informix",
             "password": "s3cr3t",
             "tls": "",
@@ -562,12 +562,12 @@
           },
           {
             "id": "conn-1",
-            "name": "Juzgados",
+            "name": "Sucursales",
             "driver": "informix",
             "params": {
               "host": "10.0.0.5",
               "port": "9089",
-              "database": "siaj",
+              "database": "erp",
               "user": "informix",
               "password": "s3cr3t",
               "tls": "",
@@ -626,12 +626,12 @@
             "conns": [
               {
                 "id": "conn-1",
-                "name": "Juzgados",
+                "name": "Sucursales",
                 "driver": "informix",
                 "params": {
                   "host": "10.0.0.5",
                   "port": "9089",
-                  "database": "siaj",
+                  "database": "erp",
                   "user": "informix",
                   "password": "s3cr3t",
                   "tls": "",
@@ -766,7 +766,7 @@
         "existing": [
           {
             "id": "conn-1",
-            "name": "Juzgados",
+            "name": "Sucursales",
             "driver": "informix",
             "params": {
               "host": "10.0.0.5",
@@ -775,12 +775,12 @@
             }
           }
         ],
-        "raw": "{\"version\": 1, \"connections\": [{\"id\": \"conn-1\", \"name\": \"juzgados\", \"driver\": \"informix\", \"params\": {\"host\": \"10.0.0.6\", \"user\": \"informix\", \"tls\": \"verify-ca\", \"tls_ca\": \"C:\\\\certs\\\\ca.pem\"}}, {\"id\": \"conn-1\", \"name\": \"Pruebas\", \"driver\": \"postgres\", \"params\": {\"host\": \"db\", \"database\": \"app\", \"user\": \"u\", \"password\": \"p\", \"ssh_host\": \"b\", \"ssh_user\": \"me\", \"ssh_auth\": \"key\", \"ssh_key\": \"/home/me/.ssh/id\"}}, {\"id\": \"conn-7\", \"name\": \"Sin host\", \"driver\": \"postgres\", \"params\": {}}, {\"name\": \"roto\"}]}",
+        "raw": "{\"version\": 1, \"connections\": [{\"id\": \"conn-1\", \"name\": \"sucursales\", \"driver\": \"informix\", \"params\": {\"host\": \"10.0.0.6\", \"user\": \"informix\", \"tls\": \"verify-ca\", \"tls_ca\": \"C:\\\\certs\\\\ca.pem\"}}, {\"id\": \"conn-1\", \"name\": \"Pruebas\", \"driver\": \"postgres\", \"params\": {\"host\": \"db\", \"database\": \"app\", \"user\": \"u\", \"password\": \"p\", \"ssh_host\": \"b\", \"ssh_user\": \"me\", \"ssh_auth\": \"key\", \"ssh_key\": \"/home/me/.ssh/id\"}}, {\"id\": \"conn-7\", \"name\": \"Sin host\", \"driver\": \"postgres\", \"params\": {}}, {\"name\": \"roto\"}]}",
         "expected": {
           "list": [
             {
               "id": "conn-1",
-              "name": "juzgados",
+              "name": "sucursales",
               "driver": "informix",
               "params": {
                 "host": "10.0.0.6",
@@ -928,7 +928,7 @@
     },
     {
       "engine": "informix",
-      "db": "juzgados",
+      "db": "sucursales",
       "expected": {
         "supported": true,
         "listSql": "SELECT procid, procname AS name, CASE WHEN isproc = 't' THEN 'PROCEDURE' ELSE 'FUNCTION' END AS type FROM sysprocedures ORDER BY procname",

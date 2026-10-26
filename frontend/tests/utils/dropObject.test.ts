@@ -32,7 +32,7 @@ describe("dropObjectSql", () => {
   });
 
   it("takes the bare name on Informix, where the connection names the database", () => {
-    expect(dropObjectSql("informix", { kind: "procedure", name: "alta", db: "siaj" })).toBe(
+    expect(dropObjectSql("informix", { kind: "procedure", name: "alta", db: "erp" })).toBe(
       "DROP PROCEDURE alta",
     );
   });

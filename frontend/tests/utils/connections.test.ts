@@ -52,9 +52,9 @@ describe("connectionTarget", () => {
     expect(
       connectionTarget({
         driver: "informix",
-        params: { host: "sia01", port: "9089", database: "nomina" },
+        params: { host: "db01", port: "9089", database: "nomina" },
       }),
-    ).toBe("nomina @ sia01:9089");
+    ).toBe("nomina @ db01:9089");
   });
 
   it("names a SQL Server instance the same way", () => {
@@ -145,8 +145,8 @@ describe("defaultConnectionName", () => {
   });
 
   it("names Informix after its host like any server (#557)", () => {
-    expect(defaultConnectionName(c({ host: "sia01", database: "nomina" }, "informix"))).toBe(
-      "nomina @ sia01",
+    expect(defaultConnectionName(c({ host: "db01", database: "nomina" }, "informix"))).toBe(
+      "nomina @ db01",
     );
   });
 
@@ -774,7 +774,7 @@ describe("isProductionConnection", () => {
     expect(isProductionConnection({ group: "Producción" })).toBe(true);
     expect(isProductionConnection({ group: "produccion" })).toBe(true);
     expect(isProductionConnection({ group: "Production" })).toBe(true);
-    expect(isProductionConnection({ group: " prod-SIAJ " })).toBe(true);
+    expect(isProductionConnection({ group: " prod-ERP " })).toBe(true);
   });
 
   it("leaves the rest alone", () => {

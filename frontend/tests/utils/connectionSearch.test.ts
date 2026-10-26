@@ -25,7 +25,7 @@ const nomina = conn({
   name: "Nómina",
   driver: "informix",
   group: "Producción",
-  params: { host: "sia01", port: "9089", database: "nomina" },
+  params: { host: "db01", port: "9089", database: "nomina" },
 });
 const notas = conn({ id: "c4", name: "Notas", driver: "sqlite", params: { path: "C:\\datos\\notas.db" } });
 const all = [ventas, ventasDev, nomina, notas];
@@ -54,7 +54,7 @@ describe("matchesConnection", () => {
   it("matches the server and the port", () => {
     expect(matchesConnection(ventas, "10.0.4", labelOf(ventas.driver))).toBe(true);
     expect(matchesConnection(ventasDev, "13306", labelOf(ventasDev.driver))).toBe(true);
-    expect(matchesConnection(nomina, "sia01:9089", labelOf(nomina.driver))).toBe(true);
+    expect(matchesConnection(nomina, "db01:9089", labelOf(nomina.driver))).toBe(true);
   });
 
   it("matches the file of a SQLite connection", () => {
@@ -67,8 +67,8 @@ describe("matchesConnection", () => {
 
   it("narrows with every term, instead of widening", () => {
     expect(matchesConnection(ventasDev, "ventas dev", labelOf(ventasDev.driver))).toBe(true);
-    // "ventas" matches, "sia01" does not: both have to.
-    expect(matchesConnection(ventasDev, "ventas sia01", labelOf(ventasDev.driver))).toBe(false);
+    // "ventas" matches, "db01" does not: both have to.
+    expect(matchesConnection(ventasDev, "ventas db01", labelOf(ventasDev.driver))).toBe(false);
   });
 
   it("does not match what is nowhere in the connection", () => {
@@ -95,7 +95,7 @@ describe("searchGroups", () => {
 
   it("carries the target each row shows under the name", () => {
     const [group] = searchGroups([nomina], "", [], labelOf);
-    expect(group.hits[0].target).toBe("nomina @ sia01:9089");
+    expect(group.hits[0].target).toBe("nomina @ db01:9089");
   });
 
   it("drops the groups with no match", () => {

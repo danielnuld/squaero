@@ -17,7 +17,7 @@ through the cursor, as the desktop filter panel does.
 
 #### Scenario: Adding a filter
 
-- **WHEN** the user adds the filter `juzgado = 3`
+- **WHEN** the user adds the filter `sucursal = 3`
 - **THEN** the app runs a query filtered on the server and shows the filter as a chip that can be removed
 
 #### Scenario: Next page

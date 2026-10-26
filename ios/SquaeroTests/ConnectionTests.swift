@@ -20,7 +20,7 @@ final class ConnectionTests: XCTestCase {
     }
 
     private func informix(_ store: ConnectionStore) -> Connection {
-        Connection(id: store.newId(), name: "Juzgados", driver: "informix",
+        Connection(id: store.newId(), name: "Sucursales", driver: "informix",
                    params: ["host": "10.0.0.5", "port": "9089", "user": "informix", "password": secret],
                    group: "Producción")
     }
@@ -48,7 +48,7 @@ final class ConnectionTests: XCTestCase {
 
         // A fresh store reads the same list back, still without it.
         let again = ConnectionStore(directory: dir, protectSecrets: false)
-        XCTAssertEqual(again.connections.map(\.name), ["Juzgados"])
+        XCTAssertEqual(again.connections.map(\.name), ["Sucursales"])
         XCTAssertEqual(again.groups.map(\.name), ["Producción"])
         XCTAssertNil(again.connections[0].params["password"])
     }
@@ -90,7 +90,7 @@ final class ConnectionTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         // What desktop's Exportar writes, passwords included (its opt-in).
         let export: [String: Any] = ["version": 1, "connections": [
-            ["id": "conn-1", "name": "Juzgados", "driver": "informix", "group": "Producción",
+            ["id": "conn-1", "name": "Sucursales", "driver": "informix", "group": "Producción",
              "params": ["host": "10.0.0.5", "port": "9089", "user": "informix", "password": secret,
                         "tls": "verify-ca", "tls_ca": #"C:\certs\ca.pem"#]],
             ["id": "conn-2", "name": "Pruebas", "driver": "postgres",
@@ -102,10 +102,10 @@ final class ConnectionTests: XCTestCase {
         defer { for c in store.connections { try? store.delete(c) } }
         XCTAssertEqual(summary, MergeSummary(added: 2, updated: 0, skipped: 0))
         XCTAssertEqual(needFiles, 1)
-        let juzgados = try XCTUnwrap(store.connections.first { $0.name == "Juzgados" })
-        XCTAssertNil(juzgados.params["tls_ca"], "a path on the other machine")
-        XCTAssertNil(juzgados.params["password"])
-        XCTAssertEqual(try Keychain.read(account: Keychain.account(juzgados.id, "password")), secret)
+        let sucursales = try XCTUnwrap(store.connections.first { $0.name == "Sucursales" })
+        XCTAssertNil(sucursales.params["tls_ca"], "a path on the other machine")
+        XCTAssertNil(sucursales.params["password"])
+        XCTAssertEqual(try Keychain.read(account: Keychain.account(sucursales.id, "password")), secret)
 
         // Again: the same names update in place, nothing doubles.
         let (again, _) = try store.importConnections(from: file)
@@ -138,7 +138,7 @@ final class ConnectionTests: XCTestCase {
         var conn = informix(store)
         try store.save(conn, keep: true)
         defer { try? store.delete(conn) }
-        conn.name = "Juzgados 2"
+        conn.name = "Sucursales 2"
         conn.params["password"] = ""
         try store.save(conn, keep: true)
         XCTAssertEqual(try Keychain.read(account: Keychain.account(conn.id, "password")), secret)

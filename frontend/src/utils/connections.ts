@@ -61,7 +61,7 @@ export interface Connection {
   /** Optional accent color (a CONNECTION_COLORS hex) to tell connections apart
       at a glance — e.g. production red vs development green. */
   color?: string;
-  /** Optional group label ("Producción", "SIAJ"…). A group is just this label:
+  /** Optional group label ("Producción", "ERP"…). A group is just this label:
       it exists while some connection names it, so there is no group entity, id
       or CRUD. Empty/absent means the connection is ungrouped. */
   group?: string;
@@ -567,7 +567,7 @@ const PRODUCTION_GROUP = /^(prod|producci[oó]n|production)\b/i;
 /**
  * Whether a connection reads as production (the iPhone's edit preview says so,
  * #577): the palette's red, which the form offers as the "careful" marker, or a
- * group named for it ("Producción", "prod-SIAJ"). There is no separate flag to
+ * group named for it ("Producción", "prod-ERP"). There is no separate flag to
  * forget to set; a false positive only adds a warning.
  */
 export function isProductionConnection(conn: Pick<Connection, "color" | "group">): boolean {

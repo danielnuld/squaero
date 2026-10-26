@@ -16,7 +16,7 @@ const old = (params: Record<string, string>): Connection => ({
   id: "c1",
   name: "Nómina",
   driver: "informix",
-  params: { host: "sia01", server: "ol_informix1170", database: "nomina", user: "informix", ...params },
+  params: { host: "db01", server: "ol_informix1170", database: "nomina", user: "informix", ...params },
 });
 
 describe("migrateInformixConnection", () => {
@@ -46,7 +46,7 @@ describe("migrateInformixConnection", () => {
     for (const k of ["server", "protocol", "client_locale", "db_locale"]) {
       expect(k in m.params).toBe(false);
     }
-    expect(m.params).toMatchObject({ host: "sia01", database: "nomina", user: "informix" });
+    expect(m.params).toMatchObject({ host: "db01", database: "nomina", user: "informix" });
   });
 
   it("keeps the old server name for the SQLI fallback", () => {

@@ -590,7 +590,7 @@ public final class SquaeroLogic {
         return errors.params
     }
 
-    /// Where a connection points, in one line ("siaj @ 10.0.0.5:9089").
+    /// Where a connection points, in one line ("erp @ 10.0.0.5:9089").
     public func connectionTarget(_ conn: Connection) throws -> String {
         try call("connections.connectionTarget", [conn])
     }
@@ -622,7 +622,7 @@ public final class SquaeroLogic {
         try call("connections.engineMonogram", [driver])
     }
 
-    /// The name to save under when none was typed ("siaj @ 10.0.0.5", a file's name).
+    /// The name to save under when none was typed ("erp @ 10.0.0.5", a file's name).
     public func defaultConnectionName(_ conn: Connection) throws -> String {
         try call("connections.defaultConnectionName", [conn])
     }

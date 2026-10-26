@@ -497,7 +497,7 @@ describe("ConnectionForm test-connection feedback", () => {
 describe("ConnectionForm — migrated Informix port (issue #557)", () => {
   const ifx = (params: Record<string, string>): Connection => ({
     id: "conn-9", name: "Nómina", driver: "informix",
-    params: { host: "sia01", user: "informix", ...params },
+    params: { host: "db01", user: "informix", ...params },
   });
 
   it("asks to check a port the migration could not move", () => {

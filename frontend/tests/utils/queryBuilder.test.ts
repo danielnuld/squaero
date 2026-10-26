@@ -114,9 +114,9 @@ describe("renderWhere", () => {
 
   it("joins the active conditions with the conjunction", () => {
     expect(
-      renderWhere("postgres", [c({}), c({ column: "IdSiaj", value: "688" })], "AND"),
-    ).toBe(`"IdUnidad" = '235' AND "IdSiaj" = '688'`);
-    expect(renderWhere("postgres", [c({}), c({ column: "IdSiaj" })], "OR")).toContain(" OR ");
+      renderWhere("postgres", [c({}), c({ column: "IdErp", value: "688" })], "AND"),
+    ).toBe(`"IdUnidad" = '235' AND "IdErp" = '688'`);
+    expect(renderWhere("postgres", [c({}), c({ column: "IdErp" })], "OR")).toContain(" OR ");
   });
 
   // Issue #646: one OR used to turn every condition into OR.
@@ -154,9 +154,9 @@ describe("renderWhere", () => {
   it("leaves an unchecked condition out without losing the rest", () => {
     const where = renderWhere("postgres", [
       c({ enabled: false }),
-      c({ column: "IdSiaj", value: "688" }),
+      c({ column: "IdErp", value: "688" }),
     ]);
-    expect(where).toBe(`"IdSiaj" = '688'`);
+    expect(where).toBe(`"IdErp" = '688'`);
   });
 
   it("treats a condition with no `enabled` as active, for the older builder", () => {
@@ -187,11 +187,11 @@ describe("renderWhere", () => {
   });
 
   it("builds IN from a comma list, typed", () => {
-    const cond = c({ column: "IdSiaj", op: "IN", value: "688, 714 ,  " });
-    expect(renderWhere("postgres", [cond], "AND", { IdSiaj: "int" })).toBe(
-      `"IdSiaj" IN (688, 714)`,
+    const cond = c({ column: "IdErp", op: "IN", value: "688, 714 ,  " });
+    expect(renderWhere("postgres", [cond], "AND", { IdErp: "int" })).toBe(
+      `"IdErp" IN (688, 714)`,
     );
-    expect(renderWhere("postgres", [cond])).toBe(`"IdSiaj" IN ('688', '714')`);
+    expect(renderWhere("postgres", [cond])).toBe(`"IdErp" IN ('688', '714')`);
   });
 
   it("wraps CONTAINS in per-cent signs, as text even over a number column", () => {

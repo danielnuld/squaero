@@ -31,7 +31,7 @@
 - [x] 3.3 `parseTreeRows`: normalizar el valor recibido antes de clasificar
 - [x] 3.4 Pruebas: `view`, `view ` (con relleno), `table`, valor desconocido; y el
       SQL de Informix generado por `objectListFor`
-- [x] 3.5 Verificado en vivo contra el Informix de SIAJ (2026-08-08): `prod_orales`
+- [x] 3.5 Verificado en vivo contra el Informix de ERP (2026-08-08): `tienda`
       devuelve 421 tablas y 173 vistas, y el árbol las agrupa en Tablas/Vistas.
       Confirmada de paso la causa: el build anterior, sin `TRIM`, devolvía el
       valor rellenado

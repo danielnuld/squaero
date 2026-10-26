@@ -2,7 +2,7 @@
 
 Para saber si un registro tiene datos dependientes hay que escribir a mano un
 `SELECT` por cada tabla hija, copiando los valores de la llave columna por
-columna. En esquemas con llaves compuestas de cuatro o cinco columnas (SIAJ sobre
+columna. En esquemas con llaves compuestas de cuatro o cinco columnas (ERP sobre
 Informix, el caso que motiva la petición) eso son varios minutos y varias
 consultas para responder algo que el catálogo ya sabe. Los usuarios lo piden
 explícitamente como lo hace Server Studio: un modal de *datos relacionados* que
@@ -12,9 +12,9 @@ parte del renglón seleccionado.
 
 - Desde una celda de una **columna referenciada** por otras tablas (marcada en la
   rejilla), una acción **«Datos relacionados»** abre un modal anclado a esa
-  columna y su valor (`cuadernos.consec = 1`) que lista las tablas dependientes,
+  columna y su valor (`pedidos.consec = 1`) que lista las tablas dependientes,
   cada una con el filtro concreto que le corresponde
-  (`cuaderno_imputado where ciudad=8 and anio_cuad=2022 …`, la llave completa).
+  (`pedido_producto where ciudad=3 and anio_ped=2024 …`, la llave completa).
 - El modal es maestro-detalle: las tablas dependientes en una columna angosta a
   la izquierda —cada una con **cuántas filas** dependen de ese renglón, que es la
   respuesta que se vino a buscar— y el resultado ocupando todo lo demás, con el

@@ -152,8 +152,8 @@ describe("CommandPalette — snippet mode (issue #320)", () => {
     {
       id: "snip:2",
       category: "snippet",
-      label: "carga por juzgado",
-      preview: "SELECT juzgado, COUNT(*) FROM cuadernos GROUP BY 1",
+      label: "carga por sucursal",
+      preview: "SELECT sucursal, COUNT(*) FROM cuadernos GROUP BY 1",
       run: () => {},
       runAlt: alt,
     },

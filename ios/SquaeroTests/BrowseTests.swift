@@ -21,11 +21,11 @@ final class BrowseTests: XCTestCase {
     }
 
     func testTheTreeStartsAtTheConnectionsDatabase() {
-        let pg = Connection(id: "c", name: "Juzgados", driver: "postgres", params: ["database": "siaj"])
-        XCTAssertEqual(TreeLevel.root(pg), TreeLevel(db: "siaj", schema: nil, title: "Juzgados"))
-        XCTAssertEqual(TreeLevel.root(pg).child("public"), TreeLevel(db: "siaj", schema: "public", title: "public"))
+        let pg = Connection(id: "c", name: "Sucursales", driver: "postgres", params: ["database": "erp"])
+        XCTAssertEqual(TreeLevel.root(pg), TreeLevel(db: "erp", schema: nil, title: "Sucursales"))
+        XCTAssertEqual(TreeLevel.root(pg).child("public"), TreeLevel(db: "erp", schema: "public", title: "public"))
 
         let none = Connection(id: "c", name: "Servidor", driver: "informix", params: ["database": ""])
-        XCTAssertEqual(TreeLevel.root(none).child("siaj"), TreeLevel(db: "siaj", schema: nil, title: "siaj"))
+        XCTAssertEqual(TreeLevel.root(none).child("erp"), TreeLevel(db: "erp", schema: nil, title: "erp"))
     }
 }

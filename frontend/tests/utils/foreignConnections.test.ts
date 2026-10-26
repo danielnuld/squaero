@@ -51,8 +51,8 @@ const DBEAVER = JSON.stringify({
 
 const NAVICAT = `<?xml version="1.0" encoding="UTF-8"?>
 <Connections>
-  <Connection ConnectionName="SIAJ" ConnType="MySQL" Host="10.0.0.9" Port="3306"
-              UserName="root" Password="A3F2C1" Database="siaj" SavePassword="true"/>
+  <Connection ConnectionName="ERP" ConnType="MySQL" Host="10.0.0.9" Port="3306"
+              UserName="root" Password="A3F2C1" Database="erp" SavePassword="true"/>
   <Connection ConnectionName="Reportes" ConnType="PostgreSQL" Host="pg.example.com"
               Port="5432" UserName="reader" DefaultDatabase="reportes"
               SSH_Host="bastion.example.com" SSH_Port="2222" SSH_UserName="dnl"/>
@@ -191,12 +191,12 @@ describe("parseNavicat", () => {
 
   it("reads every connection it can, with its SSH tunnel", async () => {
     const { connections } = await parsed();
-    expect(connections.map((c) => c.name)).toEqual(["SIAJ", "Reportes", "Local"]);
+    expect(connections.map((c) => c.name)).toEqual(["ERP", "Reportes", "Local"]);
     expect(connections[0]).toEqual({
       id: "",
-      name: "SIAJ",
+      name: "ERP",
       driver: "mysql",
-      params: { host: "10.0.0.9", port: "3306", database: "siaj", user: "root" },
+      params: { host: "10.0.0.9", port: "3306", database: "erp", user: "root" },
     });
     expect(connections[1].params).toEqual({
       host: "pg.example.com",

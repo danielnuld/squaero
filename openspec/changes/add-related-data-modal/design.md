@@ -123,7 +123,7 @@ motor (`LIMIT`/`SKIP FIRST`) sin escribir un tercer generador de paginado.
 ## Migration Plan
 
 No hay migración de datos ni de protocolo: el cambio es aditivo y vive en el
-frontend. Se entrega en un PR y se verifica en la app x86 contra Informix (SIAJ) y
+frontend. Se entrega en un PR y se verifica en la app x86 contra Informix (ERP) y
 contra el MySQL de pruebas antes de mergear.
 
 ## Open Questions
@@ -135,4 +135,4 @@ contra el MySQL de pruebas antes de mergear.
   relación con el mismo filtro. Es la respuesta que se vino a buscar, y sin él hay
   que recorrer relación por relación. Se lanza sin bloquear la apertura, así que
   un motor lento no deja el modal en blanco. Pendiente de medir: cuántas
-  relaciones entrantes tiene la tabla más conectada de SIAJ.
+  relaciones entrantes tiene la tabla más conectada de ERP.
