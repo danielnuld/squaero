@@ -11,15 +11,15 @@ import {
 } from "../../src/utils/relatedData";
 import type { ResultColumn } from "../../src/utils/query";
 
-// The real case behind issue #310: cuadernos, referenced by a five-column key.
+// A table referenced by a five-column key (issue #310).
 const rel = (over: Partial<ForeignKeyRelation> = {}): ForeignKeyRelation => ({
   fromTable: "pedido_producto",
-  toTable: "cuadernos",
+  toTable: "pedidos",
   constraint: "fk_ped_prod",
   columns: [
     { from: "ciudad", to: "ciudad" },
     { from: "anio_ped", to: "anio_ped" },
-    { from: "cuaderno", to: "cuaderno" },
+    { from: "pedido", to: "pedido" },
     { from: "tipo", to: "tipo" },
     { from: "consec", to: "consec" },
   ],
@@ -29,12 +29,12 @@ const rel = (over: Partial<ForeignKeyRelation> = {}): ForeignKeyRelation => ({
 const cols = (...names: string[]): ResultColumn[] =>
   names.map((name) => ({ name, type: "int" }) as ResultColumn);
 
-const KEY_COLS = cols("ciudad", "anio_ped", "cuaderno", "tipo", "consec");
-const KEY_ROW = ["8", "2022", "608", "1", "1"];
+const KEY_COLS = cols("ciudad", "anio_ped", "pedido", "tipo", "consec");
+const KEY_ROW = ["3", "2024", "1501", "1", "1"];
 
 describe("sqlLiteral", () => {
   it("emits a numeric column unquoted", () => {
-    expect(sqlLiteral("608", "int")).toBe("608");
+    expect(sqlLiteral("1501", "int")).toBe("1501");
     expect(sqlLiteral("-3.5", "float")).toBe("-3.5");
   });
 
@@ -78,18 +78,18 @@ describe("relatedQueries", () => {
   it("filters by the WHOLE key, not just the column opened from", () => {
     const [q] = relatedQueries([rel()], KEY_COLS, KEY_ROW, "informix");
     expect(q.where).toBe(
-      "ciudad = 8 AND anio_ped = 2022 AND pedido = 1501 AND tipo = 1 AND consec = 1",
+      "ciudad = 3 AND anio_ped = 2024 AND pedido = 1501 AND tipo = 1 AND consec = 1",
     );
     expect(q.label).toBe(
-      "pedido_producto where ciudad=8 and anio_ped=2022 and pedido=1501 and tipo=1 and consec=1",
+      "pedido_producto where ciudad=3 and anio_ped=2024 and pedido=1501 and tipo=1 and consec=1",
     );
   });
 
   it("quotes identifiers per engine", () => {
     const [my] = relatedQueries([rel()], KEY_COLS, KEY_ROW, "mysql");
-    expect(my.where).toContain("`ciudad` = 8");
+    expect(my.where).toContain("`ciudad` = 3");
     const [pg] = relatedQueries([rel()], KEY_COLS, KEY_ROW, "postgres");
-    expect(pg.where).toContain('"ciudad" = 8');
+    expect(pg.where).toContain('"ciudad" = 3');
   });
 
   it("uses IS NULL for a NULL value instead of an equality", () => {
@@ -100,9 +100,9 @@ describe("relatedQueries", () => {
   });
 
   it("refuses to filter when the result did not project a key column", () => {
-    const [q] = relatedQueries([rel()], cols("ciudad", "anio_ped"), ["8", "2022"], "informix");
+    const [q] = relatedQueries([rel()], cols("ciudad", "anio_ped"), ["3", "2024"], "informix");
     expect(q.where).toBeNull();
-    expect(q.missing).toBe("cuaderno");
+    expect(q.missing).toBe("pedido");
   });
 
   it("finds the row's columns case-insensitively", () => {
@@ -126,7 +126,7 @@ describe("relatedSelect / relatedCount", () => {
     const sql = relatedSelect(q(), "informix", { db: "tienda" }, 200)!;
     expect(sql).toBe(
       "SELECT FIRST 200 * FROM tienda:pedido_producto WHERE " +
-        "ciudad = 8 AND anio_ped = 2022 AND pedido = 1501 AND tipo = 1 AND consec = 1;",
+        "ciudad = 3 AND anio_ped = 2024 AND pedido = 1501 AND tipo = 1 AND consec = 1;",
     );
   });
 
@@ -141,7 +141,7 @@ describe("relatedSelect / relatedCount", () => {
     const sql = relatedCount(q(), "informix", { db: "tienda" })!;
     expect(sql).toBe(
       "SELECT COUNT(*) FROM tienda:pedido_producto WHERE " +
-        "ciudad = 8 AND anio_ped = 2022 AND pedido = 1501 AND tipo = 1 AND consec = 1;",
+        "ciudad = 3 AND anio_ped = 2024 AND pedido = 1501 AND tipo = 1 AND consec = 1;",
     );
   });
 
@@ -158,7 +158,7 @@ describe("relatedSelect / relatedCount", () => {
 describe("relatedAvailability", () => {
   const rel = (to: string): ForeignKeyRelation => ({
     fromTable: "audiencias",
-    toTable: "cuadernos",
+    toTable: "pedidos",
     constraint: "fk_det_pedido",
     columns: [{ from: "id_pedido", to }],
   });
@@ -243,7 +243,7 @@ describe("relatedAvailability", () => {
 describe("invertRelation", () => {
   const outbound: ForeignKeyRelation = {
     fromTable: "audiencias",
-    toTable: "cuadernos",
+    toTable: "pedidos",
     constraint: "fk_det_pedido",
     columns: [
       { from: "id_pedido", to: "id" },
@@ -253,7 +253,7 @@ describe("invertRelation", () => {
 
   it("swaps the tables and every column pair", () => {
     expect(invertRelation(outbound)).toEqual({
-      fromTable: "cuadernos",
+      fromTable: "pedidos",
       toTable: "audiencias",
       constraint: "fk_det_pedido",
       columns: [
@@ -274,8 +274,8 @@ describe("invertRelation", () => {
     ];
     const [q] = relatedQueries([invertRelation(outbound)], columns, ["25", "hermosillo"], "mysql");
     expect(q.where).toBe("`id` = 25 AND `ciudad` = 'hermosillo'");
-    expect(q.relation.fromTable).toBe("cuadernos");
-    expect(q.label).toBe("cuadernos where id=25 and ciudad=hermosillo");
+    expect(q.relation.fromTable).toBe("pedidos");
+    expect(q.label).toBe("pedidos where id=25 and ciudad=hermosillo");
   });
 
   it("selects the parent row through the same builder as the dependents", () => {
@@ -283,7 +283,7 @@ describe("invertRelation", () => {
     const single = { ...outbound, columns: [{ from: "id_pedido", to: "id" }] };
     const [q] = relatedQueries([invertRelation(single)], columns, ["25"], "mysql");
     expect(relatedSelect(q, "mysql", {})).toBe(
-      "SELECT * FROM `cuadernos` WHERE `id` = 25 LIMIT 200;",
+      "SELECT * FROM `pedidos` WHERE `id` = 25 LIMIT 200;",
     );
   });
 });
