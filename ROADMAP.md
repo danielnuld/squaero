@@ -147,3 +147,15 @@ estilo. Referencias de escritorio: Navicat y DataGrip, bajo regla de sala limpia
   barra de estado, bienvenida y textos.
 - **Fase 4 — Cierre:** propagar la imagen (iconos, landing, README, media) y
   regresión visual.
+
+## M15 — Pruebas exhaustivas multi-motor y UI
+
+- **Infraestructura:** entorno de motores reproducible con dataset semilla
+  común, integración y CI de PostgreSQL, Playwright en CI.
+- **Motor y queries:** corpus de queries complejas con resultados esperados
+  por motor, ida y vuelta de tipos, rutinas y objetos programables, errores y
+  casos límite, operaciones entre motores.
+- **UI con Playwright:** matriz de cobertura; e2e de editor y resultados,
+  árbol y objetos, asistentes, herramientas y configuración; accesibilidad y
+  teclado; smoke del shell nativo.
+- **Cierre:** bug bash manual por motor.
