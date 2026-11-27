@@ -184,6 +184,7 @@ import {
   AVAILABLE_DRIVERS,
   type Connection,
 } from "./utils/connections";
+import { groupOpenConns, canDropOn, moveOpenConn, neighborInGroup } from "./utils/openConnOrder";
 import { loadConnections, saveConnections } from "./utils/connectionStore";
 import { exportConnections, importConnections, summaryText } from "./utils/connectionsIO";
 import {
@@ -690,6 +691,16 @@ export function App() {
   const activeDefId = focusedDefId;
   // Explorer sections the user folded away, by connection id (issue #444).
   const [collapsedSections, setCollapsedSections] = createSignal<Set<string>>(new Set());
+  // The sections grouped by their saved connection group, in the order the
+  // user dragged them into (issue #824).
+  const openGroups = createMemo(() => groupOpenConns(openConns(), connections()));
+  const openOrdered = createMemo(() => openGroups().flatMap((g) => g.conns));
+  const [connDrag, setConnDrag] = createSignal<string | null>(null);
+  const [connDropAt, setConnDropAt] = createSignal<string | null>(null);
+  const endConnDrag = () => {
+    setConnDrag(null);
+    setConnDropAt(null);
+  };
   // Anything done in a connection's tree acts on THAT connection: focus it
   // first, then run the handler. `setFocusedDefId` is synchronous, so openData
   // and friends read the new `focusedDefId()` in the same tick — which is why
@@ -5689,9 +5700,21 @@ export function App() {
             when={openConns().length > 0}
           >
             <ul class="sidebar-tree" aria-label={t("connbar.listLabel")}>
-              <For each={openConns()}>
+              {/* One flat list in group order, each named group's heading
+                  before its first section: nesting a For per group would
+                  remount every tree whenever the open list changed. */}
+              <For each={openOrdered()}>
                 {(conn) => {
                   const focused = () => conn.defId === focusedDefId();
+                  const heading = () =>
+                    openGroups().find((g) => g.name && g.conns[0]?.defId === conn.defId)?.name ?? null;
+                  /** The edge a dragged section would take on this one. */
+                  const dropEdge = () => {
+                    const from = connDrag();
+                    if (!from || connDropAt() !== conn.defId) return null;
+                    const order = openOrdered().map((o) => o.defId);
+                    return order.indexOf(from) < order.indexOf(conn.defId) ? "after" : "before";
+                  };
                   const collapsed = () => collapsedSections().has(conn.defId);
                   const saved = () => connections().find((c) => c.id === conn.defId);
                   const sub = () => {
@@ -5700,13 +5723,57 @@ export function App() {
                     return target ? `${label} · ${target}` : label;
                   };
                   return (
+                    <>
+                    <Show when={heading()}>
+                      {(name) => (
+                        <li class="conn-group-head" data-case="keep">
+                          {name()}
+                        </li>
+                      )}
+                    </Show>
                     <li
                       class="conn-section"
-                      classList={{ "is-collapsed": collapsed(), "is-focused": focused() }}
+                      classList={{
+                        "is-collapsed": collapsed(),
+                        "is-focused": focused(),
+                        "is-dragging": connDrag() === conn.defId,
+                        "drop-before": dropEdge() === "before",
+                        "drop-after": dropEdge() === "after",
+                      }}
                       style={{ "--conn-accent": conn.color ?? "var(--accent)" }}
+                      onDragOver={(e) => {
+                        const from = connDrag();
+                        if (!from || !canDropOn(openGroups(), from, conn.defId)) return;
+                        e.preventDefault(); // marks a drop target; the host guard leaves it be
+                        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+                        setConnDropAt(conn.defId);
+                      }}
+                      onDrop={(e) => {
+                        const from = connDrag();
+                        if (!from) return;
+                        e.preventDefault();
+                        setOpenConns((list) => moveOpenConn(list, connections(), from, conn.defId));
+                        endConnDrag();
+                      }}
                     >
                       <ObjectTree
                         connId={conn.connId}
+                        headerMove={
+                          openConns().length > 1
+                            ? {
+                                onDragStart: () => setConnDrag(conn.defId),
+                                onDragEnd: endConnDrag,
+                                onStep: (dir) => {
+                                  const onto = neighborInGroup(openGroups(), conn.defId, dir);
+                                  if (!onto) return;
+                                  // Moving the section re-inserts its node, which drops focus.
+                                  const had = document.activeElement as HTMLElement | null;
+                                  setOpenConns((list) => moveOpenConn(list, connections(), conn.defId, onto));
+                                  queueMicrotask(() => had?.focus());
+                                },
+                              }
+                            : undefined
+                        }
                         reveal={revealReq()?.defId === conn.defId ? revealReq()! : undefined}
                         rowHeight={treeRowHeight(settings().zoom, settings().density)}
                         engine={conn.driver}
@@ -5771,6 +5838,7 @@ export function App() {
                         connMenu={(db) => connMenuItems(conn, db)}
                       />
                     </li>
+                    </>
                   );
                 }}
               </For>

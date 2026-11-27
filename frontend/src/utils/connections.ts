@@ -609,12 +609,12 @@ export function usesLocalNetwork(conn: Pick<Connection, "params">): boolean {
 }
 
 /** Group label of a connection, normalized ("" for ungrouped). */
-function groupOf(conn: Connection): string {
+function groupOf(conn: Pick<Connection, "group">): string {
   return (conn.group ?? "").trim();
 }
 
 /** Existing group names, sorted, without duplicates or the ungrouped bucket. */
-export function connectionGroups(list: Connection[]): string[] {
+export function connectionGroups(list: Pick<Connection, "group">[]): string[] {
   const names = new Set<string>();
   for (const c of list) {
     const g = groupOf(c);
@@ -624,9 +624,9 @@ export function connectionGroups(list: Connection[]): string[] {
 }
 
 /** A group of connections as rendered in the sidebar; `name` null = ungrouped. */
-export interface ConnectionGroup {
+export interface ConnectionGroup<T = Connection> {
   name: string | null;
-  conns: Connection[];
+  conns: T[];
 }
 
 /**
@@ -635,8 +635,8 @@ export interface ConnectionGroup {
  * order. Connections keep their relative order inside a group. Empty buckets are
  * omitted, so a list with no groups yields a single unnamed one.
  */
-export function groupConnections(list: Connection[]): ConnectionGroup[] {
-  const groups: ConnectionGroup[] = [];
+export function groupConnections<T extends Pick<Connection, "group">>(list: T[]): ConnectionGroup<T>[] {
+  const groups: ConnectionGroup<T>[] = [];
   const loose = list.filter((c) => !groupOf(c));
   if (loose.length > 0) {
     groups.push({ name: null, conns: loose });

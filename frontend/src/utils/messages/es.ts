@@ -69,6 +69,7 @@ export const es: Record<string, string> = {
   "explorer.title": "Explorador",
   "explorer.noneTitle": "Sin conexión",
   "explorer.saved": "Conexiones guardadas",
+  "explorer.moveConn": "Arrastra para mover la conexión dentro de su grupo ({keys})",
   "tree.expandConn": "Expandir {name}",
   "tree.collapseConn": "Contraer {name}",
   "tree.matchNone": "Ninguna coincidencia",
