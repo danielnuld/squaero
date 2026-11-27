@@ -37,6 +37,8 @@ export function DocTabs(props: {
   onClose: (id: number, e: MouseEvent) => void;
   onKeyDown: (e: KeyboardEvent, id: number) => void;
   onContextMenu: (e: MouseEvent, id: number) => void;
+  /** Move tab `id` to position `to` in the strip (drag, Alt+←/→). */
+  onMove?: (id: number, to: number) => void;
   onNew: () => void;
   /**
    * The palette's search button and its keys ("Ctrl+K"). Optional: with the
@@ -47,6 +49,14 @@ export function DocTabs(props: {
 }) {
   let strip: HTMLDivElement | undefined;
   const [hidden, setHidden] = createSignal<number[]>([]);
+  // Dragging a tab moves it, as the grid's headers do (#446): HTML5 drag, so the
+  // platform draws the ghost; the tab it would land on shows the edge it takes.
+  const [dragFrom, setDragFrom] = createSignal<number | null>(null);
+  const [dropAt, setDropAt] = createSignal<number | null>(null);
+  const endDrag = () => {
+    setDragFrom(null);
+    setDropAt(null);
+  };
 
   const measure = () => {
     if (!strip) return;
@@ -108,8 +118,14 @@ export function DocTabs(props: {
         }}
       >
         <For each={props.tabs}>
-          {(tab) => {
+          {(tab, index) => {
             const active = () => tab.id === props.activeId;
+            /** Which edge the dragged tab would take: after when it comes from the left. */
+            const target = () => {
+              const from = dragFrom();
+              if (from === null || dropAt() !== index() || from === index()) return null;
+              return from < index() ? "after" : "before";
+            };
             return (
               <div
                 class="tab"
@@ -118,6 +134,9 @@ export function DocTabs(props: {
                   "is-dirty": !!tab.dirty,
                   "tab-tool": !!tab.tool,
                   "is-pinned": !!tab.pinned,
+                  "is-dragging": dragFrom() === index(),
+                  "drop-before": target() === "before",
+                  "drop-after": target() === "after",
                 }}
                 role="tab"
                 aria-selected={active()}
@@ -130,7 +149,35 @@ export function DocTabs(props: {
                    or Chromium answers it with its autoscroll cursor. */
                 onMouseDown={(e) => e.button === 1 && e.preventDefault()}
                 onAuxClick={(e) => e.button === 1 && props.onClose(tab.id, e)}
-                onKeyDown={(e) => props.onKeyDown(e, tab.id)}
+                draggable={!!props.onMove}
+                onDragStart={(e) => {
+                  setDragFrom(index());
+                  // Some engines refuse to start a drag without payload.
+                  e.dataTransfer?.setData("text/plain", tab.title);
+                  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  if (dragFrom() === null) return;
+                  e.preventDefault(); // marks a drop target; the host guard leaves it be
+                  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+                  setDropAt(index());
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const from = dragFrom();
+                  if (from !== null) props.onMove?.(props.tabs[from].id, index());
+                  endDrag();
+                }}
+                onDragEnd={endDrag}
+                onKeyDown={(e) => {
+                  // Alt+←/→ is the keyboard route to the same move, as on the grid's headers.
+                  if (props.onMove && e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+                    e.preventDefault();
+                    props.onMove(tab.id, index() + (e.key === "ArrowRight" ? 1 : -1));
+                    return;
+                  }
+                  props.onKeyDown(e, tab.id);
+                }}
                 onContextMenu={(e) => props.onContextMenu(e, tab.id)}
               >
                 <span class="tab-stripe" aria-hidden="true" />

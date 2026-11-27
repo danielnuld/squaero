@@ -29,7 +29,7 @@ import {
   updateSql,
   type TableRef,
 } from "../utils/tableSql";
-import { formatKeys } from "../utils/shortcuts";
+import { formatKeys, keyLabel } from "../utils/shortcuts";
 import { currentOs } from "../utils/dialog";
 import { treeKey, type ConnMetaCache } from "../utils/metaCache";
 import { timeAgo } from "../utils/history";
@@ -175,6 +175,14 @@ export function ObjectTree(props: {
   collapsed?: boolean;
   /** Makes the header a collapse toggle. Absent = not collapsible. */
   onToggleCollapse?: () => void;
+  /** Lets the connection header be dragged to reorder the explorer's sections
+      (#824), with Alt+↑/↓ as the keyboard route. The drop targets are the
+      sections themselves, owned by the explorer. */
+  headerMove?: {
+    onDragStart: () => void;
+    onDragEnd: () => void;
+    onStep: (dir: 1 | -1) => void;
+  };
   /** Closes this connection from its own section header — with several open,
       the bar's single "Desconectar" could only ever close the focused one. */
   onDisconnect?: () => void;
@@ -1192,6 +1200,21 @@ export function ObjectTree(props: {
             classList={{ "is-focused": c().focused, "is-lost": !!c().lost }}
             onContextMenu={(e) => props.connMenu && openContextMenu(e, props.connMenu())}
             style={props.accent ? { "--conn-accent": props.accent } : undefined}
+            draggable={!!props.headerMove}
+            title={props.headerMove ? t("explorer.moveConn", { keys: keyLabel("Alt+↑/↓") }) : undefined}
+            onDragStart={(e) => {
+              if (!props.headerMove) return;
+              // Some engines refuse to start a drag without payload.
+              e.dataTransfer?.setData("text/plain", props.title ?? "");
+              if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+              props.headerMove.onDragStart();
+            }}
+            onDragEnd={() => props.headerMove?.onDragEnd()}
+            onKeyDown={(e) => {
+              if (!props.headerMove || !e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+              e.preventDefault();
+              props.headerMove.onStep(e.key === "ArrowDown" ? 1 : -1);
+            }}
           >
             <span class="connbar-accent" aria-hidden="true" />
             <button
