@@ -286,7 +286,9 @@ describe("App — editing in place without an Editar step (R-14)", () => {
   it("sets NULL from the cell menu, opening the edit session, and reverts the cell", async () => {
     await mountWithRows();
     await menuOn("0-2", "Poner NULL");
-    expect(sent.some((r) => r.method === "tx.begin")).toBe(true);
+    // The session opens without a transaction: one held while the user edits
+    // freezes every read on the connection (MySQL REPEATABLE READ snapshot).
+    expect(sent.some((r) => r.method === "tx.begin")).toBe(false);
     expect(host!.querySelector('.grid-rows [data-cell="0-2"] .cell-null-tag')).not.toBeNull();
     expect(host!.querySelector('.grid-rows [data-cell="0-2"]')!.classList.contains("cell-dirty")).toBe(true);
     expect(host!.querySelector(".pending-band")!.textContent).toContain("1 cambio sin guardar");
