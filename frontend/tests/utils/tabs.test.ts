@@ -12,6 +12,7 @@ import {
   closeTabsToRight,
   closeAllTabs,
   togglePin,
+  moveTab,
   renameTab,
   duplicateTab,
   closedQueryTabs,
@@ -710,5 +711,42 @@ describe("tab menu helpers (M14 TabContextMenu)", () => {
   it("keeps a pin across a restart", () => {
     const s = togglePin(three(), 1);
     expect(parseWorkspace(serializeWorkspace(s))!.tabs[0].pinned).toBe(true);
+  });
+});
+
+describe("moveTab (drag to reorder)", () => {
+  const four = () => addTab(addTab(addTab(addTab(emptySession(null))))); // ids 1..4
+  const ids = (s: ReturnType<typeof four>) => s.tabs.map((t) => t.id);
+
+  it("moves a tab to the left and to the right", () => {
+    expect(ids(moveTab(four(), 4, 0))).toEqual([4, 1, 2, 3]);
+    expect(ids(moveTab(four(), 1, 2))).toEqual([2, 3, 1, 4]);
+  });
+
+  it("keeps the active tab", () => {
+    expect(moveTab(four(), 1, 3).activeId).toBe(4);
+  });
+
+  it("clamps past either end", () => {
+    expect(ids(moveTab(four(), 2, 99))).toEqual([1, 3, 4, 2]);
+    expect(ids(moveTab(four(), 3, -5))).toEqual([3, 1, 2, 4]);
+  });
+
+  it("returns the same state for an unknown id or no move", () => {
+    const s = four();
+    expect(moveTab(s, 99, 0)).toBe(s);
+    expect(moveTab(s, 2, 1)).toBe(s);
+  });
+
+  it("keeps a pinned tab among the pinned and the others after them", () => {
+    const s = togglePin(togglePin(four(), 3), 4); // 3*,4*,1,2
+    expect(ids(s)).toEqual([3, 4, 1, 2]);
+    expect(ids(moveTab(s, 3, 3))).toEqual([4, 3, 1, 2]); // clamped to the last pinned slot
+    expect(ids(moveTab(s, 2, 0))).toEqual([3, 4, 2, 1]); // clamped to the first unpinned slot
+  });
+
+  it("survives a restart in the new order", () => {
+    const s = moveTab(four(), 4, 0);
+    expect(parseWorkspace(serializeWorkspace(s))!.tabs.map((t) => t.id)).toEqual([4, 1, 2, 3]);
   });
 });

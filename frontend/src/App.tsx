@@ -79,6 +79,7 @@ import {
   closeAllTabs,
   closedQueryTabs,
   togglePin,
+  moveTab,
   duplicateTab,
   renameTab,
   closeTabsForConn,
@@ -5828,6 +5829,7 @@ export function App() {
             activeId={tabs().activeId}
             onSelect={selectTab}
             onClose={removeTab}
+            onMove={(id, to) => setTabs((s) => moveTab(s, id, to))}
             onKeyDown={onTabKeyDown}
             onContextMenu={tabMenu}
             onNew={newTab}

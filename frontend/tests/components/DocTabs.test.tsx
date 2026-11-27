@@ -94,4 +94,45 @@ describe("DocTabs", () => {
     mount();
     expect(host!.querySelector(".tab-overflow")).toBeNull();
   });
+
+  // jsdom has no DragEvent; a plain bubbling event drives the same handlers
+  // (the component tolerates a missing dataTransfer).
+  const drag = (el: HTMLElement, type: string) =>
+    el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+
+  it("moves a tab dropped on another and marks the edge it takes", () => {
+    const onMove = vi.fn();
+    mount({ onMove });
+    drag(tabs()[0], "dragstart");
+    drag(tabs()[2], "dragover");
+    expect(tabs()[0].classList.contains("is-dragging")).toBe(true);
+    expect(tabs()[2].classList.contains("drop-after")).toBe(true);
+    drag(tabs()[2], "drop");
+    expect(onMove).toHaveBeenCalledWith(1, 2);
+    expect(tabs()[2].classList.contains("drop-after")).toBe(false);
+  });
+
+  it("marks the left edge when dragging leftwards", () => {
+    mount({ onMove: vi.fn() });
+    drag(tabs()[2], "dragstart");
+    drag(tabs()[0], "dragover");
+    expect(tabs()[0].classList.contains("drop-before")).toBe(true);
+  });
+
+  it("moves the focused tab with Alt+←/→ and leaves plain arrows to the strip", () => {
+    const onMove = vi.fn();
+    const { onKeyDown } = mount({ onMove });
+    tabs()[1].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", altKey: true, bubbles: true }));
+    expect(onMove).toHaveBeenCalledWith(2, 2);
+    tabs()[1].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", altKey: true, bubbles: true }));
+    expect(onMove).toHaveBeenLastCalledWith(2, 0);
+    expect(onKeyDown).not.toHaveBeenCalled();
+    tabs()[1].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(onKeyDown).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not draggable without a move handler", () => {
+    mount();
+    expect(tabs()[0].getAttribute("draggable")).toBe("false");
+  });
 });

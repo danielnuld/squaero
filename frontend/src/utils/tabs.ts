@@ -347,6 +347,25 @@ export function togglePin(state: TabState, id: number): TabState {
   return { ...state, tabs: [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)] };
 }
 
+/**
+ * Moves `id` to position `to` in the strip (drag, Ctrl+Mayús+RePág/AvPág).
+ * A tab stays inside its own group: the pinned ones are always first, so a
+ * pinned tab cannot be dropped among the others nor the reverse — the target
+ * is clamped to the group's edge. Out-of-range or unknown: unchanged. Pure.
+ */
+export function moveTab(state: TabState, id: number, to: number): TabState {
+  const from = state.tabs.findIndex((t) => t.id === id);
+  if (from < 0) return state;
+  const pinned = state.tabs.filter((t) => t.pinned).length;
+  const [lo, hi] = state.tabs[from].pinned ? [0, pinned - 1] : [pinned, state.tabs.length - 1];
+  const target = Math.min(hi, Math.max(lo, Math.trunc(to)));
+  if (target === from) return state;
+  const tabs = [...state.tabs];
+  const [moved] = tabs.splice(from, 1);
+  tabs.splice(target, 0, moved);
+  return { ...state, tabs };
+}
+
 /** Gives `id` a title of the user's; a blank one is ignored. */
 export function renameTab(state: TabState, id: number, title: string): TabState {
   const name = title.trim();

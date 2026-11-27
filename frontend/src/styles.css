@@ -4820,6 +4820,19 @@ button.btn-danger:disabled {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* Dragging a tab to move it: the same fade and accent edge as the headers. */
+.tab.is-dragging {
+  opacity: 0.5;
+}
+
+.tab.drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.tab.drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+
 .objtree-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
