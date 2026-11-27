@@ -1,12 +1,15 @@
-// Applying an edit plan inside the session's transaction (openspec:
+// Applying an edit plan in its own short transaction (openspec:
 // paste-rows-as-inserts, fase A).
 //
-// The plan runs item by item and commits at the end. What this module adds is
-// what happens when an item fails: the transaction is rolled back and a new one
-// begun BEFORE control returns. Leaving it open — the old behaviour — kept the
-// items that had already run, so the next attempt ran them a second time: an
-// insert that had gone through collided with itself, and on PostgreSQL the
-// aborted transaction refused everything until it was rolled back.
+// The transaction lives only as long as the apply: begin, run the plan item by
+// item, commit. Editing itself holds none. A transaction opened when editing
+// started and kept while the user typed froze every read on the connection
+// (MySQL/InnoDB's REPEATABLE READ snapshot): refreshes, the filter panel and
+// other tabs on the same connection kept showing the old rows, and closing the
+// tab left it open until a reconnect.
+//
+// When an item fails the transaction is rolled back before control returns, so
+// nothing that ran is kept and a retry runs each item exactly once.
 //
 // The effects are injected, so the order of calls is unit-tested without a core.
 
@@ -24,13 +27,17 @@ export type ApplyOutcome =
   | {
       ok: false;
       error: unknown;
-      /** Index into the plan of the item that failed; null when the commit did. */
+      /** Index into the plan of the item that failed; null when the begin or
+          the commit did. */
       failedIndex: number | null;
-      /** A fresh transaction is open, so the session can be retried as is. */
-      reopened: boolean;
     };
 
 export async function applyPlan(plan: PlanItem[], fx: ApplyEffects): Promise<ApplyOutcome> {
+  try {
+    await fx.begin();
+  } catch (error) {
+    return { ok: false, error, failedIndex: null };
+  }
   let failedIndex: number | null = null;
   try {
     for (let i = 0; i < plan.length; i++) {
@@ -44,14 +51,8 @@ export async function applyPlan(plan: PlanItem[], fx: ApplyEffects): Promise<App
     try {
       await fx.rollback();
     } catch {
-      /* the begin below says whether the session is still usable */
+      /* best effort: the error reported is the item's */
     }
-    let reopened = true;
-    try {
-      await fx.begin();
-    } catch {
-      reopened = false;
-    }
-    return { ok: false, error, failedIndex, reopened };
+    return { ok: false, error, failedIndex };
   }
 }

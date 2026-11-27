@@ -4097,16 +4097,14 @@ export function App() {
       patchEdit(t.id, { error: blocked });
       return;
     }
-    patchEdit(t.id, { busy: true, error: null });
-    try {
-      await txBeginIfSupported(conn.connId);
-      patchEdit(t.id, { editing: true, pending: emptyPending(), busy: false });
-      // Fill the pickers while the user starts typing; they appear as they land.
-      void loadFkLookups(t.id, conn);
-      void loadUniqueIndexes(t.id, conn);
-    } catch (err) {
-      patchEdit(t.id, { busy: false, error: errMsg(err) });
-    }
+    // No transaction is opened here: the pending changes live in the frontend
+    // and Aplicar brackets them in its own short one (utils/editApply.ts). One
+    // held open while the user typed froze every read on the connection behind
+    // MySQL's REPEATABLE READ snapshot, and outlived a closed tab.
+    patchEdit(t.id, { editing: true, pending: emptyPending(), busy: false, error: null });
+    // Fill the pickers while the user starts typing; they appear as they land.
+    void loadFkLookups(t.id, conn);
+    void loadUniqueIndexes(t.id, conn);
   };
 
   // Refresh what the tab is SHOWING. A table preview reloads its current page
@@ -4139,16 +4137,10 @@ export function App() {
     return block === null ? null : t(`objbar.refreshBlocked.${block}`);
   };
 
-  const discardEdit = async () => {
+  // Nothing reached the database before Aplicar, so there is nothing to undo.
+  const discardEdit = () => {
     const t = current();
-    const conn = tabConn(t);
-    if (!t || !conn) return;
-    patchEdit(t.id, { busy: true });
-    try {
-      await txRollback(conn.connId);
-    } catch {
-      /* best-effort rollback */
-    }
+    if (!t) return;
     setEdits(t.id, emptyEdit());
     reloadCurrent(t.id);
   };
@@ -4212,10 +4204,9 @@ export function App() {
     return deleteRowsConfirm(src.table, rows, deps);
   };
 
-  // Aplicar: execute the plan for real, then commit and reload. A failure rolls
-  // the transaction back and opens a new one (utils/editApply.ts): the old
-  // "leave it open to fix and retry" kept the items that had already run, so a
-  // retry ran them twice — an insert that had gone through collided with itself.
+  // Aplicar: begin, execute the plan for real, commit and reload. A failure
+  // rolls the whole transaction back (utils/editApply.ts), so a retry runs each
+  // item once — keeping what had already run made an insert collide with itself.
   const applyEdit = async () => {
     const tab = current();
     const conn = tabConn(tab);
@@ -4266,9 +4257,6 @@ export function App() {
       preview: null,
       error: t("ssync.applyError", { reason: errMsg(outcome.error) }),
       failedInsert: failed?.kind === "insert" ? (failed.insertIndex ?? null) : null,
-      // No transaction could be opened again, so the session cannot go on. The
-      // pending set stays in state; editing again starts from a fresh one.
-      ...(outcome.reopened ? {} : { editing: false }),
     });
   };
 

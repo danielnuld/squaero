@@ -31,25 +31,25 @@ function effects(fail: { run?: number; commit?: boolean; rollback?: boolean; beg
 }
 
 describe("applyPlan", () => {
-  it("runs every item in order and commits", async () => {
+  it("opens its own transaction, runs every item in order and commits", async () => {
     const { fx, log } = effects();
     expect(await applyPlan([insert("1"), insert("2")], fx)).toEqual({ ok: true });
-    expect(log).toEqual(["run:1", "run:2", "commit"]);
+    expect(log).toEqual(["begin", "run:1", "run:2", "commit"]);
   });
 
   it("commits an empty plan", async () => {
     const { fx, log } = effects();
     expect(await applyPlan([], fx)).toEqual({ ok: true });
-    expect(log).toEqual(["commit"]);
+    expect(log).toEqual(["begin", "commit"]);
   });
 
-  it("stops at a failing item, rolls back and opens a new transaction", async () => {
+  it("stops at a failing item and rolls back, leaving no transaction open", async () => {
     const { fx, log } = effects({ run: 1 });
     const outcome = await applyPlan([insert("1"), insert("2"), insert("3")], fx);
-    expect(outcome).toMatchObject({ ok: false, failedIndex: 1, reopened: true });
+    expect(outcome).toMatchObject({ ok: false, failedIndex: 1 });
     expect((outcome as { error: Error }).error.message).toBe("duplicate key");
-    // The third item never ran and nothing was committed.
-    expect(log).toEqual(["run:1", "run:2", "rollback", "begin"]);
+    // The third item never ran, nothing was committed and no new begin follows.
+    expect(log).toEqual(["begin", "run:1", "run:2", "rollback"]);
   });
 
   it("a retry after a failure runs each item exactly once more", async () => {
@@ -57,28 +57,29 @@ describe("applyPlan", () => {
     await applyPlan([insert("1"), insert("2")], first.fx);
     const retry = effects();
     expect(await applyPlan([insert("1"), insert("2")], retry.fx)).toEqual({ ok: true });
-    expect(retry.log).toEqual(["run:1", "run:2", "commit"]);
+    expect(retry.log).toEqual(["begin", "run:1", "run:2", "commit"]);
   });
 
   it("reports a failed commit without blaming an item", async () => {
     const { fx, log } = effects({ commit: true });
     const outcome = await applyPlan([insert("1")], fx);
-    expect(outcome).toMatchObject({ ok: false, failedIndex: null, reopened: true });
-    expect(log).toEqual(["run:1", "commit", "rollback", "begin"]);
+    expect(outcome).toMatchObject({ ok: false, failedIndex: null });
+    expect(log).toEqual(["begin", "run:1", "commit", "rollback"]);
   });
 
-  it("still opens a new transaction when the rollback itself fails", async () => {
+  it("reports the item's error when the rollback itself fails", async () => {
     const { fx, log } = effects({ run: 0, rollback: true });
     const outcome = await applyPlan([insert("1")], fx);
-    expect(outcome).toMatchObject({ ok: false, failedIndex: 0, reopened: true });
-    expect(log).toEqual(["run:1", "rollback", "begin"]);
+    expect(outcome).toMatchObject({ ok: false, failedIndex: 0 });
+    expect((outcome as { error: Error }).error.message).toBe("duplicate key");
+    expect(log).toEqual(["begin", "run:1", "rollback"]);
   });
 
-  it("says so when no new transaction can be opened", async () => {
-    const { fx } = effects({ run: 0, begin: true });
+  it("runs nothing when the transaction cannot be opened", async () => {
+    const { fx, log } = effects({ begin: true });
     const outcome = await applyPlan([insert("1")], fx);
-    expect(outcome).toMatchObject({ ok: false, failedIndex: 0, reopened: false });
-    // The error reported is the item's, not the begin's.
-    expect((outcome as { error: Error }).error.message).toBe("duplicate key");
+    expect(outcome).toMatchObject({ ok: false, failedIndex: null });
+    expect((outcome as { error: Error }).error.message).toBe("connection lost");
+    expect(log).toEqual(["begin"]);
   });
 });
